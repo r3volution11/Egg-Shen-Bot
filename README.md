@@ -14,6 +14,7 @@ A Discord bot that allows users to search for movies and TV shows, displaying ra
 - ⚙️ **Per-Server Configuration** - Admins can toggle services and set custom emojis
 - 📊 **Statistics Tracking** - Track most popular movies, shows, and episodes, plus top users
 - 🔐 **Command Permissions** - Control which commands regular users can access
+- ⏱️ **Channel Timers** - Start and stop timers in channels (one per channel)
 
 ## Prerequisites
 
@@ -152,6 +153,41 @@ The bot will:
    - JustWatch link for streaming options
 
 **Note:** Episode search looks through all seasons of a show to find episodes matching your search term.
+
+### Timer
+
+**Start a Timer:**
+
+```
+/timer start label:Movie night
+```
+
+Start a timer in the current channel with an optional label. Only one timer can be active per channel at a time.
+
+**Stop a Timer:**
+
+```
+/timer stop
+```
+
+Stop the active timer and display the total elapsed time. Any user can stop any timer in the channel.
+
+**Check Timer Status:**
+
+```
+/timer status
+```
+
+Check if there's an active timer in the channel and how long it has been running.
+
+**Timer Features:**
+
+- One timer per channel (prevents conflicts)
+- Available to all users (not admin-only)
+- Displays elapsed time in a human-readable format (days, hours, minutes, seconds)
+- Shows who started the timer and who stopped it
+- Optional labels to describe what the timer is for
+- Timers are stored in memory (reset when bot restarts)
 
 ### Getting Help
 
@@ -327,6 +363,7 @@ discord-movie-tv-bot/
 │   │   ├── movie.js       # /movie command
 │   │   ├── tv.js          # /tv command
 │   │   ├── episode.js     # /episode command
+│   │   ├── timer.js       # /timer command
 │   │   ├── eggshen-help.js    # /eggshen-help command
 │   │   ├── eggshen-config.js  # /eggshen-config command
 │   │   ├── eggshen-stats.js   # /eggshen-stats command
@@ -342,7 +379,8 @@ discord-movie-tv-bot/
 │   ├── utils/             # Utility functions
 │   │   ├── embedBuilder.js
 │   │   ├── guildConfig.js
-│   │   └── statsTracker.js
+│   │   ├── statsTracker.js
+│   │   └── timerManager.js
 │   ├── config.js          # Configuration management
 │   ├── index.js           # Main bot file
 │   └── deploy-commands.js # Command registration script
@@ -382,6 +420,7 @@ discord-movie-tv-bot/
 - ✅ Admin controls for statistics (toggle tracking, clear stats)
 - ✅ Command permission controls (enable/disable commands for regular users)
 - ✅ Bot restart command (requires PM2 or process manager)
+- ✅ Channel timers (start, stop, check status - one timer per channel)
 
 ### Known Limitations
 
