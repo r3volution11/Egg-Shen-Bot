@@ -1,6 +1,6 @@
 # Discord Movie and TV Bot
 
-A Discord bot that allows users to search for movies and TV shows, displaying ratings, synopses, and links to popular services including IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch.
+A Dsicord bot for looking up movies, TV shows, and TV show episodes, showing synopses and ratings for different services and linking to each service's respective page for the media. It provides ratings and links for IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch and is easily configurable by administrators. It also includes timer functionality for watch party purposes.
 
 ## Features
 
