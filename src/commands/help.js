@@ -32,6 +32,11 @@ export async function execute(interaction) {
         name: '❓ /eggshen-help',
         value: 'Display this help message.',
         inline: false,
+      },
+      {
+        name: '⏱️ /timer',
+        value: 'Start, stop, or check a timer in the current channel (one timer per channel).\n\n**Start timer:** `/timer start label:Movie night`\n**Stop timer:** `/timer stop`\n**Check status:** `/timer status`',
+        inline: false,
       }
     );
 
