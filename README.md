@@ -6,10 +6,12 @@ A Discord bot that allows users to search for movies and TV shows, displaying ra
 
 - 🎬 **Movie Search** - Search for any movie with the `/movie` command
 - 📺 **TV Show Search** - Search for TV shows with the `/tv` command
+- 🎞️ **Episode Search** - Search for specific TV episodes with the `/episode` command
 - ⭐ **Multiple Ratings** - Display ratings from IMDb, Trakt, and Rotten Tomatoes
 - 🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
 - 🖼️ **Rich Embeds** - Beautiful embedded messages with poster images and metadata
 - 🎯 **Interactive Selection** - Choose from up to 5 search results via dropdown menu
+- ⚙️ **Per-Server Configuration** - Admins can toggle services and set custom emojis
 
 ## Prerequisites
 
@@ -65,7 +67,7 @@ A Discord bot that allows users to search for movies and TV shows, displaying ra
    npm run deploy-commands
    ```
    
-   This registers the `/movie` and `/tv` commands with Discord. For faster testing, you can set `GUILD_ID` in your `.env` to deploy commands to a specific server (updates instantly). Leave it empty for global commands (takes up to 1 hour).
+   This registers the bot's slash commands with Discord (`/movie`, `/tv`, `/episode`, `/eggshen-help`, `/eggshen-config`). For faster testing, you can set `GUILD_ID` in your `.env` to deploy commands to a specific server (updates instantly). Leave it empty for global commands (takes up to 1 hour).
 
 ## Running the Bot
 
@@ -119,14 +121,82 @@ Similar to movie search, but displays:
 - Show metadata (seasons, status)
 - Links to all supported services
 
-### Episode-Specific Searches
+### Episode Search
 
-You can include episode names in TV searches:
 ```
-/tv The Outer Limits Sandkings
+/episode show:The Outer Limits episode:Sandkings
 ```
 
-The bot will find the series and display its information. Future versions may support episode-specific details.
+The bot will:
+1. Search for the TV show you specified
+2. Display up to 5 matching shows in a dropdown (useful when multiple versions exist)
+3. Once you select the correct show, it searches for the episode by name
+4. Shows a detailed embed with:
+   - Episode title and show name
+   - Season and episode number
+   - Air date and runtime
+   - Episode synopsis
+   - **Episode-specific ratings** from IMDb and Trakt (when available)
+   - Direct links to the episode page on IMDb and Trakt
+   - Show poster image
+   - JustWatch link for streaming options
+
+**Note:** Episode search looks through all seasons of a show to find episodes matching your search term.
+
+### Getting Help
+
+```
+/eggshen-help
+```
+
+Displays an interactive help menu showing:
+- All available commands with examples
+- How to use the bot
+- List of rating services
+- **Admin commands** (only visible to users with "Manage Server" or "Administrator" permissions)
+
+### Server Configuration (Admin Only)
+
+Users with "Manage Server" or "Administrator" permissions can configure Egg Shen for their server:
+
+**View Current Settings:**
+```
+/eggshen-config view
+```
+
+Shows:
+- Which rating services are enabled/disabled
+- Custom emoji settings for each service
+- Configuration instructions
+
+**Toggle Services:**
+```
+/eggshen-config toggle service:letterboxd enabled:false
+```
+
+Enable or disable specific rating services for your server. Available services:
+- IMDb
+- Letterboxd
+- Trakt
+- Rotten Tomatoes
+- JustWatch
+
+**Set Custom Emojis:**
+```
+/eggshen-config emoji service:imdb emoji:📽️
+```
+
+Set custom Discord emojis for rating services. To use custom server emojis:
+1. Upload an emoji to your Discord server
+2. Copy the emoji (it will look like `<:imdb:1234567890>`)
+3. Use it in the command
+
+**Clear Emojis:**
+```
+/eggshen-config emoji service:imdb
+```
+
+Leave the emoji field empty to clear a custom emoji setting.
 
 ## API Key Setup
 
@@ -155,7 +225,10 @@ discord-movie-tv-bot/
 ├── src/
 │   ├── commands/          # Slash command definitions
 │   │   ├── movie.js       # /movie command
-│   │   └── tv.js          # /tv command
+│   │   ├── tv.js          # /tv command
+│   │   ├── episode.js     # /episode command
+│   │   ├── help.js        # /eggshen-help command
+│   │   └── eggshen-config.js  # /eggshen-config command
 │   ├── handlers/          # Interaction handlers
 │   │   ├── selectHandler.js
 │   │   └── buttonHandler.js
@@ -165,16 +238,20 @@ discord-movie-tv-bot/
 │   │   ├── traktService.js
 │   │   └── urlService.js
 │   ├── utils/             # Utility functions
-│   │   └── embedBuilder.js
+│   │   ├── embedBuilder.js
+│   │   └── guildConfig.js
 │   ├── config.js          # Configuration management
 │   ├── index.js           # Main bot file
 │   └── deploy-commands.js # Command registration script
+├── guild_configs/         # Per-server configuration (not in git)
 ├── assets/
-│   └── icons/             # Service icons (to be added)
+│   └── icons/             # Service icon files
 ├── .env                   # Environment variables (not in git)
 ├── .env.example           # Environment template
 ├── .gitignore
 ├── package.json
+├── ecosystem.config.js    # PM2 configuration for deployment
+├── DEPLOYMENT.md          # Linode/server deployment guide
 └── README.md
 ```
 
@@ -182,22 +259,32 @@ discord-movie-tv-bot/
 
 ### Current Features
 - ✅ Movie and TV show search
+- ✅ Episode search by name with show selection
 - ✅ Interactive result selection (up to 5 results)
+- ✅ Episode-specific ratings from IMDb and Trakt
+- ✅ Direct links to episode pages on IMDb and Trakt
 - ✅ IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch links
 - ✅ Ratings from IMDb, Trakt, and Rotten Tomatoes
 - ✅ Movie posters and synopses
-- ✅ TV series posters (not episode-specific)
+- ✅ TV series and show posters
+- ✅ Per-server configuration (admin controls)
+- ✅ Toggle individual rating services on/off per server
+- ✅ Custom emoji support per server
+- ✅ Help command with admin section
+- ✅ Permission-based admin controls (uses Discord's built-in "Manage Server" permission)
 
 ### Known Limitations
 - Rotten Tomatoes URLs are constructed and may not always be accurate (RT doesn't have a public API)
 - Rotten Tomatoes audience scores not available through OMDB
+- Rotten Tomatoes doesn't provide episode-specific ratings
 - Letterboxd has no official API (links are constructed)
 - JustWatch has no official API (links are constructed and may vary by region)
-- Episode-specific images not shown (series poster used instead)
+- Episode-specific thumbnail images not shown (series poster used instead)
 
 ### Future Enhancements
-- [ ] Episode-specific information and ratings
-- [ ] Custom service icons as Discord emojis
+- [ ] Bulk episode lookup (e.g., search by season number)
+- [ ] Search history and favorites
+- [ ] Streaming availability notifications
 - [ ] "Share" button to post results publicly
 - [ ] Cache frequently searched titles
 - [ ] Support for more streaming services
