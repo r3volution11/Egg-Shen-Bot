@@ -27,6 +27,7 @@ A Discord bot that allows users to search for movies and TV shows, displaying ra
 1. **Clone or download this repository**
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
@@ -34,7 +35,7 @@ A Discord bot that allows users to search for movies and TV shows, displaying ra
 3. **Configure environment variables**
    - Copy `.env.example` to `.env`
    - Fill in your API keys and bot credentials:
-   
+
    ```env
    DISCORD_TOKEN=your_discord_bot_token
    DISCORD_CLIENT_ID=your_discord_client_id
@@ -63,25 +64,29 @@ A Discord bot that allows users to search for movies and TV shows, displaying ra
      - Copy the generated URL and use it to invite the bot to your server
 
 3. **Deploy Slash Commands**
+
    ```bash
    npm run deploy-commands
    ```
-   
+
    This registers the bot's slash commands with Discord (`/movie`, `/tv`, `/episode`, `/eggshen-help`, `/eggshen-config`). For faster testing, you can set `GUILD_ID` in your `.env` to deploy commands to a specific server (updates instantly). Leave it empty for global commands (takes up to 1 hour).
 
 ## Running the Bot
 
 **Development mode (with auto-restart):**
+
 ```bash
 npm run dev
 ```
 
 **Production mode:**
+
 ```bash
 npm start
 ```
 
 You should see:
+
 ```
 ✓ Loaded command: movie
 ✓ Loaded command: tv
@@ -98,6 +103,7 @@ You should see:
 ```
 
 The bot will:
+
 1. Display up to 5 search results in a dropdown menu
 2. Let you select the correct movie
 3. Show a detailed embed with:
@@ -117,6 +123,7 @@ The bot will:
 ```
 
 Similar to movie search, but displays:
+
 - TV show poster (not episode-specific images)
 - Show metadata (seasons, status)
 - Links to all supported services
@@ -128,6 +135,7 @@ Similar to movie search, but displays:
 ```
 
 The bot will:
+
 1. Search for the TV show you specified
 2. Display up to 5 matching shows in a dropdown (useful when multiple versions exist)
 3. Once you select the correct show, it searches for the episode by name
@@ -150,6 +158,7 @@ The bot will:
 ```
 
 Displays an interactive help menu showing:
+
 - All available commands with examples
 - How to use the bot
 - List of rating services
@@ -160,21 +169,25 @@ Displays an interactive help menu showing:
 Users with "Manage Server" or "Administrator" permissions can configure Egg Shen for their server:
 
 **View Current Settings:**
+
 ```
 /eggshen-config view
 ```
 
 Shows:
+
 - Which rating services are enabled/disabled
 - Custom emoji settings for each service
 - Configuration instructions
 
 **Toggle Services:**
+
 ```
 /eggshen-config toggle service:letterboxd enabled:false
 ```
 
 Enable or disable specific rating services for your server. Available services:
+
 - IMDb
 - Letterboxd
 - Trakt
@@ -182,16 +195,19 @@ Enable or disable specific rating services for your server. Available services:
 - JustWatch
 
 **Set Custom Emojis:**
+
 ```
 /eggshen-config emoji service:imdb emoji:📽️
 ```
 
 Set custom Discord emojis for rating services. To use custom server emojis:
+
 1. Upload an emoji to your Discord server
 2. Copy the emoji (it will look like `<:imdb:1234567890>`)
 3. Use it in the command
 
 **Clear Emojis:**
+
 ```
 /eggshen-config emoji service:imdb
 ```
@@ -201,18 +217,21 @@ Leave the emoji field empty to clear a custom emoji setting.
 ## API Key Setup
 
 ### TMDB (Required)
+
 1. Create an account at [themoviedb.org](https://www.themoviedb.org/)
 2. Go to Settings > API
 3. Request an API key (select "Developer" option)
 4. Copy the "API Key (v3 auth)" value to your `.env`
 
 ### OMDB (Required for IMDb/RT ratings)
+
 1. Go to [omdbapi.com](http://www.omdbapi.com/apikey.aspx)
 2. Select a plan (free tier available with 1,000 requests/day)
 3. Verify your email and receive your API key
 4. Add it to your `.env`
 
 ### Trakt (Required for Trakt ratings)
+
 1. Create an account at [trakt.tv](https://trakt.tv)
 2. Go to Settings > Your Applications > New Application
 3. Fill in the form (use `urn:ietf:wg:oauth:2.0:oob` for redirect URI)
@@ -258,6 +277,7 @@ discord-movie-tv-bot/
 ## Features & Limitations
 
 ### Current Features
+
 - ✅ Movie and TV show search
 - ✅ Episode search by name with show selection
 - ✅ Interactive result selection (up to 5 results)
@@ -274,6 +294,7 @@ discord-movie-tv-bot/
 - ✅ Permission-based admin controls (uses Discord's built-in "Manage Server" permission)
 
 ### Known Limitations
+
 - Rotten Tomatoes URLs are constructed and may not always be accurate (RT doesn't have a public API)
 - Rotten Tomatoes audience scores not available through OMDB
 - Rotten Tomatoes doesn't provide episode-specific ratings
@@ -282,32 +303,35 @@ discord-movie-tv-bot/
 - Episode-specific thumbnail images not shown (series poster used instead)
 
 ### Future Enhancements
+
 - [ ] Bulk episode lookup (e.g., search by season number)
 - [ ] Search history and favorites
 - [ ] Streaming availability notifications
-- [ ] "Share" button to post results publicly
 - [ ] Cache frequently searched titles
 - [ ] Support for more streaming services
-- [ ] User preferences (default services, region settings)
 
 ## Troubleshooting
 
 ### Commands not showing up in Discord
+
 - Run `npm run deploy-commands` again
 - If deploying globally, wait up to 1 hour for propagation
 - Try setting `GUILD_ID` in `.env` for faster testing
 
 ### "Invalid API key" errors
+
 - Double-check all API keys in `.env`
 - Ensure there are no extra spaces or quotes
 - Verify API keys are active on their respective platforms
 
 ### Bot doesn't respond
+
 - Check console for error messages
 - Verify bot has proper permissions in your Discord server
 - Ensure the bot is online (`✓ Logged in as...` in console)
 
 ### Missing ratings
+
 - Some titles may not have ratings on all services
 - OMDB free tier has request limits (1,000/day)
 - Trakt requires titles to have IMDb IDs
@@ -315,6 +339,7 @@ discord-movie-tv-bot/
 ## Contributing
 
 Feel free to submit issues or pull requests for:
+
 - Bug fixes
 - New features
 - Additional services
