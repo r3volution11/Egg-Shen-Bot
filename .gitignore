@@ -1,0 +1,28 @@
+# Environment variables
+.env
+
+# Guild configurations (server-specific settings)
+guild_configs/
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Design files
+*.sketch
+*.code-workspace
+design/
