@@ -12,6 +12,8 @@ A Discord bot that allows users to search for movies and TV shows, displaying ra
 - 🖼️ **Rich Embeds** - Beautiful embedded messages with poster images and metadata
 - 🎯 **Interactive Selection** - Choose from up to 5 search results via dropdown menu
 - ⚙️ **Per-Server Configuration** - Admins can toggle services and set custom emojis
+- 📊 **Statistics Tracking** - Track most popular movies, shows, and episodes, plus top users
+- 🔐 **Command Permissions** - Control which commands regular users can access
 
 ## Prerequisites
 
@@ -162,11 +164,19 @@ Displays an interactive help menu showing:
 - All available commands with examples
 - How to use the bot
 - List of rating services
-- **Admin commands** (only visible to users with "Manage Server" or "Administrator" permissions)
+- **Admin/Moderator commands** (only visible to users with admin or moderator permissions)
 
-### Server Configuration (Admin Only)
+### Server Configuration (Admin/Moderator Only)
 
-Users with "Manage Server" or "Administrator" permissions can configure Egg Shen for their server:
+Users with these Discord permissions can configure and control Egg Shen:
+
+- **Administrator** - Full server control
+- **Manage Server** - Server management permission  
+- **Moderate Members** - Timeout members (typical moderator role)
+- **Kick Members** - Can kick users
+- **Ban Members** - Can ban users
+
+**All admin commands work with any of these permissions.**
 
 **View Current Settings:**
 
@@ -214,6 +224,77 @@ Set custom Discord emojis for rating services. To use custom server emojis:
 
 Leave the emoji field empty to clear a custom emoji setting.
 
+**View Statistics:**
+
+```
+/eggshen-stats filter:all-time
+```
+
+View usage statistics for your server with time filters:
+
+- `all-time` - All recorded searches (default)
+- `month` - This month only
+- `week` - This week only
+- `today` - Today only
+
+Statistics include:
+
+- Top 10 most searched movies (with counts)
+- Top 10 most searched TV shows (with counts)
+- Top 10 most searched episodes (with counts)
+- Top 10 users with breakdown (Movies/Shows/Episodes)
+
+**Toggle Statistics Tracking:**
+
+```
+/eggshen-config stats-toggle setting:enabled enabled:true
+```
+
+Control statistics tracking for your server:
+
+- `enabled` - Master switch for all stats tracking
+- `trackMovies` - Toggle movie search tracking
+- `trackShows` - Toggle TV show search tracking
+- `trackEpisodes` - Toggle episode search tracking
+
+**Clear Statistics:**
+
+```
+/eggshen-config stats-clear
+```
+
+Permanently delete all statistics for your server.
+
+**Control Command Permissions:**
+
+```
+/eggshen-config commands-toggle setting:enabled enabled:true
+```
+
+Control which commands regular users can access:
+
+- `enabled` - Master switch (when disabled, only admins can use the bot)
+- `movie` - Toggle `/movie` command for regular users
+- `tv` - Toggle `/tv` command for regular users
+- `episode` - Toggle `/episode` command for regular users
+
+**Note:** Administrators and moderators always have access to all commands, regardless of permission settings.
+
+**Restart the Bot:**
+
+```
+/eggshen-restart
+```
+
+Gracefully restart the bot process. This command:
+
+- Exits the bot process cleanly
+- Requires a process manager (PM2, systemd, etc.) to automatically restart the bot
+- Logs who initiated the restart
+- Sends a confirmation message before restarting
+
+**⚠️ Important:** This command only works if you're running the bot with a process manager like PM2 (recommended) or systemd. If running with `npm start`, the bot will exit but won't automatically restart.
+
 ## API Key Setup
 
 ### TMDB (Required)
@@ -246,8 +327,10 @@ discord-movie-tv-bot/
 │   │   ├── movie.js       # /movie command
 │   │   ├── tv.js          # /tv command
 │   │   ├── episode.js     # /episode command
-│   │   ├── help.js        # /eggshen-help command
-│   │   └── eggshen-config.js  # /eggshen-config command
+│   │   ├── eggshen-help.js    # /eggshen-help command
+│   │   ├── eggshen-config.js  # /eggshen-config command
+│   │   ├── eggshen-stats.js   # /eggshen-stats command
+│   │   └── eggshen-restart.js # /eggshen-restart command
 │   ├── handlers/          # Interaction handlers
 │   │   ├── selectHandler.js
 │   │   └── buttonHandler.js
@@ -258,11 +341,13 @@ discord-movie-tv-bot/
 │   │   └── urlService.js
 │   ├── utils/             # Utility functions
 │   │   ├── embedBuilder.js
-│   │   └── guildConfig.js
+│   │   ├── guildConfig.js
+│   │   └── statsTracker.js
 │   ├── config.js          # Configuration management
 │   ├── index.js           # Main bot file
 │   └── deploy-commands.js # Command registration script
 ├── guild_configs/         # Per-server configuration (not in git)
+├── guild_stats/           # Per-server statistics (not in git)
 ├── assets/
 │   └── icons/             # Service icon files
 ├── .env                   # Environment variables (not in git)
@@ -291,7 +376,12 @@ discord-movie-tv-bot/
 - ✅ Toggle individual rating services on/off per server
 - ✅ Custom emoji support per server
 - ✅ Help command with admin section
-- ✅ Permission-based admin controls (uses Discord's built-in "Manage Server" permission)
+- ✅ Permission-based controls for admins and moderators (Administrator, Manage Server, Moderate Members, Kick Members, Ban Members)
+- ✅ Statistics tracking with time filters (all-time, month, week, today)
+- ✅ Top 10 lists for movies, shows, episodes, and users
+- ✅ Admin controls for statistics (toggle tracking, clear stats)
+- ✅ Command permission controls (enable/disable commands for regular users)
+- ✅ Bot restart command (requires PM2 or process manager)
 
 ### Known Limitations
 
@@ -304,6 +394,7 @@ discord-movie-tv-bot/
 
 ### Future Enhancements
 
+- [ ] AI-powered search - Use AI to better understand user queries and determine search intent (e.g., automatically detect if searching for a movie, show, or episode; handle typos and variations)
 - [ ] Bulk episode lookup (e.g., search by season number)
 - [ ] Search history and favorites
 - [ ] Streaming availability notifications

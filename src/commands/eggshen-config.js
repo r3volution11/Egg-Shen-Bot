@@ -1,9 +1,10 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { loadGuildConfig, saveGuildConfig, toggleService, setEmoji, isAdmin } from '../utils/guildConfig.js';
+import { loadGuildConfig, saveGuildConfig, toggleService, setEmoji, updateStatsTracking, getCommandPermissions, updateCommandPermission, isAdmin } from '../utils/guildConfig.js';
+import { clearStats } from '../utils/statsTracker.js';
 
 export const data = new SlashCommandBuilder()
   .setName('eggshen-config')
-  .setDescription('Configure Egg Shen settings for this server (Admin only)')
+  .setDescription('Configure Egg Shen settings for this server (Admin/Moderator only)')
   .addSubcommand(subcommand =>
     subcommand
       .setName('view')
@@ -56,13 +57,64 @@ export const data = new SlashCommandBuilder()
           .setDescription('The emoji to use (custom emoji or leave empty to clear)')
           .setRequired(false)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('stats-toggle')
+      .setDescription('Toggle statistics tracking on or off')
+      .addStringOption(option =>
+        option
+          .setName('setting')
+          .setDescription('What to toggle')
+          .setRequired(true)
+          .addChoices(
+            { name: 'All Stats Tracking', value: 'enabled' },
+            { name: 'Movie Tracking', value: 'trackMovies' },
+            { name: 'TV Show Tracking', value: 'trackShows' },
+            { name: 'Episode Tracking', value: 'trackEpisodes' }
+          )
+      )
+      .addBooleanOption(option =>
+        option
+          .setName('enabled')
+          .setDescription('Enable or disable this setting')
+          .setRequired(true)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('stats-clear')
+      .setDescription('Clear all statistics for this server')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('commands-toggle')
+      .setDescription('Toggle command permissions for regular users')
+      .addStringOption(option =>
+        option
+          .setName('setting')
+          .setDescription('What to toggle')
+          .setRequired(true)
+          .addChoices(
+            { name: 'All Commands (Master Switch)', value: 'enabled' },
+            { name: 'Movie Command', value: 'movie' },
+            { name: 'TV Command', value: 'tv' },
+            { name: 'Episode Command', value: 'episode' }
+          )
+      )
+      .addBooleanOption(option =>
+        option
+          .setName('enabled')
+          .setDescription('Enable or disable for regular users')
+          .setRequired(true)
+      )
   );
 
 export async function execute(interaction) {
   // Check if user has admin permissions
   if (!isAdmin(interaction.member)) {
     await interaction.reply({
-      content: '❌ You need "Manage Server" or "Administrator" permission to use this command.',
+      content: '❌ You need Administrator, Manage Server, or Moderator permissions to use this command.',
       ephemeral: true,
     });
     return;
@@ -103,6 +155,16 @@ export async function execute(interaction) {
       })
       .join('\n');
 
+    const statsStatus = `${config.stats.enabled ? '✅' : '❌'} **Overall Tracking:** ${config.stats.enabled ? 'Enabled' : 'Disabled'}\n` +
+      `${config.stats.trackMovies ? '✅' : '❌'} **Movies:** ${config.stats.trackMovies ? 'Enabled' : 'Disabled'}\n` +
+      `${config.stats.trackShows ? '✅' : '❌'} **TV Shows:** ${config.stats.trackShows ? 'Enabled' : 'Disabled'}\n` +
+      `${config.stats.trackEpisodes ? '✅' : '❌'} **Episodes:** ${config.stats.trackEpisodes ? 'Enabled' : 'Disabled'}`;
+
+    const commandsStatus = `${config.commandPermissions.enabled ? '✅' : '❌'} **All Commands:** ${config.commandPermissions.enabled ? 'Enabled' : 'Disabled'}\n` +
+      `${config.commandPermissions.movie ? '✅' : '❌'} **/movie:** ${config.commandPermissions.movie ? 'Enabled' : 'Disabled'}\n` +
+      `${config.commandPermissions.tv ? '✅' : '❌'} **/tv:** ${config.commandPermissions.tv ? 'Enabled' : 'Disabled'}\n` +
+      `${config.commandPermissions.episode ? '✅' : '❌'} **/episode:** ${config.commandPermissions.episode ? 'Enabled' : 'Disabled'}`;
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('⚙️ Egg Shen Configuration')
@@ -118,11 +180,21 @@ export async function execute(interaction) {
         inline: false,
       })
       .addFields({
-        name: 'How to Configure',
-        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Clear emoji:** `/eggshen-config emoji service:<service>` (leave emoji blank)',
+        name: 'Statistics Tracking',
+        value: statsStatus,
         inline: false,
       })
-      .setFooter({ text: 'Only users with Manage Server or Administrator permission can configure Egg Shen' });
+      .addFields({
+        name: 'Command Permissions (for Regular Users)',
+        value: commandsStatus,
+        inline: false,
+      })
+      .addFields({
+        name: 'How to Configure',
+        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`',
+        inline: false,
+      })
+      .setFooter({ text: 'Only users with Administrator, Manage Server, or Moderator permissions can configure Egg Shen' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   } else if (subcommand === 'toggle') {
@@ -184,6 +256,81 @@ export async function execute(interaction) {
     } else {
       await interaction.reply({
         content: '❌ Failed to update emoji configuration. Please try again.',
+        ephemeral: true,
+      });
+    }
+  } else if (subcommand === 'stats-toggle') {
+    // Toggle statistics tracking
+    const setting = interaction.options.getString('setting');
+    const enabled = interaction.options.getBoolean('enabled');
+
+    const success = await updateStatsTracking(guildId, setting, enabled);
+
+    if (success) {
+      const settingDisplayName = {
+        enabled: 'Overall statistics tracking',
+        trackMovies: 'Movie tracking',
+        trackShows: 'TV show tracking',
+        trackEpisodes: 'Episode tracking',
+      }[setting];
+
+      const statusText = enabled ? 'enabled' : 'disabled';
+      const emoji = enabled ? '✅' : '❌';
+
+      await interaction.reply({
+        content: `${emoji} **${settingDisplayName}** has been ${statusText} for this server.`,
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to update statistics settings. Please try again.',
+        ephemeral: true,
+      });
+    }
+  } else if (subcommand === 'stats-clear') {
+    // Clear all statistics
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      await clearStats(guildId);
+      await interaction.editReply({
+        content: '✅ All statistics have been cleared for this server.',
+      });
+    } catch (error) {
+      console.error('Stats clear error:', error);
+      await interaction.editReply({
+        content: '❌ Failed to clear statistics. Please try again.',
+      });
+    }
+  } else if (subcommand === 'commands-toggle') {
+    // Toggle command permissions
+    const setting = interaction.options.getString('setting');
+    const enabled = interaction.options.getBoolean('enabled');
+
+    const success = await updateCommandPermission(guildId, setting, enabled);
+
+    if (success) {
+      const settingDisplayName = {
+        enabled: 'All commands (master switch)',
+        movie: '/movie command',
+        tv: '/tv command',
+        episode: '/episode command',
+      }[setting];
+
+      const statusText = enabled ? 'enabled' : 'disabled';
+      const emoji = enabled ? '✅' : '❌';
+
+      const note = setting === 'enabled' && !enabled 
+        ? '\n\n⚠️ Note: All commands are now disabled for regular users. Only administrators can use the bot.'
+        : '';
+
+      await interaction.reply({
+        content: `${emoji} **${settingDisplayName}** has been ${statusText} for regular users.${note}`,
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to update command permissions. Please try again.',
         ephemeral: true,
       });
     }

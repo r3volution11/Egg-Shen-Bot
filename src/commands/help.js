@@ -37,11 +37,23 @@ export async function execute(interaction) {
 
   // Add admin-only commands if user has permissions
   if (userIsAdmin) {
-    embed.addFields({
-      name: '⚙️ /eggshen-config (Admin Only)',
-      value: 'Configure which rating services are displayed and set custom emojis for your server.\n\n**View settings:** `/eggshen-config view`\n**Toggle service:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n\n*Available services: IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch*',
-      inline: false,
-    });
+    embed.addFields(
+      {
+        name: '⚙️ /eggshen-config (Admin/Moderator Only)',
+        value: 'Configure Egg Shen settings for your server.\n\n**View settings:** `/eggshen-config view`\n**Toggle service:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n\n*Services: IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch*',
+        inline: false,
+      },
+      {
+        name: '📊 /eggshen-stats (Admin/Moderator Only)',
+        value: 'View usage statistics for your server.\n\n**Example:** `/eggshen-stats filter:month`\n\n*Filters: all-time, month, week, today*',
+        inline: false,
+      },
+      {
+        name: '🔄 /eggshen-restart (Admin/Moderator Only)',
+        value: 'Restart the bot (requires PM2 or similar process manager).\n\n**Note:** The bot will exit and automatically restart if running under a process manager.',
+        inline: false,
+      }
+    );
   }
 
   embed.addFields(

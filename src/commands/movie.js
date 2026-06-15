@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { searchMovies } from '../services/tmdbService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
+import { canUseCommand } from '../utils/guildConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('movie')
@@ -13,6 +14,16 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  // Check if user has permission to use this command
+  const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'movie');
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ The `/movie` command is currently disabled for regular users. Contact a server administrator for more information.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   const query = interaction.options.getString('query');
   
   await interaction.deferReply();
