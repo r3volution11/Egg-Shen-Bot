@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { searchTVShows } from '../services/tmdbService.js';
 import { createEpisodeSearchResults } from '../utils/embedBuilder.js';
-
+import { canUseCommand } from '../utils/guildConfig.js';
 export const data = new SlashCommandBuilder()
   .setName('episode')
   .setDescription('Search for a TV show episode and get ratings from multiple services')
@@ -19,6 +19,16 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  // Check if user has permission to use this command
+  const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'episode');
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ The `/episode` command is currently disabled for regular users. Contact a server administrator for more information.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   const showQuery = interaction.options.getString('show');
   const episodeQuery = interaction.options.getString('episode');
   

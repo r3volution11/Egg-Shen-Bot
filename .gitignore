@@ -4,6 +4,9 @@
 # Guild configurations (server-specific settings)
 guild_configs/
 
+# Guild statistics (server-specific stats)
+guild_stats/
+
 # Dependencies
 node_modules/
 

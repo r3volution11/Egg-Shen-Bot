@@ -10,7 +10,8 @@ import {
   getJustWatchUrl,
 } from '../services/urlService.js';
 import { createDetailedEmbed } from '../utils/embedBuilder.js';
-import { getEnabledServices, getEmojis } from '../utils/guildConfig.js';
+import { getEnabledServices, getEmojis, getStatsConfig } from '../utils/guildConfig.js';
+import { trackSearch } from '../utils/statsTracker.js';
 
 /**
  * Handle select menu interactions for choosing search results
@@ -24,10 +25,11 @@ export async function handleSelectInteraction(interaction) {
     const value = interaction.values[0];
     const guildId = interaction.guildId;
     
-    // Fetch guild configuration for service toggles and emojis
-    const [enabledServices, guildEmojis] = await Promise.all([
+    // Fetch guild configuration for service toggles, emojis, and stats
+    const [enabledServices, guildEmojis, statsConfig] = await Promise.all([
       getEnabledServices(guildId),
       getEmojis(guildId),
+      getStatsConfig(guildId),
     ]);
     
     // Handle episode selection
@@ -83,6 +85,18 @@ export async function handleSelectInteraction(interaction) {
         justWatch: getJustWatchUrl(episode.show.name, 'tv'),
       };
       
+      // Track episode search
+      if (statsConfig.enabled && statsConfig.trackEpisodes) {
+        const episodeTitle = `${episode.show.name} - ${episode.name}`;
+        await trackSearch(
+          guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'episode',
+          episodeTitle
+        ).catch(err => console.error('Stats tracking error:', err));
+      }
+      
       const response = await createEpisodeEmbed({ episode, omdb, trakt, urls }, enabledServices, guildEmojis);
       await interaction.editReply(response);
       return;
@@ -113,6 +127,19 @@ export async function handleSelectInteraction(interaction) {
         justWatch: getJustWatchUrl(tmdb.title, 'movie'),
       };
       
+      // Track movie search
+      if (statsConfig.enabled && statsConfig.trackMovies) {
+        const year = tmdb.release_date?.split('-')[0];
+        await trackSearch(
+          guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'movie',
+          tmdb.title,
+          year
+        ).catch(err => console.error('Stats tracking error:', err));
+      }
+      
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis);
       await interaction.editReply(response);
       
@@ -134,6 +161,19 @@ export async function handleSelectInteraction(interaction) {
         rottenTomatoes: getRottenTomatoesUrl(tmdb.name, tmdb.first_air_date?.split('-')[0], 'tv'),
         justWatch: getJustWatchUrl(tmdb.name, 'tv'),
       };
+      
+      // Track TV show search
+      if (statsConfig.enabled && statsConfig.trackShows) {
+        const year = tmdb.first_air_date?.split('-')[0];
+        await trackSearch(
+          guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'tv',
+          tmdb.name,
+          year
+        ).catch(err => console.error('Stats tracking error:', err));
+      }
       
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis);
       await interaction.editReply(response);
