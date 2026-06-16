@@ -297,25 +297,25 @@ function buildStreamingText(watchProviders) {
   
   // Streaming services (subscription)
   if (watchProviders.flatrate && watchProviders.flatrate.length > 0) {
-    const services = watchProviders.flatrate.map(p => p.provider_name).join(', ');
+    const services = watchProviders.flatrate.map(p => p.provider_name).join(' • ');
     lines.push(`**Stream:** ${services}`);
   }
   
   // Rental options
   if (watchProviders.rent && watchProviders.rent.length > 0) {
-    const services = watchProviders.rent.slice(0, 5).map(p => p.provider_name).join(', ');
+    const services = watchProviders.rent.slice(0, 5).map(p => p.provider_name).join(' • ');
     lines.push(`**Rent:** ${services}`);
   }
   
   // Purchase options
   if (watchProviders.buy && watchProviders.buy.length > 0) {
-    const services = watchProviders.buy.slice(0, 5).map(p => p.provider_name).join(', ');
+    const services = watchProviders.buy.slice(0, 5).map(p => p.provider_name).join(' • ');
     lines.push(`**Buy:** ${services}`);
   }
   
   // Add TMDB link for full details
   if (watchProviders.link && lines.length > 0) {
-    lines.push(`\n[View all options →](${watchProviders.link})`);
+    lines.push(`\n**[View all streaming links →](${watchProviders.link})**`);
   }
   
   return lines.length > 0 ? lines.join('\n') : null;
