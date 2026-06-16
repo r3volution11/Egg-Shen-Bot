@@ -10,7 +10,7 @@ export async function createSearchResults(results, type, query) {
     const title = result.title || result.name;
     const year = result.release_date || result.first_air_date;
     const yearStr = year ? ` (${year.split('-')[0]})` : '';
-    const overview = result.overview ? result.overview.substring(0, 50) + '...' : 'No description';
+    const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
     
     return {
       label: `${title}${yearStr}`.substring(0, 100),
@@ -46,7 +46,7 @@ export async function createEpisodeSearchResults(results, showQuery, episodeQuer
     const title = result.name;
     const year = result.first_air_date;
     const yearStr = year ? ` (${year.split('-')[0]})` : '';
-    const overview = result.overview ? result.overview.substring(0, 50) + '...' : 'No description';
+    const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
     
     return {
       label: `${title}${yearStr}`.substring(0, 100),
