@@ -307,16 +307,24 @@ When you stop a timer with a label:
 ### Similar Content
 
 ```
+/similar title:The Last of Us type:game
+/similar title:Hereditary type:movie
 /similar title:The Shining
 ```
 
-Find movies or TV shows similar to any title. The bot will:
+Find similar movies, TV shows, or games based on any title. The bot will:
 
-1. Search for the title
-2. Use TMDB's similarity algorithm
+1. Search for the title (optionally filtered by media type)
+2. Use similarity algorithms (TMDB for movies/TV, RAWG for games)
 3. Display top 10 similar recommendations with years and ratings
 
-Perfect for discovering what to watch next!
+**Options:**
+- **title** (required) - The movie, TV show, or game title to find similar content for
+- **type** (optional) - Specify media type: `movie`, `tv`, or `game`
+  - If not specified, searches all types (useful for discovering cross-media)
+  - Recommended when titles overlap (e.g., "The Last of Us", "Resident Evil")
+
+Perfect for discovering what to watch or play next!
 
 ### Public Statistics
 
