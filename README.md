@@ -229,7 +229,7 @@ Check if there's an active timer in the channel and how long it has been running
 
 Get a random movie with optional filters:
 
-- **genre** - Horror, Thriller, Sci-Fi, Fantasy, Mystery, Romance, Action, Comedy, Drama, Crime
+- **genre** - Action, Adventure, Animation, Comedy, Crime, Documentary, Drama, Family, Fantasy, Horror, Music, Mystery, Romance, Science Fiction, Thriller, War, Western
 - **decade** - 2020s, 2010s, 2000s, 1990s, 1980s, 1970s, 1960s, 1950s
 - **min-rating** - Minimum TMDB rating (1.0-10.0)
 
@@ -241,7 +241,7 @@ Get a random movie with optional filters:
 
 Get a random TV show with optional filters:
 
-- **genre** - Horror, Sci-Fi & Fantasy, Mystery, Romance, Crime, Drama, Comedy, Action & Adventure
+- **genre** - Action & Adventure, Animation, Comedy, Crime, Documentary, Drama, Family, Horror, Mystery, News, Reality, Romance, Sci-Fi & Fantasy, War & Politics, Western
 - **min-rating** - Minimum TMDB rating (1.0-10.0)
 
 **Random Episode:**
@@ -319,6 +319,7 @@ Find similar movies, TV shows, or games based on any title. The bot will:
 3. Display top 10 similar recommendations with years and ratings
 
 **Options:**
+
 - **title** (required) - The movie, TV show, or game title to find similar content for
 - **type** (optional) - Specify media type: `movie`, `tv`, or `game`
   - If not specified, searches all types (useful for discovering cross-media)
