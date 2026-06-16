@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { discoverRandomMovie, discoverRandomTV, getMovieDetails, getTVShowDetails, searchTVShows, getSeasonDetails } from '../services/tmdbService.js';
+import { discoverRandomMovie, discoverRandomTV, getMovieDetails, getTVShowDetails, searchTVShows, getSeasonDetails, getMovieWatchProviders, getTVWatchProviders } from '../services/tmdbService.js';
 import { getOMDBData } from '../services/omdbService.js';
 import { getMovieRating, getShowRating } from '../services/traktService.js';
 import {
@@ -11,7 +11,7 @@ import {
   getJustWatchUrl,
 } from '../services/urlService.js';
 import { createDetailedEmbed } from '../utils/embedBuilder.js';
-import { getEnabledServices, getEmojis } from '../utils/guildConfig.js';
+import { getEnabledServices, getEmojis, loadGuildConfig } from '../utils/guildConfig.js';
 import { canUseCommand } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
 
@@ -223,12 +223,17 @@ export async function execute(interaction) {
       const tmdb = await getMovieDetails(randomMovie.id);
       const imdbId = tmdb.external_ids?.imdb_id;
 
-      const [omdb, trakt, enabledServices, guildEmojis] = await Promise.all([
+      const [omdb, trakt, enabledServices, guildEmojis, guildConfig] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getMovieRating(imdbId) : null,
         getEnabledServices(interaction.guildId),
         getEmojis(interaction.guildId),
+        loadGuildConfig(interaction.guildId),
       ]);
+
+      // Get watch providers
+      const region = guildConfig.region || 'US';
+      const watchProviders = await getMovieWatchProviders(randomMovie.id, region);
 
       const urls = {
         imdb: getIMDbUrl(imdbId),
@@ -238,7 +243,7 @@ export async function execute(interaction) {
         justWatch: getJustWatchUrl(tmdb.title, 'movie'),
       };
 
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls, watchProviders }, 'movie', enabledServices, guildEmojis);
       
       // Track the random movie search
       await trackSearch(
@@ -273,12 +278,17 @@ export async function execute(interaction) {
       const tmdb = await getTVShowDetails(randomTV.id);
       const imdbId = tmdb.external_ids?.imdb_id;
 
-      const [omdb, trakt, enabledServices, guildEmojis] = await Promise.all([
+      const [omdb, trakt, enabledServices, guildEmojis, guildConfig] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getShowRating(imdbId) : null,
         getEnabledServices(interaction.guildId),
         getEmojis(interaction.guildId),
+        loadGuildConfig(interaction.guildId),
       ]);
+
+      // Get watch providers
+      const region = guildConfig.region || 'US';
+      const watchProviders = await getTVWatchProviders(randomTV.id, region);
 
       const urls = {
         imdb: getIMDbUrl(imdbId),
@@ -288,7 +298,7 @@ export async function execute(interaction) {
         justWatch: getJustWatchUrl(tmdb.name, 'tv'),
       };
 
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls, watchProviders }, 'tv', enabledServices, guildEmojis);
       
       // Track the random TV search
       await trackSearch(
