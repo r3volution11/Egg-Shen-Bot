@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from 'discord.js';
 import { discoverRandomMovie, discoverRandomTV, getMovieDetails, getTVShowDetails, searchTVShows, getSeasonDetails, getMovieWatchProviders, getTVWatchProviders } from '../services/tmdbService.js';
 import { getOMDBData } from '../services/omdbService.js';
 import { getMovieRating, getShowRating } from '../services/traktService.js';
+import { getLetterboxdRating } from '../services/letterboxdService.js';
 import {
   getIMDbUrl,
   getLetterboxdUrl,
@@ -239,9 +240,10 @@ export async function execute(interaction) {
       const tmdb = await getMovieDetails(randomMovie.id);
       const imdbId = tmdb.external_ids?.imdb_id;
 
-      const [omdb, trakt, enabledServices, guildEmojis, guildConfig] = await Promise.all([
+      const [omdb, trakt, letterboxd, enabledServices, guildEmojis, guildConfig] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getMovieRating(imdbId) : null,
+        imdbId ? getLetterboxdRating(imdbId) : null,
         getEnabledServices(interaction.guildId),
         getEmojis(interaction.guildId),
         loadGuildConfig(interaction.guildId),
@@ -259,7 +261,7 @@ export async function execute(interaction) {
         justWatch: getJustWatchUrl(tmdb.title, 'movie'),
       };
 
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis, watchProviders);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd, urls }, 'movie', enabledServices, guildEmojis, watchProviders);
       
       // Track the random movie search
       await trackSearch(
@@ -316,7 +318,7 @@ export async function execute(interaction) {
         justWatch: getJustWatchUrl(tmdb.name, 'tv'),
       };
 
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis, watchProviders);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd: null, urls }, 'tv', enabledServices, guildEmojis, watchProviders);
       
       // Track the random TV search
       await trackSearch(

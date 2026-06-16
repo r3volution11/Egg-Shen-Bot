@@ -239,9 +239,10 @@ export async function handleSelectInteraction(interaction) {
       
       const imdbId = tmdb.external_ids?.imdb_id;
       
-      [omdb, trakt] = await Promise.all([
+      [omdb, trakt, letterboxd] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getMovieRating(imdbId) : null,
+        imdbId ? getLetterboxdRating(imdbId) : null,
       ]);
       
       // Fetch watch providers
@@ -269,7 +270,7 @@ export async function handleSelectInteraction(interaction) {
         ).catch(err => console.error('Stats tracking error:', err));
       }
       
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis, watchProviders);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd, urls }, 'movie', enabledServices, guildEmojis, watchProviders);
       // Delete ephemeral menu and send public result
       await interaction.message.delete().catch(() => {});
       await interaction.channel.send(response);

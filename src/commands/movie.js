@@ -43,6 +43,7 @@ export async function execute(interaction) {
       const { getMovieDetails } = await import('../services/tmdbService.js');
       const { getOMDBData } = await import('../services/omdbService.js');
       const { getMovieRating } = await import('../services/traktService.js');
+      const { getLetterboxdRating } = await import('../services/letterboxdService.js');
       const {
         getIMDbUrl,
         getLetterboxdUrl,
@@ -58,9 +59,10 @@ export async function execute(interaction) {
       const tmdb = await getMovieDetails(movieId);
       const imdbId = tmdb.external_ids?.imdb_id;
       
-      const [omdb, trakt, enabledServices, guildEmojis, statsConfig] = await Promise.all([
+      const [omdb, trakt, letterboxd, enabledServices, guildEmojis, statsConfig] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getMovieRating(imdbId) : null,
+        imdbId ? getLetterboxdRating(imdbId) : null,
         getEnabledServices(interaction.guildId),
         getEmojis(interaction.guildId),
         getStatsConfig(interaction.guildId),
@@ -86,7 +88,7 @@ export async function execute(interaction) {
         ).catch(err => console.error('Stats tracking error:', err));
       }
       
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd, urls }, 'movie', enabledServices, guildEmojis);
       await interaction.editReply(response);
       return;
     }
