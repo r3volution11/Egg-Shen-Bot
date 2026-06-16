@@ -23,7 +23,7 @@ const defaultConfig = {
     justWatch: '',
   },
   region: 'US', // Default region for streaming availability (ISO 3166-1 country code)
-  maxSearchResults: 8, // Maximum number of search results to display in selection menus (1-10)
+  maxSearchResults: 8, // Maximum number of search results to display in selection menus (1-20)
   stats: {
     enabled: true,
     trackMovies: true,
