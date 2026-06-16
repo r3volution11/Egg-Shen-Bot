@@ -195,3 +195,134 @@ export function getBackdropUrl(backdropPath, size = 'w1280') {
   if (!backdropPath) return null;
   return `${config.apis.tmdb.imageBaseUrl}/${size}${backdropPath}`;
 }
+
+/**
+ * Discover random movies with optional filters
+ * @param {Object} filters - Optional filters { genre, decade, minRating, maxRating }
+ * @returns {Object} Random movie result
+ */
+export async function discoverRandomMovie(filters = {}) {
+  try {
+    const params = {
+      language: 'en-US',
+      sort_by: 'popularity.desc',
+      include_adult: false,
+      include_video: false,
+      page: Math.floor(Math.random() * 50) + 1, // Random page 1-50
+    };
+
+    if (filters.genre) {
+      params.with_genres = filters.genre;
+    }
+    
+    if (filters.decade) {
+      const startYear = parseInt(filters.decade);
+      params.primary_release_date_gte = `${startYear}-01-01`;
+      params.primary_release_date_lte = `${startYear + 9}-12-31`;
+    }
+    
+    if (filters.minRating) {
+      params['vote_average.gte'] = parseFloat(filters.minRating);
+      params.vote_count_gte = 100; // Ensure sufficient votes
+    }
+    
+    if (filters.maxRating) {
+      params['vote_average.lte'] = parseFloat(filters.maxRating);
+    }
+
+    const response = await tmdbApi.get('/discover/movie', { params });
+    const results = response.data.results;
+    
+    if (!results || results.length === 0) {
+      return null;
+    }
+    
+    // Pick a random movie from the page
+    const randomIndex = Math.floor(Math.random() * results.length);
+    return results[randomIndex];
+  } catch (error) {
+    console.error('TMDB discover movie error:', error.message);
+    throw new Error('Failed to discover random movie');
+  }
+}
+
+/**
+ * Discover random TV show with optional filters
+ * @param {Object} filters - Optional filters { genre, year, minRating, maxRating }
+ * @returns {Object} Random TV show result
+ */
+export async function discoverRandomTV(filters = {}) {
+  try {
+    const params = {
+      language: 'en-US',
+      sort_by: 'popularity.desc',
+      include_adult: false,
+      page: Math.floor(Math.random() * 50) + 1, // Random page 1-50
+    };
+
+    if (filters.genre) {
+      params.with_genres = filters.genre;
+    }
+    
+    if (filters.year) {
+      params.first_air_date_year = parseInt(filters.year);
+    }
+    
+    if (filters.minRating) {
+      params['vote_average.gte'] = parseFloat(filters.minRating);
+      params.vote_count_gte = 100; // Ensure sufficient votes
+    }
+    
+    if (filters.maxRating) {
+      params['vote_average.lte'] = parseFloat(filters.maxRating);
+    }
+
+    const response = await tmdbApi.get('/discover/tv', { params });
+    const results = response.data.results;
+    
+    if (!results || results.length === 0) {
+      return null;
+    }
+    
+    // Pick a random show from the page
+    const randomIndex = Math.floor(Math.random() * results.length);
+    return results[randomIndex];
+  } catch (error) {
+    console.error('TMDB discover TV error:', error.message);
+    throw new Error('Failed to discover random TV show');
+  }
+}
+
+/**
+ * Get similar movies
+ * @param {string} movieId - TMDB movie ID
+ * @returns {Array} Array of similar movies
+ */
+export async function getSimilarMovies(movieId) {
+  try {
+    const response = await tmdbApi.get(`/movie/${movieId}/similar`, {
+      params: { language: 'en-US', page: 1 },
+    });
+    return response.data.results.slice(0, 10); // Return top 10
+  } catch (error) {
+    console.error('TMDB similar movies error:', error.message);
+    throw new Error('Failed to get similar movies');
+  }
+}
+
+/**
+ * Get similar TV shows
+ * @param {string} tvId - TMDB TV show ID
+ * @returns {Array} Array of similar TV shows
+ */
+export async function getSimilarTV(tvId) {
+  try {
+    const response = await tmdbApi.get(`/tv/${tvId}/similar`, {
+      params: { language: 'en-US', page: 1 },
+    });
+    return response.data.results.slice(0, 10); // Return top 10
+  } catch (error) {
+    console.error('TMDB similar TV error:', error.message);
+    throw new Error('Failed to get similar TV shows');
+  }
+}
