@@ -99,6 +99,22 @@ export const data = new SlashCommandBuilder()
       )
       .addStringOption(option =>
         option
+          .setName('decade')
+          .setDescription('Filter by decade')
+          .setRequired(false)
+          .addChoices(
+            { name: '2020s', value: '2020' },
+            { name: '2010s', value: '2010' },
+            { name: '2000s', value: '2000' },
+            { name: '1990s', value: '1990' },
+            { name: '1980s', value: '1980' },
+            { name: '1970s', value: '1970' },
+            { name: '1960s', value: '1960' },
+            { name: '1950s', value: '1950' }
+          )
+      )
+      .addStringOption(option =>
+        option
           .setName('min-rating')
           .setDescription('Minimum rating (0-10)')
           .setRequired(false)
@@ -259,10 +275,12 @@ export async function execute(interaction) {
 
     } else if (subcommand === 'tv') {
       const genre = interaction.options.getString('genre');
+      const decade = interaction.options.getString('decade');
       const minRating = interaction.options.getString('min-rating');
 
       const filters = {};
       if (genre) filters.genre = genre;
+      if (decade) filters.decade = decade;
       if (minRating) filters.minRating = minRating;
 
       const randomTV = await discoverRandomTV(filters);
