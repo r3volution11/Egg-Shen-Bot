@@ -19,10 +19,32 @@ import { trackSearch } from '../utils/statsTracker.js';
 export async function handleSelectInteraction(interaction) {
   if (interaction.customId !== 'select_result' && 
       interaction.customId !== 'select_episode_show' && 
-      interaction.customId !== 'select_watched') return;
+      interaction.customId !== 'select_watched' &&
+      interaction.customId !== 'select_random_episode' &&
+      interaction.customId !== 'select_similar') return;
   
   // Defer the update to acknowledge the interaction
   await interaction.deferUpdate();
+  
+  // Handle random episode selection
+  if (interaction.customId === 'select_random_episode') {
+    const value = interaction.values[0];
+    const [, , showId] = value.split('_');
+    
+    const { handleRandomEpisodeSelection } = await import('../commands/random.js');
+    await handleRandomEpisodeSelection(showId, interaction);
+    return;
+  }
+  
+  // Handle similar selection
+  if (interaction.customId === 'select_similar') {
+    const value = interaction.values[0];
+    const [, type, tmdbId] = value.split('_');
+    
+    const { handleSimilarSelection } = await import('../commands/similar.js');
+    await handleSimilarSelection(type, tmdbId, interaction);
+    return;
+  }
   
   // Handle watched selection
   if (interaction.customId === 'select_watched') {
