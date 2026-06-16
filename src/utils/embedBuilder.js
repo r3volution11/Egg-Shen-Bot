@@ -414,3 +414,162 @@ export async function createGameDetailedEmbed(game) {
   
   return { embeds: [embed], components: [] };
 }
+
+/**
+ * Create a board game search results message with a select menu
+ */
+export async function createBoardGameSearchResults(results, query) {
+  const options = results.map((result) => {
+    const title = result.name;
+    const year = result.yearPublished;
+    const yearStr = year ? ` (${year})` : '';
+    
+    return {
+      label: `${title}${yearStr}`.substring(0, 100),
+      description: 'Board Game'.substring(0, 100),
+      value: `boardgame_${result.id}`,
+    };
+  });
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('select_result')
+    .setPlaceholder('Select a board game to display')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const embed = new EmbedBuilder()
+    .setColor(0xFF5733) // Orange color for board games
+    .setTitle(`Board Game Search Results for "${query}"`)
+    .setDescription(`Found ${results.length} result${results.length > 1 ? 's' : ''}. Select one below to view details and ratings.`)
+    .setFooter({ text: 'Select a board game from the menu below' });
+  
+  return {
+    embeds: [embed],
+    components: [row],
+  };
+}
+
+/**
+ * Create a detailed board game embed with ratings and information
+ */
+export async function createBoardGameDetailedEmbed(game) {
+  const title = game.name;
+  const year = game.yearPublished;
+  
+  const embed = new EmbedBuilder()
+    .setColor(0xFF5733) // Orange color for board games
+    .setTitle(`${title}${year ? ` (${year})` : ''}`)
+    .setURL(`https://boardgamegeek.com/boardgame/${game.id}`)
+    .setThumbnail(game.thumbnail || game.image || null);
+  
+  // Add description (truncate if too long)
+  if (game.description) {
+    const description = game.description.length > 400 
+      ? game.description.substring(0, 397) + '...' 
+      : game.description;
+    embed.setDescription(description);
+  }
+  
+  // Add ratings and stats
+  const ratingsInfo = [];
+  
+  if (game.rating.average) {
+    const usersRated = game.rating.usersRated || 'N/A';
+    ratingsInfo.push(`⭐ **BGG Rating:** ${parseFloat(game.rating.average).toFixed(2)}/10 (${usersRated} ratings)`);
+  }
+  
+  if (game.rating.bayesAverage) {
+    ratingsInfo.push(`🏆 **Geek Rating:** ${parseFloat(game.rating.bayesAverage).toFixed(2)}/10`);
+  }
+  
+  if (game.rating.rank && game.rating.rank !== 'Not Ranked') {
+    ratingsInfo.push(`📊 **Rank:** #${game.rating.rank}`);
+  }
+  
+  if (ratingsInfo.length > 0) {
+    embed.addFields({
+      name: '⭐ Ratings',
+      value: ratingsInfo.join('\n'),
+      inline: false,
+    });
+  }
+  
+  // Add player count and time
+  const gameInfo = [];
+  
+  if (game.minPlayers && game.maxPlayers) {
+    const playerCount = game.minPlayers === game.maxPlayers 
+      ? `${game.minPlayers} players` 
+      : `${game.minPlayers}-${game.maxPlayers} players`;
+    gameInfo.push(`👥 **Players:** ${playerCount}`);
+  }
+  
+  if (game.playingTime) {
+    gameInfo.push(`⏱️ **Playing Time:** ${game.playingTime} minutes`);
+  }
+  
+  if (game.minAge) {
+    gameInfo.push(`🔞 **Age:** ${game.minAge}+`);
+  }
+  
+  if (game.complexity) {
+    gameInfo.push(`🧩 **Complexity:** ${parseFloat(game.complexity).toFixed(2)}/5`);
+  }
+  
+  if (gameInfo.length > 0) {
+    embed.addFields({
+      name: '📋 Game Info',
+      value: gameInfo.join('\n'),
+      inline: false,
+    });
+  }
+  
+  // Add categories
+  if (game.categories && game.categories.length > 0) {
+    embed.addFields({
+      name: '🏷️ Categories',
+      value: game.categories.slice(0, 8).map(c => c.name).join(', '),
+      inline: false,
+    });
+  }
+  
+  // Add mechanics
+  if (game.mechanics && game.mechanics.length > 0) {
+    embed.addFields({
+      name: '⚙️ Mechanics',
+      value: game.mechanics.slice(0, 8).map(m => m.name).join(', '),
+      inline: false,
+    });
+  }
+  
+  // Add designers
+  if (game.designers && game.designers.length > 0) {
+    embed.addFields({
+      name: '👨‍🎨 Designers',
+      value: game.designers.join(', '),
+      inline: true,
+    });
+  }
+  
+  // Add publishers
+  if (game.publishers && game.publishers.length > 0) {
+    embed.addFields({
+      name: '🏢 Publishers',
+      value: game.publishers.join(', '),
+      inline: true,
+    });
+  }
+  
+  // Add links
+  const links = [];
+  links.push(`[View on BoardGameGeek](https://boardgamegeek.com/boardgame/${game.id})`);
+  
+  embed.addFields({
+    name: '🔗 Links',
+    value: links.join(' • '),
+    inline: false,
+  });
+  
+  return { embeds: [embed], components: [] };
+}

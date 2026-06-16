@@ -28,6 +28,7 @@ const defaultConfig = {
     trackShows: true,
     trackEpisodes: true,
     trackGames: true,
+    trackBoardGames: true,
   },
   commandPermissions: {
     enabled: true, // Master switch - when false, only admin commands work
@@ -35,6 +36,7 @@ const defaultConfig = {
     tv: true,
     episode: true,
     game: true,
+    boardgame: true,
   },
   notifications: {
     restartAnnouncements: false, // Send announcements when bot restarts with active timers
@@ -175,6 +177,8 @@ export async function updateStatsTracking(guildId, setting, enabled) {
     config.stats.trackEpisodes = enabled;
   } else if (setting === 'trackGames') {
     config.stats.trackGames = enabled;
+  } else if (setting === 'trackBoardGames') {
+    config.stats.trackBoardGames = enabled;
   } else {
     return false;
   }
