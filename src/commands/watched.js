@@ -159,7 +159,7 @@ export async function execute(interaction) {
         const title = result.title || result.name;
         const year = result.release_date || result.first_air_date;
         const yearStr = year ? ` (${year.split('-')[0]})` : '';
-        const overview = result.overview ? result.overview.substring(0, 50) + '...' : 'No description';
+        const overview = result.overview ? result.overview.substring(0, 94) + '...' : 'No description';
         
         return {
           label: `${title}${yearStr}`.substring(0, 100),

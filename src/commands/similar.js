@@ -148,7 +148,7 @@ export async function execute(interaction) {
       const title = result.title || result.name;
       const year = result.release_date || result.first_air_date || result.released || result.yearPublished;
       const yearStr = year ? ` (${year.toString().split('-')[0]})` : '';
-      const overview = result.overview ? result.overview.substring(0, 50) + '...' : 'No description';
+      const overview = result.overview ? result.overview.substring(0, 94) + '...' : 'No description';
       const icon = result.type === 'movie' ? '🎬' : result.type === 'tv' ? '📺' : result.type === 'game' ? '🎮' : '🎲';
       
       return {

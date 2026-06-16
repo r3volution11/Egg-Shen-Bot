@@ -376,7 +376,7 @@ export async function execute(interaction) {
       
       const options = showResults.slice(0, maxResults).map((show) => {
         const year = show.first_air_date ? ` (${show.first_air_date.split('-')[0]})` : '';
-        const overview = show.overview ? show.overview.substring(0, 50) + '...' : 'No description';
+        const overview = show.overview ? show.overview.substring(0, 97) + '...' : 'No description';
         
         return {
           label: `${show.name}${year}`.substring(0, 100),
