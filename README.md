@@ -204,7 +204,7 @@ Check if there's an active timer in the channel and how long it has been running
 ```
 
 Get a random movie with optional filters:
-- **genre** - Horror, Thriller, Sci-Fi, Fantasy, Mystery, Action, Comedy, Drama, Crime
+- **genre** - Horror, Thriller, Sci-Fi, Fantasy, Mystery, Romance, Action, Comedy, Drama, Crime
 - **decade** - 2020s, 2010s, 2000s, 1990s, 1980s, 1970s, 1960s, 1950s
 - **min-rating** - Minimum TMDB rating (1.0-10.0)
 
@@ -214,7 +214,9 @@ Get a random movie with optional filters:
 /random tv genre:Horror min-rating:7.0
 ```
 
-Get a random TV show with optional filters (genre and min-rating).
+Get a random TV show with optional filters:
+- **genre** - Horror, Sci-Fi & Fantasy, Mystery, Romance, Crime, Drama, Comedy, Action & Adventure
+- **min-rating** - Minimum TMDB rating (1.0-10.0)
 
 **Random Episode:**
 
