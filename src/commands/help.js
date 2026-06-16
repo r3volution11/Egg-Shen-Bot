@@ -14,28 +14,28 @@ export async function execute(interaction) {
     .setDescription('Your mystical guide to movies, TV shows, and episodes with ratings from multiple services!')
     .addFields(
       {
-        name: '📺 /movie',
-        value: 'Search for a movie and get ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch.\n\n**Example:** `/movie Interstellar`',
+        name: '� Search Commands',
+        value: '**📺 /movie** - Search for a movie\n**📺 /tv** - Search for a TV show\n**🎞️ /episode** - Search for a specific episode by name',
         inline: false,
       },
       {
-        name: '📺 /tv',
-        value: 'Search for a TV show and get ratings from multiple services.\n\n**Example:** `/tv Breaking Bad`',
+        name: '🎲 Watch Party Features',
+        value: '**🎲 /random** - Get random movie, TV show, or episode (with filters)\n**📝 /watched** - Log or view watch history with ratings and notes\n**🔍 /similar** - Find similar content recommendations',
         inline: false,
       },
       {
-        name: '🎞️ /episode',
-        value: 'Search for a specific TV show episode by name.\n\n**Example:** `/episode show:The Outer Limits episode:Sandkings`\n\n**Note:** Shows episode-specific ratings from IMDb and Trakt when available.',
+        name: '⏱️ /timer',
+        value: 'Start, stop, or check a timer in the current channel.\n\n**Start:** `/timer start label:Movie night`\n**Stop:** `/timer stop` (shows watch history button if labeled)\n**Status:** `/timer status`',
+        inline: false,
+      },
+      {
+        name: '📊 /stats',
+        value: 'View server or personal statistics.\n\n**Server stats:** `/stats type:server filter:all-time`\n**Personal stats:** `/stats type:personal`',
         inline: false,
       },
       {
         name: '❓ /eggshen-help',
         value: 'Display this help message.',
-        inline: false,
-      },
-      {
-        name: '⏱️ /timer',
-        value: 'Start, stop, or check a timer in the current channel (one timer per channel).\n\n**Start timer:** `/timer start label:Movie night`\n**Stop timer:** `/timer stop`\n**Check status:** `/timer status`',
         inline: false,
       }
     );
