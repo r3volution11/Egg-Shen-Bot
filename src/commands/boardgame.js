@@ -73,6 +73,7 @@ export async function execute(interaction) {
 
     // Create the selection interface (ephemeral for privacy)
     const response = await createBoardGameSearchResults(limitedResults, query);
+    await interaction.editReply(response);
     
   } catch (error) {
     console.error('Board game command error:', error);
