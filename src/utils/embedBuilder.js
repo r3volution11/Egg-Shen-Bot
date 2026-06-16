@@ -3,6 +3,26 @@ import { getPosterUrl } from '../services/tmdbService.js';
 import { config } from '../config.js';
 
 /**
+ * Format runtime in minutes to human-readable format
+ * @param {number} minutes - Runtime in minutes
+ * @returns {string} Formatted runtime (e.g., "1 hour 37 minutes")
+ */
+function formatRuntime(minutes) {
+  if (!minutes) return 'N/A';
+  
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  
+  if (hours === 0) {
+    return `${mins} minute${mins !== 1 ? 's' : ''}`;
+  } else if (mins === 0) {
+    return `${hours} hour${hours !== 1 ? 's' : ''}`;
+  } else {
+    return `${hours} hour${hours !== 1 ? 's' : ''} ${mins} minute${mins !== 1 ? 's' : ''}`;
+  }
+}
+
+/**
  * Create a search results message with a select menu
  */
 export async function createSearchResults(results, type, query) {
@@ -127,7 +147,7 @@ export async function createDetailedEmbed(data, type, enabledServices = null, gu
   if (type === 'movie') {
     embed.addFields({
       name: 'Runtime',
-      value: tmdb.runtime ? `${tmdb.runtime} minutes` : 'N/A',
+      value: formatRuntime(tmdb.runtime),
       inline: true,
     });
   } else {
@@ -186,7 +206,7 @@ export async function createEpisodeEmbed(data, enabledServices = null, guildEmoj
   if (episode.runtime) {
     embed.addFields({
       name: 'Runtime',
-      value: `${episode.runtime} minutes`,
+      value: formatRuntime(episode.runtime),
       inline: true,
     });
   }
@@ -581,7 +601,7 @@ export async function createBoardGameDetailedEmbed(game) {
   }
   
   if (game.playingTime) {
-    gameInfo.push(`⏱️ **Playing Time:** ${game.playingTime} minutes`);
+    gameInfo.push(`⏱️ **Playing Time:** ${formatRuntime(game.playingTime)}`);
   }
   
   if (game.minAge) {
