@@ -1,20 +1,23 @@
 # Discord Movie and TV Bot
 
-A Dsicord bot for looking up movies, TV shows, and TV show episodes, showing synopses and ratings for different services and linking to each service's respective page for the media. It provides ratings and links for IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch and is easily configurable by administrators. It also includes timer functionality for watch party purposes.
+A Discord bot for looking up movies, TV shows, and TV show episodes with comprehensive search, watch party features, and statistics tracking. It provides ratings and links for IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch and is easily configurable by administrators. Perfect for movie/TV discussion servers and watch party communities with features like random pickers, watch history logging, similar content recommendations, and channel timers.
 
 ## Features
 
 - 🎬 **Movie Search** - Search for any movie with the `/movie` command
 - 📺 **TV Show Search** - Search for TV shows with the `/tv` command
 - 🎞️ **Episode Search** - Search for specific TV episodes with the `/episode` command
+- 🎲 **Random Picker** - Get random movies, TV shows, or episodes with genre/decade/rating filters
+- 📝 **Watch History** - Log what you watched with ratings and notes, view server watch history
+- 🔍 **Similar Content** - Find similar movies or TV shows based on any title
+- 📊 **Public Statistics** - Anyone can view server stats and personal usage statistics
 - ⭐ **Multiple Ratings** - Display ratings from IMDb, Trakt, and Rotten Tomatoes
 - 🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
 - 🖼️ **Rich Embeds** - Beautiful embedded messages with poster images and metadata
 - 🎯 **Interactive Selection** - Choose from up to 5 search results via dropdown menu
 - ⚙️ **Per-Server Configuration** - Admins can toggle services and set custom emojis
-- 📊 **Statistics Tracking** - Track most popular movies, shows, and episodes, plus top users
 - 🔐 **Command Permissions** - Control which commands regular users can access
-- ⏱️ **Channel Timers** - Start and stop timers in channels (one per channel)
+- ⏱️ **Channel Timers** - Start and stop timers with optional labels and watch history integration
 
 ## Prerequisites
 
@@ -184,10 +187,124 @@ Check if there's an active timer in the channel and how long it has been running
 
 - One timer per channel (prevents conflicts)
 - Available to all users (not admin-only)
-- Displays elapsed time in a human-readable format (days, hours, minutes, seconds)
+- 5-second countdown before starting (5, 4, 3, 2, 1, GO!)
+- Displays elapsed time in video player format (M:SS or H:MM:SS)
 - Shows who started the timer and who stopped it
 - Optional labels to describe what the timer is for
-- Timers are stored in memory (reset when bot restarts)
+- **Watch history integration** - When you stop a labeled timer, get a button to log it to watch history with optional rating and notes
+- Timers persist across bot restarts (saved to disk)
+- Restart announcements sent to channels with active timers
+
+### Random Picker
+
+**Random Movie:**
+
+```
+/random movie genre:Horror decade:1980s min-rating:7.0
+```
+
+Get a random movie with optional filters:
+- **genre** - Horror, Thriller, Sci-Fi, Fantasy, Mystery, Action, Comedy, Drama, Crime
+- **decade** - 2020s, 2010s, 2000s, 1990s, 1980s, 1970s, 1960s, 1950s
+- **min-rating** - Minimum TMDB rating (1.0-10.0)
+
+**Random TV Show:**
+
+```
+/random tv genre:Horror min-rating:7.0
+```
+
+Get a random TV show with optional filters (genre and min-rating).
+
+**Random Episode:**
+
+```
+/random episode show:The Twilight Zone
+```
+
+Get a random episode from any TV show. The bot will:
+1. Search for the show
+2. Pick a random season
+3. Pick a random episode from that season
+4. Display the episode with details and a command to view full ratings
+
+### Watch History
+
+**Add to Watch History:**
+
+```
+/watched add title:Hereditary rating:8.5 notes:Absolutely terrifying!
+```
+
+Manually log what you watched with optional rating (1-10) and notes. The bot will:
+1. Search for the title
+2. Let you select the correct movie or TV show if multiple results
+3. Save to server watch history with your rating and notes
+
+**View Watch History:**
+
+```
+/watched history filter:all limit:10
+```
+
+View the server's watch history with filters:
+- **filter** - All, Movies Only, TV Shows Only
+- **limit** - Number of entries to show (1-25, default: 10)
+
+Displays recent watches with titles, ratings, notes, who watched, and dates.
+
+**Watch History from Timer:**
+
+When you stop a timer with a label:
+1. You'll see a "📝 Log to Watch History" button
+2. Click it to open a form for rating and notes
+3. The bot automatically searches for the title and adds it to history
+
+### Similar Content
+
+```
+/similar title:The Shining
+```
+
+Find movies or TV shows similar to any title. The bot will:
+1. Search for the title
+2. Use TMDB's similarity algorithm
+3. Display top 10 similar recommendations with years and ratings
+
+Perfect for discovering what to watch next!
+
+### Public Statistics
+
+**View Server Stats:**
+
+```
+/stats filter:all-time type:server
+```
+
+Anyone can view server statistics including:
+- Top movies, TV shows, and episodes
+- Command usage counts (Random, Watched, Similar)
+- Most active users with breakdown
+
+**View Personal Stats:**
+
+```
+/stats type:personal filter:week
+```
+
+See your own statistics:
+- Movies searched
+- TV shows searched
+- Episodes searched
+- Random commands used
+- Watch history logs
+- Similar searches
+
+**Time Filters:**
+- `all-time` - All recorded activity (default)
+- `month` - This month only
+- `week` - This week only
+- `today` - Today only
 
 ### Getting Help
 
@@ -201,6 +318,12 @@ Displays an interactive help menu showing:
 - How to use the bot
 - List of rating services
 - **Admin/Moderator commands** (only visible to users with admin or moderator permissions)
+
+**Help Menu Includes:**
+- Core commands: movie, tv, episode
+- Watch party features: random, watched, similar
+- Utilities: timer, stats, help
+- Admin tools: config, statistics, restart
 
 ### Server Configuration (Admin/Moderator Only)
 
@@ -260,15 +383,15 @@ Set custom Discord emojis for rating services. To use custom server emojis:
 
 Leave the emoji field empty to clear a custom emoji setting.
 
-**View Statistics:**
+**View Statistics (Admin/Moderator):**
 
 ```
 /eggshen-stats filter:all-time
 ```
 
-View usage statistics for your server with time filters:
+View detailed usage statistics for your server with time filters:
 
-- `all-time` - All recorded searches (default)
+- `all-time` - All recorded activity (default)
 - `month` - This month only
 - `week` - This week only
 - `today` - Today only
@@ -278,7 +401,10 @@ Statistics include:
 - Top 10 most searched movies (with counts)
 - Top 10 most searched TV shows (with counts)
 - Top 10 most searched episodes (with counts)
-- Top 10 users with breakdown (Movies/Shows/Episodes)
+- Command usage counts (Random, Watched, Similar)
+- Top 10 users with breakdown (M=Movies, S=Shows, E=Episodes, R=Random, W=Watched, Si=Similar)
+
+**Note:** Regular users can view public statistics with `/stats` instead.
 
 **Toggle Statistics Tracking:**
 
@@ -363,29 +489,36 @@ discord-movie-tv-bot/
 │   │   ├── movie.js       # /movie command
 │   │   ├── tv.js          # /tv command
 │   │   ├── episode.js     # /episode command
+│   │   ├── random.js      # /random command (movie/tv/episode)
+│   │   ├── watched.js     # /watched command (add/history)
+│   │   ├── similar.js     # /similar command
+│   │   ├── stats.js       # /stats command (public)
 │   │   ├── timer.js       # /timer command
-│   │   ├── eggshen-help.js    # /eggshen-help command
+│   │   ├── help.js        # /eggshen-help command
 │   │   ├── eggshen-config.js  # /eggshen-config command
-│   │   ├── eggshen-stats.js   # /eggshen-stats command
+│   │   ├── eggshen-stats.js   # /eggshen-stats command (admin)
 │   │   └── eggshen-restart.js # /eggshen-restart command
 │   ├── handlers/          # Interaction handlers
-│   │   ├── selectHandler.js
-│   │   └── buttonHandler.js
+│   │   ├── selectHandler.js   # Dropdown menu handler
+│   │   └── buttonHandler.js   # Button interaction handler
 │   ├── services/          # External API integrations
-│   │   ├── tmdbService.js
-│   │   ├── omdbService.js
-│   │   ├── traktService.js
-│   │   └── urlService.js
+│   │   ├── tmdbService.js     # TMDB API (search, details, discover, similar)
+│   │   ├── omdbService.js     # OMDB API (IMDb/RT ratings)
+│   │   ├── traktService.js    # Trakt API (community ratings)
+│   │   └── urlService.js      # Service URL builders
 │   ├── utils/             # Utility functions
-│   │   ├── embedBuilder.js
-│   │   ├── guildConfig.js
-│   │   ├── statsTracker.js
-│   │   └── timerManager.js
+│   │   ├── embedBuilder.js        # Discord embed creation
+│   │   ├── guildConfig.js         # Server configuration
+│   │   ├── statsTracker.js        # Usage statistics
+│   │   ├── timerManager.js        # Channel timers with persistence
+│   │   └── watchHistoryManager.js # Watch history storage
 │   ├── config.js          # Configuration management
 │   ├── index.js           # Main bot file
 │   └── deploy-commands.js # Command registration script
 ├── guild_configs/         # Per-server configuration (not in git)
 ├── guild_stats/           # Per-server statistics (not in git)
+├── guild_watch_history/   # Per-server watch logs (not in git)
+├── active_timers.json     # Active timer persistence (not in git)
 ├── assets/
 │   └── icons/             # Service icon files
 ├── .env                   # Environment variables (not in git)
@@ -401,6 +534,7 @@ discord-movie-tv-bot/
 
 ### Current Features
 
+**Core Search:**
 - ✅ Movie and TV show search
 - ✅ Episode search by name with show selection
 - ✅ Interactive result selection (up to 5 results)
@@ -410,17 +544,33 @@ discord-movie-tv-bot/
 - ✅ Ratings from IMDb, Trakt, and Rotten Tomatoes
 - ✅ Movie posters and synopses
 - ✅ TV series and show posters
+
+**Watch Party Features:**
+- ✅ Random movie/TV/episode picker with genre, decade, and rating filters
+- ✅ Watch history logging with ratings and notes
+- ✅ View server watch history with filters
+- ✅ Similar content recommendations using TMDB algorithm
+- ✅ Channel timers with 5-second countdown and video player format
+- ✅ Timer-to-watch-history integration (auto-prompt when stopping labeled timers)
+- ✅ Timer persistence across bot restarts
+
+**Statistics & Tracking:**
+- ✅ Public statistics command for all users
+- ✅ Personal statistics view (your own usage)
+- ✅ Server statistics view (top content and users)
+- ✅ Time filters (all-time, month, week, today)
+- ✅ Tracks all command usage (movie, tv, episode, random, watched, similar)
+- ✅ Top 10 lists for movies, shows, episodes, and users
+- ✅ Admin controls for statistics (toggle tracking, clear stats)
+
+**Administration:**
 - ✅ Per-server configuration (admin controls)
 - ✅ Toggle individual rating services on/off per server
 - ✅ Custom emoji support per server
 - ✅ Help command with admin section
 - ✅ Permission-based controls for admins and moderators (Administrator, Manage Server, Moderate Members, Kick Members, Ban Members)
-- ✅ Statistics tracking with time filters (all-time, month, week, today)
-- ✅ Top 10 lists for movies, shows, episodes, and users
-- ✅ Admin controls for statistics (toggle tracking, clear stats)
 - ✅ Command permission controls (enable/disable commands for regular users)
 - ✅ Bot restart command (requires PM2 or process manager)
-- ✅ Channel timers (start, stop, check status - one timer per channel)
 
 ### Known Limitations
 
@@ -435,10 +585,13 @@ discord-movie-tv-bot/
 
 - [ ] AI-powered search - Use AI to better understand user queries and determine search intent (e.g., automatically detect if searching for a movie, show, or episode; handle typos and variations)
 - [ ] Bulk episode lookup (e.g., search by season number)
-- [ ] Search history and favorites
+- [ ] User favorites and personal watchlists
 - [ ] Streaming availability notifications
 - [ ] Cache frequently searched titles
 - [ ] Support for more streaming services
+- [ ] Export watch history to CSV/JSON
+- [ ] Watch party scheduling with reminders
+- [ ] Community recommendations based on server watch history
 
 ## Troubleshooting
 
