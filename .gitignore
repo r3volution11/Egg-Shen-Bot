@@ -7,6 +7,9 @@ guild_configs/
 # Guild statistics (server-specific stats)
 guild_stats/
 
+# Watch history (server-specific watch logs)
+guild_watch_history/
+
 # Active timers (runtime state)
 active_timers.json
 

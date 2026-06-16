@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { startTimer, stopTimer, getTimerStatus } from '../utils/timerManager.js';
 
 export const data = new SlashCommandBuilder()
@@ -136,7 +136,22 @@ export async function execute(interaction) {
         .setFooter({ text: 'Use /timer start to begin a new timer' })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed] });
+      // Add button to log to watch history if there's a label
+      if (result.label) {
+        const logButton = new ButtonBuilder()
+          .setCustomId(`log_watched_${channelId}_${interaction.user.id}`)
+          .setLabel('📝 Log to Watch History')
+          .setStyle(ButtonStyle.Primary);
+
+        const row = new ActionRowBuilder().addComponents(logButton);
+
+        await interaction.reply({ 
+          embeds: [embed],
+          components: [row],
+        });
+      } else {
+        await interaction.reply({ embeds: [embed] });
+      }
     } else {
       await interaction.reply({
         content: '❌ No active timer in this channel. Use `/timer start` to begin one.',
