@@ -3,6 +3,7 @@ import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { saveWatchHistory, getWatchHistory } from '../utils/watchHistoryManager.js';
 import { trackSearch } from '../utils/statsTracker.js';
+import { loadGuildConfig } from '../utils/guildConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('watched')
@@ -150,7 +151,11 @@ export async function execute(interaction) {
       // Store the rating and notes in the custom ID for later
       const selectionData = JSON.stringify({ rating, notes, userId: interaction.user.id, username: interaction.user.username });
       
-      const options = allResults.slice(0, 5).map((result) => {
+      // Load guild config to get maxSearchResults
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+      const maxResults = guildConfig.maxSearchResults || 8;
+      
+      const options = allResults.slice(0, maxResults).map((result) => {
         const title = result.title || result.name;
         const year = result.release_date || result.first_air_date;
         const yearStr = year ? ` (${year.split('-')[0]})` : '';

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { searchGames } from '../services/rawgService.js';
 import { createGameSearchResults } from '../utils/embedBuilder.js';
-import { canUseCommand } from '../utils/guildConfig.js';
+import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('game')
@@ -67,9 +67,13 @@ export async function execute(interaction) {
       return;
     }
     
+    // Load guild config to get maxSearchResults
+    const guildConfig = await loadGuildConfig(interaction.guildId);
+    const maxResults = guildConfig.maxSearchResults || 8;
+    const limitedResults = results.slice(0, maxResults);
+
     // Create the selection interface (ephemeral for privacy)
-    const response = await createGameSearchResults(results, query);
-    await interaction.editReply(response);
+    const response = await createGameSearchResults(limitedResults, query);
     
   } catch (error) {
     console.error('Game command error:', error);

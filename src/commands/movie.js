@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { searchMovies } from '../services/tmdbService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
-import { canUseCommand } from '../utils/guildConfig.js';
+import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('movie')
@@ -91,9 +91,13 @@ export async function execute(interaction) {
       return;
     }
     
+    // Load guild config to get maxSearchResults
+    const guildConfig = await loadGuildConfig(interaction.guildId);
+    const maxResults = guildConfig.maxSearchResults || 8;
+    const limitedResults = results.slice(0, maxResults);
+
     // Create the selection interface (ephemeral for privacy)
-    const response = await createSearchResults(results, 'movie', query);
-    await interaction.editReply(response);
+    const response = await createSearchResults(limitedResults, 'movie', query);
     
   } catch (error) {
     console.error('Movie command error:', error);
