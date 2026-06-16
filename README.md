@@ -17,7 +17,7 @@ A Discord bot for looking up movies, TV shows, TV show episodes, video games, an
 - � **Streaming Availability** - Shows where to stream, rent, or buy movies and TV shows (powered by TMDB)
 - �🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
 - 🖼️ **Rich Embeds** - Beautiful embedded messages with poster images and metadata
-- 🎯 **Interactive Selection** - Choose from search results via dropdown menu (configurable 1-10, default 8)
+- 🎯 **Interactive Selection** - Choose from search results via dropdown menu (configurable 1-20, default 8)
 - ⚙️ **Per-Server Configuration** - Admins can toggle services and set custom emojis
 - 🔐 **Command Permissions** - Control which commands regular users can access
 - ⏱️ **Channel Timers** - Start and stop timers with optional labels and watch history integration
@@ -505,8 +505,8 @@ This determines which streaming services are shown in movie and TV embeds.
 /eggshen-config max-results count:8
 ```
 
-Configure how many search results to display in dropdown menus (1-10, default: 8). Useful if:
-- You want more options to choose from (increase to 10)
+Configure how many search results to display in dropdown menus (1-20, default: 8). Useful if:
+- You want more options to choose from (increase to 15-20)
 - You prefer fewer choices for faster selection (decrease to 3-5)
 - Your searches often miss the right result (increase for more coverage)
 

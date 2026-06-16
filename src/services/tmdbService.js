@@ -16,7 +16,7 @@ export async function searchMovies(query) {
     const response = await tmdbApi.get('/search/movie', {
       params: { query, language: 'en-US', page: 1 },
     });
-    return response.data.results.slice(0, 10); // Return top 10 results (commands will slice based on guild config)
+    return response.data.results.slice(0, 20); // Return top 20 results (commands will slice based on guild config)
   } catch (error) {
     console.error('TMDB movie search error:', error.message);
     throw new Error('Failed to search for movies');
@@ -31,7 +31,7 @@ export async function searchTVShows(query) {
     const response = await tmdbApi.get('/search/tv', {
       params: { query, language: 'en-US', page: 1 },
     });
-    return response.data.results.slice(0, 10); // Return top 10 results (commands will slice based on guild config)
+    return response.data.results.slice(0, 20); // Return top 20 results (commands will slice based on guild config)
   } catch (error) {
     console.error('TMDB TV search error:', error.message);
     throw new Error('Failed to search for TV shows');
