@@ -232,9 +232,145 @@ export async function execute(interaction) {
         return;
       }
 
-      // Use the first result
-      const showId = showResults[0].id;
-      const showDetails = await getTVShowDetails(showId);
+      // If only one result, use it directly
+      if (showResults.length === 1) {
+        const showId = showResults[0].id;
+        const showDetails = await getTVShowDetails(showId);
+
+        if (!showDetails.number_of_seasons) {
+          await interaction.editReply({
+            content: 'Could not find episodes for this show.',
+          });
+          return;
+        }
+
+        // Pick a random season
+        const randomSeason = Math.floor(Math.random() * showDetails.number_of_seasons) + 1;
+        const seasonDetails = await getSeasonDetails(showId, randomSeason);
+
+        if (!seasonDetails || !seasonDetails.episodes || seasonDetails.episodes.length === 0) {
+          await interaction.editReply({
+            content: `Could not find episodes in season ${randomSeason} of ${showDetails.name}.`,
+          });
+          return;
+        }
+
+        // Pick a random episode
+        const randomEpisode = seasonDetails.episodes[Math.floor(Math.random() * seasonDetails.episodes.length)];
+
+        // Track the random episode search
+        await trackSearch(
+          interaction.guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'random',
+          `Random Episode - ${showDetails.name}`,
+          null
+        );
+
+        await interaction.editReply({
+          content: `🎲 **Random Episode:** ${showDetails.name} - S${randomSeason}E${randomEpisode.episode_number}: ${randomEpisode.name}\n\n${randomEpisode.overview || 'No description available.'}\n\nUse \`/episode show:${showDetails.name} episode:${randomEpisode.name}\` to see full details and ratings.`,
+        });
+        return;
+      }
+
+      // Multiple results - show selection menu
+      const { StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder } = await import('discord.js');
+      
+      const options = showResults.slice(0, 5).map((show) => {
+        const year = show.first_air_date ? ` (${show.first_air_date.split('-')[0]})` : '';
+        const overview = show.overview ? show.overview.substring(0, 50) + '...' : 'No description';
+        
+        return {
+          label: `${show.name}${year}`.substring(0, 100),
+          description: overview.substring(0, 100),
+          value: `random_episode_${show.id}`,
+        };
+      });
+      
+      const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('select_random_episode')
+        .setPlaceholder('Select the TV show')
+        .addOptions(options);
+      
+      const row = new ActionRowBuilder().addComponents(selectMenu);
+      
+      const embed = new EmbedBuilder()
+        .setColor(0x0099FF)
+        .setTitle(`Select TV Show`)
+        .setDescription(`Found ${showResults.length} result${showResults.length > 1 ? 's' : ''} for "${showQuery}". Select the correct show to get a random episode.`)
+        .setFooter({ text: 'Select from the menu below' });
+      
+      await interaction.editReply({
+        embeds: [embed],
+        components: [row],
+      });
+      return;
+    }
+  } catch (error) {
+    console.error('Random command error:', error);
+    await interaction.editReply({
+      content: 'An error occurred while getting random content. Please try again later.',
+    });
+  }
+}
+
+// Helper function to handle random episode selection (called by selectHandler)
+export async function handleRandomEpisodeSelection(showId, interaction) {
+  try {
+    const { getTVShowDetails, getSeasonDetails } = await import('../services/tmdbService.js');
+    const { trackSearch } = await import('../utils/statsTracker.js');
+    
+    const showDetails = await getTVShowDetails(showId);
+
+    if (!showDetails.number_of_seasons) {
+      await interaction.followUp({
+        content: 'Could not find episodes for this show.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Pick a random season
+    const randomSeason = Math.floor(Math.random() * showDetails.number_of_seasons) + 1;
+    const seasonDetails = await getSeasonDetails(showId, randomSeason);
+
+    if (!seasonDetails || !seasonDetails.episodes || seasonDetails.episodes.length === 0) {
+      await interaction.followUp({
+        content: `Could not find episodes in season ${randomSeason} of ${showDetails.name}.`,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Pick a random episode
+    const randomEpisode = seasonDetails.episodes[Math.floor(Math.random() * seasonDetails.episodes.length)];
+
+    // Track the random episode search
+    await trackSearch(
+      interaction.guildId,
+      interaction.user.id,
+      interaction.user.username,
+      'random',
+      `Random Episode - ${showDetails.name}`,
+      null
+    );
+
+    // Delete the selection menu
+    await interaction.message.delete().catch(() => {});
+
+    // Post the result publicly
+    await interaction.channel.send({
+      content: `🎲 **Random Episode:** ${showDetails.name} - S${randomSeason}E${randomEpisode.episode_number}: ${randomEpisode.name}\n\n${randomEpisode.overview || 'No description available.'}\n\nUse \`/episode show:${showDetails.name} episode:${randomEpisode.name}\` to see full details and ratings.`,
+    });
+  } catch (error) {
+    console.error('Random episode selection error:', error);
+    await interaction.followUp({
+      content: 'An error occurred while getting a random episode.',
+      ephemeral: true,
+    });
+  }
+}
 
       if (!showDetails.number_of_seasons) {
         await interaction.editReply({
