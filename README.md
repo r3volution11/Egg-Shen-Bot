@@ -1,4 +1,4 @@
-# Discord Movie and TV Bot
+# Egg Shen Bot
 
 A Discord bot for looking up movies, TV shows, TV show episodes, video games, and board games with comprehensive search, watch party features, and statistics tracking. It provides ratings and links for IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch (for movies/TV), Metacritic and RAWG (for games), and BoardGameGeek (for board games). Easily configurable by administrators and perfect for movie/TV/gaming discussion servers and watch party communities with features like random pickers, watch history logging, similar content recommendations, and channel timers.
 

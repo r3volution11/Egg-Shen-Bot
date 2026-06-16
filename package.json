@@ -1,7 +1,7 @@
 {
-  "name": "discord-movie-tv-bot",
+  "name": "egg-shen-bot",
   "version": "1.0.0",
-  "description": "Discord bot for searching movies and TV shows with ratings from multiple services",
+  "description": "Egg Shen - Discord bot for searching movies, TV shows, games, and board games with ratings from multiple services",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
