@@ -134,30 +134,22 @@ export function getTimerStatus(channelId) {
 }
 
 /**
- * Format elapsed time in a human-readable format
+ * Format elapsed time in video player format (H:MM:SS or M:SS)
  * @param {number} ms - Milliseconds elapsed
- * @returns {string} - Formatted time string
+ * @returns {string} - Formatted time string like "2:43:32" or "5:32" or "0:32"
  */
 function formatElapsedTime(ms) {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
 
-  if (days > 0) {
-    const remainingHours = hours % 24;
-    const remainingMinutes = minutes % 60;
-    const remainingSeconds = seconds % 60;
-    return `${days}d ${remainingHours}h ${remainingMinutes}m ${remainingSeconds}s`;
-  } else if (hours > 0) {
-    const remainingMinutes = minutes % 60;
-    const remainingSeconds = seconds % 60;
-    return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
-  } else if (minutes > 0) {
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
+  if (hours > 0) {
+    // Format: H:MM:SS (e.g., "2:43:32")
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   } else {
-    return `${seconds}s`;
+    // Format: M:SS (e.g., "5:32" or "0:32")
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 }
 
