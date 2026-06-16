@@ -28,16 +28,23 @@ export const data = new SlashCommandBuilder()
           .setDescription('Filter by genre')
           .setRequired(false)
           .addChoices(
-            { name: 'Horror', value: '27' },
-            { name: 'Thriller', value: '53' },
-            { name: 'Science Fiction', value: '878' },
+            { name: 'Action', value: '28' },
+            { name: 'Adventure', value: '12' },
+            { name: 'Animation', value: '16' },
+            { name: 'Comedy', value: '35' },
+            { name: 'Crime', value: '80' },
+            { name: 'Documentary', value: '99' },
+            { name: 'Drama', value: '18' },
+            { name: 'Family', value: '10751' },
             { name: 'Fantasy', value: '14' },
+            { name: 'Horror', value: '27' },
+            { name: 'Music', value: '10402' },
             { name: 'Mystery', value: '9648' },
             { name: 'Romance', value: '10749' },
-            { name: 'Action', value: '28' },
-            { name: 'Comedy', value: '35' },
-            { name: 'Drama', value: '18' },
-            { name: 'Crime', value: '80' }
+            { name: 'Science Fiction', value: '878' },
+            { name: 'Thriller', value: '53' },
+            { name: 'War', value: '10752' },
+            { name: 'Western', value: '37' }
           )
       )
       .addStringOption(option =>
@@ -73,14 +80,21 @@ export const data = new SlashCommandBuilder()
           .setDescription('Filter by genre')
           .setRequired(false)
           .addChoices(
-            { name: 'Horror', value: '27' },
-            { name: 'Sci-Fi & Fantasy', value: '10765' },
-            { name: 'Mystery', value: '9648' },
-            { name: 'Romance', value: '10749' },
-            { name: 'Crime', value: '80' },
-            { name: 'Drama', value: '18' },
+            { name: 'Action & Adventure', value: '10759' },
+            { name: 'Animation', value: '16' },
             { name: 'Comedy', value: '35' },
-            { name: 'Action & Adventure', value: '10759' }
+            { name: 'Crime', value: '80' },
+            { name: 'Documentary', value: '99' },
+            { name: 'Drama', value: '18' },
+            { name: 'Family', value: '10751' },
+            { name: 'Horror', value: '27' },
+            { name: 'Mystery', value: '9648' },
+            { name: 'News', value: '10763' },
+            { name: 'Reality', value: '10764' },
+            { name: 'Romance', value: '10749' },
+            { name: 'Sci-Fi & Fantasy', value: '10765' },
+            { name: 'War & Politics', value: '10768' },
+            { name: 'Western', value: '37' }
           )
       )
       .addStringOption(option =>
