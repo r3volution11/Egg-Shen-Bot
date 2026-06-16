@@ -40,13 +40,20 @@ client.once('ready', async () => {
   // Load persisted timers from previous session
   const restoredTimers = await loadTimers();
   
-  // Send restart announcements to channels with active timers
+  // Send restart announcements to channels with active timers (if enabled)
   if (restoredTimers.size > 0) {
+    const { loadGuildConfig } = await import('./utils/guildConfig.js');
+    
     for (const [channelId, timerData] of restoredTimers) {
       try {
         const channel = await client.channels.fetch(channelId);
         
         if (channel && channel.isTextBased()) {
+          // Check if restart announcements are enabled for this guild
+          const guildConfig = await loadGuildConfig(channel.guildId);
+          if (!guildConfig.notifications?.restartAnnouncements) {
+            continue; // Skip if notifications are disabled
+          }
           const currentStatus = getTimerStatus(channelId);
           
           const embed = new EmbedBuilder()
