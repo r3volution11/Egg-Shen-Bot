@@ -328,6 +328,29 @@ export async function handleSelectInteraction(interaction) {
       // Delete ephemeral menu and send public result
       await interaction.message.delete().catch(() => {});
       await interaction.channel.send(response);
+      
+    } else if (type === 'boardgame') {
+      const { getBoardGameDetails } = await import('../services/bggService.js');
+      const { createBoardGameDetailedEmbed } = await import('../utils/embedBuilder.js');
+      
+      const boardGame = await getBoardGameDetails(id);
+      
+      // Track board game search
+      if (statsConfig.enabled && statsConfig.trackBoardGames) {
+        await trackSearch(
+          guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'boardgame',
+          boardGame.name,
+          boardGame.yearPublished
+        ).catch(err => console.error('Stats tracking error:', err));
+      }
+      
+      const response = await createBoardGameDetailedEmbed(boardGame);
+      // Delete ephemeral menu and send public result
+      await interaction.message.delete().catch(() => {});
+      await interaction.channel.send(response);
     }
     
   } catch (error) {

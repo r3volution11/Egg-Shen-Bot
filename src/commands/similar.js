@@ -1,16 +1,17 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { searchMovies, searchTVShows, getSimilarMovies, getSimilarTV, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
 import { searchGames } from '../services/rawgService.js';
+import { searchBoardGames } from '../services/bggService.js';
 import { canUseCommand } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
 
 export const data = new SlashCommandBuilder()
   .setName('similar')
-  .setDescription('Find similar movies, TV shows, or games')
+  .setDescription('Find similar movies, TV shows, games, or board games')
   .addStringOption(option =>
     option
       .setName('title')
-      .setDescription('Movie, TV show, or game title')
+      .setDescription('Movie, TV show, game, or board game title')
       .setRequired(true)
   )
   .addStringOption(option =>
@@ -21,7 +22,8 @@ export const data = new SlashCommandBuilder()
       .addChoices(
         { name: 'Movie', value: 'movie' },
         { name: 'TV Show', value: 'tv' },
-        { name: 'Game', value: 'game' }
+        { name: 'Video Game', value: 'game' },
+        { name: 'Board Game', value: 'boardgame' }
       )
   );
 
@@ -49,9 +51,14 @@ export async function execute(interaction) {
       const gameResults = await searchGames(title);
       allResults.push(...(gameResults || []).map(r => ({ ...r, type: 'game' })));
     }
+    
+    if (!mediaType || mediaType === 'boardgame') {
+      const boardGameResults = await searchBoardGames(title);
+      allResults.push(...(boardGameResults || []).map(r => ({ ...r, type: 'boardgame' })));
+    }
 
     if (allResults.length === 0) {
-      const typeText = mediaType ? `${mediaType}s` : 'movies, TV shows, or games';
+      const typeText = mediaType ? `${mediaType}s` : 'content';
       await interaction.editReply({
         content: `No ${typeText} found matching "${title}".`,
       });
@@ -70,6 +77,9 @@ export async function execute(interaction) {
       if (result.type === 'game') {
         const { getSimilarGames } = await import('../services/rawgService.js');
         similar = await getSimilarGames(result.id);
+      } else if (result.type === 'boardgame') {
+        const { getSimilarBoardGames } = await import('../services/bggService.js');
+        similar = await getSimilarBoardGames(result.id);
       } else {
         similar = result.type === 'movie'
           ? await getSimilarMovies(result.id)
@@ -83,19 +93,25 @@ export async function execute(interaction) {
         return;
       }
 
+      const mediaIcon = result.type === 'game' ? '🎮' : result.type === 'boardgame' ? '🎲' : '📺';
+      const mediaColor = result.type === 'game' ? 0x9147FF : result.type === 'boardgame' ? 0xFF5733 : 0x5865F2;
+      const mediaName = result.type === 'movie' ? 'movie' : result.type === 'tv' ? 'TV show' : result.type === 'game' ? 'game' : 'board game';
+      
       const embed = new EmbedBuilder()
-        .setColor(result.type === 'game' ? 0x9147FF : 0x5865F2)
-        .setTitle(`${result.type === 'game' ? '🎮' : '📺'} Similar to ${fullTitle}${yearStr}`)
-        .setDescription(`Here are ${similar.length} recommendations similar to this ${result.type === 'movie' ? 'movie' : result.type === 'tv' ? 'TV show' : 'game'}:\n\n`);
+        .setColor(mediaColor)
+        .setTitle(`${mediaIcon} Similar to ${fullTitle}${yearStr}`)
+        .setDescription(`Here are ${similar.length} recommendations similar to this ${mediaName}:\n\n`);
 
       const recommendations = similar.slice(0, 10).map((item, index) => {
         const title = item.title || item.name;
-        const year = item.release_date || item.first_air_date || item.released;
-        const yearStr = year ? ` (${year.split('-')[0]})` : '';
+        const year = item.release_date || item.first_air_date || item.released || item.yearPublished;
+        const yearStr = year ? ` (${year.toString().split('-')[0]})` : '';
         let rating = '';
         
         if (result.type === 'game') {
           rating = item.rating ? ` • ⭐ ${item.rating.toFixed(1)}/5` : '';
+        } else if (result.type === 'boardgame') {
+          rating = item.rating?.average ? ` • ⭐ ${parseFloat(item.rating.average).toFixed(1)}/10` : '';
         } else {
           rating = item.vote_average ? ` • ⭐ ${item.vote_average.toFixed(1)}/10` : '';
         }
@@ -104,7 +120,8 @@ export async function execute(interaction) {
       }).join('\n');
 
       embed.setDescription(embed.data.description + recommendations);
-      embed.setFooter({ text: `Use /${result.type === 'game' ? 'game' : result.type} to see full details and ratings` });
+      const footerCommand = result.type === 'boardgame' ? 'boardgame' : result.type;
+      embed.setFooter({ text: `Use /${footerCommand} to see full details and ratings` });
 
       // Track the similar search
       await trackSearch(
@@ -125,10 +142,10 @@ export async function execute(interaction) {
     
     const options = allResults.slice(0, 5).map((result) => {
       const title = result.title || result.name;
-      const year = result.release_date || result.first_air_date || result.released;
-      const yearStr = year ? ` (${year.split('-')[0]})` : '';
+      const year = result.release_date || result.first_air_date || result.released || result.yearPublished;
+      const yearStr = year ? ` (${year.toString().split('-')[0]})` : '';
       const overview = result.overview ? result.overview.substring(0, 50) + '...' : 'No description';
-      const icon = result.type === 'movie' ? '🎬' : result.type === 'tv' ? '📺' : '🎮';
+      const icon = result.type === 'movie' ? '🎬' : result.type === 'tv' ? '📺' : result.type === 'game' ? '🎮' : '🎲';
       
       return {
         label: `${title}${yearStr}`.substring(0, 100),
@@ -139,7 +156,7 @@ export async function execute(interaction) {
     
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId('select_similar')
-      .setPlaceholder('Select the movie, TV show, or game')
+      .setPlaceholder('Select the content')
       .addOptions(options);
     
     const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -182,6 +199,17 @@ export async function handleSimilarSelection(type, itemId, interaction) {
       
       // Get similar games
       similar = await getSimilarGames(itemId);
+    } else if (type === 'boardgame') {
+      const { getBoardGameDetails, getSimilarBoardGames } = await import('../services/bggService.js');
+      
+      // Get board game details
+      const details = await getBoardGameDetails(itemId);
+      fullTitle = details.name;
+      const year = details.yearPublished;
+      yearStr = year ? ` (${year})` : '';
+      
+      // Get similar board games
+      similar = await getSimilarBoardGames(itemId);
     } else {
       const { getMovieDetails, getTVShowDetails, getSimilarMovies, getSimilarTV } = await import('../services/tmdbService.js');
       
@@ -208,19 +236,25 @@ export async function handleSimilarSelection(type, itemId, interaction) {
       return;
     }
 
+    const mediaIcon = type === 'game' ? '🎮' : type === 'boardgame' ? '🎲' : '📺';
+    const mediaColor = type === 'game' ? 0x9147FF : type === 'boardgame' ? 0xFF5733 : 0x5865F2;
+    const mediaName = type === 'movie' ? 'movie' : type === 'tv' ? 'TV show' : type === 'game' ? 'game' : 'board game';
+    
     const embed = new EmbedBuilder()
-      .setColor(type === 'game' ? 0x9147FF : 0x5865F2)
-      .setTitle(`${type === 'game' ? '🎮' : '📺'} Similar to ${fullTitle}${yearStr}`)
-      .setDescription(`Here are ${similar.length} recommendations similar to this ${type === 'movie' ? 'movie' : type === 'tv' ? 'TV show' : 'game'}:\n\n`);
+      .setColor(mediaColor)
+      .setTitle(`${mediaIcon} Similar to ${fullTitle}${yearStr}`)
+      .setDescription(`Here are ${similar.length} recommendations similar to this ${mediaName}:\n\n`);
 
     const recommendations = similar.slice(0, 10).map((item, index) => {
       const title = item.title || item.name;
-      const year = item.release_date || item.first_air_date || item.released;
-      const yearStr = year ? ` (${year.split('-')[0]})` : '';
+      const year = item.release_date || item.first_air_date || item.released || item.yearPublished;
+      const yearStr = year ? ` (${year.toString().split('-')[0]})` : '';
       let rating = '';
       
       if (type === 'game') {
         rating = item.rating ? ` • ⭐ ${item.rating.toFixed(1)}/5` : '';
+      } else if (type === 'boardgame') {
+        rating = item.rating?.average ? ` • ⭐ ${parseFloat(item.rating.average).toFixed(1)}/10` : '';
       } else {
         rating = item.vote_average ? ` • ⭐ ${item.vote_average.toFixed(1)}/10` : '';
       }
@@ -229,7 +263,8 @@ export async function handleSimilarSelection(type, itemId, interaction) {
     }).join('\n');
 
     embed.setDescription(embed.data.description + recommendations);
-    embed.setFooter({ text: `Use /${type} to see full details and ratings` });
+    const footerCommand = type === 'boardgame' ? 'boardgame' : type;
+    embed.setFooter({ text: `Use /${footerCommand} to see full details and ratings` });
 
     // Track the similar search
     await trackSearch(

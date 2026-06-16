@@ -1,6 +1,6 @@
 # Discord Movie and TV Bot
 
-A Discord bot for looking up movies, TV shows, TV show episodes, and video games with comprehensive search, watch party features, and statistics tracking. It provides ratings and links for IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch (for movies/TV) and Metacritic, RAWG (for games). Easily configurable by administrators and perfect for movie/TV/gaming discussion servers and watch party communities with features like random pickers, watch history logging, similar content recommendations, and channel timers.
+A Discord bot for looking up movies, TV shows, TV show episodes, video games, and board games with comprehensive search, watch party features, and statistics tracking. It provides ratings and links for IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch (for movies/TV), Metacritic and RAWG (for games), and BoardGameGeek (for board games). Easily configurable by administrators and perfect for movie/TV/gaming discussion servers and watch party communities with features like random pickers, watch history logging, similar content recommendations, and channel timers.
 
 ## Features
 
@@ -8,9 +8,10 @@ A Discord bot for looking up movies, TV shows, TV show episodes, and video games
 - 📺 **TV Show Search** - Search for TV shows with the `/tv` command
 - 🎞️ **Episode Search** - Search for specific TV episodes with the `/episode` command
 - � **Game Search** - Search for video games with the `/game` command
-- 🎲 **Random Picker** - Get random movies, TV shows, episodes, or games with genre/decade/rating/platform filters
+- 🎲 **Board Game Search** - Search for board games with the `/boardgame` command
+- 🎯 **Random Picker** - Get random movies, TV shows, episodes, games, or board games with genre/decade/rating/platform filters
 - 📝 **Watch History** - Log what you watched with ratings and notes, view server watch history
-- 🔍 **Similar Content** - Find similar movies, TV shows, or games based on any title
+- 🔍 **Similar Content** - Find similar movies, TV shows, games, or board games based on any title
 - 📊 **Public Statistics** - Anyone can view server stats and personal usage statistics
 - ⭐ **Multiple Ratings** - Display ratings from IMDb, Trakt, and Rotten Tomatoes
 - 🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
@@ -181,6 +182,29 @@ The bot will:
    - Genres
    - Links to official website, RAWG page, and Metacritic
 
+### Board Game Search
+
+```
+/boardgame Wingspan
+```
+
+The bot will:
+
+1. Display up to 5 search results in a dropdown menu
+2. Let you select the correct board game
+3. Show a detailed embed with:
+   - Game cover art
+   - Description
+   - BoardGameGeek rating (out of 10)
+   - Geek rating (BGG's adjusted rating)
+   - Overall rank
+   - Number of players
+   - Playing time
+   - Complexity weight
+   - Categories and mechanics
+   - Designers and publishers
+   - Link to BoardGameGeek page
+
 ### Timer
 
 **Start a Timer:**
@@ -269,6 +293,17 @@ Get a random game with optional filters:
 - **platform** - PC, PlayStation, Xbox, Nintendo Switch, Mobile
 - **min-rating** - Minimum RAWG rating (1.0-5.0)
 
+**Random Board Game:**
+
+```
+/random boardgame category:Strategy min-rating:7.0
+```
+
+Get a random board game with optional filters:
+
+- **category** - Strategy, Family, Party, Abstract, Thematic, War, Economic, Children's
+- **min-rating** - Minimum BoardGameGeek rating (1.0-10.0)
+
 ### Watch History
 
 **Add to Watch History:**
@@ -309,23 +344,24 @@ When you stop a timer with a label:
 ```
 /similar title:The Last of Us type:game
 /similar title:Hereditary type:movie
+/similar title:Wingspan type:boardgame
 /similar title:The Shining
 ```
 
-Find similar movies, TV shows, or games based on any title. The bot will:
+Find similar movies, TV shows, games, or board games based on any title. The bot will:
 
 1. Search for the title (optionally filtered by media type)
-2. Use similarity algorithms (TMDB for movies/TV, RAWG for games)
+2. Use similarity algorithms (TMDB for movies/TV, RAWG for games, BGG for board games)
 3. Display top 10 similar recommendations with years and ratings
 
 **Options:**
 
-- **title** (required) - The movie, TV show, or game title to find similar content for
-- **type** (optional) - Specify media type: `movie`, `tv`, or `game`
+- **title** (required) - The title to find similar content for
+- **type** (optional) - Specify media type: `movie`, `tv`, `game`, or `boardgame`
   - If not specified, searches all types (useful for discovering cross-media)
-  - Recommended when titles overlap (e.g., "The Last of Us", "Resident Evil")
+  - Recommended when titles overlap (e.g., "The Last of Us", "Resident Evil", "Dune")
 
-Perfect for discovering what to watch or play next!
+Perfect for discovering what to watch, play, or add to your board game collection!
 
 ### Public Statistics
 
@@ -699,4 +735,5 @@ MIT License - feel free to use and modify as needed.
 - [OMDB](http://www.omdbapi.com/) for IMDb and Rotten Tomatoes ratings
 - [Trakt](https://trakt.tv) for community ratings
 - [RAWG](https://rawg.io/) for comprehensive video game data and ratings
+- [BoardGameGeek](https://boardgamegeek.com/) for comprehensive board game data and ratings
 - [discord.js](https://discord.js.org/) for the Discord bot framework

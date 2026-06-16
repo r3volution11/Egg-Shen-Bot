@@ -154,6 +154,33 @@ export const data = new SlashCommandBuilder()
           .setDescription('Minimum rating (1-5)')
           .setRequired(false)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('boardgame')
+      .setDescription('Get a random board game with optional filters')
+      .addStringOption(option =>
+        option
+          .setName('category')
+          .setDescription('Filter by category')
+          .setRequired(false)
+          .addChoices(
+            { name: 'Horror', value: 'Horror' },
+            { name: 'Fantasy', value: 'Fantasy' },
+            { name: 'Science Fiction', value: 'Science Fiction' },
+            { name: 'Adventure', value: 'Adventure' },
+            { name: 'Cooperative', value: 'Cooperative' },
+            { name: 'Strategy', value: 'Strategy' },
+            { name: 'Card Game', value: 'Card Game' },
+            { name: 'Party Game', value: 'Party Game' }
+          )
+      )
+      .addStringOption(option =>
+        option
+          .setName('min-rating')
+          .setDescription('Minimum BGG rating (1-10)')
+          .setRequired(false)
+      )
   );
 
 export async function execute(interaction) {
@@ -399,6 +426,42 @@ export async function execute(interaction) {
       );
       
       const response = await createGameDetailedEmbed(game);
+      await interaction.editReply(response);
+      
+    } else if (subcommand === 'boardgame') {
+      const { getRandomBoardGame } = await import('../services/bggService.js');
+      const { createBoardGameDetailedEmbed } = await import('../utils/embedBuilder.js');
+      
+      const categoryFilter = interaction.options.getString('category');
+      const minRating = interaction.options.getString('min-rating');
+      
+      // Validate min-rating
+      if (minRating && (isNaN(minRating) || parseFloat(minRating) < 1 || parseFloat(minRating) > 10)) {
+        await interaction.editReply({
+          content: '❌ Minimum rating must be a number between 1 and 10.',
+        });
+        return;
+      }
+      
+      // Build filter object
+      const filters = {};
+      if (categoryFilter) filters.category = categoryFilter;
+      if (minRating) filters.minRating = parseFloat(minRating);
+      
+      // Get random board game
+      const boardGame = await getRandomBoardGame(filters);
+      
+      // Track the random board game search
+      await trackSearch(
+        interaction.guildId,
+        interaction.user.id,
+        interaction.user.username,
+        'random',
+        `Random Board Game - ${boardGame.name}`,
+        boardGame.yearPublished
+      );
+      
+      const response = await createBoardGameDetailedEmbed(boardGame);
       await interaction.editReply(response);
     }
   } catch (error) {
