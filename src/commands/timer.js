@@ -35,26 +35,9 @@ export async function execute(interaction) {
     const userId = interaction.user.id;
     const username = interaction.user.username;
 
-    const started = startTimer(channelId, userId, username, label);
-
-    if (started) {
-      const embed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('⏱️ Timer Started 🟩')
-        .setDescription(label ? `**${label}**` : 'Timer is now running')
-        .addFields({
-          name: 'Started by',
-          value: `${interaction.user}`,
-          inline: true,
-        })
-        .setFooter({ text: 'Use /timer stop to end the timer' })
-        .setTimestamp();
-
-      await interaction.reply({ embeds: [embed] });
-    } else {
-      // Timer already exists
-      const currentTimer = getTimerStatus(channelId);
-      
+    // Check if timer already exists
+    const existingTimer = getTimerStatus(channelId);
+    if (existingTimer) {
       const embed = new EmbedBuilder()
         .setColor(0xFF9900)
         .setTitle('⚠️ Timer Already Running')
@@ -62,24 +45,69 @@ export async function execute(interaction) {
         .addFields(
           {
             name: 'Current Timer',
-            value: currentTimer.label || 'No label',
+            value: existingTimer.label || 'No label',
             inline: true,
           },
           {
             name: 'Elapsed Time',
-            value: currentTimer.elapsedFormatted,
+            value: existingTimer.elapsedFormatted,
             inline: true,
           },
           {
             name: 'Started by',
-            value: currentTimer.username,
+            value: existingTimer.username,
             inline: true,
           }
         )
         .setFooter({ text: 'Use /timer stop to end the current timer first' });
 
       await interaction.reply({ embeds: [embed], ephemeral: true });
+      return;
     }
+
+    // Show countdown before starting
+    const countdownEmbed = new EmbedBuilder()
+      .setColor(0xFFAA00)
+      .setTitle('⏱️ Starting Timer...')
+      .setDescription('**5**')
+      .setFooter({ text: 'Get ready!' });
+    
+    await interaction.reply({ embeds: [countdownEmbed] });
+    
+    // Countdown from 5 to 1
+    for (let i = 4; i >= 1; i--) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      countdownEmbed.setDescription(`**${i}**`);
+      await interaction.editReply({ embeds: [countdownEmbed] });
+    }
+    
+    // Wait 1 more second then show GO!
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    countdownEmbed
+      .setColor(0x00FF00)
+      .setTitle('⏱️ GO! 🟩')
+      .setDescription('Timer is running!');
+    await interaction.editReply({ embeds: [countdownEmbed] });
+    
+    // NOW start the actual timer
+    startTimer(channelId, userId, username, label);
+    
+    // Wait another second then show the final timer started message
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle('⏱️ Timer Started 🟩')
+      .setDescription(label ? `**${label}**` : 'Timer is now running')
+      .addFields({
+        name: 'Started by',
+        value: `${interaction.user}`,
+        inline: true,
+      })
+      .setFooter({ text: 'Use /timer stop to end the timer' })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
   } else if (subcommand === 'stop') {
     const result = stopTimer(channelId);
 

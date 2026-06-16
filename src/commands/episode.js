@@ -32,7 +32,7 @@ export async function execute(interaction) {
   const showQuery = interaction.options.getString('show');
   const episodeQuery = interaction.options.getString('episode');
   
-  await interaction.deferReply();
+  await interaction.deferReply({ ephemeral: true });
   
   try {
     // First, search for the TV show
@@ -107,7 +107,6 @@ export async function execute(interaction) {
     
     // Create the selection interface with episode name stored (ephemeral for privacy)
     const response = await createEpisodeSearchResults(showResults, showQuery, episodeQuery);
-    response.ephemeral = true;
     await interaction.editReply(response);
     
   } catch (error) {

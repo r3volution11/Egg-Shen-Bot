@@ -26,7 +26,7 @@ export async function execute(interaction) {
 
   const query = interaction.options.getString('query');
   
-  await interaction.deferReply();
+  await interaction.deferReply({ ephemeral: true });
   
   try {
     // Note: Currently searches for TV series only
@@ -96,7 +96,6 @@ export async function execute(interaction) {
     
     // Create the selection interface (ephemeral for privacy)
     const response = await createSearchResults(results, 'tv', query);
-    response.ephemeral = true;
     await interaction.editReply(response);
     
   } catch (error) {
