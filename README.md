@@ -17,7 +17,7 @@ A Discord bot for looking up movies, TV shows, TV show episodes, video games, an
 - � **Streaming Availability** - Shows where to stream, rent, or buy movies and TV shows (powered by TMDB)
 - �🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
 - 🖼️ **Rich Embeds** - Beautiful embedded messages with poster images and metadata
-- 🎯 **Interactive Selection** - Choose from up to 5 search results via dropdown menu
+- 🎯 **Interactive Selection** - Choose from search results via dropdown menu (configurable 1-10, default 8)
 - ⚙️ **Per-Server Configuration** - Admins can toggle services and set custom emojis
 - 🔐 **Command Permissions** - Control which commands regular users can access
 - ⏱️ **Channel Timers** - Start and stop timers with optional labels and watch history integration
@@ -115,7 +115,7 @@ You should see:
 
 The bot will:
 
-1. Display up to 5 search results in a dropdown menu
+1. Display search results in a dropdown menu (up to 8 by default, configurable with `/eggshen-config max-results`)
 2. Let you select the correct movie
 3. Show a detailed embed with:
    - Movie poster
@@ -151,7 +151,7 @@ Similar to movie search, but displays:
 The bot will:
 
 1. Search for the TV show you specified
-2. Display up to 5 matching shows in a dropdown (useful when multiple versions exist)
+2. Display matching shows in a dropdown (up to 8 by default, useful when multiple versions exist)
 3. Once you select the correct show, it searches for the episode by name
 4. Shows a detailed embed with:
    - Episode title and show name
@@ -173,7 +173,7 @@ The bot will:
 
 The bot will:
 
-1. Display up to 5 search results in a dropdown menu
+1. Display search results in a dropdown menu (up to 8 by default)
 2. Let you select the correct game
 3. Show a detailed embed with:
    - Game cover art/screenshot
@@ -194,7 +194,7 @@ The bot will:
 
 The bot will:
 
-1. Display up to 5 search results in a dropdown menu
+1. Display search results in a dropdown menu (up to 8 by default)
 2. Let you select the correct board game
 3. Show a detailed embed with:
    - Game cover art
@@ -499,7 +499,18 @@ Set your preferred region for streaming availability using ISO 3166-1 country co
 
 This determines which streaming services are shown in movie and TV embeds.
 
-**View Statistics (Admin/Moderator):****
+**Set Maximum Search Results:**
+
+```
+/eggshen-config max-results count:8
+```
+
+Configure how many search results to display in dropdown menus (1-10, default: 8). Useful if:
+- You want more options to choose from (increase to 10)
+- You prefer fewer choices for faster selection (decrease to 3-5)
+- Your searches often miss the right result (increase for more coverage)
+
+**View Statistics (Admin/Moderator):**
 
 ```
 /eggshen-stats filter:all-time
