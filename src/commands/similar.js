@@ -31,7 +31,7 @@ export async function execute(interaction) {
   const title = interaction.options.getString('title');
   const mediaType = interaction.options.getString('type');
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply();
 
   try {
     // Search based on specified media type, or all types if not specified
