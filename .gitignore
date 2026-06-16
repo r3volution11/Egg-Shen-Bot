@@ -7,6 +7,9 @@ guild_configs/
 # Guild statistics (server-specific stats)
 guild_stats/
 
+# Active timers (runtime state)
+active_timers.json
+
 # Dependencies
 node_modules/
 

@@ -1,11 +1,64 @@
 /**
  * Timer Management System
  * Manages channel-specific timers (one active timer per channel)
- * Timers are stored in memory and reset when the bot restarts
+ * Timers are persisted to disk and restored on bot restart
  */
+
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Store active timers: { channelId: { startTime, userId, username, label } }
 const activeTimers = new Map();
+
+// Path to persist timers
+const TIMERS_FILE = path.join(__dirname, '../../active_timers.json');
+
+/**
+ * Save active timers to disk
+ */
+async function saveTimers() {
+  try {
+    const timersData = {};
+    for (const [channelId, timer] of activeTimers.entries()) {
+      timersData[channelId] = timer;
+    }
+    await fs.writeFile(TIMERS_FILE, JSON.stringify(timersData, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Error saving timers:', error);
+  }
+}
+
+/**
+ * Load timers from disk on bot startup
+ * @returns {Map} - Map of channelId to timer data for channels that had active timers
+ */
+export async function loadTimers() {
+  try {
+    const data = await fs.readFile(TIMERS_FILE, 'utf8');
+    const timersData = JSON.parse(data);
+    
+    const restoredTimers = new Map();
+    
+    for (const [channelId, timer] of Object.entries(timersData)) {
+      activeTimers.set(channelId, timer);
+      restoredTimers.set(channelId, timer);
+    }
+    
+    console.log(`✓ Restored ${restoredTimers.size} active timer(s) from previous session`);
+    return restoredTimers;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      // File doesn't exist yet, that's fine
+      return new Map();
+    }
+    console.error('Error loading timers:', error);
+    return new Map();
+  }
+}
 
 /**
  * Start a timer in a channel
@@ -28,6 +81,9 @@ export function startTimer(channelId, userId, username, label = '') {
     label: label || '',
   });
 
+  // Save to disk
+  saveTimers().catch(err => console.error('Failed to save timers:', err));
+
   return true;
 }
 
@@ -45,6 +101,9 @@ export function stopTimer(channelId) {
 
   const elapsedMs = Date.now() - timer.startTime;
   activeTimers.delete(channelId);
+
+  // Save to disk
+  saveTimers().catch(err => console.error('Failed to save timers:', err));
 
   return {
     ...timer,
