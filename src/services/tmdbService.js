@@ -217,8 +217,8 @@ export async function discoverRandomMovie(filters = {}) {
     
     if (filters.decade) {
       const startYear = parseInt(filters.decade);
-      params.primary_release_date_gte = `${startYear}-01-01`;
-      params.primary_release_date_lte = `${startYear + 9}-12-31`;
+      params['primary_release_date.gte'] = `${startYear}-01-01`;
+      params['primary_release_date.lte'] = `${startYear + 9}-12-31`;
     }
     
     if (filters.minRating) {
@@ -262,6 +262,12 @@ export async function discoverRandomTV(filters = {}) {
 
     if (filters.genre) {
       params.with_genres = filters.genre;
+    }
+    
+    if (filters.decade) {
+      const startYear = parseInt(filters.decade);
+      params['first_air_date.gte'] = `${startYear}-01-01`;
+      params['first_air_date.lte'] = `${startYear + 9}-12-31`;
     }
     
     if (filters.year) {
