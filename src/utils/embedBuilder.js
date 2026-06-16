@@ -102,6 +102,7 @@ export async function createDetailedEmbed(data, type, enabledServices = null, gu
     tmdb,
     omdb,
     trakt,
+    letterboxd,
     urls,
   } = data;
   
@@ -228,12 +229,12 @@ export async function createEpisodeEmbed(data, enabledServices = null, guildEmoj
 
 /**
  * Build the ratings text with links and icons - compact inline format
- * @param {Object} data - Contains omdb, trakt, and urls data
+ * @param {Object} data - Contains omdb, trakt, letterboxd, and urls data
  * @param {Object} enabledServices - Object mapping service names to boolean (enabled/disabled)
  * @param {Object} guildEmojis - Guild-specific emoji configuration
  */
 function buildRatingsText(data, enabledServices = null, guildEmojis = null) {
-  const { omdb, trakt, urls } = data;
+  const { omdb, trakt, letterboxd, urls } = data;
   const badges = [];
   
   // If no service config provided, enable all services
@@ -259,10 +260,14 @@ function buildRatingsText(data, enabledServices = null, guildEmojis = null) {
     }
   }
   
-  // Letterboxd (no rating available via API)
+  // Letterboxd
   if (services.letterboxd && urls.letterboxd) {
     const icon = emojis.letterboxd ? `${emojis.letterboxd} ` : '';
-    badges.push(`[${icon}**Letterboxd**](${urls.letterboxd})`);
+    if (letterboxd && letterboxd.rating) {
+      badges.push(`[${icon}**Letterboxd:** ${letterboxd.rating.toFixed(1)}](${urls.letterboxd})`);
+    } else {
+      badges.push(`[${icon}**Letterboxd**](${urls.letterboxd})`);
+    }
   }
   
   // Trakt

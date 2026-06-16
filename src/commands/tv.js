@@ -89,7 +89,7 @@ export async function execute(interaction) {
         ).catch(err => console.error('Stats tracking error:', err));
       }
       
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd: null, urls }, 'tv', enabledServices, guildEmojis);
       await interaction.editReply(response);
       return;
     }
