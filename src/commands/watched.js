@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { saveWatchHistory, getWatchHistory } from '../utils/watchHistoryManager.js';
+import { trackSearch } from '../utils/statsTracker.js';
 
 export const data = new SlashCommandBuilder()
   .setName('watched')
@@ -130,6 +131,16 @@ export async function execute(interaction) {
 
         embed.setFooter({ text: `Added by ${interaction.user.username}` });
         embed.setTimestamp();
+
+        // Track the watched log
+        await trackSearch(
+          interaction.guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'watched',
+          fullTitle,
+          yearStr
+        );
 
         await interaction.editReply({ embeds: [embed] });
         return;

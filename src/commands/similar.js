@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { searchMovies, searchTVShows, getSimilarMovies, getSimilarTV, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
 import { canUseCommand } from '../utils/guildConfig.js';
+import { trackSearch } from '../utils/statsTracker.js';
 
 export const data = new SlashCommandBuilder()
   .setName('similar')
@@ -70,6 +71,16 @@ export async function execute(interaction) {
 
     embed.setDescription(embed.data.description + recommendations);
     embed.setFooter({ text: `Use /${result.type === 'movie' ? 'movie' : 'tv'} to see full details and ratings` });
+
+    // Track the similar search
+    await trackSearch(
+      interaction.guildId,
+      interaction.user.id,
+      interaction.user.username,
+      'similar',
+      fullTitle,
+      yearStr.replace(/[()\s]/g, '')
+    );
 
     await interaction.editReply({ embeds: [embed] });
 

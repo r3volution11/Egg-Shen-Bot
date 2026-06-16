@@ -190,6 +190,17 @@ client.on('interactionCreate', async (interaction) => {
           watchedAt: Date.now(),
         });
         
+        // Track watched log in statistics
+        const { trackSearch } = await import('./utils/statsTracker.js');
+        await trackSearch(
+          interaction.guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'watched',
+          fullTitle,
+          yearStr
+        );
+        
         const embed = new EmbedBuilder()
           .setColor(0x00FF00)
           .setTitle('✅ Added to Watch History')

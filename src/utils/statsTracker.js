@@ -42,7 +42,8 @@ export async function loadGuildStats(guildId) {
       topMovies: {}, // { "Movie Title (Year)": count }
       topShows: {}, // { "Show Title (Year)": count }
       topEpisodes: {}, // { "Show Title - Episode Name": count }
-      userStats: {}, // { userId: { username, totalSearches, movies, shows, episodes } }
+      commandCounts: { random: 0, watched: 0, similar: 0 }, // Command usage counts
+      userStats: {}, // { userId: { username, totalSearches, movies, shows, episodes, random, watched, similar } }
     };
   }
 }
@@ -89,6 +90,14 @@ export async function trackSearch(guildId, userId, username, type, title, year =
     stats.topEpisodes[contentKey] = (stats.topEpisodes[contentKey] || 0) + 1;
   }
   
+  // Track command-specific counts
+  if (type === 'random' || type === 'watched' || type === 'similar') {
+    if (!stats.commandCounts) {
+      stats.commandCounts = { random: 0, watched: 0, similar: 0 };
+    }
+    stats.commandCounts[type] = (stats.commandCounts[type] || 0) + 1;
+  }
+  
   // Update user stats
   if (!stats.userStats[userId]) {
     stats.userStats[userId] = {
@@ -97,6 +106,9 @@ export async function trackSearch(guildId, userId, username, type, title, year =
       movies: 0,
       shows: 0,
       episodes: 0,
+      random: 0,
+      watched: 0,
+      similar: 0,
     };
   }
   
@@ -109,6 +121,12 @@ export async function trackSearch(guildId, userId, username, type, title, year =
     stats.userStats[userId].shows++;
   } else if (type === 'episode') {
     stats.userStats[userId].episodes++;
+  } else if (type === 'random') {
+    stats.userStats[userId].random++;
+  } else if (type === 'watched') {
+    stats.userStats[userId].watched++;
+  } else if (type === 'similar') {
+    stats.userStats[userId].similar++;
   }
   
   // Save updated stats
@@ -136,9 +154,12 @@ function getTopUsers(userStatsObject, limit = 10) {
       userId,
       username: stats.username,
       totalSearches: stats.totalSearches,
-      movies: stats.movies,
-      shows: stats.shows,
-      episodes: stats.episodes,
+      movies: stats.movies || 0,
+      shows: stats.shows || 0,
+      episodes: stats.episodes || 0,
+      random: stats.random || 0,
+      watched: stats.watched || 0,
+      similar: stats.similar || 0,
     }));
 }
 
@@ -173,6 +194,7 @@ export async function getStats(guildId, filter = 'all-time') {
       topMovies: {},
       topShows: {},
       topEpisodes: {},
+      commandCounts: { random: 0, watched: 0, similar: 0 },
       userStats: {},
     };
     
@@ -188,6 +210,11 @@ export async function getStats(guildId, filter = 'all-time') {
         filteredStats.topEpisodes[contentKey] = (filteredStats.topEpisodes[contentKey] || 0) + 1;
       }
       
+      // Track command counts
+      if (search.type === 'random' || search.type === 'watched' || search.type === 'similar') {
+        filteredStats.commandCounts[search.type] = (filteredStats.commandCounts[search.type] || 0) + 1;
+      }
+      
       // Track users
       if (!filteredStats.userStats[search.userId]) {
         filteredStats.userStats[search.userId] = {
@@ -196,6 +223,9 @@ export async function getStats(guildId, filter = 'all-time') {
           movies: 0,
           shows: 0,
           episodes: 0,
+          random: 0,
+          watched: 0,
+          similar: 0,
         };
       }
       
@@ -203,6 +233,9 @@ export async function getStats(guildId, filter = 'all-time') {
       if (search.type === 'movie') filteredStats.userStats[search.userId].movies++;
       if (search.type === 'tv') filteredStats.userStats[search.userId].shows++;
       if (search.type === 'episode') filteredStats.userStats[search.userId].episodes++;
+      if (search.type === 'random') filteredStats.userStats[search.userId].random++;
+      if (search.type === 'watched') filteredStats.userStats[search.userId].watched++;
+      if (search.type === 'similar') filteredStats.userStats[search.userId].similar++;
     }
     
     return {
@@ -210,7 +243,9 @@ export async function getStats(guildId, filter = 'all-time') {
       topMovies: getTopItems(filteredStats.topMovies),
       topShows: getTopItems(filteredStats.topShows),
       topEpisodes: getTopItems(filteredStats.topEpisodes),
+      commandCounts: filteredStats.commandCounts,
       topUsers: getTopUsers(filteredStats.userStats),
+      userStats: filteredStats.userStats,
     };
   }
   
@@ -220,7 +255,9 @@ export async function getStats(guildId, filter = 'all-time') {
     topMovies: getTopItems(stats.topMovies),
     topShows: getTopItems(stats.topShows),
     topEpisodes: getTopItems(stats.topEpisodes),
+    commandCounts: stats.commandCounts || { random: 0, watched: 0, similar: 0 },
     topUsers: getTopUsers(stats.userStats),
+    userStats: stats.userStats,
   };
 }
 
@@ -234,6 +271,7 @@ export async function clearStats(guildId) {
     topMovies: {},
     topShows: {},
     topEpisodes: {},
+    commandCounts: { random: 0, watched: 0, similar: 0 },
     userStats: {},
   };
   

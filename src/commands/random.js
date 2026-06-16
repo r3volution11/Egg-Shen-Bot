@@ -13,6 +13,7 @@ import {
 import { createDetailedEmbed } from '../utils/embedBuilder.js';
 import { getEnabledServices, getEmojis } from '../utils/guildConfig.js';
 import { canUseCommand } from '../utils/guildConfig.js';
+import { trackSearch } from '../utils/statsTracker.js';
 
 export const data = new SlashCommandBuilder()
   .setName('random')
@@ -155,6 +156,17 @@ export async function execute(interaction) {
       };
 
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis);
+      
+      // Track the random movie search
+      await trackSearch(
+        interaction.guildId,
+        interaction.user.id,
+        interaction.user.username,
+        'random',
+        'Random Movie',
+        null
+      );
+      
       await interaction.editReply(response);
 
     } else if (subcommand === 'tv') {
@@ -194,6 +206,17 @@ export async function execute(interaction) {
       };
 
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis);
+      
+      // Track the random TV search
+      await trackSearch(
+        interaction.guildId,
+        interaction.user.id,
+        interaction.user.username,
+        'random',
+        'Random TV Show',
+        null
+      );
+      
       await interaction.editReply(response);
 
     } else if (subcommand === 'episode') {
@@ -233,6 +256,16 @@ export async function execute(interaction) {
 
       // Pick a random episode
       const randomEpisode = seasonDetails.episodes[Math.floor(Math.random() * seasonDetails.episodes.length)];
+
+      // Track the random episode search
+      await trackSearch(
+        interaction.guildId,
+        interaction.user.id,
+        interaction.user.username,
+        'random',
+        `Random Episode - ${showDetails.name}`,
+        null
+      );
 
       await interaction.editReply({
         content: `🎲 **Random Episode:** ${showDetails.name} - S${randomSeason}E${randomEpisode.episode_number}: ${randomEpisode.name}\n\n${randomEpisode.overview || 'No description available.'}\n\nUse \`/episode show:${showDetails.name} episode:${randomEpisode.name}\` to see full details and ratings.`,
