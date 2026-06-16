@@ -33,8 +33,8 @@ export async function searchBoardGames(query) {
     // Ensure item is always an array
     const items = Array.isArray(parsed.items.item) ? parsed.items.item : [parsed.items.item];
     
-    // Return top 20 results (commands will slice based on guild config)
-    return items.slice(0, 20).map(item => ({
+    // Return top 50 results (commands will slice based on guild config)
+    return items.slice(0, 50).map(item => ({
       id: item['@_id'],
       name: item.name?.['@_value'] || 'Unknown',
       yearPublished: item.yearpublished?.['@_value'] || null,
