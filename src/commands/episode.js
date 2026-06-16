@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { searchTVShows } from '../services/tmdbService.js';
 import { createEpisodeSearchResults } from '../utils/embedBuilder.js';
-import { canUseCommand } from '../utils/guildConfig.js';
+import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 export const data = new SlashCommandBuilder()
   .setName('episode')
   .setDescription('Search for a TV show episode and get ratings from multiple services')
@@ -105,9 +105,13 @@ export async function execute(interaction) {
       return;
     }
     
+    // Load guild config to get maxSearchResults
+    const guildConfig = await loadGuildConfig(interaction.guildId);
+    const maxResults = guildConfig.maxSearchResults || 8;
+    const limitedResults = showResults.slice(0, maxResults);
+
     // Create the selection interface with episode name stored (ephemeral for privacy)
-    const response = await createEpisodeSearchResults(showResults, showQuery, episodeQuery);
-    await interaction.editReply(response);
+    const response = await createEpisodeSearchResults(limitedResults, showQuery, episodeQuery);
     
   } catch (error) {
     console.error('Episode command error:', error);

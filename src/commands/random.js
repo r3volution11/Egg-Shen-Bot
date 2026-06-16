@@ -370,7 +370,11 @@ export async function execute(interaction) {
       // Multiple results - show selection menu
       const { StringSelectMenuBuilder, ActionRowBuilder, EmbedBuilder } = await import('discord.js');
       
-      const options = showResults.slice(0, 5).map((show) => {
+      // Load guild config to get maxSearchResults
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+      const maxResults = guildConfig.maxSearchResults || 8;
+      
+      const options = showResults.slice(0, maxResults).map((show) => {
         const year = show.first_air_date ? ` (${show.first_air_date.split('-')[0]})` : '';
         const overview = show.overview ? show.overview.substring(0, 50) + '...' : 'No description';
         

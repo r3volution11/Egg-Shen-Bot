@@ -19,7 +19,7 @@ export async function searchGames(query) {
         page_size: 5,
       },
     });
-    return response.data.results.slice(0, 5); // Return top 5 results
+    return response.data.results.slice(0, 10); // Return top 10 results (commands will slice based on guild config)
   } catch (error) {
     console.error('RAWG game search error:', error.message);
     throw new Error('Failed to search for games');

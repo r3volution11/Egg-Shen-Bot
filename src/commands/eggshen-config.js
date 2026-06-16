@@ -141,6 +141,19 @@ export const data = new SlashCommandBuilder()
           .setMaxLength(2)
           .setMinLength(2)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('max-results')
+      .setDescription('Set maximum number of search results to display (1-10)')
+      .addIntegerOption(option =>
+        option
+          .setName('count')
+          .setDescription('Number of results to show in selection menus (1-10)')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(10)
+      )
   );
 
 export async function execute(interaction) {
@@ -201,6 +214,7 @@ export async function execute(interaction) {
     const notificationsStatus = `${config.notifications?.restartAnnouncements ? '✅' : '❌'} **Restart Announcements:** ${config.notifications?.restartAnnouncements ? 'Enabled' : 'Disabled'}`;
 
     const regionDisplay = config.region || 'US';
+    const maxResultsDisplay = config.maxSearchResults || 8;
 
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -222,6 +236,11 @@ export async function execute(interaction) {
         inline: false,
       })
       .addFields({
+        name: 'Max Search Results',
+        value: `🔢 **${maxResultsDisplay}** results (use \`/eggshen-config max-results count:<1-10>\` to change)`,
+        inline: false,
+      })
+      .addFields({
         name: 'Statistics Tracking',
         value: statsStatus,
         inline: false,
@@ -238,7 +257,7 @@ export async function execute(interaction) {
       })
       .addFields({
         name: 'How to Configure',
-        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`',
+        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Set max results:** `/eggshen-config max-results count:<1-10>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`',
         inline: false,
       })
       .setFooter({ text: 'Only users with Administrator, Manage Server, or Moderator permissions can configure Egg Shen' });
@@ -431,6 +450,18 @@ export async function execute(interaction) {
 
     await interaction.reply({
       content: `✅ Streaming availability region set to **${regionCode}**.\n\nMovie and TV show embeds will now show streaming services available in this region.`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'max-results') {
+    // Set maximum search results
+    const count = interaction.options.getInteger('count');
+    
+    const config = await loadGuildConfig(guildId);
+    config.maxSearchResults = count;
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: `✅ Maximum search results set to **${count}**.\n\nSearch commands will now display up to ${count} results in selection menus.`,
       ephemeral: true,
     });
   }

@@ -2,7 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { searchMovies, searchTVShows, getSimilarMovies, getSimilarTV, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
 import { searchGames } from '../services/rawgService.js';
 import { searchBoardGames } from '../services/bggService.js';
-import { canUseCommand } from '../utils/guildConfig.js';
+import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
 
 export const data = new SlashCommandBuilder()
@@ -140,7 +140,11 @@ export async function execute(interaction) {
     // Multiple results - show selection menu
     const { StringSelectMenuBuilder, ActionRowBuilder } = await import('discord.js');
     
-    const options = allResults.slice(0, 5).map((result) => {
+    // Load guild config to get maxSearchResults
+    const guildConfig = await loadGuildConfig(interaction.guildId);
+    const maxResults = guildConfig.maxSearchResults || 8;
+    
+    const options = allResults.slice(0, maxResults).map((result) => {
       const title = result.title || result.name;
       const year = result.release_date || result.first_air_date || result.released || result.yearPublished;
       const yearStr = year ? ` (${year.toString().split('-')[0]})` : '';
