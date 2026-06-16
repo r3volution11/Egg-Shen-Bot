@@ -326,3 +326,57 @@ export async function getSimilarTV(tvId) {
     throw new Error('Failed to get similar TV shows');
   }
 }
+
+/**
+ * Get watch providers for a movie
+ * @param {string} movieId - TMDB movie ID
+ * @param {string} region - ISO 3166-1 country code (default: 'US')
+ * @returns {Object} Watch provider data with flatrate, rent, and buy options
+ */
+export async function getMovieWatchProviders(movieId, region = 'US') {
+  try {
+    const response = await tmdbApi.get(`/movie/${movieId}/watch/providers`);
+    const providers = response.data.results[region];
+    
+    if (!providers) {
+      return null;
+    }
+    
+    return {
+      link: providers.link,
+      flatrate: providers.flatrate || [], // Streaming services
+      rent: providers.rent || [], // Rental options
+      buy: providers.buy || [], // Purchase options
+    };
+  } catch (error) {
+    console.error('TMDB movie watch providers error:', error.message);
+    return null; // Return null on error, don't throw
+  }
+}
+
+/**
+ * Get watch providers for a TV show
+ * @param {string} tvId - TMDB TV show ID
+ * @param {string} region - ISO 3166-1 country code (default: 'US')
+ * @returns {Object} Watch provider data with flatrate, rent, and buy options
+ */
+export async function getTVWatchProviders(tvId, region = 'US') {
+  try {
+    const response = await tmdbApi.get(`/tv/${tvId}/watch/providers`);
+    const providers = response.data.results[region];
+    
+    if (!providers) {
+      return null;
+    }
+    
+    return {
+      link: providers.link,
+      flatrate: providers.flatrate || [], // Streaming services
+      rent: providers.rent || [], // Rental options
+      buy: providers.buy || [], // Purchase options
+    };
+  } catch (error) {
+    console.error('TMDB TV watch providers error:', error.message);
+    return null; // Return null on error, don't throw
+  }
+}

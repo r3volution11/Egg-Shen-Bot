@@ -14,7 +14,8 @@ A Discord bot for looking up movies, TV shows, TV show episodes, video games, an
 - 🔍 **Similar Content** - Find similar movies, TV shows, games, or board games based on any title
 - 📊 **Public Statistics** - Anyone can view server stats and personal usage statistics
 - ⭐ **Multiple Ratings** - Display ratings from IMDb, Trakt, and Rotten Tomatoes
-- 🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
+- � **Streaming Availability** - Shows where to stream, rent, or buy movies and TV shows (powered by TMDB)
+- �🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
 - 🖼️ **Rich Embeds** - Beautiful embedded messages with poster images and metadata
 - 🎯 **Interactive Selection** - Choose from up to 5 search results via dropdown menu
 - ⚙️ **Per-Server Configuration** - Admins can toggle services and set custom emojis
@@ -123,6 +124,8 @@ The bot will:
    - Letterboxd link
    - Trakt rating and link
    - Rotten Tomatoes score and link
+   - **Streaming availability** (Netflix, Hulu, Prime Video, etc. based on your region)
+   - **Rent/Buy options** (Apple TV, Amazon, Vudu, etc.)
    - JustWatch link
    - Runtime and genres
 
@@ -136,6 +139,7 @@ Similar to movie search, but displays:
 
 - TV show poster (not episode-specific images)
 - Show metadata (seasons, status)
+- **Streaming availability** for your region
 - Links to all supported services
 
 ### Episode Search
@@ -477,7 +481,25 @@ Set custom Discord emojis for rating services. To use custom server emojis:
 
 Leave the emoji field empty to clear a custom emoji setting.
 
-**View Statistics (Admin/Moderator):**
+**Set Streaming Region:**
+
+```
+/eggshen-config region code:US
+```
+
+Set your preferred region for streaming availability using ISO 3166-1 country codes:
+- **US** - United States (default)
+- **CA** - Canada
+- **GB** - United Kingdom
+- **AU** - Australia
+- **DE** - Germany
+- **FR** - France
+- **JP** - Japan
+- And many more...
+
+This determines which streaming services are shown in movie and TV embeds.
+
+**View Statistics (Admin/Moderator):****
 
 ```
 /eggshen-stats filter:all-time

@@ -128,6 +128,19 @@ export const data = new SlashCommandBuilder()
           .setDescription('Enable or disable this notification')
           .setRequired(true)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('region')
+      .setDescription('Set the region for streaming availability (US, CA, GB, etc.)')
+      .addStringOption(option =>
+        option
+          .setName('code')
+          .setDescription('ISO 3166-1 country code (US, CA, GB, AU, etc.)')
+          .setRequired(true)
+          .setMaxLength(2)
+          .setMinLength(2)
+      )
   );
 
 export async function execute(interaction) {
@@ -187,6 +200,8 @@ export async function execute(interaction) {
 
     const notificationsStatus = `${config.notifications?.restartAnnouncements ? '✅' : '❌'} **Restart Announcements:** ${config.notifications?.restartAnnouncements ? 'Enabled' : 'Disabled'}`;
 
+    const regionDisplay = config.region || 'US';
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('⚙️ Egg Shen Configuration')
@@ -199,6 +214,11 @@ export async function execute(interaction) {
       .addFields({
         name: 'Custom Emojis',
         value: emojisStatus,
+        inline: false,
+      })
+      .addFields({
+        name: 'Streaming Region',
+        value: `🌍 **${regionDisplay}** (use \`/eggshen-config region code:<XX>\` to change)`,
         inline: false,
       })
       .addFields({
@@ -218,7 +238,7 @@ export async function execute(interaction) {
       })
       .addFields({
         name: 'How to Configure',
-        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`',
+        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`',
         inline: false,
       })
       .setFooter({ text: 'Only users with Administrator, Manage Server, or Moderator permissions can configure Egg Shen' });
@@ -390,6 +410,27 @@ export async function execute(interaction) {
 
     await interaction.reply({
       content: `${emoji} **${settingDisplayName}** have been ${statusText} for this server.${description}`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'region') {
+    // Set streaming region
+    const regionCode = interaction.options.getString('code').toUpperCase();
+    
+    // Validate region code format (2 letters)
+    if (!/^[A-Z]{2}$/.test(regionCode)) {
+      await interaction.reply({
+        content: '❌ Invalid region code. Please use a 2-letter ISO 3166-1 country code (e.g., US, CA, GB, AU).',
+        ephemeral: true,
+      });
+      return;
+    }
+    
+    const config = await loadGuildConfig(guildId);
+    config.region = regionCode;
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: `✅ Streaming availability region set to **${regionCode}**.\n\nMovie and TV show embeds will now show streaming services available in this region.`,
       ephemeral: true,
     });
   }

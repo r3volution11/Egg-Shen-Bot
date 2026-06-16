@@ -1,4 +1,4 @@
-import { getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
+import { getMovieDetails, getTVShowDetails, getMovieWatchProviders, getTVWatchProviders } from '../services/tmdbService.js';
 import { getOMDBData } from '../services/omdbService.js';
 import { getMovieRating, getShowRating } from '../services/traktService.js';
 import {
@@ -10,7 +10,7 @@ import {
   getJustWatchUrl,
 } from '../services/urlService.js';
 import { createDetailedEmbed } from '../utils/embedBuilder.js';
-import { getEnabledServices, getEmojis, getStatsConfig } from '../utils/guildConfig.js';
+import { getEnabledServices, getEmojis, getStatsConfig, loadGuildConfig } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
 
 /**
@@ -147,12 +147,15 @@ export async function handleSelectInteraction(interaction) {
     const value = interaction.values[0];
     const guildId = interaction.guildId;
     
-    // Fetch guild configuration for service toggles, emojis, and stats
-    const [enabledServices, guildEmojis, statsConfig] = await Promise.all([
+    // Fetch guild configuration for service toggles, emojis, stats, and region
+    const [enabledServices, guildEmojis, statsConfig, guildConfig] = await Promise.all([
       getEnabledServices(guildId),
       getEmojis(guildId),
       getStatsConfig(guildId),
+      loadGuildConfig(guildId),
     ]);
+    
+    const region = guildConfig.region || 'US';
     
     // Handle episode selection
     if (value.startsWith('episode_')) {
@@ -241,6 +244,9 @@ export async function handleSelectInteraction(interaction) {
         imdbId ? getMovieRating(imdbId) : null,
       ]);
       
+      // Fetch watch providers
+      const watchProviders = await getMovieWatchProviders(id, region);
+      
       // Build URLs
       const urls = {
         imdb: getIMDbUrl(imdbId),
@@ -263,7 +269,7 @@ export async function handleSelectInteraction(interaction) {
         ).catch(err => console.error('Stats tracking error:', err));
       }
       
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis, watchProviders);
       // Delete ephemeral menu and send public result
       await interaction.message.delete().catch(() => {});
       await interaction.channel.send(response);
@@ -277,6 +283,9 @@ export async function handleSelectInteraction(interaction) {
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getShowRating(imdbId) : null,
       ]);
+      
+      // Fetch watch providers
+      const watchProviders = await getTVWatchProviders(id, region);
       
       // Build URLs
       const urls = {
@@ -300,7 +309,7 @@ export async function handleSelectInteraction(interaction) {
         ).catch(err => console.error('Stats tracking error:', err));
       }
       
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis, watchProviders);
       // Delete ephemeral menu and send public result
       await interaction.message.delete().catch(() => {});
       await interaction.channel.send(response);
