@@ -69,6 +69,16 @@ export async function handleSelectInteraction(interaction) {
         watchedAt: Date.now(),
       });
       
+      // Track watched log in statistics
+      await trackSearch(
+        interaction.guildId,
+        userId,
+        username,
+        'watched',
+        fullTitle,
+        yearStr
+      );
+      
       const embed = new EmbedBuilder()
         .setColor(0x00FF00)
         .setTitle('✅ Added to Watch History')

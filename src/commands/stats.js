@@ -1,10 +1,9 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { isAdmin } from '../utils/guildConfig.js';
 import { getStats } from '../utils/statsTracker.js';
 
 export const data = new SlashCommandBuilder()
-  .setName('eggshen-stats')
-  .setDescription('View server statistics for bot usage (Admin/Moderator only)')
+  .setName('stats')
+  .setDescription('View server statistics for bot usage')
   .addStringOption(option =>
     option
       .setName('filter')
@@ -15,22 +14,23 @@ export const data = new SlashCommandBuilder()
         { name: 'This Week', value: 'week' },
         { name: 'Today', value: 'today' }
       )
+  )
+  .addStringOption(option =>
+    option
+      .setName('type')
+      .setDescription('Type of stats to view')
+      .addChoices(
+        { name: 'Server Stats', value: 'server' },
+        { name: 'My Stats', value: 'personal' }
+      )
   );
 
 export async function execute(interaction) {
-  // Check if user has admin permissions
-  if (!isAdmin(interaction.member)) {
-    await interaction.reply({
-      content: '❌ You need Administrator, Manage Server, or Moderator permissions to view statistics.',
-      ephemeral: true,
-    });
-    return;
-  }
-
   const filter = interaction.options.getString('filter') || 'all-time';
+  const type = interaction.options.getString('type') || 'server';
   const guildId = interaction.guildId;
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply();
 
   try {
     const stats = await getStats(guildId, filter);
@@ -43,19 +43,74 @@ export async function execute(interaction) {
       'today': 'Today',
     };
 
+    // Personal stats view
+    if (type === 'personal') {
+      const userStats = stats.userStats[interaction.user.id];
+
+      if (!userStats || userStats.totalSearches === 0) {
+        await interaction.editReply({
+          content: `You haven't used any commands yet! Try searching for movies, shows, or using the random/watched features.`,
+        });
+        return;
+      }
+
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(`📊 Your Stats - ${filterTitles[filter]}`)
+        .setDescription(`**Total Commands Used: ${userStats.totalSearches}**`)
+        .addFields(
+          {
+            name: '🎬 Movies Searched',
+            value: `${userStats.movies || 0}`,
+            inline: true,
+          },
+          {
+            name: '📺 TV Shows Searched',
+            value: `${userStats.shows || 0}`,
+            inline: true,
+          },
+          {
+            name: '🎞️ Episodes Searched',
+            value: `${userStats.episodes || 0}`,
+            inline: true,
+          },
+          {
+            name: '🎲 Random Commands',
+            value: `${userStats.random || 0}`,
+            inline: true,
+          },
+          {
+            name: '📝 Watch History Logs',
+            value: `${userStats.watched || 0}`,
+            inline: true,
+          },
+          {
+            name: '🔍 Similar Searches',
+            value: `${userStats.similar || 0}`,
+            inline: true,
+          }
+        )
+        .setFooter({ text: `${interaction.user.username}'s activity` })
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
+
+    // Server stats view
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setTitle(`📊 Egg Shen Statistics - ${filterTitles[filter]}`)
-      .setDescription(`Total searches: **${stats.totalSearches}**`);
+      .setTitle(`📊 ${interaction.guild.name} Stats - ${filterTitles[filter]}`)
+      .setDescription(`**Total searches: ${stats.totalSearches}**`);
 
     // Top Movies
     if (stats.topMovies.length > 0) {
       const moviesList = stats.topMovies
-        .map((item, index) => `${index + 1}. ${item.name} (${item.count} searches)`)
+        .map((item, index) => `${index + 1}. ${item.name} (${item.count}×)`)
         .join('\n');
       embed.addFields({
         name: '🎬 Top Movies',
-        value: moviesList || 'No movies searched yet',
+        value: moviesList,
         inline: false,
       });
     }
@@ -63,11 +118,11 @@ export async function execute(interaction) {
     // Top TV Shows
     if (stats.topShows.length > 0) {
       const showsList = stats.topShows
-        .map((item, index) => `${index + 1}. ${item.name} (${item.count} searches)`)
+        .map((item, index) => `${index + 1}. ${item.name} (${item.count}×)`)
         .join('\n');
       embed.addFields({
         name: '📺 Top TV Shows',
-        value: showsList || 'No shows searched yet',
+        value: showsList,
         inline: false,
       });
     }
@@ -75,11 +130,11 @@ export async function execute(interaction) {
     // Top Episodes
     if (stats.topEpisodes.length > 0) {
       const episodesList = stats.topEpisodes
-        .map((item, index) => `${index + 1}. ${item.name} (${item.count} searches)`)
+        .map((item, index) => `${index + 1}. ${item.name} (${item.count}×)`)
         .join('\n');
       embed.addFields({
         name: '🎞️ Top Episodes',
-        value: episodesList || 'No episodes searched yet',
+        value: episodesList,
         inline: false,
       });
     }
@@ -110,21 +165,21 @@ export async function execute(interaction) {
           if (user.watched > 0) breakdown.push(`${user.watched}W`);
           if (user.similar > 0) breakdown.push(`${user.similar}Si`);
           const breakdownText = breakdown.length > 0 ? ` (${breakdown.join('/')})` : '';
-          return `${index + 1}. ${user.username}: ${user.totalSearches} searches${breakdownText}`;
+          return `${index + 1}. ${user.username}: ${user.totalSearches}${breakdownText}`;
         })
         .join('\n');
       embed.addFields({
-        name: '👥 Top Users',
-        value: usersList || 'No users yet',
+        name: '👥 Most Active Users',
+        value: usersList,
         inline: false,
       });
     }
 
     // Add note if no stats
     if (stats.totalSearches === 0) {
-      embed.setDescription('No statistics available yet. Start searching for movies, shows, and episodes to see stats!');
+      embed.setDescription('No statistics available yet. Start using the bot to see stats!');
     } else {
-      embed.setFooter({ text: 'M=Movies S=Shows E=Episodes R=Random W=Watched Si=Similar' });
+      embed.setFooter({ text: 'M=Movies S=Shows E=Episodes R=Random W=Watched Si=Similar • Use /stats type:My Stats to see your personal stats' });
     }
 
     await interaction.editReply({ embeds: [embed] });
