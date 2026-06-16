@@ -270,3 +270,147 @@ function buildRatingsText(data, enabledServices = null, guildEmojis = null) {
   // Join all badges with separator
   return badges.length > 0 ? badges.join(' • ') : 'No ratings available.';
 }
+
+/**
+ * Create a game search results message with a select menu
+ */
+export async function createGameSearchResults(results, query) {
+  const options = results.map((result) => {
+    const title = result.name;
+    const year = result.released;
+    const yearStr = year ? ` (${year.split('-')[0]})` : '';
+    const platforms = result.platforms?.slice(0, 2).map(p => p.platform.name).join(', ') || 'Multiple platforms';
+    
+    return {
+      label: `${title}${yearStr}`.substring(0, 100),
+      description: platforms.substring(0, 100),
+      value: `game_${result.id}`,
+    };
+  });
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('select_result')
+    .setPlaceholder('Select a game to display')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x0099FF)
+    .setTitle(`Game Search Results for "${query}"`)
+    .setDescription(`Found ${results.length} result${results.length > 1 ? 's' : ''}. Select one below to view details and ratings.`)
+    .setFooter({ text: 'Select a game from the menu below' });
+  
+  return {
+    embeds: [embed],
+    components: [row],
+  };
+}
+
+/**
+ * Create a detailed game embed with ratings and information
+ */
+export async function createGameDetailedEmbed(game) {
+  const title = game.name;
+  const year = game.released?.split('-')[0];
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x9147FF) // Purple color for games
+    .setTitle(`${title}${year ? ` (${year})` : ''}`)
+    .setURL(game.website || `https://rawg.io/games/${game.slug}`)
+    .setThumbnail(game.background_image || null);
+  
+  // Add description
+  if (game.description_raw) {
+    const description = game.description_raw.length > 400 
+      ? game.description_raw.substring(0, 397) + '...' 
+      : game.description_raw;
+    embed.setDescription(description);
+  }
+  
+  // Add ratings and platforms
+  const ratingsInfo = [];
+  
+  if (game.metacritic) {
+    ratingsInfo.push(`🎮 **Metacritic:** ${game.metacritic}/100`);
+  }
+  
+  if (game.rating && game.ratings_count) {
+    ratingsInfo.push(`⭐ **RAWG:** ${game.rating}/5 (${game.ratings_count.toLocaleString()} ratings)`);
+  }
+  
+  if (ratingsInfo.length > 0) {
+    embed.addFields({
+      name: '⭐ Ratings',
+      value: ratingsInfo.join('\n'),
+      inline: false,
+    });
+  }
+  
+  // Add platforms
+  if (game.platforms && game.platforms.length > 0) {
+    const platformNames = game.platforms.map(p => p.platform.name).join(', ');
+    embed.addFields({
+      name: '🎮 Platforms',
+      value: platformNames.length > 1024 ? platformNames.substring(0, 1021) + '...' : platformNames,
+      inline: false,
+    });
+  }
+  
+  // Add genres
+  if (game.genres && game.genres.length > 0) {
+    embed.addFields({
+      name: '🏷️ Genres',
+      value: game.genres.map(g => g.name).join(', '),
+      inline: true,
+    });
+  }
+  
+  // Add release date
+  if (game.released) {
+    embed.addFields({
+      name: '📅 Released',
+      value: game.released,
+      inline: true,
+    });
+  }
+  
+  // Add developers
+  if (game.developers && game.developers.length > 0) {
+    embed.addFields({
+      name: '👨‍💻 Developers',
+      value: game.developers.map(d => d.name).join(', '),
+      inline: false,
+    });
+  }
+  
+  // Add publishers
+  if (game.publishers && game.publishers.length > 0) {
+    embed.addFields({
+      name: '🏢 Publishers',
+      value: game.publishers.map(p => p.name).join(', '),
+      inline: false,
+    });
+  }
+  
+  // Add stores/links
+  const links = [];
+  if (game.website) {
+    links.push(`[Official Website](${game.website})`);
+  }
+  links.push(`[View on RAWG](https://rawg.io/games/${game.slug})`);
+  
+  if (game.metacritic_url) {
+    links.push(`[Metacritic](${game.metacritic_url})`);
+  }
+  
+  if (links.length > 0) {
+    embed.addFields({
+      name: '🔗 Links',
+      value: links.join(' • '),
+      inline: false,
+    });
+  }
+  
+  return { embeds: [embed], components: [] };
+}

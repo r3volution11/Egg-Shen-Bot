@@ -11,16 +11,16 @@ export async function execute(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle('🎬 Egg Shen - Help')
-    .setDescription('Your mystical guide to movies, TV shows, and episodes with ratings from multiple services!')
+    .setDescription('Your mystical guide to movies, TV shows, episodes, and games with ratings from multiple services!')
     .addFields(
       {
-        name: '� Search Commands',
-        value: '**📺 /movie** - Search for a movie\n**📺 /tv** - Search for a TV show\n**🎞️ /episode** - Search for a specific episode by name',
+        name: '🔍 Search Commands',
+        value: '**📺 /movie** - Search for a movie\n**📺 /tv** - Search for a TV show\n**🎞️ /episode** - Search for a specific episode by name\n**🎮 /game** - Search for a video game',
         inline: false,
       },
       {
         name: '🎲 Watch Party Features',
-        value: '**🎲 /random** - Get random movie, TV show, or episode (with filters)\n**📝 /watched** - Log or view watch history with ratings and notes\n**🔍 /similar** - Find similar content recommendations',
+        value: '**🎲 /random** - Get random movie, TV show, episode, or game (with filters)\n**📝 /watched** - Log or view watch history with ratings and notes\n**🔍 /similar** - Find similar content recommendations',
         inline: false,
       },
       {

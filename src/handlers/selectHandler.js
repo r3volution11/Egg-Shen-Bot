@@ -304,6 +304,30 @@ export async function handleSelectInteraction(interaction) {
       // Delete ephemeral menu and send public result
       await interaction.message.delete().catch(() => {});
       await interaction.channel.send(response);
+      
+    } else if (type === 'game') {
+      const { getGameDetails } = await import('../services/rawgService.js');
+      const { createGameDetailedEmbed } = await import('../utils/embedBuilder.js');
+      
+      const game = await getGameDetails(id);
+      
+      // Track game search
+      if (statsConfig.enabled && statsConfig.trackGames) {
+        const year = game.released?.split('-')[0];
+        await trackSearch(
+          guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'game',
+          game.name,
+          year
+        ).catch(err => console.error('Stats tracking error:', err));
+      }
+      
+      const response = await createGameDetailedEmbed(game);
+      // Delete ephemeral menu and send public result
+      await interaction.message.delete().catch(() => {});
+      await interaction.channel.send(response);
     }
     
   } catch (error) {
