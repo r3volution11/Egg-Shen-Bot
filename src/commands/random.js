@@ -372,7 +372,7 @@ export async function execute(interaction) {
       
       // Load guild config to get maxSearchResults
       const guildConfig = await loadGuildConfig(interaction.guildId);
-      const maxResults = guildConfig.maxSearchResults || 8;
+      const maxResults = guildConfig.maxSearchResults || 20;
       
       const options = showResults.slice(0, maxResults).map((show) => {
         const year = show.first_air_date ? ` (${show.first_air_date.split('-')[0]})` : '';

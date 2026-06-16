@@ -145,14 +145,14 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('max-results')
-      .setDescription('Set maximum number of search results to display (1-20)')
+      .setDescription('Set maximum number of search results to display (1-50)')
       .addIntegerOption(option =>
         option
           .setName('count')
-          .setDescription('Number of results to show in selection menus (1-20)')
+          .setDescription('Number of results to show in selection menus (1-50)')
           .setRequired(true)
           .setMinValue(1)
-          .setMaxValue(20)
+          .setMaxValue(50)
       )
   );
 
@@ -214,7 +214,7 @@ export async function execute(interaction) {
     const notificationsStatus = `${config.notifications?.restartAnnouncements ? '✅' : '❌'} **Restart Announcements:** ${config.notifications?.restartAnnouncements ? 'Enabled' : 'Disabled'}`;
 
     const regionDisplay = config.region || 'US';
-    const maxResultsDisplay = config.maxSearchResults || 8;
+    const maxResultsDisplay = config.maxSearchResults || 20;
 
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -237,7 +237,7 @@ export async function execute(interaction) {
       })
       .addFields({
         name: 'Max Search Results',
-        value: `🔢 **${maxResultsDisplay}** results (use \`/eggshen-config max-results count:<1-20>\` to change)`,
+        value: `🔢 **${maxResultsDisplay}** results (use \`/eggshen-config max-results count:<1-50>\` to change)`,
         inline: false,
       })
       .addFields({
@@ -257,7 +257,7 @@ export async function execute(interaction) {
       })
       .addFields({
         name: 'How to Configure',
-        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Set max results:** `/eggshen-config max-results count:<1-20>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`',
+        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Set max results:** `/eggshen-config max-results count:<1-50>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`',
         inline: false,
       })
       .setFooter({ text: 'Only users with Administrator, Manage Server, or Moderator permissions can configure Egg Shen' });

@@ -93,7 +93,7 @@ export async function execute(interaction) {
     
     // Load guild config to get maxSearchResults
     const guildConfig = await loadGuildConfig(interaction.guildId);
-    const maxResults = guildConfig.maxSearchResults || 8;
+    const maxResults = guildConfig.maxSearchResults || 20;
     const limitedResults = results.slice(0, maxResults);
 
     // Create the selection interface (ephemeral for privacy)

@@ -153,7 +153,7 @@ export async function execute(interaction) {
       
       // Load guild config to get maxSearchResults
       const guildConfig = await loadGuildConfig(interaction.guildId);
-      const maxResults = guildConfig.maxSearchResults || 8;
+      const maxResults = guildConfig.maxSearchResults || 20;
       
       const options = allResults.slice(0, maxResults).map((result) => {
         const title = result.title || result.name;
