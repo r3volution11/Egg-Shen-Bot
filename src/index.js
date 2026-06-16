@@ -1,8 +1,9 @@
-import { Client, GatewayIntentBits, Collection } from 'discord.js';
+import { Client, GatewayIntentBits, Collection, EmbedBuilder } from 'discord.js';
 import { config } from './config.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
+import { loadTimers, getTimerStatus } from './utils/timerManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -32,9 +33,53 @@ for (const file of commandFiles) {
 }
 
 // Event: Bot ready
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`✓ Logged in as ${client.user.tag}`);
   console.log(`✓ Serving ${client.guilds.cache.size} guilds`);
+  
+  // Load persisted timers from previous session
+  const restoredTimers = await loadTimers();
+  
+  // Send restart announcements to channels with active timers
+  if (restoredTimers.size > 0) {
+    for (const [channelId, timerData] of restoredTimers) {
+      try {
+        const channel = await client.channels.fetch(channelId);
+        
+        if (channel && channel.isTextBased()) {
+          const currentStatus = getTimerStatus(channelId);
+          
+          const embed = new EmbedBuilder()
+            .setColor(0xFFA500)
+            .setTitle('🔄 Bot Restarted')
+            .setDescription('The bot has been restarted and your timer has been restored.')
+            .addFields(
+              {
+                name: 'Timer',
+                value: timerData.label || 'No label',
+                inline: true,
+              },
+              {
+                name: 'Elapsed Time',
+                value: currentStatus.elapsedFormatted,
+                inline: true,
+              },
+              {
+                name: 'Started by',
+                value: timerData.username,
+                inline: true,
+              }
+            )
+            .setFooter({ text: 'Use /timer stop to end the timer' })
+            .setTimestamp();
+          
+          await channel.send({ embeds: [embed] });
+        }
+      } catch (error) {
+        console.error(`Failed to send restart announcement to channel ${channelId}:`, error);
+      }
+    }
+  }
 });
 
 // Event: Interaction (slash commands)
