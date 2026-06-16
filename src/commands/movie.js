@@ -98,6 +98,7 @@ export async function execute(interaction) {
 
     // Create the selection interface (ephemeral for privacy)
     const response = await createSearchResults(limitedResults, 'movie', query);
+    await interaction.editReply(response);
     
   } catch (error) {
     console.error('Movie command error:', error);

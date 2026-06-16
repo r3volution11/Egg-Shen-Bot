@@ -74,6 +74,7 @@ export async function execute(interaction) {
 
     // Create the selection interface (ephemeral for privacy)
     const response = await createGameSearchResults(limitedResults, query);
+    await interaction.editReply(response);
     
   } catch (error) {
     console.error('Game command error:', error);

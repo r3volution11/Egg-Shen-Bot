@@ -101,6 +101,7 @@ export async function execute(interaction) {
 
     // Create the selection interface (ephemeral for privacy)
     const response = await createSearchResults(limitedResults, 'tv', query);
+    await interaction.editReply(response);
     
   } catch (error) {
     console.error('TV command error:', error);

@@ -112,6 +112,7 @@ export async function execute(interaction) {
 
     // Create the selection interface with episode name stored (ephemeral for privacy)
     const response = await createEpisodeSearchResults(limitedResults, showQuery, episodeQuery);
+    await interaction.editReply(response);
     
   } catch (error) {
     console.error('Episode command error:', error);
