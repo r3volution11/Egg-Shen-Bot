@@ -284,6 +284,30 @@ function buildRatingsText(data, enabledServices = null, guildEmojis = null) {
 }
 
 /**
+ * Normalize streaming provider names and remove duplicates
+ * @param {Array} providers - Array of provider objects with provider_name
+ * @returns {Array} Normalized unique provider names
+ */
+function normalizeProviders(providers) {
+  const nameMap = {
+    'Peacock Premium': 'Peacock',
+    'Peacock Premium Plus': 'Peacock',
+    'Apple TV Store': 'Apple TV',
+    'Google Play Movies': 'Google Play',
+    'Fandango At Home': 'Fandango',
+    'Amazon Video': 'Amazon',
+  };
+  
+  const normalized = providers.map(p => {
+    const name = p.provider_name;
+    return nameMap[name] || name; // Use mapped name or original
+  });
+  
+  // Remove duplicates while preserving order
+  return [...new Set(normalized)];
+}
+
+/**
  * Build streaming availability text from TMDB watch providers
  * @param {Object} watchProviders - Watch provider data from TMDB
  * @returns {string} Formatted streaming text with service names
@@ -297,19 +321,19 @@ function buildStreamingText(watchProviders) {
   
   // Streaming services (subscription)
   if (watchProviders.flatrate && watchProviders.flatrate.length > 0) {
-    const services = watchProviders.flatrate.map(p => p.provider_name).join(' • ');
+    const services = normalizeProviders(watchProviders.flatrate).join(' • ');
     lines.push(`**Stream:** ${services}`);
   }
   
   // Rental options
   if (watchProviders.rent && watchProviders.rent.length > 0) {
-    const services = watchProviders.rent.slice(0, 5).map(p => p.provider_name).join(' • ');
+    const services = normalizeProviders(watchProviders.rent.slice(0, 8)).join(' • ');
     lines.push(`**Rent:** ${services}`);
   }
   
   // Purchase options
   if (watchProviders.buy && watchProviders.buy.length > 0) {
-    const services = watchProviders.buy.slice(0, 5).map(p => p.provider_name).join(' • ');
+    const services = normalizeProviders(watchProviders.buy.slice(0, 8)).join(' • ');
     lines.push(`**Buy:** ${services}`);
   }
   
