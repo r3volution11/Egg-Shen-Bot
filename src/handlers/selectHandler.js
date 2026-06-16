@@ -19,6 +19,7 @@ import { trackSearch } from '../utils/statsTracker.js';
 export async function handleSelectInteraction(interaction) {
   if (interaction.customId !== 'select_result' && interaction.customId !== 'select_episode_show') return;
   
+  // Defer the update to acknowledge the interaction
   await interaction.deferUpdate();
   
   try {
@@ -56,10 +57,9 @@ export async function handleSelectInteraction(interaction) {
       
       if (!episode) {
         const showDetails = await getTVShowDetails(showId);
-        await interaction.editReply({
+        await interaction.message.delete().catch(() => {});
+        await interaction.channel.send({
           content: `Couldn't find episode "${episodeName}" in **${showDetails.name}**. The episode might not be in TMDB's database, or try a different spelling.`,
-          embeds: [],
-          components: [],
         });
         return;
       }
@@ -98,7 +98,9 @@ export async function handleSelectInteraction(interaction) {
       }
       
       const response = await createEpisodeEmbed({ episode, omdb, trakt, urls }, enabledServices, guildEmojis);
-      await interaction.editReply(response);
+      // Delete ephemeral menu and send public result
+      await interaction.message.delete().catch(() => {});
+      await interaction.channel.send(response);
       return;
     }
     
@@ -141,7 +143,9 @@ export async function handleSelectInteraction(interaction) {
       }
       
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis);
-      await interaction.editReply(response);
+      // Delete ephemeral menu and send public result
+      await interaction.message.delete().catch(() => {});
+      await interaction.channel.send(response);
       
     } else if (type === 'tv') {
       tmdb = await getTVShowDetails(id);
@@ -176,7 +180,9 @@ export async function handleSelectInteraction(interaction) {
       }
       
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis);
-      await interaction.editReply(response);
+      // Delete ephemeral menu and send public result
+      await interaction.message.delete().catch(() => {});
+      await interaction.channel.send(response);
     }
     
   } catch (error) {

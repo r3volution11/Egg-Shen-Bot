@@ -38,8 +38,62 @@ export async function execute(interaction) {
       return;
     }
     
-    // Create the selection interface
+    // If only one result, display it directly
+    if (results.length === 1) {
+      const { getMovieDetails } = await import('../services/tmdbService.js');
+      const { getOMDBData } = await import('../services/omdbService.js');
+      const { getMovieRating } = await import('../services/traktService.js');
+      const {
+        getIMDbUrl,
+        getLetterboxdUrl,
+        getTraktMovieUrl,
+        getRottenTomatoesUrl,
+        getJustWatchUrl,
+      } = await import('../services/urlService.js');
+      const { createDetailedEmbed } = await import('../utils/embedBuilder.js');
+      const { getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
+      const { trackSearch } = await import('../utils/statsTracker.js');
+      
+      const movieId = results[0].id;
+      const tmdb = await getMovieDetails(movieId);
+      const imdbId = tmdb.external_ids?.imdb_id;
+      
+      const [omdb, trakt, enabledServices, guildEmojis, statsConfig] = await Promise.all([
+        imdbId ? getOMDBData(imdbId) : null,
+        imdbId ? getMovieRating(imdbId) : null,
+        getEnabledServices(interaction.guildId),
+        getEmojis(interaction.guildId),
+        getStatsConfig(interaction.guildId),
+      ]);
+      
+      const urls = {
+        imdb: getIMDbUrl(imdbId),
+        letterboxd: getLetterboxdUrl(imdbId),
+        trakt: getTraktMovieUrl(tmdb.external_ids?.imdb_id),
+        rottenTomatoes: getRottenTomatoesUrl(tmdb.title, tmdb.release_date?.split('-')[0], 'movie'),
+        justWatch: getJustWatchUrl(tmdb.title, 'movie'),
+      };
+      
+      if (statsConfig.enabled && statsConfig.trackMovies) {
+        const year = tmdb.release_date?.split('-')[0];
+        await trackSearch(
+          interaction.guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'movie',
+          tmdb.title,
+          year
+        ).catch(err => console.error('Stats tracking error:', err));
+      }
+      
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis);
+      await interaction.editReply(response);
+      return;
+    }
+    
+    // Create the selection interface (ephemeral for privacy)
     const response = await createSearchResults(results, 'movie', query);
+    response.ephemeral = true;
     await interaction.editReply(response);
     
   } catch (error) {

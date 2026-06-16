@@ -42,8 +42,61 @@ export async function execute(interaction) {
       return;
     }
     
-    // Create the selection interface
+    // If only one result, display it directly
+    if (results.length === 1) {
+      const { getTVShowDetails } = await import('../services/tmdbService.js');
+      const { getOMDBData } = await import('../services/omdbService.js');
+      const { getShowRating } = await import('../services/traktService.js');
+      const {
+        getIMDbUrl,
+        getTraktShowUrl,
+        getRottenTomatoesUrl,
+        getJustWatchUrl,
+      } = await import('../services/urlService.js');
+      const { createDetailedEmbed } = await import('../utils/embedBuilder.js');
+      const { getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
+      const { trackSearch } = await import('../utils/statsTracker.js');
+      
+      const showId = results[0].id;
+      const tmdb = await getTVShowDetails(showId);
+      const imdbId = tmdb.external_ids?.imdb_id;
+      
+      const [omdb, trakt, enabledServices, guildEmojis, statsConfig] = await Promise.all([
+        imdbId ? getOMDBData(imdbId) : null,
+        imdbId ? getShowRating(imdbId) : null,
+        getEnabledServices(interaction.guildId),
+        getEmojis(interaction.guildId),
+        getStatsConfig(interaction.guildId),
+      ]);
+      
+      const urls = {
+        imdb: getIMDbUrl(imdbId),
+        letterboxd: null,
+        trakt: getTraktShowUrl(tmdb.external_ids?.imdb_id),
+        rottenTomatoes: getRottenTomatoesUrl(tmdb.name, tmdb.first_air_date?.split('-')[0], 'tv'),
+        justWatch: getJustWatchUrl(tmdb.name, 'tv'),
+      };
+      
+      if (statsConfig.enabled && statsConfig.trackShows) {
+        const year = tmdb.first_air_date?.split('-')[0];
+        await trackSearch(
+          interaction.guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'tv',
+          tmdb.name,
+          year
+        ).catch(err => console.error('Stats tracking error:', err));
+      }
+      
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis);
+      await interaction.editReply(response);
+      return;
+    }
+    
+    // Create the selection interface (ephemeral for privacy)
     const response = await createSearchResults(results, 'tv', query);
+    response.ephemeral = true;
     await interaction.editReply(response);
     
   } catch (error) {
