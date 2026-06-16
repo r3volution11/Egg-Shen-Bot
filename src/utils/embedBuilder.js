@@ -77,7 +77,7 @@ export async function createEpisodeSearchResults(results, showQuery, episodeQuer
 /**
  * Create a detailed result embed with ratings
  */
-export async function createDetailedEmbed(data, type, enabledServices = null, guildEmojis = null) {
+export async function createDetailedEmbed(data, type, enabledServices = null, guildEmojis = null, watchProviders = null) {
   const {
     tmdb,
     omdb,
@@ -105,10 +105,22 @@ export async function createDetailedEmbed(data, type, enabledServices = null, gu
   const ratingsText = buildRatingsText(data, enabledServices, guildEmojis);
   if (ratingsText) {
     embed.addFields({
-      name: '⭐ Ratings & Streaming',
+      name: '⭐ Ratings',
       value: ratingsText,
       inline: false,
     });
+  }
+  
+  // Add streaming availability if available
+  if (watchProviders) {
+    const streamingText = buildStreamingText(watchProviders);
+    if (streamingText) {
+      embed.addFields({
+        name: '📺 Streaming Availability',
+        value: streamingText,
+        inline: false,
+      });
+    }
   }
   
   // Add additional info
@@ -270,6 +282,45 @@ function buildRatingsText(data, enabledServices = null, guildEmojis = null) {
   // Join all badges with separator
   return badges.length > 0 ? badges.join(' • ') : 'No ratings available.';
 }
+
+/**
+ * Build streaming availability text from TMDB watch providers
+ * @param {Object} watchProviders - Watch provider data from TMDB
+ * @returns {string} Formatted streaming text with service names
+ */
+function buildStreamingText(watchProviders) {
+  if (!watchProviders) {
+    return null;
+  }
+  
+  const lines = [];
+  
+  // Streaming services (subscription)
+  if (watchProviders.flatrate && watchProviders.flatrate.length > 0) {
+    const services = watchProviders.flatrate.map(p => p.provider_name).join(', ');
+    lines.push(`**Stream:** ${services}`);
+  }
+  
+  // Rental options
+  if (watchProviders.rent && watchProviders.rent.length > 0) {
+    const services = watchProviders.rent.slice(0, 5).map(p => p.provider_name).join(', ');
+    lines.push(`**Rent:** ${services}`);
+  }
+  
+  // Purchase options
+  if (watchProviders.buy && watchProviders.buy.length > 0) {
+    const services = watchProviders.buy.slice(0, 5).map(p => p.provider_name).join(', ');
+    lines.push(`**Buy:** ${services}`);
+  }
+  
+  // Add TMDB link for full details
+  if (watchProviders.link && lines.length > 0) {
+    lines.push(`\n[View all options →](${watchProviders.link})`);
+  }
+  
+  return lines.length > 0 ? lines.join('\n') : null;
+}
+
 
 /**
  * Create a game search results message with a select menu

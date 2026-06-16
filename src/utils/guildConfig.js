@@ -22,6 +22,7 @@ const defaultConfig = {
     rtCritics: '',
     justWatch: '',
   },
+  region: 'US', // Default region for streaming availability (ISO 3166-1 country code)
   stats: {
     enabled: true,
     trackMovies: true,
