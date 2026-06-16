@@ -45,8 +45,69 @@ export async function execute(interaction) {
       return;
     }
     
-    // Create the selection interface with episode name stored
+    // If only one show result, search for the episode directly
+    if (showResults.length === 1) {
+      const { searchEpisodeByName, getTVShowDetails } = await import('../services/tmdbService.js');
+      const { getOMDBData } = await import('../services/omdbService.js');
+      const { getEpisodeRating } = await import('../services/traktService.js');
+      const {
+        getIMDbEpisodeUrl,
+        getTraktEpisodeUrl,
+        getJustWatchUrl,
+      } = await import('../services/urlService.js');
+      const { createEpisodeEmbed } = await import('../utils/embedBuilder.js');
+      const { getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
+      const { trackSearch } = await import('../utils/statsTracker.js');
+      
+      const showId = showResults[0].id;
+      const episode = await searchEpisodeByName(showId, episodeQuery);
+      
+      if (!episode) {
+        const showDetails = await getTVShowDetails(showId);
+        await interaction.editReply({
+          content: `Couldn't find episode "${episodeQuery}" in **${showDetails.name}**. The episode might not be in TMDB's database, or try a different spelling.`,
+        });
+        return;
+      }
+      
+      const showImdbId = episode.show.external_ids?.imdb_id;
+      const episodeImdbId = episode.external_ids?.imdb_id;
+      
+      const [omdb, trakt, enabledServices, guildEmojis, statsConfig] = await Promise.all([
+        episodeImdbId ? getOMDBData(episodeImdbId) : null,
+        showImdbId ? getEpisodeRating(showImdbId, episode.season_number, episode.episode_number) : null,
+        getEnabledServices(interaction.guildId),
+        getEmojis(interaction.guildId),
+        getStatsConfig(interaction.guildId),
+      ]);
+      
+      const urls = {
+        imdb: getIMDbEpisodeUrl(showImdbId, episode.season_number, episode.episode_number, episodeImdbId),
+        letterboxd: null,
+        trakt: getTraktEpisodeUrl(showImdbId, episode.season_number, episode.episode_number),
+        rottenTomatoes: null,
+        justWatch: getJustWatchUrl(episode.show.name, 'tv'),
+      };
+      
+      if (statsConfig.enabled && statsConfig.trackEpisodes) {
+        const episodeTitle = `${episode.show.name} - ${episode.name}`;
+        await trackSearch(
+          interaction.guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'episode',
+          episodeTitle
+        ).catch(err => console.error('Stats tracking error:', err));
+      }
+      
+      const response = await createEpisodeEmbed({ episode, omdb, trakt, urls }, enabledServices, guildEmojis);
+      await interaction.editReply(response);
+      return;
+    }
+    
+    // Create the selection interface with episode name stored (ephemeral for privacy)
     const response = await createEpisodeSearchResults(showResults, showQuery, episodeQuery);
+    response.ephemeral = true;
     await interaction.editReply(response);
     
   } catch (error) {
