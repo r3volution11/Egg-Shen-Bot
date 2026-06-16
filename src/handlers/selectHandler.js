@@ -1,6 +1,7 @@
 import { getMovieDetails, getTVShowDetails, getMovieWatchProviders, getTVWatchProviders } from '../services/tmdbService.js';
 import { getOMDBData } from '../services/omdbService.js';
 import { getMovieRating, getShowRating } from '../services/traktService.js';
+import { getLetterboxdRating } from '../services/letterboxdService.js';
 import {
   getIMDbUrl,
   getLetterboxdUrl,
@@ -232,7 +233,7 @@ export async function handleSelectInteraction(interaction) {
     const [type, id] = value.split('_');
     
     // Fetch all data in parallel
-    let tmdb, omdb, trakt;
+    let tmdb, omdb, trakt, letterboxd;
     
     if (type === 'movie') {
       tmdb = await getMovieDetails(id);
