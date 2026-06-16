@@ -243,7 +243,7 @@ export async function execute(interaction) {
         justWatch: getJustWatchUrl(tmdb.title, 'movie'),
       };
 
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls, watchProviders }, 'movie', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'movie', enabledServices, guildEmojis, watchProviders);
       
       // Track the random movie search
       await trackSearch(
@@ -298,7 +298,7 @@ export async function execute(interaction) {
         justWatch: getJustWatchUrl(tmdb.name, 'tv'),
       };
 
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls, watchProviders }, 'tv', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis, watchProviders);
       
       // Track the random TV search
       await trackSearch(
