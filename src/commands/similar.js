@@ -12,30 +12,48 @@ export const data = new SlashCommandBuilder()
       .setName('title')
       .setDescription('Movie, TV show, or game title')
       .setRequired(true)
+  )
+  .addStringOption(option =>
+    option
+      .setName('type')
+      .setDescription('Specify media type (optional - searches all types if not specified)')
+      .setRequired(false)
+      .addChoices(
+        { name: 'Movie', value: 'movie' },
+        { name: 'TV Show', value: 'tv' },
+        { name: 'Game', value: 'game' }
+      )
   );
 
 export async function execute(interaction) {
   const title = interaction.options.getString('title');
+  const mediaType = interaction.options.getString('type');
 
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    // Search for movies, TV shows, and games
-    const [movieResults, tvResults, gameResults] = await Promise.all([
-      searchMovies(title),
-      searchTVShows(title),
-      searchGames(title),
-    ]);
-
-    const allResults = [
-      ...(movieResults || []).map(r => ({ ...r, type: 'movie' })),
-      ...(tvResults || []).map(r => ({ ...r, type: 'tv' })),
-      ...(gameResults || []).map(r => ({ ...r, type: 'game' })),
-    ];
+    // Search based on specified media type, or all types if not specified
+    let allResults = [];
+    
+    if (!mediaType || mediaType === 'movie') {
+      const movieResults = await searchMovies(title);
+      allResults.push(...(movieResults || []).map(r => ({ ...r, type: 'movie' })));
+    }
+    
+    if (!mediaType || mediaType === 'tv') {
+      const tvResults = await searchTVShows(title);
+      allResults.push(...(tvResults || []).map(r => ({ ...r, type: 'tv' })));
+    }
+    
+    if (!mediaType || mediaType === 'game') {
+      const gameResults = await searchGames(title);
+      allResults.push(...(gameResults || []).map(r => ({ ...r, type: 'game' })));
+    }
 
     if (allResults.length === 0) {
+      const typeText = mediaType ? `${mediaType}s` : 'movies, TV shows, or games';
       await interaction.editReply({
-        content: `No movies, TV shows, or games found matching "${title}".`,
+        content: `No ${typeText} found matching "${title}".`,
       });
       return;
     }
