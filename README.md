@@ -1,15 +1,16 @@
 # Discord Movie and TV Bot
 
-A Discord bot for looking up movies, TV shows, and TV show episodes with comprehensive search, watch party features, and statistics tracking. It provides ratings and links for IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch and is easily configurable by administrators. Perfect for movie/TV discussion servers and watch party communities with features like random pickers, watch history logging, similar content recommendations, and channel timers.
+A Discord bot for looking up movies, TV shows, TV show episodes, and video games with comprehensive search, watch party features, and statistics tracking. It provides ratings and links for IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch (for movies/TV) and Metacritic, RAWG (for games). Easily configurable by administrators and perfect for movie/TV/gaming discussion servers and watch party communities with features like random pickers, watch history logging, similar content recommendations, and channel timers.
 
 ## Features
 
 - 🎬 **Movie Search** - Search for any movie with the `/movie` command
 - 📺 **TV Show Search** - Search for TV shows with the `/tv` command
 - 🎞️ **Episode Search** - Search for specific TV episodes with the `/episode` command
-- 🎲 **Random Picker** - Get random movies, TV shows, or episodes with genre/decade/rating filters
+- � **Game Search** - Search for video games with the `/game` command
+- 🎲 **Random Picker** - Get random movies, TV shows, episodes, or games with genre/decade/rating/platform filters
 - 📝 **Watch History** - Log what you watched with ratings and notes, view server watch history
-- 🔍 **Similar Content** - Find similar movies or TV shows based on any title
+- 🔍 **Similar Content** - Find similar movies, TV shows, or games based on any title
 - 📊 **Public Statistics** - Anyone can view server stats and personal usage statistics
 - ⭐ **Multiple Ratings** - Display ratings from IMDb, Trakt, and Rotten Tomatoes
 - 🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
@@ -27,6 +28,7 @@ A Discord bot for looking up movies, TV shows, and TV show episodes with compreh
   - TMDB (The Movie Database) - [Get free API key](https://www.themoviedb.org/settings/api)
   - OMDB (Optional Movie Database) - [Get API key](http://www.omdbapi.com/apikey.aspx)
   - Trakt - [Get API key](https://trakt.tv/oauth/applications)
+  - RAWG (Video Games Database) - [Get free API key](https://rawg.io/apidocs)
 
 ## Installation
 
@@ -48,6 +50,7 @@ A Discord bot for looking up movies, TV shows, and TV show episodes with compreh
    TMDB_API_KEY=your_tmdb_api_key
    OMDB_API_KEY=your_omdb_api_key
    TRAKT_CLIENT_ID=your_trakt_client_id
+   RAWG_API_KEY=your_rawg_api_key
    ```
 
 ## Setting Up Your Discord Bot
@@ -157,6 +160,27 @@ The bot will:
 
 **Note:** Episode search looks through all seasons of a show to find episodes matching your search term.
 
+### Game Search
+
+```
+/game Resident Evil 4
+```
+
+The bot will:
+
+1. Display up to 5 search results in a dropdown menu
+2. Let you select the correct game
+3. Show a detailed embed with:
+   - Game cover art/screenshot
+   - Description
+   - Metacritic score
+   - RAWG user rating (out of 5 stars)
+   - Available platforms
+   - Release date
+   - Developers and publishers
+   - Genres
+   - Links to official website, RAWG page, and Metacritic
+
 ### Timer
 
 **Start a Timer:**
@@ -204,6 +228,7 @@ Check if there's an active timer in the channel and how long it has been running
 ```
 
 Get a random movie with optional filters:
+
 - **genre** - Horror, Thriller, Sci-Fi, Fantasy, Mystery, Romance, Action, Comedy, Drama, Crime
 - **decade** - 2020s, 2010s, 2000s, 1990s, 1980s, 1970s, 1960s, 1950s
 - **min-rating** - Minimum TMDB rating (1.0-10.0)
@@ -215,6 +240,7 @@ Get a random movie with optional filters:
 ```
 
 Get a random TV show with optional filters:
+
 - **genre** - Horror, Sci-Fi & Fantasy, Mystery, Romance, Crime, Drama, Comedy, Action & Adventure
 - **min-rating** - Minimum TMDB rating (1.0-10.0)
 
@@ -225,10 +251,23 @@ Get a random TV show with optional filters:
 ```
 
 Get a random episode from any TV show. The bot will:
+
 1. Search for the show
 2. Pick a random season
 3. Pick a random episode from that season
 4. Display the episode with details and a command to view full ratings
+
+**Random Game:**
+
+```
+/random game genre:Horror platform:PC min-rating:4.0
+```
+
+Get a random game with optional filters:
+
+- **genre** - Horror, Action, RPG, Strategy, Shooter, Indie, Puzzle, Platformer
+- **platform** - PC, PlayStation, Xbox, Nintendo Switch, Mobile
+- **min-rating** - Minimum RAWG rating (1.0-5.0)
 
 ### Watch History
 
@@ -239,6 +278,7 @@ Get a random episode from any TV show. The bot will:
 ```
 
 Manually log what you watched with optional rating (1-10) and notes. The bot will:
+
 1. Search for the title
 2. Let you select the correct movie or TV show if multiple results
 3. Save to server watch history with your rating and notes
@@ -250,6 +290,7 @@ Manually log what you watched with optional rating (1-10) and notes. The bot wil
 ```
 
 View the server's watch history with filters:
+
 - **filter** - All, Movies Only, TV Shows Only
 - **limit** - Number of entries to show (1-25, default: 10)
 
@@ -258,6 +299,7 @@ Displays recent watches with titles, ratings, notes, who watched, and dates.
 **Watch History from Timer:**
 
 When you stop a timer with a label:
+
 1. You'll see a "📝 Log to Watch History" button
 2. Click it to open a form for rating and notes
 3. The bot automatically searches for the title and adds it to history
@@ -269,6 +311,7 @@ When you stop a timer with a label:
 ```
 
 Find movies or TV shows similar to any title. The bot will:
+
 1. Search for the title
 2. Use TMDB's similarity algorithm
 3. Display top 10 similar recommendations with years and ratings
@@ -284,6 +327,7 @@ Perfect for discovering what to watch next!
 ```
 
 Anyone can view server statistics including:
+
 - Top movies, TV shows, and episodes
 - Command usage counts (Random, Watched, Similar)
 - Most active users with breakdown
@@ -295,6 +339,7 @@ Anyone can view server statistics including:
 ```
 
 See your own statistics:
+
 - Movies searched
 - TV shows searched
 - Episodes searched
@@ -303,6 +348,7 @@ See your own statistics:
 - Similar searches
 
 **Time Filters:**
+
 - `all-time` - All recorded activity (default)
 - `month` - This month only
 - `week` - This week only
@@ -322,6 +368,7 @@ Displays an interactive help menu showing:
 - **Admin/Moderator commands** (only visible to users with admin or moderator permissions)
 
 **Help Menu Includes:**
+
 - Core commands: movie, tv, episode
 - Watch party features: random, watched, similar
 - Utilities: timer, stats, help
@@ -537,6 +584,7 @@ discord-movie-tv-bot/
 ### Current Features
 
 **Core Search:**
+
 - ✅ Movie and TV show search
 - ✅ Episode search by name with show selection
 - ✅ Interactive result selection (up to 5 results)
@@ -548,6 +596,7 @@ discord-movie-tv-bot/
 - ✅ TV series and show posters
 
 **Watch Party Features:**
+
 - ✅ Random movie/TV/episode picker with genre, decade, and rating filters
 - ✅ Watch history logging with ratings and notes
 - ✅ View server watch history with filters
@@ -557,6 +606,7 @@ discord-movie-tv-bot/
 - ✅ Timer persistence across bot restarts
 
 **Statistics & Tracking:**
+
 - ✅ Public statistics command for all users
 - ✅ Personal statistics view (your own usage)
 - ✅ Server statistics view (top content and users)
@@ -566,6 +616,7 @@ discord-movie-tv-bot/
 - ✅ Admin controls for statistics (toggle tracking, clear stats)
 
 **Administration:**
+
 - ✅ Per-server configuration (admin controls)
 - ✅ Toggle individual rating services on/off per server
 - ✅ Custom emoji support per server
@@ -592,7 +643,6 @@ discord-movie-tv-bot/
 - [ ] Cache frequently searched titles
 - [ ] Support for more streaming services
 - [ ] Export watch history to CSV/JSON
-- [ ] Watch party scheduling with reminders
 - [ ] Community recommendations based on server watch history
 
 ## Troubleshooting
@@ -639,4 +689,5 @@ MIT License - feel free to use and modify as needed.
 - [TMDB](https://www.themoviedb.org/) for comprehensive movie/TV data
 - [OMDB](http://www.omdbapi.com/) for IMDb and Rotten Tomatoes ratings
 - [Trakt](https://trakt.tv) for community ratings
+- [RAWG](https://rawg.io/) for comprehensive video game data and ratings
 - [discord.js](https://discord.js.org/) for the Discord bot framework

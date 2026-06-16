@@ -100,6 +100,46 @@ export const data = new SlashCommandBuilder()
           .setDescription('TV show name')
           .setRequired(true)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('game')
+      .setDescription('Get a random game with optional filters')
+      .addStringOption(option =>
+        option
+          .setName('genre')
+          .setDescription('Filter by genre')
+          .setRequired(false)
+          .addChoices(
+            { name: 'Horror', value: '3,5' }, // Adventure + Horror tags
+            { name: 'Action', value: '4' },
+            { name: 'RPG', value: '5' },
+            { name: 'Strategy', value: '10' },
+            { name: 'Shooter', value: '2' },
+            { name: 'Indie', value: '51' },
+            { name: 'Puzzle', value: '7' },
+            { name: 'Platformer', value: '83' }
+          )
+      )
+      .addStringOption(option =>
+        option
+          .setName('platform')
+          .setDescription('Filter by platform')
+          .setRequired(false)
+          .addChoices(
+            { name: 'PC', value: '4' },
+            { name: 'PlayStation', value: '187,18,16,15' }, // PS5, PS4, PS3, PS2
+            { name: 'Xbox', value: '186,1,14,80' }, // Series X/S, Xbox One, Xbox 360, Xbox
+            { name: 'Nintendo Switch', value: '7' },
+            { name: 'Mobile', value: '21,3' } // Android, iOS
+          )
+      )
+      .addStringOption(option =>
+        option
+          .setName('min-rating')
+          .setDescription('Minimum rating (1-5)')
+          .setRequired(false)
+      )
   );
 
 export async function execute(interaction) {
@@ -308,6 +348,44 @@ export async function execute(interaction) {
         components: [row],
       });
       return;
+      
+    } else if (subcommand === 'game') {
+      const { discoverRandomGame } = await import('../services/rawgService.js');
+      const { createGameDetailedEmbed } = await import('../utils/embedBuilder.js');
+      
+      const genreFilter = interaction.options.getString('genre');
+      const platformFilter = interaction.options.getString('platform');
+      const minRating = interaction.options.getString('min-rating');
+      
+      // Validate min-rating
+      if (minRating && (isNaN(minRating) || parseFloat(minRating) < 1 || parseFloat(minRating) > 5)) {
+        await interaction.editReply({
+          content: '❌ Minimum rating must be a number between 1 and 5.',
+        });
+        return;
+      }
+      
+      // Build filter object
+      const filters = {};
+      if (genreFilter) filters.genres = genreFilter;
+      if (platformFilter) filters.platforms = platformFilter;
+      if (minRating) filters.minRating = parseFloat(minRating);
+      
+      // Get random game
+      const game = await discoverRandomGame(filters);
+      
+      // Track the random game search
+      await trackSearch(
+        interaction.guildId,
+        interaction.user.id,
+        interaction.user.username,
+        'random',
+        `Random Game - ${game.name}`,
+        game.released?.split('-')[0]
+      );
+      
+      const response = await createGameDetailedEmbed(game);
+      await interaction.editReply(response);
     }
   } catch (error) {
     console.error('Random command error:', error);

@@ -22,6 +22,10 @@ export const config = {
       clientId: process.env.TRAKT_CLIENT_ID,
       baseUrl: 'https://api.trakt.tv',
     },
+    rawg: {
+      apiKey: process.env.RAWG_API_KEY,
+      baseUrl: 'https://api.rawg.io/api',
+    },
   },
   serviceUrls: {
     imdb: 'https://www.imdb.com/title',
