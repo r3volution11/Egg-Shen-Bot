@@ -34,6 +34,9 @@ const defaultConfig = {
     tv: true,
     episode: true,
   },
+  notifications: {
+    restartAnnouncements: false, // Send announcements when bot restarts with active timers
+  },
   administrators: [], // Will be populated with server owner/admins
 };
 

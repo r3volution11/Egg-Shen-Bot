@@ -108,6 +108,26 @@ export const data = new SlashCommandBuilder()
           .setDescription('Enable or disable for regular users')
           .setRequired(true)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('notifications-toggle')
+      .setDescription('Toggle bot notifications')
+      .addStringOption(option =>
+        option
+          .setName('setting')
+          .setDescription('What to toggle')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Restart Announcements', value: 'restartAnnouncements' }
+          )
+      )
+      .addBooleanOption(option =>
+        option
+          .setName('enabled')
+          .setDescription('Enable or disable this notification')
+          .setRequired(true)
+      )
   );
 
 export async function execute(interaction) {
@@ -165,6 +185,8 @@ export async function execute(interaction) {
       `${config.commandPermissions.tv ? '✅' : '❌'} **/tv:** ${config.commandPermissions.tv ? 'Enabled' : 'Disabled'}\n` +
       `${config.commandPermissions.episode ? '✅' : '❌'} **/episode:** ${config.commandPermissions.episode ? 'Enabled' : 'Disabled'}`;
 
+    const notificationsStatus = `${config.notifications?.restartAnnouncements ? '✅' : '❌'} **Restart Announcements:** ${config.notifications?.restartAnnouncements ? 'Enabled' : 'Disabled'}`;
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('⚙️ Egg Shen Configuration')
@@ -190,8 +212,13 @@ export async function execute(interaction) {
         inline: false,
       })
       .addFields({
+        name: 'Notifications',
+        value: notificationsStatus,
+        inline: false,
+      })
+      .addFields({
         name: 'How to Configure',
-        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`',
+        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`',
         inline: false,
       })
       .setFooter({ text: 'Only users with Administrator, Manage Server, or Moderator permissions can configure Egg Shen' });
@@ -334,5 +361,36 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
+  } else if (subcommand === 'notifications-toggle') {
+    // Toggle notifications
+    const setting = interaction.options.getString('setting');
+    const enabled = interaction.options.getBoolean('enabled');
+
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.notifications) {
+      config.notifications = {};
+    }
+    
+    config.notifications[setting] = enabled;
+    await saveGuildConfig(guildId, config);
+
+    const settingDisplayName = {
+      restartAnnouncements: 'Restart announcements',
+    }[setting];
+
+    const statusText = enabled ? 'enabled' : 'disabled';
+    const emoji = enabled ? '✅' : '❌';
+
+    const description = setting === 'restartAnnouncements' 
+      ? (enabled 
+        ? '\n\nThe bot will now announce in channels when it restarts with active timers.'
+        : '\n\nThe bot will silently restore timers without announcements.')
+      : '';
+
+    await interaction.reply({
+      content: `${emoji} **${settingDisplayName}** have been ${statusText} for this server.${description}`,
+      ephemeral: true,
+    });
   }
 }
