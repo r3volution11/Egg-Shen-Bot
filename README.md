@@ -6,7 +6,7 @@ A Discord bot for looking up movies, TV shows, TV show episodes, video games, an
 
 - 🎬 **Movie Search** - Search for any movie with the `/movie` command
 - 📺 **TV Show Search** - Search for TV shows with the `/tv` command
-- 🎞️ **Episode Search** - Search for specific TV episodes with the `/episode` command
+- 🎞️ **Episode Search** - Search for specific TV episodes by title or season/episode notation (s3e11, 3x11)
 - � **Game Search** - Search for video games with the `/game` command
 - 🎲 **Board Game Search** - Search for board games with the `/boardgame` command
 - 🎯 **Random Picker** - Get random movies, TV shows, episodes, games, or board games with genre/decade/rating/platform filters
@@ -146,13 +146,26 @@ Similar to movie search, but displays:
 
 ```
 /episode show:The Outer Limits episode:Sandkings
+/episode show:Breaking Bad episode:s3e11
+/episode show:The Office episode:3x5
 ```
+
+The bot supports **two search methods**:
+1. **By episode title** (e.g., "Sandkings") - Searches through all seasons
+2. **By season/episode number** (e.g., "s3e11", "3x11", "3-11") - Direct lookup
+
+**Supported notation formats:**
+- `s3e11` or `S3E11` (season 3, episode 11)
+- `3x11` or `3X11` (season 3, episode 11)
+- `3-11` (season 3, episode 11)
 
 The bot will:
 
 1. Search for the TV show you specified
 2. Display matching shows in a dropdown (up to 20 by default, useful when multiple versions exist)
-3. Once you select the correct show, it searches for the episode by name
+3. Once you select the correct show, it searches for the episode:
+   - If using season/episode notation, it directly retrieves that specific episode
+   - If using episode title, it searches through all seasons to find matching episodes
 4. Shows a detailed embed with:
    - Episode title and show name
    - Season and episode number
@@ -163,7 +176,7 @@ The bot will:
    - Show poster image
    - JustWatch link for streaming options
 
-**Note:** Episode search looks through all seasons of a show to find episodes matching your search term.
+**Tip:** For faster lookups when you know the exact season/episode, use notation like `s3e11` instead of searching by title!
 
 ### Game Search
 
