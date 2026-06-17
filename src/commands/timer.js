@@ -7,7 +7,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('start')
-      .setDescription('Start a timer in this channel')
+      .setDescription('🟢 Start a timer in this channel')
       .addStringOption(option =>
         option
           .setName('label')
@@ -18,12 +18,12 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('stop')
-      .setDescription('Stop the active timer in this channel')
+      .setDescription('🛑 Stop the active timer in this channel')
   )
   .addSubcommand(subcommand =>
     subcommand
       .setName('status')
-      .setDescription('Check the current timer status in this channel')
+      .setDescription('ℹ️ Check the current timer status in this channel')
   );
 
 export async function execute(interaction) {
