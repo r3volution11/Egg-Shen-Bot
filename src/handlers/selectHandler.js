@@ -226,6 +226,23 @@ export async function handleSelectInteraction(interaction) {
       } else {
         // Search by episode title (original behavior)
         episode = await searchEpisodeByName(showId, episodeName);
+        
+        // If not found and query is just a number, try Season 1, Episode [number]
+        if (!episode && /^\d+$/.test(episodeName.trim())) {
+          const episodeNumber = parseInt(episodeName);
+          console.log(`No title match found for "${episodeName}", trying S1E${episodeNumber}...`);
+          try {
+            const episodeDetails = await getEpisodeDetails(showId, 1, episodeNumber);
+            const showDetails = await getTVShowDetails(showId);
+            episode = {
+              ...episodeDetails,
+              show: showDetails,
+              season_number: 1,
+            };
+          } catch (error) {
+            console.error(`S1E${episodeNumber} lookup error:`, error.message);
+          }
+        }
       }
       
       if (!episode) {
