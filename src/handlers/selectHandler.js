@@ -15,6 +15,31 @@ import { getEnabledServices, getEmojis, getStatsConfig, loadGuildConfig } from '
 import { trackSearch } from '../utils/statsTracker.js';
 
 /**
+ * Parse season/episode notation (s3e11, 3x11, etc.)
+ * @param {string} query - User input
+ * @returns {Object|null} - { season: number, episode: number } or null if not a valid format
+ */
+function parseSeasonEpisode(query) {
+  // Remove all spaces and convert to lowercase
+  const normalized = query.trim().toLowerCase().replace(/\s/g, '');
+  
+  // Try various formats:
+  // s3e11, s03e11, S3E11
+  let match = normalized.match(/^s(\d+)e(\d+)$/);
+  if (match) return { season: parseInt(match[1]), episode: parseInt(match[2]) };
+  
+  // 3x11, 03x11
+  match = normalized.match(/^(\d+)x(\d+)$/);
+  if (match) return { season: parseInt(match[1]), episode: parseInt(match[2]) };
+  
+  // 3-11
+  match = normalized.match(/^(\d+)-(\d+)$/);
+  if (match) return { season: parseInt(match[1]), episode: parseInt(match[2]) };
+  
+  return null;
+}
+
+/**
  * Handle select menu interactions for choosing search results
  */
 export async function handleSelectInteraction(interaction) {
@@ -167,7 +192,7 @@ export async function handleSelectInteraction(interaction) {
       console.log(`Searching for episode "${episodeName}" in show ID ${showId}...`);
       
       // Import the modules we need
-      const { searchEpisodeByName, getTVShowDetails } = await import('../services/tmdbService.js');
+      const { searchEpisodeByName, getEpisodeDetails, getTVShowDetails } = await import('../services/tmdbService.js');
       const { getOMDBData } = await import('../services/omdbService.js');
       const { getEpisodeRating } = await import('../services/traktService.js');
       const {
@@ -177,14 +202,40 @@ export async function handleSelectInteraction(interaction) {
       } = await import('../services/urlService.js');
       const { createEpisodeEmbed } = await import('../utils/embedBuilder.js');
       
-      // Search for the episode in the selected show
-      const episode = await searchEpisodeByName(showId, episodeName);
+      // Check if episode query is in season/episode notation (s3e11)
+      const parsedSeasonEpisode = parseSeasonEpisode(episodeName);
+      let episode;
+      
+      if (parsedSeasonEpisode) {
+        // Search by season/episode number
+        console.log(`Searching for S${parsedSeasonEpisode.season}E${parsedSeasonEpisode.episode}...`);
+        try {
+          const episodeDetails = await getEpisodeDetails(showId, parsedSeasonEpisode.season, parsedSeasonEpisode.episode);
+          const showDetails = await getTVShowDetails(showId);
+          
+          // Match the structure from searchEpisodeByName
+          episode = {
+            ...episodeDetails,
+            show: showDetails,
+            season_number: parsedSeasonEpisode.season,
+          };
+        } catch (error) {
+          console.error('Episode lookup error:', error.message);
+          episode = null;
+        }
+      } else {
+        // Search by episode title (original behavior)
+        episode = await searchEpisodeByName(showId, episodeName);
+      }
       
       if (!episode) {
         const showDetails = await getTVShowDetails(showId);
+        const searchType = parsedSeasonEpisode 
+          ? `S${parsedSeasonEpisode.season}E${parsedSeasonEpisode.episode}`
+          : `"${episodeName}"`;
         await interaction.message.delete().catch(() => {});
         await interaction.channel.send({
-          content: `Couldn't find episode "${episodeName}" in **${showDetails.name}**. The episode might not be in TMDB's database, or try a different spelling.`,
+          content: `Couldn't find episode ${searchType} in **${showDetails.name}**. The episode might not be in TMDB's database, or try a different search term.`,
         });
         return;
       }
