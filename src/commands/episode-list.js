@@ -151,24 +151,24 @@ export async function execute(interaction) {
         ? episode.vote_average.toFixed(1) 
         : 'N/A';
 
-      // Build field value with title as clickable link
+      // Build field value: title with season/episode info on first line
       let fieldValue = '';
       
-      // Episode title - make it a clickable link if IMDb ID available
+      // First line: [Title](link) • Season X • Episode Y
       if (episodeDetails?.external_ids?.imdb_id) {
-        fieldValue += `**[${title}](https://www.imdb.com/title/${episodeDetails.external_ids.imdb_id}/)**\n`;
+        fieldValue += `**[${title}](https://www.imdb.com/title/${episodeDetails.external_ids.imdb_id}/)** • Season ${seasonNumber} • Episode ${episodeNum}\n`;
       } else {
-        fieldValue += `**${title}**\n`;
+        fieldValue += `**${title}** • Season ${seasonNumber} • Episode ${episodeNum}\n`;
       }
       
-      // Air date and rating on one compact line
+      // Second line: air date and rating
       fieldValue += `${airDate}`;
       if (tmdbRating !== 'N/A') {
         fieldValue += ` • TMDB: ${tmdbRating}/10`;
       }
 
       embed.addFields({
-        name: `Episode ${episodeNum}`,
+        name: '\u200B', // Zero-width space for minimal visual separator
         value: fieldValue,
         inline: false,
       });
