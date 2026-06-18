@@ -154,7 +154,7 @@ export async function handleSelectInteraction(interaction) {
         embed.addFields({
           name: '\u200B', // Zero-width space for minimal visual separator
           value: fieldValue,
-          inline: false,
+          inline: true, // Display in 2 columns
         });
       }
       
