@@ -7,7 +7,8 @@ A Discord bot for looking up movies, TV shows, TV show episodes, video games, an
 - 🎬 **Movie Search** - Search for any movie with the `/movie` command
 - 📺 **TV Show Search** - Search for TV shows with the `/tv` command
 - 🎞️ **Episode Search** - Search for specific TV episodes by title or season/episode notation (s3e11, 3x11)
-- � **Game Search** - Search for video games with the `/game` command
+- 📋 **Episode List** - View all episodes in a season with ratings and air dates using `/episode-list`
+- 🎮 **Game Search** - Search for video games with the `/game` command
 - 🎲 **Board Game Search** - Search for board games with the `/boardgame` command
 - 🎯 **Random Picker** - Get random movies, TV shows, episodes, games, or board games with genre/decade/rating/platform filters
 - 📝 **Watch History** - Log what you watched with ratings and notes, view server watch history
@@ -177,6 +178,32 @@ The bot will:
    - JustWatch link for streaming options
 
 **Tip:** For faster lookups when you know the exact season/episode, use notation like `s3e11` instead of searching by title!
+
+### Episode List
+
+```
+/episode-list series:The Outer Limits season:2
+```
+
+Get a complete list of all episodes in a season with ratings and air dates.
+
+The bot will:
+
+1. Search for the TV show you specified
+2. Fetch all episodes for the specified season
+3. Display a rich embed showing:
+   - Episode number and title
+   - Air date
+   - TMDB rating (when available)
+   - Link to view the full season on IMDb
+
+**Perfect for:**
+- Planning watch party schedules
+- Finding highly-rated episodes in a series
+- Browsing a season before committing to a full binge
+- Quick reference for episode titles and air dates
+
+**Note:** Discord limits embeds to 25 fields, so seasons with more than 25 episodes will require pagination (coming soon). For now, use `/episode` to search individual episodes in longer seasons.
 
 ### Game Search
 
@@ -674,6 +701,7 @@ discord-movie-tv-bot/
 │   │   ├── movie.js       # /movie command
 │   │   ├── tv.js          # /tv command
 │   │   ├── episode.js     # /episode command
+│   │   ├── episode-list.js # /episode-list command
 │   │   ├── random.js      # /random command (movie/tv/episode)
 │   │   ├── watched.js     # /watched command (add/history)
 │   │   ├── similar.js     # /similar command
@@ -773,7 +801,6 @@ discord-movie-tv-bot/
 ### Future Enhancements
 
 - [ ] AI-powered search - Use AI to better understand user queries and determine search intent (e.g., automatically detect if searching for a movie, show, or episode; handle typos and variations)
-- [ ] Bulk episode lookup (e.g., search by season number)
 - [ ] User favorites and personal watchlists
 - [ ] Streaming availability notifications
 - [ ] Cache frequently searched titles
