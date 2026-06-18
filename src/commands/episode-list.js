@@ -1,5 +1,6 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder } from 'discord.js';
 import { searchTVShows, getSeasonDetails, getTVShowDetails } from '../services/tmdbService.js';
+import { loadGuildConfig } from '../utils/guildConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('episode-list')
@@ -19,7 +20,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  await interaction.deferReply();
+  await interaction.deferReply({ ephemeral: true });
 
   const seriesQuery = interaction.options.getString('series');
   const seasonNumber = interaction.options.getInteger('season');
@@ -35,7 +36,48 @@ export async function execute(interaction) {
       return;
     }
 
-    // Use the first/best match
+    // If multiple results, show selection menu
+    if (searchResults.length > 1) {
+      // Load guild config to get maxSearchResults
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+      const maxResults = guildConfig.maxSearchResults || 20;
+      const limitedResults = searchResults.slice(0, maxResults);
+      
+      // Create selection menu
+      const options = limitedResults.map((result) => {
+        const title = result.name;
+        const year = result.first_air_date;
+        const yearStr = year ? ` (${year.split('-')[0]})` : '';
+        const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
+        
+        return {
+          label: `${title}${yearStr}`.substring(0, 100),
+          description: overview.substring(0, 100),
+          value: `episode-list_${result.id}_${seasonNumber}`,
+        };
+      });
+      
+      const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('select_episode_list_show')
+        .setPlaceholder('Select the correct show')
+        .addOptions(options);
+      
+      const row = new ActionRowBuilder().addComponents(selectMenu);
+      
+      const embed = new EmbedBuilder()
+        .setColor(0x0099FF)
+        .setTitle(`Select the show for season ${seasonNumber}`)
+        .setDescription(`Found ${limitedResults.length} show${limitedResults.length > 1 ? 's' : ''} matching "${seriesQuery}". Select the correct one below.`)
+        .setFooter({ text: 'Select a show from the menu below' });
+      
+      await interaction.editReply({
+        embeds: [embed],
+        components: [row],
+      });
+      return;
+    }
+
+    // Only one result - proceed directly
     const show = searchResults[0];
     const showId = show.id;
 
@@ -70,6 +112,17 @@ export async function execute(interaction) {
       return;
     }
 
+    // Fetch external IDs (including IMDb IDs) for all episodes in parallel
+    const { getEpisodeDetails } = await import('../services/tmdbService.js');
+    const episodeDetailsPromises = episodes.map(ep => 
+      getEpisodeDetails(showId, seasonNumber, ep.episode_number)
+        .catch(err => {
+          console.error(`Failed to get details for S${seasonNumber}E${ep.episode_number}:`, err);
+          return null;
+        })
+    );
+    const episodeDetailsArray = await Promise.all(episodeDetailsPromises);
+
     // Create embed
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -80,7 +133,9 @@ export async function execute(interaction) {
         : null);
 
     // Add fields for each episode
-    for (const episode of episodes) {
+    for (let i = 0; i < episodes.length; i++) {
+      const episode = episodes[i];
+      const episodeDetails = episodeDetailsArray[i];
       const episodeNum = episode.episode_number;
       const title = episode.name || 'Untitled';
       const airDate = episode.air_date 
@@ -96,6 +151,12 @@ export async function execute(interaction) {
         ? episode.vote_average.toFixed(1) 
         : 'N/A';
 
+      // Create episode title with IMDb link if available
+      let episodeTitle = `${episodeNum}. ${title}`;
+      if (episodeDetails?.external_ids?.imdb_id) {
+        episodeTitle = `${episodeNum}. [${title}](https://www.imdb.com/title/${episodeDetails.external_ids.imdb_id}/)`;
+      }
+
       // Build field value
       let fieldValue = `**Air Date:** ${airDate}\n`;
       
@@ -106,7 +167,7 @@ export async function execute(interaction) {
       }
 
       embed.addFields({
-        name: `${episodeNum}. ${title}`,
+        name: episodeTitle,
         value: fieldValue,
         inline: false,
       });
