@@ -232,6 +232,25 @@ The bot will:
 
 Start a timer in the current channel with an optional label. Only one timer can be active per channel at a time.
 
+**🎬 Smart Event Detection (Watch Parties):**
+
+If your server has configured watch party channels, timers can automatically detect the title from Discord scheduled events:
+
+1. **Admin configures watch party channels** (e.g., #movie-night, #horror-night)
+2. **Create a Discord scheduled event** with the movie/show title (e.g., "The Matrix Reloaded")
+3. **Set the event location** to the watch party channel (e.g., "#movie-night" or "<#channelId>")
+4. **Start the event** when it begins
+5. **Run `/timer start`** in that channel (without a label)
+6. **Timer automatically uses the event title** as its label!
+
+**Manual Label (Always Works):**
+
+```
+/timer start label:Custom Title
+```
+
+Manual labels always override auto-detection. Use this when you want a specific label or when not using scheduled events.
+
 **Stop a Timer:**
 
 ```
@@ -256,6 +275,7 @@ Check if there's an active timer in the channel and how long it has been running
 - Displays elapsed time in video player format (M:SS or H:MM:SS)
 - Shows who started the timer and who stopped it
 - Optional labels to describe what the timer is for
+- **Smart event auto-detection** - Automatically pull titles from scheduled events in configured watch party channels
 - **Watch history integration** - When you stop a labeled timer, get a button to log it to watch history with optional rating and notes
 - Timers persist across bot restarts (saved to disk)
 - Restart announcements sent to channels with active timers
@@ -522,6 +542,31 @@ Configure how many search results to display in dropdown menus (1-50, default: 2
 - You want comprehensive options to choose from (increase to 30-50)
 - You prefer fewer choices for faster selection (decrease to 5-10)
 - Your searches often miss the right result (increase for more coverage)
+
+**Configure Watch Party Channels:**
+
+```
+/eggshen-config watch-party-add channel:#movie-night
+/eggshen-config watch-party-remove channel:#movie-night
+/eggshen-config watch-party-list
+```
+
+Manage which channels can auto-detect event titles for timers. Perfect for servers with dedicated watch party channels!
+
+**How it works:**
+1. Add one or more watch party channels (e.g., #movie-night, #horror-night)
+2. Create Discord scheduled events with movie/show titles
+3. Set the event location to match the channel (e.g., "#movie-night")
+4. Start the event when your watch party begins
+5. Run `/timer start` in that channel - it automatically uses the event title!
+
+**Why multiple channels?**
+- Servers like Shudder Discord have multiple watch party rooms
+- Different events can run simultaneously in different channels
+- Each channel independently detects its own events
+- Example: Horror movie in #horror-night, comedy in #comedy-night
+
+**Note:** Manual labels (`/timer start label:Title`) always override auto-detection.
 
 **View Statistics (Admin/Moderator):**
 

@@ -154,6 +154,33 @@ export const data = new SlashCommandBuilder()
           .setMinValue(1)
           .setMaxValue(50)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('watch-party-add')
+      .setDescription('Add a channel where watch parties occur (for event auto-detection)')
+      .addChannelOption(option =>
+        option
+          .setName('channel')
+          .setDescription('The watch party channel to add')
+          .setRequired(true)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('watch-party-remove')
+      .setDescription('Remove a watch party channel from auto-detection')
+      .addChannelOption(option =>
+        option
+          .setName('channel')
+          .setDescription('The watch party channel to remove')
+          .setRequired(true)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('watch-party-list')
+      .setDescription('List all configured watch party channels')
   );
 
 export async function execute(interaction) {
@@ -213,6 +240,10 @@ export async function execute(interaction) {
 
     const notificationsStatus = `${config.notifications?.restartAnnouncements ? '✅' : '❌'} **Restart Announcements:** ${config.notifications?.restartAnnouncements ? 'Enabled' : 'Disabled'}`;
 
+    const watchPartyChannelsDisplay = config.watchPartyChannels?.length > 0
+      ? config.watchPartyChannels.map(channelId => `<#${channelId}>`).join(', ')
+      : 'None configured';
+
     const regionDisplay = config.region || 'US';
     const maxResultsDisplay = config.maxSearchResults || 20;
 
@@ -256,8 +287,13 @@ export async function execute(interaction) {
         inline: false,
       })
       .addFields({
+        name: 'Watch Party Channels',
+        value: `🎬 ${watchPartyChannelsDisplay}\n\nTimers in these channels auto-detect titles from scheduled events. Perfect for servers with multiple simultaneous watch parties!`,
+        inline: false,
+      })
+      .addFields({
         name: 'How to Configure',
-        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Set max results:** `/eggshen-config max-results count:<1-50>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`',
+        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Set max results:** `/eggshen-config max-results count:<1-50>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`\n**Watch party channels:** `/eggshen-config watch-party-add/remove/list`',
         inline: false,
       })
       .setFooter({ text: 'Only users with Administrator, Manage Server, or Moderator permissions can configure Egg Shen' });
@@ -464,5 +500,77 @@ export async function execute(interaction) {
       content: `✅ Maximum search results set to **${count}**.\n\nSearch commands will now display up to ${count} results in selection menus.`,
       ephemeral: true,
     });
+  } else if (subcommand === 'watch-party-add') {
+    // Add a watch party channel
+    const channel = interaction.options.getChannel('channel');
+    
+    const config = await loadGuildConfig(guildId);
+    if (!config.watchPartyChannels) {
+      config.watchPartyChannels = [];
+    }
+    
+    if (config.watchPartyChannels.includes(channel.id)) {
+      await interaction.reply({
+        content: `❌ ${channel} is already configured as a watch party channel.`,
+        ephemeral: true,
+      });
+      return;
+    }
+    
+    config.watchPartyChannels.push(channel.id);
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: `✅ ${channel} has been added as a watch party channel.\n\nTimers in this channel can now auto-detect titles from scheduled events with this channel as their location. Multiple watch party channels can run simultaneously!`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'watch-party-remove') {
+    // Remove a watch party channel
+    const channel = interaction.options.getChannel('channel');
+    
+    const config = await loadGuildConfig(guildId);
+    if (!config.watchPartyChannels || !config.watchPartyChannels.includes(channel.id)) {
+      await interaction.reply({
+        content: `❌ ${channel} is not configured as a watch party channel.`,
+        ephemeral: true,
+      });
+      return;
+    }
+    
+    config.watchPartyChannels = config.watchPartyChannels.filter(id => id !== channel.id);
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: `✅ ${channel} has been removed from watch party channels.`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'watch-party-list') {
+    // List all watch party channels
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.watchPartyChannels || config.watchPartyChannels.length === 0) {
+      await interaction.reply({
+        content: '📋 No watch party channels configured.\n\nUse `/eggshen-config watch-party-add channel:<channel>` to add one.',
+        ephemeral: true,
+      });
+      return;
+    }
+    
+    const channelList = config.watchPartyChannels
+      .map((channelId, index) => `${index + 1}. <#${channelId}>`)
+      .join('\n');
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('🎬 Watch Party Channels')
+      .setDescription('Timers in these channels auto-detect titles from scheduled events. Each channel independently detects its own events, perfect for simultaneous watch parties!')
+      .addFields({
+        name: 'Configured Channels',
+        value: channelList,
+        inline: false,
+      })
+      .setFooter({ text: 'Use /eggshen-config watch-party-add or watch-party-remove to manage channels' });
+    
+    await interaction.reply({ embeds: [embed], ephemeral: true });
   }
 }

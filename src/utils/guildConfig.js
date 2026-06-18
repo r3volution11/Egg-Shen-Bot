@@ -43,6 +43,7 @@ const defaultConfig = {
   notifications: {
     restartAnnouncements: false, // Send announcements when bot restarts with active timers
   },
+  watchPartyChannels: [], // Channel IDs where watch party timers can auto-detect event titles
   administrators: [], // Will be populated with server owner/admins
 };
 
