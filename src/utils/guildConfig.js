@@ -45,6 +45,19 @@ const defaultConfig = {
   },
   watchPartyChannels: [], // Channel IDs where watch party timers can auto-detect event titles
   administrators: [], // Will be populated with server owner/admins
+  rateLimits: {
+    enabled: true, // Master switch for rate limiting
+    bypassForModerators: true, // Allow moderators/admins to bypass rate limits
+    global: {
+      maxRequests: 5, // Maximum number of requests
+      windowSeconds: 60, // Time window in seconds
+    },
+    commands: {
+      // Per-command overrides (optional)
+      // 'movie': { maxRequests: 3, windowSeconds: 30 },
+      // 'episode-list': { maxRequests: 2, windowSeconds: 60 },
+    },
+  },
 };
 
 /**

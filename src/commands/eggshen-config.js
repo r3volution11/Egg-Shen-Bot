@@ -181,6 +181,100 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('watch-party-list')
       .setDescription('List all configured watch party channels')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('rate-limit-toggle')
+      .setDescription('Enable or disable rate limiting')
+      .addBooleanOption(option =>
+        option
+          .setName('enabled')
+          .setDescription('Enable or disable rate limiting')
+          .setRequired(true)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('rate-limit-global')
+      .setDescription('Set global rate limit for all commands')
+      .addIntegerOption(option =>
+        option
+          .setName('max-requests')
+          .setDescription('Maximum number of requests')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(100)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('window-seconds')
+          .setDescription('Time window in seconds')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(3600)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('rate-limit-command')
+      .setDescription('Set rate limit for a specific command')
+      .addStringOption(option =>
+        option
+          .setName('command')
+          .setDescription('The command to set rate limit for')
+          .setRequired(true)
+          .addChoices(
+            { name: 'movie', value: 'movie' },
+            { name: 'tv', value: 'tv' },
+            { name: 'episode', value: 'episode' },
+            { name: 'episode-list', value: 'episode-list' },
+            { name: 'timer', value: 'timer' },
+            { name: 'stats', value: 'stats' }
+          )
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('max-requests')
+          .setDescription('Maximum number of requests (0 to remove custom limit)')
+          .setRequired(true)
+          .setMinValue(0)
+          .setMaxValue(100)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('window-seconds')
+          .setDescription('Time window in seconds')
+          .setRequired(false)
+          .setMinValue(1)
+          .setMaxValue(3600)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('rate-limit-bypass')
+      .setDescription('Toggle whether moderators bypass rate limits')
+      .addBooleanOption(option =>
+        option
+          .setName('enabled')
+          .setDescription('Allow moderators to bypass rate limits')
+          .setRequired(true)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('rate-limit-clear')
+      .setDescription('Clear rate limits for a specific user (admin override)')
+      .addUserOption(option =>
+        option
+          .setName('user')
+          .setDescription('The user to clear rate limits for')
+          .setRequired(true)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('rate-limit-view')
+      .setDescription('View current rate limit configuration')
   );
 
 export async function execute(interaction) {
@@ -247,6 +341,23 @@ export async function execute(interaction) {
     const regionDisplay = config.region || 'US';
     const maxResultsDisplay = config.maxSearchResults || 20;
 
+    // Rate limiting display
+    const rateLimitEnabled = config.rateLimits?.enabled ?? true;
+    const rateLimitBypass = config.rateLimits?.bypassForModerators ?? true;
+    const globalLimit = config.rateLimits?.global || { maxRequests: 5, windowSeconds: 60 };
+    const rateLimitStatus = `${rateLimitEnabled ? '✅' : '❌'} **Rate Limiting:** ${rateLimitEnabled ? 'Enabled' : 'Disabled'}\n` +
+      `${rateLimitBypass ? '✅' : '❌'} **Moderator Bypass:** ${rateLimitBypass ? 'Enabled' : 'Disabled'}\n` +
+      `⏱️ **Global Limit:** ${globalLimit.maxRequests} requests per ${globalLimit.windowSeconds} seconds`;
+    
+    // Show custom command rate limits if any
+    const customCommandLimits = config.rateLimits?.commands || {};
+    const customLimitsDisplay = Object.keys(customCommandLimits).length > 0
+      ? '\n**Custom Limits:**\n' + Object.entries(customCommandLimits)
+          .map(([cmd, limit]) => `• \`/${cmd}\`: ${limit.maxRequests} per ${limit.windowSeconds}s`)
+          .join('\n')
+      : '';
+
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('⚙️ Egg Shen Configuration')
@@ -292,8 +403,13 @@ export async function execute(interaction) {
         inline: false,
       })
       .addFields({
+        name: 'Rate Limiting',
+        value: rateLimitStatus + customLimitsDisplay,
+        inline: false,
+      })
+      .addFields({
         name: 'How to Configure',
-        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Set max results:** `/eggshen-config max-results count:<1-50>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`\n**Watch party channels:** `/eggshen-config watch-party-add/remove/list`',
+        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Set max results:** `/eggshen-config max-results count:<1-50>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`\n**Watch party channels:** `/eggshen-config watch-party-add/remove/list`\n**Rate limits:** `/eggshen-config rate-limit-toggle/global/command/bypass/view`',
         inline: false,
       })
       .setFooter({ text: 'Only users with Administrator, Manage Server, or Moderator permissions can configure Egg Shen' });
@@ -570,6 +686,179 @@ export async function execute(interaction) {
         inline: false,
       })
       .setFooter({ text: 'Use /eggshen-config watch-party-add or watch-party-remove to manage channels' });
+    
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  } else if (subcommand === 'rate-limit-toggle') {
+    // Toggle rate limiting
+    const enabled = interaction.options.getBoolean('enabled');
+    
+    const config = await loadGuildConfig(guildId);
+    if (!config.rateLimits) {
+      config.rateLimits = {
+        enabled: true,
+        bypassForModerators: true,
+        global: { maxRequests: 5, windowSeconds: 60 },
+        commands: {},
+      };
+    }
+    
+    config.rateLimits.enabled = enabled;
+    await saveGuildConfig(guildId, config);
+
+    const statusText = enabled ? 'enabled' : 'disabled';
+    const emoji = enabled ? '✅' : '❌';
+
+    await interaction.reply({
+      content: `${emoji} Rate limiting has been **${statusText}** for this server.\n\n${enabled ? 'Users will be limited based on the configured limits.' : 'All users can now use commands without rate limiting.'}`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'rate-limit-global') {
+    // Set global rate limit
+    const maxRequests = interaction.options.getInteger('max-requests');
+    const windowSeconds = interaction.options.getInteger('window-seconds');
+    
+    const config = await loadGuildConfig(guildId);
+    if (!config.rateLimits) {
+      config.rateLimits = {
+        enabled: true,
+        bypassForModerators: true,
+        global: { maxRequests, windowSeconds },
+        commands: {},
+      };
+    } else {
+      config.rateLimits.global = { maxRequests, windowSeconds };
+    }
+    
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: `✅ Global rate limit set to **${maxRequests} requests per ${windowSeconds} seconds**.\n\nThis applies to all commands unless they have custom limits.`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'rate-limit-command') {
+    // Set command-specific rate limit
+    const command = interaction.options.getString('command');
+    const maxRequests = interaction.options.getInteger('max-requests');
+    const windowSeconds = interaction.options.getInteger('window-seconds');
+    
+    const config = await loadGuildConfig(guildId);
+    if (!config.rateLimits) {
+      config.rateLimits = {
+        enabled: true,
+        bypassForModerators: true,
+        global: { maxRequests: 5, windowSeconds: 60 },
+        commands: {},
+      };
+    }
+    if (!config.rateLimits.commands) {
+      config.rateLimits.commands = {};
+    }
+    
+    // If maxRequests is 0, remove the custom limit
+    if (maxRequests === 0) {
+      delete config.rateLimits.commands[command];
+      await saveGuildConfig(guildId, config);
+      
+      await interaction.reply({
+        content: `✅ Custom rate limit removed for **/${command}**.\n\nIt will now use the global rate limit.`,
+        ephemeral: true,
+      });
+      return;
+    }
+    
+    // Use global window if not specified
+    const finalWindowSeconds = windowSeconds || config.rateLimits.global.windowSeconds;
+    
+    config.rateLimits.commands[command] = {
+      maxRequests,
+      windowSeconds: finalWindowSeconds,
+    };
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: `✅ Rate limit for **/${command}** set to **${maxRequests} requests per ${finalWindowSeconds} seconds**.`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'rate-limit-bypass') {
+    // Toggle moderator bypass
+    const enabled = interaction.options.getBoolean('enabled');
+    
+    const config = await loadGuildConfig(guildId);
+    if (!config.rateLimits) {
+      config.rateLimits = {
+        enabled: true,
+        bypassForModerators: enabled,
+        global: { maxRequests: 5, windowSeconds: 60 },
+        commands: {},
+      };
+    } else {
+      config.rateLimits.bypassForModerators = enabled;
+    }
+    
+    await saveGuildConfig(guildId, config);
+
+    const statusText = enabled ? 'can now' : 'can no longer';
+    const emoji = enabled ? '✅' : '❌';
+
+    await interaction.reply({
+      content: `${emoji} Moderators and administrators **${statusText}** bypass rate limits.`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'rate-limit-clear') {
+    // Clear rate limits for a specific user
+    const user = interaction.options.getUser('user');
+    
+    const { clearRateLimitForUser } = await import('../utils/rateLimiter.js');
+    const cleared = clearRateLimitForUser(guildId, user.id);
+    
+    if (cleared) {
+      await interaction.reply({
+        content: `✅ Rate limits cleared for ${user}.\n\nThey can now use commands immediately.`,
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: `ℹ️ ${user} had no active rate limits.`,
+        ephemeral: true,
+      });
+    }
+  } else if (subcommand === 'rate-limit-view') {
+    // View rate limit configuration
+    const config = await loadGuildConfig(guildId);
+    
+    const rateLimitEnabled = config.rateLimits?.enabled ?? true;
+    const rateLimitBypass = config.rateLimits?.bypassForModerators ?? true;
+    const globalLimit = config.rateLimits?.global || { maxRequests: 5, windowSeconds: 60 };
+    
+    let description = `**Status:** ${rateLimitEnabled ? '✅ Enabled' : '❌ Disabled'}\n`;
+    description += `**Moderator Bypass:** ${rateLimitBypass ? '✅ Enabled' : '❌ Disabled'}\n\n`;
+    description += `**Global Limit:**\n• ${globalLimit.maxRequests} requests per ${globalLimit.windowSeconds} seconds\n`;
+    
+    // Show custom command limits if any
+    const customCommandLimits = config.rateLimits?.commands || {};
+    if (Object.keys(customCommandLimits).length > 0) {
+      description += '\n**Custom Command Limits:**\n';
+      for (const [cmd, limit] of Object.entries(customCommandLimits)) {
+        description += `• \`/${cmd}\`: ${limit.maxRequests} per ${limit.windowSeconds}s\n`;
+      }
+    } else {
+      description += '\n*No custom command limits set*';
+    }
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('⏱️ Rate Limit Configuration')
+      .setDescription(description)
+      .addFields({
+        name: 'How to Configure',
+        value: '**Enable/disable:** `/eggshen-config rate-limit-toggle`\n' +
+               '**Set global limit:** `/eggshen-config rate-limit-global`\n' +
+               '**Set command limit:** `/eggshen-config rate-limit-command`\n' +
+               '**Toggle moderator bypass:** `/eggshen-config rate-limit-bypass`\n' +
+               '**Clear user limits:** `/eggshen-config rate-limit-clear`',
+        inline: false,
+      })
+      .setFooter({ text: 'Rate limits prevent abuse and channel flooding' });
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }

@@ -595,6 +595,66 @@ Manage which channels can auto-detect event titles for timers. Perfect for serve
 
 **Note:** Manual labels (`/timer start label:Title`) always override auto-detection.
 
+**Configure Rate Limiting:**
+
+Rate limiting prevents command abuse and channel flooding. Administrators can configure global limits, per-command limits, and moderator bypass settings.
+
+```
+/eggshen-config rate-limit-view
+```
+
+View current rate limiting configuration including global limits and custom command limits.
+
+```
+/eggshen-config rate-limit-toggle enabled:true
+```
+
+Enable or disable rate limiting entirely. When disabled, users can use commands without restrictions.
+
+```
+/eggshen-config rate-limit-global max-requests:5 window-seconds:60
+```
+
+Set the global rate limit for all commands. Example: 5 requests per 60 seconds means users can run any 5 commands within a minute before being rate-limited.
+
+```
+/eggshen-config rate-limit-command command:episode-list max-requests:2 window-seconds:60
+```
+
+Set a custom rate limit for a specific command. This overrides the global limit for that command only. Available commands:
+- **movie** - Movie search
+- **tv** - TV show search  
+- **episode** - Episode search
+- **episode-list** - Full season episode listing
+- **timer** - Channel timers
+- **stats** - Statistics commands
+
+To remove a custom command limit (revert to global): use `max-requests:0`
+
+```
+/eggshen-config rate-limit-bypass enabled:true
+```
+
+Allow moderators and administrators to bypass rate limits. Enabled by default - useful for admins who need to respond quickly or demonstrate features.
+
+```
+/eggshen-config rate-limit-clear user:@username
+```
+
+Clear rate limits for a specific user (emergency override). Use if a user is accidentally rate-limited due to legitimate use.
+
+**Default Settings:**
+- Rate limiting: **Enabled**
+- Global limit: **5 requests per 60 seconds**
+- Moderator bypass: **Enabled**
+- Custom command limits: **None** (uses global)
+
+**Rate Limit Tips:**
+- Start with default settings and adjust based on server activity
+- Use stricter limits (2-3 per 60s) for resource-intensive commands like `/episode-list`
+- Increase limits (10+ per 60s) for high-activity servers with trusted communities
+- Keep moderator bypass enabled so admins can always help users
+
 **View Statistics (Admin/Moderator):**
 
 ```

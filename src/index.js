@@ -101,6 +101,23 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     try {
+      // Check rate limits
+      const { checkRateLimit } = await import('./utils/rateLimiter.js');
+      const rateCheck = await checkRateLimit(
+        interaction.guildId,
+        interaction.user.id,
+        interaction.commandName,
+        interaction.member
+      );
+      
+      if (rateCheck.limited) {
+        await interaction.reply({
+          content: `⏱️ ${rateCheck.message}`,
+          ephemeral: true,
+        });
+        return;
+      }
+      
       await command.execute(interaction);
     } catch (error) {
       console.error(error);
