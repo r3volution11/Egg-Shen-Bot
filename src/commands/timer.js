@@ -8,13 +8,18 @@ import { loadGuildConfig } from '../utils/guildConfig.js';
  */
 async function getEventTitleForChannel(guild, channelId) {
   try {
+    console.log(`[Timer Auto-Detection] Checking for events in channel ${channelId}...`);
+    
     // Fetch all scheduled events
     const events = await guild.scheduledEvents.fetch();
+    console.log(`[Timer Auto-Detection] Found ${events.size} total scheduled event(s)`);
     
     // Find active events
     const activeEvents = events.filter(event => event.status === GuildScheduledEventStatus.Active);
+    console.log(`[Timer Auto-Detection] Found ${activeEvents.size} ACTIVE event(s)`);
     
     if (activeEvents.size === 0) {
+      console.log(`[Timer Auto-Detection] No active events found`);
       return null;
     }
     
@@ -22,9 +27,14 @@ async function getEventTitleForChannel(guild, channelId) {
     // Discord events can have a channel property if it's a voice/stage event
     // or entityMetadata.location for external events (we check both)
     for (const [, event] of activeEvents) {
+      console.log(`[Timer Auto-Detection] Checking event: "${event.name}"`);
+      console.log(`[Timer Auto-Detection] - Event status: ${event.status}`);
+      console.log(`[Timer Auto-Detection] - Event channelId: ${event.channelId}`);
+      console.log(`[Timer Auto-Detection] - Event location: ${event.entityMetadata?.location || 'none'}`);
+      
       // Check if it's a channel-based event and matches our channel
       if (event.channelId === channelId) {
-        console.log(`Found matching event: "${event.name}" (channel-based)`);
+        console.log(`[Timer Auto-Detection] ✅ Found matching event: "${event.name}" (channel-based)`);
         return event.name;
       }
       
@@ -34,17 +44,21 @@ async function getEventTitleForChannel(guild, channelId) {
         const location = event.entityMetadata.location.toLowerCase();
         const channelMention = `<#${channelId}>`;
         
+        console.log(`[Timer Auto-Detection] - Checking if location contains channel ID or mention...`);
+        console.log(`[Timer Auto-Detection] - Looking for: "${channelId}" or "${channelMention}"`);
+        
         // Check if location contains channel mention or ID
-        if (location.includes(channelId) || location.includes(channelMention)) {
-          console.log(`Found matching event: "${event.name}" (location mentions channel)`);
+        if (location.includes(channelId) || location.includes(channelMention.toLowerCase())) {
+          console.log(`[Timer Auto-Detection] ✅ Found matching event: "${event.name}" (location mentions channel)`);
           return event.name;
         }
       }
     }
     
+    console.log(`[Timer Auto-Detection] ❌ No matching events found for channel ${channelId}`);
     return null;
   } catch (error) {
-    console.error('Error fetching scheduled events:', error);
+    console.error('[Timer Auto-Detection] Error fetching scheduled events:', error);
     return null;
   }
 }
@@ -88,14 +102,25 @@ export async function execute(interaction) {
       const config = await loadGuildConfig(interaction.guildId);
       const watchPartyChannels = config.watchPartyChannels || [];
       
+      console.log(`[Timer] No manual label provided. Checking for auto-detection...`);
+      console.log(`[Timer] Configured watch party channels:`, watchPartyChannels);
+      console.log(`[Timer] Current channel ID: ${channelId}`);
+      
       // Check if this channel is configured for watch party auto-detection
       if (watchPartyChannels.includes(channelId)) {
+        console.log(`[Timer] ✅ Channel is configured for auto-detection. Fetching events...`);
         const autoDetectedTitle = await getEventTitleForChannel(interaction.guild, channelId);
         if (autoDetectedTitle) {
           label = autoDetectedTitle;
-          console.log(`Auto-detected event title: "${label}"`);
+          console.log(`[Timer] ✅ Auto-detected event title: "${label}"`);
+        } else {
+          console.log(`[Timer] ❌ No matching event found for auto-detection`);
         }
+      } else {
+        console.log(`[Timer] ❌ Channel ${channelId} is not in configured watch party channels`);
       }
+    } else {
+      console.log(`[Timer] Manual label provided: "${label}"`);
     }
 
     // Check if timer already exists
