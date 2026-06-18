@@ -1,5 +1,53 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus } from 'discord.js';
 import { startTimer, stopTimer, getTimerStatus } from '../utils/timerManager.js';
+import { loadGuildConfig } from '../utils/guildConfig.js';
+
+/**
+ * Auto-detect event title from scheduled events
+ * Looks for active events where the event location matches the current channel
+ */
+async function getEventTitleForChannel(guild, channelId) {
+  try {
+    // Fetch all scheduled events
+    const events = await guild.scheduledEvents.fetch();
+    
+    // Find active events
+    const activeEvents = events.filter(event => event.status === GuildScheduledEventStatus.Active);
+    
+    if (activeEvents.size === 0) {
+      return null;
+    }
+    
+    // Look for an event where the channel matches
+    // Discord events can have a channel property if it's a voice/stage event
+    // or entityMetadata.location for external events (we check both)
+    for (const [, event] of activeEvents) {
+      // Check if it's a channel-based event and matches our channel
+      if (event.channelId === channelId) {
+        console.log(`Found matching event: "${event.name}" (channel-based)`);
+        return event.name;
+      }
+      
+      // Check if the location field mentions this channel
+      // Users might write "#movie-night" or the channel ID in the location
+      if (event.entityMetadata?.location) {
+        const location = event.entityMetadata.location.toLowerCase();
+        const channelMention = `<#${channelId}>`;
+        
+        // Check if location contains channel mention or ID
+        if (location.includes(channelId) || location.includes(channelMention)) {
+          console.log(`Found matching event: "${event.name}" (location mentions channel)`);
+          return event.name;
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching scheduled events:', error);
+    return null;
+  }
+}
 
 export const data = new SlashCommandBuilder()
   .setName('timer')
@@ -31,9 +79,24 @@ export async function execute(interaction) {
   const channelId = interaction.channelId;
 
   if (subcommand === 'start') {
-    const label = interaction.options.getString('label') || '';
+    let label = interaction.options.getString('label') || '';
     const userId = interaction.user.id;
     const username = interaction.user.username;
+
+    // Auto-detect event title if no manual label provided
+    if (!label) {
+      const config = await loadGuildConfig(interaction.guildId);
+      const watchPartyChannels = config.watchPartyChannels || [];
+      
+      // Check if this channel is configured for watch party auto-detection
+      if (watchPartyChannels.includes(channelId)) {
+        const autoDetectedTitle = await getEventTitleForChannel(interaction.guild, channelId);
+        if (autoDetectedTitle) {
+          label = autoDetectedTitle;
+          console.log(`Auto-detected event title: "${label}"`);
+        }
+      }
+    }
 
     // Check if timer already exists
     const existingTimer = getTimerStatus(channelId);
