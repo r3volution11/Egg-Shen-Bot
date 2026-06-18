@@ -49,8 +49,8 @@ const defaultConfig = {
     enabled: true, // Master switch for rate limiting
     bypassForModerators: true, // Allow moderators/admins to bypass rate limits
     global: {
-      maxRequests: 3, // Maximum number of requests
-      windowSeconds: 60, // Time window in seconds
+      maxRequests: 1, // Maximum number of requests
+      windowSeconds: 20, // Time window in seconds
     },
     commands: {
       // Per-command overrides (optional)
