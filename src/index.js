@@ -103,11 +103,18 @@ client.on('interactionCreate', async (interaction) => {
     try {
       // Check rate limits
       const { checkRateLimit } = await import('./utils/rateLimiter.js');
+      
+      // Serialize command arguments for pattern detection
+      const commandArgs = interaction.options.data
+        .map(opt => `${opt.name}:${opt.value}`)
+        .join(' ');
+      
       const rateCheck = await checkRateLimit(
         interaction.guildId,
         interaction.user.id,
         interaction.commandName,
-        interaction.member
+        interaction.member,
+        commandArgs
       );
       
       if (rateCheck.limited) {

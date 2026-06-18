@@ -57,6 +57,16 @@ const defaultConfig = {
       // 'movie': { maxRequests: 3, windowSeconds: 30 },
       // 'episode-list': { maxRequests: 2, windowSeconds: 60 },
     },
+    guildWide: {
+      enabled: true, // Server-wide rate limiting (prevents multi-account flooding)
+      maxRequests: 10, // Maximum total commands across all users
+      windowSeconds: 60, // Time window in seconds
+    },
+    patternDetection: {
+      enabled: true, // Detect suspicious coordinated activity
+      windowSeconds: 60, // Window for detecting patterns
+      minUsers: 3, // Minimum users needed to flag as suspicious
+    },
   },
 };
 

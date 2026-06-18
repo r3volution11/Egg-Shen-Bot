@@ -275,6 +275,57 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('rate-limit-view')
       .setDescription('View current rate limit configuration')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('rate-limit-guild-wide')
+      .setDescription('Configure server-wide rate limiting (prevents multi-account flooding)')
+      .addBooleanOption(option =>
+        option
+          .setName('enabled')
+          .setDescription('Enable server-wide rate limiting')
+          .setRequired(true)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('max-requests')
+          .setDescription('Maximum total commands across all users (default: 10)')
+          .setRequired(false)
+          .setMinValue(1)
+          .setMaxValue(100)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('window-seconds')
+          .setDescription('Time window in seconds (default: 60)')
+          .setRequired(false)
+          .setMinValue(10)
+          .setMaxValue(600)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('pattern-detection')
+      .setDescription('Configure suspicious activity pattern detection')
+      .addBooleanOption(option =>
+        option
+          .setName('enabled')
+          .setDescription('Enable pattern detection')
+          .setRequired(true)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('min-users')
+          .setDescription('Minimum users needed to flag as suspicious (default: 3)')
+          .setRequired(false)
+          .setMinValue(2)
+          .setMaxValue(20)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('suspicious-activity')
+      .setDescription('View recent suspicious activity detected by pattern detection')
   );
 
 export async function execute(interaction) {
@@ -345,9 +396,14 @@ export async function execute(interaction) {
     const rateLimitEnabled = config.rateLimits?.enabled ?? true;
     const rateLimitBypass = config.rateLimits?.bypassForModerators ?? true;
     const globalLimit = config.rateLimits?.global || { maxRequests: 1, windowSeconds: 20 };
+    const guildWide = config.rateLimits?.guildWide || { enabled: true, maxRequests: 10, windowSeconds: 60 };
+    const patternDetection = config.rateLimits?.patternDetection || { enabled: true, windowSeconds: 60, minUsers: 3 };
+    
     const rateLimitStatus = `${rateLimitEnabled ? '✅' : '❌'} **Rate Limiting:** ${rateLimitEnabled ? 'Enabled' : 'Disabled'}\n` +
       `${rateLimitBypass ? '✅' : '❌'} **Moderator Bypass:** ${rateLimitBypass ? 'Enabled' : 'Disabled'}\n` +
-      `⏱️ **Global Limit:** ${globalLimit.maxRequests} requests per ${globalLimit.windowSeconds} seconds`;
+      `⏱️ **Per-User Limit:** ${globalLimit.maxRequests} per ${globalLimit.windowSeconds}s\n` +
+      `${guildWide.enabled ? '✅' : '❌'} **Server-Wide:** ${guildWide.enabled ? `${guildWide.maxRequests} per ${guildWide.windowSeconds}s` : 'Disabled'}\n` +
+      `${patternDetection.enabled ? '✅' : '❌'} **Pattern Detection:** ${patternDetection.enabled ? `Flags ${patternDetection.minUsers}+ users` : 'Disabled'}`;
     
     // Show custom command rate limits if any
     const customCommandLimits = config.rateLimits?.commands || {};
@@ -829,10 +885,24 @@ export async function execute(interaction) {
     const rateLimitEnabled = config.rateLimits?.enabled ?? true;
     const rateLimitBypass = config.rateLimits?.bypassForModerators ?? true;
     const globalLimit = config.rateLimits?.global || { maxRequests: 1, windowSeconds: 20 };
+    const guildWide = config.rateLimits?.guildWide || { enabled: true, maxRequests: 10, windowSeconds: 60 };
+    const patternDetection = config.rateLimits?.patternDetection || { enabled: true, windowSeconds: 60, minUsers: 3 };
     
     let description = `**Status:** ${rateLimitEnabled ? '✅ Enabled' : '❌ Disabled'}\n`;
     description += `**Moderator Bypass:** ${rateLimitBypass ? '✅ Enabled' : '❌ Disabled'}\n\n`;
-    description += `**Global Limit:**\n• ${globalLimit.maxRequests} requests per ${globalLimit.windowSeconds} seconds\n`;
+    description += `**Global Limit (Per User):**\n• ${globalLimit.maxRequests} requests per ${globalLimit.windowSeconds} seconds\n`;
+    
+    // Show guild-wide limit
+    description += `\n**Server-Wide Limit:** ${guildWide.enabled ? '✅ Enabled' : '❌ Disabled'}\n`;
+    if (guildWide.enabled) {
+      description += `• ${guildWide.maxRequests} total commands per ${guildWide.windowSeconds}s (all users)\n`;
+    }
+    
+    // Show pattern detection
+    description += `\n**Pattern Detection:** ${patternDetection.enabled ? '✅ Enabled' : '❌ Disabled'}\n`;
+    if (patternDetection.enabled) {
+      description += `• Flags suspicious activity from ${patternDetection.minUsers}+ users\n`;
+    }
     
     // Show custom command limits if any
     const customCommandLimits = config.rateLimits?.commands || {};
@@ -841,8 +911,6 @@ export async function execute(interaction) {
       for (const [cmd, limit] of Object.entries(customCommandLimits)) {
         description += `• \`/${cmd}\`: ${limit.maxRequests} per ${limit.windowSeconds}s\n`;
       }
-    } else {
-      description += '\n*No custom command limits set*';
     }
     
     const embed = new EmbedBuilder()
@@ -850,7 +918,7 @@ export async function execute(interaction) {
       .setTitle('⏱️ Rate Limit Configuration')
       .setDescription(description)
       .addFields({
-        name: 'How to Configure',
+        name: 'Per-User Limits',
         value: '**Enable/disable:** `/eggshen-config rate-limit-toggle`\n' +
                '**Set global limit:** `/eggshen-config rate-limit-global`\n' +
                '**Set command limit:** `/eggshen-config rate-limit-command`\n' +
@@ -858,7 +926,134 @@ export async function execute(interaction) {
                '**Clear user limits:** `/eggshen-config rate-limit-clear`',
         inline: false,
       })
+      .addFields({
+        name: 'Anti-Flood Protection',
+        value: '**Server-wide limiting:** `/eggshen-config rate-limit-guild-wide`\n' +
+               '**Pattern detection:** `/eggshen-config pattern-detection`\n' +
+               '**View suspicious activity:** `/eggshen-config suspicious-activity`',
+        inline: false,
+      })
       .setFooter({ text: 'Rate limits prevent abuse and channel flooding' });
+    
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  } else if (subcommand === 'rate-limit-guild-wide') {
+    // Configure guild-wide rate limiting
+    const enabled = interaction.options.getBoolean('enabled');
+    const maxRequests = interaction.options.getInteger('max-requests');
+    const windowSeconds = interaction.options.getInteger('window-seconds');
+    
+    const config = await loadGuildConfig(guildId);
+    if (!config.rateLimits) {
+      config.rateLimits = {
+        enabled: true,
+        bypassForModerators: true,
+        global: { maxRequests: 1, windowSeconds: 20 },
+        commands: {},
+        guildWide: { enabled: false, maxRequests: 10, windowSeconds: 60 },
+        patternDetection: { enabled: true, windowSeconds: 60, minUsers: 3 },
+      };
+    }
+    
+    if (!config.rateLimits.guildWide) {
+      config.rateLimits.guildWide = { enabled: false, maxRequests: 10, windowSeconds: 60 };
+    }
+    
+    config.rateLimits.guildWide.enabled = enabled;
+    
+    if (maxRequests !== null) {
+      config.rateLimits.guildWide.maxRequests = maxRequests;
+    }
+    if (windowSeconds !== null) {
+      config.rateLimits.guildWide.windowSeconds = windowSeconds;
+    }
+    
+    await saveGuildConfig(guildId, config);
+    
+    const statusText = enabled ? 'enabled' : 'disabled';
+    const emoji = enabled ? '✅' : '❌';
+    const limitInfo = enabled 
+      ? `\n\n**Limit:** ${config.rateLimits.guildWide.maxRequests} total commands per ${config.rateLimits.guildWide.windowSeconds} seconds across ALL users.\n\nThis prevents coordinated flooding from multiple accounts.`
+      : '\n\nServer-wide rate limiting is now disabled.';
+    
+    await interaction.reply({
+      content: `${emoji} Server-wide rate limiting has been **${statusText}**.${limitInfo}`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'pattern-detection') {
+    // Configure pattern detection
+    const enabled = interaction.options.getBoolean('enabled');
+    const minUsers = interaction.options.getInteger('min-users');
+    
+    const config = await loadGuildConfig(guildId);
+    if (!config.rateLimits) {
+      config.rateLimits = {
+        enabled: true,
+        bypassForModerators: true,
+        global: { maxRequests: 1, windowSeconds: 20 },
+        commands: {},
+        guildWide: { enabled: true, maxRequests: 10, windowSeconds: 60 },
+        patternDetection: { enabled: true, windowSeconds: 60, minUsers: 3 },
+      };
+    }
+    
+    if (!config.rateLimits.patternDetection) {
+      config.rateLimits.patternDetection = { enabled: true, windowSeconds: 60, minUsers: 3 };
+    }
+    
+    config.rateLimits.patternDetection.enabled = enabled;
+    
+    if (minUsers !== null) {
+      config.rateLimits.patternDetection.minUsers = minUsers;
+    }
+    
+    await saveGuildConfig(guildId, config);
+    
+    const statusText = enabled ? 'enabled' : 'disabled';
+    const emoji = enabled ? '✅' : '❌';
+    const description = enabled
+      ? `\n\nThe bot will now monitor for suspicious patterns like:\n• Multiple accounts running identical commands\n• Coordinated burst attacks from new accounts\n\nFlags when ${config.rateLimits.patternDetection.minUsers}+ users show suspicious behavior.\n\nUse \`/eggshen-config suspicious-activity\` to view detected patterns.`
+      : '\n\nPattern detection is now disabled.';
+    
+    await interaction.reply({
+      content: `${emoji} Suspicious activity pattern detection has been **${statusText}**.${description}`,
+      ephemeral: true,
+    });
+  } else if (subcommand === 'suspicious-activity') {
+    // View suspicious activity log
+    const { getSuspiciousActivity } = await import('../utils/rateLimiter.js');
+    const activities = getSuspiciousActivity(guildId, 10);
+    
+    if (activities.length === 0) {
+      await interaction.reply({
+        content: '✅ No suspicious activity detected recently.\n\nPattern detection monitors for coordinated flooding and multi-account abuse.',
+        ephemeral: true,
+      });
+      return;
+    }
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xFF6B6B)
+      .setTitle('🚨 Suspicious Activity Detected')
+      .setDescription(`Found ${activities.length} suspicious pattern${activities.length !== 1 ? 's' : ''} in the last 24 hours:`)
+      .setFooter({ text: 'Review these patterns and consider banning users if abuse is confirmed' });
+    
+    for (const activity of activities) {
+      const timeAgo = Math.floor((Date.now() - activity.timestamp) / 60000); // minutes ago
+      const timeStr = timeAgo < 60 ? `${timeAgo}m ago` : `${Math.floor(timeAgo / 60)}h ago`;
+      
+      const patternName = activity.pattern === 'identical_commands' 
+        ? '🔁 Identical Commands' 
+        : '⚡ Coordinated Burst';
+      
+      const userList = activity.users.slice(0, 5).map(uid => `<@${uid}>`).join(', ');
+      const moreUsers = activity.users.length > 5 ? ` +${activity.users.length - 5} more` : '';
+      
+      embed.addFields({
+        name: `${patternName} • ${timeStr}`,
+        value: `${activity.details}\n**Users:** ${userList}${moreUsers}`,
+        inline: false,
+      });
+    }
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
