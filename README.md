@@ -645,19 +645,77 @@ Allow moderators and administrators to bypass rate limits. Enabled by default - 
 
 Clear rate limits for a specific user (emergency override). Use if a user is accidentally rate-limited due to legitimate use.
 
+**Anti-Flood Protection:**
+
+```
+/eggshen-config rate-limit-guild-wide enabled:true max-requests:10 window-seconds:60
+```
+
+Configure server-wide rate limiting to prevent coordinated multi-account flooding. This limits the **total** number of commands across ALL users within a time window, regardless of per-user limits.
+
+**How it works:**
+- Independent of per-user limits (both are checked)
+- Prevents coordinated attacks from multiple bot/throwaway accounts
+- Default: 10 total commands per 60 seconds across all users
+- Example: If 10 users each try to use a command at once, the 11th will be rate-limited
+
+**When to adjust:**
+- **Increase (20-30 per 60s):** Large active servers with many legitimate users
+- **Decrease (5-10 per 60s):** Smaller servers or those experiencing abuse
+- **Disable:** Very small private servers with fully trusted members
+
+```
+/eggshen-config pattern-detection enabled:true min-users:3
+```
+
+Enable suspicious activity pattern detection to automatically flag coordinated abuse. The bot monitors for:
+
+**Detected Patterns:**
+1. **Identical Commands** - Multiple different accounts running the exact same command with identical arguments rapidly
+2. **Coordinated Bursts** - Multiple accounts firing many commands simultaneously (within 10 seconds)
+
+**How it works:**
+- Tracks command patterns across all users
+- Flags suspicious behavior when `min-users` or more accounts show coordinated activity
+- Logs flagged activity for admin review (kept for 24 hours)
+- Does not auto-ban - provides information for moderators to investigate
+- Moderators/admins are excluded from detection
+
+**Recommended `min-users` settings:**
+- **2-3 users:** Strict detection, good for smaller servers
+- **4-5 users:** Balanced detection, good for medium servers  
+- **6+ users:** Loose detection, good for large active servers
+
+```
+/eggshen-config suspicious-activity
+```
+
+View recently detected suspicious activity patterns. Shows:
+- Type of pattern detected (identical commands vs coordinated burst)
+- Which users were involved
+- When it occurred
+- What command was being abused
+
+Use this to investigate potential bot/spam attacks and decide whether to ban the flagged users.
+
 **Default Settings:**
 - Rate limiting: **Enabled**
-- Global limit: **1 request per 20 seconds**
+- Per-user limit: **1 request per 20 seconds**
+- Server-wide limit: **10 requests per 60 seconds** ✅ Enabled
+- Pattern detection: **Enabled** (flags 3+ users)
 - Moderator bypass: **Enabled**
 - Custom command limits: **None** (uses global)
 
 **Rate Limit Tips:**
 - Default prevents burst flooding (can't rapid-fire multiple embeds)
 - Enforces natural pacing that aligns with ~10s API response times
+- Server-wide limiting stops coordinated multi-account attacks
+- Pattern detection helps identify spam/bot activity for moderation
 - Still allows corrections with reasonable spacing between requests
 - Increase limits (2-3 per 20s or 5-10 per 60s) for high-activity trusted servers
 - Use stricter limits (1 per 30-60s) for heavy commands like `/episode-list` if needed
 - Keep moderator bypass enabled so admins can always help users
+- Monitor suspicious activity logs if you see unusual rate limit hits
 
 **View Statistics (Admin/Moderator):**
 
