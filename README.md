@@ -617,6 +617,8 @@ Enable or disable rate limiting entirely. When disabled, users can use commands 
 
 Set the global rate limit for all commands. Example: 5 requests per 60 seconds means users can run any 5 commands within a minute before being rate-limited.
 
+**Note:** Default is 1 per 20 seconds to prevent burst flooding while matching natural API response times.
+
 ```
 /eggshen-config rate-limit-command command:episode-list max-requests:2 window-seconds:60
 ```
@@ -645,14 +647,16 @@ Clear rate limits for a specific user (emergency override). Use if a user is acc
 
 **Default Settings:**
 - Rate limiting: **Enabled**
-- Global limit: **3 requests per 60 seconds**
+- Global limit: **1 request per 20 seconds**
 - Moderator bypass: **Enabled**
 - Custom command limits: **None** (uses global)
 
 **Rate Limit Tips:**
-- Default allows users to search, realize a mistake, and correct it (3 tries within 60s)
-- Increase limits (5-10 per 60s) for high-activity servers with trusted communities
-- Use stricter limits (1-2 per 60s) for resource-intensive commands like `/episode-list`
+- Default prevents burst flooding (can't rapid-fire multiple embeds)
+- Enforces natural pacing that aligns with ~10s API response times
+- Still allows corrections with reasonable spacing between requests
+- Increase limits (2-3 per 20s or 5-10 per 60s) for high-activity trusted servers
+- Use stricter limits (1 per 30-60s) for heavy commands like `/episode-list` if needed
 - Keep moderator bypass enabled so admins can always help users
 
 **View Statistics (Admin/Moderator):**
