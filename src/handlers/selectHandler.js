@@ -45,12 +45,136 @@ function parseSeasonEpisode(query) {
 export async function handleSelectInteraction(interaction) {
   if (interaction.customId !== 'select_result' && 
       interaction.customId !== 'select_episode_show' && 
+      interaction.customId !== 'select_episode_list_show' &&
       interaction.customId !== 'select_watched' &&
       interaction.customId !== 'select_random_episode' &&
       interaction.customId !== 'select_similar') return;
   
   // Defer the update to acknowledge the interaction
   await interaction.deferUpdate();
+  
+  // Handle episode-list selection
+  if (interaction.customId === 'select_episode_list_show') {
+    const value = interaction.values[0];
+    const [, showId, seasonNumber] = value.split('_');
+    
+    try {
+      const { getSeasonDetails, getTVShowDetails, getEpisodeDetails } = await import('../services/tmdbService.js');
+      const { EmbedBuilder } = await import('discord.js');
+      
+      // Get show details
+      const showDetails = await getTVShowDetails(parseInt(showId));
+      const seasonNum = parseInt(seasonNumber);
+      
+      // Check if season exists
+      if (seasonNum > showDetails.number_of_seasons) {
+        await interaction.followUp({
+          content: `**${showDetails.name}** only has ${showDetails.number_of_seasons} season${showDetails.number_of_seasons === 1 ? '' : 's'}. Season ${seasonNum} doesn't exist.`,
+          ephemeral: true,
+        });
+        return;
+      }
+      
+      // Get season details
+      const seasonData = await getSeasonDetails(showId, seasonNum);
+      
+      if (!seasonData || !seasonData.episodes || seasonData.episodes.length === 0) {
+        await interaction.followUp({
+          content: `No episodes found for **${showDetails.name}** Season ${seasonNum}.`,
+          ephemeral: true,
+        });
+        return;
+      }
+      
+      const episodes = seasonData.episodes;
+      const episodeCount = episodes.length;
+      
+      // Check pagination limit
+      if (episodeCount > 25) {
+        await interaction.followUp({
+          content: `**${showDetails.name}** Season ${seasonNum} has ${episodeCount} episodes, which exceeds Discord's 25 field limit. Pagination support coming soon! For now, try searching individual episodes with \`/episode\`.`,
+          ephemeral: true,
+        });
+        return;
+      }
+      
+      // Fetch external IDs for all episodes in parallel
+      const episodeDetailsPromises = episodes.map(ep => 
+        getEpisodeDetails(showId, seasonNum, ep.episode_number)
+          .catch(err => {
+            console.error(`Failed to get details for S${seasonNum}E${ep.episode_number}:`, err);
+            return null;
+          })
+      );
+      const episodeDetailsArray = await Promise.all(episodeDetailsPromises);
+      
+      // Create embed
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(`${showDetails.name} - Season ${seasonNum}`)
+        .setDescription(`${episodeCount} episode${episodeCount === 1 ? '' : 's'}`)
+        .setThumbnail(showDetails.poster_path 
+          ? `https://image.tmdb.org/t/p/w300${showDetails.poster_path}` 
+          : null);
+      
+      // Add fields for each episode
+      for (let i = 0; i < episodes.length; i++) {
+        const episode = episodes[i];
+        const episodeDetails = episodeDetailsArray[i];
+        const episodeNum = episode.episode_number;
+        const title = episode.name || 'Untitled';
+        const airDate = episode.air_date 
+          ? new Date(episode.air_date).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'short', 
+              day: 'numeric' 
+            })
+          : 'TBA';
+        
+        const tmdbRating = episode.vote_average 
+          ? episode.vote_average.toFixed(1) 
+          : 'N/A';
+        
+        // Create episode title with IMDb link if available
+        let episodeTitle = `${episodeNum}. ${title}`;
+        if (episodeDetails?.external_ids?.imdb_id) {
+          episodeTitle = `${episodeNum}. [${title}](https://www.imdb.com/title/${episodeDetails.external_ids.imdb_id}/)`;
+        }
+        
+        let fieldValue = `**Air Date:** ${airDate}\n`;
+        if (tmdbRating !== 'N/A') {
+          fieldValue += `**TMDB Rating:** ${tmdbRating}/10`;
+        } else {
+          fieldValue += `**Rating:** Not yet rated`;
+        }
+        
+        embed.addFields({
+          name: episodeTitle,
+          value: fieldValue,
+          inline: false,
+        });
+      }
+      
+      // Add footer with series link
+      let footerText = `Use /episode to view full details for any episode`;
+      if (showDetails.external_ids?.imdb_id) {
+        embed.setDescription(
+          `${episodeCount} episode${episodeCount === 1 ? '' : 's'}\n\n` +
+          `[View season on IMDb](https://www.imdb.com/title/${showDetails.external_ids.imdb_id}/episodes?season=${seasonNum})`
+        );
+      }
+      embed.setFooter({ text: footerText });
+      
+      await interaction.editReply({ embeds: [embed], components: [] });
+    } catch (error) {
+      console.error('Episode list selection error:', error);
+      await interaction.followUp({
+        content: 'An error occurred while fetching the episode list. Please try again.',
+        ephemeral: true,
+      });
+    }
+    return;
+  }
   
   // Handle random episode selection
   if (interaction.customId === 'select_random_episode') {
