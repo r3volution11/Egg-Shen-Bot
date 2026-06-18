@@ -151,17 +151,20 @@ export async function execute(interaction) {
         ? episode.vote_average.toFixed(1) 
         : 'N/A';
 
-      // Build field value: title with season/episode info on first line
+      // Build field value in 3 lines: title, season/episode, air date/rating
       let fieldValue = '';
       
-      // First line: [Title](link) • Season X • Episode Y
+      // Line 1: [Title](link)
       if (episodeDetails?.external_ids?.imdb_id) {
-        fieldValue += `**[${title}](https://www.imdb.com/title/${episodeDetails.external_ids.imdb_id}/)** • Season ${seasonNumber} • Episode ${episodeNum}\n`;
+        fieldValue += `**[${title}](https://www.imdb.com/title/${episodeDetails.external_ids.imdb_id}/)**\n`;
       } else {
-        fieldValue += `**${title}** • Season ${seasonNumber} • Episode ${episodeNum}\n`;
+        fieldValue += `**${title}**\n`;
       }
       
-      // Second line: air date and rating
+      // Line 2: Season X • Episode Y
+      fieldValue += `Season ${seasonNumber} • Episode ${episodeNum}\n`;
+      
+      // Line 3: air date and rating
       fieldValue += `${airDate}`;
       if (tmdbRating !== 'N/A') {
         fieldValue += ` • TMDB: ${tmdbRating}/10`;
