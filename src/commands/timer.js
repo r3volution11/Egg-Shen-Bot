@@ -52,6 +52,19 @@ async function getEventTitleForChannel(guild, channelId) {
           console.log(`[Timer Auto-Detection] ✅ Found matching event: "${event.name}" (location mentions channel)`);
           return event.name;
         }
+        
+        // Also check if location matches channel name (e.g., "#general", "#movie-night")
+        // Get the actual channel to compare names
+        const channel = guild.channels.cache.get(channelId);
+        if (channel) {
+          const channelNamePattern = `#${channel.name}`.toLowerCase();
+          console.log(`[Timer Auto-Detection] - Also checking channel name: "${channelNamePattern}"`);
+          
+          if (location === channelNamePattern || location.includes(channelNamePattern)) {
+            console.log(`[Timer Auto-Detection] ✅ Found matching event: "${event.name}" (location matches channel name)`);
+            return event.name;
+          }
+        }
       }
     }
     
