@@ -645,14 +645,14 @@ Clear rate limits for a specific user (emergency override). Use if a user is acc
 
 **Default Settings:**
 - Rate limiting: **Enabled**
-- Global limit: **5 requests per 60 seconds**
+- Global limit: **3 requests per 60 seconds**
 - Moderator bypass: **Enabled**
 - Custom command limits: **None** (uses global)
 
 **Rate Limit Tips:**
-- Start with default settings and adjust based on server activity
-- Use stricter limits (2-3 per 60s) for resource-intensive commands like `/episode-list`
-- Increase limits (10+ per 60s) for high-activity servers with trusted communities
+- Default allows users to search, realize a mistake, and correct it (3 tries within 60s)
+- Increase limits (5-10 per 60s) for high-activity servers with trusted communities
+- Use stricter limits (1-2 per 60s) for resource-intensive commands like `/episode-list`
 - Keep moderator bypass enabled so admins can always help users
 
 **View Statistics (Admin/Moderator):**
