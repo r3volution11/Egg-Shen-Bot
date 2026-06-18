@@ -344,7 +344,7 @@ export async function execute(interaction) {
     // Rate limiting display
     const rateLimitEnabled = config.rateLimits?.enabled ?? true;
     const rateLimitBypass = config.rateLimits?.bypassForModerators ?? true;
-    const globalLimit = config.rateLimits?.global || { maxRequests: 5, windowSeconds: 60 };
+    const globalLimit = config.rateLimits?.global || { maxRequests: 3, windowSeconds: 60 };
     const rateLimitStatus = `${rateLimitEnabled ? '✅' : '❌'} **Rate Limiting:** ${rateLimitEnabled ? 'Enabled' : 'Disabled'}\n` +
       `${rateLimitBypass ? '✅' : '❌'} **Moderator Bypass:** ${rateLimitBypass ? 'Enabled' : 'Disabled'}\n` +
       `⏱️ **Global Limit:** ${globalLimit.maxRequests} requests per ${globalLimit.windowSeconds} seconds`;
@@ -697,7 +697,7 @@ export async function execute(interaction) {
       config.rateLimits = {
         enabled: true,
         bypassForModerators: true,
-        global: { maxRequests: 5, windowSeconds: 60 },
+        global: { maxRequests: 3, windowSeconds: 60 },
         commands: {},
       };
     }
@@ -746,7 +746,7 @@ export async function execute(interaction) {
       config.rateLimits = {
         enabled: true,
         bypassForModerators: true,
-        global: { maxRequests: 5, windowSeconds: 60 },
+        global: { maxRequests: 3, windowSeconds: 60 },
         commands: {},
       };
     }
@@ -788,7 +788,7 @@ export async function execute(interaction) {
       config.rateLimits = {
         enabled: true,
         bypassForModerators: enabled,
-        global: { maxRequests: 5, windowSeconds: 60 },
+        global: { maxRequests: 3, windowSeconds: 60 },
         commands: {},
       };
     } else {
@@ -828,7 +828,7 @@ export async function execute(interaction) {
     
     const rateLimitEnabled = config.rateLimits?.enabled ?? true;
     const rateLimitBypass = config.rateLimits?.bypassForModerators ?? true;
-    const globalLimit = config.rateLimits?.global || { maxRequests: 5, windowSeconds: 60 };
+    const globalLimit = config.rateLimits?.global || { maxRequests: 3, windowSeconds: 60 };
     
     let description = `**Status:** ${rateLimitEnabled ? '✅ Enabled' : '❌ Disabled'}\n`;
     description += `**Moderator Bypass:** ${rateLimitBypass ? '✅ Enabled' : '❌ Disabled'}\n\n`;
