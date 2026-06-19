@@ -1,0 +1,118 @@
+/**
+ * Custom color theme for Egg Shen Bot documentation
+ * Primary: #2AB5E5 (Cyan)
+ * Grays: Tinted with primary color hue at 5-15% saturation
+ */
+
+:root {
+  /* Primary brand color */
+  --vp-c-brand-1: #2AB5E5;
+  --vp-c-brand-2: #1fa3d1;
+  --vp-c-brand-3: #1891bd;
+  --vp-c-brand-soft: rgba(42, 181, 229, 0.14);
+
+  /* Accent colors for interactive elements */
+  --vp-c-brand: #2AB5E5;
+  --vp-c-brand-light: #4ec5ed;
+  --vp-c-brand-lighter: #72d4f2;
+  --vp-c-brand-dark: #1fa3d1;
+  --vp-c-brand-darker: #1891bd;
+  
+  /* Tinted grays - light mode (higher luma = less saturation) */
+  --vp-c-gray-1: hsl(195, 5%, 90%);   /* Very light gray with subtle cyan */
+  --vp-c-gray-2: hsl(195, 8%, 80%);   /* Light gray */
+  --vp-c-gray-3: hsl(195, 10%, 60%);  /* Mid gray */
+  --vp-c-gray-soft: hsla(195, 8%, 85%, 0.5);
+
+  /* Background colors */
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-soft: hsl(195, 5%, 98%);
+  --vp-c-bg-mute: hsl(195, 8%, 96%);
+  --vp-c-bg-alt: hsl(195, 6%, 94%);
+
+  /* Text colors */
+  --vp-c-text-1: hsl(195, 12%, 15%);  /* Primary text - dark with cyan tint */
+  --vp-c-text-2: hsl(195, 10%, 35%);  /* Secondary text */
+  --vp-c-text-3: hsl(195, 8%, 50%);   /* Tertiary text */
+
+  /* Divider colors */
+  --vp-c-divider: hsla(195, 8%, 85%, 0.5);
+  --vp-c-divider-light: hsla(195, 6%, 90%, 0.5);
+
+  /* Gutter colors */
+  --vp-c-gutter: hsl(195, 8%, 95%);
+}
+
+/* Dark mode colors */
+.dark {
+  /* Primary brand color (slightly brighter for dark mode) */
+  --vp-c-brand-1: #4ec5ed;
+  --vp-c-brand-2: #2AB5E5;
+  --vp-c-brand-3: #1fa3d1;
+  --vp-c-brand-soft: rgba(42, 181, 229, 0.16);
+
+  /* Tinted grays - dark mode (lower luma = more saturation) */
+  --vp-c-gray-1: hsl(195, 15%, 25%);  /* Dark gray with cyan tint */
+  --vp-c-gray-2: hsl(195, 12%, 35%);  /* Mid-dark gray */
+  --vp-c-gray-3: hsl(195, 10%, 50%);  /* Mid gray */
+  --vp-c-gray-soft: hsla(195, 12%, 30%, 0.5);
+
+  /* Background colors */
+  --vp-c-bg: hsl(195, 15%, 8%);       /* Very dark with cyan tint */
+  --vp-c-bg-soft: hsl(195, 14%, 12%);
+  --vp-c-bg-mute: hsl(195, 13%, 15%);
+  --vp-c-bg-alt: hsl(195, 12%, 18%);
+
+  /* Text colors */
+  --vp-c-text-1: hsl(195, 8%, 92%);   /* Primary text - light with cyan tint */
+  --vp-c-text-2: hsl(195, 10%, 75%);  /* Secondary text */
+  --vp-c-text-3: hsl(195, 12%, 55%);  /* Tertiary text */
+
+  /* Divider colors */
+  --vp-c-divider: hsla(195, 12%, 25%, 0.5);
+  --vp-c-divider-light: hsla(195, 10%, 20%, 0.5);
+
+  /* Gutter colors */
+  --vp-c-gutter: hsl(195, 13%, 12%);
+}
+
+/* Custom enhancements */
+:root {
+  /* Sidebar styling */
+  --vp-sidebar-bg-color: var(--vp-c-bg-soft);
+  
+  /* Code block colors with cyan tint */
+  --vp-code-bg: hsl(195, 10%, 96%);
+  --vp-code-block-bg: hsl(195, 8%, 97%);
+}
+
+.dark {
+  --vp-code-bg: hsl(195, 14%, 10%);
+  --vp-code-block-bg: hsl(195, 13%, 12%);
+}
+
+/* Link hover effects */
+.vp-doc a:hover {
+  color: var(--vp-c-brand-light);
+}
+
+/* Button enhancements */
+.VPButton.brand {
+  background-color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+}
+
+.VPButton.brand:hover {
+  background-color: var(--vp-c-brand-2);
+  border-color: var(--vp-c-brand-2);
+}
+
+/* Search box with brand color accent */
+.VPNavBarSearch .DocSearch-Button {
+  border: 1px solid var(--vp-c-divider);
+}
+
+.VPNavBarSearch .DocSearch-Button:hover {
+  border-color: var(--vp-c-brand-soft);
+  background-color: var(--vp-c-brand-soft);
+}
