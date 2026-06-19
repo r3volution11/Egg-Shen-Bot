@@ -221,8 +221,9 @@ export async function execute(interaction) {
         const yearStr = entry.year ? ` (${entry.year})` : '';
         const ratingStr = entry.rating ? ` • ⭐ ${entry.rating}/10` : '';
         const date = new Date(entry.watchedAt).toLocaleDateString();
+        const channelStr = entry.channelId ? ` • <#${entry.channelId}>` : '';
         
-        return `**${index + 1}.** ${icon} **${entry.title}**${yearStr}${ratingStr}\n👤 ${entry.watchedBy} • ${date}${entry.notes ? `\n💭 ${entry.notes}` : ''}`;
+        return `**${index + 1}.** ${icon} **${entry.title}**${yearStr}${ratingStr}\n👤 ${entry.watchedBy} • ${date}${channelStr}${entry.notes ? `\n💭 ${entry.notes}` : ''}`;
       }).join('\n\n');
 
       embed.setDescription(`${embed.data.description}\n\n${historyText}`);

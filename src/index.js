@@ -168,7 +168,8 @@ client.on('interactionCreate', async (interaction) => {
       const rating = interaction.fields.getTextInputValue('rating') || null;
       const notes = interaction.fields.getTextInputValue('notes') || null;
       
-      await interaction.deferReply({ ephemeral: true });
+      // Defer reply publicly so everyone can see the watch history entry
+      await interaction.deferReply();
       
       try {
         const { searchMovies, searchTVShows } = await import('./services/tmdbService.js');
@@ -219,6 +220,8 @@ client.on('interactionCreate', async (interaction) => {
           watchedBy: interaction.user.username,
           watchedById: interaction.user.id,
           watchedAt: Date.now(),
+          channelId: channelId,
+          channelName: interaction.channel?.name || 'Unknown Channel',
         });
         
         // Track watched log in statistics
@@ -249,6 +252,13 @@ client.on('interactionCreate', async (interaction) => {
             inline: true,
           });
         }
+        
+        // Add channel information
+        embed.addFields({
+          name: 'Watch Party Channel',
+          value: `<#${channelId}>`,
+          inline: true,
+        });
         
         if (notes) {
           embed.addFields({
