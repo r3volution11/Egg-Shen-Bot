@@ -253,7 +253,7 @@ export async function execute(interaction) {
       // Add button to log to watch history if there's a label
       if (result.label) {
         const logButton = new ButtonBuilder()
-          .setCustomId(`log_watched_${channelId}_${interaction.user.id}`)
+          .setCustomId(`log_watched_${channelId}_${result.userId}`)
           .setLabel('📝 Log to Watch History')
           .setStyle(ButtonStyle.Primary);
 

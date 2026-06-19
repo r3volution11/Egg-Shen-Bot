@@ -165,7 +165,6 @@ client.on('interactionCreate', async (interaction) => {
       }
       
       const title = Buffer.from(encodedTitle, 'base64').toString('utf-8');
-      const rating = interaction.fields.getTextInputValue('rating') || null;
       const notes = interaction.fields.getTextInputValue('notes') || null;
       
       // Defer reply publicly so everyone can see the watch history entry
@@ -215,10 +214,9 @@ client.on('interactionCreate', async (interaction) => {
           type: result.type,
           title: fullTitle,
           year: yearStr,
-          rating: rating ? parseFloat(rating) : null,
           notes: notes || null,
-          watchedBy: interaction.user.username,
-          watchedById: interaction.user.id,
+          savedBy: interaction.user.username,
+          savedById: interaction.user.id,
           watchedAt: Date.now(),
           channelId: channelId,
           channelName: interaction.channel?.name || 'Unknown Channel',
@@ -239,26 +237,18 @@ client.on('interactionCreate', async (interaction) => {
           .setColor(0x00FF00)
           .setTitle('✅ Added to Watch History')
           .setDescription(`**${fullTitle}** (${yearStr})`)
-          .addFields({
-            name: 'Type',
-            value: result.type === 'movie' ? 'Movie' : 'TV Show',
-            inline: true,
-          });
-        
-        if (rating) {
-          embed.addFields({
-            name: 'Your Rating',
-            value: `${rating}/10`,
-            inline: true,
-          });
-        }
-        
-        // Add channel information
-        embed.addFields({
-          name: 'Watch Party Channel',
-          value: `<#${channelId}>`,
-          inline: true,
-        });
+          .addFields(
+            {
+              name: 'Type',
+              value: result.type === 'movie' ? 'Movie' : 'TV Show',
+              inline: true,
+            },
+            {
+              name: 'Watch Party Channel',
+              value: `<#${channelId}>`,
+              inline: true,
+            }
+          );
         
         if (notes) {
           embed.addFields({
@@ -268,7 +258,7 @@ client.on('interactionCreate', async (interaction) => {
           });
         }
         
-        embed.setFooter({ text: `Added by ${interaction.user.username}` });
+        embed.setFooter({ text: `Saved by ${interaction.user.username}` });
         embed.setTimestamp();
         
         await interaction.editReply({ embeds: [embed] });
