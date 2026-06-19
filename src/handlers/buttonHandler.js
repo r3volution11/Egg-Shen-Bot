@@ -4,12 +4,16 @@
 export async function handleButtonInteraction(interaction) {
   // Handle "Log to Watch History" button from timer stop
   if (interaction.customId.startsWith('log_watched_')) {
-    const [, , channelId, userId] = interaction.customId.split('_');
+    const [, , channelId, starterUserId] = interaction.customId.split('_');
     
-    // Only allow the person who stopped the timer to log it
-    if (interaction.user.id !== userId) {
+    // Check if user is the timer starter OR has admin/mod permissions
+    const isModerator = interaction.member.permissions.has('Administrator') || 
+                       interaction.member.permissions.has('ManageGuild') ||
+                       interaction.member.permissions.has('ModerateMembers');
+    
+    if (interaction.user.id !== starterUserId && !isModerator) {
       await interaction.reply({
-        content: '❌ Only the person who stopped the timer can log it to watch history.',
+        content: '❌ Only the person who started the timer or server administrators/moderators can log it to watch history.',
         ephemeral: true,
       });
       return;
@@ -31,27 +35,19 @@ export async function handleButtonInteraction(interaction) {
     const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
     
     const modal = new ModalBuilder()
-      .setCustomId(`watched_modal_${channelId}_${userId}_${Buffer.from(title).toString('base64')}`)
+      .setCustomId(`watched_modal_${channelId}_${starterUserId}_${Buffer.from(title).toString('base64')}`)
       .setTitle('Log to Watch History');
-    
-    const ratingInput = new TextInputBuilder()
-      .setCustomId('rating')
-      .setLabel('Your rating (1-10)')
-      .setPlaceholder('Optional - leave blank to skip')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(false);
     
     const notesInput = new TextInputBuilder()
       .setCustomId('notes')
-      .setLabel('Notes or review')
-      .setPlaceholder('Optional - your thoughts on what you watched')
+      .setLabel('Notes (optional)')
+      .setPlaceholder('Optional - notes about this watch party')
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(false);
     
-    const ratingRow = new ActionRowBuilder().addComponents(ratingInput);
     const notesRow = new ActionRowBuilder().addComponents(notesInput);
     
-    modal.addComponents(ratingRow, notesRow);
+    modal.addComponents(notesRow);
     
     await interaction.showModal(modal);
   }

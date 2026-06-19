@@ -20,14 +20,8 @@ export const data = new SlashCommandBuilder()
       )
       .addStringOption(option =>
         option
-          .setName('rating')
-          .setDescription('Your rating (1-10)')
-          .setRequired(false)
-      )
-      .addStringOption(option =>
-        option
           .setName('notes')
-          .setDescription('Optional notes or review')
+          .setDescription('Optional notes about the watch party')
           .setRequired(false)
       )
   )
@@ -61,7 +55,6 @@ export async function execute(interaction) {
 
   if (subcommand === 'add') {
     const title = interaction.options.getString('title');
-    const rating = interaction.options.getString('rating');
     const notes = interaction.options.getString('notes');
 
     await interaction.deferReply({ ephemeral: true });
@@ -97,10 +90,9 @@ export async function execute(interaction) {
           type: result.type,
           title: fullTitle,
           year: yearStr.replace(/[()]/g, '').trim(),
-          rating: rating ? parseFloat(rating) : null,
           notes: notes || null,
-          watchedBy: interaction.user.username,
-          watchedById: interaction.user.id,
+          savedBy: interaction.user.username,
+          savedById: interaction.user.id,
           watchedAt: Date.now(),
         });
 
@@ -114,14 +106,6 @@ export async function execute(interaction) {
             inline: true,
           });
 
-        if (rating) {
-          embed.addFields({
-            name: 'Your Rating',
-            value: `${rating}/10`,
-            inline: true,
-          });
-        }
-
         if (notes) {
           embed.addFields({
             name: 'Notes',
@@ -130,7 +114,7 @@ export async function execute(interaction) {
           });
         }
 
-        embed.setFooter({ text: `Added by ${interaction.user.username}` });
+        embed.setFooter({ text: `Saved by ${interaction.user.username}` });
         embed.setTimestamp();
 
         // Track the watched log
@@ -148,8 +132,8 @@ export async function execute(interaction) {
       }
 
       // Multiple results - show selection menu
-      // Store the rating and notes in the custom ID for later
-      const selectionData = JSON.stringify({ rating, notes, userId: interaction.user.id, username: interaction.user.username });
+      // Store the notes in the custom ID for later
+      const selectionData = JSON.stringify({ notes, userId: interaction.user.id, username: interaction.user.username });
       
       // Load guild config to get maxSearchResults
       const guildConfig = await loadGuildConfig(interaction.guildId);
@@ -219,11 +203,11 @@ export async function execute(interaction) {
       const historyText = history.map((entry, index) => {
         const icon = entry.type === 'movie' ? '🎬' : '📺';
         const yearStr = entry.year ? ` (${entry.year})` : '';
-        const ratingStr = entry.rating ? ` • ⭐ ${entry.rating}/10` : '';
         const date = new Date(entry.watchedAt).toLocaleDateString();
         const channelStr = entry.channelId ? ` • <#${entry.channelId}>` : '';
+        const savedBy = entry.savedBy || entry.watchedBy || 'Unknown';
         
-        return `**${index + 1}.** ${icon} **${entry.title}**${yearStr}${ratingStr}\n👤 ${entry.watchedBy} • ${date}${channelStr}${entry.notes ? `\n💭 ${entry.notes}` : ''}`;
+        return `**${index + 1}.** ${icon} **${entry.title}**${yearStr}\n👤 Saved by ${savedBy} • ${date}${channelStr}${entry.notes ? `\n💭 ${entry.notes}` : ''}`;
       }).join('\n\n');
 
       embed.setDescription(`${embed.data.description}\n\n${historyText}`);

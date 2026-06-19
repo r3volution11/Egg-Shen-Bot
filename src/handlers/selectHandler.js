@@ -210,7 +210,7 @@ export async function handleSelectInteraction(interaction) {
     try {
       // Decode the stored data
       const dataStr = Buffer.from(encodedData, 'base64').toString('utf-8');
-      const { rating, notes, userId, username } = JSON.parse(dataStr);
+      const { notes, userId, username } = JSON.parse(dataStr);
       
       // Only allow the person who initiated to select
       if (interaction.user.id !== userId) {
@@ -240,10 +240,9 @@ export async function handleSelectInteraction(interaction) {
         type: type,
         title: fullTitle,
         year: yearStr,
-        rating: rating ? parseFloat(rating) : null,
         notes: notes || null,
-        watchedBy: username,
-        watchedById: userId,
+        savedBy: username,
+        savedById: userId,
         watchedAt: Date.now(),
       });
       
@@ -267,14 +266,6 @@ export async function handleSelectInteraction(interaction) {
           inline: true,
         });
       
-      if (rating) {
-        embed.addFields({
-          name: 'Your Rating',
-          value: `${rating}/10`,
-          inline: true,
-        });
-      }
-      
       if (notes) {
         embed.addFields({
           name: 'Notes',
@@ -283,7 +274,7 @@ export async function handleSelectInteraction(interaction) {
         });
       }
       
-      embed.setFooter({ text: `Added by ${username}` });
+      embed.setFooter({ text: `Saved by ${username}` });
       embed.setTimestamp();
       
       await interaction.message.delete().catch(() => {});
