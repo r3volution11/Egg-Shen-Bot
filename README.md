@@ -754,6 +754,162 @@ Last: 2m ago
 - Keep moderator bypass enabled so admins can always help users
 - Monitor suspicious activity logs if you see unusual rate limit hits
 
+**Moderation Features:**
+
+Advanced moderation tools provide granular control over command access and abuse prevention. All moderation features are controlled by a master switch and can be enabled/disabled independently.
+
+**Master Switches:**
+
+```
+/eggshen-config rate-limit-toggle enabled:true
+```
+
+Enable/disable the rate limiting system entirely. When disabled, no rate limits are enforced (not recommended).
+
+```
+/eggshen-config moderation-toggle enabled:true
+```
+
+Enable/disable all moderation features (whitelist, cooldowns, auto-ban notifications). Rate limiting remains independent and functional when moderation is disabled.
+
+**Temporary User Cooldowns:**
+
+Manually restrict specific users from using bot commands temporarily.
+
+```
+/eggshen-config user-cooldown user:@username duration:60 reason:"Spamming commands"
+```
+
+Apply a temporary cooldown to a user. Duration is in minutes (max 10,080 = 1 week).
+
+**When to use:**
+- User is being disruptive but doesn't warrant a ban
+- Give users a "timeout" to cool down
+- Temporarily restrict access during investigations
+- Manual override when rate limits aren't sufficient
+
+**Features:**
+- User sees their remaining cooldown time when trying commands
+- Cooldown reason is shown to the user
+- Tracks who applied the cooldown and when
+- Auto-expires when duration completes
+- Can be manually removed early
+
+```
+/eggshen-config user-cooldown-remove user:@username
+```
+
+Remove an active cooldown from a user early.
+
+```
+/eggshen-config user-cooldown-list
+```
+
+View all users currently under cooldown, including expiration times and reasons.
+
+**Whitelist Mode:**
+
+Restrict bot commands to specific roles or users only. Perfect for exclusive communities or during high-traffic events.
+
+```
+/eggshen-config whitelist-toggle enabled:true
+```
+
+Enable whitelist mode. ⚠️ **Only whitelisted users/roles and moderators can use bot commands!**
+
+```
+/eggshen-config whitelist-add-role role:@Members
+```
+
+Add a role to the whitelist. All users with this role can use bot commands.
+
+```
+/eggshen-config whitelist-add-user user:@username
+```
+
+Add a specific user to the whitelist (bypasses role requirements).
+
+```
+/eggshen-config whitelist-remove-role role:@Members
+/eggshen-config whitelist-remove-user user:@username
+```
+
+Remove roles or users from the whitelist.
+
+```
+/eggshen-config whitelist-list
+```
+
+View all whitelisted roles and users.
+
+**When to use whitelist mode:**
+- Private/exclusive communities
+- Limit bot access to paid/subscriber roles
+- During watch parties or special events
+- Testing new features with specific users
+- Preventing new users from flooding
+
+**Important notes:**
+- Administrators and moderators always have access (not affected by whitelist)
+- Can whitelist by role OR by user (or both)
+- Users without whitelist access see a clear "whitelist mode active" message
+- Rate limiting still applies to whitelisted users
+
+**Auto-Ban Threshold Notifications:**
+
+Automatically warn users when they exceed a violation threshold and flag them for moderator review.
+
+```
+/eggshen-config auto-ban-toggle enabled:true
+```
+
+Enable auto-ban threshold warnings. Users who exceed the threshold will see a warning, and moderators can review flagged users.
+
+```
+/eggshen-config auto-ban-threshold count:20 hours:24
+```
+
+Set the violation threshold. Example: 20 violations within 24 hours triggers the warning.
+
+**How it works:**
+1. User hits rate limits (per-user or guild-wide)
+2. Each violation is logged in the abuse log
+3. When violations exceed threshold within time window:
+   - User sees ⚠️ warning message with their rate limit errors
+   - Moderators can check `/eggshen-config auto-ban-list` to see flagged users
+4. Provides evidence trail for banning persistent abusers
+
+```
+/eggshen-config auto-ban-list
+```
+
+View all users who have exceeded the auto-ban threshold, including:
+- Total violation count
+- When their last violation occurred
+- Sorted by most violations first
+
+**Recommended thresholds:**
+- **Strict (5-10 violations in 24h):** Low-tolerance servers
+- **Balanced (15-25 violations in 24h):** Most servers (default: 20)
+- **Lenient (30-50 violations in 24h):** High-activity servers with legitimate power users
+
+**Important notes:**
+- Does NOT automatically ban users (provides information only)
+- Moderators must manually ban after reviewing flagged users
+- Works alongside rate limiting and abuse logging
+- Threshold is per-user (not server-wide)
+- Violations expire after the time window
+
+**Complete Moderation Workflow:**
+
+1. **Rate Limiting (Layer 1):** Prevents burst flooding and enforces natural pacing
+2. **Guild-Wide Limits (Layer 2):** Stops multi-account coordinated attacks
+3. **Pattern Detection (Layer 3):** Flags suspicious coordinated behavior
+4. **Abuse Logging (Layer 4):** Tracks individual violation history
+5. **Auto-Ban Threshold (Layer 5):** Warns persistent violators, flags for moderator review
+6. **Manual Cooldowns (Layer 6):** Temporary restrictions for disruptive users
+7. **Whitelist Mode (Layer 7):** Full access control when needed
+
 **View Statistics (Admin/Moderator):**
 
 ```

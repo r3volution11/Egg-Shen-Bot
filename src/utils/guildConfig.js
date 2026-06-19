@@ -68,6 +68,19 @@ const defaultConfig = {
       minUsers: 3, // Minimum users needed to flag as suspicious
     },
   },
+  moderation: {
+    enabled: false, // Master switch for all moderation features
+    whitelist: {
+      enabled: false, // Whitelist mode - only allow specific roles/users
+      allowedRoles: [], // Role IDs that can use commands
+      allowedUsers: [], // User IDs that can use commands
+    },
+    autoBan: {
+      enabled: false, // Auto-notify when users exceed violation threshold
+      violationCount: 20, // Number of violations to trigger notification
+      windowHours: 24, // Time window in hours
+    },
+  },
 };
 
 /**
