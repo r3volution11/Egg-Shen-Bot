@@ -11,7 +11,7 @@ A Discord bot for looking up movies, TV shows, TV show episodes, video games, an
 - 🎮 **Game Search** - Search for video games with the `/game` command
 - 🎲 **Board Game Search** - Search for board games with the `/boardgame` command
 - 🎯 **Random Picker** - Get random movies, TV shows, episodes, games, or board games with genre/decade/rating/platform filters
-- 📝 **Watch History** - Log what you watched with ratings and notes, view server watch history
+- 📝 **Watch History** - Track server watch parties with notes and channel tracking, view watch frequency
 - 🔍 **Similar Content** - Find similar movies, TV shows, games, or board games based on any title
 - 📊 **Public Statistics** - Anyone can view server stats and personal usage statistics
 - ⭐ **Multiple Ratings** - Display ratings from IMDb, Trakt, and Rotten Tomatoes
@@ -303,7 +303,7 @@ Check if there's an active timer in the channel and how long it has been running
 - Shows who started the timer and who stopped it
 - Optional labels to describe what the timer is for
 - **Smart event auto-detection** - Automatically pull titles from scheduled events in configured watch party channels
-- **Watch history integration** - When you stop a labeled timer, get a button to log it to watch history with optional rating and notes
+- **Watch history integration** - Timer starter or admins/mods can log watch parties to server history with notes and channel tracking
 - Timers persist across bot restarts (saved to disk)
 - Restart announcements sent to channels with active timers
 
@@ -370,17 +370,22 @@ Get a random board game with optional filters:
 
 ### Watch History
 
+**Server-Level Watch Party Tracking:**
+
+Watch history tracks what your server watched together during watch parties. This is **server-level tracking** for watch frequency and participation - not individual ratings.
+
 **Add to Watch History:**
 
 ```
-/watched add title:Hereditary rating:8.5 notes:Absolutely terrifying!
+/watched add title:Hereditary notes:Annual horror night rewatch!
 ```
 
-Manually log what you watched with optional rating (1-10) and notes. The bot will:
+Manually log a watch party with optional notes. The bot will:
 
 1. Search for the title
 2. Let you select the correct movie or TV show if multiple results
-3. Save to server watch history with your rating and notes
+3. Save to server watch history with notes and who saved it
+4. **Public message** visible to everyone
 
 **View Watch History:**
 
@@ -388,20 +393,33 @@ Manually log what you watched with optional rating (1-10) and notes. The bot wil
 /watched history filter:all limit:10
 ```
 
-View the server's watch history with filters:
+View the server's watch party history with filters:
 
 - **filter** - All, Movies Only, TV Shows Only
 - **limit** - Number of entries to show (1-25, default: 10)
 
-Displays recent watches with titles, ratings, notes, who watched, and dates.
+Displays recent watch parties with:
+- Title and year
+- Who saved it
+- Date watched
+- **Channel where watch party occurred**
+- Optional notes
 
 **Watch History from Timer:**
 
 When you stop a timer with a label:
 
 1. You'll see a "📝 Log to Watch History" button
-2. Click it to open a form for rating and notes
-3. The bot automatically searches for the title and adds it to history
+2. **Only the timer starter OR server admins/moderators** can save it
+3. Click to open a form for notes (optional)
+4. The bot automatically searches for the title and adds it to history
+5. **Public message** shows what was watched, the channel, and who saved it
+
+**Why These Restrictions?**
+- Timer starter knows what was actually watched
+- Admins/mods can correct or add missing entries
+- Prevents random users from logging incorrect content
+- Server-level tracking, not personal ratings
 
 ### Similar Content
 
@@ -1077,8 +1095,9 @@ discord-movie-tv-bot/
 **Watch Party Features:**
 
 - ✅ Random movie/TV/episode picker with genre, decade, and rating filters
-- ✅ Watch history logging with ratings and notes
-- ✅ View server watch history with filters
+- ✅ Server-level watch party tracking with notes and channel tracking
+- ✅ View watch history with filters (frequency tracking)
+- ✅ Permission-restricted saves (timer starter or mods/admins only)
 - ✅ Similar content recommendations using TMDB algorithm
 - ✅ Channel timers with 5-second countdown and video player format
 - ✅ Timer-to-watch-history integration (auto-prompt when stopping labeled timers)
