@@ -31,6 +31,18 @@ const suspiciousActivityLog = new Map();
 const abuseLog = new Map();
 
 /**
+ * Temporary user cooldowns (manually applied by admins)
+ * Structure: Map<guildId, Map<userId, {expiresAt, reason, appliedBy}>>
+ */
+const userCooldowns = new Map();
+
+/**
+ * Blocked users (for whitelist mode or manual blocks)
+ * Structure: Map<guildId, Set<userId>>
+ */
+const blockedUsers = new Map();
+
+/**
  * Clean up old timestamps periodically (runs every 5 minutes)
  */
 setInterval(() => {
@@ -107,6 +119,19 @@ setInterval(() => {
       abuseLog.delete(guildId);
     }
   }
+  
+  // Clean up expired user cooldowns
+  for (const [guildId, cooldownMap] of userCooldowns) {
+    for (const [userId, cooldown] of cooldownMap) {
+      if (now >= cooldown.expiresAt) {
+        cooldownMap.delete(userId);
+      }
+    }
+    // Remove guild if no cooldowns left
+    if (cooldownMap.size === 0) {
+      userCooldowns.delete(guildId);
+    }
+  }
 }, 5 * 60 * 1000);
 
 /**
@@ -158,6 +183,56 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
   
   const now = Date.now();
   
+  // Apply moderation features if enabled
+  if (config.moderation?.enabled) {
+    // Check whitelist mode
+    if (config.moderation.whitelist?.enabled && member) {
+      const allowedRoles = config.moderation.whitelist.allowedRoles || [];
+      const allowedUsers = config.moderation.whitelist.allowedUsers || [];
+      
+      // Check if user is explicitly allowed
+      if (allowedUsers.includes(userId)) {
+        // User is whitelisted, continue
+      }
+      // Check if user has an allowed role
+      else if (allowedRoles.length > 0) {
+        const hasAllowedRole = member.roles.cache.some(role => allowedRoles.includes(role.id));
+        if (!hasAllowedRole) {
+          return {
+            limited: true,
+            message: '🔒 This server is in whitelist mode. Only approved users and roles can use bot commands.'
+          };
+        }
+      }
+      // No roles specified and user not explicitly allowed
+      else if (allowedUsers.length === 0) {
+        return {
+          limited: true,
+          message: '🔒 This server is in whitelist mode. Only approved users can use bot commands.'
+        };
+      }
+    }
+    
+    // Check if user has an active temporary cooldown
+    if (userCooldowns.has(guildId)) {
+      const guildCooldowns = userCooldowns.get(guildId);
+      if (guildCooldowns.has(userId)) {
+        const cooldown = guildCooldowns.get(userId);
+        if (now < cooldown.expiresAt) {
+          const retryAfter = Math.ceil((cooldown.expiresAt - now) / 1000);
+          return {
+            limited: true,
+            retryAfter,
+            message: `🛑 You have been temporarily restricted from using commands.\n**Reason:** ${cooldown.reason}\n**Time remaining:** ${Math.ceil(retryAfter / 60)} minute${Math.ceil(retryAfter / 60) !== 1 ? 's' : ''}`
+          };
+        } else {
+          // Cooldown expired, remove it
+          guildCooldowns.delete(userId);
+        }
+      }
+    }
+  }
+  
   // Check guild-wide rate limit first (if enabled)
   if (config.rateLimits.guildWide?.enabled) {
     const guildLimit = config.rateLimits.guildWide.maxRequests;
@@ -178,11 +253,15 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
       // Log the violation
       logRateLimitViolation(guildId, userId, commandName, 'guild-wide', retryAfter);
       
+      // Check auto-ban threshold
+      const exceededThreshold = checkAutoBanThreshold(guildId, userId, config);
+      const warningMessage = exceededThreshold ? '\n\n⚠️ **Warning:** You have exceeded the abuse threshold. Server moderators have been notified.' : '';
+      
       return {
         limited: true,
         guildWide: true,
         retryAfter,
-        message: `⚠️ Server-wide rate limit reached! This server is currently receiving too many commands. Please wait ${retryAfter} second${retryAfter !== 1 ? 's' : ''} before trying again.`
+        message: `⚠️ Server-wide rate limit reached! This server is currently receiving too many commands. Please wait ${retryAfter} second${retryAfter !== 1 ? 's' : ''} before trying again.${warningMessage}`
       };
     }
   }
@@ -227,10 +306,14 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
     // Log the violation
     logRateLimitViolation(guildId, userId, commandName, 'per-user', retryAfter);
     
+    // Check auto-ban threshold
+    const exceededThreshold = checkAutoBanThreshold(guildId, userId, config);
+    const warningMessage = exceededThreshold ? '\n\n⚠️ **Warning:** You have exceeded the abuse threshold. Server moderators have been notified.' : '';
+    
     return {
       limited: true,
       retryAfter,
-      message: `You're using commands too quickly! Please wait ${retryAfter} second${retryAfter !== 1 ? 's' : ''} before using **/${commandName}** again.`
+      message: `You're using commands too quickly! Please wait ${retryAfter} second${retryAfter !== 1 ? 's' : ''} before using **/${commandName}** again.${warningMessage}`
     };
   }
   
@@ -381,6 +464,40 @@ function logRateLimitViolation(guildId, userId, commandName, limitType, retryAft
 }
 
 /**
+ * Check if user has exceeded auto-ban threshold
+ * @param {string} guildId - Guild ID
+ * @param {string} userId - User ID
+ * @param {object} config - Guild config
+ * @returns {boolean} True if threshold exceeded
+ */
+function checkAutoBanThreshold(guildId, userId, config) {
+  if (!config.moderation?.enabled || !config.moderation?.autoBan?.enabled) {
+    return false;
+  }
+  
+  const threshold = config.moderation.autoBan.violationCount || 20;
+  const timeWindow = (config.moderation.autoBan.windowHours || 24) * 60 * 60 * 1000;
+  
+  const guildLog = abuseLog.get(guildId);
+  if (!guildLog || !guildLog.has(userId)) {
+    return false;
+  }
+  
+  const userViolations = guildLog.get(userId);
+  const now = Date.now();
+  
+  // Count violations within time window
+  const recentViolations = userViolations.filter(v => now - v.timestamp < timeWindow);
+  
+  if (recentViolations.length >= threshold) {
+    console.log(`[Auto-Ban] User ${userId} in guild ${guildId} exceeded threshold: ${recentViolations.length}/${threshold} violations`);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Get suspicious activity log for a guild
  * @param {string} guildId - Guild ID
  * @param {number} limit - Maximum number of entries to return
@@ -455,4 +572,106 @@ export function clearRateLimitForUser(guildId, userId) {
  */
 export function clearRateLimitsForGuild(guildId) {
   return rateLimitCache.delete(guildId);
+}
+
+/**
+ * Apply a temporary cooldown to a user
+ * @param {string} guildId - Guild ID
+ * @param {string} userId - User ID
+ * @param {number} durationMinutes - Duration in minutes
+ * @param {string} reason - Reason for cooldown
+ * @param {string} appliedBy - Moderator who applied it
+ */
+export function applyUserCooldown(guildId, userId, durationMinutes, reason, appliedBy) {
+  if (!userCooldowns.has(guildId)) {
+    userCooldowns.set(guildId, new Map());
+  }
+  
+  const guildCooldowns = userCooldowns.get(guildId);
+  const expiresAt = Date.now() + (durationMinutes * 60 * 1000);
+  
+  guildCooldowns.set(userId, {
+    expiresAt,
+    reason,
+    appliedBy,
+    appliedAt: Date.now(),
+  });
+  
+  return expiresAt;
+}
+
+/**
+ * Remove a temporary cooldown from a user
+ * @param {string} guildId - Guild ID
+ * @param {string} userId - User ID
+ * @returns {boolean} True if cooldown was removed
+ */
+export function removeUserCooldown(guildId, userId) {
+  const guildCooldowns = userCooldowns.get(guildId);
+  if (guildCooldowns) {
+    return guildCooldowns.delete(userId);
+  }
+  return false;
+}
+
+/**
+ * Get active cooldowns for a guild
+ * @param {string} guildId - Guild ID
+ * @returns {Array} Array of {userId, expiresAt, reason, appliedBy, appliedAt}
+ */
+export function getActiveCooldowns(guildId) {
+  const guildCooldowns = userCooldowns.get(guildId);
+  if (!guildCooldowns) {
+    return [];
+  }
+  
+  const now = Date.now();
+  const result = [];
+  
+  for (const [userId, cooldown] of guildCooldowns) {
+    if (cooldown.expiresAt > now) {
+      result.push({
+        userId,
+        ...cooldown,
+      });
+    }
+  }
+  
+  return result.sort((a, b) => b.appliedAt - a.appliedAt);
+}
+
+/**
+ * Get users who have exceeded auto-ban threshold
+ * @param {string} guildId - Guild ID
+ * @param {object} config - Guild config
+ * @returns {Array} Array of {userId, violationCount}
+ */
+export function getUsersExceedingThreshold(guildId, config) {
+  if (!config.moderation?.enabled || !config.moderation?.autoBan?.enabled) {
+    return [];
+  }
+  
+  const threshold = config.moderation.autoBan.violationCount || 20;
+  const timeWindow = (config.moderation.autoBan.windowHours || 24) * 60 * 60 * 1000;
+  
+  const guildLog = abuseLog.get(guildId);
+  if (!guildLog) {
+    return [];
+  }
+  
+  const now = Date.now();
+  const result = [];
+  
+  for (const [userId, violations] of guildLog) {
+    const recentViolations = violations.filter(v => now - v.timestamp < timeWindow);
+    if (recentViolations.length >= threshold) {
+      result.push({
+        userId,
+        violationCount: recentViolations.length,
+        lastViolation: recentViolations[recentViolations.length - 1].timestamp,
+      });
+    }
+  }
+  
+  return result.sort((a, b) => b.violationCount - a.violationCount);
 }
