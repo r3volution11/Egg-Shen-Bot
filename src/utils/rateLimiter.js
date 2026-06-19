@@ -25,6 +25,12 @@ const patternDetectionCache = new Map();
 const suspiciousActivityLog = new Map();
 
 /**
+ * Abuse log for tracking individual rate limit violations
+ * Structure: Map<guildId, Map<userId, Array<{commandName, timestamp, limitType, retryAfter}>>>
+ */
+const abuseLog = new Map();
+
+/**
  * Clean up old timestamps periodically (runs every 5 minutes)
  */
 setInterval(() => {
@@ -82,6 +88,23 @@ setInterval(() => {
       suspiciousActivityLog.delete(guildId);
     } else {
       suspiciousActivityLog.set(guildId, filtered);
+    }
+  }
+  
+  // Clean up abuse log (keep for 48 hours)
+  const abuseLogMaxAge = 48 * 60 * 60 * 1000; // 48 hours
+  for (const [guildId, userLogs] of abuseLog) {
+    for (const [userId, violations] of userLogs) {
+      const filtered = violations.filter(v => now - v.timestamp < abuseLogMaxAge);
+      if (filtered.length === 0) {
+        userLogs.delete(userId);
+      } else {
+        userLogs.set(userId, filtered);
+      }
+    }
+    // Remove guild if no users left
+    if (userLogs.size === 0) {
+      abuseLog.delete(guildId);
     }
   }
 }, 5 * 60 * 1000);
@@ -152,6 +175,9 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
       const oldestGuildTimestamp = validGuildTimestamps[0];
       const retryAfter = Math.ceil((guildWindow - (now - oldestGuildTimestamp)) / 1000);
       
+      // Log the violation
+      logRateLimitViolation(guildId, userId, commandName, 'guild-wide', retryAfter);
+      
       return {
         limited: true,
         guildWide: true,
@@ -197,6 +223,9 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
   if (validTimestamps.length >= maxRequests) {
     const oldestTimestamp = validTimestamps[0];
     const retryAfter = Math.ceil((windowMs - (now - oldestTimestamp)) / 1000);
+    
+    // Log the violation
+    logRateLimitViolation(guildId, userId, commandName, 'per-user', retryAfter);
     
     return {
       limited: true,
@@ -318,6 +347,40 @@ function logSuspiciousActivity(guildId, activity) {
 }
 
 /**
+ * Log a rate limit violation for tracking abuse
+ * @param {string} guildId - Guild ID
+ * @param {string} userId - User ID
+ * @param {string} commandName - Command name
+ * @param {string} limitType - Type of limit hit ('per-user' or 'guild-wide')
+ * @param {number} retryAfter - Seconds until user can try again
+ */
+function logRateLimitViolation(guildId, userId, commandName, limitType, retryAfter) {
+  if (!abuseLog.has(guildId)) {
+    abuseLog.set(guildId, new Map());
+  }
+  
+  const guildLog = abuseLog.get(guildId);
+  
+  if (!guildLog.has(userId)) {
+    guildLog.set(userId, []);
+  }
+  
+  const userViolations = guildLog.get(userId);
+  
+  userViolations.push({
+    commandName,
+    timestamp: Date.now(),
+    limitType,
+    retryAfter,
+  });
+  
+  // Keep only last 100 violations per user to prevent memory issues
+  if (userViolations.length > 100) {
+    userViolations.shift();
+  }
+}
+
+/**
  * Get suspicious activity log for a guild
  * @param {string} guildId - Guild ID
  * @param {number} limit - Maximum number of entries to return
@@ -334,6 +397,45 @@ export function getSuspiciousActivity(guildId, limit = 10) {
  */
 export function clearSuspiciousActivity(guildId) {
   return suspiciousActivityLog.delete(guildId);
+}
+
+/**
+ * Get abuse log for a guild showing rate limit violations by user
+ * @param {string} guildId - Guild ID
+ * @returns {Array} Array of {userId, violations: Array, totalCount, lastViolation}
+ */
+export function getAbuseLog(guildId) {
+  const guildLog = abuseLog.get(guildId);
+  
+  if (!guildLog || guildLog.size === 0) {
+    return [];
+  }
+  
+  const result = [];
+  
+  for (const [userId, violations] of guildLog) {
+    if (violations.length > 0) {
+      result.push({
+        userId,
+        violations: violations.slice(-10), // Last 10 violations for details
+        totalCount: violations.length,
+        lastViolation: violations[violations.length - 1].timestamp,
+      });
+    }
+  }
+  
+  // Sort by most recent violation first
+  result.sort((a, b) => b.lastViolation - a.lastViolation);
+  
+  return result;
+}
+
+/**
+ * Clear abuse log for a guild
+ * @param {string} guildId - Guild ID
+ */
+export function clearAbuseLog(guildId) {
+  return abuseLog.delete(guildId);
 }
 
 /**

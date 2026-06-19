@@ -698,11 +698,48 @@ View recently detected suspicious activity patterns. Shows:
 
 Use this to investigate potential bot/spam attacks and decide whether to ban the flagged users.
 
+```
+/eggshen-config abuse-log
+```
+
+View individual rate limit violations by user. While pattern detection catches **coordinated** abuse (3+ users), the abuse log tracks **individual** violations - perfect for catching solo abusers.
+
+**Shows:**
+- Which users hit rate limits (per-user or server-wide)
+- How many violations per user
+- What commands they were spamming
+- When their last violation occurred
+- Flags persistent abusers (10+ violations)
+
+**Kept for 48 hours** - longer than pattern detection (24 hours) to catch persistent behavior.
+
+**Example output:**
+```
+⚠️ Rate Limit Violations (Last 48h)
+
+@user123 • 5 violations
+Commands: /movie: 3x, /episode-list: 2x
+Types: Per-user: 5x
+Last: 15m ago
+
+@user456 • 15 violations 🚨 Persistent abuser
+Commands: /episode-list: 15x
+Types: Per-user: 12x, Guild-wide: 3x
+Last: 2m ago
+```
+
+**When to use:**
+- Pattern detection flags coordinated attacks (3+ users)
+- Abuse log catches solo users testing/abusing limits
+- Provides evidence trail for moderation decisions
+- Identifies users who repeatedly hit limits
+
 **Default Settings:**
 - Rate limiting: **Enabled**
 - Per-user limit: **1 request per 20 seconds**
 - Server-wide limit: **10 requests per 60 seconds** ✅ Enabled
 - Pattern detection: **Enabled** (flags 3+ users)
+- Abuse logging: **Always enabled** (automatic)
 - Moderator bypass: **Enabled**
 - Custom command limits: **None** (uses global)
 

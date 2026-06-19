@@ -326,6 +326,11 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('suspicious-activity')
       .setDescription('View recent suspicious activity detected by pattern detection')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('abuse-log')
+      .setDescription('View rate limit violations by user (tracks individual abuse)')
   );
 
 export async function execute(interaction) {
@@ -930,7 +935,8 @@ export async function execute(interaction) {
         name: 'Anti-Flood Protection',
         value: '**Server-wide limiting:** `/eggshen-config rate-limit-guild-wide`\n' +
                '**Pattern detection:** `/eggshen-config pattern-detection`\n' +
-               '**View suspicious activity:** `/eggshen-config suspicious-activity`',
+               '**View suspicious activity:** `/eggshen-config suspicious-activity`\n' +
+               '**View abuse log:** `/eggshen-config abuse-log`',
         inline: false,
       })
       .setFooter({ text: 'Rate limits prevent abuse and channel flooding' });
@@ -1051,6 +1057,67 @@ export async function execute(interaction) {
       embed.addFields({
         name: `${patternName} • ${timeStr}`,
         value: `${activity.details}\n**Users:** ${userList}${moreUsers}`,
+        inline: false,
+      });
+    }
+    
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  } else if (subcommand === 'abuse-log') {
+    // View abuse log
+    const { getAbuseLog } = await import('../utils/rateLimiter.js');
+    const abuseData = getAbuseLog(guildId);
+    
+    if (abuseData.length === 0) {
+      await interaction.reply({
+        content: '✅ No rate limit violations recorded recently.\n\nThe abuse log tracks when users hit rate limits. Persistent violators may be testing defenses or attempting to flood channels.',
+        ephemeral: true,
+      });
+      return;
+    }
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xFFA500)
+      .setTitle('⚠️ Rate Limit Violations')
+      .setDescription(`Found ${abuseData.length} user${abuseData.length !== 1 ? 's' : ''} with rate limit violations in the last 48 hours:`)
+      .setFooter({ text: 'Consider warning or banning persistent violators' });
+    
+    // Show top 10 violators
+    for (const data of abuseData.slice(0, 10)) {
+      const timeAgo = Math.floor((Date.now() - data.lastViolation) / 60000); // minutes ago
+      const timeStr = timeAgo < 60 ? `${timeAgo}m ago` : `${Math.floor(timeAgo / 60)}h ago`;
+      
+      // Count violations by command
+      const commandCounts = {};
+      let perUserCount = 0;
+      let guildWideCount = 0;
+      
+      for (const v of data.violations) {
+        commandCounts[v.commandName] = (commandCounts[v.commandName] || 0) + 1;
+        if (v.limitType === 'per-user') perUserCount++;
+        else guildWideCount++;
+      }
+      
+      const commandBreakdown = Object.entries(commandCounts)
+        .map(([cmd, count]) => `\`/${cmd}\`: ${count}x`)
+        .join(', ');
+      
+      const limitTypeBreakdown = [];
+      if (perUserCount > 0) limitTypeBreakdown.push(`Per-user: ${perUserCount}x`);
+      if (guildWideCount > 0) limitTypeBreakdown.push(`Guild-wide: ${guildWideCount}x`);
+      
+      const warningFlag = data.totalCount > 10 ? ' 🚨 **Persistent abuser**' : '';
+      
+      embed.addFields({
+        name: `<@${data.userId}> • ${data.totalCount} violation${data.totalCount !== 1 ? 's' : ''}${warningFlag}`,
+        value: `**Commands:** ${commandBreakdown}\n**Types:** ${limitTypeBreakdown.join(', ')}\n**Last:** ${timeStr}`,
+        inline: false,
+      });
+    }
+    
+    if (abuseData.length > 10) {
+      embed.addFields({
+        name: 'More Violators',
+        value: `+${abuseData.length - 10} more users with violations (showing top 10)`,
         inline: false,
       });
     }
