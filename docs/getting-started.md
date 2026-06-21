@@ -82,7 +82,7 @@ Once the bot is running, use these commands to configure your server:
 ### Enable/Disable Services
 
 ```
-/eggshen-config toggle service:imdb enabled:true
+/eggshen-config settings toggle service:imdb enabled:true
 ```
 
 Control which rating services appear in embeds.
@@ -90,7 +90,7 @@ Control which rating services appear in embeds.
 ### Set Rate Limits
 
 ```
-/eggshen-config rate-limit-toggle enabled:true
+/eggshen-config rate-limit toggle enabled:true
 ```
 
 Enable rate limiting to prevent abuse (enabled by default).
@@ -98,7 +98,7 @@ Enable rate limiting to prevent abuse (enabled by default).
 ### Configure Emojis
 
 ```
-/eggshen-config emoji service:imdb emoji:🎬
+/eggshen-config settings emoji service:imdb emoji:🎬
 ```
 
 Customize emojis for each service.
@@ -138,8 +138,8 @@ Try these commands in your server:
 
 ### Rate limit issues
 
-- Check `/eggshen-config rate-limit-view` to see current settings
-- Use `/eggshen-config rate-limit-clear user:@someone` for emergency overrides
+- Check `/eggshen-config rate-limit view` to see current settings
+- Use `/eggshen-config rate-limit clear user:@someone` for emergency overrides
 
 ## Support
 

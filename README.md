@@ -126,7 +126,7 @@ You should see:
 
 The bot will:
 
-1. Display search results in a dropdown menu (up to 20 by default, configurable with `/eggshen-config max-results`)
+1. Display search results in a dropdown menu (up to 20 by default, configurable with `/eggshen-config settings max-results`)
 2. Let you select the correct movie
 3. Show a detailed embed with:
    - Movie poster
@@ -526,7 +526,7 @@ Users with these Discord permissions can configure and control Egg Shen:
 **View Current Settings:**
 
 ```
-/eggshen-config view
+/eggshen-config settings view
 ```
 
 Shows:
@@ -538,7 +538,7 @@ Shows:
 **Toggle Services:**
 
 ```
-/eggshen-config toggle service:letterboxd enabled:false
+/eggshen-config settings toggle service:letterboxd enabled:false
 ```
 
 Enable or disable specific rating services for your server. Available services:
@@ -552,7 +552,7 @@ Enable or disable specific rating services for your server. Available services:
 **Set Custom Emojis:**
 
 ```
-/eggshen-config emoji service:imdb emoji:📽️
+/eggshen-config settings emoji service:imdb emoji:📽️
 ```
 
 Set custom Discord emojis for rating services. To use custom server emojis:
@@ -564,7 +564,7 @@ Set custom Discord emojis for rating services. To use custom server emojis:
 **Clear Emojis:**
 
 ```
-/eggshen-config emoji service:imdb
+/eggshen-config settings emoji service:imdb
 ```
 
 Leave the emoji field empty to clear a custom emoji setting.
@@ -572,7 +572,7 @@ Leave the emoji field empty to clear a custom emoji setting.
 **Set Streaming Region:**
 
 ```
-/eggshen-config region code:US
+/eggshen-config settings region code:US
 ```
 
 Set your preferred region for streaming availability using ISO 3166-1 country codes:
@@ -590,7 +590,7 @@ This determines which streaming services are shown in movie and TV embeds.
 **Set Maximum Search Results:**
 
 ```
-/eggshen-config max-results count:20
+/eggshen-config settings max-results count:20
 ```
 
 Configure how many search results to display in dropdown menus (1-50, default: 20). Useful if:
@@ -601,9 +601,9 @@ Configure how many search results to display in dropdown menus (1-50, default: 2
 **Configure Watch Party Channels:**
 
 ```
-/eggshen-config watch-party-add channel:#movie-night
-/eggshen-config watch-party-remove channel:#movie-night
-/eggshen-config watch-party-list
+/eggshen-config watch-party add channel:#movie-night
+/eggshen-config watch-party remove channel:#movie-night
+/eggshen-config watch-party list
 ```
 
 Manage which channels can auto-detect event titles for timers. Perfect for servers with dedicated watch party channels!
@@ -628,7 +628,7 @@ Manage which channels can auto-detect event titles for timers. Perfect for serve
 Rate limiting prevents command abuse and channel flooding. Administrators can configure global limits, per-command limits, and moderator bypass settings.
 
 ```
-/eggshen-config rate-limit-view
+/eggshen-config rate-limit view
 ```
 
 View current rate limiting configuration including global limits and custom command limits.
@@ -640,7 +640,7 @@ View current rate limiting configuration including global limits and custom comm
 Enable or disable rate limiting entirely. When disabled, users can use commands without restrictions.
 
 ```
-/eggshen-config rate-limit-global max-requests:5 window-seconds:60
+/eggshen-config rate-limit global max-requests:5 window-seconds:60
 ```
 
 Set the global rate limit for all commands. Example: 5 requests per 60 seconds means users can run any 5 commands within a minute before being rate-limited.
@@ -648,7 +648,7 @@ Set the global rate limit for all commands. Example: 5 requests per 60 seconds m
 **Note:** Default is 1 per 20 seconds to prevent burst flooding while matching natural API response times.
 
 ```
-/eggshen-config rate-limit-command command:episode-list max-requests:2 window-seconds:60
+/eggshen-config rate-limit command command:episode-list max-requests:2 window-seconds:60
 ```
 
 Set a custom rate limit for a specific command. This overrides the global limit for that command only. Available commands:
@@ -662,13 +662,13 @@ Set a custom rate limit for a specific command. This overrides the global limit 
 To remove a custom command limit (revert to global): use `max-requests:0`
 
 ```
-/eggshen-config rate-limit-bypass enabled:true
+/eggshen-config rate-limit bypass enabled:true
 ```
 
 Allow moderators and administrators to bypass rate limits. Enabled by default - useful for admins who need to respond quickly or demonstrate features.
 
 ```
-/eggshen-config rate-limit-clear user:@username
+/eggshen-config rate-limit clear user:@username
 ```
 
 Clear rate limits for a specific user (emergency override). Use if a user is accidentally rate-limited due to legitimate use.
@@ -676,7 +676,7 @@ Clear rate limits for a specific user (emergency override). Use if a user is acc
 **Anti-Flood Protection:**
 
 ```
-/eggshen-config rate-limit-guild-wide enabled:true max-requests:10 window-seconds:60
+/eggshen-config rate-limit guild-wide enabled:true max-requests:10 window-seconds:60
 ```
 
 Configure server-wide rate limiting to prevent coordinated multi-account flooding. This limits the **total** number of commands across ALL users within a time window, regardless of per-user limits.
@@ -693,7 +693,7 @@ Configure server-wide rate limiting to prevent coordinated multi-account floodin
 - **Disable:** Very small private servers with fully trusted members
 
 ```
-/eggshen-config pattern-detection enabled:true min-users:3
+/eggshen-config rate-limit pattern-detection enabled:true min-users:3
 ```
 
 Enable suspicious activity pattern detection to automatically flag coordinated abuse. The bot monitors for:
@@ -715,7 +715,7 @@ Enable suspicious activity pattern detection to automatically flag coordinated a
 - **6+ users:** Loose detection, good for large active servers
 
 ```
-/eggshen-config suspicious-activity
+/eggshen-config rate-limit suspicious-activity
 ```
 
 View recently detected suspicious activity patterns. Shows:
@@ -727,7 +727,7 @@ View recently detected suspicious activity patterns. Shows:
 Use this to investigate potential bot/spam attacks and decide whether to ban the flagged users.
 
 ```
-/eggshen-config abuse-log
+/eggshen-config rate-limit abuse-log
 ```
 
 View individual rate limit violations by user. While pattern detection catches **coordinated** abuse (3+ users), the abuse log tracks **individual** violations - perfect for catching solo abusers.
@@ -789,13 +789,13 @@ Advanced moderation tools provide granular control over command access and abuse
 **Master Switches:**
 
 ```
-/eggshen-config rate-limit-toggle enabled:true
+/eggshen-config rate-limit toggle enabled:true
 ```
 
 Enable/disable the rate limiting system entirely. When disabled, no rate limits are enforced (not recommended).
 
 ```
-/eggshen-config moderation-toggle enabled:true
+/eggshen-config moderation toggle enabled:true
 ```
 
 Enable/disable all moderation features (whitelist, cooldowns, auto-ban notifications). Rate limiting remains independent and functional when moderation is disabled.
@@ -805,7 +805,7 @@ Enable/disable all moderation features (whitelist, cooldowns, auto-ban notificat
 Manually restrict specific users from using bot commands temporarily.
 
 ```
-/eggshen-config user-cooldown user:@username duration:60 reason:"Spamming commands"
+/eggshen-config moderation user-cooldown user:@username duration:60 reason:"Spamming commands"
 ```
 
 Apply a temporary cooldown to a user. Duration is in minutes (max 10,080 = 1 week).
@@ -824,13 +824,13 @@ Apply a temporary cooldown to a user. Duration is in minutes (max 10,080 = 1 wee
 - Can be manually removed early
 
 ```
-/eggshen-config user-cooldown-remove user:@username
+/eggshen-config moderation user-cooldown-remove user:@username
 ```
 
 Remove an active cooldown from a user early.
 
 ```
-/eggshen-config user-cooldown-list
+/eggshen-config moderation user-cooldown-list
 ```
 
 View all users currently under cooldown, including expiration times and reasons.
@@ -840,32 +840,32 @@ View all users currently under cooldown, including expiration times and reasons.
 Restrict bot commands to specific roles or users only. Perfect for exclusive communities or during high-traffic events.
 
 ```
-/eggshen-config whitelist-toggle enabled:true
+/eggshen-config moderation whitelist-toggle enabled:true
 ```
 
 Enable whitelist mode. ⚠️ **Only whitelisted users/roles and moderators can use bot commands!**
 
 ```
-/eggshen-config whitelist-add-role role:@Members
+/eggshen-config moderation whitelist-add-role role:@Members
 ```
 
 Add a role to the whitelist. All users with this role can use bot commands.
 
 ```
-/eggshen-config whitelist-add-user user:@username
+/eggshen-config moderation whitelist-add-user user:@username
 ```
 
 Add a specific user to the whitelist (bypasses role requirements).
 
 ```
-/eggshen-config whitelist-remove-role role:@Members
-/eggshen-config whitelist-remove-user user:@username
+/eggshen-config moderation whitelist-remove-role role:@Members
+/eggshen-config moderation whitelist-remove-user user:@username
 ```
 
 Remove roles or users from the whitelist.
 
 ```
-/eggshen-config whitelist-list
+/eggshen-config moderation whitelist-list
 ```
 
 View all whitelisted roles and users.
@@ -888,13 +888,13 @@ View all whitelisted roles and users.
 Automatically warn users when they exceed a violation threshold and flag them for moderator review.
 
 ```
-/eggshen-config auto-ban-toggle enabled:true
+/eggshen-config moderation auto-ban-toggle enabled:true
 ```
 
 Enable auto-ban threshold warnings. Users who exceed the threshold will see a warning, and moderators can review flagged users.
 
 ```
-/eggshen-config auto-ban-threshold count:20 hours:24
+/eggshen-config moderation auto-ban-threshold count:20 hours:24
 ```
 
 Set the violation threshold. Example: 20 violations within 24 hours triggers the warning.
@@ -904,11 +904,11 @@ Set the violation threshold. Example: 20 violations within 24 hours triggers the
 2. Each violation is logged in the abuse log
 3. When violations exceed threshold within time window:
    - User sees ⚠️ warning message with their rate limit errors
-   - Moderators can check `/eggshen-config auto-ban-list` to see flagged users
+   - Moderators can check `/eggshen-config moderation auto-ban-list` to see flagged users
 4. Provides evidence trail for banning persistent abusers
 
 ```
-/eggshen-config auto-ban-list
+/eggshen-config moderation auto-ban-list
 ```
 
 View all users who have exceeded the auto-ban threshold, including:
@@ -964,7 +964,7 @@ Statistics include:
 **Toggle Statistics Tracking:**
 
 ```
-/eggshen-config stats-toggle setting:enabled enabled:true
+/eggshen-config stats toggle setting:enabled enabled:true
 ```
 
 Control statistics tracking for your server:
@@ -977,7 +977,7 @@ Control statistics tracking for your server:
 **Clear Statistics:**
 
 ```
-/eggshen-config stats-clear
+/eggshen-config stats clear
 ```
 
 Permanently delete all statistics for your server.

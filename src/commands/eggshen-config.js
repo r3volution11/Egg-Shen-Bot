@@ -5,481 +5,523 @@ import { clearStats } from '../utils/statsTracker.js';
 export const data = new SlashCommandBuilder()
   .setName('eggshen-config')
   .setDescription('Configure Egg Shen settings for this server (Admin/Moderator only)')
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('view')
-      .setDescription('View current configuration')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('toggle')
-      .setDescription('Toggle a service on or off')
-      .addStringOption(option =>
-        option
-          .setName('service')
-          .setDescription('The service to toggle')
-          .setRequired(true)
-          .addChoices(
-            { name: 'IMDb', value: 'imdb' },
-            { name: 'Letterboxd', value: 'letterboxd' },
-            { name: 'Trakt', value: 'trakt' },
-            { name: 'Rotten Tomatoes', value: 'rottenTomatoes' },
-            { name: 'JustWatch', value: 'justWatch' }
+  // ========== SETTINGS GROUP ==========
+  .addSubcommandGroup(group =>
+    group
+      .setName('settings')
+      .setDescription('Basic bot settings and configuration')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('view')
+          .setDescription('View current configuration')
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('toggle')
+          .setDescription('Toggle a service on or off')
+          .addStringOption(option =>
+            option
+              .setName('service')
+              .setDescription('The service to toggle')
+              .setRequired(true)
+              .addChoices(
+                { name: 'IMDb', value: 'imdb' },
+                { name: 'Letterboxd', value: 'letterboxd' },
+                { name: 'Trakt', value: 'trakt' },
+                { name: 'Rotten Tomatoes', value: 'rottenTomatoes' },
+                { name: 'JustWatch', value: 'justWatch' }
+              )
+          )
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable the service')
+              .setRequired(true)
           )
       )
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
-          .setDescription('Enable or disable the service')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('emoji')
-      .setDescription('Set a custom emoji for a service')
-      .addStringOption(option =>
-        option
-          .setName('service')
-          .setDescription('The service to set an emoji for')
-          .setRequired(true)
-          .addChoices(
-            { name: 'IMDb', value: 'imdb' },
-            { name: 'Letterboxd', value: 'letterboxd' },
-            { name: 'Trakt', value: 'trakt' },
-            { name: 'RT Critics', value: 'rtCritics' },
-            { name: 'JustWatch', value: 'justWatch' }
-          )
-      )
-      .addStringOption(option =>
-        option
+      .addSubcommand(subcommand =>
+        subcommand
           .setName('emoji')
-          .setDescription('The emoji to use (custom emoji or leave empty to clear)')
-          .setRequired(false)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('stats-toggle')
-      .setDescription('Toggle statistics tracking on or off')
-      .addStringOption(option =>
-        option
-          .setName('setting')
-          .setDescription('What to toggle')
-          .setRequired(true)
-          .addChoices(
-            { name: 'All Stats Tracking', value: 'enabled' },
-            { name: 'Movie Tracking', value: 'trackMovies' },
-            { name: 'TV Show Tracking', value: 'trackShows' },
-            { name: 'Episode Tracking', value: 'trackEpisodes' }
+          .setDescription('Set a custom emoji for a service')
+          .addStringOption(option =>
+            option
+              .setName('service')
+              .setDescription('The service to set an emoji for')
+              .setRequired(true)
+              .addChoices(
+                { name: 'IMDb', value: 'imdb' },
+                { name: 'Letterboxd', value: 'letterboxd' },
+                { name: 'Trakt', value: 'trakt' },
+                { name: 'RT Critics', value: 'rtCritics' },
+                { name: 'JustWatch', value: 'justWatch' }
+              )
+          )
+          .addStringOption(option =>
+            option
+              .setName('emoji')
+              .setDescription('The emoji to use (custom emoji or leave empty to clear)')
+              .setRequired(false)
           )
       )
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
-          .setDescription('Enable or disable this setting')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('stats-clear')
-      .setDescription('Clear all statistics for this server')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('commands-toggle')
-      .setDescription('Toggle command permissions for regular users')
-      .addStringOption(option =>
-        option
-          .setName('setting')
-          .setDescription('What to toggle')
-          .setRequired(true)
-          .addChoices(
-            { name: 'All Commands (Master Switch)', value: 'enabled' },
-            { name: 'Movie Command', value: 'movie' },
-            { name: 'TV Command', value: 'tv' },
-            { name: 'Episode Command', value: 'episode' }
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('region')
+          .setDescription('Set the region for streaming availability (US, CA, GB, etc.)')
+          .addStringOption(option =>
+            option
+              .setName('code')
+              .setDescription('ISO 3166-1 country code (US, CA, GB, AU, etc.)')
+              .setRequired(true)
+              .setMaxLength(2)
+              .setMinLength(2)
           )
       )
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
-          .setDescription('Enable or disable for regular users')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('notifications-toggle')
-      .setDescription('Toggle bot notifications')
-      .addStringOption(option =>
-        option
-          .setName('setting')
-          .setDescription('What to toggle')
-          .setRequired(true)
-          .addChoices(
-            { name: 'Restart Announcements', value: 'restartAnnouncements' }
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('max-results')
+          .setDescription('Set maximum number of search results to display (1-50)')
+          .addIntegerOption(option =>
+            option
+              .setName('count')
+              .setDescription('Number of results to show in selection menus (1-50)')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(50)
           )
       )
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
-          .setDescription('Enable or disable this notification')
-          .setRequired(true)
+  )
+  // ========== STATS GROUP ==========
+  .addSubcommandGroup(group =>
+    group
+      .setName('stats')
+      .setDescription('Statistics tracking configuration')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('toggle')
+          .setDescription('Toggle statistics tracking on or off')
+          .addStringOption(option =>
+            option
+              .setName('setting')
+              .setDescription('What to toggle')
+              .setRequired(true)
+              .addChoices(
+                { name: 'All Stats Tracking', value: 'enabled' },
+                { name: 'Movie Tracking', value: 'trackMovies' },
+                { name: 'TV Show Tracking', value: 'trackShows' },
+                { name: 'Episode Tracking', value: 'trackEpisodes' }
+              )
+          )
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable this setting')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('clear')
+          .setDescription('Clear all statistics for this server')
       )
   )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('region')
-      .setDescription('Set the region for streaming availability (US, CA, GB, etc.)')
-      .addStringOption(option =>
-        option
-          .setName('code')
-          .setDescription('ISO 3166-1 country code (US, CA, GB, AU, etc.)')
-          .setRequired(true)
-          .setMaxLength(2)
-          .setMinLength(2)
+  // ========== COMMANDS GROUP ==========
+  .addSubcommandGroup(group =>
+    group
+      .setName('commands')
+      .setDescription('Command permissions configuration')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('toggle')
+          .setDescription('Toggle command permissions for regular users')
+          .addStringOption(option =>
+            option
+              .setName('setting')
+              .setDescription('What to toggle')
+              .setRequired(true)
+              .addChoices(
+                { name: 'All Commands (Master Switch)', value: 'enabled' },
+                { name: 'Movie Command', value: 'movie' },
+                { name: 'TV Command', value: 'tv' },
+                { name: 'Episode Command', value: 'episode' }
+              )
+          )
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable for regular users')
+              .setRequired(true)
+          )
       )
   )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('max-results')
-      .setDescription('Set maximum number of search results to display (1-50)')
-      .addIntegerOption(option =>
-        option
-          .setName('count')
-          .setDescription('Number of results to show in selection menus (1-50)')
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(50)
+  // ========== NOTIFICATIONS GROUP ==========
+  .addSubcommandGroup(group =>
+    group
+      .setName('notifications')
+      .setDescription('Bot notification settings')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('toggle')
+          .setDescription('Toggle bot notifications')
+          .addStringOption(option =>
+            option
+              .setName('setting')
+              .setDescription('What to toggle')
+              .setRequired(true)
+              .addChoices(
+                { name: 'Restart Announcements', value: 'restartAnnouncements' }
+              )
+          )
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable this notification')
+              .setRequired(true)
+          )
       )
   )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('watch-party-add')
-      .setDescription('Add a channel where watch parties occur (for event auto-detection)')
-      .addChannelOption(option =>
-        option
-          .setName('channel')
-          .setDescription('The watch party channel to add')
-          .setRequired(true)
+  // ========== WATCH-PARTY GROUP ==========
+  .addSubcommandGroup(group =>
+    group
+      .setName('watch-party')
+      .setDescription('Watch party channel configuration for event auto-detection')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('add')
+          .setDescription('Add a channel where watch parties occur')
+          .addChannelOption(option =>
+            option
+              .setName('channel')
+              .setDescription('The watch party channel to add')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('remove')
+          .setDescription('Remove a watch party channel from auto-detection')
+          .addChannelOption(option =>
+            option
+              .setName('channel')
+              .setDescription('The watch party channel to remove')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('list')
+          .setDescription('List all configured watch party channels')
       )
   )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('watch-party-remove')
-      .setDescription('Remove a watch party channel from auto-detection')
-      .addChannelOption(option =>
-        option
-          .setName('channel')
-          .setDescription('The watch party channel to remove')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('watch-party-list')
-      .setDescription('List all configured watch party channels')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('rate-limit-toggle')
-      .setDescription('Enable or disable rate limiting')
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
+  // ========== RATE-LIMIT GROUP ==========
+  .addSubcommandGroup(group =>
+    group
+      .setName('rate-limit')
+      .setDescription('Rate limiting and abuse prevention settings')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('toggle')
           .setDescription('Enable or disable rate limiting')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('rate-limit-global')
-      .setDescription('Set global rate limit for all commands')
-      .addIntegerOption(option =>
-        option
-          .setName('max-requests')
-          .setDescription('Maximum number of requests')
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(100)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('window-seconds')
-          .setDescription('Time window in seconds')
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(3600)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('rate-limit-command')
-      .setDescription('Set rate limit for a specific command')
-      .addStringOption(option =>
-        option
-          .setName('command')
-          .setDescription('The command to set rate limit for')
-          .setRequired(true)
-          .addChoices(
-            { name: 'movie', value: 'movie' },
-            { name: 'tv', value: 'tv' },
-            { name: 'episode', value: 'episode' },
-            { name: 'episode-list', value: 'episode-list' },
-            { name: 'timer', value: 'timer' },
-            { name: 'stats', value: 'stats' }
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable rate limiting')
+              .setRequired(true)
           )
       )
-      .addIntegerOption(option =>
-        option
-          .setName('max-requests')
-          .setDescription('Maximum number of requests (0 to remove custom limit)')
-          .setRequired(true)
-          .setMinValue(0)
-          .setMaxValue(100)
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('global')
+          .setDescription('Set global rate limit for all commands')
+          .addIntegerOption(option =>
+            option
+              .setName('max-requests')
+              .setDescription('Maximum number of requests')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(100)
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('window-seconds')
+              .setDescription('Time window in seconds')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(3600)
+          )
       )
-      .addIntegerOption(option =>
-        option
-          .setName('window-seconds')
-          .setDescription('Time window in seconds')
-          .setRequired(false)
-          .setMinValue(1)
-          .setMaxValue(3600)
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('command')
+          .setDescription('Set rate limit for a specific command')
+          .addStringOption(option =>
+            option
+              .setName('command')
+              .setDescription('The command to set rate limit for')
+              .setRequired(true)
+              .addChoices(
+                { name: 'movie', value: 'movie' },
+                { name: 'tv', value: 'tv' },
+                { name: 'episode', value: 'episode' },
+                { name: 'episode-list', value: 'episode-list' },
+                { name: 'timer', value: 'timer' },
+                { name: 'stats', value: 'stats' }
+              )
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('max-requests')
+              .setDescription('Maximum number of requests (0 to remove custom limit)')
+              .setRequired(true)
+              .setMinValue(0)
+              .setMaxValue(100)
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('window-seconds')
+              .setDescription('Time window in seconds')
+              .setRequired(false)
+              .setMinValue(1)
+              .setMaxValue(3600)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('bypass')
+          .setDescription('Toggle whether moderators bypass rate limits')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Allow moderators to bypass rate limits')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('clear')
+          .setDescription('Clear rate limits for a specific user (admin override)')
+          .addUserOption(option =>
+            option
+              .setName('user')
+              .setDescription('The user to clear rate limits for')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('view')
+          .setDescription('View current rate limit configuration')
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('guild-wide')
+          .setDescription('Configure server-wide rate limiting (prevents multi-account flooding)')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable server-wide rate limiting')
+              .setRequired(true)
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('max-requests')
+              .setDescription('Maximum total commands across all users (default: 10)')
+              .setRequired(false)
+              .setMinValue(1)
+              .setMaxValue(100)
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('window-seconds')
+              .setDescription('Time window in seconds (default: 60)')
+              .setRequired(false)
+              .setMinValue(10)
+              .setMaxValue(600)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('pattern-detection')
+          .setDescription('Configure suspicious activity pattern detection')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable pattern detection')
+              .setRequired(true)
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('min-users')
+              .setDescription('Minimum users needed to flag as suspicious (default: 3)')
+              .setRequired(false)
+              .setMinValue(2)
+              .setMaxValue(20)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('suspicious-activity')
+          .setDescription('View recent suspicious activity detected by pattern detection')
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('abuse-log')
+          .setDescription('View rate limit violations by user (tracks individual abuse)')
       )
   )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('rate-limit-bypass')
-      .setDescription('Toggle whether moderators bypass rate limits')
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
-          .setDescription('Allow moderators to bypass rate limits')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('rate-limit-clear')
-      .setDescription('Clear rate limits for a specific user (admin override)')
-      .addUserOption(option =>
-        option
-          .setName('user')
-          .setDescription('The user to clear rate limits for')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('rate-limit-view')
-      .setDescription('View current rate limit configuration')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('rate-limit-guild-wide')
-      .setDescription('Configure server-wide rate limiting (prevents multi-account flooding)')
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
-          .setDescription('Enable server-wide rate limiting')
-          .setRequired(true)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('max-requests')
-          .setDescription('Maximum total commands across all users (default: 10)')
-          .setRequired(false)
-          .setMinValue(1)
-          .setMaxValue(100)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('window-seconds')
-          .setDescription('Time window in seconds (default: 60)')
-          .setRequired(false)
-          .setMinValue(10)
-          .setMaxValue(600)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('pattern-detection')
-      .setDescription('Configure suspicious activity pattern detection')
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
-          .setDescription('Enable pattern detection')
-          .setRequired(true)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('min-users')
-          .setDescription('Minimum users needed to flag as suspicious (default: 3)')
-          .setRequired(false)
-          .setMinValue(2)
-          .setMaxValue(20)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('suspicious-activity')
-      .setDescription('View recent suspicious activity detected by pattern detection')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('abuse-log')
-      .setDescription('View rate limit violations by user (tracks individual abuse)')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('moderation-toggle')
-      .setDescription('Enable or disable moderation features (whitelist, cooldowns, auto-ban)')
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
+  // ========== MODERATION GROUP ==========
+  .addSubcommandGroup(group =>
+    group
+      .setName('moderation')
+      .setDescription('Moderation features: whitelist, cooldowns, and auto-ban')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('toggle')
           .setDescription('Enable or disable moderation features')
-          .setRequired(true)
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable moderation features')
+              .setRequired(true)
+          )
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('user-cooldown')
-      .setDescription('Apply a temporary cooldown to a user')
-      .addUserOption(option =>
-        option
-          .setName('user')
-          .setDescription('User to apply cooldown to')
-          .setRequired(true)
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('user-cooldown')
+          .setDescription('Apply a temporary cooldown to a user')
+          .addUserOption(option =>
+            option
+              .setName('user')
+              .setDescription('User to apply cooldown to')
+              .setRequired(true)
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('duration')
+              .setDescription('Duration in minutes')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(10080) // 1 week max
+          )
+          .addStringOption(option =>
+            option
+              .setName('reason')
+              .setDescription('Reason for the cooldown')
+              .setRequired(true)
+          )
       )
-      .addIntegerOption(option =>
-        option
-          .setName('duration')
-          .setDescription('Duration in minutes')
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(10080) // 1 week max
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('user-cooldown-remove')
+          .setDescription('Remove a temporary cooldown from a user')
+          .addUserOption(option =>
+            option
+              .setName('user')
+              .setDescription('User to remove cooldown from')
+              .setRequired(true)
+          )
       )
-      .addStringOption(option =>
-        option
-          .setName('reason')
-          .setDescription('Reason for the cooldown')
-          .setRequired(true)
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('user-cooldown-list')
+          .setDescription('List all active user cooldowns')
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('user-cooldown-remove')
-      .setDescription('Remove a temporary cooldown from a user')
-      .addUserOption(option =>
-        option
-          .setName('user')
-          .setDescription('User to remove cooldown from')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('user-cooldown-list')
-      .setDescription('List all active user cooldowns')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('whitelist-toggle')
-      .setDescription('Enable or disable whitelist mode')
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('whitelist-toggle')
           .setDescription('Enable or disable whitelist mode')
-          .setRequired(true)
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable whitelist mode')
+              .setRequired(true)
+          )
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('whitelist-add-role')
-      .setDescription('Add a role to the whitelist')
-      .addRoleOption(option =>
-        option
-          .setName('role')
-          .setDescription('Role to add to whitelist')
-          .setRequired(true)
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('whitelist-add-role')
+          .setDescription('Add a role to the whitelist')
+          .addRoleOption(option =>
+            option
+              .setName('role')
+              .setDescription('Role to add to whitelist')
+              .setRequired(true)
+          )
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('whitelist-add-user')
-      .setDescription('Add a user to the whitelist')
-      .addUserOption(option =>
-        option
-          .setName('user')
-          .setDescription('User to add to whitelist')
-          .setRequired(true)
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('whitelist-add-user')
+          .setDescription('Add a user to the whitelist')
+          .addUserOption(option =>
+            option
+              .setName('user')
+              .setDescription('User to add to whitelist')
+              .setRequired(true)
+          )
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('whitelist-remove-role')
-      .setDescription('Remove a role from the whitelist')
-      .addRoleOption(option =>
-        option
-          .setName('role')
-          .setDescription('Role to remove from whitelist')
-          .setRequired(true)
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('whitelist-remove-role')
+          .setDescription('Remove a role from the whitelist')
+          .addRoleOption(option =>
+            option
+              .setName('role')
+              .setDescription('Role to remove from whitelist')
+              .setRequired(true)
+          )
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('whitelist-remove-user')
-      .setDescription('Remove a user from the whitelist')
-      .addUserOption(option =>
-        option
-          .setName('user')
-          .setDescription('User to remove from whitelist')
-          .setRequired(true)
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('whitelist-remove-user')
+          .setDescription('Remove a user from the whitelist')
+          .addUserOption(option =>
+            option
+              .setName('user')
+              .setDescription('User to remove from whitelist')
+              .setRequired(true)
+          )
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('whitelist-list')
-      .setDescription('List all whitelisted roles and users')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('auto-ban-toggle')
-      .setDescription('Enable or disable auto-ban notifications')
-      .addBooleanOption(option =>
-        option
-          .setName('enabled')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('whitelist-list')
+          .setDescription('List all whitelisted roles and users')
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('auto-ban-toggle')
           .setDescription('Enable or disable auto-ban notifications')
-          .setRequired(true)
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable auto-ban notifications')
+              .setRequired(true)
+          )
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('auto-ban-threshold')
-      .setDescription('Set the violation threshold for auto-ban notifications')
-      .addIntegerOption(option =>
-        option
-          .setName('count')
-          .setDescription('Number of violations to trigger notification')
-          .setRequired(true)
-          .setMinValue(5)
-          .setMaxValue(100)
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('auto-ban-threshold')
+          .setDescription('Set the violation threshold for auto-ban notifications')
+          .addIntegerOption(option =>
+            option
+              .setName('count')
+              .setDescription('Number of violations to trigger notification')
+              .setRequired(true)
+              .setMinValue(5)
+              .setMaxValue(100)
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('hours')
+              .setDescription('Time window in hours (default: 24)')
+              .setRequired(false)
+              .setMinValue(1)
+              .setMaxValue(168) // 1 week max
+          )
       )
-      .addIntegerOption(option =>
-        option
-          .setName('hours')
-          .setDescription('Time window in hours (default: 24)')
-          .setRequired(false)
-          .setMinValue(1)
-          .setMaxValue(168) // 1 week max
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('auto-ban-list')
+          .setDescription('List users who have exceeded the auto-ban threshold')
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('auto-ban-list')
-      .setDescription('List users who have exceeded the auto-ban threshold')
   );
 
 export async function execute(interaction) {
@@ -492,10 +534,12 @@ export async function execute(interaction) {
     return;
   }
 
+  const group = interaction.options.getSubcommandGroup();
   const subcommand = interaction.options.getSubcommand();
   const guildId = interaction.guildId;
 
-  if (subcommand === 'view') {
+  // ========== SETTINGS GROUP ==========
+  if (group === 'settings' && subcommand === 'view') {
     // Show current configuration
     const config = await loadGuildConfig(guildId);
     
@@ -619,13 +663,15 @@ export async function execute(interaction) {
       })
       .addFields({
         name: 'How to Configure',
-        value: '**Toggle services:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Set region:** `/eggshen-config region code:<XX>`\n**Set max results:** `/eggshen-config max-results count:<1-50>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n**Toggle notifications:** `/eggshen-config notifications-toggle setting:<setting> enabled:<true/false>`\n**Watch party channels:** `/eggshen-config watch-party-add/remove/list`\n**Rate limits:** `/eggshen-config rate-limit-toggle/global/command/bypass/view`',
+        value: '**View config:** `/eggshen-config settings view`\n**Toggle services:** `/eggshen-config settings toggle`\n**Set emoji:** `/eggshen-config settings emoji`\n**Set region:** `/eggshen-config settings region`\n**Set max results:** `/eggshen-config settings max-results`\n**Toggle stats:** `/eggshen-config stats toggle`\n**Clear stats:** `/eggshen-config stats clear`\n**Toggle commands:** `/eggshen-config commands toggle`\n**Toggle notifications:** `/eggshen-config notifications toggle`\n**Watch party channels:** `/eggshen-config watch-party add/remove/list`\n**Rate limits:** `/eggshen-config rate-limit toggle/global/command/view`\n**Moderation:** `/eggshen-config moderation toggle/whitelist-toggle/user-cooldown`',
         inline: false,
       })
       .setFooter({ text: 'Only users with Administrator, Manage Server, or Moderator permissions can configure Egg Shen' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
-  } else if (subcommand === 'toggle') {
+  
+  // ========== SETTINGS GROUP ==========
+  } else if (group === 'settings' && subcommand === 'toggle') {
     // Toggle a service
     const serviceName = interaction.options.getString('service');
     const enabled = interaction.options.getBoolean('enabled');
@@ -654,7 +700,7 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-  } else if (subcommand === 'emoji') {
+  } else if (group === 'settings' && subcommand === 'emoji') {
     // Set or clear emoji for a service
     const serviceName = interaction.options.getString('service');
     const emojiInput = interaction.options.getString('emoji') || '';
@@ -687,7 +733,9 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-  } else if (subcommand === 'stats-toggle') {
+  
+  // ========== STATS GROUP ==========
+  } else if (group === 'stats' && subcommand === 'toggle') {
     // Toggle statistics tracking
     const setting = interaction.options.getString('setting');
     const enabled = interaction.options.getBoolean('enabled');
@@ -715,7 +763,7 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-  } else if (subcommand === 'stats-clear') {
+  } else if (group === 'stats' && subcommand === 'clear') {
     // Clear all statistics
     await interaction.deferReply({ ephemeral: true });
 
@@ -730,7 +778,9 @@ export async function execute(interaction) {
         content: '❌ Failed to clear statistics. Please try again.',
       });
     }
-  } else if (subcommand === 'commands-toggle') {
+  
+  // ========== COMMANDS GROUP ==========
+  } else if (group === 'commands' && subcommand === 'toggle') {
     // Toggle command permissions
     const setting = interaction.options.getString('setting');
     const enabled = interaction.options.getBoolean('enabled');
@@ -762,7 +812,9 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-  } else if (subcommand === 'notifications-toggle') {
+  
+  // ========== NOTIFICATIONS GROUP ==========
+  } else if (group === 'notifications' && subcommand === 'toggle') {
     // Toggle notifications
     const setting = interaction.options.getString('setting');
     const enabled = interaction.options.getBoolean('enabled');
@@ -793,7 +845,7 @@ export async function execute(interaction) {
       content: `${emoji} **${settingDisplayName}** have been ${statusText} for this server.${description}`,
       ephemeral: true,
     });
-  } else if (subcommand === 'region') {
+  } else if (group === 'settings' && subcommand === 'region') {
     // Set streaming region
     const regionCode = interaction.options.getString('code').toUpperCase();
     
@@ -814,7 +866,7 @@ export async function execute(interaction) {
       content: `✅ Streaming availability region set to **${regionCode}**.\n\nMovie and TV show embeds will now show streaming services available in this region.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'max-results') {
+  } else if (group === 'settings' && subcommand === 'max-results') {
     // Set maximum search results
     const count = interaction.options.getInteger('count');
     
@@ -826,7 +878,7 @@ export async function execute(interaction) {
       content: `✅ Maximum search results set to **${count}**.\n\nSearch commands will now display up to ${count} results in selection menus.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'watch-party-add') {
+  } else if (group === 'watch-party' && subcommand === 'add') {
     // Add a watch party channel
     const channel = interaction.options.getChannel('channel');
     
@@ -850,7 +902,7 @@ export async function execute(interaction) {
       content: `✅ ${channel} has been added as a watch party channel.\n\nTimers in this channel can now auto-detect titles from scheduled events with this channel as their location. Multiple watch party channels can run simultaneously!`,
       ephemeral: true,
     });
-  } else if (subcommand === 'watch-party-remove') {
+  } else if (group === 'watch-party' && subcommand === 'remove') {
     // Remove a watch party channel
     const channel = interaction.options.getChannel('channel');
     
@@ -870,7 +922,7 @@ export async function execute(interaction) {
       content: `✅ ${channel} has been removed from watch party channels.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'watch-party-list') {
+  } else if (group === 'watch-party' && subcommand === 'list') {
     // List all watch party channels
     const config = await loadGuildConfig(guildId);
     
@@ -898,7 +950,7 @@ export async function execute(interaction) {
       .setFooter({ text: 'Use /eggshen-config watch-party-add or watch-party-remove to manage channels' });
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
-  } else if (subcommand === 'rate-limit-toggle') {
+  } else if (group === 'rate-limit' && subcommand === 'toggle') {
     // Toggle rate limiting
     const enabled = interaction.options.getBoolean('enabled');
     
@@ -922,7 +974,7 @@ export async function execute(interaction) {
       content: `${emoji} Rate limiting has been **${statusText}** for this server.\n\n${enabled ? 'Users will be limited based on the configured limits.' : 'All users can now use commands without rate limiting.'}`,
       ephemeral: true,
     });
-  } else if (subcommand === 'rate-limit-global') {
+  } else if (group === 'rate-limit' && subcommand === 'global') {
     // Set global rate limit
     const maxRequests = interaction.options.getInteger('max-requests');
     const windowSeconds = interaction.options.getInteger('window-seconds');
@@ -945,7 +997,7 @@ export async function execute(interaction) {
       content: `✅ Global rate limit set to **${maxRequests} requests per ${windowSeconds} seconds**.\n\nThis applies to all commands unless they have custom limits.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'rate-limit-command') {
+  } else if (group === 'rate-limit' && subcommand === 'command') {
     // Set command-specific rate limit
     const command = interaction.options.getString('command');
     const maxRequests = interaction.options.getInteger('max-requests');
@@ -989,7 +1041,7 @@ export async function execute(interaction) {
       content: `✅ Rate limit for **/${command}** set to **${maxRequests} requests per ${finalWindowSeconds} seconds**.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'rate-limit-bypass') {
+  } else if (group === 'rate-limit' && subcommand === 'bypass') {
     // Toggle moderator bypass
     const enabled = interaction.options.getBoolean('enabled');
     
@@ -1014,7 +1066,7 @@ export async function execute(interaction) {
       content: `${emoji} Moderators and administrators **${statusText}** bypass rate limits.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'rate-limit-clear') {
+  } else if (group === 'rate-limit' && subcommand === 'clear') {
     // Clear rate limits for a specific user
     const user = interaction.options.getUser('user');
     
@@ -1032,7 +1084,7 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-  } else if (subcommand === 'rate-limit-view') {
+  } else if (group === 'rate-limit' && subcommand === 'view') {
     // View rate limit configuration
     const config = await loadGuildConfig(guildId);
     
@@ -1122,7 +1174,7 @@ export async function execute(interaction) {
       .setFooter({ text: 'Rate limits and moderation tools prevent abuse and channel flooding' });
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
-  } else if (subcommand === 'rate-limit-guild-wide') {
+  } else if (group === 'rate-limit' && subcommand === 'guild-wide') {
     // Configure guild-wide rate limiting
     const enabled = interaction.options.getBoolean('enabled');
     const maxRequests = interaction.options.getInteger('max-requests');
@@ -1165,7 +1217,7 @@ export async function execute(interaction) {
       content: `${emoji} Server-wide rate limiting has been **${statusText}**.${limitInfo}`,
       ephemeral: true,
     });
-  } else if (subcommand === 'pattern-detection') {
+  } else if (group === 'rate-limit' && subcommand === 'pattern-detection') {
     // Configure pattern detection
     const enabled = interaction.options.getBoolean('enabled');
     const minUsers = interaction.options.getInteger('min-users');
@@ -1204,7 +1256,7 @@ export async function execute(interaction) {
       content: `${emoji} Suspicious activity pattern detection has been **${statusText}**.${description}`,
       ephemeral: true,
     });
-  } else if (subcommand === 'suspicious-activity') {
+  } else if (group === 'rate-limit' && subcommand === 'suspicious-activity') {
     // View suspicious activity log
     const { getSuspiciousActivity } = await import('../utils/rateLimiter.js');
     const activities = getSuspiciousActivity(guildId, 10);
@@ -1242,7 +1294,7 @@ export async function execute(interaction) {
     }
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
-  } else if (subcommand === 'abuse-log') {
+  } else if (group === 'rate-limit' && subcommand === 'abuse-log') {
     // View abuse log
     const { getAbuseLog } = await import('../utils/rateLimiter.js');
     const abuseData = getAbuseLog(guildId);
@@ -1303,7 +1355,7 @@ export async function execute(interaction) {
     }
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
-  } else if (subcommand === 'moderation-toggle') {
+  } else if (group === 'moderation' && subcommand === 'toggle') {
     // Toggle moderation master switch
     const enabled = interaction.options.getBoolean('enabled');
     
@@ -1329,7 +1381,7 @@ export async function execute(interaction) {
       content: `${emoji} Moderation features have been **${statusText}**.${description}`,
       ephemeral: true,
     });
-  } else if (subcommand === 'user-cooldown') {
+  } else if (group === 'moderation' && subcommand === 'user-cooldown') {
     // Apply temporary cooldown to a user
     const user = interaction.options.getUser('user');
     const duration = interaction.options.getInteger('duration');
@@ -1353,7 +1405,7 @@ export async function execute(interaction) {
       content: `🛑 Applied temporary cooldown to ${user}\n**Duration:** ${duration} minute${duration !== 1 ? 's' : ''}\n**Reason:** ${reason}\n**Expires:** <t:${expiryTimestamp}:R>`,
       ephemeral: true,
     });
-  } else if (subcommand === 'user-cooldown-remove') {
+  } else if (group === 'moderation' && subcommand === 'user-cooldown-remove') {
     // Remove temporary cooldown from a user
     const user = interaction.options.getUser('user');
     
@@ -1371,7 +1423,7 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-  } else if (subcommand === 'user-cooldown-list') {
+  } else if (group === 'moderation' && subcommand === 'user-cooldown-list') {
     // List all active cooldowns
     const { getActiveCooldowns } = await import('../utils/rateLimiter.js');
     const cooldowns = getActiveCooldowns(guildId);
@@ -1402,7 +1454,7 @@ export async function execute(interaction) {
     }
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
-  } else if (subcommand === 'whitelist-toggle') {
+  } else if (group === 'moderation' && subcommand === 'whitelist-toggle') {
     // Toggle whitelist mode
     const enabled = interaction.options.getBoolean('enabled');
     
@@ -1436,7 +1488,7 @@ export async function execute(interaction) {
       content: `${emoji} Whitelist mode has been **${statusText}**.${description}`,
       ephemeral: true,
     });
-  } else if (subcommand === 'whitelist-add-role') {
+  } else if (group === 'moderation' && subcommand === 'whitelist-add-role') {
     // Add role to whitelist
     const role = interaction.options.getRole('role');
     
@@ -1468,7 +1520,7 @@ export async function execute(interaction) {
       content: `✅ Added ${role} to the whitelist.\n\nUsers with this role can now use bot commands${config.moderation.whitelist.enabled ? ' (whitelist mode is active)' : ' when whitelist mode is enabled'}.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'whitelist-add-user') {
+  } else if (group === 'moderation' && subcommand === 'whitelist-add-user') {
     // Add user to whitelist
     const user = interaction.options.getUser('user');
     
@@ -1500,7 +1552,7 @@ export async function execute(interaction) {
       content: `✅ Added ${user} to the whitelist.\n\nThis user can now use bot commands${config.moderation.whitelist.enabled ? ' (whitelist mode is active)' : ' when whitelist mode is enabled'}.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'whitelist-remove-role') {
+  } else if (group === 'moderation' && subcommand === 'whitelist-remove-role') {
     // Remove role from whitelist
     const role = interaction.options.getRole('role');
     
@@ -1529,7 +1581,7 @@ export async function execute(interaction) {
       content: `✅ Removed ${role} from the whitelist.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'whitelist-remove-user') {
+  } else if (group === 'moderation' && subcommand === 'whitelist-remove-user') {
     // Remove user from whitelist
     const user = interaction.options.getUser('user');
     
@@ -1558,7 +1610,7 @@ export async function execute(interaction) {
       content: `✅ Removed ${user} from the whitelist.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'whitelist-list') {
+  } else if (group === 'moderation' && subcommand === 'whitelist-list') {
     // List whitelisted roles and users
     const config = await loadGuildConfig(guildId);
     if (!config.moderation?.whitelist || 
@@ -1600,7 +1652,7 @@ export async function execute(interaction) {
     }
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
-  } else if (subcommand === 'auto-ban-toggle') {
+  } else if (group === 'moderation' && subcommand === 'auto-ban-toggle') {
     // Toggle auto-ban notifications
     const enabled = interaction.options.getBoolean('enabled');
     
@@ -1634,7 +1686,7 @@ export async function execute(interaction) {
       content: `${emoji} Auto-ban threshold notifications have been **${statusText}**.${description}`,
       ephemeral: true,
     });
-  } else if (subcommand === 'auto-ban-threshold') {
+  } else if (group === 'moderation' && subcommand === 'auto-ban-threshold') {
     // Set auto-ban threshold
     const count = interaction.options.getInteger('count');
     const hours = interaction.options.getInteger('hours');
@@ -1665,7 +1717,7 @@ export async function execute(interaction) {
       content: `✅ Auto-ban threshold set to **${count} violations** within **${windowHours} hour${windowHours !== 1 ? 's' : ''}**.\n\nUsers who exceed this threshold will see a warning message${config.moderation.autoBan.enabled ? ' (auto-ban is enabled)' : ' when auto-ban is enabled'}.`,
       ephemeral: true,
     });
-  } else if (subcommand === 'auto-ban-list') {
+  } else if (group === 'moderation' && subcommand === 'auto-ban-list') {
     // List users exceeding auto-ban threshold
     const config = await loadGuildConfig(guildId);
     if (!config.moderation?.enabled) {
