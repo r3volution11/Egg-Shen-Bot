@@ -1,0 +1,281 @@
+# Changelog
+
+All notable changes to Egg Shen Bot will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Planned
+- Release notifications for movies, TV shows, and games
+- Trending content notifications
+- Watch party scheduling and recurring events
+- Statistics export functionality
+- Web dashboard for statistics and configuration
+- Integration with external tracking services (Trakt, Letterboxd)
+- Unit and integration test suite
+
+## [1.3.0] - 2026-06-21
+
+### Added
+- Complete VitePress documentation site with GitHub Pages deployment
+- Custom cyan theme (#2AB5E5) with tinted grays for brand consistency
+- Comprehensive documentation covering all features and commands
+- Bot logo integration in documentation navbar
+- Documentation sections:
+  - Getting Started guide
+  - Complete installation instructions
+  - Configuration guide
+  - Search commands reference
+  - Watch party commands reference
+  - Admin configuration reference
+  - Moderation commands reference
+  - Rate limiting system documentation
+  - Moderation tools guide
+  - Watch history feature documentation
+  - Statistics feature documentation
+  - Notifications feature documentation (planned)
+  - API reference for developers
+  - Changelog (this file)
+
+### Changed
+- README now includes documentation badge and link
+- README simplified with documentation site as primary reference
+
+## [1.2.0] - 2026-06-19
+
+### Changed
+- **[BREAKING]** Watch history saves are now PUBLIC instead of ephemeral
+  - Removed ephemeral flag from watch history modal submissions
+  - Watch history entries now appear publicly in the channel
+  - Changed display text from "Added by" to "Saved by" for clarity
+- **[BREAKING]** Watch history now tracks server-level viewing, not personal ratings
+  - Removed rating field from watch history modal
+  - Removed rating from all watch history displays
+  - Removed rating parameter from `/watched add` command
+  - Watch history is now a community feature, not personal tracking
+
+### Added
+- Channel tracking for watch history entries
+  - `channelId` field stores where content was watched
+  - `channelName` field displays human-readable channel name
+  - Watch history displays now show channel links
+  - Useful for tracking which channels host watch parties
+
+### Fixed
+- Watch history save button permission system updated
+  - Button now uses timer starter's userId instead of button clicker
+  - Permission check allows timer starter OR moderators/admins
+  - Only users with proper permissions see "Log to Watch History" button functionality
+  - Prevents unauthorized users from logging watch history
+
+## [1.1.0] - 2026-06-15
+
+### Added
+- Comprehensive rate limiting system (7 layers):
+  - Per-user cooldowns (3 seconds between commands)
+  - Guild-wide rate limits
+  - Pattern detection for abuse
+  - Abuse logging with mod channel integration
+  - Auto-ban threshold (temporary bans after violations)
+  - Manual cooldown controls for moderators
+  - Whitelist mode for emergency situations
+- Moderation commands:
+  - `/cooldown add` - Apply manual cooldowns to users
+  - `/cooldown remove` - Remove cooldowns early
+  - `/cooldown list` - View active cooldowns
+  - `/cooldown status` - Check specific user's cooldown status
+  - `/ban-status` - Check user's auto-ban status
+  - `/ban-remove` - Remove auto-bans
+  - `/ban-history` - View ban/violation history
+  - `/abuse-log` - View recent abuse incidents
+  - `/abuse-patterns` - Analyze user behavior patterns
+  - `/whitelist-mode` - Enable/disable emergency mode
+  - `/whitelist add/remove/list` - Manage whitelisted users
+- Abuse logging system:
+  - Configurable per-server
+  - Logs to dedicated mod logs channel
+  - Tracks violations, auto-bans, and manual actions
+  - Pattern detection algorithms
+- Guild configuration system:
+  - Per-server settings storage
+  - Persistent configuration across bot restarts
+  - Admin-only configuration access
+- Statistics tracking:
+  - Command usage statistics
+  - User activity tracking
+  - Watch party statistics
+  - Content popularity metrics
+  - Rate limit effectiveness metrics
+
+### Changed
+- `/eggshen-config` command expanded with new settings:
+  - `rate-limiting` - Enable/disable rate limiting
+  - `abuse-logging` - Enable/disable abuse logging
+  - `mod-logs-channel` - Set dedicated moderation logs channel
+- Permission system clarified:
+  - Watch history saves require timer starter OR admin/mod permissions
+  - Configuration requires Administrator or Manage Server permissions
+  - Moderation commands require Moderate Members or Administrator permissions
+
+## [1.0.0] - 2026-06-01
+
+### Added
+- Initial release of Egg Shen Bot
+- Core search commands:
+  - `/movie <title>` - Search for movies
+  - `/tv <title>` - Search for TV shows
+  - `/episode <show> <season> <episode>` - Search for specific episodes
+  - `/episode-list <show> <season>` - List all episodes in a season
+  - `/game <title>` - Search for video games
+- Watch party timer system:
+  - `/timer start <duration> [description]` - Start countdown timer
+  - `/timer stop` - Stop active timer
+  - `/timer status` - Check timer status
+  - Interactive "Log to Watch History" button on completion
+- Watch history tracking:
+  - `/watched add <type> <title> [notes]` - Add to watch history manually
+  - `/watched list [limit]` - View server watch history
+  - `/watched remove <id>` - Remove history entry (admin only)
+  - Integration with timer system for automatic logging
+- Utility commands:
+  - `/random <type>` - Get random movie/TV show suggestion
+  - `/similar <type> <title>` - Find similar content
+  - `/stats [type]` - View bot statistics
+  - `/help [command]` - Get help with commands
+- Admin commands:
+  - `/eggshen-config <setting> <value>` - Configure bot for server
+  - `/eggshen-config view` - View current configuration
+  - `/eggshen-config reset` - Reset to defaults
+- External API integrations:
+  - TMDB (The Movie Database) - Required, primary data source
+  - OMDB (Open Movie Database) - Optional, additional ratings
+  - Trakt.tv - Optional, watch tracking integration
+  - RAWG - Optional, game database
+- Rich embeds with:
+  - Movie/TV show information
+  - Ratings from multiple sources (IMDB, Rotten Tomatoes, Metacritic)
+  - Cast and crew information
+  - Streaming availability via JustWatch
+  - Genre, runtime, release dates
+  - Poster images and thumbnails
+- Discord.js v14 features:
+  - Slash commands
+  - Button interactions
+  - Select menus
+  - Modal forms
+  - Ephemeral messages (later changed for watch history)
+- Environment variable configuration
+- Error handling and logging
+- ES module architecture
+
+### Technical Details
+- Built with Node.js 20+
+- Discord.js v14.14.1
+- ES modules (ESM) architecture
+- In-memory data storage with optional persistence
+- RESTful API integration with external services
+
+---
+
+## Versioning Guide
+
+### Version Number Format: MAJOR.MINOR.PATCH
+
+- **MAJOR** - Incompatible API changes, breaking changes
+- **MINOR** - New features, backwards-compatible functionality additions
+- **PATCH** - Backwards-compatible bug fixes
+
+### Change Categories
+
+- **Added** - New features
+- **Changed** - Changes to existing functionality
+- **Deprecated** - Soon-to-be-removed features
+- **Removed** - Removed features
+- **Fixed** - Bug fixes
+- **Security** - Security vulnerability fixes
+
+---
+
+## How to Update This Changelog
+
+**For AI Assistant / Contributors:**
+
+When making changes to functionality, **always** update this changelog following these guidelines:
+
+### 1. Determine Change Type
+
+- **Added** - Created new feature, command, or capability
+- **Changed** - Modified existing behavior, updated functionality
+- **Fixed** - Corrected bugs or errors
+- **Removed** - Deleted features or commands
+- **Security** - Fixed security issues
+
+### 2. Write Clear Descriptions
+
+**Good:**
+```markdown
+### Changed
+- **[BREAKING]** Watch history saves are now PUBLIC instead of ephemeral
+  - Removed ephemeral flag from modal submissions
+  - Entries now visible to all server members
+  - Changed "Added by" to "Saved by" for clarity
+```
+
+**Bad:**
+```markdown
+### Changed
+- Changed watch history
+- Updated some things
+```
+
+### 3. Mark Breaking Changes
+
+Use `**[BREAKING]**` prefix for changes that require user action or change expected behavior:
+
+```markdown
+### Changed
+- **[BREAKING]** Rating field removed from watch history
+```
+
+### 4. Group Related Changes
+
+Group related changes under the same category:
+
+```markdown
+### Added
+- Watch history channel tracking
+  - Added channelId field
+  - Added channelName field
+  - Updated displays to show channel links
+```
+
+### 5. Update Version Number
+
+Follow semantic versioning:
+- Breaking changes → Increment MAJOR (1.0.0 → 2.0.0)
+- New features → Increment MINOR (1.0.0 → 1.1.0)
+- Bug fixes → Increment PATCH (1.0.0 → 1.0.1)
+
+### 6. Add Date
+
+Use format: `YYYY-MM-DD`
+
+```markdown
+## [1.3.0] - 2026-06-21
+```
+
+### 7. Update Unreleased Section
+
+Move items from Unreleased to the new version section when releasing.
+
+---
+
+## Link References
+
+[Unreleased]: https://github.com/r3volution11/Egg-Shen-Bot/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/r3volution11/Egg-Shen-Bot/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/r3volution11/Egg-Shen-Bot/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/r3volution11/Egg-Shen-Bot/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/r3volution11/Egg-Shen-Bot/releases/tag/v1.0.0

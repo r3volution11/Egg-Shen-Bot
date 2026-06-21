@@ -35,3 +35,7 @@ Thumbs.db
 *.sketch
 *.code-workspace
 design/
+
+# VitePress
+docs/.vitepress/cache/
+docs/.vitepress/dist/
