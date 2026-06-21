@@ -235,9 +235,9 @@ Comprehensive server configuration (Admin/Moderator only).
 
 **Example:**
 ```
-/eggshen-config view
-/eggshen-config rate-limit-toggle enabled:true
-/eggshen-config moderation-toggle enabled:true
+/eggshen-config settings view
+/eggshen-config rate-limit toggle enabled:true
+/eggshen-config moderation toggle enabled:true
 ```
 
 [Learn more →](/commands/configuration)

@@ -51,7 +51,7 @@ Limits how often an individual user can run commands.
 ### Configuration
 
 ```
-/eggshen-config rate-limit-global max-requests:1 window-seconds:20
+/eggshen-config rate-limit global max-requests:1 window-seconds:20
 ```
 
 ### Per-Command Overrides
@@ -59,7 +59,7 @@ Limits how often an individual user can run commands.
 Set custom limits for specific commands:
 
 ```
-/eggshen-config rate-limit-command command:episode-list max-requests:2 window-seconds:60
+/eggshen-config rate-limit command command:episode-list max-requests:2 window-seconds:60
 ```
 
 **Example use cases:**
@@ -70,7 +70,7 @@ Set custom limits for specific commands:
 ### Remove Command Override
 
 ```
-/eggshen-config rate-limit-command command:movie max-requests:0
+/eggshen-config rate-limit command command:movie max-requests:0
 ```
 
 Setting `max-requests:0` removes the override and reverts to global limit.
@@ -89,7 +89,7 @@ Prevents coordinated multi-account flooding by limiting **total** commands acros
 ### Configuration
 
 ```
-/eggshen-config rate-limit-guild-wide enabled:true max-requests:10 window-seconds:60
+/eggshen-config rate-limit guild-wide enabled:true max-requests:10 window-seconds:60
 ```
 
 ### When to Adjust
@@ -125,7 +125,7 @@ Automatically detects suspicious coordinated activity.
 ### Configuration
 
 ```
-/eggshen-config pattern-detection enabled:true min-users:3
+/eggshen-config rate-limit pattern-detection enabled:true min-users:3
 ```
 
 ### Recommended Settings
@@ -137,7 +137,7 @@ Automatically detects suspicious coordinated activity.
 ### View Detected Activity
 
 ```
-/eggshen-config suspicious-activity
+/eggshen-config rate-limit suspicious-activity
 ```
 
 Shows:
@@ -164,7 +164,7 @@ Tracks every individual rate limit violation.
 ### View Abuse Log
 
 ```
-/eggshen-config abuse-log
+/eggshen-config rate-limit abuse-log
 ```
 
 **Shows:**
@@ -188,8 +188,8 @@ Warns users when they exceed violation threshold and flags them for moderator re
 ### Configuration
 
 ```
-/eggshen-config auto-ban-toggle enabled:true
-/eggshen-config auto-ban-threshold count:20 hours:24
+/eggshen-config moderation auto-ban-toggle enabled:true
+/eggshen-config moderation auto-ban-threshold count:20 hours:24
 ```
 
 **Default:** 20 violations within 24 hours
@@ -200,13 +200,13 @@ Warns users when they exceed violation threshold and flags them for moderator re
 2. Violations accumulate in abuse log
 3. When threshold exceeded:
    - User sees ⚠️ warning message
-   - Moderators can check `/eggshen-config auto-ban-list`
+   - Moderators can check `/eggshen-config moderation auto-ban-list`
 4. **Does NOT automatically ban** - moderators must act
 
 ### View Flagged Users
 
 ```
-/eggshen-config auto-ban-list
+/eggshen-config moderation auto-ban-list
 ```
 
 Shows users who exceeded threshold with:
@@ -227,7 +227,7 @@ Temporary restrictions applied by administrators.
 ### Apply Cooldown
 
 ```
-/eggshen-config user-cooldown user:@spammer duration:60 reason:"Spamming commands"
+/eggshen-config moderation user-cooldown user:@spammer duration:60 reason:"Spamming commands"
 ```
 
 - Duration in minutes (max 10,080 = 1 week)
@@ -244,13 +244,13 @@ Temporary restrictions applied by administrators.
 ### Remove Cooldown
 
 ```
-/eggshen-config user-cooldown-remove user:@spammer
+/eggshen-config moderation user-cooldown-remove user:@spammer
 ```
 
 ### View Active Cooldowns
 
 ```
-/eggshen-config user-cooldown-list
+/eggshen-config moderation user-cooldown-list
 ```
 
 Shows:
@@ -266,7 +266,7 @@ Full access control - only allow specific roles/users.
 ### Enable Whitelist
 
 ```
-/eggshen-config whitelist-toggle enabled:true
+/eggshen-config moderation whitelist-toggle enabled:true
 ```
 
 ⚠️ **Only whitelisted users/roles and moderators can use commands!**
@@ -274,21 +274,21 @@ Full access control - only allow specific roles/users.
 ### Add to Whitelist
 
 ```
-/eggshen-config whitelist-add-role role:@Members
-/eggshen-config whitelist-add-user user:@trusted_user
+/eggshen-config moderation whitelist-add-role role:@Members
+/eggshen-config moderation whitelist-add-user user:@trusted_user
 ```
 
 ### Remove from Whitelist
 
 ```
-/eggshen-config whitelist-remove-role role:@Members
-/eggshen-config whitelist-remove-user user:@trusted_user
+/eggshen-config moderation whitelist-remove-role role:@Members
+/eggshen-config moderation whitelist-remove-user user:@trusted_user
 ```
 
 ### View Whitelist
 
 ```
-/eggshen-config whitelist-list
+/eggshen-config moderation whitelist-list
 ```
 
 ### Use Cases
@@ -306,7 +306,7 @@ Full access control - only allow specific roles/users.
 Allow moderators and administrators to bypass all rate limits.
 
 ```
-/eggshen-config rate-limit-bypass enabled:true
+/eggshen-config rate-limit bypass enabled:true
 ```
 
 **Enabled by default** - useful for:
@@ -320,7 +320,7 @@ Allow moderators and administrators to bypass all rate limits.
 Clear rate limits for a specific user:
 
 ```
-/eggshen-config rate-limit-clear user:@username
+/eggshen-config rate-limit clear user:@username
 ```
 
 Use if a user is accidentally rate-limited due to legitimate use.
@@ -330,7 +330,7 @@ Use if a user is accidentally rate-limited due to legitimate use.
 See all rate limiting and moderation settings:
 
 ```
-/eggshen-config rate-limit-view
+/eggshen-config rate-limit view
 ```
 
 Shows:
@@ -383,7 +383,7 @@ Moderator bypass: Enabled
 **Solution:** Increase per-user limits or add trusted users to whitelist
 
 ```
-/eggshen-config rate-limit-global max-requests:2 window-seconds:30
+/eggshen-config rate-limit global max-requests:2 window-seconds:30
 ```
 
 ### Still seeing spam/abuse
@@ -399,7 +399,7 @@ Moderator bypass: Enabled
 **Solution:** Increase `min-users` threshold
 
 ```
-/eggshen-config pattern-detection enabled:true min-users:5
+/eggshen-config rate-limit pattern-detection enabled:true min-users:5
 ```
 
 ## Best Practices
