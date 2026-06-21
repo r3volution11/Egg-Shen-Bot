@@ -8,12 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Release notifications for movies, TV shows, and games
-- Trending content notifications
-- Watch party scheduling and recurring events
 - Statistics export functionality
 - Web dashboard for statistics and configuration
-- Integration with external tracking services (Trakt, Letterboxd)
 - Unit and integration test suite
 
 ## [1.3.0] - 2026-06-21
