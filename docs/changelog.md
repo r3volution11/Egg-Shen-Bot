@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Timer countdown theme option
+  - Modern theme (default) - Colorful animated countdown with visual blocks
+  - Classic theme - Sequential text countdown matching original bot behavior
+  - Usage: `/timer start theme:classic` or `/timer start theme:modern`
+  - Helps users transition from old bot with familiar countdown style
+
 ### Planned
 - Statistics export functionality
 - Web dashboard for statistics and configuration
