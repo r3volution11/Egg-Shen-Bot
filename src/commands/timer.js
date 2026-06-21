@@ -89,6 +89,16 @@ export const data = new SlashCommandBuilder()
           .setDescription('Optional label for the timer (e.g., "Movie night", "Break time")')
           .setRequired(false)
       )
+      .addStringOption(option =>
+        option
+          .setName('theme')
+          .setDescription('Timer countdown theme (default: modern)')
+          .setRequired(false)
+          .addChoices(
+            { name: 'Modern (Default)', value: 'modern' },
+            { name: 'Classic', value: 'classic' }
+          )
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -107,6 +117,7 @@ export async function execute(interaction) {
 
   if (subcommand === 'start') {
     let label = interaction.options.getString('label') || '';
+    const theme = interaction.options.getString('theme') || 'modern';
     const userId = interaction.user.id;
     const username = interaction.user.username;
 
@@ -166,62 +177,111 @@ export async function execute(interaction) {
       return;
     }
 
-    // Show countdown before starting with pizzazz!
-    const countdownSteps = [
-      { num: 5, color: 0xFF0000, emoji: '🔴', blocks: '🟥🟥🟥🟥🟥' },
-      { num: 4, color: 0xFF4400, emoji: '🟠', blocks: '🟧🟧🟧🟧⬜' },
-      { num: 3, color: 0xFF8800, emoji: '🟡', blocks: '🟨🟨🟨⬜⬜' },
-      { num: 2, color: 0xFFCC00, emoji: '🟢', blocks: '🟩🟩⬜⬜⬜' },
-      { num: 1, color: 0x00FF00, emoji: '🟢', blocks: '🟩⬜⬜⬜⬜' },
-    ];
-    
-    const countdownEmbed = new EmbedBuilder()
-      .setColor(countdownSteps[0].color)
-      .setTitle(`${countdownSteps[0].emoji} STARTING TIMER ${countdownSteps[0].emoji}`)
-      .setDescription(`# ${countdownSteps[0].num}\n${countdownSteps[0].blocks}`)
-      .setFooter({ text: '🎬 Get ready!' });
-    
-    await interaction.reply({ embeds: [countdownEmbed] });
-    
-    // Countdown from 4 to 1 with visual flair
-    for (let i = 1; i < countdownSteps.length; i++) {
+    // Show countdown before starting
+    if (theme === 'classic') {
+      // Classic theme - sequential text countdown like the old bot
+      const titleLine = label || 'Timer';
+      
+      await interaction.reply(`**${titleLine}** COUNTDOWN STARTING`);
       await new Promise(resolve => setTimeout(resolve, 1000));
-      const step = countdownSteps[i];
-      countdownEmbed
-        .setColor(step.color)
-        .setTitle(`${step.emoji} STARTING TIMER ${step.emoji}`)
-        .setDescription(`# ${step.num}\n${step.blocks}`);
-      await interaction.editReply({ embeds: [countdownEmbed] });
-    }
-    
-    // Wait 1 more second then show GO!
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    countdownEmbed
-      .setColor(0x00FF00)
-      .setTitle('🎬 🎥 🍿 GO! 🍿 🎥 🎬')
-      .setDescription('# 🟢 START!\n🟩🟩🟩🟩🟩\n\n**Timer is now running!**')
-      .setFooter({ text: '⏱️ Timer started!' });
-    await interaction.editReply({ embeds: [countdownEmbed] });
-    
-    // NOW start the actual timer
-    startTimer(channelId, userId, username, label);
-    
-    // Wait another second then show the final timer started message
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const embed = new EmbedBuilder()
-      .setColor(0x00FF00)
-      .setTitle('⏱️ Timer Started 🟩')
-      .setDescription(label ? `**${label}**` : 'Timer is now running')
-      .addFields({
-        name: 'Started by',
-        value: `${interaction.user}`,
-        inline: true,
-      })
-      .setFooter({ text: 'Use /timer stop to end the timer' })
-      .setTimestamp();
+      
+      await interaction.editReply(`**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Countdown 5, 4, 3, 2, 1
+      const countdownMessages = [
+        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**`,
+        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**`,
+        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**`,
+        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**\n**${titleLine}** **2**`,
+        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**\n**${titleLine}** **2**\n**${titleLine}** **1**`,
+        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**\n**${titleLine}** **2**\n**${titleLine}** **1**\n**${titleLine}** ❇️ **G O** ❇️`,
+        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**\n**${titleLine}** **2**\n**${titleLine}** **1**\n**${titleLine}** ❇️ **G O** ❇️\n**${titleLine}** Timer started`
+      ];
+      
+      for (const message of countdownMessages) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await interaction.editReply(message);
+      }
+      
+      // NOW start the actual timer
+      startTimer(channelId, userId, username, label);
+      
+      // Wait another second then show the final timer started embed
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const embed = new EmbedBuilder()
+        .setColor(0x00FF00)
+        .setTitle('⏱️ Timer Started 🟩')
+        .setDescription(label ? `**${label}**` : 'Timer is now running')
+        .addFields({
+          name: 'Started by',
+          value: `${interaction.user}`,
+          inline: true,
+        })
+        .setFooter({ text: 'Use /timer stop to end the timer' })
+        .setTimestamp();
 
-    await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ content: null, embeds: [embed] });
+      
+    } else {
+      // Modern theme - fancy colored embeds with blocks (default)
+      const countdownSteps = [
+        { num: 5, color: 0xFF0000, emoji: '🔴', blocks: '🟥🟥🟥🟥🟥' },
+        { num: 4, color: 0xFF4400, emoji: '🟠', blocks: '🟧🟧🟧🟧⬜' },
+        { num: 3, color: 0xFF8800, emoji: '🟡', blocks: '🟨🟨🟨⬜⬜' },
+        { num: 2, color: 0xFFCC00, emoji: '🟢', blocks: '🟩🟩⬜⬜⬜' },
+        { num: 1, color: 0x00FF00, emoji: '🟢', blocks: '🟩⬜⬜⬜⬜' },
+      ];
+      
+      const countdownEmbed = new EmbedBuilder()
+        .setColor(countdownSteps[0].color)
+        .setTitle(`${countdownSteps[0].emoji} STARTING TIMER ${countdownSteps[0].emoji}`)
+        .setDescription(`# ${countdownSteps[0].num}\n${countdownSteps[0].blocks}`)
+        .setFooter({ text: '🎬 Get ready!' });
+      
+      await interaction.reply({ embeds: [countdownEmbed] });
+      
+      // Countdown from 4 to 1 with visual flair
+      for (let i = 1; i < countdownSteps.length; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const step = countdownSteps[i];
+        countdownEmbed
+          .setColor(step.color)
+          .setTitle(`${step.emoji} STARTING TIMER ${step.emoji}`)
+          .setDescription(`# ${step.num}\n${step.blocks}`);
+        await interaction.editReply({ embeds: [countdownEmbed] });
+      }
+      
+      // Wait 1 more second then show GO!
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      countdownEmbed
+        .setColor(0x00FF00)
+        .setTitle('🎬 🎥 🍿 GO! 🍿 🎥 🎬')
+        .setDescription('# 🟢 START!\n🟩🟩🟩🟩🟩\n\n**Timer is now running!**')
+        .setFooter({ text: '⏱️ Timer started!' });
+      await interaction.editReply({ embeds: [countdownEmbed] });
+      
+      // NOW start the actual timer
+      startTimer(channelId, userId, username, label);
+      
+      // Wait another second then show the final timer started message
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const embed = new EmbedBuilder()
+        .setColor(0x00FF00)
+        .setTitle('⏱️ Timer Started 🟩')
+        .setDescription(label ? `**${label}**` : 'Timer is now running')
+        .addFields({
+          name: 'Started by',
+          value: `${interaction.user}`,
+          inline: true,
+        })
+        .setFooter({ text: 'Use /timer stop to end the timer' })
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [embed] });
+    }
   } else if (subcommand === 'stop') {
     const result = stopTimer(channelId);
 
