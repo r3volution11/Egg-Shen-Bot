@@ -11,6 +11,7 @@ export default defineConfig({
   
   themeConfig: {
     logo: '/logo.png',
+    siteTitle: 'Egg Shen Bot',
     
     nav: [
       { text: 'Home', link: '/' },
