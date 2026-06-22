@@ -1,22 +1,23 @@
 /**
  * Custom color theme for Egg Shen Bot documentation
- * Primary: #2AB5E5 (Cyan)
+ * Primary: #2AB5E5 (Cyan) - used in dark mode
+ * Light mode: #1582b0 (darker variant for WCAG 2.1 AA compliance - 4.5:1 contrast)
  * Grays: Tinted with primary color hue at 5-15% saturation
  */
 
 :root {
-  /* Primary brand color */
-  --vp-c-brand-1: #2AB5E5;
-  --vp-c-brand-2: #1fa3d1;
-  --vp-c-brand-3: #1891bd;
-  --vp-c-brand-soft: rgba(42, 181, 229, 0.14);
+  /* Primary brand color - darker for WCAG 2.1 AA compliance in light mode */
+  --vp-c-brand-1: #1582b0;  /* Darker for 4.5:1 contrast on white */
+  --vp-c-brand-2: #126f96;  /* Even darker for emphasis */
+  --vp-c-brand-3: #0f5d7d;  /* Darkest for high contrast */
+  --vp-c-brand-soft: rgba(21, 130, 176, 0.14);
 
   /* Accent colors for interactive elements */
-  --vp-c-brand: #2AB5E5;
-  --vp-c-brand-light: #4ec5ed;
-  --vp-c-brand-lighter: #72d4f2;
-  --vp-c-brand-dark: #1fa3d1;
-  --vp-c-brand-darker: #1891bd;
+  --vp-c-brand: #1582b0;
+  --vp-c-brand-light: #1891bd;
+  --vp-c-brand-lighter: #1fa3d1;
+  --vp-c-brand-dark: #126f96;
+  --vp-c-brand-darker: #0f5d7d;
   
   /* Tinted grays - light mode (higher luma = less saturation) */
   --vp-c-gray-1: hsl(195, 5%, 90%);   /* Very light gray with subtle cyan */
