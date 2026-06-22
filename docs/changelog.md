@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `/eggshen-config` documentation to match real subcommand structure
   - Removed fictional moderation commands that don't exist
   - Fixed all search command examples to use correct parameter syntax
+- Documentation home page features updated
+  - Replaced "Smart Notifications" with "Smart Auto-Detection" feature
+  - Updated logo to transparent version with reduced file size
 
 ### Planned
 - Statistics export functionality
