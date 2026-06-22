@@ -3,10 +3,10 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'Egg Shen Bot',
   description: 'Discord bot for movies, TV shows, games, and watch parties',
-  base: '/Egg-Shen-Bot/',
+  base: '/',
   
   head: [
-    ['link', { rel: 'icon', href: '/Egg-Shen-Bot/favicon.ico' }]
+    ['link', { rel: 'icon', href: '/favicon.ico' }]
   ],
   
   themeConfig: {
