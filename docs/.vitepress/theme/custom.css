@@ -213,27 +213,27 @@
 
 /* Alt/Secondary button - improved contrast */
 .VPButton.alt {
-  background-color: var(--vp-c-gray-2);
-  color: var(--vp-c-text-1);
-  border-color: var(--vp-c-gray-2);
+  background-color: var(--vp-c-gray-2) !important;
+  color: var(--vp-c-text-1) !important;
+  border-color: var(--vp-c-gray-2) !important;
 }
 
 .VPButton.alt:hover {
-  background-color: var(--vp-c-gray-3);
-  border-color: var(--vp-c-gray-3);
-  color: var(--vp-c-text-1);
+  background-color: var(--vp-c-gray-3) !important;
+  border-color: var(--vp-c-gray-3) !important;
+  color: var(--vp-c-text-1) !important;
 }
 
 /* Dark mode - lighter secondary button */
 .dark .VPButton.alt {
-  background-color: hsl(195, 12%, 30%);
-  color: var(--vp-c-text-1);
-  border-color: hsl(195, 12%, 30%);
+  background-color: hsl(195, 12%, 30%) !important;
+  color: var(--vp-c-text-1) !important;
+  border-color: hsl(195, 12%, 30%) !important;
 }
 
 .dark .VPButton.alt:hover {
-  background-color: hsl(195, 12%, 40%);
-  border-color: hsl(195, 12%, 40%);
+  background-color: hsl(195, 12%, 40%) !important;
+  border-color: hsl(195, 12%, 40%) !important;
 }
 
 /* Search box with brand color accent */
