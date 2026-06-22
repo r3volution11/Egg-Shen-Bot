@@ -51,7 +51,9 @@ export async function handleSelectInteraction(interaction) {
       interaction.customId !== 'select_similar') return;
   
   // Defer the update to acknowledge the interaction
-  await interaction.deferUpdate();
+  if (!interaction.replied && !interaction.deferred) {
+    await interaction.deferUpdate();
+  }
   
   // Handle episode-list selection
   if (interaction.customId === 'select_episode_list_show') {

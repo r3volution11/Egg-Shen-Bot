@@ -116,6 +116,9 @@ export async function execute(interaction) {
   const channelId = interaction.channelId;
 
   if (subcommand === 'start') {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply();
+    
     let label = interaction.options.getString('label') || '';
     const theme = interaction.options.getString('theme') || 'modern';
     const userId = interaction.user.id;
@@ -173,7 +176,7 @@ export async function execute(interaction) {
         )
         .setFooter({ text: 'Use /timer stop to end the current timer first' });
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.editReply({ embeds: [embed] });
       return;
     }
 
@@ -182,7 +185,7 @@ export async function execute(interaction) {
       // Classic theme - sequential text countdown like the old bot
       const titleLine = label ? `**${label}**` : '**The Overlord of Time**';
       
-      await interaction.reply(`${titleLine} **COUNTDOWN STARTING**`);
+      await interaction.editReply(`${titleLine} **COUNTDOWN STARTING**`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       await interaction.editReply(`${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨`);
@@ -226,7 +229,7 @@ export async function execute(interaction) {
         .setDescription(`# ${countdownSteps[0].num}\n${countdownSteps[0].blocks}`)
         .setFooter({ text: '🎬 Get ready!' });
       
-      await interaction.reply({ embeds: [countdownEmbed] });
+      await interaction.editReply({ embeds: [countdownEmbed] });
       
       // Countdown from 4 to 1 with visual flair
       for (let i = 1; i < countdownSteps.length; i++) {
