@@ -10,7 +10,10 @@ description: Host watch parties with smart timers that auto-detect movie and TV 
 ## Quick FAQ
 
 **Q: How does auto-detection work?**  
-A: When you create a Discord event and start a timer, the bot reads the event name and searches TMDB for matching content.
+A: When you run `/timer start` in a channel, the bot checks your server's Discord scheduled events. If an event is linked to that specific channel, the bot automatically uses the event's title as the timer label and searches TMDB for runtime.
+
+**Q: Does it work with any Discord event?**  
+A: Yes, but the event must be scheduled for the specific channel where you run `/timer start`. The bot reads the event title to detect what you're watching.
 
 **Q: What if there are multiple matches?**  
 A: The bot shows a selection menu so you can choose the correct title.
@@ -46,6 +49,7 @@ Start simple stopwatch timers for watch parties.
   - `classic` - Sequential text countdown like the original bot
 
 **Features:**
+- **Discord Event Auto-Detection:** Bot checks server's scheduled events - if one is linked to the current channel, automatically uses event title as timer label
 - **Auto-stop:** Set duration to automatically stop timer when time expires
 - **Runtime auto-detection:** When label is auto-detected from Discord events, bot searches TMDB and adds 10-minute buffer
 - **Smart selection:** If multiple TMDB matches found, shows selection menu to pick correct title
@@ -65,13 +69,17 @@ Start simple stopwatch timers for watch parties.
 ```
 
 **Auto-Detection Example:**
-1. Create Discord scheduled event named "The Lord of the Rings"
-2. Link event to a watch party channel
-3. Run `/timer start` (no parameters)
-4. Bot finds multiple TMDB matches and shows selection menu
-5. Select correct movie (The Fellowship of the Ring)
-6. Bot auto-detects 178 min runtime + 10 min buffer = 188 minutes
-7. Timer starts with auto-stop enabled
+1. Create a Discord scheduled event named "The Lord of the Rings"
+2. Set the event location to a specific voice/stage channel (e.g., #watch-party)
+3. In that channel, run `/timer start` (no label parameter needed)
+4. Bot detects the Discord event linked to this channel
+5. Bot uses "The Lord of the Rings" as the timer label automatically
+6. Bot searches TMDB and finds multiple matches, shows selection menu
+7. Select the correct movie (e.g., "The Fellowship of the Ring")
+8. Bot auto-detects 178 min runtime + 10 min buffer = 188 minutes
+9. Timer starts with auto-stop at 188 minutes
+
+**Tip:** This works for any Discord event linked to a channel - the bot will always check for events when you run `/timer start` without a label!
 
 ### Check Timer Status
 
