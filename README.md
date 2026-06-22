@@ -73,6 +73,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 
 ### 🎯 Interactive & Configurable
 
+- **AI-Enhanced Search** - Optional semantic search powered by OpenAI improves result relevance and ranking
 - **Dropdown Menus** - Choose from search results (1-50 results, default 20)
 - **Rich Embeds** - Beautiful cards with poster images and metadata
 - **Direct Links** - Quick access to IMDb, Letterboxd, Trakt, RT, JustWatch
@@ -102,6 +103,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 - A Discord application and bot token
 - API keys for:
   - **TMDB** (The Movie Database) - Required - [Get free API key](https://www.themoviedb.org/settings/api)
+  - **OpenAI** - Optional (enables AI-enhanced semantic search) - [Get API key](https://platform.openai.com/api-keys)
   - **Watchmode** - Optional (enhanced streaming data) - [Get API key](https://api.watchmode.com/)
   - **OMDB** (Optional Movie Database) - Optional - [Get API key](http://www.omdbapi.com/apikey.aspx)
   - **Trakt** - Optional - [Get API key](https://trakt.tv/oauth/applications)

@@ -38,6 +38,11 @@ export const config = {
       apiKey: process.env.WATCHMODE_API_KEY || null, // Optional - provides enhanced streaming data
       baseUrl: 'https://api.watchmode.com/v1',
     },
+    openai: {
+      apiKey: process.env.OPENAI_API_KEY || null, // Optional - enables semantic search
+      model: 'text-embedding-3-small', // Cost-effective embedding model
+      baseUrl: 'https://api.openai.com/v1',
+    },
   },
   serviceUrls: {
     imdb: 'https://www.imdb.com/title',
