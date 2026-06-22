@@ -82,6 +82,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **AI-Enhanced Semantic Search with OpenAI** (2026-06-22)
+  - Optional OpenAI integration for smarter search result ranking
+  - Hybrid approach: keyword search first, then AI re-ranking for relevance
+  - Uses cost-effective `text-embedding-3-small` model (~$0.02/1000 searches)
+  - Calculates cosine similarity between query and result embeddings
+  - Re-ranks top 20 results by semantic score for better accuracy
+  - Progressive enhancement: falls back to keyword-only if API key missing
+  - Better handles partial titles, descriptions, thematic queries
+  - Example: "that movie about dreams within dreams" → Inception
+  - Updated `/movie` and `/tv` commands to use hybrid search
+  - Documentation includes setup guide and cost estimates
+- **Fun & Social Potion System** (2026-06-22)
+  - New `/potion give` command for playful user interactions
+  - 13 potion types: 8 helpful, 5 harmful for chat dynamics
+  - 78+ unique responses with horror, comedy, fantasy references
+  - Helpful potions: Health, Mana, Strength, Speed, Invisibility, Luck, Love, Energy
+  - Harmful potions: Confusion, Poison, Weakness, Curse, Slow
+  - Pop culture references: LOTR, Harry Potter, Dark Souls, Get Out, The Ring, etc.
+  - Admin-configurable custom responses per guild
+  - Subcommands: `/potion responses add/remove/list/reset` (admin/mod only)
+  - Custom responses stored per-guild, merged with defaults
+  - Validates {giver} and {receiver} placeholders in custom responses
+  - Permission checking ensures only admins/mods manage responses
+
 ### Planned
 - Statistics export functionality
 - Web dashboard for statistics and configuration
