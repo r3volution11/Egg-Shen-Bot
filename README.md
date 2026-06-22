@@ -6,7 +6,7 @@ A comprehensive Discord bot for searching movies, TV shows, episodes, video game
 
 **📚 [View Full Documentation](https://r3volution11.github.io/Egg-Shen-Bot/)**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![Discord.js](https://img.shields.io/badge/discord.js-v14-blue)](https://discord.js.org/)
 
@@ -1189,7 +1189,18 @@ Feel free to submit issues or pull requests for:
 
 ## License
 
-MIT License - feel free to use and modify as needed.
+This work is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+**You are free to:**
+- **Share** — copy and redistribute the material
+- **Adapt** — remix, transform, and build upon the material
+
+**Under these terms:**
+- **Attribution** — Give appropriate credit and link to the license
+- **NonCommercial** — You may not use this for commercial purposes
+- **ShareAlike** — Distribute your contributions under the same license
+
+See [LICENSE](LICENSE) for full details.
 
 ## Acknowledgments
 

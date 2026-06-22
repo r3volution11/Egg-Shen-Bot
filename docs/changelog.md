@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helps users transition from old bot with familiar countdown style
 
 ### Changed
+- **License changed from MIT to CC BY-NC-SA 4.0**
+  - Requires attribution for all uses
+  - Prohibits commercial use
+  - Requires derivative works to use the same license
+  - See LICENSE file for full details
 - Documentation updated to accurately reflect actual command implementations
   - Fixed `/timer start` parameters (no duration/description - uses label and theme)
   - Corrected `/watched` commands syntax
