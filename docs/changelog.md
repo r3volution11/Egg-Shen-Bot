@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Usage: `/timer start theme:classic` or `/timer start theme:modern`
   - Helps users transition from old bot with familiar countdown style
 
+### Changed
+- Documentation updated to accurately reflect actual command implementations
+  - Fixed `/timer start` parameters (no duration/description - uses label and theme)
+  - Corrected `/watched` commands syntax
+  - Updated `/eggshen-config` documentation to match real subcommand structure
+  - Removed fictional moderation commands that don't exist
+  - Fixed all search command examples to use correct parameter syntax
+
 ### Planned
 - Statistics export functionality
 - Web dashboard for statistics and configuration
