@@ -266,11 +266,11 @@ Give magical potions to other users with fun pop culture references!
 
 **Options:**
 - `user` (required) - The user to give the potion to
-- `type` (required) - Type of potion (Health, Mana, Strength, Speed, Invisibility, Luck, Confusion, Love, Poison, Energy)
+- `type` (required) - Type of potion (Health, Mana, Strength, Speed, Invisibility, Luck, Confusion, Love, Poison, Energy, Weakness, Curse, Slow)
 
 **Features:**
-- 10 different potion types
-- 60+ unique responses with references to:
+- 13 different potion types (helpful & harmful!)
+- 78+ unique responses with references to:
   - Horror: Get Out, Midsommar, The Stuff, Poltergeist
   - Comedy: Army of Darkness, Shaun of the Dead, Hot Fuzz, It's Always Sunny
   - Fantasy: LOTR, Harry Potter, The Witcher, Princess Bride
@@ -280,30 +280,40 @@ Give magical potions to other users with fun pop culture references!
 - Public messages with user mentions
 
 **Available Potion Types:**
+
+**Helpful Potions:**
 - 💚 **Health Potion** - Healing with +HP
 - 💙 **Mana Potion** - Magic restoration with +MP
 - 🔴 **Strength Potion** - Power boost with +STR
 - 💨 **Speed Potion** - Haste effect with +SPD
 - 👁️ **Invisibility Potion** - Stealth mode
 - 🍀 **Luck Potion** - Fortune boost with +LUCK
-- 😵 **Confusion Potion** - Chaos effect (for pranks!)
 - 💕 **Love Potion** - Romance boost with +CHARM
-- ☠️ **Poison** - Dark magic (use carefully!)
 - ⚡ **Energy Potion** - Power up with +ENERGY
+
+**Harmful Potions (for fun chaos!):**
+- 😵 **Confusion Potion** - Chaos effect with -INT
+- ☠️ **Poison** - Dark magic with -HP
+- 💔 **Weakness Potion** - Debuff with -STR
+- 👹 **Curse** - Ancient evil (CURSED status)
+- 🦥 **Slow Potion** - Movement debuff with -SPD
 
 **Examples:**
 ```
 /potion user:@Friend type:health
 → "🧃 @You tosses @Friend an Estus Flask. 'Praise the sun!' 💚 +100 HP"
 
-/potion user:@Friend type:confusion
-→ "🌀 @You gives @Friend a mystery potion. They suddenly can't remember why they walked into this room. 😵 -50 INT"
+/potion user:@Friend type:weakness
+→ "🫠 @You gives @Friend a potion that tastes like regret. Their muscles turn to jelly! 💔 -75 STR"
+
+/potion user:@Friend type:curse
+→ "👹 @You 'accidentally' gives @Friend the Cursed Videotape Juice. Seven days... 📼 CURSED (The Ring)"
 
 /potion user:@Friend type:love
 → "💘 @You hands @Friend Cupid's arrow in liquid form. 'As you wish.' 💕 +95 CHARM (Princess Bride)"
 ```
 
-**Note:** This is a fun, cosmetic command with no actual game mechanics. Perfect for adding personality to your server!
+**Note:** This is a fun, cosmetic command with no actual game mechanics. Perfect for adding personality and playful banter to your server!
 
 ---
 

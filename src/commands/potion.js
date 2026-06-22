@@ -75,6 +75,30 @@ const DEFAULT_POTION_RESPONSES = {
     "🫖 {giver} hands {receiver} the Get Out tea. 'Sink into the floor...' 💀 -90 HP (Sunken Place Special)",
     "☕ {giver} gives {receiver} the Midsommar May Queen's brew. It's beautiful and terrifying. 💀 -70 HP",
   ],
+  weakness: [
+    "🫠 {giver} gives {receiver} a potion that tastes like regret. Their muscles turn to jelly! 💔 -75 STR (Oof)",
+    "🦴 {giver} hands {receiver} the Reverse Spinach. Popeye would be so disappointed. 💔 -60 STR",
+    "😰 {giver} slides {receiver} Kryptonite smoothie. Superman feels your pain. 💔 -85 STR",
+    "🫥 {giver} gives {receiver} the Thanos Snap Protein Shake. Half their gains disappear... 💔 -100 STR (I don't feel so good)",
+    "🧻 {giver} hands {receiver} a wet noodle potion. All strength has left the chat. 💔 -70 STR",
+    "💀 {giver} gives {receiver} the opposite of Fight Milk. Now they're weak as a bird. 💔 -80 STR (Reverse CAW)",
+  ],
+  curse: [
+    "👹 {giver} 'accidentally' gives {receiver} the Cursed Videotape Juice. Seven days... 📼 CURSED (The Ring)",
+    "🎃 {giver} hands {receiver} a potion that smells like ancient evil. 'You're my number one guy!' 👺 CURSED (Child's Play)",
+    "😈 {giver} gives {receiver} the Necronomicon elixir. 'Klaatu Barada Nik—cough' 👿 CURSED (Army of Darkness)",
+    "🕷️ {giver} slides {receiver} a spider-infused potion. Shelob sends her regards. 👺 CURSED (LOTR)",
+    "🪦 {giver} hands {receiver} Pet Sematary soil water. Sometimes dead is better... 👹 CURSED (Stephen King)",
+    "🦇 {giver} gives {receiver} the Babadook's bedtime drink. 'You can't get rid of it!' 👿 CURSED",
+  ],
+  slow: [
+    "🐌 {giver} gives {receiver} anti-speed juice. They move like Internet Explorer loading. 🦥 -90 SPD",
+    "⏰ {giver} hands {receiver} a potion made of molasses and regret. Time to embrace the sloth life! 🦥 -80 SPD",
+    "🧊 {giver} slides {receiver} the Frozen Elsa Special. 'Let it go... slowly.' 🦥 -85 SPD (But why so slow?)",
+    "🐢 {giver} gives {receiver} the opposite of Sonic. Gotta go... eventually. 🦥 -95 SPD",
+    "💤 {giver} hands {receiver} Zootopia sloth potion. 'What... do... you... call... a...' 🦥 -100 SPD (Flash Flash Hundred Yard Dash)",
+    "🦕 {giver} gives {receiver} 'Ancient Slowing Draught'. They're stuck in slow-motion Matrix time. 🦥 -75 SPD",
+  ],
   energy: [
     "⚡ {giver} hands {receiver} a can of Slurm. 'It's highly addictive!' 🔋 +100 ENERGY (Futurama)",
     "🥤 {giver} gives {receiver} a Brawndo. 'It's got electrolytes!' 🔋 +85 ENERGY (Idiocracy)",
@@ -85,7 +109,7 @@ const DEFAULT_POTION_RESPONSES = {
   ],
 };
 
-const POTION_TYPES = ['health', 'mana', 'strength', 'speed', 'invisibility', 'luck', 'confusion', 'love', 'poison', 'energy'];
+const POTION_TYPES = ['health', 'mana', 'strength', 'speed', 'invisibility', 'luck', 'confusion', 'love', 'poison', 'energy', 'weakness', 'curse', 'slow'];
 
 export const data = new SlashCommandBuilder()
   .setName('potion')
@@ -116,6 +140,9 @@ export const data = new SlashCommandBuilder()
             { name: '💕 Love Potion', value: 'love' },
             { name: '☠️ Poison', value: 'poison' },
             { name: '⚡ Energy Potion', value: 'energy' },
+            { name: '💔 Weakness Potion', value: 'weakness' },
+            { name: '👹 Curse', value: 'curse' },
+            { name: '🦥 Slow Potion', value: 'slow' },
           )
       )
   )
@@ -143,6 +170,9 @@ export const data = new SlashCommandBuilder()
                 { name: '💕 Love', value: 'love' },
                 { name: '☠️ Poison', value: 'poison' },
                 { name: '⚡ Energy', value: 'energy' },
+                { name: '💔 Weakness', value: 'weakness' },
+                { name: '👹 Curse', value: 'curse' },
+                { name: '🦥 Slow', value: 'slow' },
               )
           )
           .addStringOption(option =>
@@ -172,6 +202,9 @@ export const data = new SlashCommandBuilder()
                 { name: '💕 Love', value: 'love' },
                 { name: '☠️ Poison', value: 'poison' },
                 { name: '⚡ Energy', value: 'energy' },
+                { name: '💔 Weakness', value: 'weakness' },
+                { name: '👹 Curse', value: 'curse' },
+                { name: '🦥 Slow', value: 'slow' },
               )
           )
           .addIntegerOption(option =>
@@ -202,6 +235,9 @@ export const data = new SlashCommandBuilder()
                 { name: '💕 Love', value: 'love' },
                 { name: '☠️ Poison', value: 'poison' },
                 { name: '⚡ Energy', value: 'energy' },
+                { name: '💔 Weakness', value: 'weakness' },
+                { name: '👹 Curse', value: 'curse' },
+                { name: '🦥 Slow', value: 'slow' },
               )
           )
       )
@@ -225,6 +261,9 @@ export const data = new SlashCommandBuilder()
                 { name: '💕 Love', value: 'love' },
                 { name: '☠️ Poison', value: 'poison' },
                 { name: '⚡ Energy', value: 'energy' },
+                { name: '💔 Weakness', value: 'weakness' },
+                { name: '👹 Curse', value: 'curse' },
+                { name: '🦥 Slow', value: 'slow' },
               )
           )
       )
