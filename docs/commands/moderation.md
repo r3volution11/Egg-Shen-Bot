@@ -2,353 +2,149 @@
 
 Tools for moderating bot usage and maintaining server health.
 
-## Cooldown Management
+## Rate Limit Management
 
-Manually manage user cooldowns for rate limiting.
+Moderation is primarily handled through the bot's rate limiting system. See [Configuration Commands](/commands/configuration#rate-limit-group) for full details.
 
-### Add Manual Cooldown
+### Clear User Rate Limits
 
 ```
-/cooldown add <user> <duration>
+/eggshen-config rate-limit clear user:@user
 ```
 
-**Parameters:**
-- `user` (required) - User to apply cooldown to
-- `duration` (required) - Cooldown duration (e.g., "5m", "1h", "30s")
+Manually clear rate limits for a specific user who may be stuck.
 
 **Required Permissions:**
-- Moderate Members permission
-- OR Administrator
-
-**Duration Formats:**
-- Seconds: `30s`, `90s`
-- Minutes: `5m`, `30m`
-- Hours: `1h`, `2h`
-- Combined: `1h30m`, `2h15m30s`
-
-**Use Cases:**
-- Temporary timeout for spam behavior
-- Manual intervention for abuse
-- Testing rate limit behavior
-- Gentle warning before ban
+- Administrator
+- OR Manage Server permission
 
 **Example:**
 ```
-/cooldown add @SpammyUser 15m
+/eggshen-config rate-limit clear user:@MovieFan
 ```
 
-### Remove Cooldown
+### View Rate Limit Configuration
 
 ```
-/cooldown remove <user>
+/eggshen-config rate-limit view
 ```
 
-**Parameters:**
-- `user` (required) - User to remove cooldown from
+Shows current rate limiting settings, active limits, and user violations.
 
-**Required Permissions:**
-- Moderate Members permission
-- OR Administrator
-
-**Use Cases:**
-- Lift cooldown early
-- Correct accidental cooldown
-- Whitelist trusted user temporarily
-
-### Check Cooldown Status
+### Allow Moderator Bypass
 
 ```
-/cooldown status <user>
+/eggshen-config rate-limit bypass enabled:true
 ```
 
-**Parameters:**
-- `user` (required) - User to check cooldown status for
+Enable this to allow moderators to bypass rate limits.
 
-Shows:
-- Whether user has active cooldown
-- Time remaining
-- Reason for cooldown (if manual)
-- Auto-ban status
+## Configuration
 
-### List Active Cooldowns
+Most moderation is handled through configuration settings:
 
+- **Rate Limiting:** `/eggshen-config rate-limit` - See [Configuration](/commands/configuration#rate-limit-group)
+- **Command Toggles:** `/eggshen-config commands toggle` - Enable/disable commands for users
+- **Statistics:** `/eggshen-stats` - View usage patterns and potential abuse
+
+## Best Practices
+
+### 1. Monitor Statistics
+
+Review bot usage regularly with `/eggshen-stats` to identify:
+- Heavy users
+- Command usage patterns
+- Potential abuse
+
+### 2. Configure Rate Limits
+
+Set appropriate rate limits based on your server size:
+
+**Small servers (< 100 members):**
 ```
-/cooldown list
-```
-
-Displays all users currently under cooldown:
-- User name and ID
-- Time remaining
-- Cooldown type (auto/manual)
-- Reason
-
-**Required Permissions:**
-- Moderate Members permission
-- OR Administrator
-
-## Watch History Moderation
-
-Moderate and manage server watch history.
-
-### Remove History Entry
-
-```
-/watched remove <id>
+/eggshen-config rate-limit global max-requests:15 window-seconds:60
 ```
 
-**Parameters:**
-- `id` (required) - History entry ID from `/watched list`
-
-**Required Permissions:**
-- Administrator only
-
-**Use Cases:**
-- Remove duplicate entries
-- Delete inappropriate logs
-- Clean up test entries
-- Correct mistakes
-
-**Example:**
+**Medium servers (100-1,000):**
 ```
-/watched list
-→ See entry IDs
-/watched remove 42
+/eggshen-config rate-limit global max-requests:10 window-seconds:60
 ```
 
-### View Full History
-
+**Large servers (1,000+):**
 ```
-/watched list [limit]
-```
-
-**Parameters:**
-- `limit` (optional) - Number of entries to show (default: 10, max: 50)
-
-Shows complete watch history with:
-- Entry IDs for moderation
-- Titles and dates
-- Channels and who saved it
-- Notes from viewers
-
-**Example:**
-```
-/watched list 25
+/eggshen-config rate-limit global max-requests:5 window-seconds:60
+/eggshen-config rate-limit guild-wide enabled:true max-requests:20 window-seconds:60
 ```
 
-## Ban Management
+### 3. Use Per-Command Limits
 
-Review and manage auto-bans from rate limiting violations.
-
-### View Ban Status
+Restrict resource-intensive commands more than simple ones:
 
 ```
-/ban-status <user>
+/eggshen-config rate-limit command command:movie max-requests:5 window-seconds:60
+/eggshen-config rate-limit command command:episode-list max-requests:3 window-seconds:60
 ```
 
-**Parameters:**
-- `user` (required) - User to check ban status for
+### 4. Enable Moderator Bypass
 
-Shows:
-- Whether user is auto-banned
-- Number of violations
-- When ban expires
-- Recent violation history
-
-### Remove Auto-Ban
+Let your mod team use the bot freely:
 
 ```
-/ban-remove <user>
+/eggshen-config rate-limit bypass enabled:true
 ```
 
-**Parameters:**
-- `user` (required) - User to remove auto-ban from
+### 5. Disable Commands if Needed
 
-**Required Permissions:**
-- Administrator only
-
-**Use Cases:**
-- Lift ban early for reformed behavior
-- Correct false positive
-- Whitelist trusted user
-
-**Warning:** User can accumulate violations again after removal.
-
-### Ban History
+Temporarily disable commands during raids or high activity:
 
 ```
-/ban-history [user]
+/eggshen-config commands toggle setting:enabled enabled:false
 ```
 
-**Parameters:**
-- `user` (optional) - Specific user to check
-
-**Without user:** Shows server-wide ban history
-**With user:** Shows that user's ban/violation history
-
-Displays:
-- Date and time of violations
-- Type of abuse detected
-- Duration of bans
-- Whether bans were lifted early
-
-## Whitelist Mode
-
-Temporarily restrict bot to trusted users only.
-
-### Enable Whitelist Mode
-
-```
-/whitelist-mode enable
-```
-
-**Required Permissions:**
-- Administrator only
-
-**Effect:**
-- Only whitelisted users can use bot commands
-- All others receive "Bot in maintenance mode" message
-- Useful during raids or heavy spam
-
-### Disable Whitelist Mode
-
-```
-/whitelist-mode disable
-```
-
-Returns bot to normal operation for all users.
-
-### Add to Whitelist
-
-```
-/whitelist add <user>
-```
-
-**Parameters:**
-- `user` (required) - User to whitelist
-
-Allows user to bypass whitelist mode restrictions.
-
-### Remove from Whitelist
-
-```
-/whitelist remove <user>
-```
-
-**Parameters:**
-- `user` (required) - User to remove from whitelist
-
-### View Whitelist
-
-```
-/whitelist list
-```
-
-Shows all currently whitelisted users.
-
-## Abuse Reports
-
-Review abuse logs and patterns.
-
-### View Recent Abuse
-
-```
-/abuse-log [limit]
-```
-
-**Parameters:**
-- `limit` (optional) - Number of entries to show (default: 20, max: 100)
-
-**Required Permissions:**
-- Moderate Members permission
-- OR Administrator
-
-Displays:
-- User and violation type
-- Timestamp
-- Command attempted
-- Auto-action taken (cooldown/ban)
-
-### Abuse Patterns
-
-```
-/abuse-patterns <user>
-```
-
-**Parameters:**
-- `user` (required) - User to analyze
-
-Shows behavioral patterns:
-- Commands used most frequently
-- Peak usage times
-- Violation rate
-- Spam indicators
-
-**Use for:**
-- Identifying bot abuse
-- Distinguishing legitimate heavy users from spammers
-- Making ban/cooldown decisions
-
-## Moderation Best Practices
-
-### 1. Monitor Regularly
-- Review abuse logs weekly
-- Check for repeat offenders
-- Look for unusual patterns
-
-### 2. Progressive Discipline
-1. First offense: Automatic cooldown (3-5 minutes)
-2. Second offense: Manual cooldown (15-30 minutes)
-3. Third offense: Longer cooldown (1-2 hours)
-4. Persistent abuse: Auto-ban or manual Discord timeout
-
-### 3. Communication
-- Set clear rules about bot usage
-- Post limits in server rules
-- Warn users before manual cooldowns
-- Explain bans if users ask
-
-### 4. False Positives
-- Check abuse patterns before banning
-- Consider legitimate use cases
-- Whitelist power users if needed
-- Adjust rate limits for server size
-
-### 5. Log Everything
-- Keep mod logs channel active
-- Document manual actions
-- Track patterns over time
-- Use logs for appeals process
-
-## Rate Limiting Integration
-
-Moderation commands work alongside the [Rate Limiting System](/features/rate-limiting):
-
-1. **Automatic Layer** - Bot enforces rate limits
-2. **Logging Layer** - Abuse is recorded
-3. **Moderation Layer** - Moderators review and take action
-4. **Manual Layer** - Override with cooldowns/bans as needed
-
-See [Rate Limiting documentation](/features/rate-limiting) for full details.
+Re-enable when situation is under control.
 
 ## Troubleshooting
 
-### Cooldowns not applying
-- Verify user ID is correct
-- Check moderator has proper permissions
-- Review mod logs for error messages
+### User Stuck with Rate Limit
 
-### Can't remove watch history
-- Ensure you have Administrator permission
-- Verify entry ID is correct from `/watched list`
-- Entry may have been already removed
+Clear their limits manually:
+```
+/eggshen-config rate-limit clear user:@user
+```
 
-### Abuse logs empty
-- Check if abuse logging is enabled (`/eggshen-config view`)
-- Verify mod logs channel is set
-- May indicate no abuse (good thing!)
+### Too Much Spam
 
-### Too many false positive bans
-- Review rate limiting thresholds
-- Consider increasing limits for your server size
-- Use whitelist mode during events
-- Adjust auto-ban threshold in configuration
+Tighten rate limits:
+```
+/eggshen-config rate-limit global max-requests:5 window-seconds:120
+```
+
+### Bot Not Responding to Anyone
+
+Check if commands are disabled:
+```
+/eggshen-config settings view
+```
+
+If "Commands Enabled" shows false, re-enable:
+```
+/eggshen-config commands toggle setting:enabled enabled:true
+```
+
+### Rate Limits Too Strict
+
+Check current settings:
+```
+/eggshen-config rate-limit view
+```
+
+Increase limits as needed:
+```
+/eggshen-config rate-limit global max-requests:20 window-seconds:60
+```
+
+## Related Documentation
+
+- [Rate Limiting System](/features/rate-limiting) - Complete rate limiting guide
+- [Configuration Commands](/commands/configuration) - All configuration options
+- [Server Statistics](/features/statistics) - Usage tracking and analysis
