@@ -5,9 +5,10 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-06-21
 
 ### Added
+- **Production-ready release** 🎉
 - **Conditional command registration based on API availability**
   - `/game` and `/boardgame` commands won't appear in Discord if API keys aren't configured
   - Prevents users from seeing unavailable commands
@@ -28,11 +29,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/boardgame` requires BGG_CLIENT_ID
   - `/random` validates keys for game/boardgame subcommands
   - `/similar` skips unavailable media types when API keys are missing
-- Timer countdown theme option
+- **Timer countdown theme option**
   - Modern theme (default) - Colorful animated countdown with visual blocks
   - Classic theme - Sequential text countdown matching original bot behavior
   - Usage: `/timer start theme:classic` or `/timer start theme:modern`
   - Helps users transition from old bot with familiar countdown style
+- **Professional documentation site**
+  - Hosted at https://eggshenbot.com
+  - Custom domain with HTTPS
+  - WCAG 2.1 AA accessibility compliance
+  - Custom cyan theme (#2AB5E5) with proper contrast ratios
+  - Favicon and Apple touch icons
+  - Complete command reference
+  - Installation and configuration guides
 
 ### Changed
 - **License changed from MIT to CC BY-NC-SA 4.0**
@@ -50,12 +59,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Replaced "Smart Notifications" with "Smart Auto-Detection" feature
   - Updated logo to transparent version with reduced file size
 
+### Fixed
+- **Critical interaction handling bugs** preventing production crashes
+  - Added defensive checks before all interaction.reply and deferReply calls
+  - Wrapped error handler in try-catch to prevent cascading failures
+  - Fixed timer command timeout issues (3-second interaction expiry)
+  - Applied fixes to movie, tv, game, boardgame commands and select handlers
+- Ghost timer persistence issue resolved
+
+## [Unreleased]
+
 ### Planned
 - Statistics export functionality
 - Web dashboard for statistics and configuration
 - Unit and integration test suite
 
-## [1.3.0] - 2026-06-21
+---
+
+## Pre-1.0 Development Releases
+
+## [0.4.0] - 2026-06-21
 
 ### Added
 - Complete VitePress documentation site with GitHub Pages deployment
@@ -82,7 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README now includes documentation badge and link
 - README simplified with documentation site as primary reference
 
-## [1.2.0] - 2026-06-19
+## [0.3.0] - 2026-06-19
 
 ### Changed
 - **[BREAKING]** Watch history saves are now PUBLIC instead of ephemeral
@@ -109,7 +132,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Only users with proper permissions see "Log to Watch History" button functionality
   - Prevents unauthorized users from logging watch history
 
-## [1.1.0] - 2026-06-15
+## [0.2.0] - 2026-06-15
 
 ### Added
 - Comprehensive rate limiting system (7 layers):
@@ -158,7 +181,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configuration requires Administrator or Manage Server permissions
   - Moderation commands require Moderate Members or Administrator permissions
 
-## [1.0.0] - 2026-06-01
+## [0.1.0] - 2026-06-01
 
 ### Added
 - Initial release of Egg Shen Bot
