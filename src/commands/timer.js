@@ -180,23 +180,23 @@ export async function execute(interaction) {
     // Show countdown before starting
     if (theme === 'classic') {
       // Classic theme - sequential text countdown like the old bot
-      const titleLine = label || 'Timer';
+      const titleLine = label ? `**${label}**` : '**The Overlord of Time**';
       
-      await interaction.reply(`**${titleLine}** COUNTDOWN STARTING`);
+      await interaction.reply(`${titleLine} **COUNTDOWN STARTING**`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      await interaction.editReply(`**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️`);
+      await interaction.editReply(`${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Countdown 5, 4, 3, 2, 1
+      // Countdown 5, 4, 3, 2, 1 with number emojis
       const countdownMessages = [
-        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**`,
-        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**`,
-        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**`,
-        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**\n**${titleLine}** **2**`,
-        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**\n**${titleLine}** **2**\n**${titleLine}** **1**`,
-        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**\n**${titleLine}** **2**\n**${titleLine}** **1**\n**${titleLine}** ❇️ **G O** ❇️`,
-        `**${titleLine}** COUNTDOWN STARTING\n**${titleLine}** HIT PLAY AT ❇️ **G O** ❇️\n**${titleLine}** **5**\n**${titleLine}** **4**\n**${titleLine}** **3**\n**${titleLine}** **2**\n**${titleLine}** **1**\n**${titleLine}** ❇️ **G O** ❇️\n**${titleLine}** Timer started`
+        `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:`,
+        `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:`,
+        `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:`,
+        `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:\n${titleLine} :two:`,
+        `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:\n${titleLine} :two:\n${titleLine} :one:`,
+        `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:\n${titleLine} :two:\n${titleLine} :one:\n${titleLine} 🚨**:regional_indicator_g::regional_indicator_o:**🚨`,
+        `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:\n${titleLine} :two:\n${titleLine} :one:\n${titleLine} 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} **Timer started**`
       ];
       
       for (const message of countdownMessages) {
@@ -207,22 +207,8 @@ export async function execute(interaction) {
       // NOW start the actual timer
       startTimer(channelId, userId, username, label);
       
-      // Wait another second then show the final timer started embed
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const embed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('⏱️ Timer Started 🟩')
-        .setDescription(label ? `**${label}**` : 'Timer is now running')
-        .addFields({
-          name: 'Started by',
-          value: `${interaction.user}`,
-          inline: true,
-        })
-        .setFooter({ text: 'Use /timer stop to end the timer' })
-        .setTimestamp();
-
-      await interaction.editReply({ content: null, embeds: [embed] });
+      // Keep the final message visible
+      return;
       
     } else {
       // Modern theme - fancy colored embeds with blocks (default)

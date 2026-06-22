@@ -17,16 +17,21 @@ export async function execute(interaction) {
   // Check if user has permission to use this command
   const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'movie');
   if (!hasPermission) {
-    await interaction.reply({
-      content: '❌ The `/movie` command is currently disabled for regular users. Contact a server administrator for more information.',
-      ephemeral: true,
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ The `/movie` command is currently disabled for regular users. Contact a server administrator for more information.',
+        ephemeral: true,
+      });
+    }
     return;
   }
 
   const query = interaction.options.getString('query');
   
-  await interaction.deferReply({ ephemeral: true });
+  // Safely defer reply if not already acknowledged
+  if (!interaction.replied && !interaction.deferred) {
+    await interaction.deferReply({ ephemeral: true });
+  }
   
   try {
     const results = await searchMovies(query);

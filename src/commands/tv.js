@@ -17,16 +17,20 @@ export async function execute(interaction) {
   // Check if user has permission to use this command
   const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'tv');
   if (!hasPermission) {
-    await interaction.reply({
-      content: '❌ The `/tv` command is currently disabled for regular users. Contact a server administrator for more information.',
-      ephemeral: true,
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ The `/tv` command is currently disabled for regular users. Contact a server administrator for more information.',
+        ephemeral: true,
+      });
+    }
     return;
   }
 
   const query = interaction.options.getString('query');
   
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.replied && !interaction.deferred) {
+    await interaction.deferReply({ ephemeral: true });
+  }
   
   try {
     // Note: Currently searches for TV series only
