@@ -19,7 +19,7 @@ Detailed installation instructions for Egg Shen Bot.
 
 ### Optional APIs
 
-These APIs enable additional features. Commands requiring them will be disabled if not configured.
+These APIs enable additional features. Commands requiring them **will not be registered** if their API keys aren't configured.
 
 | Service | Purpose | Enables Commands | Get Key |
 |---------|---------|-----------------|---------|
@@ -27,6 +27,8 @@ These APIs enable additional features. Commands requiring them will be disabled 
 | **Trakt** | Community ratings | Enhanced ratings display | [Get API Key](https://trakt.tv/oauth/applications) |
 | **RAWG** | Video game data | `/game`, `/random game`, `/similar` (games) | [Get API Key](https://rawg.io/apidocs) |
 | **BoardGameGeek** | Board game data | `/boardgame`, `/random boardgame`, `/similar` (board games) | [Get API Key](https://boardgamegeek.com/wiki/page/BGG_XML_API2) |
+
+> **Note:** Commands requiring optional APIs won't appear in Discord at all if their keys aren't configured. This prevents users from seeing unavailable features.
 
 ## Step-by-Step Installation
 
@@ -110,10 +112,9 @@ GUILD_ID=
 ```
 
 **What happens if optional APIs aren't configured:**
-- `/game` command will show error message if RAWG_API_KEY is missing
-- `/boardgame` command will show error message if BGG_CLIENT_ID is missing
-- `/similar` will skip games/board games if respective keys are missing
-- `/random` game/boardgame subcommands will show error if keys are missing
+- `/game` and `/boardgame` commands won't be registered at all - they won't appear in Discord
+- `/random` game/boardgame subcommands will show error messages when used
+- `/similar` will skip unavailable media types (games/board games) in searches
 - Rating displays will have fewer sources without OMDB/TraktOpen URL in browser and invite to your server
 
 ### 6. Register Commands

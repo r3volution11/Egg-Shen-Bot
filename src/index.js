@@ -16,6 +16,12 @@ const client = new Client({
 // Collection to store commands
 client.commands = new Collection();
 
+// Define API requirements for commands
+const commandRequirements = {
+  'game': { key: 'RAWG_API_KEY', service: 'RAWG' },
+  'boardgame': { key: 'BGG_CLIENT_ID', service: 'BoardGameGeek' },
+};
+
 // Load commands
 const commandsPath = join(__dirname, 'commands');
 const commandFiles = readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -25,6 +31,25 @@ for (const file of commandFiles) {
   const command = await import(`file://${filePath}`);
   
   if ('data' in command && 'execute' in command) {
+    const commandName = command.data.name;
+    
+    // Check if this command has API requirements
+    if (commandRequirements[commandName]) {
+      const requirement = commandRequirements[commandName];
+      let hasApiKey = false;
+      
+      if (requirement.key === 'RAWG_API_KEY') {
+        hasApiKey = !!config.apis.rawg.apiKey;
+      } else if (requirement.key === 'BGG_CLIENT_ID') {
+        hasApiKey = !!config.apis.bgg.clientId;
+      }
+      
+      if (!hasApiKey) {
+        console.log(`⊘ Skipped command: ${commandName} (${requirement.service} API not configured)`);
+        continue;
+      }
+    }
+    
     client.commands.set(command.data.name, command);
     console.log(`✓ Loaded command: ${command.data.name}`);
   } else {

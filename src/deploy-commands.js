@@ -1,8 +1,12 @@
 import { REST, Routes } from 'discord.js';
 import { config } from './config.js';
+import { config as dotenvConfig } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
+
+// Load environment variables
+dotenvConfig();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,11 +15,30 @@ const commands = [];
 const commandsPath = join(__dirname, 'commands');
 const commandFiles = readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
+// Define API requirements for commands
+const commandRequirements = {
+  'game': { key: 'RAWG_API_KEY', service: 'RAWG' },
+  'boardgame': { key: 'BGG_CLIENT_ID', service: 'BoardGameGeek' },
+};
+
 // Load all commands
 for (const file of commandFiles) {
   const filePath = join(commandsPath, file);
   const command = await import(`file://${filePath}`);
   if ('data' in command) {
+    const commandName = command.data.name;
+    
+    // Check if this command has API requirements
+    if (commandRequirements[commandName]) {
+      const requirement = commandRequirements[commandName];
+      const apiKey = process.env[requirement.key];
+      
+      if (!apiKey) {
+        console.log(`⊘ Skipped command: ${commandName} (${requirement.service} API not configured)`);
+        continue;
+      }
+    }
+    
     commands.push(command.data.toJSON());
     console.log(`✓ Loaded command: ${command.data.name}`);
   }

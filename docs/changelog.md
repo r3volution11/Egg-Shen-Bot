@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Conditional command registration based on API availability**
+  - `/game` and `/boardgame` commands won't appear in Discord if API keys aren't configured
+  - Prevents users from seeing unavailable commands
+  - Cleaner UX - only shows what's actually available
+- **Comprehensive API Keys Guide**
+  - New documentation page with step-by-step instructions for all APIs
+  - Includes Discord Bot, TMDB, OMDB, Trakt, RAWG, and BoardGameGeek
+  - Registration time estimates, rate limits, and troubleshooting
+  - Security best practices for API key management
 - **BoardGameGeek API integration completed**
   - `/boardgame` command now fully functional with BGG_CLIENT_ID
   - `/random boardgame` supports category and rating filters
