@@ -8,6 +8,7 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
 |---------|----------|-----------|--------------|---------------|
 | **Discord Bot** | ✅ Yes | Yes | [Discord Portal](https://discord.com/developers/applications) | Instant |
 | **TMDB** | ✅ Yes | Yes | [TMDB](https://www.themoviedb.org/settings/api) | 1-2 minutes |
+| **OpenAI** | ⭕ Optional | Pay-per-use | [OpenAI Platform](https://platform.openai.com/api-keys) | Instant |
 | **Watchmode** | ⭕ Optional | 1000/month | [Watchmode](https://api.watchmode.com/) | Instant |
 | **OMDB** | ⭕ Optional | 1000/day | [OMDB](http://www.omdbapi.com/apikey.aspx) | Instant |
 | **Trakt** | ⭕ Optional | Yes | [Trakt](https://trakt.tv/oauth/applications) | Instant |
@@ -90,6 +91,56 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
    - Add to `.env` file as `TMDB_API_KEY`
 
 **Rate Limits:** None officially documented
+
+---
+
+## OpenAI API Key
+
+**Purpose:** AI-enhanced semantic search for improved result relevance  
+**Features Enabled:** Smart re-ranking of search results based on semantic similarity  
+**Pricing:** Pay-per-use (text-embedding-3-small model: $0.02 per 1M tokens)
+
+### Why Use OpenAI?
+
+Standard keyword search works well for exact titles, but can struggle with:
+- Partial titles or misspellings
+- Descriptions instead of titles ("that movie about dreams within dreams")
+- Thematic queries ("psychological thriller about AI")
+
+OpenAI's semantic search understands **meaning**, not just keywords, providing:
+- **Better result ranking** - Most relevant results appear first
+- **Semantic understanding** - Matches based on context and meaning
+- **Improved relevance** - Works even with imprecise queries
+
+The bot uses a **hybrid approach**: keyword search first (fast and free), then AI re-ranking (smart and accurate). If OpenAI isn't configured, the bot still works with keyword search alone.
+
+### Step-by-Step Instructions
+
+1. **Create OpenAI Account**
+   - Visit https://platform.openai.com/signup
+   - Sign up with email or social login
+   - You'll need to add a payment method (credit card required)
+
+2. **Add Credits**
+   - Go to Billing: https://platform.openai.com/account/billing
+   - Add at least $5 (minimum purchase)
+   - Set spending limits to control costs
+
+3. **Generate API Key**
+   - Go to API Keys: https://platform.openai.com/api-keys
+   - Click **"Create new secret key"**
+   - Name it: "Egg Shen Bot"
+   - Copy the key (you won't see it again!)
+   - Add to `.env` file as `OPENAI_API_KEY`
+
+**Cost Estimate:**
+- Using `text-embedding-3-small` model: ~$0.02 per 1,000 searches
+- Example: 10,000 searches/month ≈ $0.20
+- Very cost-effective for small-medium servers
+
+**Usage Limits:** Set custom spending limits in your OpenAI dashboard
+
+**Note:** OpenAI is completely optional. The bot works without it using keyword search alone.
 
 ---
 

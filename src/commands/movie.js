@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { searchMovies } from '../services/tmdbService.js';
+import { hybridSearch } from '../services/aiService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 
@@ -34,7 +35,8 @@ export async function execute(interaction) {
   }
   
   try {
-    const results = await searchMovies(query);
+    // Use hybrid search (keyword + semantic) if OpenAI available, otherwise keyword only
+    const results = await hybridSearch(query, searchMovies, 'movie');
     
     if (!results || results.length === 0) {
       await interaction.editReply({

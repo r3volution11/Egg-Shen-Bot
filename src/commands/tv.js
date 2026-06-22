@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { searchTVShows } from '../services/tmdbService.js';
+import { hybridSearch } from '../services/aiService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 
@@ -37,7 +38,8 @@ export async function execute(interaction) {
     // Future enhancement: Parse query to detect episode names/numbers
     // Example: "The Outer Limits Sandkings" could search for specific episode
     // For now, returns series results with series poster (per requirements)
-    const results = await searchTVShows(query);
+    // Use hybrid search (keyword + semantic) if OpenAI available, otherwise keyword only
+    const results = await hybridSearch(query, searchTVShows, 'tv');
     
     if (!results || results.length === 0) {
       await interaction.editReply({
