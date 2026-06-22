@@ -1,4 +1,27 @@
+---
+title: Search Commands - Egg Shen Bot
+description: Search movies, TV shows, episodes, video games, and board games with comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, and BoardGameGeek.
+---
+
 # Search Commands
+
+**Search for movies, TV shows, episodes, video games, and board games** across multiple databases with comprehensive ratings and links. All search commands provide detailed information, ratings from multiple sources, and streaming availability.
+
+## Quick FAQ
+
+**Q: What information do search commands provide?**  
+A: Ratings from multiple sources, release dates, runtime, genres, cast, overview, streaming platforms, and links to external sites.
+
+**Q: Why are some ratings missing?**  
+A: Some content doesn't have ratings on all platforms, or the API keys for those services aren't configured.
+
+**Q: Can I search by year?**  
+A: Include the year in your search query (e.g., "The Batman 2022") to help find the right version.
+
+**Q: What if I can't find something?**  
+A: Check TMDB.org to see if it exists. The bot searches their database.
+
+---
 
 Search for movies, TV shows, episodes, and games across multiple databases.
 

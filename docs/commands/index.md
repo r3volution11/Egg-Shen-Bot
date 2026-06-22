@@ -1,3 +1,31 @@
+---
+title: Commands Reference - Egg Shen Bot
+description: Complete slash commands reference for Egg Shen Bot. Search movies, TV shows, episodes, video games, board games, and manage watch parties with timers and history.
+---
+
+# Commands Overview
+
+**Egg Shen Bot provides comprehensive slash commands** for searching entertainment media, hosting watch parties, and managing your server's settings. All commands use Discord's native slash command interface for easy discovery and autocomplete.
+
+## Quick FAQ
+
+**Q: Why don't I see all the commands?**  
+A: Commands appear based on configured API keys. Missing APIs = those commands won't show up.
+
+**Q: How do I use slash commands?**  
+A: Type `/` in Discord and start typing the command name. Discord will show autocomplete options.
+
+**Q: Can I restrict who uses certain commands?**  
+A: Yes! Use Discord's built-in command permissions system or configure per-command restrictions via `/eggshen-config`.
+
+**Q: Do commands work in DMs?**  
+A: Most search commands work in DMs. Server-specific features (timers, watch history, config) require a server.
+
+**Q: What happens if a movie/show isn't found?**  
+A: The bot will show a "not found" message. Try different spelling, year, or check TMDB to see if it exists.
+
+---
+
 # Commands Overview
 
 Egg Shen Bot provides comprehensive slash commands for searching media, hosting watch parties, and server management.

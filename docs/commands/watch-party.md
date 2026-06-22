@@ -1,4 +1,30 @@
+---
+title: Watch Party Commands - Egg Shen Bot
+description: Host watch parties with smart timers that auto-detect movie and TV show titles from Discord events. Track your server's watch history and coordinate viewing schedules.
+---
+
 # Watch Party Commands
+
+**Host synchronized watch parties with smart timers** that automatically detect movie and TV show titles from Discord events, calculate runtime from TMDB, and track what your community watches together.
+
+## Quick FAQ
+
+**Q: How does auto-detection work?**  
+A: When you create a Discord event and start a timer, the bot reads the event name and searches TMDB for matching content.
+
+**Q: What if there are multiple matches?**  
+A: The bot shows a selection menu so you can choose the correct title.
+
+**Q: Can timers auto-stop?**  
+A: Yes! Either set a manual duration (1-600 minutes) or let the bot detect runtime from TMDB (adds 10-min buffer).
+
+**Q: Who can stop a timer?**  
+A: The person who started it or anyone with moderation permissions.
+
+**Q: Does watch history work retroactively?**  
+A: No, only content manually logged via the "Log to Watch History" button is tracked.
+
+---
 
 Host synchronized watch parties with timers and track what your community watches.
 

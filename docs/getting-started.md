@@ -1,6 +1,30 @@
+---
+title: Getting Started with Egg Shen Bot
+description: Quick start guide for setting up Egg Shen Bot in your Discord server. Learn what you need, how to install, and get your bot running in minutes.
+---
+
 # Getting Started
 
-Welcome to Egg Shen Bot! This guide will help you get the bot up and running in your Discord server.
+**Egg Shen Bot is a free, open-source Discord bot** that searches movies, TV shows, video games, and board games while providing comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, and BoardGameGeek. This guide will help you get the bot up and running in your Discord server.
+
+## Quick FAQ
+
+**Q: What do I need to get started?**  
+A: Node.js v20+, a Discord bot token, and a TMDB API key (free). Other APIs are optional.
+
+**Q: How long does setup take?**  
+A: About 10-15 minutes for basic setup with required APIs.
+
+**Q: Is it really free?**  
+A: Yes! The bot is open-source and all required API keys are free tier.
+
+**Q: Do I need all the API keys?**  
+A: No. Only Discord token and TMDB are required. Other APIs enable additional features.
+
+**Q: Can I use this on shared hosting?**  
+A: You need a server that can run Node.js applications 24/7 (VPS, dedicated server, or cloud hosting).
+
+---
 
 ## Prerequisites
 
