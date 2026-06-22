@@ -17,45 +17,61 @@ Watch History is a **server-level** feature that tracks movies, TV shows, and ep
 
 ## How It Works
 
-### 1. Start a Watch Party
+### 1. Start a Watch Party Timer
 
 Use the timer command to begin:
 
 ```
-/timer start 2h15m The Lord of the Rings: The Fellowship of the Ring
+/timer start label:The Lord of the Rings: The Fellowship of the Ring
 ```
 
-The bot creates a public countdown timer in the channel.
+**Optional parameters:**
+- `label` - Name of what you're watching
+- `theme` - `modern` (default, colorful countdown) or `classic` (text-based)
+
+The timer runs continuously until manually stopped. There's no duration parameter - you stop it when the movie/episode ends.
+
+**Examples:**
+```
+/timer start label:Movie Night
+/timer start label:Jaws theme:classic
+/timer start
+```
 
 ### 2. Watch Together
 
-Everyone in the channel watches together while the timer counts down.
+Everyone in the channel watches together. The timer displays elapsed time.
 
-### 3. Timer Completes
+### 3. Stop the Timer
 
-When the timer finishes, a "Log to Watch History" button appears.
+When viewing ends, stop the timer:
+
+```
+/timer stop
+```
+
+A "Log to Watch History" button appears (only if a label was provided).
 
 ### 4. Save to History
 
-The person who started the timer (or a moderator) clicks the button to save:
+The person who started the timer (or a moderator) clicks the button. A modal appears to enter:
 
-- Movie/TV show title
-- Date watched
-- Channel where it was watched
-- Who saved it (public)
-- Optional notes about the viewing
+- **Title** - Movie/TV show name (pre-filled with timer label)
+- **Notes** - Optional viewing notes, reactions, highlights
 
 ### 5. Public Record
 
 The entry appears publicly in the channel for everyone to see:
 
 ```
-Added to Watch History! 🎬
+📝 Watch History Saved
 
 The Lord of the Rings: The Fellowship of the Ring (2001)
+⭐ 8.8/10 • 🎬 178 min • Adventure, Fantasy
 
 📅 Watched: June 21, 2026
 📺 Channel: #movie-night
+⏱️ Timer: 3:02:15
 💾 Saved by: @MovieFan
 📝 Notes: Epic trilogy start! Everyone loved the cinematography.
 ```
@@ -103,7 +119,7 @@ This restriction prevents:
 Shows recent watch history:
 - Last 10 entries (default)
 - Up to 50 entries with limit parameter
-- Titles with TMDB links
+- Titles with TMDB links and ratings
 - Dates and channels
 - Who saved each entry
 - Notes from viewers
@@ -111,13 +127,13 @@ Shows recent watch history:
 **Example:**
 ```
 /watched list 25
-→ Shows last 25 entries
 ```
+Shows last 25 entries.
 
 ### Manual Entry
 
 ```
-/watched add <type> <title> [notes]
+/watched add type:<movie|tv> title:<text> notes:<text>
 ```
 
 Add to watch history without using a timer:
@@ -125,7 +141,7 @@ Add to watch history without using a timer:
 **Parameters:**
 - `type` - "movie" or "tv"
 - `title` - Title to search for
-- `notes` - Optional notes about the viewing
+- `notes` - Optional notes about the viewing (optional)
 
 **Use Cases:**
 - Retroactive logging of past watch parties
@@ -134,13 +150,13 @@ Add to watch history without using a timer:
 
 **Example:**
 ```
-/watched add movie Big Trouble in Little China First watch for half the group!
+/watched add type:movie title:Big Trouble in Little China notes:First watch for half the group!
 ```
 
 ### Remove Entry
 
 ```
-/watched remove <id>
+/watched remove id:<number>
 ```
 
 **Administrator only** - Remove an entry from watch history.
@@ -148,10 +164,18 @@ Add to watch history without using a timer:
 Get the ID from `/watched list`, then:
 
 ```
-/watched remove 42
+/watched remove id:42
 ```
 
-**Cannot be undone!**
+⚠️ **Cannot be undone!**
+
+### Check Timer Status
+
+```
+/timer status
+```
+
+See how long the current timer has been running and who started it.
 
 ## Use Cases
 
@@ -160,10 +184,16 @@ Get the ID from `/watched list`, then:
 Track your weekly or monthly watch parties:
 
 ```
-Monday: /timer start 2h Movie Night Feature
-→ Community watches together
-→ Save to history with notes
-→ Review history before next party to avoid repeats
+1. Start timer: /timer start label:Movie Night - The Matrix
+2. Watch together (timer runs)
+3. Stop timer: /timer stop
+4. Click "Log to Watch History" button
+5. Add notes about reactions and highlights
+```
+
+Review history before next party to avoid repeats:
+```
+/watched list
 ```
 
 ### Movie Marathons
@@ -171,11 +201,16 @@ Monday: /timer start 2h Movie Night Feature
 Keep a record of marathon viewings:
 
 ```
-Day 1: Lord of the Rings: Fellowship
-Day 2: Lord of the Rings: Two Towers  
-Day 3: Lord of the Rings: Return of the King
+Day 1: /timer start label:LotR: Fellowship
+       → Watch, stop, save with notes
+       
+Day 2: /timer start label:LotR: Two Towers  
+       → Watch, stop, save with notes
+       
+Day 3: /timer start label:LotR: Return of the King
+       → Watch, stop, save with notes
 
-All saved to history with notes about highlights
+All saved to history with marathon context
 ```
 
 ### TV Show Tracking
@@ -183,9 +218,11 @@ All saved to history with notes about highlights
 Track episode-by-episode progress:
 
 ```
-/watched add tv Breaking Bad S01E01 Pilot episode - hooked!
-/watched add tv Breaking Bad S01E02 Still excellent
+/watched add type:tv title:Breaking Bad S01E01 notes:Pilot episode - hooked!
+/watched add type:tv title:Breaking Bad S01E02 notes:Still excellent
 ```
+
+Or use timers for each episode viewing.
 
 ### Community Recommendations
 
@@ -193,10 +230,21 @@ See what the community has watched and enjoyed:
 
 ```
 /watched list
-→ Browse recent watches
-→ Read notes from other viewers
-→ Discover new content
 ```
+
+Browse recent watches, read notes from other viewers, and discover new content.
+
+## Timer Auto-Detection
+
+For advanced setups, configure watch party channels for automatic label detection from Discord events:
+
+```
+/eggshen-config watch-party add channel:#movie-night
+```
+
+When you start a timer in a configured channel with an active Discord event, the bot automatically uses the event name as the timer label.
+
+See the [Configuration Guide](/configuration#watch-party-configuration) for details.
 
 ### Avoiding Repeats
 
