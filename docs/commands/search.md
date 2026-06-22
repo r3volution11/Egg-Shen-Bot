@@ -7,11 +7,11 @@ Search for movies, TV shows, episodes, and games across multiple databases.
 Search for movies and view detailed information.
 
 ```
-/movie <title>
+/movie query:<title>
 ```
 
 **Parameters:**
-- `title` (required) - Movie title to search for
+- `query` (required) - Movie title to search for
 
 **Features:**
 - TMDB integration for comprehensive movie data
@@ -27,7 +27,7 @@ Search for movies and view detailed information.
 
 **Example:**
 ```
-/movie Big Trouble in Little China
+/movie query:Big Trouble in Little China
 ```
 
 ## TV Show Search
@@ -35,11 +35,11 @@ Search for movies and view detailed information.
 Search for TV shows and view series information.
 
 ```
-/tv <title>
+/tv query:<title>
 ```
 
 **Parameters:**
-- `title` (required) - TV show title to search for
+- `query` (required) - TV show title to search for (optionally include episode name)
 
 **Features:**
 - Complete series information
@@ -52,7 +52,7 @@ Search for TV shows and view series information.
 
 **Example:**
 ```
-/tv Stranger Things
+/tv query:Stranger Things
 ```
 
 ## Episode Search
@@ -60,13 +60,12 @@ Search for TV shows and view series information.
 Search for specific episodes of TV shows.
 
 ```
-/episode <show-title> <season> <episode>
+/episode show:<show-name> episode:<episode>
 ```
 
 **Parameters:**
-- `show-title` (required) - Name of the TV show
-- `season` (required) - Season number
-- `episode` (required) - Episode number
+- `show` (required) - Name of the TV show
+- `episode` (required) - Episode title or number (e.g., "Sandkings", "s3e11", "3x11")
 
 **Features:**
 - Episode-specific information
@@ -77,7 +76,8 @@ Search for specific episodes of TV shows.
 
 **Example:**
 ```
-/episode Stranger Things 1 1
+/episode show:The Outer Limits episode:Sandkings
+/episode show:Stranger Things episode:s1e1
 ```
 
 ## Episode List
@@ -85,12 +85,12 @@ Search for specific episodes of TV shows.
 View a list of all episodes in a season.
 
 ```
-/episode-list <show-title> <season>
+/episode-list series:<show-name> season:<number>
 ```
 
 **Parameters:**
-- `show-title` (required) - Name of the TV show
-- `season` (required) - Season number
+- `series` (required) - Name of the TV show
+- `season` (required) - Season number (integer)
 
 **Features:**
 - Complete season overview
@@ -100,7 +100,7 @@ View a list of all episodes in a season.
 
 **Example:**
 ```
-/episode-list Breaking Bad 5
+/episode-list series:Breaking Bad season:5
 ```
 
 ## Game Search
@@ -108,11 +108,11 @@ View a list of all episodes in a season.
 Search for video games and view detailed information.
 
 ```
-/game <title>
+/game query:<title>
 ```
 
 **Parameters:**
-- `title` (required) - Game title to search for
+- `query` (required) - Game title to search for
 
 **Features:**
 - RAWG database integration
@@ -125,7 +125,30 @@ Search for video games and view detailed information.
 
 **Example:**
 ```
-/game The Legend of Zelda Tears of the Kingdom
+/game query:The Legend of Zelda Tears of the Kingdom
+```
+
+## Board Game Search
+
+Search for board games and view detailed information.
+
+```
+/boardgame query:<title>
+```
+
+**Parameters:**
+- `query` (required) - Board game title to search for
+
+**Features:**
+- BoardGameGeek database integration
+- Player count and playtime
+- Complexity ratings
+- User ratings and rankings
+- Categories and mechanics
+
+**Example:**
+```
+/boardgame query:Catan
 ```
 
 ## Search Tips
@@ -133,27 +156,27 @@ Search for video games and view detailed information.
 ### Exact Matches
 Use the full, exact title for best results:
 ```
-/movie "The Thing" 1982
+/movie query:The Thing 1982
 ```
 
 ### Partial Matches
 The bot will find the closest match if the exact title isn't found:
 ```
-/tv mandalorian
+/tv query:mandalorian
 → Finds "The Mandalorian"
 ```
 
 ### Year Disambiguation
 Include the year to distinguish remakes or similar titles:
 ```
-/movie Total Recall 1990
-/movie Total Recall 2012
+/movie query:Total Recall 1990
+/movie query:Total Recall 2012
 ```
 
 ### Special Characters
 The search handles special characters and punctuation automatically:
 ```
-/tv It's Always Sunny in Philadelphia
+/tv query:It's Always Sunny in Philadelphia
 ```
 
 ## Rate Limiting

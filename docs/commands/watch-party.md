@@ -4,33 +4,33 @@ Host synchronized watch parties with timers and track what your community watche
 
 ## Timer Commands
 
-Start timers for watch parties with customizable countdowns.
+Start simple stopwatch timers for watch parties.
 
 ### Start a Timer
 
 ```
-/timer start <duration> [description]
+/timer start label:[optional label] theme:[optional theme]
 ```
 
 **Parameters:**
-- `duration` (required) - Timer duration (e.g., "2h", "90m", "1h30m")
-- `description` (optional) - What you're watching
-
-**Supported Formats:**
-- Minutes: `30m`, `90m`
-- Hours: `2h`, `1.5h`
-- Combined: `1h30m`, `2h15m`
+- `label` (optional) - Optional label for the timer (e.g., "Movie night", "The Matrix")
+- `theme` (optional) - Timer countdown theme (default: modern)
+  - `modern` - Colorful animated countdown (default)
+  - `classic` - Sequential text countdown like the original bot
 
 **Features:**
-- Public countdown display
-- Updates in real-time
-- Notification when timer completes
-- "Log to Watch History" button appears when finished
+- Runs indefinitely until manually stopped
+- 5-second countdown before starting (with visual/text animation)
+- "Log to Watch History" button appears when stopped (if label was provided)
 - Only timer starter or moderators can log to history
+- Public display visible to all channel members
 
-**Example:**
+**Examples:**
 ```
-/timer start 2h15m The Lord of the Rings: The Fellowship of the Ring
+/timer start label:The Lord of the Rings
+/timer start label:Movie Night theme:classic
+/timer start theme:modern
+/timer start
 ```
 
 ### Check Timer Status
@@ -86,12 +86,11 @@ Notes: Epic movie night! Everyone loved it.
 ### Manual Watch History Entry
 
 ```
-/watched add <type> <title> [notes]
+/watched add title:<title> notes:[optional notes]
 ```
 
 **Parameters:**
-- `type` (required) - "movie" or "tv"
-- `title` (required) - Title to search for
+- `title` (required) - Movie or TV show title to search for
 - `notes` (optional) - Additional notes about the viewing
 
 **Features:**
@@ -102,35 +101,32 @@ Notes: Epic movie night! Everyone loved it.
 
 **Example:**
 ```
-/watched add movie Big Trouble in Little China Great kung-fu scenes!
+/watched add title:Big Trouble in Little China notes:Great kung-fu scenes!
 ```
 
 ### View Watch History
 
 ```
-/watched list
+/watched history filter:[type] limit:[number]
 ```
 
+**Parameters:**
+- `filter` (optional) - Filter by content type (all, movie, tv) - default: all
+- `limit` (optional) - Number of entries to show (1-25) - default: 10
+
 Displays recent watch history for the server:
-- Last 10 watched items
 - Titles with TMDB links
 - Dates watched
 - Channels where watched
 - Who saved each entry
 - Notes from viewers
 
-### Remove from History
-
+**Examples:**
 ```
-/watched remove <id>
+/watched history
+/watched history filter:movie limit:25
+/watched history filter:tv limit:5
 ```
-
-**Parameters:**
-- `id` (required) - History entry ID (from `/watched list`)
-
-**Permissions:**
-- Server administrators only
-- Cannot be undone
 
 ## Watch Party Best Practices
 
