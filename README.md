@@ -39,9 +39,14 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 - **`/timer stop`** - Stop timer and save to watch history
 - **`/watched`** - View server watch history and statistics
 
+### Fun & Social
+
+- **`/potion`** - Give magical potions to other users with pop culture references! (Health, Mana, Strength, Speed, Invisibility, Luck, Confusion, Love, Poison, Energy)
+
 ## ✨ Key Features
 
 ### 📺 Comprehensive Media Coverage
+
 - **Movies & TV Shows** - Full metadata, cast, crew, ratings, streaming availability
 - **Episodes** - Search by title or notation (S3E11, 3x11), view episode lists with ratings
 - **Video Games** - Ratings, platforms, genres, release dates, Metacritic scores
@@ -49,6 +54,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 - **Books** - Author, publisher, page count, descriptions, cover art
 
 ### 🌟 Multi-Source Ratings
+
 - **IMDb** - User ratings and vote counts
 - **Letterboxd** - Film community ratings (movies only)
 - **Trakt** - Community ratings for movies, shows, and episodes
@@ -58,12 +64,14 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 - **BoardGameGeek** - Board game enthusiast ratings
 
 ### 📡 Streaming Availability
+
 - **Enhanced Data** - Powered by TMDB + Watchmode API
 - **Better Coverage** - Includes free services (Tubi, Pluto TV, Freevee)
 - **Stream, Rent, or Buy** - Shows all available options
 - **Region Support** - Configurable per-server (defaults to US)
 
 ### 🎯 Interactive & Configurable
+
 - **Dropdown Menus** - Choose from search results (1-50 results, default 20)
 - **Rich Embeds** - Beautiful cards with poster images and metadata
 - **Direct Links** - Quick access to IMDb, Letterboxd, Trakt, RT, JustWatch
@@ -72,16 +80,19 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 - **Service Toggles** - Enable/disable rating services per server
 
 ### 📊 Statistics & Tracking
+
 - **Watch History** - Track what your server watches with notes
 - **Personal Stats** - See your own search history and preferences
 - **Server Stats** - View community trends and popular searches
 - **Channel Timers** - Built-in timers for watch parties
 
 ---
+
 - � **Streaming Availability** - Shows where to stream, rent, or buy movies and TV shows (powered by TMDB)
 - �🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
 - 🖼️ **Rich Embeds** - Beautiful embedded messages with poster images and metadata
 - 🎯 **Interactive Selection** - Choose from search results via dropdown menu (configurable 1-50, default 20)
+
 ---
 
 ## Prerequisites

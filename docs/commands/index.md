@@ -259,6 +259,54 @@ Find similar content recommendations.
 
 ---
 
+## Fun & Social Commands
+
+### `/potion`
+Give magical potions to other users with fun pop culture references!
+
+**Options:**
+- `user` (required) - The user to give the potion to
+- `type` (required) - Type of potion (Health, Mana, Strength, Speed, Invisibility, Luck, Confusion, Love, Poison, Energy)
+
+**Features:**
+- 10 different potion types
+- 60+ unique responses with references to:
+  - Horror: Get Out, Midsommar, The Stuff, Poltergeist
+  - Comedy: Army of Darkness, Shaun of the Dead, Hot Fuzz, It's Always Sunny
+  - Fantasy: LOTR, Harry Potter, The Witcher, Princess Bride
+  - Games: Dark Souls, Skyrim, Zelda, Mario
+  - Modern: Everything Everywhere All At Once, Deadpool, Twin Peaks
+- Prevents giving potions to bots
+- Public messages with user mentions
+
+**Available Potion Types:**
+- 💚 **Health Potion** - Healing with +HP
+- 💙 **Mana Potion** - Magic restoration with +MP
+- 🔴 **Strength Potion** - Power boost with +STR
+- 💨 **Speed Potion** - Haste effect with +SPD
+- 👁️ **Invisibility Potion** - Stealth mode
+- 🍀 **Luck Potion** - Fortune boost with +LUCK
+- 😵 **Confusion Potion** - Chaos effect (for pranks!)
+- 💕 **Love Potion** - Romance boost with +CHARM
+- ☠️ **Poison** - Dark magic (use carefully!)
+- ⚡ **Energy Potion** - Power up with +ENERGY
+
+**Examples:**
+```
+/potion user:@Friend type:health
+→ "🧃 @You tosses @Friend an Estus Flask. 'Praise the sun!' 💚 +100 HP"
+
+/potion user:@Friend type:confusion
+→ "🌀 @You gives @Friend a mystery potion. They suddenly can't remember why they walked into this room. 😵 -50 INT"
+
+/potion user:@Friend type:love
+→ "💘 @You hands @Friend Cupid's arrow in liquid form. 'As you wish.' 💕 +95 CHARM (Princess Bride)"
+```
+
+**Note:** This is a fun, cosmetic command with no actual game mechanics. Perfect for adding personality to your server!
+
+---
+
 ### `/stats`
 View server statistics (Admin/Moderator only).
 
@@ -314,9 +362,10 @@ Display help information and available commands.
 
 | Category | Commands |
 |----------|----------|
-| **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game` |
+| **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
 | **Watch Parties** | `/timer`, `/watched` |
 | **Discovery** | `/random`, `/similar` |
+| **Fun & Social** | `/potion` |
 | **Statistics** | `/stats` |
 | **Configuration** | `/eggshen-config` |
 | **Help** | `/help` |
