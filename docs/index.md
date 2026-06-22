@@ -25,6 +25,10 @@ features:
     title: Watch Party Features
     details: Channel timers with auto-detection from Discord events, server-level watch history tracking with channel and frequency data
   
+  - icon: 🎯
+    title: Smart Auto-Detection
+    details: Automatically detects movie/show titles from Discord event names to pre-fill timer labels - no manual typing needed
+  
   - icon: 🛡️
     title: Advanced Moderation
     details: Comprehensive rate limiting, pattern detection for coordinated abuse, temporary cooldowns, whitelist mode, and auto-ban thresholds
@@ -32,10 +36,6 @@ features:
   - icon: 📊
     title: Statistics Tracking
     details: Track command usage, popular movies/shows, user activity with configurable tracking per content type
-  
-  - icon: 🔔
-    title: Smart Notifications
-    details: Automated watch party reminders and timer notifications synced with Discord scheduled events
   
   - icon: ⚙️
     title: Highly Configurable
