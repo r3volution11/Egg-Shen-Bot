@@ -199,6 +199,47 @@ export const data = new SlashCommandBuilder()
           .setDescription('Minimum BGG rating (1-10)')
           .setRequired(false)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('book')
+      .setDescription('Get a random book with optional filters')
+      .addStringOption(option =>
+        option
+          .setName('subject')
+          .setDescription('Filter by subject/genre')
+          .setRequired(false)
+          .addChoices(
+            { name: 'Horror', value: 'subject:horror' },
+            { name: 'Fantasy', value: 'subject:fantasy' },
+            { name: 'Science Fiction', value: 'subject:science+fiction' },
+            { name: 'Mystery', value: 'subject:mystery' },
+            { name: 'Thriller', value: 'subject:thriller' },
+            { name: 'Fiction', value: 'subject:fiction' },
+            { name: 'Non-Fiction', value: 'subject:non-fiction' },
+            { name: 'Biography', value: 'subject:biography' }
+          )
+      )
+      .addStringOption(option =>
+        option
+          .setName('decade')
+          .setDescription('Filter by decade')
+          .setRequired(false)
+          .addChoices(
+            { name: '2020s', value: '2020' },
+            { name: '2010s', value: '2010' },
+            { name: '2000s', value: '2000' },
+            { name: '1990s', value: '1990' },
+            { name: '1980s', value: '1980' },
+            { name: '1970s', value: '1970' }
+          )
+      )
+      .addStringOption(option =>
+        option
+          .setName('min-rating')
+          .setDescription('Minimum rating (1-5)')
+          .setRequired(false)
+      )
   );
 
 export async function execute(interaction) {
@@ -223,7 +264,15 @@ export async function execute(interaction) {
 
   // Check if user has permission to use this command
   const commandType = interaction.options.getSubcommand();
-  const hasPermission = await canUseCommand(interaction.guildId, interaction.member, commandType === 'episode' ? 'episode' : commandType === 'movie' ? 'movie' : 'tv');
+  const permissionMap = {
+    'movie': 'movie',
+    'tv': 'tv',
+    'episode': 'episode',
+    'game': 'game',
+    'boardgame': 'boardgame',
+    'book': 'book'
+  };
+  const hasPermission = await canUseCommand(interaction.guildId, interaction.member, permissionMap[commandType] || 'movie');
   if (!hasPermission) {
     await interaction.reply({
       content: `❌ The \`/${commandType}\` command is currently disabled for regular users. Contact a server administrator for more information.`,
@@ -514,6 +563,51 @@ export async function execute(interaction) {
       );
       
       const response = await createBoardGameDetailedEmbed(boardGame);
+      await interaction.editReply(response);
+      
+    } else if (subcommand === 'book') {
+      const { getRandomBook } = await import('../services/googleBooksService.js');
+      const { createBookDetailedEmbed } = await import('../utils/embedBuilder.js');
+      
+      const subject = interaction.options.getString('subject');
+      const decade = interaction.options.getString('decade');
+      const minRating = interaction.options.getString('min-rating');
+      
+      // Validate min-rating
+      if (minRating && (isNaN(minRating) || parseFloat(minRating) < 1 || parseFloat(minRating) > 5)) {
+        await interaction.editReply({
+          content: '❌ Minimum rating must be a number between 1 and 5.',
+        });
+        return;
+      }
+      
+      // Build filter object
+      const filters = {};
+      if (subject) filters.subject = subject;
+      if (decade) filters.publishedAfter = decade;
+      if (minRating) filters.minRating = parseFloat(minRating);
+      
+      // Get random book
+      const book = await getRandomBook(filters);
+      
+      if (!book) {
+        await interaction.editReply({
+          content: 'No books found matching your filters. Try adjusting them.',
+        });
+        return;
+      }
+      
+      // Track the random book search
+      await trackSearch(
+        interaction.guildId,
+        interaction.user.id,
+        interaction.user.username,
+        'random',
+        `Random Book - ${book.title}`,
+        book.publishedDate?.split('-')[0]
+      );
+      
+      const response = await createBookDetailedEmbed(book);
       await interaction.editReply(response);
     }
   } catch (error) {

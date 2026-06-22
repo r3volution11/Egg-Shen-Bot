@@ -1,11 +1,11 @@
 ---
 title: Search Commands - Egg Shen Bot
-description: Search movies, TV shows, episodes, video games, and board games with comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, and BoardGameGeek.
+description: Search movies, TV shows, episodes, video games, board games, and books with comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek, and Google Books.
 ---
 
 # Search Commands
 
-**Search for movies, TV shows, episodes, video games, and board games** across multiple databases with comprehensive ratings and links. All search commands provide detailed information, ratings from multiple sources, and streaming availability.
+**Search for movies, TV shows, episodes, video games, board games, and books** across multiple databases with comprehensive ratings and links. All search commands provide detailed information, ratings from multiple sources, and streaming availability.
 
 ## Quick FAQ
 
@@ -23,7 +23,7 @@ A: Check TMDB.org to see if it exists. The bot searches their database.
 
 ---
 
-Search for movies, TV shows, episodes, and games across multiple databases.
+Search for movies, TV shows, episodes, games, board games, and books across multiple databases.
 
 ## Movie Search
 
@@ -174,6 +174,32 @@ Search for board games and view detailed information.
 /boardgame query:Catan
 ```
 
+## Book Search
+
+Search for books and view detailed information.
+
+```
+/book query:<title or author>
+```
+
+**Parameters:**
+- `query` (required) - Book title or author to search for
+
+**Features:**
+- Google Books database integration
+- Author information
+- ISBN-13 and ISBN-10
+- Page counts and publication dates
+- User ratings from Google Books
+- Categories and genres
+- Preview and purchase links
+- Links to Goodreads and Open Library
+
+**Example:**
+```
+/book query:Clive Barker Books of Blood
+```
+
 ## Search Tips
 
 ### Exact Matches
@@ -233,6 +259,17 @@ See [Rate Limiting](/features/rate-limiting) for more information.
 - **Optional** - Game database
 - Screenshots and trailers
 - [Get API Key](https://rawg.io/apidocs)
+
+### BoardGameGeek (BGG)
+- **Optional** - Board game database
+- User ratings and rankings
+- [Get Client ID](https://boardgamegeek.com/wiki/page/BGG_XML_API2)
+
+### Google Books
+- **Optional** - Book database
+- Works without API key (1,000 requests/day)
+- API key provides 10,000 requests/day
+- [Get API Key](https://console.developers.google.com/)
 
 ## Troubleshooting
 

@@ -30,6 +30,10 @@ export const config = {
       clientId: process.env.BGG_CLIENT_ID,
       baseUrl: 'https://boardgamegeek.com/xmlapi2',
     },
+    googleBooks: {
+      apiKey: process.env.GOOGLE_BOOKS_API_KEY || null, // Optional - provides higher rate limits
+      baseUrl: 'https://www.googleapis.com/books/v1/volumes',
+    },
   },
   serviceUrls: {
     imdb: 'https://www.imdb.com/title',

@@ -1,12 +1,12 @@
 ---
 layout: home
-title: Egg Shen Bot - Discord Movie, TV Show, and Gaming Bot
-description: Free open-source Discord bot for searching movies, TV shows, video games, and board games with comprehensive ratings from IMDb, Letterboxd, Trakt, and more. Host watch parties with smart timers and track your server's watch history.
+title: Egg Shen Bot - Discord Movie, TV Show, Gaming, and Book Bot
+description: Free open-source Discord bot for searching movies, TV shows, video games, board games, and books with comprehensive ratings from IMDb, Letterboxd, Trakt, and more. Host watch parties with smart timers and track your server's watch history.
 
 hero:
   name: "Egg Shen Bot"
   text: "Your Discord Movie & TV Companion"
-  tagline: Search movies, TV shows, games, and host watch parties with comprehensive ratings, links, and moderation tools
+  tagline: Search movies, TV shows, games, books, and host watch parties with comprehensive ratings, links, and moderation tools
   actions:
     - theme: brand
       text: Get Started
@@ -21,7 +21,7 @@ hero:
 features:
   - icon: 🎬
     title: Comprehensive Search
-    details: Search movies, TV shows, episodes, video games, and board games with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, and BoardGameGeek
+    details: Search movies, TV shows, episodes, video games, board games, and books with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, BoardGameGeek, and Google Books
   
   - icon: ⏱️
     title: Watch Party Features

@@ -20,6 +20,7 @@ A comprehensive Discord bot for searching movies, TV shows, episodes, video game
 - 📋 **Episode List** - View all episodes in a season with ratings and air dates using `/episode-list`
 - 🎮 **Game Search** - Search for video games with the `/game` command
 - 🎲 **Board Game Search** - Search for board games with the `/boardgame` command
+- 📚 **Book Search** - Search for books with the `/book` command and get info from Google Books
 - 🎯 **Random Picker** - Get random movies, TV shows, episodes, games, or board games with genre/decade/rating/platform filters
 - 📝 **Watch History** - Track server watch parties with notes and channel tracking, view watch frequency
 - 🔍 **Similar Content** - Find similar movies, TV shows, games, or board games based on any title
@@ -42,6 +43,7 @@ A comprehensive Discord bot for searching movies, TV shows, episodes, video game
   - OMDB (Optional Movie Database) - [Get API key](http://www.omdbapi.com/apikey.aspx)
   - Trakt - [Get API key](https://trakt.tv/oauth/applications)
   - RAWG (Video Games Database) - [Get free API key](https://rawg.io/apidocs)
+  - Google Books (Optional) - [Get free API key](https://console.developers.google.com/)
 
 ## Installation
 

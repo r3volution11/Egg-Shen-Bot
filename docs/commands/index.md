@@ -143,6 +143,31 @@ Search for video games or board games.
 
 ---
 
+### `/book`
+Search for books with comprehensive information.
+
+**Options:**
+- `query` (required) - Book title or author to search for
+
+**Features:**
+- Google Books integration
+- Author information
+- ISBN-13 and ISBN-10
+- Page counts and publication dates
+- Ratings from Google Books
+- Categories and genres
+- Preview and purchase links
+- Links to Goodreads and Open Library
+
+**Example:**
+```
+/book query:Clive Barker Books of Blood
+```
+
+[Learn more →](/commands/search#book)
+
+---
+
 ## Watch Party Commands
 
 ### `/timer`
@@ -201,17 +226,20 @@ Log and view server watch party history.
 ## Utility Commands
 
 ### `/random`
-Get random movie, TV show, episode, or game with filters.
+Get random movie, TV show, episode, game, board game, or book with filters.
 
-**Options:**
-- `type` (required) - movie, tv-show, episode, or game
-- `genre` (optional) - Filter by genre
-- `min-rating` (optional) - Minimum rating (1-10)
-- `year` (optional) - Specific year
+**Subcommands:**
+- `/random movie` - Random movie with genre/decade/rating filters
+- `/random tv` - Random TV show with genre/decade/rating filters
+- `/random episode` - Random episode from a specific show
+- `/random game` - Random video game with genre/platform/rating filters
+- `/random boardgame` - Random board game with category/rating filters
+- `/random book` - Random book with subject/decade/rating filters
 
 **Example:**
 ```
-/random type:movie genre:horror min-rating:7
+/random movie genre:horror min-rating:7
+/random book subject:horror decade:1980s
 ```
 
 ---
@@ -221,11 +249,12 @@ Find similar content recommendations.
 
 **Options:**
 - `title` (required) - Title to find similar content for
-- `type` (required) - movie, tv, or game
+- `type` (optional) - movie, tv, game, boardgame, or book (searches all if not specified)
 
 **Example:**
 ```
 /similar title:The Matrix type:movie
+/similar title:Dracula type:book
 ```
 
 ---

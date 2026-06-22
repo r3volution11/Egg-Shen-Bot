@@ -12,6 +12,7 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
 | **Trakt** | ⭕ Optional | Yes | [Trakt](https://trakt.tv/oauth/applications) | Instant |
 | **RAWG** | ⭕ Optional | 20,000/month | [RAWG](https://rawg.io/apidocs) | Instant |
 | **BoardGameGeek** | ⭕ Optional | Yes | [BGG XML API](https://boardgamegeek.com/wiki/page/BGG_XML_API2) | Instant |
+| **Google Books** | ⭕ Optional | 1000-10k/day | [Google Cloud](https://console.developers.google.com/) | Instant |
 
 ---
 
@@ -225,6 +226,57 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
 - With credentials: Higher limits (varies)
 
 **Note:** BGG API approval can take 1-3 business days via email support.
+
+---
+
+## Google Books API Key
+
+**Purpose:** Book search and information  
+**Features Enabled:** `/book`, `/random book`, `/similar` (books)  
+**Free Tier:** 1,000 requests/day (no key) or 10,000 requests/day (with key)
+
+### Step-by-Step Instructions
+
+1. **Create Google Cloud Project**
+   - Visit https://console.cloud.google.com/
+   - Log in with your Google account
+   - Click **"Select a project"** dropdown
+   - Click **"New Project"**
+   - Enter project name (e.g., "Egg Shen Discord Bot")
+   - Click **"Create"**
+
+2. **Enable Books API**
+GOOGLE_BOOKS_API_KEY=your_google_books_api_key_here
+   - In the Google Cloud Console, go to **"APIs & Services"** → **"Library"**
+   - Search for **"Books API"**
+   - Click on **"Books API"** in the results
+   - Click **"Enable"**
+
+3. **Create API Key**
+   - Go to **"APIs & Services"** → **"Credentials"**
+   - Click **"Create Credentials"** → **"API Key"**
+   - Your API key will be generated
+   - Copy the API key
+
+4. **Restrict API Key (Recommended)**
+   - Click **"Edit API key"** (or the pencil icon)
+   - Under **"Application restrictions"**: Select "None" (or HTTP referrers if you prefer)
+   - Under **"API restrictions"**: Select **"Restrict key"**
+   - Choose **"Books API"** from the dropdown
+   - Click **"Save"**
+
+5. **Configure in Bot**
+   - Add to `.env` file as `GOOGLE_BOOKS_API_KEY`
+
+**Alternative (No API Key):**
+- The `/book` command works without an API key
+- Without key: 1,000 requests per day
+- With key: 10,000 requests per day
+
+**Rate Limits:** 
+- No key: 1,000 requests/day
+- With key: 10,000 requests/day
+- Can be increased by requesting quota increase in Google Cloud Console
 
 ---
 
