@@ -5,7 +5,7 @@ description: Free open-source Discord bot for searching movies, TV shows, video 
 
 hero:
   name: "Egg Shen Bot"
-  text: "Your Discord Movie & TV Companion"
+  text: "Your Complete Entertainment Search Bot"
   tagline: Search movies, TV shows, games, books, and host watch parties with comprehensive ratings, links, and moderation tools
   actions:
     - theme: brand
@@ -103,10 +103,19 @@ Type `/boardgame title:Catan` for:
 - **Age recommendation**
 - **Game mechanics** and categories
 
+### Books
+Type `/book query:Clive Barker Books of Blood` to find:
+- **Ratings** from Google Books readers
+- **Author information** and publication dates
+- **ISBN numbers** for easy lookup
+- **Page count** and categories/genres
+- **Preview and purchase links** from Google Books
+- **Additional links** to Goodreads and Open Library
+
 ### Smart Features
 
 **Random Picker**  
-Type `/random movie` or `/random tv` to get random suggestions. Works with all content types: movies, TV shows, episodes, games, and board games.
+Type `/random movie`, `/random tv`, or `/random book` to get random suggestions. Works with all content types: movies, TV shows, episodes, games, board games, and books. Filter by genre, decade, or minimum rating.
 
 **Find Similar Content**  
 Type `/similar` after searching for something to get personalized recommendations based on that content. Works across all media types.
@@ -122,8 +131,9 @@ Type `/timer start` when creating a Discord event, and the bot automatically det
 - `/episode` - Find specific episodes with ratings
 - `/game` - Search video games (requires RAWG API)
 - `/boardgame` - Search board games (requires BGG API)
-- `/random` - Get random suggestions (movies, shows, episodes, games, board games)
-- `/similar` - Find similar content recommendations
+- `/book` - Search books with Google Books integration
+- `/random` - Get random suggestions (movies, shows, episodes, games, board games, books)
+- `/similar` - Find similar content recommendations across all media types
 
 ### Watch Party Tools
 - `/timer start` - Smart timers that auto-detect Discord event titles
@@ -146,8 +156,8 @@ Type `/timer start` when creating a Discord event, and the bot automatically det
 
 ### What Makes It Special
 
-✅ **Truly All-in-One** - Movies, TV shows, episodes, video games, and board games all in one bot  
-✅ **Comprehensive Ratings** - IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek  
+✅ **Truly All-in-One** - Movies, TV shows, episodes, video games, board games, and books all in one bot  
+✅ **Comprehensive Ratings** - IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek, Google Books  
 ✅ **Watch Party Ready** - Built-in timers with auto-detection and watch history tracking  
 ✅ **Smart & Helpful** - Auto-detects titles from Discord events, provides streaming availability  
 ✅ **Respects Your Server** - Advanced rate limiting and moderation tools included  
@@ -159,6 +169,7 @@ Type `/timer start` when creating a Discord event, and the bot automatically det
 - **Movie Night Servers** - Search films, coordinate watch parties with timers, track viewing history
 - **TV Show Communities** - Find episodes, get ratings, discover similar shows
 - **Gaming Servers** - Look up video games and board games with comprehensive ratings
+- **Book Clubs** - Search books by title or author, find similar reads, get ISBNs and ratings
 - **Review & Discussion Groups** - Share ratings from multiple sources in one place
 - **Entertainment Hubs** - One bot for all your media lookup needs
 
