@@ -24,7 +24,8 @@ export const data = new SlashCommandBuilder()
         { name: 'Movie', value: 'movie' },
         { name: 'TV Show', value: 'tv' },
         { name: 'Video Game', value: 'game' },
-        { name: 'Board Game', value: 'boardgame' }
+        { name: 'Board Game', value: 'boardgame' },
+        { name: 'Book', value: 'book' }
       )
   );
 
@@ -57,6 +58,12 @@ export async function execute(interaction) {
       const boardGameResults = await searchBoardGames(title);
       allResults.push(...(boardGameResults || []).map(r => ({ ...r, type: 'boardgame' })));
     }
+    
+    if (!mediaType || mediaType === 'book') {
+      const { searchBooks } = await import('../services/googleBooksService.js');
+      const bookResults = await searchBooks(title);
+      allResults.push(...(bookResults || []).map(r => ({ ...r, type: 'book' })));
+    }
 
     if (allResults.length === 0) {
       const typeText = mediaType ? `${mediaType}s` : 'content';
@@ -85,6 +92,9 @@ export async function execute(interaction) {
       } else if (result.type === 'boardgame') {
         const { getSimilarBoardGames } = await import('../services/bggService.js');
         similar = await getSimilarBoardGames(result.id);
+      } else if (result.type === 'book') {
+        const { getSimilarBooks } = await import('../services/googleBooksService.js');
+        similar = await getSimilarBooks(result.id);
       } else {
         similar = result.type === 'movie'
           ? await getSimilarMovies(result.id)
@@ -98,9 +108,9 @@ export async function execute(interaction) {
         return;
       }
 
-      const mediaIcon = result.type === 'game' ? '🎮' : result.type === 'boardgame' ? '🎲' : '📺';
-      const mediaColor = result.type === 'game' ? 0x9147FF : result.type === 'boardgame' ? 0xFF5733 : 0x5865F2;
-      const mediaName = result.type === 'movie' ? 'movie' : result.type === 'tv' ? 'TV show' : result.type === 'game' ? 'game' : 'board game';
+      const mediaIcon = result.type === 'game' ? '🎮' : result.type === 'boardgame' ? '🎲' : result.type === 'book' ? '📚' : '📺';
+      const mediaColor = result.type === 'game' ? 0x9147FF : result.type === 'boardgame' ? 0xFF5733 : result.type === 'book' ? 0xFF6B35 : 0x5865F2;
+      const mediaName = result.type === 'movie' ? 'movie' : result.type === 'tv' ? 'TV show' : result.type === 'game' ? 'game' : result.type === 'book' ? 'book' : 'board game';
       
       const embed = new EmbedBuilder()
         .setColor(mediaColor)
@@ -109,7 +119,7 @@ export async function execute(interaction) {
 
       const recommendations = similar.slice(0, 10).map((item, index) => {
         const title = item.title || item.name;
-        const year = item.release_date || item.first_air_date || item.released || item.yearPublished;
+        const year = item.release_date || item.first_air_date || item.released || item.yearPublished || item.publishedDate;
         const yearStr = year ? ` (${year.toString().split('-')[0]})` : '';
         let rating = '';
         
@@ -117,6 +127,8 @@ export async function execute(interaction) {
           rating = item.rating ? ` • ⭐ ${item.rating.toFixed(1)}/5` : '';
         } else if (result.type === 'boardgame') {
           rating = item.rating?.average ? ` • ⭐ ${parseFloat(item.rating.average).toFixed(1)}/10` : '';
+        } else if (result.type === 'book') {
+          rating = item.averageRating ? ` • ⭐ ${item.averageRating.toFixed(1)}/5` : '';
         } else {
           rating = item.vote_average ? ` • ⭐ ${item.vote_average.toFixed(1)}/10` : '';
         }
@@ -151,14 +163,15 @@ export async function execute(interaction) {
     
     const options = allResults.slice(0, maxResults).map((result) => {
       const title = result.title || result.name;
-      const year = result.release_date || result.first_air_date || result.released || result.yearPublished;
+      const year = result.release_date || result.first_air_date || result.released || result.yearPublished || result.publishedDate;
       const yearStr = year ? ` (${year.toString().split('-')[0]})` : '';
-      const overview = result.overview ? result.overview.substring(0, 94) + '...' : 'No description';
-      const icon = result.type === 'movie' ? '🎬' : result.type === 'tv' ? '📺' : result.type === 'game' ? '🎮' : '🎲';
+      const overview = result.overview || result.description || 'No description';
+      const truncatedOverview = overview.length > 94 ? overview.substring(0, 94) + '...' : overview;
+      const icon = result.type === 'movie' ? '🎬' : result.type === 'tv' ? '📺' : result.type === 'game' ? '🎮' : result.type === 'book' ? '📚' : '🎲';
       
       return {
         label: `${title}${yearStr}`.substring(0, 100),
-        description: `${icon} ${overview}`.substring(0, 100),
+        description: `${icon} ${truncatedOverview}`.substring(0, 100),
         value: `similar_${result.type}_${result.id}`,
       };
     });
@@ -219,6 +232,19 @@ export async function handleSimilarSelection(type, itemId, interaction) {
       
       // Get similar board games
       similar = await getSimilarBoardGames(itemId);
+      
+    } else if (type === 'book') {
+      const { getBookDetails, getSimilarBooks } = await import('../services/googleBooksService.js');
+      
+      // Get book details
+      const details = await getBookDetails(itemId);
+      fullTitle = details.title;
+      const year = details.publishedDate;
+      yearStr = year ? ` (${year.split('-')[0]})` : '';
+      
+      // Get similar books
+      similar = await getSimilarBooks(itemId);
+      
     } else {
       const { getMovieDetails, getTVShowDetails, getSimilarMovies, getSimilarTV } = await import('../services/tmdbService.js');
       
@@ -245,9 +271,9 @@ export async function handleSimilarSelection(type, itemId, interaction) {
       return;
     }
 
-    const mediaIcon = type === 'game' ? '🎮' : type === 'boardgame' ? '🎲' : '📺';
-    const mediaColor = type === 'game' ? 0x9147FF : type === 'boardgame' ? 0xFF5733 : 0x5865F2;
-    const mediaName = type === 'movie' ? 'movie' : type === 'tv' ? 'TV show' : type === 'game' ? 'game' : 'board game';
+    const mediaIcon = type === 'game' ? '🎮' : type === 'boardgame' ? '🎲' : type === 'book' ? '📚' : '📺';
+    const mediaColor = type === 'game' ? 0x9147FF : type === 'boardgame' ? 0xFF5733 : type === 'book' ? 0xFF6B35 : 0x5865F2;
+    const mediaName = type === 'movie' ? 'movie' : type === 'tv' ? 'TV show' : type === 'game' ? 'game' : type === 'book' ? 'book' : 'board game';
     
     const embed = new EmbedBuilder()
       .setColor(mediaColor)
@@ -256,7 +282,7 @@ export async function handleSimilarSelection(type, itemId, interaction) {
 
     const recommendations = similar.slice(0, 10).map((item, index) => {
       const title = item.title || item.name;
-      const year = item.release_date || item.first_air_date || item.released || item.yearPublished;
+      const year = item.release_date || item.first_air_date || item.released || item.yearPublished || item.publishedDate;
       const yearStr = year ? ` (${year.toString().split('-')[0]})` : '';
       let rating = '';
       
@@ -264,6 +290,8 @@ export async function handleSimilarSelection(type, itemId, interaction) {
         rating = item.rating ? ` • ⭐ ${item.rating.toFixed(1)}/5` : '';
       } else if (type === 'boardgame') {
         rating = item.rating?.average ? ` • ⭐ ${parseFloat(item.rating.average).toFixed(1)}/10` : '';
+      } else if (type === 'book') {
+        rating = item.averageRating ? ` • ⭐ ${item.averageRating.toFixed(1)}/5` : '';
       } else {
         rating = item.vote_average ? ` • ⭐ ${item.vote_average.toFixed(1)}/10` : '';
       }

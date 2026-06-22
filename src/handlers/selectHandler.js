@@ -608,6 +608,30 @@ export async function handleSelectInteraction(interaction) {
       // Delete ephemeral menu and send public result
       await interaction.message.delete().catch(() => {});
       await interaction.channel.send(response);
+      
+    } else if (type === 'book') {
+      const { getBookDetails } = await import('../services/googleBooksService.js');
+      const { createBookDetailedEmbed } = await import('../utils/embedBuilder.js');
+      
+      const book = await getBookDetails(id);
+      
+      // Track book search
+      if (statsConfig.enabled && statsConfig.trackBooks) {
+        const year = book.publishedDate?.split('-')[0];
+        await trackSearch(
+          guildId,
+          interaction.user.id,
+          interaction.user.username,
+          'book',
+          book.title,
+          year
+        ).catch(err => console.error('Stats tracking error:', err));
+      }
+      
+      const response = await createBookDetailedEmbed(book);
+      // Delete ephemeral menu and send public result
+      await interaction.message.delete().catch(() => {});
+      await interaction.channel.send(response);
     }
     
   } catch (error) {

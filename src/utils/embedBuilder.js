@@ -673,3 +673,169 @@ export async function createBoardGameDetailedEmbed(game) {
   
   return { embeds: [embed], components: [] };
 }
+
+/**
+ * Create a book search results message with a select menu
+ */
+export async function createBookSearchResults(results, query) {
+  const options = results.map((result) => {
+    const title = result.title;
+    const authors = result.authors.length > 0 ? result.authors.join(', ') : 'Unknown Author';
+    const year = result.publishedDate ? result.publishedDate.split('-')[0] : '';
+    const yearStr = year ? ` (${year})` : '';
+    
+    return {
+      label: `${title}${yearStr}`.substring(0, 100),
+      description: `by ${authors}`.substring(0, 100),
+      value: `book_${result.id}`,
+    };
+  });
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('select_result')
+    .setPlaceholder('Select a book to display')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const embed = new EmbedBuilder()
+    .setColor(0xFF6B35) // Orange/rust color for books
+    .setTitle(`Book Search Results for "${query}"`)
+    .setDescription(`Found ${results.length} book${results.length !== 1 ? 's' : ''}. Select one to view details.`);
+  
+  return { embeds: [embed], components: [row] };
+}
+
+/**
+ * Create a detailed book embed
+ */
+export async function createBookDetailedEmbed(book) {
+  const title = book.title;
+  const subtitle = book.subtitle ? `: ${book.subtitle}` : '';
+  const year = book.publishedDate?.split('-')[0];
+  
+  const embed = new EmbedBuilder()
+    .setColor(0xFF6B35) // Orange/rust color for books
+    .setTitle(`${title}${subtitle}${year ? ` (${year})` : ''}`)
+    .setURL(book.canonicalVolumeLink || book.infoLink)
+    .setThumbnail(book.thumbnail || null);
+  
+  // Add description
+  if (book.description) {
+    // Strip HTML tags from description
+    const plainDescription = book.description.replace(/<[^>]*>/g, '');
+    const description = plainDescription.length > 500 
+      ? plainDescription.substring(0, 497) + '...' 
+      : plainDescription;
+    embed.setDescription(description);
+  }
+  
+  // Add authors
+  if (book.authors && book.authors.length > 0) {
+    embed.addFields({
+      name: '✍️ Author(s)',
+      value: book.authors.join(', '),
+      inline: false,
+    });
+  }
+  
+  // Add ratings
+  const ratingsInfo = [];
+  if (book.averageRating && book.ratingsCount) {
+    ratingsInfo.push(`⭐ **Google Books:** ${book.averageRating}/5 (${book.ratingsCount.toLocaleString()} ratings)`);
+  }
+  
+  if (ratingsInfo.length > 0) {
+    embed.addFields({
+      name: '⭐ Ratings',
+      value: ratingsInfo.join('\n'),
+      inline: false,
+    });
+  }
+  
+  // Add categories/genres
+  if (book.categories && book.categories.length > 0) {
+    const categoriesText = book.categories.join(', ');
+    embed.addFields({
+      name: '🏷️ Categories',
+      value: categoriesText.length > 1024 ? categoriesText.substring(0, 1021) + '...' : categoriesText,
+      inline: false,
+    });
+  }
+  
+  // Add publication info
+  const pubInfo = [];
+  if (book.publisher) {
+    pubInfo.push(`**Publisher:** ${book.publisher}`);
+  }
+  if (book.publishedDate) {
+    pubInfo.push(`**Published:** ${book.publishedDate}`);
+  }
+  if (book.pageCount) {
+    pubInfo.push(`**Pages:** ${book.pageCount}`);
+  }
+  
+  if (pubInfo.length > 0) {
+    embed.addFields({
+      name: '📚 Publication Info',
+      value: pubInfo.join('\n'),
+      inline: true,
+    });
+  }
+  
+  // Add ISBN info
+  const isbnInfo = [];
+  if (book.isbn13) {
+    isbnInfo.push(`**ISBN-13:** ${book.isbn13}`);
+  }
+  if (book.isbn10) {
+    isbnInfo.push(`**ISBN-10:** ${book.isbn10}`);
+  }
+  if (book.language) {
+    isbnInfo.push(`**Language:** ${book.language.toUpperCase()}`);
+  }
+  
+  if (isbnInfo.length > 0) {
+    embed.addFields({
+      name: '🔢 Details',
+      value: isbnInfo.join('\n'),
+      inline: true,
+    });
+  }
+  
+  // Add purchase/availability links
+  const links = [];
+  
+  // Google Books preview/info
+  if (book.previewLink) {
+    links.push(`[Preview on Google Books](${book.previewLink})`);
+  }
+  
+  // Purchase link if available
+  if (book.saleability === 'FOR_SALE' && book.buyLink) {
+    links.push(`[Buy Book](${book.buyLink})`);
+  }
+  
+  // Add Goodreads and Open Library links if we have ISBN
+  const isbn = book.isbn13 || book.isbn10;
+  if (isbn) {
+    links.push(`[Goodreads](https://www.goodreads.com/search?q=${isbn})`);
+    links.push(`[Open Library](https://openlibrary.org/isbn/${isbn})`);
+  }
+  
+  if (links.length > 0) {
+    embed.addFields({
+      name: '🔗 Links',
+      value: links.join(' • '),
+      inline: false,
+    });
+  }
+  
+  // Add price info if available
+  if (book.saleability === 'FOR_SALE' && book.retailPrice) {
+    const price = `${book.retailPrice.amount} ${book.retailPrice.currencyCode}`;
+    embed.setFooter({ text: `Available for purchase: ${price}` });
+  }
+  
+  return { embeds: [embed], components: [] };
+}
