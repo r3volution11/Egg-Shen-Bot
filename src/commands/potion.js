@@ -1,7 +1,8 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
 
-// Potion responses with pop culture, horror, and comedy references
-const POTION_RESPONSES = {
+// Default potion responses with pop culture, horror, and comedy references
+const DEFAULT_POTION_RESPONSES = {
   health: [
     "🧪 {giver} hands {receiver} a suspicious red liquid. 'This... is my BOOMSTICK of healing!' 💚 +50 HP (Army of Darkness approved)",
     "🍯 {giver} gives {receiver} a flask of miruvor. The elvish cordial burns with an inner fire! 💚 +75 HP (Elrond's recipe)",
@@ -84,35 +85,205 @@ const POTION_RESPONSES = {
   ],
 };
 
+const POTION_TYPES = ['health', 'mana', 'strength', 'speed', 'invisibility', 'luck', 'confusion', 'love', 'poison', 'energy'];
+
 export const data = new SlashCommandBuilder()
   .setName('potion')
-  .setDescription('Give a magical potion to another user!')
-  .addUserOption(option =>
-    option
-      .setName('user')
-      .setDescription('The user to give the potion to')
-      .setRequired(true)
+  .setDescription('Give magical potions or manage custom responses')
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('give')
+      .setDescription('Give a magical potion to another user')
+      .addUserOption(option =>
+        option
+          .setName('user')
+          .setDescription('The user to give the potion to')
+          .setRequired(true)
+      )
+      .addStringOption(option =>
+        option
+          .setName('type')
+          .setDescription('Type of potion to give')
+          .setRequired(true)
+          .addChoices(
+            { name: '💚 Health Potion', value: 'health' },
+            { name: '💙 Mana Potion', value: 'mana' },
+            { name: '🔴 Strength Potion', value: 'strength' },
+            { name: '💨 Speed Potion', value: 'speed' },
+            { name: '👁️ Invisibility Potion', value: 'invisibility' },
+            { name: '🍀 Luck Potion', value: 'luck' },
+            { name: '😵 Confusion Potion', value: 'confusion' },
+            { name: '💕 Love Potion', value: 'love' },
+            { name: '☠️ Poison', value: 'poison' },
+            { name: '⚡ Energy Potion', value: 'energy' },
+          )
+      )
   )
-  .addStringOption(option =>
-    option
-      .setName('type')
-      .setDescription('Type of potion to give')
-      .setRequired(true)
-      .addChoices(
-        { name: '💚 Health Potion', value: 'health' },
-        { name: '💙 Mana Potion', value: 'mana' },
-        { name: '🔴 Strength Potion', value: 'strength' },
-        { name: '💨 Speed Potion', value: 'speed' },
-        { name: '👁️ Invisibility Potion', value: 'invisibility' },
-        { name: '🍀 Luck Potion', value: 'luck' },
-        { name: '😵 Confusion Potion', value: 'confusion' },
-        { name: '💕 Love Potion', value: 'love' },
-        { name: '☠️ Poison (use carefully!)', value: 'poison' },
-        { name: '⚡ Energy Potion', value: 'energy' },
+  .addSubcommandGroup(group =>
+    group
+      .setName('responses')
+      .setDescription('Manage custom potion responses (Admin/Mod only)')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('add')
+          .setDescription('Add a custom potion response')
+          .addStringOption(option =>
+            option
+              .setName('type')
+              .setDescription('Potion type to add response to')
+              .setRequired(true)
+              .addChoices(
+                { name: '💚 Health', value: 'health' },
+                { name: '💙 Mana', value: 'mana' },
+                { name: '🔴 Strength', value: 'strength' },
+                { name: '💨 Speed', value: 'speed' },
+                { name: '👁️ Invisibility', value: 'invisibility' },
+                { name: '🍀 Luck', value: 'luck' },
+                { name: '😵 Confusion', value: 'confusion' },
+                { name: '💕 Love', value: 'love' },
+                { name: '☠️ Poison', value: 'poison' },
+                { name: '⚡ Energy', value: 'energy' },
+              )
+          )
+          .addStringOption(option =>
+            option
+              .setName('response')
+              .setDescription('Response text (use {giver} and {receiver} as placeholders)')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('remove')
+          .setDescription('Remove a custom potion response')
+          .addStringOption(option =>
+            option
+              .setName('type')
+              .setDescription('Potion type')
+              .setRequired(true)
+              .addChoices(
+                { name: '💚 Health', value: 'health' },
+                { name: '💙 Mana', value: 'mana' },
+                { name: '🔴 Strength', value: 'strength' },
+                { name: '💨 Speed', value: 'speed' },
+                { name: '👁️ Invisibility', value: 'invisibility' },
+                { name: '🍀 Luck', value: 'luck' },
+                { name: '😵 Confusion', value: 'confusion' },
+                { name: '💕 Love', value: 'love' },
+                { name: '☠️ Poison', value: 'poison' },
+                { name: '⚡ Energy', value: 'energy' },
+              )
+          )
+          .addIntegerOption(option =>
+            option
+              .setName('index')
+              .setDescription('Response number to remove (use /potion responses list to see)')
+              .setRequired(true)
+              .setMinValue(1)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('list')
+          .setDescription('List all responses for a potion type')
+          .addStringOption(option =>
+            option
+              .setName('type')
+              .setDescription('Potion type to list')
+              .setRequired(true)
+              .addChoices(
+                { name: '💚 Health', value: 'health' },
+                { name: '💙 Mana', value: 'mana' },
+                { name: '🔴 Strength', value: 'strength' },
+                { name: '💨 Speed', value: 'speed' },
+                { name: '👁️ Invisibility', value: 'invisibility' },
+                { name: '🍀 Luck', value: 'luck' },
+                { name: '😵 Confusion', value: 'confusion' },
+                { name: '💕 Love', value: 'love' },
+                { name: '☠️ Poison', value: 'poison' },
+                { name: '⚡ Energy', value: 'energy' },
+              )
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('reset')
+          .setDescription('Reset potion type to default responses')
+          .addStringOption(option =>
+            option
+              .setName('type')
+              .setDescription('Potion type to reset')
+              .setRequired(true)
+              .addChoices(
+                { name: '💚 Health', value: 'health' },
+                { name: '💙 Mana', value: 'mana' },
+                { name: '🔴 Strength', value: 'strength' },
+                { name: '💨 Speed', value: 'speed' },
+                { name: '👁️ Invisibility', value: 'invisibility' },
+                { name: '🍀 Luck', value: 'luck' },
+                { name: '😵 Confusion', value: 'confusion' },
+                { name: '💕 Love', value: 'love' },
+                { name: '☠️ Poison', value: 'poison' },
+                { name: '⚡ Energy', value: 'energy' },
+              )
+          )
       )
   );
 
+/**
+ * Get all responses for a potion type (defaults + custom)
+ */
+async function getPotionResponses(guildId, potionType) {
+  const config = await loadGuildConfig(guildId);
+  const customResponses = config.potionResponses?.[potionType] || [];
+  const defaultResponses = DEFAULT_POTION_RESPONSES[potionType] || [];
+  
+  // Combine custom and default responses
+  return [...customResponses, ...defaultResponses];
+}
+
 export async function execute(interaction) {
+  const subcommand = interaction.options.getSubcommand();
+  const subcommandGroup = interaction.options.getSubcommandGroup();
+
+  // Handle /potion give (available to everyone)
+  if (subcommand === 'give') {
+    await handleGivePotion(interaction);
+    return;
+  }
+
+  // All other commands require admin/mod permissions
+  if (subcommandGroup === 'responses') {
+    // Check permissions
+    if (!isAdmin(interaction.member)) {
+      await interaction.reply({
+        content: '❌ Only administrators and moderators can manage custom potion responses.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    switch (subcommand) {
+      case 'add':
+        await handleAddResponse(interaction);
+        break;
+      case 'remove':
+        await handleRemoveResponse(interaction);
+        break;
+      case 'list':
+        await handleListResponses(interaction);
+        break;
+      case 'reset':
+        await handleResetResponses(interaction);
+        break;
+    }
+  }
+}
+
+/**
+ * Handle /potion give - Give a potion to another user
+ */
+async function handleGivePotion(interaction) {
   const targetUser = interaction.options.getUser('user');
   const potionType = interaction.options.getString('type');
   const giver = interaction.user;
@@ -127,11 +298,11 @@ export async function execute(interaction) {
   }
 
   // Get responses for the potion type
-  const responses = POTION_RESPONSES[potionType];
+  const responses = await getPotionResponses(interaction.guildId, potionType);
   
-  if (!responses) {
+  if (!responses || responses.length === 0) {
     await interaction.reply({
-      content: '❌ Unknown potion type! The universe glitches...',
+      content: '❌ No responses configured for this potion type!',
       ephemeral: true,
     });
     return;
@@ -142,12 +313,144 @@ export async function execute(interaction) {
   
   // Replace placeholders
   const finalMessage = response
-    .replace('{giver}', `<@${giver.id}>`)
-    .replace('{receiver}', `<@${targetUser.id}>`);
+    .replace(/{giver}/g, `<@${giver.id}>`)
+    .replace(/{receiver}/g, `<@${targetUser.id}>`);
 
   // Send the potion message publicly
   await interaction.reply({
     content: finalMessage,
     allowedMentions: { users: [giver.id, targetUser.id] },
   });
+}
+
+/**
+ * Handle /potion responses add - Add a custom response
+ */
+async function handleAddResponse(interaction) {
+  const potionType = interaction.options.getString('type');
+  const response = interaction.options.getString('response');
+
+  // Validate placeholders exist
+  if (!response.includes('{giver}') || !response.includes('{receiver}')) {
+    await interaction.reply({
+      content: '❌ Response must include both `{giver}` and `{receiver}` placeholders!',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  // Load config and add response
+  const config = await loadGuildConfig(interaction.guildId);
+  if (!config.potionResponses) {
+    config.potionResponses = {};
+  }
+  if (!config.potionResponses[potionType]) {
+    config.potionResponses[potionType] = [];
+  }
+
+  config.potionResponses[potionType].push(response);
+  await saveGuildConfig(interaction.guildId, config);
+
+  await interaction.reply({
+    content: `✅ Added custom ${potionType} potion response!\n\nPreview: ${response.replace('{giver}', '@Giver').replace('{receiver}', '@Receiver')}`,
+    ephemeral: true,
+  });
+}
+
+/**
+ * Handle /potion responses remove - Remove a custom response
+ */
+async function handleRemoveResponse(interaction) {
+  const potionType = interaction.options.getString('type');
+  const index = interaction.options.getInteger('index');
+
+  const config = await loadGuildConfig(interaction.guildId);
+  const customResponses = config.potionResponses?.[potionType] || [];
+
+  if (customResponses.length === 0) {
+    await interaction.reply({
+      content: `❌ No custom responses for ${potionType} potions to remove.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (index < 1 || index > customResponses.length) {
+    await interaction.reply({
+      content: `❌ Invalid index. Must be between 1 and ${customResponses.length}.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const removed = customResponses.splice(index - 1, 1)[0];
+  config.potionResponses[potionType] = customResponses;
+  await saveGuildConfig(interaction.guildId, config);
+
+  await interaction.reply({
+    content: `✅ Removed custom ${potionType} potion response #${index}:\n\`\`\`${removed}\`\`\``,
+    ephemeral: true,
+  });
+}
+
+/**
+ * Handle /potion responses list - List all responses for a type
+ */
+async function handleListResponses(interaction) {
+  const potionType = interaction.options.getString('type');
+
+  const config = await loadGuildConfig(interaction.guildId);
+  const customResponses = config.potionResponses?.[potionType] || [];
+  const defaultResponses = DEFAULT_POTION_RESPONSES[potionType] || [];
+
+  let message = `**${potionType.charAt(0).toUpperCase() + potionType.slice(1)} Potion Responses**\n\n`;
+
+  if (customResponses.length > 0) {
+    message += `**Custom Responses (${customResponses.length}):**\n`;
+    customResponses.forEach((resp, index) => {
+      const preview = resp.length > 100 ? resp.substring(0, 100) + '...' : resp;
+      message += `${index + 1}. ${preview}\n`;
+    });
+    message += '\n';
+  }
+
+  message += `**Default Responses (${defaultResponses.length}):**\n`;
+  defaultResponses.slice(0, 3).forEach((resp, index) => {
+    const preview = resp.length > 100 ? resp.substring(0, 100) + '...' : resp;
+    message += `• ${preview}\n`;
+  });
+  if (defaultResponses.length > 3) {
+    message += `... and ${defaultResponses.length - 3} more\n`;
+  }
+
+  message += `\n**Total: ${customResponses.length + defaultResponses.length} responses**`;
+
+  await interaction.reply({
+    content: message,
+    ephemeral: true,
+  });
+}
+
+/**
+ * Handle /potion responses reset - Reset to default responses
+ */
+async function handleResetResponses(interaction) {
+  const potionType = interaction.options.getString('type');
+
+  const config = await loadGuildConfig(interaction.guildId);
+  if (config.potionResponses && config.potionResponses[potionType]) {
+    const count = config.potionResponses[potionType].length;
+    delete config.potionResponses[potionType];
+    await saveGuildConfig(interaction.guildId, config);
+
+    await interaction.reply({
+      content: `✅ Reset ${potionType} potions to defaults. Removed ${count} custom response(s).`,
+      ephemeral: true,
+    });
+  } else {
+    await interaction.reply({
+      content: `ℹ️ ${potionType.charAt(0).toUpperCase() + potionType.slice(1)} potions are already using default responses.`,
+      ephemeral: true,
+    });
+  }
 }
