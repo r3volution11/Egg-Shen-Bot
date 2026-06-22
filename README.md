@@ -1,8 +1,8 @@
 # Egg Shen Bot
 
-> 🎬 Discord bot for movies, TV shows, games, and watch parties
+> 🎬 Your all-in-one Discord companion for movies, TV, games, books, and watch parties
 
-A comprehensive Discord bot for searching movies, TV shows, episodes, video games, and board games with ratings from multiple services (IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, BoardGameGeek). Perfect for entertainment communities with watch party features, moderation tools, and statistics tracking.
+A comprehensive Discord bot for searching and discovering entertainment across **7 media types** with ratings from multiple trusted services. Get instant information about movies, TV shows, episodes, video games, board games, and books — all with beautiful embeds, streaming availability, and interactive features perfect for entertainment communities.
 
 **📚 [View Full Documentation](https://r3volution11.github.io/Egg-Shen-Bot/)**
 
@@ -12,38 +12,89 @@ A comprehensive Discord bot for searching movies, TV shows, episodes, video game
 
 ---
 
-## Features
+## 🎯 Core Commands
 
-- 🎬 **Movie Search** - Search for any movie with the `/movie` command
-- 📺 **TV Show Search** - Search for TV shows with the `/tv` command
-- 🎞️ **Episode Search** - Search for specific TV episodes by title or season/episode notation (s3e11, 3x11)
-- 📋 **Episode List** - View all episodes in a season with ratings and air dates using `/episode-list`
-- 🎮 **Game Search** - Search for video games with the `/game` command
-- 🎲 **Board Game Search** - Search for board games with the `/boardgame` command
-- 📚 **Book Search** - Search for books with the `/book` command and get info from Google Books
-- 🎯 **Random Picker** - Get random movies, TV shows, episodes, games, or board games with genre/decade/rating/platform filters
-- 📝 **Watch History** - Track server watch parties with notes and channel tracking, view watch frequency
-- 🔍 **Similar Content** - Find similar movies, TV shows, games, or board games based on any title
-- 📊 **Public Statistics** - Anyone can view server stats and personal usage statistics
-- ⭐ **Multiple Ratings** - Display ratings from IMDb, Trakt, and Rotten Tomatoes
+### Search by Media Type
+
+| Command | Description | Data Sources |
+|---------|-------------|--------------|
+| **`/movie`** | Search for any movie | TMDB, IMDb, Letterboxd, Trakt, RT |
+| **`/tv`** | Search for TV shows | TMDB, IMDb, Trakt, RT |
+| **`/episode`** | Find specific episodes by title or notation (S3E11, 3x11) | TMDB, IMDb, Trakt |
+| **`/episode-list`** | View all episodes in a season with ratings | TMDB, IMDb, Trakt |
+| **`/game`** | Search for video games | RAWG, Metacritic |
+| **`/boardgame`** | Search for board games | BoardGameGeek |
+| **`/book`** | Search for books | Google Books |
+
+### Discovery & Exploration
+
+| Command | Description | Supports |
+|---------|-------------|----------|
+| **`/random`** | Get random content with filters (genre, decade, rating, platform) | Movies, TV, Episodes, Games, Board Games |
+| **`/similar`** | Find similar content based on any title | Movies, TV, Games, Board Games |
+
+### Watch Parties & History
+
+- **`/timer start`** - Start a watch timer with optional duration and auto-detection
+- **`/timer stop`** - Stop timer and save to watch history
+- **`/watched`** - View server watch history and statistics
+
+## ✨ Key Features
+
+### 📺 Comprehensive Media Coverage
+- **Movies & TV Shows** - Full metadata, cast, crew, ratings, streaming availability
+- **Episodes** - Search by title or notation (S3E11, 3x11), view episode lists with ratings
+- **Video Games** - Ratings, platforms, genres, release dates, Metacritic scores
+- **Board Games** - BGG ratings, player counts, complexity, playtime
+- **Books** - Author, publisher, page count, descriptions, cover art
+
+### 🌟 Multi-Source Ratings
+- **IMDb** - User ratings and vote counts
+- **Letterboxd** - Film community ratings (movies only)
+- **Trakt** - Community ratings for movies, shows, and episodes
+- **Rotten Tomatoes** - Critic scores
+- **Metacritic** - Game critic scores
+- **RAWG** - Gamer community ratings
+- **BoardGameGeek** - Board game enthusiast ratings
+
+### 📡 Streaming Availability
+- **Enhanced Data** - Powered by TMDB + Watchmode API
+- **Better Coverage** - Includes free services (Tubi, Pluto TV, Freevee)
+- **Stream, Rent, or Buy** - Shows all available options
+- **Region Support** - Configurable per-server (defaults to US)
+
+### 🎯 Interactive & Configurable
+- **Dropdown Menus** - Choose from search results (1-50 results, default 20)
+- **Rich Embeds** - Beautiful cards with poster images and metadata
+- **Direct Links** - Quick access to IMDb, Letterboxd, Trakt, RT, JustWatch
+- **Custom Emojis** - Admins can set server-specific service emojis
+- **Command Permissions** - Control which commands regular users can access
+- **Service Toggles** - Enable/disable rating services per server
+
+### 📊 Statistics & Tracking
+- **Watch History** - Track what your server watches with notes
+- **Personal Stats** - See your own search history and preferences
+- **Server Stats** - View community trends and popular searches
+- **Channel Timers** - Built-in timers for watch parties
+
+---
 - � **Streaming Availability** - Shows where to stream, rent, or buy movies and TV shows (powered by TMDB)
 - �🔗 **Service Links** - Direct links to IMDb, Letterboxd, Trakt, Rotten Tomatoes, and JustWatch
 - 🖼️ **Rich Embeds** - Beautiful embedded messages with poster images and metadata
 - 🎯 **Interactive Selection** - Choose from search results via dropdown menu (configurable 1-50, default 20)
-- ⚙️ **Per-Server Configuration** - Admins can toggle services and set custom emojis
-- 🔐 **Command Permissions** - Control which commands regular users can access
-- ⏱️ **Channel Timers** - Start and stop timers with optional labels and watch history integration
+---
 
 ## Prerequisites
 
 - Node.js 18.x or higher
 - A Discord application and bot token
 - API keys for:
-  - TMDB (The Movie Database) - [Get free API key](https://www.themoviedb.org/settings/api)
-  - OMDB (Optional Movie Database) - [Get API key](http://www.omdbapi.com/apikey.aspx)
-  - Trakt - [Get API key](https://trakt.tv/oauth/applications)
-  - RAWG (Video Games Database) - [Get free API key](https://rawg.io/apidocs)
-  - Google Books (Optional) - [Get free API key](https://console.developers.google.com/)
+  - **TMDB** (The Movie Database) - Required - [Get free API key](https://www.themoviedb.org/settings/api)
+  - **Watchmode** - Optional (enhanced streaming data) - [Get API key](https://api.watchmode.com/)
+  - **OMDB** (Optional Movie Database) - Optional - [Get API key](http://www.omdbapi.com/apikey.aspx)
+  - **Trakt** - Optional - [Get API key](https://trakt.tv/oauth/applications)
+  - **RAWG** (Video Games) - Optional - [Get free API key](https://rawg.io/apidocs)
+  - **Google Books** - Optional - [Get free API key](https://console.developers.google.com/)
 
 ## Installation
 
@@ -165,10 +216,12 @@ Similar to movie search, but displays:
 ```
 
 The bot supports **two search methods**:
+
 1. **By episode title** (e.g., "Sandkings") - Searches through all seasons
 2. **By season/episode number** (e.g., "s3e11", "3x11", "3-11") - Direct lookup
 
 **Supported notation formats:**
+
 - `s3e11` or `S3E11` (season 3, episode 11)
 - `3x11` or `3X11` (season 3, episode 11)
 - `3-11` (season 3, episode 11)
@@ -211,6 +264,7 @@ The bot will:
    - Link to view the full season on IMDb
 
 **Perfect for:**
+
 - Planning watch party schedules
 - Finding highly-rated episodes in a series
 - Browsing a season before committing to a full binge
@@ -412,6 +466,7 @@ View the server's watch party history with filters:
 - **limit** - Number of entries to show (1-25, default: 10)
 
 Displays recent watch parties with:
+
 - Title and year
 - Who saved it
 - Date watched
@@ -429,6 +484,7 @@ When you stop a timer with a label:
 5. **Public message** shows what was watched, the channel, and who saved it
 
 **Why These Restrictions?**
+
 - Timer starter knows what was actually watched
 - Admins/mods can correct or add missing entries
 - Prevents random users from logging incorrect content
@@ -579,6 +635,7 @@ Leave the emoji field empty to clear a custom emoji setting.
 ```
 
 Set your preferred region for streaming availability using ISO 3166-1 country codes:
+
 - **US** - United States (default)
 - **CA** - Canada
 - **GB** - United Kingdom
@@ -597,6 +654,7 @@ This determines which streaming services are shown in movie and TV embeds.
 ```
 
 Configure how many search results to display in dropdown menus (1-50, default: 20). Useful if:
+
 - You want comprehensive options to choose from (increase to 30-50)
 - You prefer fewer choices for faster selection (decrease to 5-10)
 - Your searches often miss the right result (increase for more coverage)
@@ -612,6 +670,7 @@ Configure how many search results to display in dropdown menus (1-50, default: 2
 Manage which channels can auto-detect event titles for timers. Perfect for servers with dedicated watch party channels!
 
 **How it works:**
+
 1. Add one or more watch party channels (e.g., #movie-night, #horror-night)
 2. Create Discord scheduled events with movie/show titles
 3. Set the event location to match the channel (e.g., "#movie-night")
@@ -619,6 +678,7 @@ Manage which channels can auto-detect event titles for timers. Perfect for serve
 5. Run `/timer start` in that channel - it automatically uses the event title!
 
 **Why multiple channels?**
+
 - Servers like Shudder Discord have multiple watch party rooms
 - Different events can run simultaneously in different channels
 - Each channel independently detects its own events
@@ -655,6 +715,7 @@ Set the global rate limit for all commands. Example: 5 requests per 60 seconds m
 ```
 
 Set a custom rate limit for a specific command. This overrides the global limit for that command only. Available commands:
+
 - **movie** - Movie search
 - **tv** - TV show search  
 - **episode** - Episode search
@@ -685,12 +746,14 @@ Clear rate limits for a specific user (emergency override). Use if a user is acc
 Configure server-wide rate limiting to prevent coordinated multi-account flooding. This limits the **total** number of commands across ALL users within a time window, regardless of per-user limits.
 
 **How it works:**
+
 - Independent of per-user limits (both are checked)
 - Prevents coordinated attacks from multiple bot/throwaway accounts
 - Default: 10 total commands per 60 seconds across all users
 - Example: If 10 users each try to use a command at once, the 11th will be rate-limited
 
 **When to adjust:**
+
 - **Increase (20-30 per 60s):** Large active servers with many legitimate users
 - **Decrease (5-10 per 60s):** Smaller servers or those experiencing abuse
 - **Disable:** Very small private servers with fully trusted members
@@ -702,10 +765,12 @@ Configure server-wide rate limiting to prevent coordinated multi-account floodin
 Enable suspicious activity pattern detection to automatically flag coordinated abuse. The bot monitors for:
 
 **Detected Patterns:**
+
 1. **Identical Commands** - Multiple different accounts running the exact same command with identical arguments rapidly
 2. **Coordinated Bursts** - Multiple accounts firing many commands simultaneously (within 10 seconds)
 
 **How it works:**
+
 - Tracks command patterns across all users
 - Flags suspicious behavior when `min-users` or more accounts show coordinated activity
 - Logs flagged activity for admin review (kept for 24 hours)
@@ -713,6 +778,7 @@ Enable suspicious activity pattern detection to automatically flag coordinated a
 - Moderators/admins are excluded from detection
 
 **Recommended `min-users` settings:**
+
 - **2-3 users:** Strict detection, good for smaller servers
 - **4-5 users:** Balanced detection, good for medium servers  
 - **6+ users:** Loose detection, good for large active servers
@@ -722,6 +788,7 @@ Enable suspicious activity pattern detection to automatically flag coordinated a
 ```
 
 View recently detected suspicious activity patterns. Shows:
+
 - Type of pattern detected (identical commands vs coordinated burst)
 - Which users were involved
 - When it occurred
@@ -736,6 +803,7 @@ Use this to investigate potential bot/spam attacks and decide whether to ban the
 View individual rate limit violations by user. While pattern detection catches **coordinated** abuse (3+ users), the abuse log tracks **individual** violations - perfect for catching solo abusers.
 
 **Shows:**
+
 - Which users hit rate limits (per-user or server-wide)
 - How many violations per user
 - What commands they were spamming
@@ -745,6 +813,7 @@ View individual rate limit violations by user. While pattern detection catches *
 **Kept for 48 hours** - longer than pattern detection (24 hours) to catch persistent behavior.
 
 **Example output:**
+
 ```
 ⚠️ Rate Limit Violations (Last 48h)
 
@@ -760,12 +829,14 @@ Last: 2m ago
 ```
 
 **When to use:**
+
 - Pattern detection flags coordinated attacks (3+ users)
 - Abuse log catches solo users testing/abusing limits
 - Provides evidence trail for moderation decisions
 - Identifies users who repeatedly hit limits
 
 **Default Settings:**
+
 - Rate limiting: **Enabled**
 - Per-user limit: **1 request per 20 seconds**
 - Server-wide limit: **10 requests per 60 seconds** ✅ Enabled
@@ -775,6 +846,7 @@ Last: 2m ago
 - Custom command limits: **None** (uses global)
 
 **Rate Limit Tips:**
+
 - Default prevents burst flooding (can't rapid-fire multiple embeds)
 - Enforces natural pacing that aligns with ~10s API response times
 - Server-wide limiting stops coordinated multi-account attacks
@@ -814,12 +886,14 @@ Manually restrict specific users from using bot commands temporarily.
 Apply a temporary cooldown to a user. Duration is in minutes (max 10,080 = 1 week).
 
 **When to use:**
+
 - User is being disruptive but doesn't warrant a ban
 - Give users a "timeout" to cool down
 - Temporarily restrict access during investigations
 - Manual override when rate limits aren't sufficient
 
 **Features:**
+
 - User sees their remaining cooldown time when trying commands
 - Cooldown reason is shown to the user
 - Tracks who applied the cooldown and when
@@ -874,6 +948,7 @@ Remove roles or users from the whitelist.
 View all whitelisted roles and users.
 
 **When to use whitelist mode:**
+
 - Private/exclusive communities
 - Limit bot access to paid/subscriber roles
 - During watch parties or special events
@@ -881,6 +956,7 @@ View all whitelisted roles and users.
 - Preventing new users from flooding
 
 **Important notes:**
+
 - Administrators and moderators always have access (not affected by whitelist)
 - Can whitelist by role OR by user (or both)
 - Users without whitelist access see a clear "whitelist mode active" message
@@ -903,6 +979,7 @@ Enable auto-ban threshold warnings. Users who exceed the threshold will see a wa
 Set the violation threshold. Example: 20 violations within 24 hours triggers the warning.
 
 **How it works:**
+
 1. User hits rate limits (per-user or guild-wide)
 2. Each violation is logged in the abuse log
 3. When violations exceed threshold within time window:
@@ -915,16 +992,19 @@ Set the violation threshold. Example: 20 violations within 24 hours triggers the
 ```
 
 View all users who have exceeded the auto-ban threshold, including:
+
 - Total violation count
 - When their last violation occurred
 - Sorted by most violations first
 
 **Recommended thresholds:**
+
 - **Strict (5-10 violations in 24h):** Low-tolerance servers
 - **Balanced (15-25 violations in 24h):** Most servers (default: 20)
 - **Lenient (30-50 violations in 24h):** High-activity servers with legitimate power users
 
 **Important notes:**
+
 - Does NOT automatically ban users (provides information only)
 - Moderators must manually ban after reviewing flagged users
 - Works alongside rate limiting and abuse logging
@@ -1195,10 +1275,12 @@ Feel free to submit issues or pull requests for:
 This work is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
 **You are free to:**
+
 - **Share** — copy and redistribute the material
 - **Adapt** — remix, transform, and build upon the material
 
 **Under these terms:**
+
 - **Attribution** — Give appropriate credit and link to the license
 - **NonCommercial** — You may not use this for commercial purposes
 - **ShareAlike** — Distribute your contributions under the same license
