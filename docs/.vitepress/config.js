@@ -27,6 +27,7 @@ export default defineConfig({
         items: [
           { text: 'Getting Started', link: '/getting-started' },
           { text: 'Installation', link: '/installation' },
+          { text: 'API Keys Guide', link: '/api-keys' },
           { text: 'Configuration', link: '/configuration' }
         ]
       },
