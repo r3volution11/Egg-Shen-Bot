@@ -9,29 +9,43 @@ Start simple stopwatch timers for watch parties.
 ### Start a Timer
 
 ```
-/timer start label:[optional label] theme:[optional theme]
+/timer start label:[optional] duration:[optional] theme:[optional]
 ```
 
 **Parameters:**
-- `label` (optional) - Optional label for the timer (e.g., "Movie night", "The Matrix")
+- `label` (optional) - Label for what you're watching (e.g., "Movie night", "The Matrix")
+- `duration` (optional) - Duration in minutes (1-600) for auto-stop timer
 - `theme` (optional) - Timer countdown theme (default: modern)
   - `modern` - Colorful animated countdown (default)
   - `classic` - Sequential text countdown like the original bot
 
 **Features:**
-- Runs indefinitely until manually stopped
+- **Auto-stop:** Set duration to automatically stop timer when time expires
+- **Runtime auto-detection:** When label is auto-detected from Discord events, bot searches TMDB and adds 10-minute buffer
+- **Smart selection:** If multiple TMDB matches found, shows selection menu to pick correct title
+- **Runs continuously:** Without duration, runs until manually stopped
 - 5-second countdown before starting (with visual/text animation)
 - "Log to Watch History" button appears when stopped (if label was provided)
 - Only timer starter or moderators can log to history
 - Public display visible to all channel members
+- Shows remaining time when duration is set
 
 **Examples:**
 ```
-/timer start label:The Lord of the Rings
+/timer start label:The Lord of the Rings duration:190
 /timer start label:Movie Night theme:classic
-/timer start theme:modern
+/timer start duration:30
 /timer start
 ```
+
+**Auto-Detection Example:**
+1. Create Discord scheduled event named "The Lord of the Rings"
+2. Link event to a watch party channel
+3. Run `/timer start` (no parameters)
+4. Bot finds multiple TMDB matches and shows selection menu
+5. Select correct movie (The Fellowship of the Ring)
+6. Bot auto-detects 178 min runtime + 10 min buffer = 188 minutes
+7. Timer starts with auto-stop enabled
 
 ### Check Timer Status
 
@@ -40,9 +54,12 @@ Start simple stopwatch timers for watch parties.
 ```
 
 Shows the current timer status for the channel:
-- Time remaining
+- Elapsed time
+- Remaining time (if duration was set)
+- Total duration (if set)
 - What's being watched
 - Who started the timer
+- Auto-stop status
 
 ### Stop Timer
 

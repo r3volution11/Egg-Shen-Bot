@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Production-ready release** 🎉
+- **Timer duration parameter with auto-stop**
+  - Optional `duration` parameter (1-600 minutes) for `/timer start`
+  - Timer automatically stops and announces completion when duration expires
+  - Prevents issue of users forgetting to stop timers after content ends
+  - Duration persists across bot restarts with restored auto-stop timeouts
+  - Shows remaining time in `/timer status` when duration is set
+- **Runtime auto-detection from TMDB**
+  - When timer auto-detects label from Discord event, searches TMDB for runtime
+  - Automatically adds 10-minute buffer to cover setup time and credits
+  - Shows selection menu when multiple TMDB matches found (movies and TV shows)
+  - Users select correct title before timer starts
+  - Includes "Skip" option to start without duration
+  - Improves UX by preventing incorrect runtime detection
 - **Conditional command registration based on API availability**
   - `/game` and `/boardgame` commands won't appear in Discord if API keys aren't configured
   - Prevents users from seeing unavailable commands
@@ -192,8 +205,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/episode-list <show> <season>` - List all episodes in a season
   - `/game <title>` - Search for video games
 - Watch party timer system:
-  - `/timer start` - Start countdown timer (runs until manually stopped)
+  - `/timer start` - Start countdown timer
     - Optional `label` parameter for what you're watching
+    - Optional `duration` parameter (1-600 minutes) for auto-stop
     - Optional `theme` parameter (`modern` or `classic`)
   - `/timer stop` - Stop active timer
   - `/timer status` - Check timer status

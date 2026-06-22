@@ -126,6 +126,9 @@ Start, stop, or check channel-specific timers.
 - `/timer status` - Check timer status
 
 **Features:**
+- **Auto-stop timers:** Set duration (1-600 min) for automatic stop
+- **Runtime auto-detection:** Detects runtime from TMDB with 10-min buffer
+- **Smart selection:** Shows menu when multiple TMDB matches found
 - Auto-detects Discord scheduled events
 - Optional custom labels
 - One timer per channel
@@ -134,8 +137,9 @@ Start, stop, or check channel-specific timers.
 
 **Example:**
 ```
-/timer start label:Movie Night
+/timer start label:Movie Night duration:120
 /timer stop
+/timer status
 ```
 
 [Learn more →](/commands/watch-party#timer)
