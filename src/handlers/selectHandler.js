@@ -48,11 +48,66 @@ export async function handleSelectInteraction(interaction) {
       interaction.customId !== 'select_episode_list_show' &&
       interaction.customId !== 'select_watched' &&
       interaction.customId !== 'select_random_episode' &&
-      interaction.customId !== 'select_similar') return;
+      interaction.customId !== 'select_similar' &&
+      interaction.customId !== 'timer_select_runtime') return;
   
   // Defer the update to acknowledge the interaction
   if (!interaction.replied && !interaction.deferred) {
     await interaction.deferUpdate();
+  }
+
+  // Handle timer runtime selection
+  if (interaction.customId === 'timer_select_runtime') {
+    const value = interaction.values[0];
+    const parts = value.split('_');
+    const theme = parts[parts.length - 1]; // Last part is always theme (modern/classic)
+    
+    const channelId = interaction.channelId;
+    const userId = interaction.user.id;
+    const username = interaction.user.username;
+    
+    // Get the label from the embed title
+    const embedTitle = interaction.message.embeds[0]?.title || '';
+    const labelMatch = embedTitle.match(/Confirm Title for "(.+)"/);
+    const label = labelMatch ? labelMatch[1] : '';
+    
+    let duration = null;
+    
+    // Check if user selected skip
+    if (parts[1] === 'skip') {
+      console.log(`[Timer] User selected skip, starting timer without duration`);
+    } else {
+      // User selected a specific title
+      const type = parts[1]; // 'movie' or 'tv'
+      const tmdbId = parseInt(parts[2]);
+      
+      console.log(`[Timer] User selected ${type} with ID ${tmdbId}`);
+      
+      try {
+        let runtime = null;
+        if (type === 'movie') {
+          const details = await getMovieDetails(tmdbId);
+          runtime = details?.runtime;
+          console.log(`[Timer] Movie runtime: ${runtime} minutes`);
+        } else {
+          const details = await getTVShowDetails(tmdbId);
+          runtime = details?.episode_run_time?.[0];
+          console.log(`[Timer] TV episode runtime: ${runtime} minutes`);
+        }
+        
+        if (runtime && runtime > 0) {
+          duration = runtime + 10;
+          console.log(`[Timer] ✅ Auto-detected duration: ${runtime}min + 10min buffer = ${duration}min`);
+        }
+      } catch (error) {
+        console.error('[Timer] Error fetching runtime:', error);
+      }
+    }
+    
+    // Now start the timer countdown
+    const { startTimerCountdown } = await import('../commands/timer.js');
+    await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme);
+    return;
   }
   
   // Handle episode-list selection
