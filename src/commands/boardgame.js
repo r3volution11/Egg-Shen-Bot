@@ -17,26 +17,32 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   // Check if BGG API key is configured
   if (!config.apis.bgg.clientId) {
-    await interaction.reply({
-      content: '❌ The BoardGameGeek API is not configured. Please contact the server administrator to set up the `BGG_CLIENT_ID` environment variable.',
-      ephemeral: true,
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ The BoardGameGeek API is not configured. Please contact the server administrator to set up the `BGG_CLIENT_ID` environment variable.',
+        ephemeral: true,
+      });
+    }
     return;
   }
 
   // Check if user has permission to use this command
   const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'boardgame');
   if (!hasPermission) {
-    await interaction.reply({
-      content: '❌ The `/boardgame` command is currently disabled for regular users. Contact a server administrator for more information.',
-      ephemeral: true,
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ The `/boardgame` command is currently disabled for regular users. Contact a server administrator for more information.',
+        ephemeral: true,
+      });
+    }
     return;
   }
 
   const query = interaction.options.getString('query');
   
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.replied && !interaction.deferred) {
+    await interaction.deferReply({ ephemeral: true });
+  }
   
   try {
     const results = await searchBoardGames(query);

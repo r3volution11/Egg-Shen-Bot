@@ -17,26 +17,32 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   // Check if RAWG API key is configured
   if (!config.apis.rawg.apiKey) {
-    await interaction.reply({
-      content: '❌ The RAWG API is not configured. Please contact the server administrator to set up the `RAWG_API_KEY` environment variable.',
-      ephemeral: true,
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ The RAWG API is not configured. Please contact the server administrator to set up the `RAWG_API_KEY` environment variable.',
+        ephemeral: true,
+      });
+    }
     return;
   }
 
   // Check if user has permission to use this command
   const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'game');
   if (!hasPermission) {
-    await interaction.reply({
-      content: '❌ The `/game` command is currently disabled for regular users. Contact a server administrator for more information.',
-      ephemeral: true,
-    });
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ The `/game` command is currently disabled for regular users. Contact a server administrator for more information.',
+        ephemeral: true,
+      });
+    }
     return;
   }
 
   const query = interaction.options.getString('query');
   
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.replied && !interaction.deferred) {
+    await interaction.deferReply({ ephemeral: true });
+  }
   
   try {
     const results = await searchGames(query);
