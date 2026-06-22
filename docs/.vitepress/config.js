@@ -25,6 +25,59 @@ export default defineConfig({
       gtag('config', 'G-ZYDW78PVTF');
     `],
     
+    // GitHub Link Tracking
+    ['script', {}, `
+      // Add class to GitHub links and track clicks
+      if (typeof window !== 'undefined') {
+        function trackGitHubLinks() {
+          // Find all links to the GitHub repository
+          const githubLinks = document.querySelectorAll('a[href*="github.com/r3volution11/Egg-Shen-Bot"]');
+          
+          githubLinks.forEach(function(link) {
+            // Skip if already processed
+            if (link.classList.contains('github-repo-link')) return;
+            
+            // Add tracking class
+            link.classList.add('github-repo-link');
+            
+            // Add click event listener
+            link.addEventListener('click', function(e) {
+              const href = link.getAttribute('href');
+              const linkText = link.textContent || link.innerText || 'Unknown';
+              const linkType = href.includes('/issues') ? 'issues' : 
+                              href.includes('/discussions') ? 'discussions' : 
+                              href.includes('clone') ? 'clone' : 
+                              href.includes('/releases') ? 'releases' : 
+                              'repository';
+              
+              // Send event to GA4
+              if (typeof gtag !== 'undefined') {
+                gtag('event', 'github_repo_click', {
+                  'link_url': href,
+                  'link_text': linkText,
+                  'link_type': linkType,
+                  'page_location': window.location.href,
+                  'page_title': document.title
+                });
+              }
+            });
+          });
+        }
+        
+        // Run on initial load
+        window.addEventListener('DOMContentLoaded', trackGitHubLinks);
+        
+        // Re-run on VitePress route changes (SPA navigation)
+        if (typeof window !== 'undefined') {
+          window.addEventListener('load', function() {
+            // VitePress uses Vue Router, listen for route changes
+            const observer = new MutationObserver(trackGitHubLinks);
+            observer.observe(document.body, { childList: true, subtree: true });
+          });
+        }
+      }
+    `],
+    
     // SEO Meta Tags
     ['meta', { name: 'keywords', content: 'Discord bot, movie bot, TV show bot, watch party, Discord entertainment, movie ratings, IMDb, Trakt, Letterboxd, TMDB, video game bot, board game bot' }],
     ['meta', { name: 'author', content: 'Egg Shen Bot' }],
