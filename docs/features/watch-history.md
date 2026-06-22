@@ -22,21 +22,31 @@ Watch History is a **server-level** feature that tracks movies, TV shows, and ep
 Use the timer command to begin:
 
 ```
-/timer start label:The Lord of the Rings: The Fellowship of the Ring
+/timer start label:The Lord of the Rings: The Fellowship of the Ring duration:190
 ```
 
 **Optional parameters:**
 - `label` - Name of what you're watching
+- `duration` - Duration in minutes (1-600) for auto-stop
 - `theme` - `modern` (default, colorful countdown) or `classic` (text-based)
 
-The timer runs continuously until manually stopped. There's no duration parameter - you stop it when the movie/episode ends.
+**Runtime Auto-Detection:**
+When a timer auto-detects the title from a Discord scheduled event:
+1. Bot searches TMDB for the title
+2. Shows selection menu if multiple matches found
+3. You select the correct movie/TV show
+4. Bot fetches runtime and adds 10-minute buffer
+5. Timer starts with auto-stop enabled
 
 **Examples:**
 ```
-/timer start label:Movie Night
+/timer start label:Movie Night duration:120
 /timer start label:Jaws theme:classic
+/timer start duration:45
 /timer start
 ```
+
+**Without duration:** Timer runs continuously until manually stopped.
 
 ### 2. Watch Together
 
