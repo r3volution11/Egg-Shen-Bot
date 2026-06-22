@@ -83,6 +83,12 @@ const defaultConfig = {
       windowHours: 24, // Time window in hours
     },
   },
+  potionResponses: {
+    // Custom potion responses by type
+    // Format: { type: [response1, response2, ...] }
+    // Responses use {giver} and {receiver} as placeholders
+    // Example: { health: ["Custom healing message!"] }
+  },
 };
 
 /**
