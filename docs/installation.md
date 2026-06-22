@@ -7,7 +7,26 @@ Detailed installation instructions for Egg Shen Bot.
 - **Node.js** v20.x or higher
 - **npm** (comes with Node.js)
 - **Discord Bot Token** from [Discord Developer Portal](https://discord.com/developers/applications)
-- **TMDB API Key** from [TMDB](https://www.themoviedb.org/settings/api) (required)
+- **TMDB API Key** from [TMDB](https://www.themoviedb.org/settings/api) (required for all movie/TV features)
+
+## API Keys
+
+### Required APIs
+
+| Service | Purpose | Get Key |
+|---------|---------|---------|
+| **TMDB** | Movie and TV show data | [Get API Key](https://www.themoviedb.org/settings/api) |
+
+### Optional APIs
+
+These APIs enable additional features. Commands requiring them will be disabled if not configured.
+
+| Service | Purpose | Enables Commands | Get Key |
+|---------|---------|-----------------|---------|
+| **OMDB** | IMDb & RT ratings | Enhanced ratings display | [Get API Key](http://www.omdbapi.com/apikey.aspx) |
+| **Trakt** | Community ratings | Enhanced ratings display | [Get API Key](https://trakt.tv/oauth/applications) |
+| **RAWG** | Video game data | `/game`, `/random game`, `/similar` (games) | [Get API Key](https://rawg.io/apidocs) |
+| **BoardGameGeek** | Board game data | `/boardgame`, `/random boardgame`, `/similar` (board games) | [Get API Key](https://boardgamegeek.com/wiki/page/BGG_XML_API2) |
 
 ## Step-by-Step Installation
 
@@ -25,28 +44,11 @@ Detailed installation instructions for Egg Shen Bot.
 
 ### 2. Get API Keys
 
-#### TMDB (Required)
-1. Create account at [TMDB](https://www.themoviedb.org/signup)
-2. Go to [API Settings](https://www.themoviedb.org/settings/api)
-3. Request an API key (choose "Developer" option)
-4. Copy the API Key (v3 auth)
+Follow the links in the API Keys table above to obtain your keys. At minimum, you need:
+- Discord Bot Token (from Discord Developer Portal)
+- TMDB API Key (required for core functionality)
 
-#### OMDB (Optional)
-1. Visit [OMDB API](http://www.omdbapi.com/apikey.aspx)
-2. Request a free API key
-3. Verify your email
-4. Copy your API key
-
-#### Trakt (Optional)
-1. Create account at [Trakt.tv](https://trakt.tv)
-2. Go to [Applications](https://trakt.tv/oauth/applications)
-3. Create new application
-4. Copy Client ID and Client Secret
-
-#### RAWG (Optional)
-1. Create account at [RAWG](https://rawg.io)
-2. Go to [API Documentation](https://rawg.io/apidocs)
-3. Get your API key
+Optional APIs can be added later to enable additional features.
 
 ### 3. Clone and Install
 
@@ -78,33 +80,41 @@ nano config/config.json  # or use your preferred editor
     "guildId": "YOUR_TEST_SERVER_ID"
   },
   "apis": {
-    "tmdb": "YOUR_TMDB_API_KEY",
-    "omdb": "YOUR_OMDB_API_KEY",
-    "trakt": {
-      "clientId": "YOUR_TRAKT_CLIENT_ID",
-      "clientSecret": "YOUR_TRAKT_CLIENT_SECRET"
-    },
-    "rawg": "YOUR_RAWG_API_KEY"
-  }
-}
+Create a `.env` file in the project root:
+
+```bash
+# Copy example environment file
+cp .env.example .env
+
+# Edit with your API keys
+nano .env  # or use your preferred editor
 ```
 
-### 5. Invite Bot to Server
+**Required .env variables:**
+```bash
+# Discord Configuration (Required)
+DISCORD_TOKEN=your_discord_bot_token_here
+DISCORD_CLIENT_ID=your_discord_client_id_here
 
-1. Go back to Discord Developer Portal
-2. Go to OAuth2 → URL Generator
-3. Select scopes:
-   - `bot`
-   - `applications.commands`
-4. Select permissions:
-   - Send Messages
-   - Embed Links
-   - Attach Files
-   - Read Message History
-   - Use External Emojis
-   - Add Reactions
-5. Copy the generated URL
-6. Open URL in browser and invite to your server
+# TMDB API (Required for core functionality)
+TMDB_API_KEY=your_tmdb_api_key_here
+
+# Optional APIs (enable specific features)
+OMDB_API_KEY=your_omdb_api_key_here
+TRAKT_CLIENT_ID=your_trakt_client_id_here
+RAWG_API_KEY=your_rawg_api_key_here
+BGG_CLIENT_ID=your_bgg_client_id_here
+
+# Optional: Guild ID for testing (leave empty for global commands)
+GUILD_ID=
+```
+
+**What happens if optional APIs aren't configured:**
+- `/game` command will show error message if RAWG_API_KEY is missing
+- `/boardgame` command will show error message if BGG_CLIENT_ID is missing
+- `/similar` will skip games/board games if respective keys are missing
+- `/random` game/boardgame subcommands will show error if keys are missing
+- Rating displays will have fewer sources without OMDB/TraktOpen URL in browser and invite to your server
 
 ### 6. Register Commands
 

@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
+import { config } from '../config.js';
 
 const bggApi = axios.create({
-  baseURL: 'https://boardgamegeek.com/xmlapi2',
+  baseURL: config.apis.bgg.baseUrl,
+  headers: config.apis.bgg.clientId ? {
+    'Authorization': `Bearer ${config.apis.bgg.clientId}`,
+  } : {},
 });
 
 const xmlParser = new XMLParser({

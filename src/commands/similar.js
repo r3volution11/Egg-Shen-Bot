@@ -4,6 +4,7 @@ import { searchGames } from '../services/rawgService.js';
 import { searchBoardGames } from '../services/bggService.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
+import { config } from '../config.js';
 
 export const data = new SlashCommandBuilder()
   .setName('similar')
@@ -47,20 +48,24 @@ export async function execute(interaction) {
       allResults.push(...(tvResults || []).map(r => ({ ...r, type: 'tv' })));
     }
     
-    if (!mediaType || mediaType === 'game') {
+    if ((!mediaType || mediaType === 'game') && config.apis.rawg.apiKey) {
       const gameResults = await searchGames(title);
       allResults.push(...(gameResults || []).map(r => ({ ...r, type: 'game' })));
     }
     
-    if (!mediaType || mediaType === 'boardgame') {
+    if ((!mediaType || mediaType === 'boardgame') && config.apis.bgg.clientId) {
       const boardGameResults = await searchBoardGames(title);
       allResults.push(...(boardGameResults || []).map(r => ({ ...r, type: 'boardgame' })));
     }
 
     if (allResults.length === 0) {
       const typeText = mediaType ? `${mediaType}s` : 'content';
+      const apiMessage = (!config.apis.rawg.apiKey && (mediaType === 'game' || !mediaType)) || 
+                         (!config.apis.bgg.clientId && (mediaType === 'boardgame' || !mediaType))
+        ? ' Some search types are unavailable because API keys are not configured.'
+        : '';
       await interaction.editReply({
-        content: `No ${typeText} found matching "${title}".`,
+        content: `No ${typeText} found matching "${title}".${apiMessage}`,
       });
       return;
     }

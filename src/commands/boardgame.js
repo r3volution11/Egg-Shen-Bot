@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from 'discord.js';
 import { searchBoardGames } from '../services/bggService.js';
 import { createBoardGameSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { config } from '../config.js';
 
 export const data = new SlashCommandBuilder()
   .setName('boardgame')
@@ -14,6 +15,15 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  // Check if BGG API key is configured
+  if (!config.apis.bgg.clientId) {
+    await interaction.reply({
+      content: '❌ The BoardGameGeek API is not configured. Please contact the server administrator to set up the `BGG_CLIENT_ID` environment variable.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   // Check if user has permission to use this command
   const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'boardgame');
   if (!hasPermission) {
