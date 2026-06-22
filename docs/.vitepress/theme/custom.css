@@ -97,15 +97,143 @@
   color: var(--vp-c-brand-light);
 }
 
-/* Button enhancements */
+/* ============================================
+   Bootstrap-style Button Utility Classes
+   ============================================
+   
+   Usage in Markdown:
+   <a href="#" class="btn-primary">Primary Button</a>
+   <a href="#" class="btn-primary-outline">Primary Outline</a>
+   <a href="#" class="btn-secondary">Secondary Button</a>
+   <a href="#" class="btn-secondary-outline">Secondary Outline</a>
+   
+   VitePress Hero Buttons:
+   - theme: brand → Maps to .btn-primary
+   - theme: alt → Maps to .btn-secondary
+   ============================================ */
+
+/* Base button styles */
+.btn-primary,
+.btn-primary-outline,
+.btn-secondary,
+.btn-secondary-outline {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+/* Primary button - solid brand color */
+.btn-primary {
+  background-color: var(--vp-c-brand-1);
+  color: #ffffff;
+  border-color: var(--vp-c-brand-1);
+}
+
+.btn-primary:hover {
+  background-color: var(--vp-c-brand-2);
+  border-color: var(--vp-c-brand-2);
+  color: #ffffff;
+}
+
+/* Primary outline button */
+.btn-primary-outline {
+  background-color: transparent;
+  color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+}
+
+.btn-primary-outline:hover {
+  background-color: var(--vp-c-brand-1);
+  color: #ffffff;
+}
+
+/* Secondary button - lighter background for better contrast */
+.btn-secondary {
+  background-color: var(--vp-c-gray-2);
+  color: var(--vp-c-text-1);
+  border-color: var(--vp-c-gray-2);
+}
+
+.btn-secondary:hover {
+  background-color: var(--vp-c-gray-3);
+  border-color: var(--vp-c-gray-3);
+  color: var(--vp-c-text-1);
+}
+
+/* Dark mode adjustments for secondary button */
+.dark .btn-secondary {
+  background-color: hsl(195, 12%, 30%);  /* Lighter than default dark bg */
+  color: var(--vp-c-text-1);
+  border-color: hsl(195, 12%, 30%);
+}
+
+.dark .btn-secondary:hover {
+  background-color: hsl(195, 12%, 40%);
+  border-color: hsl(195, 12%, 40%);
+}
+
+/* Secondary outline button */
+.btn-secondary-outline {
+  background-color: transparent;
+  color: var(--vp-c-text-2);
+  border-color: var(--vp-c-gray-3);
+}
+
+.btn-secondary-outline:hover {
+  background-color: var(--vp-c-gray-2);
+  color: var(--vp-c-text-1);
+  border-color: var(--vp-c-gray-3);
+}
+
+/* ============================================
+   VitePress Button Overrides
+   Map VitePress default buttons to new styles
+   ============================================ */
+
+/* Primary brand button */
 .VPButton.brand {
   background-color: var(--vp-c-brand-1);
   border-color: var(--vp-c-brand-1);
+  color: #ffffff;
 }
 
 .VPButton.brand:hover {
   background-color: var(--vp-c-brand-2);
   border-color: var(--vp-c-brand-2);
+  color: #ffffff;
+}
+
+/* Alt/Secondary button - improved contrast */
+.VPButton.alt {
+  background-color: var(--vp-c-gray-2);
+  color: var(--vp-c-text-1);
+  border-color: var(--vp-c-gray-2);
+}
+
+.VPButton.alt:hover {
+  background-color: var(--vp-c-gray-3);
+  border-color: var(--vp-c-gray-3);
+  color: var(--vp-c-text-1);
+}
+
+/* Dark mode - lighter secondary button */
+.dark .VPButton.alt {
+  background-color: hsl(195, 12%, 30%);
+  color: var(--vp-c-text-1);
+  border-color: hsl(195, 12%, 30%);
+}
+
+.dark .VPButton.alt:hover {
+  background-color: hsl(195, 12%, 40%);
+  border-color: hsl(195, 12%, 40%);
 }
 
 /* Search box with brand color accent */
