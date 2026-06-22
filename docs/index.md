@@ -86,7 +86,14 @@ Type `/tv title:Breaking Bad` to see:
 - **Status**: Whether show is ongoing or ended
 - **Streaming platforms** in your region
 
-### Find Episodes
+### ⭐ Browse Full Seasons (Unique!)
+Type `/episode-list title:Breaking Bad season:3` to get the **entire season at a glance**:
+- **All episodes** in one view with titles, ratings, and air dates
+- **Find the best episodes** by comparing IMDb and Trakt ratings side-by-side
+- **Plan your binge** by seeing which episodes are must-watch vs. skippable
+- **No other Discord bot does this!** Perfect for planning watch parties or catching up on shows
+
+### Find Specific Episodes
 Type `/episode title:Breaking Bad Pilot` for:
 - **Episode-specific** ratings and information
 - **Season and episode number**
@@ -136,6 +143,7 @@ Type `/potion give user:@Friend type:health` to send magical potions with fun po
 - `/movie` - Search movies with comprehensive ratings
 - `/tv` - Search TV shows with episode info
 - `/episode` - Find specific episodes with ratings
+- **`/episode-list` ⭐ - Browse entire seasons at a glance (Unique feature!)**
 - `/game` - Search video games (requires RAWG API)
 - `/boardgame` - Search board games (requires BGG API)
 - `/book` - Search books with Google Books integration
@@ -169,6 +177,7 @@ Type `/potion give user:@Friend type:health` to send magical potions with fun po
 ### What Makes It Special
 
 ✅ **Truly All-in-One** - Movies, TV shows, episodes, video games, board games, and books all in one bot  
+✅ **Unique Episode Browser** - `/episode-list` shows entire seasons at once - no other Discord bot does this!  
 ✅ **Comprehensive Ratings** - IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek, Google Books  
 ✅ **Watch Party Ready** - Built-in timers with auto-detection and watch history tracking  
 ✅ **Smart & Helpful** - Auto-detects titles from Discord events, provides streaming availability  
@@ -179,7 +188,7 @@ Type `/potion give user:@Friend type:health` to send magical potions with fun po
 ### Perfect For
 
 - **Movie Night Servers** - Search films, coordinate watch parties with timers, track viewing history
-- **TV Show Communities** - Find episodes, get ratings, discover similar shows
+- **TV Show Communities** - Browse entire seasons with `/episode-list`, find best episodes, get ratings, discover similar shows
 - **Gaming Servers** - Look up video games and board games with comprehensive ratings
 - **Book Clubs** - Search books by title or author, find similar reads, get ISBNs and ratings
 - **Review & Discussion Groups** - Share ratings from multiple sources in one place
