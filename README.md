@@ -21,7 +21,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 | **`/movie`** | Search for any movie | TMDB, IMDb, Letterboxd, Trakt, RT |
 | **`/tv`** | Search for TV shows | TMDB, IMDb, Trakt, RT |
 | **`/episode`** | Find specific episodes by title or notation (S3E11, 3x11) | TMDB, IMDb, Trakt |
-| **`/episode-list`** | View all episodes in a season with ratings | TMDB, IMDb, Trakt |
+| **`/episode-list`** ⭐ | **Browse entire seasons at a glance** — View all episodes with ratings, air dates, and titles to plan your binge or find the best episodes | TMDB, IMDb, Trakt |
 | **`/game`** | Search for video games | RAWG, Metacritic |
 | **`/boardgame`** | Search for board games | BoardGameGeek |
 | **`/book`** | Search for books | Google Books |
@@ -48,7 +48,8 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 ### 📺 Comprehensive Media Coverage
 
 - **Movies & TV Shows** - Full metadata, cast, crew, ratings, streaming availability
-- **Episodes** - Search by title or notation (S3E11, 3x11), view episode lists with ratings
+- **Episodes** - Search by title or notation (S3E11, 3x11)
+- **⭐ Episode Lists** - Browse entire seasons at once with episode titles, ratings, and air dates — perfect for finding standout episodes or planning your next binge
 - **Video Games** - Ratings, platforms, genres, release dates, Metacritic scores
 - **Board Games** - BGG ratings, player counts, complexity, playtime
 - **Books** - Author, publisher, page count, descriptions, cover art
