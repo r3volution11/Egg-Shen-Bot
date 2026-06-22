@@ -321,6 +321,11 @@ function normalizeProviders(providers) {
     'Google Play Movies': 'Google Play',
     'Fandango At Home': 'Fandango',
     'Amazon Video': 'Amazon',
+    'AMC+ Amazon Channel': 'AMC+',
+    'Shudder Amazon Channel': 'Shudder',
+    'Shudder Apple TV Channel': 'Shudder',
+    'AMC Amazon Channel': 'AMC',
+    'AMC Apple TV Channel': 'AMC',
   };
   
   const normalized = providers.map(p => {
