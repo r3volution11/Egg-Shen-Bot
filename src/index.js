@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
-import { loadTimers, getTimerStatus } from './utils/timerManager.js';
+import { loadTimers, getTimerStatus, restoreTimerTimeouts } from './utils/timerManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -81,28 +81,39 @@ client.once('ready', async () => {
           }
           const currentStatus = getTimerStatus(channelId);
           
+          const embedFields = [
+            {
+              name: 'Timer',
+              value: timerData.label || 'No label',
+              inline: true,
+            },
+            {
+              name: 'Elapsed Time',
+              value: currentStatus.elapsedFormatted,
+              inline: true,
+            },
+            {
+              name: 'Started by',
+              value: timerData.username,
+              inline: true,
+            }
+          ];
+
+          // Add remaining time if duration is set
+          if (currentStatus.duration && currentStatus.remainingFormatted) {
+            embedFields.push({
+              name: 'Remaining Time',
+              value: currentStatus.remainingFormatted,
+              inline: true,
+            });
+          }
+
           const embed = new EmbedBuilder()
             .setColor(0xFFA500)
             .setTitle('🔄 Bot Restarted')
             .setDescription('The bot has been restarted and your timer has been restored.')
-            .addFields(
-              {
-                name: 'Timer',
-                value: timerData.label || 'No label',
-                inline: true,
-              },
-              {
-                name: 'Elapsed Time',
-                value: currentStatus.elapsedFormatted,
-                inline: true,
-              },
-              {
-                name: 'Started by',
-                value: timerData.username,
-                inline: true,
-              }
-            )
-            .setFooter({ text: 'Use /timer stop to end the timer' })
+            .addFields(embedFields)
+            .setFooter({ text: currentStatus.duration ? 'Auto-stop enabled' : 'Use /timer stop to end the timer' })
             .setTimestamp();
           
           await channel.send({ embeds: [embed] });
@@ -112,6 +123,9 @@ client.once('ready', async () => {
       }
     }
   }
+  
+  // Restore auto-stop timeouts for timers with durations
+  await restoreTimerTimeouts(client);
 });
 
 // Event: Interaction (slash commands)

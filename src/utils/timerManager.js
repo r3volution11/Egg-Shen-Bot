@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Store active timers: { channelId: { startTime, userId, username, label } }
+// Store active timers: { channelId: { startTime, userId, username, label, duration, endTime, autoStopTimeout } }
 const activeTimers = new Map();
 
 // Path to persist timers
@@ -24,7 +24,9 @@ async function saveTimers() {
   try {
     const timersData = {};
     for (const [channelId, timer] of activeTimers.entries()) {
-      timersData[channelId] = timer;
+      // Exclude autoStopTimeout which can't be serialized
+      const { autoStopTimeout, ...serializableTimer } = timer;
+      timersData[channelId] = serializableTimer;
     }
     await fs.writeFile(TIMERS_FILE, JSON.stringify(timersData, null, 2), 'utf8');
   } catch (error) {
@@ -61,27 +63,116 @@ export async function loadTimers() {
 }
 
 /**
+ * Restore auto-stop timeouts for timers with durations after bot restart
+ * Call this after the bot is ready and can fetch channels
+ * @param {object} client - Discord client
+ */
+export async function restoreTimerTimeouts(client) {
+  for (const [channelId, timer] of activeTimers.entries()) {
+    if (timer.duration && timer.endTime) {
+      const remainingMs = timer.endTime - Date.now();
+      
+      // If timer has expired while bot was down, stop it now
+      if (remainingMs <= 0) {
+        console.log(`[Timer] Timer in channel ${channelId} expired during downtime, stopping now`);
+        const result = stopTimer(channelId);
+        
+        if (result) {
+          try {
+            const channel = await client.channels.fetch(channelId);
+            if (channel && channel.isTextBased()) {
+              await channel.send({
+                content: `⏰ Timer completed while bot was offline. Duration: ${result.elapsedFormatted}`,
+              });
+            }
+          } catch (error) {
+            console.error('[Timer] Error sending expired timer message:', error);
+          }
+        }
+      } else {
+        // Set up auto-stop timeout for remaining time
+        console.log(`[Timer] Restoring auto-stop timeout for channel ${channelId}, remaining: ${Math.round(remainingMs / 1000)}s`);
+        const autoStopTimeout = setTimeout(async () => {
+          console.log(`[Timer] Auto-stopping restored timer in channel ${channelId}`);
+          const result = stopTimer(channelId);
+          
+          if (result) {
+            try {
+              const channel = await client.channels.fetch(channelId);
+              if (channel && channel.isTextBased()) {
+                await channel.send({
+                  content: `⏰ Timer completed! Duration: ${result.elapsedFormatted}`,
+                });
+              }
+            } catch (error) {
+              console.error('[Timer] Error sending auto-stop message:', error);
+            }
+          }
+        }, remainingMs);
+        
+        timer.autoStopTimeout = autoStopTimeout;
+      }
+    }
+  }
+}
+
+/**
  * Start a timer in a channel
  * @param {string} channelId - Discord channel ID
  * @param {string} userId - User who started the timer
  * @param {string} username - Username of who started it
  * @param {string} label - Optional label/description for the timer
+ * @param {number} durationMinutes - Optional duration in minutes
+ * @param {object} client - Discord client for auto-stop functionality
  * @returns {boolean} - True if started, false if timer already exists
  */
-export function startTimer(channelId, userId, username, label = '') {
+export function startTimer(channelId, userId, username, label = '', durationMinutes = null, client = null) {
   // Check if timer already exists for this channel
   if (activeTimers.has(channelId)) {
     return false;
   }
 
-  activeTimers.set(channelId, {
-    startTime: Date.now(),
+  const startTime = Date.now();
+  const timerData = {
+    startTime,
     userId,
     username,
     label: label || '',
-  });
+  };
 
-  // Save to disk
+  // Add duration if specified
+  if (durationMinutes && durationMinutes > 0) {
+    timerData.duration = durationMinutes;
+    timerData.endTime = startTime + (durationMinutes * 60 * 1000);
+    
+    // Set up auto-stop if client is provided
+    if (client) {
+      const timeoutMs = durationMinutes * 60 * 1000;
+      const autoStopTimeout = setTimeout(async () => {
+        console.log(`[Timer] Auto-stopping timer in channel ${channelId} after ${durationMinutes} minutes`);
+        const result = stopTimer(channelId);
+        
+        if (result) {
+          try {
+            const channel = await client.channels.fetch(channelId);
+            if (channel && channel.isTextBased()) {
+              await channel.send({
+                content: `⏰ Timer completed! Duration: ${result.elapsedFormatted}`,
+              });
+            }
+          } catch (error) {
+            console.error('[Timer] Error sending auto-stop message:', error);
+          }
+        }
+      }, timeoutMs);
+      
+      timerData.autoStopTimeout = autoStopTimeout;
+    }
+  }
+
+  activeTimers.set(channelId, timerData);
+
+  // Save to disk (exclude timeout which can't be serialized)
   saveTimers().catch(err => console.error('Failed to save timers:', err));
 
   return true;
@@ -97,6 +188,11 @@ export function stopTimer(channelId) {
   
   if (!timer) {
     return null;
+  }
+
+  // Clear auto-stop timeout if it exists
+  if (timer.autoStopTimeout) {
+    clearTimeout(timer.autoStopTimeout);
   }
 
   const elapsedMs = Date.now() - timer.startTime;
@@ -125,12 +221,21 @@ export function getTimerStatus(channelId) {
   }
 
   const elapsedMs = Date.now() - timer.startTime;
-
-  return {
+  const result = {
     ...timer,
     elapsedMs,
     elapsedFormatted: formatElapsedTime(elapsedMs),
   };
+
+  // Add remaining time if duration is set
+  if (timer.duration && timer.endTime) {
+    const remainingMs = Math.max(0, timer.endTime - Date.now());
+    result.remainingMs = remainingMs;
+    result.remainingFormatted = formatElapsedTime(remainingMs);
+    result.isExpired = remainingMs <= 0;
+  }
+
+  return result;
 }
 
 /**
