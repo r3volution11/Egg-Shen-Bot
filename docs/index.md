@@ -21,7 +21,7 @@ hero:
 features:
   - icon: 🎬
     title: Comprehensive Search
-    details: Search movies, TV shows, episodes, video games, board games, and books with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, BoardGameGeek, and Google Books
+    details: Search movies, TV shows, episodes, video games, board games, and books with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, BoardGameGeek, and Google Books. Optional AI-enhanced semantic search for better results.
   
   - icon: ⏱️
     title: Watch Party Features
@@ -30,6 +30,10 @@ features:
   - icon: 🎯
     title: Smart Auto-Detection
     details: When you run /timer start in a channel, the bot checks your Discord server's scheduled events and automatically uses the event title for that channel - no manual typing needed
+  
+  - icon: 🧪
+    title: Fun Social Features
+    details: Give magical potions to users with 13 types (helpful & harmful) featuring 78+ pop culture references. Admins can add custom responses per server.
   
   - icon: 🛡️
     title: Advanced Moderation
@@ -123,6 +127,9 @@ Type `/similar` after searching for something to get personalized recommendation
 **Watch Party Timers**  
 Create a Discord scheduled event for a specific channel, then run `/timer start` in that channel. The bot automatically looks up your server's events, detects the event title linked to that channel, and sets up a timer with the correct runtime from TMDB - no manual typing needed!
 
+**Fun Social Interactions**  
+Type `/potion give user:@Friend type:health` to send magical potions with fun pop culture references! Choose from 13 potion types - helpful (Health, Mana, Strength, Speed, Love) or harmful (Poison, Weakness, Curse, Slow) - with 78+ unique responses featuring references to LOTR, Harry Potter, Dark Souls, Get Out, The Ring, and more. Admins can add custom responses!
+
 ## Features at a Glance
 
 ### All Search Commands
@@ -141,6 +148,11 @@ Create a Discord scheduled event for a specific channel, then run `/timer start`
 - `/timer stop` - End a timer manually
 - `/watched` - View your server's watch history with frequency data
 - Auto-stop timers based on content runtime (with 10-minute buffer)
+
+### Fun & Social
+- `/potion give` - Give magical potions to users (13 types: helpful & harmful)
+- `/potion responses` - Manage custom potion responses (admin/mod only)
+- 78+ pop culture references from horror, comedy, fantasy, and games
 
 ### Moderation & Admin
 - `/eggshen-config` - Comprehensive per-server configuration
