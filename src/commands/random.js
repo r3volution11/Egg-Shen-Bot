@@ -15,6 +15,7 @@ import { createDetailedEmbed } from '../utils/embedBuilder.js';
 import { getEnabledServices, getEmojis, loadGuildConfig } from '../utils/guildConfig.js';
 import { canUseCommand } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
+import { config } from '../config.js';
 
 export const data = new SlashCommandBuilder()
   .setName('random')
@@ -201,6 +202,25 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  const subcommand = interaction.options.getSubcommand();
+  
+  // Check if required API keys are configured
+  if (subcommand === 'game' && !config.apis.rawg.apiKey) {
+    await interaction.reply({
+      content: '❌ The RAWG API is not configured. Please contact the server administrator to set up the `RAWG_API_KEY` environment variable.',
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  if (subcommand === 'boardgame' && !config.apis.bgg.clientId) {
+    await interaction.reply({
+      content: '❌ The BoardGameGeek API is not configured. Please contact the server administrator to set up the `BGG_CLIENT_ID` environment variable.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   // Check if user has permission to use this command
   const commandType = interaction.options.getSubcommand();
   const hasPermission = await canUseCommand(interaction.guildId, interaction.member, commandType === 'episode' ? 'episode' : commandType === 'movie' ? 'movie' : 'tv');
@@ -211,8 +231,6 @@ export async function execute(interaction) {
     });
     return;
   }
-
-  const subcommand = interaction.options.getSubcommand();
 
   await interaction.deferReply();
 

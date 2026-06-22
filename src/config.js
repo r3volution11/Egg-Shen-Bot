@@ -26,6 +26,10 @@ export const config = {
       apiKey: process.env.RAWG_API_KEY,
       baseUrl: 'https://api.rawg.io/api',
     },
+    bgg: {
+      clientId: process.env.BGG_CLIENT_ID,
+      baseUrl: 'https://boardgamegeek.com/xmlapi2',
+    },
   },
   serviceUrls: {
     imdb: 'https://www.imdb.com/title',

@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **BoardGameGeek API integration completed**
+  - `/boardgame` command now fully functional with BGG_CLIENT_ID
+  - `/random boardgame` supports category and rating filters
+  - `/similar` includes board game recommendations
+  - Requires BGG_CLIENT_ID environment variable
+- **API key validation for all commands**
+  - Commands gracefully fail with helpful error messages if required API keys are missing
+  - `/game` requires RAWG_API_KEY
+  - `/boardgame` requires BGG_CLIENT_ID
+  - `/random` validates keys for game/boardgame subcommands
+  - `/similar` skips unavailable media types when API keys are missing
 - Timer countdown theme option
   - Modern theme (default) - Colorful animated countdown with visual blocks
   - Classic theme - Sequential text countdown matching original bot behavior

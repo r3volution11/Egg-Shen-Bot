@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from 'discord.js';
 import { searchGames } from '../services/rawgService.js';
 import { createGameSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { config } from '../config.js';
 
 export const data = new SlashCommandBuilder()
   .setName('game')
@@ -14,6 +15,15 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
+  // Check if RAWG API key is configured
+  if (!config.apis.rawg.apiKey) {
+    await interaction.reply({
+      content: '❌ The RAWG API is not configured. Please contact the server administrator to set up the `RAWG_API_KEY` environment variable.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   // Check if user has permission to use this command
   const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'game');
   if (!hasPermission) {
