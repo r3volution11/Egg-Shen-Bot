@@ -1,0 +1,73 @@
+# Allow legitimate search engines and AI bots
+User-agent: *
+Allow: /
+Sitemap: https://eggshenbot.com/sitemap.xml
+
+# Allow specific AI crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+# Block common bad bots and scrapers
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: BLEXBot
+Disallow: /
+
+User-agent: DataForSeoBot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: Yandex
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: SeznamBot
+Disallow: /
+
+# Block aggressive crawlers
+User-agent: AhrefsSiteAudit
+Disallow: /
+
+User-agent: MegaIndex
+Disallow: /
+
+User-agent: spbot
+Disallow: /
+
+User-agent: Cliqzbot
+Disallow: /
+
+# Crawl delay for allowed bots (prevents hammering)
+Crawl-delay: 1

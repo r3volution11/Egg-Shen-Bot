@@ -1,6 +1,30 @@
+---
+title: Installation Guide - Egg Shen Bot
+description: Step-by-step installation instructions for Egg Shen Bot. Learn how to create a Discord bot, get API keys, configure settings, and deploy commands.
+---
+
 # Installation
 
-Detailed installation instructions for Egg Shen Bot.
+**Complete installation guide for Egg Shen Bot.** Follow these steps to set up the bot from scratch, including creating your Discord application, obtaining API keys, and getting the bot online.
+
+## Quick FAQ
+
+**Q: What's the difference between required and optional APIs?**  
+A: TMDB is required for all movie/TV features. Optional APIs enable additional commands - without them, those specific commands won't appear in Discord.
+
+**Q: How do I know if my API keys are working?**  
+A: The bot logs will show successful connections on startup. Commands requiring missing APIs simply won't register.
+
+**Q: Can I add API keys later?**  
+A: Yes! Just update your `.env` file, redeploy commands with `node src/deploy-commands.js`, and restart the bot.
+
+**Q: Why do I need to run deploy-commands.js?**  
+A: This registers your slash commands with Discord. Run it once initially and whenever you change API keys or update commands.
+
+**Q: What if I don't want certain features?**  
+A: Simply don't configure those API keys. Commands requiring them won't be registered.
+
+---
 
 ## Requirements
 
