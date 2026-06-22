@@ -29,7 +29,7 @@ features:
   
   - icon: 🎯
     title: Smart Auto-Detection
-    details: Automatically detects movie/show titles from Discord event names to pre-fill timer labels - no manual typing needed
+    details: When you run /timer start in a channel, the bot checks your Discord server's scheduled events and automatically uses the event title for that channel - no manual typing needed
   
   - icon: 🛡️
     title: Advanced Moderation
@@ -121,7 +121,7 @@ Type `/random movie`, `/random tv`, or `/random book` to get random suggestions.
 Type `/similar` after searching for something to get personalized recommendations based on that content. Works across all media types.
 
 **Watch Party Timers**  
-Type `/timer start` when creating a Discord event, and the bot automatically detects the movie/show title from the event name and sets up a timer with the correct runtime from TMDB.
+Create a Discord scheduled event for a specific channel, then run `/timer start` in that channel. The bot automatically looks up your server's events, detects the event title linked to that channel, and sets up a timer with the correct runtime from TMDB - no manual typing needed!
 
 ## Features at a Glance
 
