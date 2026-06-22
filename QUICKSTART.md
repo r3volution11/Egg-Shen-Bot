@@ -41,6 +41,7 @@ DISCORD_CLIENT_ID=your_client_id
 
 # API Keys
 TMDB_API_KEY=your_tmdb_key
+WATCHMODE_API_KEY=your_watchmode_key_optional
 OMDB_API_KEY=your_omdb_key
 TRAKT_CLIENT_ID=your_trakt_id
 ```

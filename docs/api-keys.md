@@ -8,6 +8,7 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
 |---------|----------|-----------|--------------|---------------|
 | **Discord Bot** | ✅ Yes | Yes | [Discord Portal](https://discord.com/developers/applications) | Instant |
 | **TMDB** | ✅ Yes | Yes | [TMDB](https://www.themoviedb.org/settings/api) | 1-2 minutes |
+| **Watchmode** | ⭕ Optional | 1000/month | [Watchmode](https://api.watchmode.com/) | Instant |
 | **OMDB** | ⭕ Optional | 1000/day | [OMDB](http://www.omdbapi.com/apikey.aspx) | Instant |
 | **Trakt** | ⭕ Optional | Yes | [Trakt](https://trakt.tv/oauth/applications) | Instant |
 | **RAWG** | ⭕ Optional | 20,000/month | [RAWG](https://rawg.io/apidocs) | Instant |
@@ -89,6 +90,52 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
    - Add to `.env` file as `TMDB_API_KEY`
 
 **Rate Limits:** None officially documented
+
+---
+
+## Watchmode API Key
+
+**Purpose:** Enhanced streaming availability data (complements TMDB)  
+**Features Enabled:** More comprehensive streaming service listings, including free services like Tubi, Pluto TV, Freevee  
+**Free Tier:** 1,000 requests per month
+
+### Why Use Watchmode?
+
+TMDB provides streaming availability data, but it's sourced from JustWatch and can be incomplete. Watchmode specializes in streaming availability and offers:
+
+- ✅ Better coverage of free streaming services (Tubi, Pluto TV, Freevee, etc.)
+- ✅ More up-to-date availability data
+- ✅ 150+ streaming services tracked
+- ✅ Better regional coverage
+
+The bot uses a **progressive enhancement approach**: it tries Watchmode first (if API key is configured), then falls back to TMDB data. If Watchmode isn't configured, the bot still works with TMDB alone.
+
+### Step-by-Step Instructions
+
+1. **Create Watchmode Account**
+   - Visit https://api.watchmode.com/
+   - Click **"Sign Up"** in the top right
+   - Create a free account with email
+
+2. **Get API Key**
+   - After logging in, you'll be taken to your Dashboard
+   - Your **API Key** will be displayed on the dashboard
+   - Copy the API key
+   - Add to `.env` file as `WATCHMODE_API_KEY`
+
+3. **Monitor Usage**
+   - Free tier: 1,000 requests per month
+   - Dashboard shows your current usage
+   - Bot automatically falls back to TMDB if limit is reached
+
+**Rate Limits:** 1,000 requests/month (free tier)
+
+**Upgrade Options:**
+- **$8/month:** 1,000 requests per month + additional features
+- **$24/month:** 10,000 requests per month
+- **$99/month:** 100,000 requests per month
+
+**Note:** Watchmode is completely optional. The bot works without it using TMDB's streaming data alone.
 
 ---
 

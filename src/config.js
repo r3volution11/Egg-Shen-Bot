@@ -34,6 +34,10 @@ export const config = {
       apiKey: process.env.GOOGLE_BOOKS_API_KEY || null, // Optional - provides higher rate limits
       baseUrl: 'https://www.googleapis.com/books/v1/volumes',
     },
+    watchmode: {
+      apiKey: process.env.WATCHMODE_API_KEY || null, // Optional - provides enhanced streaming data
+      baseUrl: 'https://api.watchmode.com/v1',
+    },
   },
   serviceUrls: {
     imdb: 'https://www.imdb.com/title',

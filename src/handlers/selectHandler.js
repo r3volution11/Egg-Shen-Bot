@@ -1,4 +1,4 @@
-import { getMovieDetails, getTVShowDetails, getMovieWatchProviders, getTVWatchProviders } from '../services/tmdbService.js';
+import { getMovieDetails, getTVShowDetails, getUnifiedMovieWatchProviders, getUnifiedTVWatchProviders } from '../services/tmdbService.js';
 import { getOMDBData } from '../services/omdbService.js';
 import { getMovieRating, getShowRating } from '../services/traktService.js';
 import { getLetterboxdRating } from '../services/letterboxdService.js';
@@ -492,8 +492,8 @@ export async function handleSelectInteraction(interaction) {
         imdbId ? getLetterboxdRating(imdbId) : null,
       ]);
       
-      // Fetch watch providers
-      const watchProviders = await getMovieWatchProviders(id, region);
+      // Fetch watch providers (TMDB + Watchmode)
+      const watchProviders = await getUnifiedMovieWatchProviders(id, imdbId, region);
       
       // Build URLs
       const urls = {
@@ -532,8 +532,8 @@ export async function handleSelectInteraction(interaction) {
         imdbId ? getShowRating(imdbId) : null,
       ]);
       
-      // Fetch watch providers
-      const watchProviders = await getTVWatchProviders(id, region);
+      // Fetch watch providers (TMDB + Watchmode)
+      const watchProviders = await getUnifiedTVWatchProviders(id, imdbId, region);
       
       // Build URLs
       const urls = {

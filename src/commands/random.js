@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { discoverRandomMovie, discoverRandomTV, getMovieDetails, getTVShowDetails, searchTVShows, getSeasonDetails, getMovieWatchProviders, getTVWatchProviders } from '../services/tmdbService.js';
+import { discoverRandomMovie, discoverRandomTV, getMovieDetails, getTVShowDetails, searchTVShows, getSeasonDetails, getUnifiedMovieWatchProviders, getUnifiedTVWatchProviders } from '../services/tmdbService.js';
 import { getOMDBData } from '../services/omdbService.js';
 import { getMovieRating, getShowRating } from '../services/traktService.js';
 import { getLetterboxdRating } from '../services/letterboxdService.js';
@@ -316,9 +316,9 @@ export async function execute(interaction) {
         loadGuildConfig(interaction.guildId),
       ]);
 
-      // Get watch providers
+      // Get watch providers (TMDB + Watchmode)
       const region = guildConfig.region || 'US';
-      const watchProviders = await getMovieWatchProviders(randomMovie.id, region);
+      const watchProviders = await getUnifiedMovieWatchProviders(randomMovie.id, imdbId, region);
 
       const urls = {
         imdb: getIMDbUrl(imdbId),
@@ -373,9 +373,9 @@ export async function execute(interaction) {
         loadGuildConfig(interaction.guildId),
       ]);
 
-      // Get watch providers
+      // Get watch providers (TMDB + Watchmode)
       const region = guildConfig.region || 'US';
-      const watchProviders = await getTVWatchProviders(randomTV.id, region);
+      const watchProviders = await getUnifiedTVWatchProviders(randomTV.id, imdbId, region);
 
       const urls = {
         imdb: getIMDbUrl(imdbId),

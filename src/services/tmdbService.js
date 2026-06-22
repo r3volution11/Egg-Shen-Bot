@@ -386,3 +386,93 @@ export async function getTVWatchProviders(tvId, region = 'US') {
     return null; // Return null on error, don't throw
   }
 }
+
+/**
+ * Merge watch provider data from TMDB and Watchmode, removing duplicates
+ * @param {Object} tmdbProviders - TMDB provider data
+ * @param {Object} watchmodeProviders - Watchmode provider data
+ * @returns {Object} Merged provider data with duplicates removed
+ */
+function mergeWatchProviders(tmdbProviders, watchmodeProviders) {
+  if (!tmdbProviders && !watchmodeProviders) {
+    return null;
+  }
+
+  const merged = {
+    link: tmdbProviders?.link || null,
+    flatrate: [],
+    rent: [],
+    buy: [],
+  };
+
+  // Helper to normalize provider names for comparison
+  const normalize = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // Helper to add providers without duplicates
+  const addProviders = (target, providers) => {
+    if (!providers) return;
+    
+    for (const provider of providers) {
+      const normalizedName = normalize(provider.provider_name);
+      const isDuplicate = target.some(p => normalize(p.provider_name) === normalizedName);
+      
+      if (!isDuplicate) {
+        target.push(provider);
+      }
+    }
+  };
+
+  // Add TMDB providers first (they have better logos from TMDB's CDN)
+  addProviders(merged.flatrate, tmdbProviders?.flatrate);
+  addProviders(merged.rent, tmdbProviders?.rent);
+  addProviders(merged.buy, tmdbProviders?.buy);
+
+  // Add Watchmode providers (may include services TMDB doesn't have)
+  addProviders(merged.flatrate, watchmodeProviders?.flatrate);
+  addProviders(merged.rent, watchmodeProviders?.rent);
+  addProviders(merged.buy, watchmodeProviders?.buy);
+
+  // Return null if no providers found
+  if (merged.flatrate.length === 0 && merged.rent.length === 0 && merged.buy.length === 0) {
+    return null;
+  }
+
+  return merged;
+}
+
+/**
+ * Get unified watch providers for a movie (TMDB + Watchmode)
+ * @param {string} movieId - TMDB movie ID
+ * @param {string} imdbId - IMDB ID for Watchmode lookup
+ * @param {string} region - ISO 3166-1 country code (default: 'US')
+ * @returns {Object} Unified watch provider data
+ */
+export async function getUnifiedMovieWatchProviders(movieId, imdbId, region = 'US') {
+  const { getWatchmodeProvidersByImdbId } = await import('./watchmodeService.js');
+
+  const [tmdbProviders, watchmodeProviders] = await Promise.all([
+    getMovieWatchProviders(movieId, region),
+    imdbId ? getWatchmodeProvidersByImdbId(imdbId, region) : null,
+  ]);
+
+  return mergeWatchProviders(tmdbProviders, watchmodeProviders);
+}
+
+/**
+ * Get unified watch providers for a TV show (TMDB + Watchmode)
+ * @param {string} tvId - TMDB TV show ID
+ * @param {string} imdbId - IMDB ID for Watchmode lookup
+ * @param {string} region - ISO 3166-1 country code (default: 'US')
+ * @returns {Object} Unified watch provider data
+ */
+export async function getUnifiedTVWatchProviders(tvId, imdbId, region = 'US') {
+  const { getWatchmodeProvidersByImdbId } = await import('./watchmodeService.js');
+
+  const [tmdbProviders, watchmodeProviders] = await Promise.all([
+    getTVWatchProviders(tvId, region),
+    imdbId ? getWatchmodeProvidersByImdbId(imdbId, region) : null,
+  ]);
+
+  return mergeWatchProviders(tmdbProviders, watchmodeProviders);
+}
+

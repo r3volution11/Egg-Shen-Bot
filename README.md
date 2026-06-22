@@ -63,6 +63,7 @@ A comprehensive Discord bot for searching movies, TV shows, episodes, video game
    DISCORD_TOKEN=your_discord_bot_token
    DISCORD_CLIENT_ID=your_discord_client_id
    TMDB_API_KEY=your_tmdb_api_key
+   WATCHMODE_API_KEY=your_watchmode_api_key_optional
    OMDB_API_KEY=your_omdb_api_key
    TRAKT_CLIENT_ID=your_trakt_client_id
    RAWG_API_KEY=your_rawg_api_key
