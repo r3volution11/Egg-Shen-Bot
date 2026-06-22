@@ -192,14 +192,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/episode-list <show> <season>` - List all episodes in a season
   - `/game <title>` - Search for video games
 - Watch party timer system:
-  - `/timer start <duration> [description]` - Start countdown timer
+  - `/timer start` - Start countdown timer (runs until manually stopped)
+    - Optional `label` parameter for what you're watching
+    - Optional `theme` parameter (`modern` or `classic`)
   - `/timer stop` - Stop active timer
   - `/timer status` - Check timer status
   - Interactive "Log to Watch History" button on completion
 - Watch history tracking:
-  - `/watched add <type> <title> [notes]` - Add to watch history manually
-  - `/watched list [limit]` - View server watch history
-  - `/watched remove <id>` - Remove history entry (admin only)
+  - `/watched add` - Add to watch history manually (searches movies and TV)
+    - `title` parameter (required)
+    - `notes` parameter (optional)
+  - `/watched history` - View server watch history with filters
   - Integration with timer system for automatic logging
 - Utility commands:
   - `/random <type>` - Get random movie/TV show suggestion
