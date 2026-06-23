@@ -95,6 +95,43 @@ export async function createEpisodeSearchResults(results, showQuery, episodeQuer
 }
 
 /**
+ * Create soundtrack search results with movie/TV selection
+ */
+export async function createSoundtrackSearchResults(results, query) {
+  const options = results.map((result, index) => {
+    const title = result.title || result.name;
+    const year = result.release_date || result.first_air_date;
+    const yearStr = year ? ` (${year.split('-')[0]})` : '';
+    const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
+    const mediaType = result.type === 'movie' ? '🎬 Movie' : '📺 TV Show';
+    
+    return {
+      label: `${mediaType}: ${title}${yearStr}`.substring(0, 100),
+      description: overview.substring(0, 100),
+      value: `soundtrack_${result.type}_${result.id}`,
+    };
+  });
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('select_soundtrack')
+    .setPlaceholder('Select the correct title')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x0099FF)
+    .setTitle(`🎵 Select Title to Find Soundtrack`)
+    .setDescription(`Found ${results.length} result${results.length > 1 ? 's' : ''} matching "${query}". Select the correct title below to search for its soundtrack.`)
+    .setFooter({ text: 'Select a title from the menu below' });
+  
+  return {
+    embeds: [embed],
+    components: [row],
+  };
+}
+
+/**
  * Create a detailed result embed with ratings
  */
 export async function createDetailedEmbed(data, type, enabledServices = null, guildEmojis = null, watchProviders = null) {

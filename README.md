@@ -32,6 +32,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 |---------|-------------|----------|
 | **`/random`** | Get random content with filters (genre, decade, rating, platform) | Movies, TV, Episodes, Games, Board Games |
 | **`/similar`** | Find similar content based on any title | Movies, TV, Games, Board Games |
+| **`/soundtrack`** | Search for movie and TV show soundtracks with iTunes integration | Movies, TV Shows |
 
 ### Watch Parties & History
 
