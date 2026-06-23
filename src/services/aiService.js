@@ -247,12 +247,20 @@ export async function discoverAndRank(query, type = 'movie') {
       score: r.semanticScore?.toFixed(3)
     })));
     
-    // Return top 20 matches with decent similarity scores
-    const threshold = 0.30; // Lowered threshold for broader matches
-    const filtered = rankedResults.filter(item => item.semanticScore >= threshold);
-    console.log(`Found ${filtered.length} items with score >= ${threshold}`);
+    // Return top 20 matches - always return at least some results for user selection
+    // Filter by threshold but ensure we return at least top 10 for selection menu
+    const threshold = 0.25;
+    const aboveThreshold = rankedResults.filter(item => item.semanticScore >= threshold);
     
-    return filtered.slice(0, 20);
+    // Return whichever is larger: filtered results or minimum 10 for selection
+    const minResults = 10;
+    const finalResults = aboveThreshold.length >= minResults 
+      ? aboveThreshold.slice(0, 20)
+      : rankedResults.slice(0, Math.min(minResults, rankedResults.length));
+    
+    console.log(`Returning ${finalResults.length} results (${aboveThreshold.length} above threshold ${threshold})`);
+    
+    return finalResults;
 
   } catch (error) {
     console.error('Discover and rank error:', error.message);
