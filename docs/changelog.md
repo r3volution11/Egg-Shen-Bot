@@ -94,6 +94,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Example: "that movie about dreams within dreams" → Inception
   - Updated `/movie` and `/tv` commands to use hybrid search
   - Documentation includes setup guide and cost estimates
+- **Enhanced Streaming Availability with Watchmode API** (2026-06-22)
+  - Optional Watchmode API integration for comprehensive streaming data
+  - Unified watch provider system merges TMDB + Watchmode sources
+  - Better coverage of free services (Tubi, Pluto TV, Freevee, Plex, etc.)
+  - 150+ streaming services tracked with up-to-date availability
+  - Progressive enhancement: falls back to TMDB-only if API key missing
+  - Shows stream/rent/buy options for movies and TV shows
+  - Region-configurable per server (defaults to US)
+  - Free tier: 1,000 requests/month (sufficient for small-medium servers)
+  - Applied to `/movie`, `/tv`, `/random`, and `/similar` commands
+  - New `watchmodeService.js` with search and provider lookup functions
+  - Documentation includes setup guide and usage limits
 - **Fun & Social Potion System** (2026-06-22)
   - New `/potion give` command for playful user interactions
   - 13 potion types: 8 helpful, 5 harmful for chat dynamics
@@ -106,6 +118,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom responses stored per-guild, merged with defaults
   - Validates {giver} and {receiver} placeholders in custom responses
   - Permission checking ensures only admins/mods manage responses
+
+### Fixed
+- **Watchmode streaming providers not displaying** (2026-06-23)
+  - `/movie` and `/tv` commands weren't calling unified watch provider functions
+  - Created `getUnifiedMovieWatchProviders()` and `getUnifiedTVWatchProviders()` but forgot to invoke them
+  - Now properly calls unified functions and passes `watchProviders` to `createDetailedEmbed()`
+  - Tubi and other Watchmode-exclusive services now appear in search results
+  - `/random` already had correct implementation
+  - `/similar` doesn't need it (shows list-only results, not detailed embeds)
 
 ### Planned
 - Statistics export functionality

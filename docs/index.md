@@ -21,7 +21,7 @@ hero:
 features:
   - icon: 🎬
     title: Comprehensive Search
-    details: Search movies, TV shows, episodes, video games, board games, and books with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, BoardGameGeek, and Google Books. Optional AI-enhanced semantic search for better results.
+    details: Search movies, TV shows, episodes, video games, board games, and books with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, BoardGameGeek, and Google Books. Enhanced streaming availability powered by TMDB + Watchmode API (150+ services including Tubi, Pluto TV, Freevee). Optional AI-enhanced semantic search for better results.
   
   - icon: ⏱️
     title: Watch Party Features
@@ -75,7 +75,7 @@ npm start
 ### Search Movies
 Type `/movie title:Inception` and get:
 - **Ratings**: IMDb 8.8, Letterboxd 4.3, Trakt 90%, RT 87%
-- **Where to Watch**: Available streaming platforms in your region
+- **Where to Watch**: Comprehensive streaming platforms (TMDB + Watchmode) - includes free services like Tubi, Pluto TV, and Freevee
 - **Details**: Runtime, release date, genres, cast, overview
 - **Links**: IMDb, TMDB, Letterboxd, Trakt, JustWatch
 
