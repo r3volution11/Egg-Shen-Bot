@@ -353,7 +353,7 @@ export async function execute(interaction) {
 }
 
 /**
- * Start timer countdown and begin timer
+ * Start timer countdown and begin timer (always posts publicly to channel)
  * Exported function that can be called from selectHandler
  * @param {object} interaction - Discord interaction
  * @param {string} channelId - Channel ID
@@ -362,7 +362,7 @@ export async function execute(interaction) {
  * @param {string} label - Timer label
  * @param {number} duration - Duration in minutes (optional)
  * @param {string} theme - Timer theme (modern/classic)
- * @param {boolean} fromSelection - If true, posts publicly to channel instead of editing ephemeral reply
+ * @param {boolean} fromSelection - Deprecated parameter (always posts publicly now)
  */
 export async function startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, fromSelection = false) {
   // Check if timer already exists
@@ -396,19 +396,19 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
   }
 
   // If coming from selection menu, dismiss the ephemeral message and post publicly
-  if (fromSelection) {
-    // Delete the ephemeral selection menu
-    try {
-      await interaction.editReply({ content: 'Starting timer...', embeds: [], components: [] });
-    } catch (error) {
-      // If edit fails, ignore - might already be deleted
-    }
-    
-    // Post countdown publicly to channel
-    const channel = interaction.channel;
-    const titleLine = label ? `**${label}**` : '**The Overlord of Time**';
-    
-    if (theme === 'classic') {
+  // Always post countdown publicly to channel (not ephemeral)
+  // Dismiss the ephemeral interaction reply first
+  try {
+    await interaction.editReply({ content: '⏱️ Starting timer...', embeds: [], components: [] });
+  } catch (error) {
+    // If edit fails, ignore - might already be deleted
+  }
+  
+  // Post countdown publicly to channel
+  const channel = interaction.channel;
+  const titleLine = label ? `**${label}**` : '**The Overlord of Time**';
+  
+  if (theme === 'classic') {
       // Classic theme - post to channel
       let message = await channel.send(`${titleLine} **COUNTDOWN STARTING**`);
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -499,109 +499,4 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
       await message.edit({ embeds: [embed] });
       return;
     }
-  }
-
-  // Normal flow - edit the interaction reply (non-selection path)
-  // Show countdown before starting
-  if (theme === 'classic') {
-    // Classic theme - sequential text countdown like the old bot
-    const titleLine = label ? `**${label}**` : '**The Overlord of Time**';
-    
-    await interaction.editReply(`${titleLine} **COUNTDOWN STARTING**`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    await interaction.editReply(`${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Countdown 5, 4, 3, 2, 1 with number emojis
-    const countdownMessages = [
-      `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:`,
-      `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:`,
-      `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:`,
-      `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:\n${titleLine} :two:`,
-      `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:\n${titleLine} :two:\n${titleLine} :one:`,
-      `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:\n${titleLine} :two:\n${titleLine} :one:\n${titleLine} 🚨**:regional_indicator_g::regional_indicator_o:**🚨`,
-      `${titleLine} **COUNTDOWN STARTING**\n${titleLine} **HIT PLAY AT** 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} :five:\n${titleLine} :four:\n${titleLine} :three:\n${titleLine} :two:\n${titleLine} :one:\n${titleLine} 🚨**:regional_indicator_g::regional_indicator_o:**🚨\n${titleLine} **Timer started**`
-    ];
-    
-    for (const message of countdownMessages) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      await interaction.editReply(message);
-    }
-    
-    // NOW start the actual timer
-    startTimer(channelId, userId, username, label, duration, interaction.client);
-    
-    // Keep the final message visible
-    return;
-    
-  } else {
-    // Modern theme - fancy colored embeds with blocks (default)
-    const countdownSteps = [
-      { num: 5, color: 0xFF0000, emoji: '🔴', blocks: '🟥🟥🟥🟥🟥' },
-      { num: 4, color: 0xFF4400, emoji: '🟠', blocks: '🟧🟧🟧🟧⬜' },
-      { num: 3, color: 0xFF8800, emoji: '🟡', blocks: '🟨🟨🟨⬜⬜' },
-      { num: 2, color: 0xFFCC00, emoji: '🟢', blocks: '🟩🟩⬜⬜⬜' },
-      { num: 1, color: 0x00FF00, emoji: '🟢', blocks: '🟩⬜⬜⬜⬜' },
-    ];
-    
-    const countdownEmbed = new EmbedBuilder()
-      .setColor(countdownSteps[0].color)
-      .setTitle(`${countdownSteps[0].emoji} STARTING TIMER ${countdownSteps[0].emoji}`)
-      .setDescription(`# ${countdownSteps[0].num}\n${countdownSteps[0].blocks}`)
-      .setFooter({ text: '🎬 Get ready!' });
-    
-    await interaction.editReply({ embeds: [countdownEmbed] });
-    
-    // Countdown from 4 to 1 with visual flair
-    for (let i = 1; i < countdownSteps.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const step = countdownSteps[i];
-      countdownEmbed
-        .setColor(step.color)
-        .setTitle(`${step.emoji} STARTING TIMER ${step.emoji}`)
-        .setDescription(`# ${step.num}\n${step.blocks}`);
-      await interaction.editReply({ embeds: [countdownEmbed] });
-    }
-    
-    // Wait 1 more second then show GO!
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    countdownEmbed
-      .setColor(0x00FF00)
-      .setTitle('🎬 🎥 🍿 GO! 🍿 🎥 🎬')
-      .setDescription('# 🟢 START!\n🟩🟩🟩🟩🟩\n\n**Timer is now running!**')
-      .setFooter({ text: '⏱️ Timer started!' });
-    await interaction.editReply({ embeds: [countdownEmbed] });
-    
-    // NOW start the actual timer
-    startTimer(channelId, userId, username, label, duration, interaction.client);
-    
-    // Wait another second then show the final timer started message
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const timerFields = [{
-      name: 'Started by',
-      value: `<@${userId}>`,
-      inline: true,
-    }];
-
-    // Add duration info if set
-    if (duration) {
-      timerFields.push({
-        name: 'Duration',
-        value: `${duration} minutes (auto-stop enabled)`,
-        inline: true,
-      });
-    }
-
-    const embed = new EmbedBuilder()
-      .setColor(0x00FF00)
-      .setTitle('⏱️ Timer Started 🟩')
-      .setDescription(label ? `**${label}**` : 'Timer is now running')
-      .addFields(timerFields)
-      .setFooter({ text: duration ? 'Timer will auto-stop when complete' : 'Use /timer stop to end the timer' })
-      .setTimestamp();
-
-    await interaction.editReply({ embeds: [embed] });
-  }
 }
