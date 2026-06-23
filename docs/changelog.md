@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Soundtrack Search (`/soundtrack` command)**
+  - Search for movie and TV show soundtracks via iTunes Search API
+  - TMDB title verification ensures correct soundtrack matching
+  - Displays album artwork, artist/composer, track count, release date, genre, and price
+  - Direct iTunes links for listening and purchasing
+  - No API key required - uses free iTunes Search API
+  - Follows same selection pattern as other search commands for consistency
 - **Survey/Polling System (`/survey` command)**
   - Create interactive surveys with up to 10 options
   - Real-time vote tracking via reaction emojis (1️⃣-🔟)

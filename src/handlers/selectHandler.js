@@ -49,6 +49,7 @@ export async function handleSelectInteraction(interaction) {
       interaction.customId !== 'select_watched' &&
       interaction.customId !== 'select_random_episode' &&
       interaction.customId !== 'select_similar' &&
+      interaction.customId !== 'select_soundtrack' &&
       interaction.customId !== 'timer_select_runtime') return;
   
   // Defer the update to acknowledge the interaction
@@ -256,6 +257,29 @@ export async function handleSelectInteraction(interaction) {
     
     const { handleSimilarSelection } = await import('../commands/similar.js');
     await handleSimilarSelection(type, tmdbId, interaction);
+    return;
+  }
+  
+  // Handle soundtrack selection
+  if (interaction.customId === 'select_soundtrack') {
+    const value = interaction.values[0];
+    const [, type, tmdbId] = value.split('_');
+    
+    const { getMovieDetails, getTVShowDetails } = await import('../services/tmdbService.js');
+    
+    // Get title details
+    const details = type === 'movie' 
+      ? await getMovieDetails(parseInt(tmdbId))
+      : await getTVShowDetails(parseInt(tmdbId));
+    
+    const result = {
+      ...details,
+      type: type,
+    };
+    
+    // Import and call the soundtrack display function
+    const { searchAndDisplaySoundtrack } = await import('../commands/soundtrack.js');
+    await searchAndDisplaySoundtrack(interaction, result);
     return;
   }
   

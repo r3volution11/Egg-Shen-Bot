@@ -259,6 +259,37 @@ Find similar content recommendations.
 
 ---
 
+### `/soundtrack`
+Search for movie and TV show soundtracks with iTunes integration.
+
+**Options:**
+- `query` (required) - Movie or TV show title to find soundtrack for
+
+**Features:**
+- TMDB title verification for accurate matching
+- iTunes Search API integration (no API key required)
+- Album artwork and metadata display
+- Artist/composer information
+- Track count and release dates
+- Price information and purchase links
+- Direct links to iTunes for streaming and buying
+- Supports both movies and TV shows
+
+**Examples:**
+```
+/soundtrack query:The Matrix
+/soundtrack query:Breaking Bad
+/soundtrack query:Interstellar
+```
+
+**How It Works:**
+1. Search for movie or TV show title
+2. Select correct title from TMDB results
+3. Bot searches iTunes for soundtrack
+4. Displays soundtrack details with purchase links
+
+---
+
 ## Fun & Social Commands
 
 ### `/survey`
@@ -405,7 +436,7 @@ Display help information and available commands.
 |----------|----------|
 | **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
 | **Watch Parties** | `/timer`, `/watched` |
-| **Discovery** | `/random`, `/similar` |
+| **Discovery** | `/random`, `/similar`, `/soundtrack` |
 | **Fun & Social** | `/survey`, `/potion` |
 | **Statistics** | `/stats` |
 | **Configuration** | `/eggshen-config` |
@@ -413,7 +444,7 @@ Display help information and available commands.
 
 ## Command Permissions
 
-- **Everyone:** Search, timer, watched add, random, similar
+- **Everyone:** Search, timer, watched add, random, similar, soundtrack
 - **Admin/Mod:** stats, eggshen-config, watched from timer (or timer starter)
 
 [Learn about moderation →](/features/moderation-tools)
