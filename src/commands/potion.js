@@ -475,9 +475,10 @@ async function handleGivePotion(interaction) {
     .replace(/{receiver}/g, `<@${targetUser.id}>`);
 
   // Send the potion message publicly
+  // Use Set to avoid duplicate user IDs if someone gives a potion to themselves
   await interaction.reply({
     content: finalMessage,
-    allowedMentions: { users: [giver.id, targetUser.id] },
+    allowedMentions: { users: [...new Set([giver.id, targetUser.id])] },
   });
 }
 
