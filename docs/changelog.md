@@ -5,6 +5,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Survey/Polling System (`/survey` command)**
+  - Create interactive surveys with up to 10 options
+  - Real-time vote tracking via reaction emojis (1️⃣-🔟)
+  - Single or multiple vote modes
+  - View live results with progress bars showing percentages
+  - Comprehensive management: `/survey list`, `/survey results`, `/survey close`, `/survey delete`
+  - Permission system: creator, administrators, and moderators can manage surveys
+  - Persistent storage in JSON format per-guild
+  - Configurable via `/eggshen-config commands toggle` (can be enabled/disabled per server)
+  - Alternative to `/poll` and `/vote` commands that may be provided by other bots
+
 ## [1.0.0] - 2026-06-21
 
 ### Added

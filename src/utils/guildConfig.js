@@ -41,6 +41,7 @@ const defaultConfig = {
     game: true,
     boardgame: true,
     book: true,
+    survey: true,
   },
   notifications: {
     restartAnnouncements: false, // Send announcements when bot restarts with active timers
@@ -253,7 +254,7 @@ export async function updateCommandPermission(guildId, setting, enabled) {
   
   if (setting === 'enabled') {
     config.commandPermissions.enabled = enabled;
-  } else if (setting === 'movie' || setting === 'tv' || setting === 'episode' || setting === 'game' || setting === 'boardgame' || setting === 'book') {
+  } else if (setting === 'movie' || setting === 'tv' || setting === 'episode' || setting === 'game' || setting === 'boardgame' || setting === 'book' || setting === 'survey') {
     config.commandPermissions[setting] = enabled;
   } else {
     return false;
@@ -281,7 +282,7 @@ export async function canUseCommand(guildId, member, commandName) {
   }
   
   // Check specific command permission
-  if (commandName === 'movie' || commandName === 'tv' || commandName === 'episode') {
+  if (commandName === 'movie' || commandName === 'tv' || commandName === 'episode' || commandName === 'survey') {
     return config.commandPermissions[commandName] === true;
   }
   

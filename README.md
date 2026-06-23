@@ -42,6 +42,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 ### Fun & Social
 
 - **`/potion`** - Give magical potions to other users with pop culture references! Helpful (Health, Mana, Strength, Speed, Invisibility, Luck, Love, Energy) or Harmful (Confusion, Poison, Weakness, Curse, Slow) - add fun chaos to chat!
+- **`/survey`** - Create polls/surveys with up to 10 options, track votes in real-time, view results with progress bars, and manage with creator/admin controls
 
 ## ✨ Key Features
 
