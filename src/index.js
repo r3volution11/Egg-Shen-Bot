@@ -10,7 +10,10 @@ const __dirname = dirname(__filename);
 
 // Create Discord client
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessageReactions,
+  ],
 });
 
 // Collection to store commands
@@ -316,6 +319,113 @@ client.on('interactionCreate', async (interaction) => {
         });
       }
     }
+  }
+});
+
+// Event: Message Reaction Add (for polls)
+client.on('messageReactionAdd', async (reaction, user) => {
+  // Ignore bot reactions
+  if (user.bot) return;
+  
+  try {
+    // Fetch the reaction if it's partial
+    if (reaction.partial) {
+      await reaction.fetch();
+    }
+    
+    // Fetch the message if it's partial
+    if (reaction.message.partial) {
+      await reaction.message.fetch();
+    }
+    
+    const { getPollByMessageId, addVote, removeVote, getPollResults, VOTE_EMOJIS } = await import('./utils/pollManager.js');
+    
+    // Check if this message is a poll
+    const poll = getPollByMessageId(reaction.message.guildId, reaction.message.id);
+    
+    if (!poll) return;
+    
+    // Check if poll is still active
+    if (poll.status !== 'active') {
+      // Remove reaction from closed poll
+      await reaction.users.remove(user.id);
+      return;
+    }
+    
+    // Check if the emoji is valid for this poll
+    const emojiIndex = VOTE_EMOJIS.indexOf(reaction.emoji.name);
+    
+    if (emojiIndex === -1 || emojiIndex >= poll.options.length) {
+      // Invalid emoji for this poll
+      await reaction.users.remove(user.id);
+      return;
+    }
+    
+    // Add the vote
+    try {
+      const updatedPoll = addVote(reaction.message.guildId, poll.pollId, emojiIndex, user.id);
+      
+      // If multiple votes are not allowed, remove user's reactions from other options
+      if (!poll.allowMultipleVotes) {
+        for (let i = 0; i < poll.options.length; i++) {
+          if (i !== emojiIndex) {
+            const otherReaction = reaction.message.reactions.cache.find(r => r.emoji.name === VOTE_EMOJIS[i]);
+            if (otherReaction) {
+              await otherReaction.users.remove(user.id);
+            }
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error adding vote:', error);
+      await reaction.users.remove(user.id);
+    }
+    
+  } catch (error) {
+    console.error('Error handling reaction add:', error);
+  }
+});
+
+// Event: Message Reaction Remove (for polls)
+client.on('messageReactionRemove', async (reaction, user) => {
+  // Ignore bot reactions
+  if (user.bot) return;
+  
+  try {
+    // Fetch the reaction if it's partial
+    if (reaction.partial) {
+      await reaction.fetch();
+    }
+    
+    // Fetch the message if it's partial
+    if (reaction.message.partial) {
+      await reaction.message.fetch();
+    }
+    
+    const { getPollByMessageId, removeVote, VOTE_EMOJIS } = await import('./utils/pollManager.js');
+    
+    // Check if this message is a poll
+    const poll = getPollByMessageId(reaction.message.guildId, reaction.message.id);
+    
+    if (!poll) return;
+    
+    // Check if the emoji is valid for this poll
+    const emojiIndex = VOTE_EMOJIS.indexOf(reaction.emoji.name);
+    
+    if (emojiIndex === -1 || emojiIndex >= poll.options.length) {
+      return;
+    }
+    
+    // Remove the vote
+    try {
+      removeVote(reaction.message.guildId, poll.pollId, emojiIndex, user.id);
+    } catch (error) {
+      console.error('Error removing vote:', error);
+    }
+    
+  } catch (error) {
+    console.error('Error handling reaction remove:', error);
   }
 });
 

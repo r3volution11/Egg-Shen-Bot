@@ -142,7 +142,8 @@ export const data = new SlashCommandBuilder()
                 { name: 'All Commands (Master Switch)', value: 'enabled' },
                 { name: 'Movie Command', value: 'movie' },
                 { name: 'TV Command', value: 'tv' },
-                { name: 'Episode Command', value: 'episode' }
+                { name: 'Episode Command', value: 'episode' },
+                { name: 'Survey Command', value: 'survey' }
               )
           )
           .addBooleanOption(option =>
@@ -579,7 +580,8 @@ export async function execute(interaction) {
     const commandsStatus = `${config.commandPermissions.enabled ? '✅' : '❌'} **All Commands:** ${config.commandPermissions.enabled ? 'Enabled' : 'Disabled'}\n` +
       `${config.commandPermissions.movie ? '✅' : '❌'} **/movie:** ${config.commandPermissions.movie ? 'Enabled' : 'Disabled'}\n` +
       `${config.commandPermissions.tv ? '✅' : '❌'} **/tv:** ${config.commandPermissions.tv ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.episode ? '✅' : '❌'} **/episode:** ${config.commandPermissions.episode ? 'Enabled' : 'Disabled'}`;
+      `${config.commandPermissions.episode ? '✅' : '❌'} **/episode:** ${config.commandPermissions.episode ? 'Enabled' : 'Disabled'}\n` +
+      `${config.commandPermissions.survey !== false ? '✅' : '❌'} **/survey:** ${config.commandPermissions.survey !== false ? 'Enabled' : 'Disabled'}`;
 
     const notificationsStatus = `${config.notifications?.restartAnnouncements ? '✅' : '❌'} **Restart Announcements:** ${config.notifications?.restartAnnouncements ? 'Enabled' : 'Disabled'}`;
 
