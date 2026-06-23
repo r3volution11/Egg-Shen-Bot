@@ -43,6 +43,11 @@ export const config = {
       model: 'text-embedding-3-small', // Cost-effective embedding model
       baseUrl: 'https://api.openai.com/v1',
     },
+    spotify: {
+      clientId: process.env.SPOTIFY_CLIENT_ID || null, // Optional - enables Spotify soundtrack links
+      clientSecret: process.env.SPOTIFY_CLIENT_SECRET || null,
+      baseUrl: 'https://api.spotify.com/v1',
+    },
   },
   serviceUrls: {
     imdb: 'https://www.imdb.com/title',

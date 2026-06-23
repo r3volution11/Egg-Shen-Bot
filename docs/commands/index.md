@@ -260,7 +260,7 @@ Find similar content recommendations.
 ---
 
 ### `/soundtrack`
-Search for movie and TV show soundtracks with iTunes integration.
+Search for movie and TV show soundtracks with iTunes and Spotify integration.
 
 **Options:**
 - `query` (required) - Movie or TV show title to find soundtrack for
@@ -268,11 +268,12 @@ Search for movie and TV show soundtracks with iTunes integration.
 **Features:**
 - TMDB title verification for accurate matching
 - iTunes Search API integration (no API key required)
+- Spotify API integration (optional - shows both platforms when configured)
 - Album artwork and metadata display
 - Artist/composer information
 - Track count and release dates
-- Price information and purchase links
-- Direct links to iTunes for streaming and buying
+- Price information and purchase links (iTunes)
+- Direct links to iTunes and Spotify for streaming
 - Supports both movies and TV shows
 
 **Examples:**
