@@ -173,7 +173,7 @@ export async function discoverAndRank(query, type = 'movie') {
     });
 
     // Get popular items from multiple pages for better coverage
-    const pages = [1, 2, 3]; // Get top ~60 popular items
+    const pages = [1, 2, 3, 4, 5]; // Get top ~100 popular items
     const endpoint = type === 'movie' ? '/discover/movie' : '/discover/tv';
     
     const results = [];
@@ -181,10 +181,10 @@ export async function discoverAndRank(query, type = 'movie') {
       const response = await tmdbApi.get(endpoint, {
         params: {
           language: 'en-US',
-          sort_by: 'popularity.desc',
+          sort_by: 'vote_average.desc', // Sort by rating for quality results
           include_adult: false,
           page,
-          vote_count_gte: 100, // Ensure items have sufficient votes
+          'vote_count.gte': 500, // Ensure items have sufficient votes
         },
       });
       results.push(...response.data.results);
@@ -225,7 +225,7 @@ export async function discoverAndRank(query, type = 'movie') {
     })));
     
     // Return top 20 matches with decent similarity scores
-    const threshold = 0.45; // Minimum similarity threshold (lowered from 0.5)
+    const threshold = 0.40; // Minimum similarity threshold
     const filtered = rankedResults.filter(item => item.semanticScore >= threshold);
     console.log(`Found ${filtered.length} items with score >= ${threshold}`);
     
