@@ -89,6 +89,7 @@ const defaultConfig = {
     // Responses use {giver} and {receiver} as placeholders
     // Example: { health: ["Custom healing message!"] }
   },
+  potionThemes: null, // null = all themes active, or array of active theme keys
 };
 
 /**
