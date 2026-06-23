@@ -192,14 +192,44 @@ export async function discoverAndRank(query, type = 'movie') {
 
     console.log(`Fallback semantic search: Ranking ${results.length} popular ${type}s for query: "${query}"`);
 
-    // Rank all items by semantic similarity
-    const rankedResults = await reRankResults(query, results, type);
+    // Generate embedding for the query
+    const queryEmbedding = await generateEmbedding(query);
+
+    // Generate embeddings for all results (not limited to 20 for fallback search)
+    const embeddings = await Promise.all(
+      results.map(async (item) => {
+        const searchableText = createSearchableText(item, type);
+        try {
+          return await generateEmbedding(searchableText);
+        } catch (error) {
+          console.error(`Failed to generate embedding for: ${searchableText.substring(0, 50)}...`);
+          return null;
+        }
+      })
+    );
+
+    // Calculate similarity scores for all items
+    const rankedResults = results
+      .map((item, index) => {
+        if (!embeddings[index]) {
+          return { ...item, semanticScore: 0 };
+        }
+        const similarity = cosineSimilarity(queryEmbedding, embeddings[index]);
+        return { ...item, semanticScore: similarity };
+      })
+      .sort((a, b) => b.semanticScore - a.semanticScore); // Sort by semantic score descending
+    
+    console.log(`Top 5 ranked items:`, rankedResults.slice(0, 5).map(r => ({
+      title: r.title || r.name,
+      score: r.semanticScore?.toFixed(3)
+    })));
     
     // Return top 20 matches with decent similarity scores
-    const threshold = 0.5; // Minimum similarity threshold
-    return rankedResults
-      .filter(item => item.semanticScore >= threshold)
-      .slice(0, 20);
+    const threshold = 0.45; // Minimum similarity threshold (lowered from 0.5)
+    const filtered = rankedResults.filter(item => item.semanticScore >= threshold);
+    console.log(`Found ${filtered.length} items with score >= ${threshold}`);
+    
+    return filtered.slice(0, 20);
 
   } catch (error) {
     console.error('Discover and rank error:', error.message);
