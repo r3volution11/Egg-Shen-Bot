@@ -172,32 +172,55 @@ export async function discoverAndRank(query, type = 'movie') {
       },
     });
 
-    // Get popular items from multiple pages for better coverage
-    const pages = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // Get top ~200 popular items
+    // Get diverse set of movies from multiple sorting strategies for better coverage
     const endpoint = type === 'movie' ? '/discover/movie' : '/discover/tv';
-    
     const results = [];
-    for (const page of pages) {
+    
+    // Strategy 1: Top rated classics (pages 1-5)
+    for (let page = 1; page <= 5; page++) {
       const response = await tmdbApi.get(endpoint, {
         params: {
           language: 'en-US',
-          sort_by: 'popularity.desc', // Sort by popularity for broader coverage
+          sort_by: 'vote_average.desc',
           include_adult: false,
           page,
-          'vote_count.gte': 100, // Ensure items have sufficient votes
+          'vote_count.gte': 1000,
+        },
+      });
+      results.push(...response.data.results);
+    }
+    
+    // Strategy 2: Most popular recent hits (pages 1-3)
+    for (let page = 1; page <= 3; page++) {
+      const response = await tmdbApi.get(endpoint, {
+        params: {
+          language: 'en-US',
+          sort_by: 'popularity.desc',
+          include_adult: false,
+          page,
+          'vote_count.gte': 100,
         },
       });
       results.push(...response.data.results);
     }
 
-    console.log(`Fallback semantic search: Ranking ${results.length} popular ${type}s for query: "${query}"`);
+    // Deduplicate by ID
+    const seen = new Set();
+    const uniqueResults = results.filter(item => {
+      const id = item.id;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    console.log(`Fallback semantic search: Ranking ${uniqueResults.length} ${type}s (top-rated + popular) for query: "${query}"`);
 
     // Generate embedding for the query
     const queryEmbedding = await generateEmbedding(query);
 
-    // Generate embeddings for all results (not limited to 20 for fallback search)
+    // Generate embeddings for all results
     const embeddings = await Promise.all(
-      results.map(async (item) => {
+      uniqueResults.map(async (item) => {
         const searchableText = createSearchableText(item, type);
         try {
           return await generateEmbedding(searchableText);
@@ -209,7 +232,7 @@ export async function discoverAndRank(query, type = 'movie') {
     );
 
     // Calculate similarity scores for all items
-    const rankedResults = results
+    const rankedResults = uniqueResults
       .map((item, index) => {
         if (!embeddings[index]) {
           return { ...item, semanticScore: 0 };
@@ -217,15 +240,15 @@ export async function discoverAndRank(query, type = 'movie') {
         const similarity = cosineSimilarity(queryEmbedding, embeddings[index]);
         return { ...item, semanticScore: similarity };
       })
-      .sort((a, b) => b.semanticScore - a.semanticScore); // Sort by semantic score descending
+      .sort((a, b) => b.semanticScore - a.semanticScore);
     
-    console.log(`Top 5 ranked items:`, rankedResults.slice(0, 5).map(r => ({
+    console.log(`Top 10 ranked items:`, rankedResults.slice(0, 10).map(r => ({
       title: r.title || r.name,
       score: r.semanticScore?.toFixed(3)
     })));
     
     // Return top 20 matches with decent similarity scores
-    const threshold = 0.35; // Minimum similarity threshold (lowered for broader matches)
+    const threshold = 0.30; // Lowered threshold for broader matches
     const filtered = rankedResults.filter(item => item.semanticScore >= threshold);
     console.log(`Found ${filtered.length} items with score >= ${threshold}`);
     
