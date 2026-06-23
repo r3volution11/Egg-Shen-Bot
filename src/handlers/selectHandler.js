@@ -104,9 +104,9 @@ export async function handleSelectInteraction(interaction) {
       }
     }
     
-    // Now start the timer countdown
+    // Now start the timer countdown (post publicly, not ephemeral)
     const { startTimerCountdown } = await import('../commands/timer.js');
-    await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme);
+    await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, true);
     return;
   }
   
