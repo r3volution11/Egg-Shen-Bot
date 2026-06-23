@@ -85,7 +85,8 @@ export async function execute(interaction) {
  */
 async function searchAndDisplaySoundtrack(interaction, result) {
   const { EmbedBuilder } = await import('discord.js');
-  const { searchSoundtrack } = await import('../services/itunesService.js');
+  const { searchSoundtrack: searchITunes } = await import('../services/itunesService.js');
+  const { searchSoundtrack: searchSpotify, isConfigured: isSpotifyConfigured } = await import('../services/spotifyService.js');
   const { trackSearch } = await import('../utils/statsTracker.js');
   
   // Track the search in statistics
@@ -103,97 +104,96 @@ async function searchAndDisplaySoundtrack(interaction, result) {
     );
   }
   
-  // Search iTunes for the soundtrack
   const title = result.title || result.name;
   const type = result.type;
   
-  const soundtracks = await searchSoundtrack(title, type, 5);
+  // Search both services in parallel if Spotify is configured
+  const searchPromises = [
+    searchITunes(title, type, 5),
+  ];
   
-  if (!soundtracks || soundtracks.length === 0) {
+  if (isSpotifyConfigured()) {
+    searchPromises.push(searchSpotify(title, type, 5));
+  }
+  
+  const [itunesResults, spotifyResult] = await Promise.all(searchPromises);
+  
+  // Check if we found any results
+  if ((!itunesResults || itunesResults.length === 0) && !spotifyResult) {
+    const servicesText = isSpotifyConfigured() ? 'iTunes or Spotify' : 'iTunes';
     await interaction.editReply({
-      content: `🎵 No soundtracks found for **${title}**.\n\nThis could mean:\n• The soundtrack isn't available on iTunes\n• Try searching with a different variation of the title\n• The soundtrack might be available on other platforms like Spotify`,
+      content: `🎵 No soundtracks found for **${title}** on ${servicesText}.\n\nThis could mean:\n• The soundtrack isn't available on these services yet\n• Try searching with a different variation of the title\n• The soundtrack might be available on other platforms`,
     });
     return;
   }
   
-  // If multiple soundtracks found, show the first one with a note
-  const soundtrack = soundtracks[0];
-  
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle(`🎵 ${soundtrack.collectionName}`)
-    .setDescription(`Soundtrack for **${title}**`)
-    .setThumbnail(soundtrack.artworkUrl600 || soundtrack.artworkUrl100);
+    .setTitle(`🎵 Soundtrack for ${title}`)
+    .setDescription(`Found ${itunesResults?.length > 0 ? '✓' : ''} iTunes${spotifyResult ? ', ✓ Spotify' : ''}`);
   
-  // Artist/Composer
-  if (soundtrack.artistName) {
-    embed.addFields({
-      name: 'Artist/Composer',
-      value: soundtrack.artistName,
-      inline: true,
-    });
+  // Set thumbnail (prefer Spotify's higher quality artwork, fallback to iTunes)
+  if (spotifyResult?.imageUrl) {
+    embed.setThumbnail(spotifyResult.imageUrl);
+  } else if (itunesResults?.[0]?.artworkUrl600) {
+    embed.setThumbnail(itunesResults[0].artworkUrl600 || itunesResults[0].artworkUrl100);
   }
   
-  // Track Count
-  if (soundtrack.trackCount) {
-    embed.addFields({
-      name: 'Tracks',
-      value: soundtrack.trackCount.toString(),
-      inline: true,
-    });
-  }
-  
-  // Release Date
-  if (soundtrack.releaseDate) {
-    const releaseDate = new Date(soundtrack.releaseDate);
-    embed.addFields({
-      name: 'Released',
-      value: releaseDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-      inline: true,
-    });
-  }
-  
-  // Genre
-  if (soundtrack.primaryGenreName) {
-    embed.addFields({
-      name: 'Genre',
-      value: soundtrack.primaryGenreName,
-      inline: true,
-    });
-  }
-  
-  // Price
-  if (soundtrack.collectionPrice !== undefined) {
-    const priceText = soundtrack.collectionPrice === 0 
-      ? 'Free' 
-      : `${soundtrack.currency || '$'}${soundtrack.collectionPrice.toFixed(2)}`;
+  // Add iTunes information if available
+  if (itunesResults && itunesResults.length > 0) {
+    const itunes = itunesResults[0];
+    
+    let itunesInfo = `**[${itunes.collectionName}](${itunes.collectionViewUrl})**\n`;
+    itunesInfo += `Artist: ${itunes.artistName}\n`;
+    itunesInfo += `Tracks: ${itunes.trackCount}\n`;
+    
+    if (itunes.releaseDate) {
+      const releaseDate = new Date(itunes.releaseDate);
+      itunesInfo += `Released: ${releaseDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}\n`;
+    }
+    
+    if (itunes.collectionPrice !== undefined) {
+      const priceText = itunes.collectionPrice === 0 
+        ? 'Free' 
+        : `${itunes.currency || '$'}${itunes.collectionPrice.toFixed(2)}`;
+      itunesInfo += `Price: ${priceText}`;
+    }
     
     embed.addFields({
-      name: 'Price',
-      value: priceText,
-      inline: true,
+      name: '🎵 Apple Music / iTunes',
+      value: itunesInfo,
+      inline: false,
     });
+    
+    // Add copyright footer from iTunes
+    if (itunes.copyright) {
+      embed.setFooter({ text: itunes.copyright });
+    }
   }
   
-  // iTunes Link
-  if (soundtrack.collectionViewUrl) {
+  // Add Spotify information if available
+  if (spotifyResult) {
+    let spotifyInfo = `**[${spotifyResult.name}](${spotifyResult.albumUrl})**\n`;
+    spotifyInfo += `Artist: ${spotifyResult.artists}\n`;
+    spotifyInfo += `Tracks: ${spotifyResult.totalTracks}\n`;
+    
+    if (spotifyResult.releaseDate) {
+      const releaseDate = new Date(spotifyResult.releaseDate);
+      spotifyInfo += `Released: ${releaseDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`;
+    }
+    
     embed.addFields({
-      name: 'Listen & Buy',
-      value: `[View on iTunes](${soundtrack.collectionViewUrl})`,
+      name: '🎵 Spotify',
+      value: spotifyInfo,
       inline: false,
     });
   }
   
-  // Copyright
-  if (soundtrack.copyright) {
-    embed.setFooter({ text: soundtrack.copyright });
-  }
-  
-  // Note if there are more soundtracks available
-  if (soundtracks.length > 1) {
+  // Note if there are more iTunes soundtracks available
+  if (itunesResults && itunesResults.length > 1) {
     embed.addFields({
-      name: 'ℹ️ Multiple Soundtracks Available',
-      value: `Found ${soundtracks.length} soundtracks. Showing the most relevant match.`,
+      name: 'ℹ️ Multiple iTunes Soundtracks Available',
+      value: `Found ${itunesResults.length} soundtracks on iTunes. Showing the most relevant match.`,
       inline: false,
     });
   }

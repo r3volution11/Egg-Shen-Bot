@@ -10,6 +10,7 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
 | **TMDB** | ✅ Yes | Yes | [TMDB](https://www.themoviedb.org/settings/api) | 1-2 minutes |
 | **OpenAI** | ⭕ Optional | Pay-per-use | [OpenAI Platform](https://platform.openai.com/api-keys) | Instant |
 | **Watchmode** | ⭕ Optional | 1000/month | [Watchmode](https://api.watchmode.com/) | Instant |
+| **Spotify** | ⭕ Optional | Yes | [Spotify for Developers](https://developer.spotify.com/dashboard) | Instant |
 | **OMDB** | ⭕ Optional | 1000/day | [OMDB](http://www.omdbapi.com/apikey.aspx) | Instant |
 | **Trakt** | ⭕ Optional | Yes | [Trakt](https://trakt.tv/oauth/applications) | Instant |
 | **RAWG** | ⭕ Optional | 20,000/month | [RAWG](https://rawg.io/apidocs) | Instant |
@@ -187,6 +188,62 @@ The bot uses a **progressive enhancement approach**: it tries Watchmode first (i
 - **$99/month:** 100,000 requests per month
 
 **Note:** Watchmode is completely optional. The bot works without it using TMDB's streaming data alone.
+
+---
+
+## Spotify API Key
+
+**Purpose:** Soundtrack search with Spotify links (complements iTunes)  
+**Features Enabled:** Spotify album links and metadata in `/soundtrack` command  
+**Free Tier:** Unlimited (Client Credentials flow)
+
+### Why Use Spotify?
+
+The `/soundtrack` command searches iTunes by default (no API key needed), but adding Spotify provides:
+
+- ✅ Broader soundtrack coverage
+- ✅ Spotify streaming links for users who prefer Spotify
+- ✅ Both iTunes and Spotify results shown together
+- ✅ Higher quality album artwork
+- ✅ Free with no rate limits for read-only access
+
+The bot uses a **multi-platform approach**: it searches both iTunes and Spotify (if configured), then displays results from both services with clickable links. If Spotify isn't configured, the bot still works with iTunes alone.
+
+### Step-by-Step Instructions
+
+1. **Create Spotify Developer Account**
+   - Visit https://developer.spotify.com/dashboard
+   - Click **"Log In"** or **"Sign Up"** if you don't have a Spotify account
+   - Log in with your Spotify account (free account works fine)
+
+2. **Create an App**
+   - Click **"Create app"** button
+   - Fill in the form:
+     - **App name:** "Egg Shen Bot" (or your bot name)
+     - **App description:** "Discord bot for searching movie and TV soundtracks"
+     - **Redirect URI:** `http://localhost` (not used but required)
+     - **API/SDKs:** Check **"Web API"**
+   - Accept Spotify's Terms of Service
+   - Click **"Save"**
+
+3. **Get Client ID and Secret**
+   - You'll be taken to your app's dashboard
+   - Click **"Settings"** button in the top right
+   - Copy the **"Client ID"**
+   - Click **"View client secret"**
+   - Copy the **"Client secret"**
+   - Add both to `.env` file:
+     - `SPOTIFY_CLIENT_ID=your_client_id_here`
+     - `SPOTIFY_CLIENT_SECRET=your_client_secret_here`
+
+**Rate Limits:** None for Client Credentials flow (read-only access)
+
+**Security Note:**
+- Keep your Client Secret private (never commit to public repositories)
+- The bot uses OAuth 2.0 Client Credentials flow (server-to-server)
+- No user authentication required - bot accesses public Spotify data only
+
+**Note:** Spotify is completely optional. The bot works without it using iTunes alone.
 
 ---
 

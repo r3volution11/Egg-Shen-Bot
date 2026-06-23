@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Spotify Integration for Soundtrack Search**
+  - Added Spotify API support alongside iTunes for `/soundtrack` command
+  - Displays results from both iTunes and Spotify when both are configured
+  - Shows album artwork, artist, track count, and release dates from both services
+  - Includes clickable links to both platforms for listening and purchasing
+  - Falls back to iTunes-only if Spotify not configured (backwards compatible)
+  - Free Spotify Developer API with unlimited requests
+  - OAuth 2.0 Client Credentials flow for server-to-server authentication
 - **Soundtrack Search (`/soundtrack` command)**
   - Search for movie and TV show soundtracks via iTunes Search API
   - TMDB title verification ensures correct soundtrack matching
