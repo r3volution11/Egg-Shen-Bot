@@ -59,21 +59,26 @@ export async function execute(interaction) {
         getJustWatchUrl,
       } = await import('../services/urlService.js');
       const { createDetailedEmbed } = await import('../utils/embedBuilder.js');
-      const { getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
+      const { loadGuildConfig, getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
       const { trackSearch } = await import('../utils/statsTracker.js');
+      const { getUnifiedMovieWatchProviders } = await import('../services/tmdbService.js');
       
       const movieId = results[0].id;
       const tmdb = await getMovieDetails(movieId);
       const imdbId = tmdb.external_ids?.imdb_id;
       
-      const [omdb, trakt, letterboxd, enabledServices, guildEmojis, statsConfig] = await Promise.all([
+      const [omdb, trakt, letterboxd, enabledServices, guildEmojis, statsConfig, guildConfig] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getMovieRating(imdbId) : null,
         imdbId ? getLetterboxdRating(imdbId) : null,
         getEnabledServices(interaction.guildId),
         getEmojis(interaction.guildId),
         getStatsConfig(interaction.guildId),
+        loadGuildConfig(interaction.guildId),
       ]);
+      
+      // Get unified watch providers (TMDB + Watchmode)
+      const watchProviders = await getUnifiedMovieWatchProviders(movieId, imdbId, guildConfig.region || 'US');
       
       const urls = {
         imdb: getIMDbUrl(imdbId),
@@ -95,7 +100,7 @@ export async function execute(interaction) {
         ).catch(err => console.error('Stats tracking error:', err));
       }
       
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd, urls }, 'movie', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd, urls }, 'movie', enabledServices, guildEmojis, watchProviders);
       await interaction.editReply(response);
       return;
     }
