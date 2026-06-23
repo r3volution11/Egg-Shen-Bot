@@ -215,7 +215,7 @@ export default defineConfig({
     ],
     
     footer: {
-      message: 'A Discord bot for movie, TV, and gaming communities.',
+      message: 'Egg Shen — A Discord bot for movie, TV, video and board gaming, and book communities.',
       copyright: `Copyright © ${new Date().getFullYear()} Doug C. Hardester (known as r3volution11)`
     },
     
