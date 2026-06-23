@@ -187,6 +187,7 @@ export default defineConfig({
           { text: 'Overview', link: '/commands/' },
           { text: 'Search Commands', link: '/commands/search' },
           { text: 'Watch Parties', link: '/commands/watch-party' },
+          { text: 'Social Commands', link: '/commands/social' },
           { text: 'Admin Configuration', link: '/commands/configuration' },
           { text: 'Moderation', link: '/commands/moderation' }
         ]

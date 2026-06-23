@@ -261,6 +261,37 @@ Find similar content recommendations.
 
 ## Fun & Social Commands
 
+### `/survey`
+Create interactive polls and surveys with up to 10 options and real-time vote tracking.
+
+**Subcommands:**
+- `/survey create` - Create a new survey with up to 10 options
+- `/survey list` - View all surveys (active, closed, or all)
+- `/survey results` - View detailed results with progress bars
+- `/survey close` - End voting and show final results (creator/admin/mod only)
+- `/survey delete` - Permanently delete a survey (creator/admin/mod only)
+
+**Features:**
+- Up to 10 options per survey
+- Single or multiple vote modes
+- Real-time voting via emoji reactions (1️⃣-🔟)
+- Progress bars showing vote percentages
+- Permission system for management
+- Persistent storage across bot restarts
+- Configurable per-server
+
+**Examples:**
+```
+/survey create question:"What should we watch tonight?" option1:"Horror" option2:"Comedy" option3:"Action"
+/survey list filter:active
+/survey results poll_id:a1b2c3d4e5f6g7h8
+/survey close poll_id:a1b2c3d4e5f6g7h8
+```
+
+[Learn more →](/commands/social#survey-commands)
+
+---
+
 ### `/potion`
 Give magical potions to other users with fun pop culture references!
 
@@ -375,7 +406,7 @@ Display help information and available commands.
 | **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
 | **Watch Parties** | `/timer`, `/watched` |
 | **Discovery** | `/random`, `/similar` |
-| **Fun & Social** | `/potion` |
+| **Fun & Social** | `/survey`, `/potion` |
 | **Statistics** | `/stats` |
 | **Configuration** | `/eggshen-config` |
 | **Help** | `/help` |
