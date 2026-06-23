@@ -149,7 +149,67 @@ export async function reRankResults(query, results, type = 'movie') {
 }
 
 /**
+ * Discover popular movies/TV shows and rank by semantic similarity
+ * Used as fallback when keyword search returns no results
+ * @param {string} query - User's descriptive search query
+ * @param {string} type - Type of media ('movie' or 'tv')
+ * @returns {Promise<Array>} Semantically ranked results
+ */
+export async function discoverAndRank(query, type = 'movie') {
+  if (!isOpenAIAvailable()) {
+    return []; // Can't do semantic search without OpenAI
+  }
+
+  try {
+    // Import TMDB service dynamically to avoid circular dependencies
+    const { default: axios } = await import('axios');
+    const { config } = await import('../config.js');
+    
+    const tmdbApi = axios.create({
+      baseURL: config.apis.tmdb.baseUrl,
+      params: {
+        api_key: config.apis.tmdb.apiKey,
+      },
+    });
+
+    // Get popular items from multiple pages for better coverage
+    const pages = [1, 2, 3]; // Get top ~60 popular items
+    const endpoint = type === 'movie' ? '/discover/movie' : '/discover/tv';
+    
+    const results = [];
+    for (const page of pages) {
+      const response = await tmdbApi.get(endpoint, {
+        params: {
+          language: 'en-US',
+          sort_by: 'popularity.desc',
+          include_adult: false,
+          page,
+          vote_count_gte: 100, // Ensure items have sufficient votes
+        },
+      });
+      results.push(...response.data.results);
+    }
+
+    console.log(`Fallback semantic search: Ranking ${results.length} popular ${type}s for query: "${query}"`);
+
+    // Rank all items by semantic similarity
+    const rankedResults = await reRankResults(query, results, type);
+    
+    // Return top 20 matches with decent similarity scores
+    const threshold = 0.5; // Minimum similarity threshold
+    return rankedResults
+      .filter(item => item.semanticScore >= threshold)
+      .slice(0, 20);
+
+  } catch (error) {
+    console.error('Discover and rank error:', error.message);
+    return [];
+  }
+}
+
+/**
  * Hybrid search: keyword search + semantic re-ranking
+ * Falls back to semantic discovery if keyword search returns no results
  * @param {string} query - User's search query
  * @param {Function} keywordSearchFn - Function that performs keyword search
  * @param {string} type - Type of media ('movie' or 'tv')
@@ -159,11 +219,23 @@ export async function hybridSearch(query, keywordSearchFn, type = 'movie') {
   // First, do the keyword search
   const keywordResults = await keywordSearchFn(query);
 
-  // If OpenAI is not available, return keyword results only
-  if (!isOpenAIAvailable()) {
-    return keywordResults;
+  // If we have keyword results, re-rank them if OpenAI is available
+  if (keywordResults && keywordResults.length > 0) {
+    if (!isOpenAIAvailable()) {
+      return keywordResults;
+    }
+    return await reRankResults(query, keywordResults, type);
   }
 
-  // Re-rank using semantic similarity
-  return await reRankResults(query, keywordResults, type);
+  // No keyword results - check if this is a descriptive query that could benefit from semantic search
+  const wordCount = query.trim().split(/\s+/).length;
+  const isDescriptive = wordCount >= 5; // Queries with 5+ words are likely descriptive
+
+  if (isDescriptive && isOpenAIAvailable()) {
+    console.log(`Keyword search returned 0 results for "${query}" - trying semantic fallback`);
+    return await discoverAndRank(query, type);
+  }
+
+  // No results and can't do semantic search
+  return [];
 }
