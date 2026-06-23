@@ -176,8 +176,8 @@ export async function discoverAndRank(query, type = 'movie') {
     const endpoint = type === 'movie' ? '/discover/movie' : '/discover/tv';
     const results = [];
     
-    // Strategy 1: Top rated classics (pages 1-5)
-    for (let page = 1; page <= 5; page++) {
+    // Strategy 1: Top rated classics (pages 1-8) - increased for more classics
+    for (let page = 1; page <= 8; page++) {
       const response = await tmdbApi.get(endpoint, {
         params: {
           language: 'en-US',
@@ -190,8 +190,8 @@ export async function discoverAndRank(query, type = 'movie') {
       results.push(...response.data.results);
     }
     
-    // Strategy 2: Most popular recent hits (pages 1-3)
-    for (let page = 1; page <= 3; page++) {
+    // Strategy 2: Most popular recent hits (pages 1-5) - increased coverage
+    for (let page = 1; page <= 5; page++) {
       const response = await tmdbApi.get(endpoint, {
         params: {
           language: 'en-US',
@@ -203,6 +203,20 @@ export async function discoverAndRank(query, type = 'movie') {
       });
       results.push(...response.data.results);
     }
+    
+    // Strategy 3: 90s-2000s classics (highly rated from that era)
+    const response3 = await tmdbApi.get(endpoint, {
+      params: {
+        language: 'en-US',
+        sort_by: 'vote_average.desc',
+        include_adult: false,
+        'primary_release_date.gte': '1990-01-01',
+        'primary_release_date.lte': '2010-12-31',
+        'vote_count.gte': 500,
+        page: 1,
+      },
+    });
+    results.push(...response3.data.results);
 
     // Deduplicate by ID
     const seen = new Set();
@@ -213,7 +227,7 @@ export async function discoverAndRank(query, type = 'movie') {
       return true;
     });
 
-    console.log(`Fallback semantic search: Ranking ${uniqueResults.length} ${type}s (top-rated + popular) for query: "${query}"`);
+    console.log(`Fallback semantic search: Ranking ${uniqueResults.length} ${type}s (top-rated + popular + 90s-2000s classics) for query: "${query}"`);
 
     // Generate embedding for the query
     const queryEmbedding = await generateEmbedding(query);
@@ -248,12 +262,12 @@ export async function discoverAndRank(query, type = 'movie') {
     })));
     
     // Return top 20 matches - always return at least some results for user selection
-    // Filter by threshold but ensure we return at least top 10 for selection menu
+    // Filter by threshold but ensure we return at least top 20 for selection menu
     const threshold = 0.25;
     const aboveThreshold = rankedResults.filter(item => item.semanticScore >= threshold);
     
-    // Return whichever is larger: filtered results or minimum 10 for selection
-    const minResults = 10;
+    // Return whichever is larger: filtered results or minimum 20 for selection
+    const minResults = 20;
     const finalResults = aboveThreshold.length >= minResults 
       ? aboveThreshold.slice(0, 20)
       : rankedResults.slice(0, Math.min(minResults, rankedResults.length));
