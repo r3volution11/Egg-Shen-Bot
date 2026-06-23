@@ -97,7 +97,7 @@ export async function createEpisodeSearchResults(results, showQuery, episodeQuer
 /**
  * Create soundtrack search results with movie/TV selection
  */
-export async function createSoundtrackSearchResults(results, query) {
+export function createSoundtrackSearchResults(results, query) {
   const options = results.map((result, index) => {
     const title = result.title || result.name;
     const year = result.release_date || result.first_air_date;
