@@ -60,20 +60,25 @@ export async function execute(interaction) {
         getJustWatchUrl,
       } = await import('../services/urlService.js');
       const { createDetailedEmbed } = await import('../utils/embedBuilder.js');
-      const { getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
+      const { loadGuildConfig, getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
       const { trackSearch } = await import('../utils/statsTracker.js');
+      const { getUnifiedTVWatchProviders } = await import('../services/tmdbService.js');
       
       const showId = results[0].id;
       const tmdb = await getTVShowDetails(showId);
       const imdbId = tmdb.external_ids?.imdb_id;
       
-      const [omdb, trakt, enabledServices, guildEmojis, statsConfig] = await Promise.all([
+      const [omdb, trakt, enabledServices, guildEmojis, statsConfig, guildConfig] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getShowRating(imdbId) : null,
         getEnabledServices(interaction.guildId),
         getEmojis(interaction.guildId),
         getStatsConfig(interaction.guildId),
+        loadGuildConfig(interaction.guildId),
       ]);
+      
+      // Get unified watch providers (TMDB + Watchmode)
+      const watchProviders = await getUnifiedTVWatchProviders(showId, imdbId, guildConfig.region || 'US');
       
       const urls = {
         imdb: getIMDbUrl(imdbId),
@@ -95,7 +100,7 @@ export async function execute(interaction) {
         ).catch(err => console.error('Stats tracking error:', err));
       }
       
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd: null, urls }, 'tv', enabledServices, guildEmojis);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd: null, urls }, 'tv', enabledServices, guildEmojis, watchProviders);
       await interaction.editReply(response);
       return;
     }
