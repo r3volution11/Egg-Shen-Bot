@@ -5,7 +5,7 @@ description: Quick start guide for setting up Egg Shen Bot in your Discord serve
 
 # Getting Started
 
-**Egg Shen Bot is a free, open-source Discord bot** that searches movies, TV shows, video games, and board games while providing comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, and BoardGameGeek. This guide will help you get the bot up and running in your Discord server.
+**Egg Shen Bot is a free, open-source Discord bot** that searches movies, TV shows, books, video games, and board games while providing comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, BoardGameGeek, and Google Books. Features include semantic search powered by AI, enhanced streaming availability data, and more. This guide will help you get the bot up and running in your Discord server.
 
 ## Quick FAQ
 
@@ -38,12 +38,55 @@ Before you begin, make sure you have:
 ### Optional API Keys
 
 These enable additional features:
-- [OMDB API Key](http://www.omdbapi.com/apikey.aspx) - IMDb and Rotten Tomatoes ratings
-- [Trakt Client ID](https://trakt.tv/oauth/applications) - Trakt community ratings  
-- [RAWG API Key](https://rawg.io/apidocs) - Video game search
-- [BoardGameGeek Client ID](https://boardgamegeek.com/wiki/page/BGG_XML_API2) - Board game search
 
-> **Note:** Commands requiring optional APIs will be disabled if their API keys aren't configured.
+#### Core Search Features
+- **[OMDB API Key](http://www.omdbapi.com/apikey.aspx)** - IMDb and Rotten Tomatoes ratings for movies/TV
+  - Get free key: Visit [omdbapi.com/apikey.aspx](http://www.omdbapi.com/apikey.aspx)
+  - Select "FREE! (1,000 daily limit)" plan
+  - Confirm via email and copy your API key
+  
+- **[Trakt Client ID](https://trakt.tv/oauth/applications)** - Trakt community ratings and watch history
+  - Create account at [trakt.tv](https://trakt.tv)
+  - Go to Settings → Your API Apps → New Application
+  - Fill in app details (any values work for bot usage)
+  - Copy the "Client ID" (NOT the Client Secret)
+  
+- **[RAWG API Key](https://rawg.io/apidocs)** - Video game search via `/game` command
+  - Create account at [rawg.io](https://rawg.io)
+  - Go to [API Documentation](https://rawg.io/apidocs)
+  - Click "Get API Key"
+  - Copy your API key
+  
+- **[BoardGameGeek Client ID](https://boardgamegeek.com/wiki/page/BGG_XML_API2)** - Board game search via `/boardgame` command
+  - Free XML API (no registration required)
+  - Set to any unique identifier for your bot
+  
+- **[Google Books API Key](https://console.cloud.google.com/apis/library/books.googleapis.com)** - Book search via `/book` and `/similar` commands
+  - Go to [Google Cloud Console](https://console.cloud.google.com/)
+  - Create a new project or select existing one
+  - Enable the "Books API"
+  - Go to Credentials → Create Credentials → API Key
+  - Copy your API key
+  - Recommended: Restrict key to Books API for security
+
+#### Enhanced Features
+- **[Watch Mode API Key](https://api.watchmode.com/)** - Enhanced streaming availability data
+  - Create account at [api.watchmode.com](https://api.watchmode.com/)
+  - Free tier: 1,000 requests/month
+  - Supplements TMDB's watch provider data with additional sources
+  
+- **[OpenAI API Key](https://platform.openai.com/api-keys)** - Semantic search for `/movie` and `/tv` commands
+  - **IMPORTANT:** Requires a paid OpenAI account with billing set up
+  - Create account at [platform.openai.com](https://platform.openai.com/)
+  - Add payment method in Settings → Billing
+  - Go to API Keys → Create new secret key
+  - Copy your API key immediately (shown only once)
+  - **Model Used:** `text-embedding-3-small` (cost-effective embedding model)
+  - **Cost:** ~$0.02 per 1,000 searches (based on average query length)
+  - **Purpose:** Improves search accuracy by understanding semantic meaning (e.g., "sci-fi robots" matches "The Matrix")
+  - **Note:** Falls back to standard TMDB text search if not configured
+
+> **Note:** Commands requiring optional APIs will be disabled if their API keys aren't configured. The bot will function with only Discord + TMDB keys, but additional APIs enhance functionality.
 
 ## Installation
 
@@ -78,11 +121,16 @@ DISCORD_CLIENT_ID=your_discord_client_id_here
 # TMDB API (Required)
 TMDB_API_KEY=your_tmdb_api_key_here
 
-# Optional APIs
+# Optional APIs - Core Search Features
 OMDB_API_KEY=your_omdb_api_key_here
 TRAKT_CLIENT_ID=your_trakt_client_id_here
 RAWG_API_KEY=your_rawg_api_key_here
 BGG_CLIENT_ID=your_bgg_client_id_here
+GOOGLE_BOOKS_API_KEY=your_google_books_api_key_here
+
+# Optional APIs - Enhanced Features
+WATCHMODE_API_KEY=your_watchmode_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 See [Installation Guide](./installation.md) for detailed API key setup instructions.
@@ -134,6 +182,7 @@ Try these commands in your server:
 /tv title:Breaking Bad
 /episode title:The Last of Us season:1 episode:1
 /game title:The Last of Us
+/book title:The Hobbit
 /timer start label:Movie Night
 ```
 
