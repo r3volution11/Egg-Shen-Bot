@@ -216,7 +216,7 @@ export default defineConfig({
     
     footer: {
       message: 'A Discord bot for movie, TV, and gaming communities.',
-      copyright: 'Copyright © 2024-present'
+      copyright: `Copyright © ${new Date().getFullYear()} Doug C. Hardester (known as r3volution11)`
     },
     
     search: {
