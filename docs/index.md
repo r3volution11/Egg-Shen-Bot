@@ -31,9 +31,9 @@ features:
     title: Smart Auto-Detection
     details: When you run /timer start in a channel, the bot checks your Discord server's scheduled events and automatically uses the event title for that channel - no manual typing needed
   
-  - icon: 🧪
-    title: Fun Social Features
-    details: Give magical potions to users with 13 types (helpful & harmful) featuring 78+ pop culture references. Admins can add custom responses per server.
+  - icon: 🎪
+    title: Community & Social Features
+    details: Host movie/TV tournaments with flexible group voting (4-12 groups) and knockout brackets. Create surveys & polls with up to 10 options. Send magical potions with 78+ pop culture references. Search soundtracks on iTunes & Spotify.
   
   - icon: 🛡️
     title: Advanced Moderation
