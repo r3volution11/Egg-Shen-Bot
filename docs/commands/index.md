@@ -179,8 +179,10 @@ Host comprehensive movie or TV show tournaments.
 - `open-groups` - Open groups for voting (Admin/Mod)
 - `close-groups` - Close voting and calculate results (Admin/Mod)
 - `vote-group` - Vote for top 2 in a group (All members)
-- `advance-knockout` - Generate Round of 32 bracket (Admin/Mod)
+- `advance-knockout` - Generate knockout bracket (Admin/Mod)
 - `status` - View tournament progress (All members)
+- `view` - Generate visual bracket image (All members, knockout phase)
+- `image` - Generate AI matchup image (All members, knockout phase)
 - `cancel` - Cancel tournament (Admin/Mod)
 
 **Features:**
@@ -188,6 +190,8 @@ Host comprehensive movie or TV show tournaments.
 - Group stage: vote for top 2 per group
 - Dynamic wildcards: auto-calculated (0-8) to reach power-of-2 bracket
 - Knockout: Adapts to tournament size (Semifinals → Round of 32)
+- **Visual bracket display**: March Madness-style bracket images
+- **AI matchup images**: DALL-E 3 generated "vs" poster mashups
 - Random tiebreaker for fair results
 - Complete vote tracking and management
 
@@ -197,6 +201,8 @@ Host comprehensive movie or TV show tournaments.
 /bracket add-group group:A movie1:The Exorcist movie2:Halloween movie3:The Texas Chain Saw Massacre movie4:Night of the Living Dead
 /bracket open-groups groups:A,B,C,D
 /bracket vote-group group:A choice1:1 choice2:3
+/bracket view
+/bracket image matchup:"The Exorcist vs Halloween"
 ```
 
 [Learn more →](/commands/tournaments)
