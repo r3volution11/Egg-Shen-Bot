@@ -31,9 +31,13 @@ features:
     title: Smart Auto-Detection
     details: When you run /timer start in a channel, the bot checks your Discord server's scheduled events and automatically uses the event title for that channel - no manual typing needed
   
+  - icon: �
+    title: Tournament Brackets
+    details: Host movie/TV tournaments with flexible group stage voting (4-12 groups, each with 4 movies). Dynamic wildcard system and single-elimination knockout brackets automatically adapt to tournament size. Perfect for community competitions and championship events.
+  
   - icon: 🎪
-    title: Community & Social Features
-    details: Host movie/TV tournaments with flexible group voting (4-12 groups) and knockout brackets. Create surveys & polls with up to 10 options. Send magical potions with 78+ pop culture references. Search soundtracks on iTunes & Spotify.
+    title: Social Features
+    details: Create surveys & polls with up to 10 options and real-time vote tracking. Send magical potions to users with 78+ pop culture references. Search for movie and TV show soundtracks on iTunes and Spotify.
   
   - icon: 🛡️
     title: Advanced Moderation
