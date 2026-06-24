@@ -1294,6 +1294,20 @@ Feel free to submit issues or pull requests for:
 - Additional services
 - Documentation improvements
 
+## Acknowledgements
+
+Special thanks to everyone who helped shape Egg Shen Bot:
+
+- **Server Monk & Grizabella** - Thanks for the opportunity and being open to new server experiences
+- **Gorfder (Bork)** - Thanks for feedback on features and keeping the bot useful without being intrusive  
+- **mildhonestbonsai** - Collaborated on the tournament bracket feature (possibly the bot's most unique feature!)
+
+Thank you all for giving me the opportunity to bounce ideas off you and get your feedback. You're all awesome!
+
+**[Read full acknowledgements →](THANKS.md)** | **[Docs page →](https://r3volution11.github.io/Egg-Shen-Bot/acknowledgements)**
+
+---
+
 ## License
 
 This work is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
