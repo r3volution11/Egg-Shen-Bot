@@ -1,6 +1,10 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder } from 'discord.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
+import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
+import { searchGames } from '../services/rawgService.js';
+import { searchBoardGames } from '../services/bggService.js';
+import { searchBooks } from '../services/googleBooksService.js';
 import { config } from '../config.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
@@ -30,7 +34,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('add-group')
-      .setDescription('Add 4 movies to a group (Admin/Mod only)')
+      .setDescription('Add 4 titles to a group (Admin/Mod only)')
       .addStringOption(option =>
         option
           .setName('group')
@@ -39,16 +43,29 @@ export const data = new SlashCommandBuilder()
           .addChoices(...GROUP_LETTERS.map(letter => ({ name: `Group ${letter}`, value: letter })))
       )
       .addStringOption(option =>
-        option.setName('movie1').setDescription('First movie title').setRequired(true)
+        option
+          .setName('type')
+          .setDescription('Tournament type')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Movies', value: 'movie' },
+            { name: 'TV Shows', value: 'tv' },
+            { name: 'Video Games', value: 'game' },
+            { name: 'Board Games', value: 'boardgame' },
+            { name: 'Books', value: 'book' }
+          )
       )
       .addStringOption(option =>
-        option.setName('movie2').setDescription('Second movie title').setRequired(true)
+        option.setName('title1').setDescription('First title').setRequired(true)
       )
       .addStringOption(option =>
-        option.setName('movie3').setDescription('Third movie title').setRequired(true)
+        option.setName('title2').setDescription('Second title').setRequired(true)
       )
       .addStringOption(option =>
-        option.setName('movie4').setDescription('Fourth movie title').setRequired(true)
+        option.setName('title3').setDescription('Third title').setRequired(true)
+      )
+      .addStringOption(option =>
+        option.setName('title4').setDescription('Fourth title').setRequired(true)
       )
   )
   .addSubcommand(subcommand =>
@@ -119,11 +136,23 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('image')
-      .setDescription('Generate AI image for a matchup')
+      .setDescription('Generate AI image for any title vs title matchup')
+      .addStringOption(option =>
+        option
+          .setName('title1')
+          .setDescription('First title (movie, show, game, etc.)')
+          .setRequired(false)
+      )
+      .addStringOption(option =>
+        option
+          .setName('title2')
+          .setDescription('Second title to compare against')
+          .setRequired(false)
+      )
       .addStringOption(option =>
         option
           .setName('matchup')
-          .setDescription('Matchup to visualize (e.g., "The Thing vs Alien")')
+          .setDescription('Or choose from active tournament matchups')
           .setRequired(false)
       )
   )
@@ -237,20 +266,65 @@ async function handleCreate(interaction) {
 }
 
 async function handleAddGroup(interaction) {
+  await interaction.deferReply();
+  
   const group = interaction.options.getString('group');
-  const movies = [
-    interaction.options.getString('movie1'),
-    interaction.options.getString('movie2'),
-    interaction.options.getString('movie3'),
-    interaction.options.getString('movie4'),
+  const type = interaction.options.getString('type');
+  const titles = [
+    interaction.options.getString('title1'),
+    interaction.options.getString('title2'),
+    interaction.options.getString('title3'),
+    interaction.options.getString('title4'),
   ];
   
-  const result = bracketManager.addGroupMovies(interaction.guildId, group, movies);
+  // Search for each title and build rich entries
+  const searchResults = await Promise.all(
+    titles.map(async (title) => await searchForTitle(title, type))
+  );
+  
+  // Check if any searches returned multiple results (need clarification)
+  const needsClarification = searchResults.some(r => r.status === 'multiple');
+  
+  if (needsClarification) {
+    // Build a list of titles that need clarification
+    const ambiguousTitles = searchResults
+      .map((r, idx) => r.status === 'multiple' ? `**${titles[idx]}** (${r.count} matches)` : null)
+      .filter(t => t !== null)
+      .join(', ');
+    
+    await interaction.editReply({
+      content: `❌ Some titles have multiple matches: ${ambiguousTitles}\n\n` +
+        `Please be more specific with these titles (include year or more details).`,
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  // Check if any searches failed (no results)
+  const failed = searchResults.some(r => r.status === 'none');
+  
+  if (failed) {
+    const notFoundTitles = searchResults
+      .map((r, idx) => r.status === 'none' ? `**${titles[idx]}**` : null)
+      .filter(t => t !== null)
+      .join(', ');
+    
+    await interaction.editReply({
+      content: `❌ Could not find these titles: ${notFoundTitles}\n\n` +
+        `Please check spelling or try different search terms.`,
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  // All titles have exactly one match - build the entries array
+  const entries = searchResults.map(r => r.entry);
+  
+  const result = bracketManager.addGroupMovies(interaction.guildId, group, type, entries);
   
   if (!result.success) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `❌ ${result.error}`,
-      ephemeral: true,
     });
     return;
   }
@@ -260,14 +334,135 @@ async function handleAddGroup(interaction) {
   
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
-    .setTitle(`Group ${group} Added`)
-    .setDescription(movies.map((movie, i) => `${i + 1}. ${movie}`).join('\n'))
+    .setTitle(`Group ${group} Added (${getTypeLabel(type)})`)
+    .setDescription(entries.map((entry, i) => {
+      const yearStr = entry.year ? ` (${entry.year})` : '';
+      return `${i + 1}. ${entry.title}${yearStr}`;
+    }).join('\n'))
     .addFields(
       { name: 'Progress', value: `${groupsComplete}/${totalGroups} groups added`, inline: true }
     )
     .setFooter({ text: groupsComplete === totalGroups ? 'All groups added! Use /bracket open-groups to start voting.' : 'Add more groups with /bracket add-group' });
   
-  await interaction.reply({ embeds: [embed] });
+  await interaction.editReply({ embeds: [embed] });
+}
+
+/**
+ * Search for a title using the appropriate service based on type
+ * Returns: { status: 'found'|'multiple'|'none', entry: {...}, count: number }
+ */
+async function searchForTitle(title, type) {
+  try {
+    let results = [];
+    
+    switch (type) {
+      case 'movie':
+        results = await searchMovies(title);
+        break;
+      case 'tv':
+        results = await searchTVShows(title);
+        break;
+      case 'game':
+        results = await searchGames(title);
+        break;
+      case 'boardgame':
+        results = await searchBoardGames(title);
+        break;
+      case 'book':
+        results = await searchBooks(title);
+        break;
+    }
+    
+    if (!results || results.length === 0) {
+      return { status: 'none', entry: null, count: 0 };
+    }
+    
+    if (results.length > 1) {
+      return { status: 'multiple', entry: null, count: results.length };
+    }
+    
+    // Exactly one result - build entry object
+    const result = results[0];
+    const entry = buildEntryFromResult(result, type);
+    
+    return { status: 'found', entry, count: 1 };
+  } catch (error) {
+    console.error(`[Bracket] Error searching for "${title}" (${type}):`, error);
+    return { status: 'none', entry: null, count: 0 };
+  }
+}
+
+/**
+ * Build a tournament entry object from a search result
+ */
+function buildEntryFromResult(result, type) {
+  const entry = {
+    type,
+    title: result.title || result.name || result.Name || result.volumeInfo?.title || 'Unknown',
+    id: null,
+    year: null,
+    posterUrl: null,
+    metadata: {},
+  };
+  
+  // Extract type-specific data
+  if (type === 'movie') {
+    entry.id = result.id;
+    entry.year = result.release_date?.split('-')[0];
+    entry.posterUrl = result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null;
+    entry.metadata = {
+      overview: result.overview,
+      vote_average: result.vote_average,
+    };
+  } else if (type === 'tv') {
+    entry.id = result.id;
+    entry.year = result.first_air_date?.split('-')[0];
+    entry.posterUrl = result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null;
+    entry.metadata = {
+      overview: result.overview,
+      vote_average: result.vote_average,
+    };
+  } else if (type === 'game') {
+    entry.id = result.id;
+    entry.year = result.released?.split('-')[0];
+    entry.posterUrl = result.background_image;
+    entry.metadata = {
+      rating: result.rating,
+      platforms: result.platforms?.map(p => p.platform.name),
+    };
+  } else if (type === 'boardgame') {
+    entry.id = result.id;
+    entry.year = result.YearPublished;
+    entry.posterUrl = result.thumbnail;
+    entry.metadata = {
+      minPlayers: result.MinPlayers,
+      maxPlayers: result.MaxPlayers,
+    };
+  } else if (type === 'book') {
+    entry.id = result.id;
+    entry.year = result.volumeInfo?.publishedDate?.split('-')[0];
+    entry.posterUrl = result.volumeInfo?.imageLinks?.thumbnail;
+    entry.metadata = {
+      authors: result.volumeInfo?.authors,
+      pageCount: result.volumeInfo?.pageCount,
+    };
+  }
+  
+  return entry;
+}
+
+/**
+ * Get human-readable label for type
+ */
+function getTypeLabel(type) {
+  const labels = {
+    movie: 'Movies',
+    tv: 'TV Shows',
+    game: 'Video Games',
+    boardgame: 'Board Games',
+    book: 'Books',
+  };
+  return labels[type] || type;
 }
 
 async function handleOpenGroups(interaction) {
@@ -514,69 +709,85 @@ async function handleView(interaction) {
 async function handleImage(interaction) {
   await interaction.deferReply();
   
-  const tournament = bracketManager.loadTournament(interaction.guildId);
-  
-  if (!tournament) {
-    await interaction.editReply('❌ No active tournament found.');
-    return;
-  }
-  
-  // Check if tournament is in knockout phase
-  if (tournament.status !== 'knockout' && tournament.status !== 'completed') {
-    await interaction.editReply('❌ AI images are only available during the knockout phase. Complete the group stage first using `/bracket advance-knockout`.');
-    return;
-  }
-  
-  if (!tournament.knockoutBracket || tournament.knockoutBracket.length === 0) {
-    await interaction.editReply('❌ No knockout matchups found.');
-    return;
-  }
-  
+  const title1 = interaction.options.getString('title1');
+  const title2 = interaction.options.getString('title2');
   const matchupInput = interaction.options.getString('matchup');
   
-  // If no matchup specified, show list of available matchups
-  if (!matchupInput) {
-    const matchupList = tournament.knockoutBracket
-      .filter(m => m.movie1 && m.movie2)
-      .map((m, idx) => `${idx + 1}. **${m.movie1.title}** vs **${m.movie2.title}** (${m.round.replace(/_/g, ' ')})`)
-      .join('\n');
-    
-    await interaction.editReply({
-      content: `🎨 **Available Matchups:**\n\n${matchupList}\n\n💡 To generate an AI image for a matchup, use:\n\`/bracket image matchup:"Movie A vs Movie B"\``,
-    });
-    return;
-  }
-  
-  // Find the matchup based on user input
-  const matchup = tournament.knockoutBracket.find(m => {
-    if (!m.movie1 || !m.movie2) return false;
-    const matchupStr = `${m.movie1.title} vs ${m.movie2.title}`.toLowerCase();
-    const reverseStr = `${m.movie2.title} vs ${m.movie1.title}`.toLowerCase();
-    const input = matchupInput.toLowerCase();
-    return matchupStr.includes(input) || reverseStr.includes(input) || 
-           input.includes(m.movie1.title.toLowerCase()) && input.includes(m.movie2.title.toLowerCase());
-  });
-  
-  if (!matchup) {
-    await interaction.editReply(`❌ Could not find matchup: "${matchupInput}". Use \`/bracket image\` without parameters to see available matchups.`);
-    return;
-  }
-  
-  // Check if OpenAI is configured
+  // Check if OpenAI is configured first
   if (!config.apis.openai?.apiKey) {
     await interaction.editReply('❌ OpenAI API is not configured. AI image generation requires an OpenAI API key.');
     return;
   }
   
+  let firstTitle, secondTitle, context = null;
+  
+  // OPTION 1: User provided title1 and title2 (freeform generation)
+  if (title1 && title2) {
+    firstTitle = title1;
+    secondTitle = title2;
+    context = 'Freeform';
+    
+  // OPTION 2: User provided a matchup from tournament
+  } else if (matchupInput) {
+    const tournament = bracketManager.loadTournament(interaction.guildId);
+    
+    if (!tournament) {
+      await interaction.editReply('❌ No active tournament found. To generate a custom image, use: `/bracket image title1:"Movie A" title2:"Movie B"`');
+      return;
+    }
+    
+    if (!tournament.knockoutBracket || tournament.knockoutBracket.length === 0) {
+      await interaction.editReply('❌ No tournament matchups found. To generate a custom image, use: `/bracket image title1:"Movie A" title2:"Movie B"`');
+      return;
+    }
+    
+    // Find the matchup based on user input
+    const matchup = tournament.knockoutBracket.find(m => {
+      if (!m.movie1 || !m.movie2) return false;
+      const matchupStr = `${m.movie1.title} vs ${m.movie2.title}`.toLowerCase();
+      const reverseStr = `${m.movie2.title} vs ${m.movie1.title}`.toLowerCase();
+      const input = matchupInput.toLowerCase();
+      return matchupStr.includes(input) || reverseStr.includes(input) || 
+             input.includes(m.movie1.title.toLowerCase()) && input.includes(m.movie2.title.toLowerCase());
+    });
+    
+    if (!matchup) {
+      await interaction.editReply(`❌ Could not find matchup: "${matchupInput}". Use \`/bracket image\` without parameters to see available matchups, or use: \`/bracket image title1:"Movie A" title2:"Movie B"\``);
+      return;
+    }
+    
+    firstTitle = matchup.movie1.title;
+    secondTitle = matchup.movie2.title;
+    context = `Tournament: ${matchup.round.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+    
+  // OPTION 3: No parameters - show help
+  } else {
+    const tournament = bracketManager.loadTournament(interaction.guildId);
+    
+    let helpMessage = '🎨 **AI Image Generation**\n\n';
+    
+    // If there's an active tournament with matchups, show them
+    if (tournament && tournament.knockoutBracket && tournament.knockoutBracket.length > 0) {
+      const matchupList = tournament.knockoutBracket
+        .filter(m => m.movie1 && m.movie2)
+        .map((m, idx) => `${idx + 1}. **${m.movie1.title}** vs **${m.movie2.title}** (${m.round.replace(/_/g, ' ')})`)
+        .join('\n');
+      
+      helpMessage += `**Tournament Matchups:**\n${matchupList}\n\n💡 Generate an image:\n\`/bracket image matchup:"Movie A vs Movie B"\`\n\n`;
+    }
+    
+    helpMessage += '**Or create any custom matchup:**\n\`/bracket image title1:"The Thing" title2:"Alien"\`\n\n_Works with any titles, anytime!_';
+    
+    await interaction.editReply({ content: helpMessage });
+    return;
+  }
+  
+  // Generate the AI image
   try {
-    // Generate AI image using DALL-E 3
-    const movie1 = matchup.movie1.title;
-    const movie2 = matchup.movie2.title;
-    
     // Create a dramatic prompt
-    const prompt = `Epic movie poster mashup: "${movie1}" versus "${movie2}". Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents ${movie1}, right side represents ${movie2}. Bold "VS" text in the center. Movie poster aesthetic, professional design, 4K quality.`;
+    const prompt = `Epic movie poster mashup: "${firstTitle}" versus "${secondTitle}". Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents ${firstTitle}, right side represents ${secondTitle}. Bold "VS" text in the center. Movie poster aesthetic, professional design, 4K quality.`;
     
-    await interaction.editReply(`🎨 Generating AI image for **${movie1}** vs **${movie2}**...\n\n_This may take 10-30 seconds..._`);
+    await interaction.editReply(`🎨 Generating AI image for **${firstTitle}** vs **${secondTitle}**...\n\n_This may take 10-30 seconds..._`);
     
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -604,10 +815,10 @@ async function handleImage(interaction) {
     // Create embed with the generated image
     const embed = new EmbedBuilder()
       .setColor(0xFEE75C)
-      .setTitle(`🎨 ${movie1} vs ${movie2}`)
-      .setDescription(`AI-generated matchup visualization\n**Round:** ${matchup.round.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}`)
+      .setTitle(`🎨 ${firstTitle} vs ${secondTitle}`)
+      .setDescription(context ? `AI-generated matchup visualization\n**Context:** ${context}` : 'AI-generated matchup visualization')
       .setImage(imageUrl)
-      .setFooter({ text: `Generated by DALL-E 3 • Cost: $0.04 • ${tournament.name}` })
+      .setFooter({ text: 'Generated by DALL-E 3 • Cost: $0.04 per image' })
       .setTimestamp();
     
     await interaction.editReply({ 

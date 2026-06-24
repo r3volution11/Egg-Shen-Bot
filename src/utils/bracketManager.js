@@ -95,7 +95,7 @@ export function createTournament(guildId, name, creatorId, groupCount = 8) {
 /**
  * Add movies to a group
  */
-export function addGroupMovies(guildId, groupId, movies) {
+export function addGroupMovies(guildId, groupId, type, entries) {
   const tournament = loadTournament(guildId);
   if (!tournament || tournament.status !== 'setup') {
     return { success: false, error: 'Tournament not in setup phase' };
@@ -107,13 +107,29 @@ export function addGroupMovies(guildId, groupId, movies) {
     return { success: false, error: `Invalid group. This tournament uses groups A-${allowedGroups[allowedGroups.length - 1]} (${tournament.groupCount} groups total)` };
   }
   
-  if (movies.length !== 4) {
-    return { success: false, error: 'Each group must have exactly 4 movies' };
+  if (entries.length !== 4) {
+    return { success: false, error: 'Each group must have exactly 4 entries' };
+  }
+  
+  // Store tournament type on first group addition
+  if (!tournament.type) {
+    tournament.type = type;
+  } else if (tournament.type !== type) {
+    return { success: false, error: `Tournament type mismatch. This tournament is for ${tournament.type}s, but you're trying to add ${type}s.` };
   }
   
   tournament.groups[groupId] = {
     id: groupId,
-    movies: movies.map((title, index) => ({ index, title, votes: [] })),
+    movies: entries.map((entry, index) => ({ 
+      index, 
+      title: entry.title,
+      type: entry.type,
+      id: entry.id,
+      year: entry.year,
+      posterUrl: entry.posterUrl,
+      metadata: entry.metadata,
+      votes: [] 
+    })),
     status: 'pending', // pending, voting, closed
     votingOpen: false,
   };

@@ -1,52 +1,246 @@
 # Tournament Bracket Testing Script
 
-This guide will walk you through testing all the tournament bracket features, including the new flexible group sizing system.
+This guide will walk you through testing all the tournament bracket features, including search integration and AI image generation.
 
 ---
 
-## 🧪 Test 1: Create Small Tournament (4 Groups - Minimum)
+## 🧪 Test 1: Create Tournament with Movie Search Integration
 
 **Commands:**
+
 ```
 /bracket create name:"Horror Movie Showdown" groups:4
+/bracket add-group group:A type:movie title1:"The Thing" title2:"Alien" title3:"The Fly" title4:"Evil Dead"
 ```
 
 **Expected Results:**
-- ✅ Success message showing tournament created
-- ✅ Display shows "0/16 movies" (4 groups × 4 movies)
-- ✅ Shows "Groups: A, B, C, D"
-- ✅ Instructions to add movies with `/bracket add-group`
 
-**What This Tests:** Minimum group size validation, dynamic movie count calculation
+- ✅ Tournament created successfully
+- ✅ Bot searches TMDB for each movie title
+- ✅ If single match found, auto-selects with year and metadata
+- ✅ If multiple matches, shows error asking for more specific title
+- ✅ Group A displays with proper titles and years: "The Thing (1982)", "Alien (1979)", etc.
+- ✅ Metadata (poster URLs, IDs) stored in tournament data
+
+**What This Tests:** TMDB search integration, automatic title resolution, metadata storage
 
 ---
 
-## 🧪 Test 2: Create Default Tournament (8 Groups)
+## 🧪 Test 2: Add TV Shows to Tournament
 
 **Commands:**
+
 ```
-/bracket create name:"Best Sci-Fi Films"
+/bracket create name:"Best TV Shows" groups:4
+/bracket add-group group:A type:tv title1:"Breaking Bad" title2:"The Wire" title3:"The Sopranos" title4:"Mad Men"
 ```
-*(Notice: no groups parameter = uses default)*
 
 **Expected Results:**
-- ✅ Success message showing tournament created
-- ✅ Display shows "0/32 movies" (8 groups × 4 movies)
-- ✅ Shows "Groups: A, B, C, D, E, F, G, H"
-- ✅ Default of 8 groups applied automatically
 
-**What This Tests:** Default group size behavior
+- ✅ Bot searches TV shows via TMDB
+- ✅ Displays show titles with first air year
+- ✅ Stores TV show metadata (posters, ratings, IDs)
+
+**What This Tests:** TV show search integration
 
 ---
 
-## 🧪 Test 3: Create Large Tournament (12 Groups - Maximum)
+## 🧪 Test 3: Add Video Games to Tournament
 
 **Commands:**
+
+```
+/bracket create name:"Best Action Games" groups:4
+/bracket add-group group:A type:game title1:"Doom Eternal" title2:"Resident Evil 4" title3:"Halo 3" title4:"Bioshock"
+```
+
+**Expected Results:**
+
+- ✅ Bot searches RAWG API for games
+- ✅ Displays game titles with release years
+- ✅ Stores game metadata (images, ratings, platforms)
+
+**What This Tests:** Video game search integration (RAWG)
+
+---
+
+## 🧪 Test 4: Ambiguous Title Handling
+
+**Commands:**
+
+```
+/bracket create name:"Spider-Man Tournament" groups:4
+/bracket add-group group:A type:movie title1:"Spider-Man" title2:"The Batman" title3:"Superman" title4:"Iron Man"
+```
+
+**Expected Results:**
+
+- ✅ Bot detects multiple matches for these common titles
+- ✅ Shows error: "Some titles have multiple matches: Spider-Man (8 matches), The Batman (3 matches)..."
+- ✅ Suggests being more specific (include year or more details)
+- ✅ Group is NOT added until titles are clarified
+
+**What This Tests:** Multiple search result handling, user guidance
+
+---
+
+## 🧪 Test 5: Specific Title Matching
+
+**Commands:**
+
+```
+/bracket add-group group:A type:movie title1:"Spider-Man 2002" title2:"The Batman 2022" title3:"Superman 1978" title4:"Iron Man 2008"
+```
+
+**Expected Results:**
+
+- ✅ More specific searches find single matches
+- ✅ Titles added with correct years
+- ✅ Metadata properly stored
+
+**What This Tests:** Search specificity, year-based disambiguation
+
+---
+
+## 🧪 Test 6: Freeform AI Image Generation (No Tournament)
+
+**Commands:**
+
+```
+/bracket image title1:"The Thing" title2:"Alien"
+```
+
+**Expected Results:**
+
+- ✅ Works WITHOUT an active tournament
+- ✅ Generates DALL-E 3 image for "The Thing vs Alien"
+- ✅ Takes 10-30 seconds
+- ✅ Displays epic split-screen "VS" poster
+- ✅ Shows context: "Freeform"
+- ✅ Cost: $0.04 per image
+
+**What This Tests:** Freeform image generation (new feature!)
+
+---
+
+## 🧪 Test 7: AI Image During Group Stage
+
+**Commands:**
+
+```
+/bracket create name:"Test Tournament" groups:4
+/bracket add-group group:A type:movie title1:"The Thing" title2:"Alien" title3:"The Fly" title4:"Evil Dead"
+/bracket image title1:"Predator" title2:"Terminator"
+```
+
+**Expected Results:**
+
+- ✅ Image generation works EVEN during group stage (no more knockout-only restriction!)
+- ✅ Generates image for any two titles
+- ✅ No error about knockout phase
+
+**What This Tests:** Removal of knockout-only restriction
+
+---
+
+## 🧪 Test 8: Tournament Matchup AI Image
+
+**Commands:**
+
+```
+/bracket open-groups groups:"A,B,C,D"
+/bracket close-groups groups:"A,B,C,D"
+/bracket advance-knockout
+/bracket image matchup:"The Thing vs Alien"
+```
+
+**Expected Results:**
+
+- ✅ Finds matchup from active tournament
+- ✅ Generates AI image with tournament context
+- ✅ Shows round information (e.g., "Quarterfinals")
+- ✅ Works as before but now with freeform option too
+
+**What This Tests:** Tournament-based matchup images
+
+---
+
+## 🧪 Test 9: Image Help Menu
+
+**Commands:**
+
+```
+/bracket image
+```
+
+**Expected Results:**
+
+- ✅ Shows help message with two options:
+  1. Tournament matchups (if any exist)
+  2. Custom freeform generation syntax: `/bracket image title1:"X" title2:"Y"`
+- ✅ Helpful guidance for both modes
+
+**What This Tests:** User-friendly help system
+
+---
+
+## 🧪 Test 10: Mixed Tournament Types (Error Test)
+
+**Commands:**
+
+```
+/bracket create name:"Mixed Tournament" groups:4
+/bracket add-group group:A type:movie title1:"The Thing" title2:"Alien" title3:"The Fly" title4:"Evil Dead"
+/bracket add-group group:B type:tv title1:"Breaking Bad" title2:"The Wire" title3:"Stranger Things" title4:"Westworld"
+```
+
+**Expected Results:**
+
+- ✅ Group A added successfully (movies)
+- ✅ Group B addition FAILS with error: "Tournament type mismatch. This tournament is for movies, but you're trying to add tvs."
+- ✅ Tournament maintains single type consistency
+
+**What This Tests:** Type validation, consistent tournament types
+
+---
+
+## 🧪 Quick Smoke Test (5 Minutes)
+
+For a quick validation that everything works:
+
+1. **Create Tournament:**
+   ```
+   /bracket create name:"Quick Test" groups:4
+   ```
+
+2. **Add Group with Search:**
+   ```
+   /bracket add-group group:A type:movie title1:"The Thing 1982" title2:"Alien 1979" title3:"The Fly 1986" title4:"Evil Dead 1981"
+   ```
+
+3. **Freeform AI Image:**
+   ```
+   /bracket image title1:"Godzilla" title2:"King Kong"
+   ```
+
+4. **Check Status:**
+   ```
+   /bracket status
+   ```
+
+5. **Cancel:**
+   ```
+   /bracket cancel
+   ```
+
+**All should work without errors!**
+
 ```
 /bracket create name:"Ultimate Action Tournament" groups:12
 ```
 
 **Expected Results:**
+
 - ✅ Success message showing tournament created
 - ✅ Display shows "0/48 movies" (12 groups × 4 movies)
 - ✅ Shows "Groups: A, B, C, D, E, F, G, H, I, J, K, L"
@@ -59,12 +253,14 @@ This guide will walk you through testing all the tournament bracket features, in
 ## 🧪 Test 4: Try Invalid Group Sizes
 
 **Commands:**
+
 ```
 /bracket create name:"Too Small" groups:3
 /bracket create name:"Too Large" groups:13
 ```
 
 **Expected Results:**
+
 - ✅ Discord should show validation error before command sends
 - ✅ Interface should indicate valid range is 4-12
 - ✅ Commands should not be submitted
@@ -76,6 +272,7 @@ This guide will walk you through testing all the tournament bracket features, in
 ## 🧪 Test 5: Add Movies to Groups (Use 4-Group Tournament)
 
 **Commands:**
+
 ```
 /bracket add-group tournament:"Horror Movie Showdown" group:A movie:"The Thing"
 /bracket add-group tournament:"Horror Movie Showdown" group:A movie:"Alien"
@@ -84,6 +281,7 @@ This guide will walk you through testing all the tournament bracket features, in
 ```
 
 **Expected Results:**
+
 - ✅ Each movie adds successfully
 - ✅ Progress shows "1/16", "2/16", "3/16", "4/16"
 - ✅ After 4th movie: "Group A is complete (4/4 movies)"
@@ -95,11 +293,13 @@ This guide will walk you through testing all the tournament bracket features, in
 ## 🧪 Test 6: Try Invalid Group Letter
 
 **Commands:**
+
 ```
 /bracket add-group tournament:"Horror Movie Showdown" group:E movie:"Scream"
 ```
 
 **Expected Results:**
+
 - ✅ Error message: "Invalid group ID. This tournament only has groups A through D."
 - ✅ Movie is not added to tournament
 
@@ -112,11 +312,13 @@ This guide will walk you through testing all the tournament bracket features, in
 Add 4 movies each to Groups B, C, and D (12 more movies total). You can use any movie names.
 
 **Quick Movie Ideas:**
+
 - Group B: Evil Dead, The Exorcist, Poltergeist, Nightmare on Elm Street
 - Group C: The Ring, Get Out, It, The Conjuring
 - Group D: Hereditary, Scream, The Witch, Midsommar
 
 **Expected Results:**
+
 - ✅ Progress counter increases: 8/16, 12/16, 16/16
 - ✅ When complete: "All groups complete! Ready to close groups."
 
@@ -127,11 +329,13 @@ Add 4 movies each to Groups B, C, and D (12 more movies total). You can use any 
 ## 🧪 Test 8: Close Groups & Check Wildcard Count (4 Groups)
 
 **Commands:**
+
 ```
 /bracket close-groups tournament:"Horror Movie Showdown"
 ```
 
 **Expected Results:**
+
 - ✅ Success message
 - ✅ Footer shows: "8 wildcards will advance to Round of 16"
 - ✅ 16 buttons (A1, A2, B1, B2, etc.) appear for voting
@@ -144,15 +348,19 @@ Add 4 movies each to Groups B, C, and D (12 more movies total). You can use any 
 ## 🧪 Test 9: Create & Close 8-Group Tournament
 
 **Commands:**
+
 ```
 /bracket create name:"Action Tournament Test" groups:8
 ```
+
 Then add 32 movies (8 groups × 4 movies) using `/bracket add-group`, then:
+
 ```
 /bracket close-groups tournament:"Action Tournament Test"
 ```
 
 **Expected Results:**
+
 - ✅ Footer shows: "16 wildcards will advance to Round of 32"
 - ✅ 32 buttons appear for voting
 - ✅ Correct calculation: 8 groups × 2 = 16 direct, need 32 total = 16 wildcards
@@ -164,15 +372,19 @@ Then add 32 movies (8 groups × 4 movies) using `/bracket add-group`, then:
 ## 🧪 Test 10: Create & Close 12-Group Tournament
 
 **Commands:**
+
 ```
 /bracket create name:"Comedy Championship" groups:12
 ```
+
 Then add 48 movies (12 groups × 4 movies) using `/bracket add-group`, then:
+
 ```
 /bracket close-groups tournament:"Comedy Championship"
 ```
 
 **Expected Results:**
+
 - ✅ Footer shows: "8 wildcards will advance to Round of 32"
 - ✅ 48 buttons appear for voting
 - ✅ Correct calculation: 12 groups × 2 = 24 direct, need 32 total = 8 wildcards
@@ -186,11 +398,13 @@ Then add 48 movies (12 groups × 4 movies) using `/bracket add-group`, then:
 After selecting winners and wildcards in any tournament:
 
 **Commands:**
+
 ```
 /bracket advance-knockout tournament:"Horror Movie Showdown"
 ```
 
 **Expected Results:**
+
 - ✅ 4 groups (16 total) → Displays "Round of 16" ← **Check this!**
 - ✅ 8 groups (32 total) → Displays "Round of 32" ← **Check this!**
 - ✅ Shows correct number of matchups (8 for R16, 16 for R32)
@@ -203,17 +417,20 @@ After selecting winners and wildcards in any tournament:
 ## 🧪 Test 12: Status Command at Different Phases
 
 **Commands:**
+
 ```
 /bracket status tournament:"Horror Movie Showdown"
 ```
 
 Run this at different stages:
+
 - After creation (empty groups)
 - After adding some movies
 - After closing groups
 - During knockout phase
 
 **Expected Results:**
+
 - ✅ Shows correct phase (Group Stage / Knockout Stage)
 - ✅ Shows dynamic group count ("8 groups" or "4 groups" etc.)
 - ✅ Shows progress appropriately
@@ -226,11 +443,13 @@ Run this at different stages:
 ## 🧪 Test 13: List Multiple Tournaments
 
 **Commands:**
+
 ```
 /bracket list
 ```
 
 **Expected Results:**
+
 - ✅ Shows all active tournaments with names
 - ✅ Shows creator and current phase
 - ✅ Shows different group counts per tournament
@@ -242,11 +461,13 @@ Run this at different stages:
 ## 🧪 Test 14: Delete Tournament
 
 **Commands:**
+
 ```
 /bracket delete tournament:"Comedy Championship"
 ```
 
 **Expected Results:**
+
 - ✅ Confirmation message
 - ✅ Tournament removed from `/bracket list`
 
@@ -278,6 +499,7 @@ After completing all tests, verify:
 ## 🐛 What to Report
 
 If anything doesn't match the expected results above, please note:
+
 1. **What command** you ran
 2. **What you expected** to see
 3. **What actually happened**
