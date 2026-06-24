@@ -326,6 +326,92 @@ Winner: The Exorcist
 
 ---
 
+### View Visual Bracket
+
+```
+/bracket view
+```
+
+**Parameters:** None
+
+**Who can use:** All server members
+
+**Features:**
+- Generates a March Madness-style bracket visualization
+- Shows all knockout rounds with matchup tree structure
+- Displays participant names with winner highlighting (green ✓)
+- Includes VS indicators and connector lines between rounds
+- Shows champion trophy when tournament complete
+- Discord dark theme styling
+- Generated on-demand as PNG image attachment
+- **Only available during knockout phase**
+
+**Visual Elements:**
+- Round labels (Round of 32/16, Quarterfinals, Semifinals, Finals)
+- Participant boxes with movie titles
+- Type indicators (Winner/Runner-up/Wildcard)
+- Green highlighting for winners with checkmarks
+- Trophy emoji and "CHAMPION" label for winner
+- Connector lines showing bracket progression
+
+**Example:**
+```
+/bracket view
+```
+
+**Output:**
+- High-quality PNG image showing the full tournament bracket
+- All matchups organized by round
+- Current state with completed and pending matches
+- Easy to share for social media or server announcements
+
+---
+
+### Generate AI Matchup Image
+
+```
+/bracket image [matchup:"Movie A vs Movie B"]
+```
+
+**Parameters:**
+- `matchup` (optional) - Specific matchup to visualize (e.g., "The Thing vs Alien")
+
+**Who can use:** All server members
+
+**Features:**
+- Generates AI-powered "vs" movie poster mashups using DALL-E 3
+- Lists available matchups if no parameter provided
+- Flexible matchup matching (finds by movie titles)
+- Creates dramatic split-screen compositions with bold VS text
+- Wide format (1792x1024) perfect for epic showdowns
+- Standard quality ($0.04 per image, cost shown in embed)
+- Cinematic style with high contrast and dramatic lighting
+- Shows round info and tournament name
+- **Only available during knockout phase**
+- **Requires OpenAI API key** configuration
+
+**Without Parameters:**
+```
+/bracket image
+```
+Shows list: "1. **The Thing** vs **Alien** (round_of_16)"
+
+**With Matchup:**
+```
+/bracket image matchup:"The Thing vs Alien"
+```
+
+**Generation Process:**
+1. Bot creates cinematic prompt for DALL-E 3
+2. Takes 10-30 seconds to generate
+3. Returns epic movie poster mashup image
+4. Perfect for hyping up championship rounds!
+
+**Example Prompt Generated:**
+> "Epic movie poster mashup: 'The Thing' versus 'Alien'. Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents The Thing, right side represents Alien. Bold 'VS' text in the center. Movie poster aesthetic, professional design, 4K quality."
+
+---
+
 ### Cancel Tournament
 
 ```

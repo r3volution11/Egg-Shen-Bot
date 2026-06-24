@@ -8,19 +8,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Tournament Bracket Visualizations**
+  - `/bracket view` command generates March Madness-style bracket images
+  - Shows full tournament tree with all rounds and matchups
+  - Visual highlighting for winners (green backgrounds with checkmarks)
+  - Displays VS indicators, connector lines, and round labels
+  - Champion trophy display when tournament complete
+  - Discord dark theme styling, PNG format
+  - Uses @napi-rs/canvas for fast image generation
+  - Only available during knockout phase
+- **AI-Generated Matchup Images**
+  - `/bracket image` command creates dramatic "vs" movie poster mashups
+  - Integration with OpenAI DALL-E 3 for high-quality image generation
+  - Lists available matchups when called without parameters
+  - Flexible matchup matching by movie titles
+  - Wide format (1792x1024) perfect for split-screen compositions
+  - Cinematic prompts with dramatic lighting and bold VS text
+  - Standard quality mode ($0.04 per image, cost shown)
+  - 10-30 second generation time
+  - Only available during knockout phase
+  - Requires OpenAI API key configuration
 - **Tournament Bracket System (`/bracket` command)**
   - Host comprehensive movie or TV show tournaments with flexible sizing (16-48 entries)
   - Configurable group count: 4-12 groups (default 8), each with 4 movies
   - Group stage: Members vote for top 2 in each group
   - Dynamic wildcard system: Automatically calculates wildcards needed (0-8) to reach power-of-2 bracket
   - Knockout stage: Single elimination with dynamic round naming (Semifinals → Quarterfinals → Round of 16 → Round of 32)
-  - 8 subcommands: create, add-group, open-groups, close-groups, vote-group, advance-knockout, status, cancel
+  - 10 subcommands: create, add-group, open-groups, close-groups, vote-group, advance-knockout, status, view, image, cancel
   - Admin/moderator management controls, all members can vote
   - Random tiebreaker for fair vote resolution
   - Vote change support (users can change votes before close)
   - Complete tournament state persistence in JSON format
   - Configurable via `/eggshen-config commands toggle`
   - Perfect for community competitions like "The Shudder Discord Gore Cup"
+- **Spotify Premium Detection and Graceful Fallback**
+  - Detects when Spotify API requires Premium subscription (403 errors)
+  - Automatically disables Spotify features when Premium detected
+  - Bot continues working with iTunes-only for soundtrack searches
+  - Clear warning logs explain why Spotify is unavailable
+  - No errors exposed to users when Spotify unavailable
+  - Graceful degradation ensures `/soundtrack` command always works
 - **Spotify Integration for Soundtrack Search**
   - Added Spotify API support alongside iTunes for `/soundtrack` command
   - Displays results from both iTunes and Spotify when both are configured
