@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Tournament Bracket System (`/bracket` command)**
+  - Host comprehensive movie or TV show tournaments with 48 total entries
+  - Group stage: 12 groups (A-L) with 4 movies each, members vote for top 2
+  - Wildcard system: best 8 third-place finishers advance to knockout
+  - Knockout stage: Single elimination from Round of 32 → Round of 16 → Quarterfinals → Semifinals → Finals
+  - 8 subcommands: create, add-group, open-groups, close-groups, vote-group, advance-knockout, status, cancel
+  - Admin/moderator management controls, all members can vote
+  - Random tiebreaker for fair vote resolution
+  - Vote change support (users can change votes before close)
+  - Complete tournament state persistence in JSON format
+  - Configurable via `/eggshen-config commands toggle`
+  - Perfect for community competitions like "The Shudder Discord Gore Cup"
 - **Spotify Integration for Soundtrack Search**
   - Added Spotify API support alongside iTunes for `/soundtrack` command
   - Displays results from both iTunes and Spotify when both are configured

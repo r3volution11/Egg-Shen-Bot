@@ -168,6 +168,41 @@ Search for books with comprehensive information.
 
 ---
 
+## Tournament Commands
+
+### `/bracket`
+Host comprehensive movie or TV show tournaments.
+
+**Subcommands:**
+- `create` - Create new tournament (Admin/Mod)
+- `add-group` - Add 4 movies to groups A-L (Admin/Mod)
+- `open-groups` - Open groups for voting (Admin/Mod)
+- `close-groups` - Close voting and calculate results (Admin/Mod)
+- `vote-group` - Vote for top 2 in a group (All members)
+- `advance-knockout` - Generate Round of 32 bracket (Admin/Mod)
+- `status` - View tournament progress (All members)
+- `cancel` - Cancel tournament (Admin/Mod)
+
+**Features:**
+- 48 movies in 12 groups of 4
+- Group stage: vote for top 2 per group
+- Wildcards: best 8 third-place advance
+- Knockout: Round of 32 → Finals
+- Random tiebreaker for fair results
+- Complete vote tracking and management
+
+**Example:**
+```
+/bracket create name:The Shudder Discord Gore Cup
+/bracket add-group group:A movie1:The Exorcist movie2:Halloween movie3:The Texas Chain Saw Massacre movie4:Night of the Living Dead
+/bracket open-groups groups:A,B,C,D
+/bracket vote-group group:A choice1:1 choice2:3
+```
+
+[Learn more →](/commands/tournaments)
+
+---
+
 ## Watch Party Commands
 
 ### `/timer`
