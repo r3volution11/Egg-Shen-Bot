@@ -143,7 +143,9 @@ export const data = new SlashCommandBuilder()
                 { name: 'Movie Command', value: 'movie' },
                 { name: 'TV Command', value: 'tv' },
                 { name: 'Episode Command', value: 'episode' },
-                { name: 'Survey Command', value: 'survey' }
+                { name: 'Survey Command', value: 'survey' },
+                { name: 'Soundtrack Command', value: 'soundtrack' },
+                { name: 'Bracket Command', value: 'bracket' }
               )
           )
           .addBooleanOption(option =>
@@ -581,7 +583,9 @@ export async function execute(interaction) {
       `${config.commandPermissions.movie ? '✅' : '❌'} **/movie:** ${config.commandPermissions.movie ? 'Enabled' : 'Disabled'}\n` +
       `${config.commandPermissions.tv ? '✅' : '❌'} **/tv:** ${config.commandPermissions.tv ? 'Enabled' : 'Disabled'}\n` +
       `${config.commandPermissions.episode ? '✅' : '❌'} **/episode:** ${config.commandPermissions.episode ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.survey !== false ? '✅' : '❌'} **/survey:** ${config.commandPermissions.survey !== false ? 'Enabled' : 'Disabled'}`;
+      `${config.commandPermissions.survey !== false ? '✅' : '❌'} **/survey:** ${config.commandPermissions.survey !== false ? 'Enabled' : 'Disabled'}\n` +
+      `${config.commandPermissions.soundtrack !== false ? '✅' : '❌'} **/soundtrack:** ${config.commandPermissions.soundtrack !== false ? 'Enabled' : 'Disabled'}\n` +
+      `${config.commandPermissions.bracket !== false ? '✅' : '❌'} **/bracket:** ${config.commandPermissions.bracket !== false ? 'Enabled' : 'Disabled'}`;
 
     const notificationsStatus = `${config.notifications?.restartAnnouncements ? '✅' : '❌'} **Restart Announcements:** ${config.notifications?.restartAnnouncements ? 'Enabled' : 'Disabled'}`;
 
@@ -795,6 +799,9 @@ export async function execute(interaction) {
         movie: '/movie command',
         tv: '/tv command',
         episode: '/episode command',
+        survey: '/survey command',
+        soundtrack: '/soundtrack command',
+        bracket: '/bracket command',
       }[setting];
 
       const statusText = enabled ? 'enabled' : 'disabled';
