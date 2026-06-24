@@ -8,6 +8,7 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
 |---------|----------|-----------|--------------|---------------|
 | **Discord Bot** | ✅ Yes | Yes | [Discord Portal](https://discord.com/developers/applications) | Instant |
 | **TMDB** | ✅ Yes | Yes | [TMDB](https://www.themoviedb.org/settings/api) | 1-2 minutes |
+| **iTunes Search API** | ⭕ Auto-enabled | Yes (unlimited) | None required | N/A |
 | **OpenAI** | ⭕ Optional | Pay-per-use | [OpenAI Platform](https://platform.openai.com/api-keys) | Instant |
 | **Watchmode** | ⭕ Optional | 1000/month | [Watchmode](https://api.watchmode.com/) | Instant |
 | **Spotify** | ⭕ Optional | Yes | [Spotify for Developers](https://developer.spotify.com/dashboard) | Instant |
@@ -191,23 +192,60 @@ The bot uses a **progressive enhancement approach**: it tries Watchmode first (i
 
 ---
 
+## iTunes Search API
+
+**Purpose:** Soundtrack search for `/soundtrack` command  
+**Features Enabled:** Album artwork, artist info, track listings, and iTunes/Apple Music purchase links  
+**Free Tier:** Unlimited (no signup required)
+
+### Why Use iTunes Search API?
+
+The iTunes Search API is a **free, public API** provided by Apple that requires **no registration, no API key, and no authentication**. It provides:
+
+- ✅ Completely free with unlimited requests
+- ✅ No signup or API key required
+- ✅ High-quality album artwork (up to 600x600px)
+- ✅ Complete track listings with duration
+- ✅ Artist and composer information
+- ✅ Release dates and genre metadata
+- ✅ Direct links to iTunes/Apple Music for purchase and streaming
+- ✅ Price information for purchasing albums
+
+The bot uses iTunes Search API **automatically** for the `/soundtrack` command. No configuration needed!
+
+### How It Works
+
+1. User runs `/soundtrack query:Movie Title`
+2. Bot verifies title with TMDB for accuracy
+3. Bot searches iTunes for soundtrack albums
+4. Results displayed with album art and metadata
+5. Users can click through to iTunes/Apple Music
+
+**Rate Limits:** None documented by Apple
+
+**API Documentation:** https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/
+
+**Note:** iTunes Search API works out-of-the-box. No setup required!
+
+---
+
 ## Spotify API Key
 
-**Purpose:** Soundtrack search with Spotify links (complements iTunes)  
-**Features Enabled:** Spotify album links and metadata in `/soundtrack` command  
+**Purpose:** Additional soundtrack results for `/soundtrack` command (complements iTunes)  
+**Features Enabled:** Spotify album links and metadata alongside iTunes results  
 **Free Tier:** Unlimited (Client Credentials flow)
 
 ### Why Use Spotify?
 
-The `/soundtrack` command searches iTunes by default (no API key needed), but adding Spotify provides:
+The `/soundtrack` command uses iTunes Search API by default (no setup needed), but adding Spotify provides:
 
-- ✅ Broader soundtrack coverage
+- ✅ Broader soundtrack coverage across platforms
 - ✅ Spotify streaming links for users who prefer Spotify
 - ✅ Both iTunes and Spotify results shown together
-- ✅ Higher quality album artwork
+- ✅ Higher quality album artwork from Spotify
 - ✅ Free with no rate limits for read-only access
 
-The bot uses a **multi-platform approach**: it searches both iTunes and Spotify (if configured), then displays results from both services with clickable links. If Spotify isn't configured, the bot still works with iTunes alone.
+The bot uses a **multi-platform approach**: it searches both iTunes and Spotify (if configured), then displays results from both services with clickable links. If Spotify isn't configured, the bot shows iTunes results only.
 
 ### Step-by-Step Instructions
 

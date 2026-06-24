@@ -40,6 +40,7 @@ Before you begin, make sure you have:
 These enable additional features:
 
 #### Core Search Features
+
 - **[OMDB API Key](http://www.omdbapi.com/apikey.aspx)** - IMDb and Rotten Tomatoes ratings for movies/TV
   - Get free key: Visit [omdbapi.com/apikey.aspx](http://www.omdbapi.com/apikey.aspx)
   - Select "FREE! (1,000 daily limit)" plan
@@ -70,6 +71,7 @@ These enable additional features:
   - Recommended: Restrict key to Books API for security
 
 #### Enhanced Features
+
 - **[Watch Mode API Key](https://api.watchmode.com/)** - Enhanced streaming availability data
   - Create account at [api.watchmode.com](https://api.watchmode.com/)
   - Free tier: 1,000 requests/month
@@ -230,6 +232,7 @@ Try these commands in your server:
 ## Support
 
 Having issues? Check:
+
 - [Command Reference](/commands/)
 - [Configuration Guide](/commands/configuration)
 - [GitHub Issues](https://github.com/r3volution11/Egg-Shen-Bot/issues)
