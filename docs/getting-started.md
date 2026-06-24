@@ -86,6 +86,15 @@ These enable additional features:
   - **Purpose:** Improves search accuracy by understanding semantic meaning (e.g., "sci-fi robots" matches "The Matrix")
   - **Note:** Falls back to standard TMDB text search if not configured
 
+- **[Spotify API](https://developer.spotify.com/dashboard)** - Soundtrack search with Spotify links for `/soundtrack` command
+  - Create free account at [developer.spotify.com](https://developer.spotify.com/dashboard)
+  - Create a new app (name: "Egg Shen Bot", redirect URI: `https://localhost`)
+  - Select "Web API" as the API/SDK
+  - Copy Client ID and Client Secret
+  - **Free tier:** Unlimited requests for read-only public data access
+  - **Purpose:** Shows Spotify streaming links alongside iTunes results for soundtracks
+  - **Note:** Falls back to iTunes-only if not configured
+
 > **Note:** Commands requiring optional APIs will be disabled if their API keys aren't configured. The bot will function with only Discord + TMDB keys, but additional APIs enhance functionality.
 
 ## Installation
