@@ -191,7 +191,7 @@ Host comprehensive movie or TV show tournaments.
 
 **Subcommands:**
 - `create` - Create new tournament (Admin/Mod)
-- `add-group` - Add 4 movies to groups A-L (Admin/Mod)
+- `add-group` - Add 4 entries with smart search (Admin/Mod)
 - `open-groups` - Open groups for voting (Admin/Mod)
 - `close-groups` - Close voting and calculate results (Admin/Mod)
 - `vote-group` - Vote for top 2 in a group (All members)
@@ -214,11 +214,11 @@ Host comprehensive movie or TV show tournaments.
 **Example:**
 ```
 /bracket create name:The Shudder Discord Gore Cup groups:12
-/bracket add-group group:A movie1:The Exorcist movie2:Halloween movie3:The Texas Chain Saw Massacre movie4:Night of the Living Dead
+/bracket add-group group:A type:movie title1:"The Exorcist 1973" title2:"Halloween 1978" title3:"The Texas Chain Saw Massacre 1974" title4:"Night of the Living Dead 1968"
 /bracket open-groups groups:A,B,C,D
 /bracket vote-group group:A choice1:1 choice2:3
 /bracket view
-/bracket image matchup:"The Exorcist vs Halloween"
+/bracket image title1:"The Exorcist" title2:"Halloween"
 ```
 
 [Learn more →](/commands/tournaments)
