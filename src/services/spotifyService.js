@@ -2,6 +2,7 @@ import { config } from '../config.js';
 
 let accessToken = null;
 let tokenExpiry = null;
+let premiumRequired = false; // Flag to track if Premium subscription is needed
 
 /**
  * Get Spotify access token using Client Credentials flow
@@ -31,6 +32,13 @@ async function getAccessToken() {
     });
 
     if (!response.ok) {
+      // Check for Premium requirement (403 Forbidden)
+      if (response.status === 403) {
+        premiumRequired = true;
+        console.warn('⚠️  Spotify API requires Premium subscription. Spotify features disabled.');
+        console.warn('   The bot will continue to work with iTunes only for soundtrack searches.');
+        throw new Error('Spotify Premium subscription required');
+      }
       throw new Error(`Spotify auth failed: ${response.status}`);
     }
 
@@ -75,6 +83,12 @@ export async function searchSoundtrack(title, type = 'movie', limit = 5) {
     });
 
     if (!response.ok) {
+      // Check for Premium requirement (403 Forbidden)
+      if (response.status === 403) {
+        premiumRequired = true;
+        console.warn('⚠️  Spotify API requires Premium subscription. Disabling Spotify features.');
+        return null;
+      }
       throw new Error(`Spotify search failed: ${response.status}`);
     }
 
@@ -134,6 +148,12 @@ export async function getAlbumDetails(albumId) {
     });
 
     if (!response.ok) {
+      // Check for Premium requirement (403 Forbidden)
+      if (response.status === 403) {
+        premiumRequired = true;
+        console.warn('⚠️  Spotify API requires Premium subscription. Disabling Spotify features.');
+        return null;
+      }
       throw new Error(`Spotify album fetch failed: ${response.status}`);
     }
 
@@ -172,8 +192,13 @@ function formatDuration(milliseconds) {
 }
 
 /**
- * Check if Spotify API is configured
+ * Check if Spotify API is configured and available
+ * Returns false if Premium subscription is required
  */
 export function isConfigured() {
+  // If Premium is required, treat as not configured
+  if (premiumRequired) {
+    return false;
+  }
   return !!(config.apis.spotify?.clientId && config.apis.spotify?.clientSecret);
 }
