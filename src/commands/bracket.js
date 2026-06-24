@@ -465,6 +465,63 @@ function getTypeLabel(type) {
   return labels[type] || type;
 }
 
+/**
+ * Search for a title across ALL APIs (universal search)
+ * Returns: { status: 'found'|'multiple'|'none', entry: {...}, results: [], count: number }
+ */
+async function searchForTitleUniversal(title) {
+  try {
+    const allResults = [];
+    
+    // Search movies
+    const movies = await searchMovies(title);
+    if (movies && movies.length > 0) {
+      movies.forEach(m => allResults.push({ ...m, searchType: 'movie' }));
+    }
+    
+    // Search TV shows
+    const tvShows = await searchTVShows(title);
+    if (tvShows && tvShows.length > 0) {
+      tvShows.forEach(tv => allResults.push({ ...tv, searchType: 'tv' }));
+    }
+    
+    // Search video games
+    const games = await searchGames(title);
+    if (games && games.length > 0) {
+      games.forEach(g => allResults.push({ ...g, searchType: 'game' }));
+    }
+    
+    // Search board games
+    const boardGames = await searchBoardGames(title);
+    if (boardGames && boardGames.length > 0) {
+      boardGames.forEach(bg => allResults.push({ ...bg, searchType: 'boardgame' }));
+    }
+    
+    // Search books
+    const books = await searchBooks(title);
+    if (books && books.length > 0) {
+      books.forEach(b => allResults.push({ ...b, searchType: 'book' }));
+    }
+    
+    if (allResults.length === 0) {
+      return { status: 'none', entry: null, results: [], count: 0 };
+    }
+    
+    if (allResults.length > 1) {
+      return { status: 'multiple', entry: null, results: allResults, count: allResults.length };
+    }
+    
+    // Exactly one result - build entry object
+    const result = allResults[0];
+    const entry = buildEntryFromResult(result, result.searchType);
+    
+    return { status: 'found', entry, results: allResults, count: 1 };
+  } catch (error) {
+    console.error(`[Bracket Image] Error searching for "${title}":`, error);
+    return { status: 'none', entry: null, results: [], count: 0 };
+  }
+}
+
 async function handleOpenGroups(interaction) {
   await interaction.deferReply();
   
@@ -719,13 +776,70 @@ async function handleImage(interaction) {
     return;
   }
   
-  let firstTitle, secondTitle, context = null;
+  let firstTitle, secondTitle, firstEntry, secondEntry, context = null;
   
-  // OPTION 1: User provided title1 and title2 (freeform generation)
+  // OPTION 1: User provided title1 and title2 (freeform generation with search)
   if (title1 && title2) {
-    firstTitle = title1;
-    secondTitle = title2;
-    context = 'Freeform';
+    // Search for both titles across all APIs
+    const [result1, result2] = await Promise.all([
+      searchForTitleUniversal(title1),
+      searchForTitleUniversal(title2)
+    ]);
+    
+    // Check if either title wasn't found
+    if (result1.status === 'none' || result2.status === 'none') {
+      const notFound = [];
+      if (result1.status === 'none') notFound.push(`**${title1}**`);
+      if (result2.status === 'none') notFound.push(`**${title2}**`);
+      
+      await interaction.editReply({
+        content: `❌ Could not find: ${notFound.join(', ')}\n\n` +
+          `Please check spelling or try different search terms. The bot searches movies, TV shows, video games, board games, and books.`,
+      });
+      return;
+    }
+    
+    // Handle multiple matches - take first result but inform user
+    let disambiguationNote = '';
+    
+    if (result1.status === 'multiple') {
+      firstEntry = buildEntryFromResult(result1.results[0], result1.results[0].searchType);
+      const typeLabel = getTypeLabel(firstEntry.type);
+      const yearStr = firstEntry.year ? ` (${firstEntry.year})` : '';
+      disambiguationNote += `\n📌 Multiple matches for "${title1}" - using: **${firstEntry.title}${yearStr}** (${typeLabel})`;
+      disambiguationNote += `\n   _Be more specific next time: \`title1:"${firstEntry.title} ${firstEntry.year}"\`_`;
+    } else {
+      firstEntry = result1.entry;
+    }
+    
+    if (result2.status === 'multiple') {
+      secondEntry = buildEntryFromResult(result2.results[0], result2.results[0].searchType);
+      const typeLabel = getTypeLabel(secondEntry.type);
+      const yearStr = secondEntry.year ? ` (${secondEntry.year})` : '';
+      disambiguationNote += `\n📌 Multiple matches for "${title2}" - using: **${secondEntry.title}${yearStr}** (${typeLabel})`;
+      disambiguationNote += `\n   _Be more specific next time: \`title2:"${secondEntry.title} ${secondEntry.year}"\`_`;
+    } else {
+      secondEntry = result2.entry;
+    }
+    
+    firstTitle = firstEntry.title;
+    secondTitle = secondEntry.title;
+    
+    const type1Label = getTypeLabel(firstEntry.type);
+    const type2Label = getTypeLabel(secondEntry.type);
+    const year1 = firstEntry.year ? ` (${firstEntry.year})` : '';
+    const year2 = secondEntry.year ? ` (${secondEntry.year})` : '';
+    
+    context = `${type1Label}${year1} vs ${type2Label}${year2}`;
+    
+    // Show disambiguation note if needed
+    if (disambiguationNote) {
+      await interaction.editReply({
+        content: `🔍 **Search Results:**${disambiguationNote}\n\n_Generating image in 10-30 seconds..._`,
+      });
+      // Wait a moment so user can read the message
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
     
   // OPTION 2: User provided a matchup from tournament
   } else if (matchupInput) {
@@ -776,7 +890,14 @@ async function handleImage(interaction) {
       helpMessage += `**Tournament Matchups:**\n${matchupList}\n\n💡 Generate an image:\n\`/bracket image matchup:"Movie A vs Movie B"\`\n\n`;
     }
     
-    helpMessage += '**Or create any custom matchup:**\n\`/bracket image title1:"The Thing" title2:"Alien"\`\n\n_Works with any titles, anytime!_';
+    helpMessage += '**Create custom matchups with smart search:**\n\`/bracket image title1:"The Thing" title2:"Alien"\`\n\n';
+    helpMessage += '✨ **Features:**\n';
+    helpMessage += '• Searches movies, TV shows, video games, board games, and books\n';
+    helpMessage += '• Validates titles exist before generating\n';
+    helpMessage += '• Shows selection menu if multiple matches found\n';
+    helpMessage += '• Works with cross-type comparisons (e.g., book vs movie)\n';
+    helpMessage += '• Generates in 10-30 seconds ($0.04 per image)\n\n';
+    helpMessage += '_No tournament needed - works anytime!_';
     
     await interaction.editReply({ content: helpMessage });
     return;
@@ -784,8 +905,37 @@ async function handleImage(interaction) {
   
   // Generate the AI image
   try {
-    // Create a dramatic prompt
-    const prompt = `Epic movie poster mashup: "${firstTitle}" versus "${secondTitle}". Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents ${firstTitle}, right side represents ${secondTitle}. Bold "VS" text in the center. Movie poster aesthetic, professional design, 4K quality.`;
+    // Create a dramatic prompt with type-specific context
+    let promptBase = 'Epic poster mashup';
+    let promptDetails = '';
+    
+    // Add type-specific context if we have metadata
+    if (firstEntry && secondEntry) {
+      if (firstEntry.type === 'movie' && secondEntry.type === 'movie') {
+        promptBase = 'Epic movie poster mashup';
+      } else if (firstEntry.type === 'tv' && secondEntry.type === 'tv') {
+        promptBase = 'Epic TV show poster mashup';
+      } else if (firstEntry.type === 'game' && secondEntry.type === 'game') {
+        promptBase = 'Epic video game cover art mashup';
+      } else {
+        // Cross-type matchup
+        const type1 = getTypeLabel(firstEntry.type).toLowerCase();
+        const type2 = getTypeLabel(secondEntry.type).toLowerCase();
+        promptBase = `Epic ${type1} vs ${type2} mashup`;
+      }
+      
+      // Add descriptive details if available
+      if (firstEntry.metadata?.overview) {
+        promptDetails += ` ${firstEntry.title}: ${firstEntry.metadata.overview.substring(0, 100)}.`;
+      }
+      if (secondEntry.metadata?.overview) {
+        promptDetails += ` ${secondEntry.title}: ${secondEntry.metadata.overview.substring(0, 100)}.`;
+      }
+    } else {
+      promptBase = 'Epic poster mashup';
+    }
+    
+    const prompt = `${promptBase}: "${firstTitle}" versus "${secondTitle}". Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents ${firstTitle}, right side represents ${secondTitle}. Bold "VS" text in the center. Professional design, 4K quality.${promptDetails}`;
     
     await interaction.editReply(`🎨 Generating AI image for **${firstTitle}** vs **${secondTitle}**...\n\n_This may take 10-30 seconds..._`);
     
@@ -816,7 +966,7 @@ async function handleImage(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0xFEE75C)
       .setTitle(`🎨 ${firstTitle} vs ${secondTitle}`)
-      .setDescription(context ? `AI-generated matchup visualization\n**Context:** ${context}` : 'AI-generated matchup visualization')
+      .setDescription(context ? `AI-generated matchup visualization\n**Matchup:** ${context}` : 'AI-generated matchup visualization')
       .setImage(imageUrl)
       .setFooter({ text: 'Generated by DALL-E 3 • Cost: $0.04 per image' })
       .setTimestamp();
