@@ -1,5 +1,6 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder } from 'discord.js';
 import * as bracketManager from '../utils/bracketManager.js';
+import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -111,6 +112,11 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('view')
+      .setDescription('View visual bracket (knockout phase only)')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('cancel')
       .setDescription('Cancel the tournament (Admin/Mod only)')
   );
@@ -155,6 +161,9 @@ export async function execute(interaction) {
         break;
       case 'status':
         await handleStatus(interaction);
+        break;
+      case 'view':
+        await handleView(interaction);
         break;
       case 'cancel':
         await handleCancel(interaction);
@@ -434,6 +443,57 @@ async function handleStatus(interaction) {
   }
   
   await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleView(interaction) {
+  await interaction.deferReply();
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  if (!tournament) {
+    await interaction.editReply('❌ No active tournament found.');
+    return;
+  }
+  
+  // Check if tournament is in knockout phase
+  if (tournament.status !== 'knockout' && tournament.status !== 'completed') {
+    await interaction.editReply('❌ Visual bracket is only available during the knockout phase. Complete the group stage first using `/bracket advance-knockout`.');
+    return;
+  }
+  
+  if (!tournament.knockoutBracket || tournament.knockoutBracket.length === 0) {
+    await interaction.editReply('❌ No knockout bracket data available.');
+    return;
+  }
+  
+  try {
+    // Generate bracket image
+    const imageBuffer = await bracketVisualizer.generateBracketImage(tournament);
+    
+    // Create attachment
+    const attachment = new AttachmentBuilder(imageBuffer, { 
+      name: 'bracket.png',
+      description: `${tournament.name} - Tournament Bracket`
+    });
+    
+    // Create embed
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle(`🏆 ${tournament.name} - Bracket View`)
+      .setDescription(`**Phase:** ${tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\n**Participants:** ${tournament.knockoutBracket.length * 2}`)
+      .setImage('attachment://bracket.png')
+      .setFooter({ text: 'Use /bracket status for detailed standings' })
+      .setTimestamp();
+    
+    await interaction.editReply({ 
+      embeds: [embed],
+      files: [attachment]
+    });
+    
+  } catch (error) {
+    console.error('Error generating bracket view:', error);
+    await interaction.editReply('❌ Failed to generate bracket visualization. Error: ' + error.message);
+  }
 }
 
 async function handleCancel(interaction) {
