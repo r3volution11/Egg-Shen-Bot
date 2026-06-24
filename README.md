@@ -91,6 +91,13 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 - **Server Stats** - View community trends and popular searches
 - **Channel Timers** - Built-in timers for watch parties
 
+### 🎪 Community & Social Features
+
+- **Tournament Brackets** - Host movie/TV tournaments with flexible group stage voting (4-12 groups), dynamic wildcards, and single-elimination knockout brackets. Perfect for community competitions and championship events!
+- **Surveys & Polls** - Create interactive surveys with up to 10 options, real-time vote tracking, and comprehensive management
+- **Magic Potions** - Send magical potions to other users with fun pop culture references
+- **Soundtrack Search** - Find movie and TV show soundtracks on iTunes and Spotify
+
 ---
 
 - � **Streaming Availability** - Shows where to stream, rent, or buy movies and TV shows (powered by TMDB)
