@@ -1,6 +1,22 @@
 ---
 title: Commands Reference - Egg Shen Bot
 description: Complete slash commands reference for Egg Shen Bot. Search movies, TV shows, episodes, video games, board games, and manage watch parties with timers and history.
+head:
+  - - meta
+    - property: og:title
+      content: Commands Reference - Egg Shen Bot
+  - - meta
+    - property: og:description
+      content: Complete slash commands reference for searching movies, TV shows, games, books, hosting tournaments, watch parties, and more.
+  - - meta
+    - property: og:url
+      content: https://eggshenbot.com/commands/
+  - - meta
+    - name: twitter:title
+      content: Commands Reference - Egg Shen Bot
+  - - meta
+    - name: twitter:description
+      content: Complete slash commands reference for Egg Shen Bot. 20+ commands for entertainment searches.
 ---
 
 # Commands Overview

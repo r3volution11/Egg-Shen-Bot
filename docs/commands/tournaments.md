@@ -1,6 +1,22 @@
 ---
 title: Tournament Commands - Egg Shen Bot
 description: Host movie and TV show tournaments with group stage voting, wildcards, knockout brackets, and automatic advancement. Perfect for entertainment communities running competitions.
+head:
+  - - meta
+    - property: og:title
+      content: Tournament Brackets - Egg Shen Bot
+  - - meta
+    - property: og:description
+      content: Host comprehensive movie and TV tournaments with flexible group stages, dynamic wildcards, knockout brackets, and AI-generated matchup images.
+  - - meta
+    - property: og:url
+      content: https://eggshenbot.com/commands/tournaments.html
+  - - meta
+    - name: twitter:title
+      content: Tournament Brackets - Egg Shen Bot
+  - - meta
+    - name: twitter:description
+      content: Host movie/TV tournaments with group voting, knockouts, and AI-generated bracket visualizations.
 ---
 
 # Tournament Bracket System
