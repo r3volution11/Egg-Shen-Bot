@@ -10,6 +10,12 @@ guild_stats/
 # Watch history (server-specific watch logs)
 guild_watch_history/
 
+# Surveys/polls (server-specific poll data)
+guild_polls/
+
+# Tournaments (server-specific tournament data)
+guild_tournaments/
+
 # Active timers (runtime state)
 active_timers.json
 

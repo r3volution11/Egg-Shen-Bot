@@ -10,13 +10,13 @@ description: Host movie and TV show tournaments with group stage voting, wildcar
 ## Quick FAQ
 
 **Q: How many movies can participate in a tournament?**  
-A: 48 movies total - organized into 12 groups of 4 movies each.
+A: Between 16 and 48 movies - organized into 4-12 groups (default 8) of 4 movies each. Choose the size when creating your tournament.
 
 **Q: Who can create and manage tournaments?**  
 A: Only server administrators and moderators can create, manage, and advance tournaments. All members can vote.
 
 **Q: How do wildcards work?**  
-A: After group stage, the top 2 from each group advance (24 movies), plus the 8 best third-place finishers become wildcards (32 total for knockout).
+A: After group stage, the top 2 from each group advance automatically. Then the system calculates how many third-place finishers are needed to reach the next power of 2 (4, 8, 16, or 32). For example: 8 groups = 16 direct + 0 wildcards = 16 total; 12 groups = 24 direct + 8 wildcards = 32 total.
 
 **Q: What happens if there's a tie?**  
 A: The system uses random selection as a tiebreaker - ensuring fair and unbiased results.
@@ -33,11 +33,14 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 ### Phase 1: Group Stage
 
-- **12 groups** (A through L) with 4 movies each
+- **4-12 groups** (A through L) with 4 movies each (you choose when creating)
 - Members vote for their **top 2 movies** in each group
-- **Top 2 from each group** advance automatically (24 movies)
-- **Best 8 third-place finishers** become wildcards (8 movies)
-- **Total advancing:** 32 movies to knockout stage
+- **Top 2 from each group** advance automatically
+- **Dynamic wildcards:** Best third-place finishers needed to reach power of 2 (0-8 wildcards)
+- **Example sizes:**
+  - 4 groups = 8 direct + 0 wildcards = 8 total (Quarterfinals start)
+  - 8 groups = 16 direct + 0 wildcards = 16 total (Round of 16 start)
+  - 12 groups = 24 direct + 8 wildcards = 32 total (Round of 32 start)
 
 ### Phase 2: Knockout Stage
 
@@ -54,22 +57,26 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 ### Create Tournament
 
 ```
-/bracket create name:[tournament name]
+/bracket create name:[tournament name] groups:[4-12]
 ```
 
 **Parameters:**
 - `name` (required) - Tournament name (e.g., "The Shudder Discord Gore Cup")
+- `groups` (optional) - Number of groups (4-12, default 8). Each group has 4 movies.
 
 **Who can use:** Administrators and Moderators only
 
 **Features:**
 - Only one tournament per server at a time
 - Tournament enters "setup" phase
-- Ready to receive group movie entries
+- Flexible sizing: smaller tournaments for quick events, larger for epic competitions
+- Wildcards calculated automatically based on group count
 
-**Example:**
+**Examples:**
 ```
-/bracket create name:The Shudder Discord Gore Cup
+/bracket create name:Quick Horror Showdown groups:4
+/bracket create name:Monthly Movie Madness groups:8
+/bracket create name:The Shudder Discord Gore Cup groups:12
 ```
 
 ---

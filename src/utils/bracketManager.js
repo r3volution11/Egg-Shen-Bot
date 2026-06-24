@@ -44,14 +44,40 @@ export function saveTournament(guildId, tournament) {
 }
 
 /**
+ * Calculate number of wildcards needed based on group count
+ */
+function calculateWildcardCount(groupCount) {
+  const directAdvancers = groupCount * 2; // Top 2 from each group
+  const targetBracketSize = Math.pow(2, Math.ceil(Math.log2(directAdvancers))); // Next power of 2
+  return targetBracketSize - directAdvancers; // Wildcards needed to fill bracket
+}
+
+/**
+ * Determine starting knockout round based on total participants
+ */
+function getStartingRound(participantCount) {
+  if (participantCount <= 4) return 'semifinals';
+  if (participantCount <= 8) return 'quarterfinals';
+  if (participantCount <= 16) return 'round_of_16';
+  return 'round_of_32';
+}
+
+/**
  * Create a new tournament
  */
-export function createTournament(guildId, name, creatorId) {
+export function createTournament(guildId, name, creatorId, groupCount = 8) {
+  // Validate group count (4-12)
+  if (groupCount < 4 || groupCount > 12) {
+    console.error('Invalid group count. Must be between 4 and 12.');
+    return null;
+  }
+  
   const tournament = {
     id: crypto.randomBytes(8).toString('hex'),
     name: name,
     guildId: guildId,
     creatorId: creatorId,
+    groupCount: groupCount, // Number of groups (4-12)
     status: 'setup', // setup, group_stage, knockout, completed, cancelled
     phase: 'setup', // setup, groups, round_of_32, round_of_16, quarterfinals, semifinals, finals
     createdAt: Date.now(),
@@ -73,6 +99,12 @@ export function addGroupMovies(guildId, groupId, movies) {
   const tournament = loadTournament(guildId);
   if (!tournament || tournament.status !== 'setup') {
     return { success: false, error: 'Tournament not in setup phase' };
+  }
+  
+  // Validate group ID is within allowed range
+  const allowedGroups = 'ABCDEFGHIJKL'.slice(0, tournament.groupCount);
+  if (!allowedGroups.includes(groupId)) {
+    return { success: false, error: `Invalid group. This tournament uses groups A-${allowedGroups[allowedGroups.length - 1]} (${tournament.groupCount} groups total)` };
   }
   
   if (movies.length !== 4) {
@@ -248,6 +280,8 @@ export function calculateWildcards(guildId) {
     return { success: false, error: 'No tournament found' };
   }
   
+  const wildcardsNeeded = calculateWildcardCount(tournament.groupCount);
+  
   // Get all third-place finishers
   const thirdPlaceMovies = Object.values(tournament.groupResults)
     .filter(result => result.third)
@@ -259,21 +293,22 @@ export function calculateWildcards(guildId) {
     }))
     .sort((a, b) => b.voteCount - a.voteCount);
   
-  // Handle ties for 8th place with random selection
-  if (thirdPlaceMovies.length > 8) {
-    const eighthPlaceVotes = thirdPlaceMovies[7].voteCount;
-    const tiedForEighth = thirdPlaceMovies.filter(m => m.voteCount === eighthPlaceVotes);
+  // Handle ties for last wildcard spot with random selection
+  if (thirdPlaceMovies.length > wildcardsNeeded && wildcardsNeeded > 0) {
+    const lastPlaceVotes = thirdPlaceMovies[wildcardsNeeded - 1].voteCount;
+    const tiedForLast = thirdPlaceMovies.filter(m => m.voteCount === lastPlaceVotes);
     
-    if (tiedForEighth.length > 1) {
-      // Shuffle tied movies and take enough to fill 8 spots
-      const shuffled = tiedForEighth.sort(() => Math.random() - 0.5);
-      const nonTied = thirdPlaceMovies.filter(m => m.voteCount > eighthPlaceVotes);
+    if (tiedForLast.length > 1) {
+      // Shuffle tied movies and take enough to fill wildcard spots
+      const shuffled = tiedForLast.sort(() => Math.random() - 0.5);
+      const nonTied = thirdPlaceMovies.filter(m => m.voteCount > lastPlaceVotes);
       thirdPlaceMovies.length = 0;
       thirdPlaceMovies.push(...nonTied, ...shuffled);
     }
   }
   
-  tournament.wildcards = thirdPlaceMovies.slice(0, 8);
+  tournament.wildcards = thirdPlaceMovies.slice(0, wildcardsNeeded);
+  tournament.wildcardsNeeded = wildcardsNeeded;
   
   return saveTournament(guildId, tournament)
     ? { success: true, tournament, wildcards: tournament.wildcards }
@@ -297,6 +332,10 @@ export function generateKnockoutBracket(guildId) {
   // Combine runners-up and wildcards
   const nonWinners = [...runnersUp, ...tournament.wildcards.map(w => ({ ...w, type: 'wildcard' }))];
   
+  // Calculate total participants and starting round
+  const totalParticipants = winners.length + nonWinners.length;
+  const startingRound = getStartingRound(totalParticipants);
+  
   // Shuffle non-winners
   const shuffledNonWinners = nonWinners.sort(() => Math.random() - 0.5);
   
@@ -314,7 +353,7 @@ export function generateKnockoutBracket(guildId) {
       usedNonWinners.add(opponent.index);
       matchups.push({
         id: crypto.randomBytes(6).toString('hex'),
-        round: 'round_of_32',
+        round: startingRound,
         position: index,
         movie1: winner,
         movie2: opponent,
@@ -325,7 +364,7 @@ export function generateKnockoutBracket(guildId) {
   });
   
   tournament.knockoutBracket = matchups;
-  tournament.phase = 'round_of_32';
+  tournament.phase = startingRound;
   tournament.status = 'knockout';
   
   return saveTournament(guildId, tournament)

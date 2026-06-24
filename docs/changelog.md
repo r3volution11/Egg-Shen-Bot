@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Tournament Bracket System (`/bracket` command)**
-  - Host comprehensive movie or TV show tournaments with 48 total entries
-  - Group stage: 12 groups (A-L) with 4 movies each, members vote for top 2
-  - Wildcard system: best 8 third-place finishers advance to knockout
-  - Knockout stage: Single elimination from Round of 32 → Round of 16 → Quarterfinals → Semifinals → Finals
+  - Host comprehensive movie or TV show tournaments with flexible sizing (16-48 entries)
+  - Configurable group count: 4-12 groups (default 8), each with 4 movies
+  - Group stage: Members vote for top 2 in each group
+  - Dynamic wildcard system: Automatically calculates wildcards needed (0-8) to reach power-of-2 bracket
+  - Knockout stage: Single elimination with dynamic round naming (Semifinals → Quarterfinals → Round of 16 → Round of 32)
   - 8 subcommands: create, add-group, open-groups, close-groups, vote-group, advance-knockout, status, cancel
   - Admin/moderator management controls, all members can vote
   - Random tiebreaker for fair vote resolution

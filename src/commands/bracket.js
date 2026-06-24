@@ -16,6 +16,14 @@ export const data = new SlashCommandBuilder()
           .setDescription('Tournament name (e.g., "The Shudder Discord Gore Cup")')
           .setRequired(true)
       )
+      .addIntegerOption(option =>
+        option
+          .setName('groups')
+          .setDescription('Number of groups (4-12, each with 4 movies)')
+          .setRequired(false)
+          .setMinValue(4)
+          .setMaxValue(12)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -165,6 +173,7 @@ export async function execute(interaction) {
 
 async function handleCreate(interaction) {
   const name = interaction.options.getString('name');
+  const groupCount = interaction.options.getInteger('groups') || 8; // Default to 8 groups
   const guildId = interaction.guildId;
   
   // Check if tournament already exists
@@ -177,7 +186,7 @@ async function handleCreate(interaction) {
     return;
   }
   
-  const tournament = bracketManager.createTournament(guildId, name, interaction.user.id);
+  const tournament = bracketManager.createTournament(guildId, name, interaction.user.id, groupCount);
   
   if (!tournament) {
     await interaction.reply({
@@ -187,14 +196,16 @@ async function handleCreate(interaction) {
     return;
   }
   
+  const totalMovies = groupCount * 4;
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
     .setTitle(`🏆 ${name}`)
-    .setDescription('Tournament created! Now add movies to groups.')
+    .setDescription(`Tournament created! Now add movies to ${groupCount} groups.`)
     .addFields(
       { name: 'Status', value: 'Setup', inline: true },
-      { name: 'Groups', value: '0/12', inline: true },
-      { name: 'Creator', value: `<@${interaction.user.id}>`, inline: true }
+      { name: 'Groups', value: `0/${groupCount}`, inline: true },
+      { name: 'Total Movies', value: `${totalMovies}`, inline: true },
+      { name: 'Creator', value: `<@${interaction.user.id}>`, inline: false }
     )
     .setFooter({ text: 'Use /bracket add-group to add movies' });
   
@@ -221,15 +232,16 @@ async function handleAddGroup(interaction) {
   }
   
   const groupsComplete = Object.keys(result.tournament.groups).length;
+  const totalGroups = result.tournament.groupCount;
   
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
     .setTitle(`Group ${group} Added`)
     .setDescription(movies.map((movie, i) => `${i + 1}. ${movie}`).join('\n'))
     .addFields(
-      { name: 'Progress', value: `${groupsComplete}/12 groups added`, inline: true }
+      { name: 'Progress', value: `${groupsComplete}/${totalGroups} groups added`, inline: true }
     )
-    .setFooter({ text: groupsComplete === 12 ? 'All groups added! Use /bracket open-groups to start voting.' : 'Add more groups with /bracket add-group' });
+    .setFooter({ text: groupsComplete === totalGroups ? 'All groups added! Use /bracket open-groups to start voting.' : 'Add more groups with /bracket add-group' });
   
   await interaction.reply({ embeds: [embed] });
 }
@@ -333,7 +345,8 @@ async function handleCloseGroups(interaction) {
     }
   });
   
-  embed.setFooter({ text: 'Top 2 advance automatically • Best 8 third-place finishers will be wildcards' });
+  const wildcardsNeeded = Math.pow(2, Math.ceil(Math.log2(result.tournament.groupCount * 2))) - (result.tournament.groupCount * 2);
+  embed.setFooter({ text: wildcardsNeeded > 0 ? `Top 2 advance automatically • Best ${wildcardsNeeded} third-place finishers will be wildcards` : 'Top 2 advance automatically to knockout stage' });
   
   await interaction.editReply({ embeds: [embed] });
 }
@@ -355,18 +368,25 @@ async function handleAdvanceKnockout(interaction) {
     return;
   }
   
+  const totalParticipants = bracketResult.matchups.length * 2;
+  const roundName = bracketResult.tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const wildcardsCount = wildcardsResult.wildcards.length;
+  
   const embed = new EmbedBuilder()
     .setColor(0xFF0000)
-    .setTitle('🏆 Round of 32 - Knockout Stage Begins!')
+    .setTitle(`🏆 ${roundName} - Knockout Stage Begins!`)
     .setDescription(`**${bracketResult.matchups.length} matchups created**\n\nThe tournament advances to single elimination!`);
   
-  // Show wildcards
-  const wildcardsText = wildcardsResult.wildcards
-    .map((w, i) => `${i + 1}. ${w.title} (${w.voteCount} votes, Group ${w.groupId})`)
-    .join('\n');
+  // Show wildcards if any
+  if (wildcardsCount > 0) {
+    const wildcardsText = wildcardsResult.wildcards
+      .map((w, i) => `${i + 1}. ${w.title} (${w.voteCount} votes, Group ${w.groupId})`)
+      .join('\n');
+    
+    embed.addFields({ name: `🎟️ Wildcards (Best ${wildcardsCount} Third-Place)`, value: wildcardsText, inline: false });
+  }
   
-  embed.addFields({ name: '🎟️ Wildcards (Best 8 Third-Place)', value: wildcardsText, inline: false });
-  embed.setFooter({ text: '32 movies remain • Use /bracket status to view bracket' });
+  embed.setFooter({ text: `${totalParticipants} movies remain • Use /bracket status to view bracket` });
   
   await interaction.editReply({ embeds: [embed] });
 }
@@ -394,7 +414,7 @@ async function handleStatus(interaction) {
   
   if (tournament.status === 'setup') {
     const groupsAdded = Object.keys(tournament.groups).length;
-    embed.setDescription(`Tournament is being set up.\n\n**Groups Added:** ${groupsAdded}/12`);
+    embed.setDescription(`Tournament is being set up.\n\n**Groups Added:** ${groupsAdded}/${tournament.groupCount}`);
   } else if (tournament.status === 'group_stage') {
     const openGroups = Object.entries(tournament.groups)
       .filter(([_, g]) => g.status === 'voting')
@@ -402,7 +422,7 @@ async function handleStatus(interaction) {
       .join(', ');
     const closedGroups = Object.keys(tournament.groupResults).length;
     
-    embed.setDescription(`Group stage in progress!\n\n**Open for voting:** ${openGroups || 'None'}\n**Completed:** ${closedGroups}/12 groups`);
+    embed.setDescription(`Group stage in progress!\n\n**Open for voting:** ${openGroups || 'None'}\n**Completed:** ${closedGroups}/${tournament.groupCount} groups`);
   } else if (tournament.status === 'knockout') {
     const currentRound = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     const openMatchups = tournament.knockoutBracket.filter(m => m.status === 'voting').length;
