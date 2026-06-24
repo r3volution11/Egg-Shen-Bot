@@ -21,12 +21,18 @@ head:
 
 # Tournament Bracket System
 
-**Host comprehensive movie or TV show tournaments** in your Discord server with a complete group stage, wildcard system, and single-elimination knockout bracket. Perfect for entertainment communities running competitions like "The Shudder Discord Gore Cup" or similar events.
+**Host comprehensive tournaments** in your Discord server for movies, TV shows, video games, board games, or books! Features a complete group stage with smart search integration, wildcard system, and single-elimination knockout bracket. Perfect for entertainment communities running competitions like "The Shudder Discord Gore Cup" or similar events.
 
 ## Quick FAQ
 
-**Q: How many movies can participate in a tournament?**  
-A: Between 16 and 48 movies - organized into 4-12 groups (default 8) of 4 movies each. Choose the size when creating your tournament.
+**Q: How many entries can participate in a tournament?**  
+A: Between 16 and 48 entries - organized into 4-12 groups (default 8) of 4 entries each. Choose the size when creating your tournament.
+
+**Q: What types of tournaments can I run?**  
+A: Movies, TV shows, video games, board games, or books. Each tournament must be a single type (can't mix movies and TV shows in the same tournament).
+
+**Q: How does the search integration work?**  
+A: When adding entries, the bot automatically searches TMDB (movies/TV), RAWG (video games), BoardGameGeek (board games), or Google Books. If it finds a single match, it's added automatically. If multiple matches found, you'll need to be more specific (e.g., include the year).
 
 **Q: Who can create and manage tournaments?**  
 A: Only server administrators and moderators can create, manage, and advance tournaments. All members can vote.
@@ -49,8 +55,10 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 ### Phase 1: Group Stage
 
-- **4-12 groups** (A through L) with 4 movies each (you choose when creating)
-- Members vote for their **top 2 movies** in each group
+- **4-12 groups** (A through L) with 4 entries each (you choose when creating)
+- Choose type: movies, TV shows, video games, board games, or books
+- Smart search automatically finds and adds entries from appropriate database
+- Members vote for their **top 2 entries** in each group
 - **Top 2 from each group** advance automatically
 - **Dynamic wildcards:** Best third-place finishers needed to reach power of 2 (0-8 wildcards)
 - **Example sizes:**
@@ -62,7 +70,7 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 - **Round of 32** → **Round of 16** → **Quarterfinals** → **Semifinals** → **Finals**
 - Single elimination (1v1 matchups)
-- Members vote for one movie per matchup
+- Members vote for one entry per matchup
 - Winners advance automatically to next round
 - Random tiebreaker for tied matchups
 
@@ -78,7 +86,7 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 **Parameters:**
 - `name` (required) - Tournament name (e.g., "The Shudder Discord Gore Cup")
-- `groups` (optional) - Number of groups (4-12, default 8). Each group has 4 movies.
+- `groups` (optional) - Number of groups (4-12, default 8). Each group has 4 entries.
 
 **Who can use:** Administrators and Moderators only
 
@@ -87,6 +95,7 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 - Tournament enters "setup" phase
 - Flexible sizing: smaller tournaments for quick events, larger for epic competitions
 - Wildcards calculated automatically based on group count
+- Type determined by first `/bracket add-group` command
 
 **Examples:**
 ```
@@ -97,35 +106,43 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 ---
 
-### Add Movies to Group
+### Add Entries to Group
 
 ```
-/bracket add-group group:[A-L] movie1:[title] movie2:[title] movie3:[title] movie4:[title]
+/bracket add-group group:[A-L] type:[movie/tv/game/boardgame/book] title1:[title] title2:[title] title3:[title] title4:[title]
 ```
 
 **Parameters:**
 - `group` (required) - Group letter (A through L)
-- `movie1`-`movie4` (required) - Four movie titles
+- `type` (required) - Tournament type: movie, tv, game, boardgame, or book
+- `title1`-`title4` (required) - Four titles to search for
 
 **Who can use:** Administrators and Moderators only
 
 **Features:**
-- Each group must have exactly 4 movies
-- Movies are text-only (no TMDB lookup required)
+- **Smart search integration**: Automatically searches TMDB, RAWG, BGG, or Google Books based on type
+- **Automatic title resolution**: Selects title if single match found
+- **Metadata storage**: Stores IDs, years, poster URLs, and ratings
+- **Error handling**: Shows helpful guidance if multiple or no matches found
+- **Type validation**: Prevents mixing different types in same tournament
 - Shows progress (e.g., "8/12 groups added")
 - Can overwrite existing group entries
 
 **Examples:**
 ```
-/bracket add-group group:A movie1:The Exorcist movie2:Halloween movie3:The Texas Chain Saw Massacre movie4:Night of the Living Dead
+/bracket add-group group:A type:movie title1:"The Exorcist 1973" title2:"Halloween 1978" title3:"The Texas Chain Saw Massacre 1974" title4:"Night of the Living Dead 1968"
 
-/bracket add-group group:B movie1:Alien movie2:The Thing movie3:The Fly movie4:Event Horizon
+/bracket add-group group:B type:tv title1:"Breaking Bad" title2:"The Wire" title3:"The Sopranos" title4:"Mad Men"
+
+/bracket add-group group:C type:game title1:"Doom Eternal" title2:"Resident Evil 4" title3:"Halo 3" title4:"Bioshock"
 ```
 
 **Tips:**
-- Add all 12 groups before opening voting
-- Use clear, recognizable movie titles
-- Consider organizing groups by subgenre, decade, or theme
+- Include years for common titles to avoid ambiguity (e.g., "Spider-Man 2002")
+- If search finds multiple matches, be more specific with your title
+- All entries in a tournament must be the same type
+- Bot displays titles with years: "The Thing (1982)"
+- Stored metadata enables future poster/link features
 
 ---
 
@@ -168,15 +185,15 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 **Parameters:**
 - `group` (required) - Group letter
-- `choice1` (required) - First choice (1-4, corresponding to movie position)
+- `choice1` (required) - First choice (1-4, corresponding to entry position)
 - `choice2` (required) - Second choice (1-4, must be different from choice1)
 
 **Who can use:** All server members
 
 **Features:**
-- Vote for your top 2 movies in each group
+- Vote for your top 2 entries in each group
 - Can change votes anytime before close
-- Choices must be different movies
+- Choices must be different entries
 - Private confirmation message
 
 **Examples:**
@@ -386,42 +403,51 @@ Winner: The Exorcist
 ### Generate AI Matchup Image
 
 ```
-/bracket image [matchup:"Movie A vs Movie B"]
+/bracket image [title1:"Title A"] [title2:"Title B"]
+/bracket image [matchup:"Title A vs Title B"]
 ```
 
 **Parameters:**
-- `matchup` (optional) - Specific matchup to visualize (e.g., "The Thing vs Alien")
+- `title1` (optional) - First title for freeform generation
+- `title2` (optional) - Second title for freeform generation  
+- `matchup` (optional) - Tournament matchup to visualize (e.g., "The Thing vs Alien")
 
 **Who can use:** All server members
 
 **Features:**
-- Generates AI-powered "vs" movie poster mashups using DALL-E 3
-- Lists available matchups if no parameter provided
-- Flexible matchup matching (finds by movie titles)
+- **NEW: Freeform generation** - Create AI images for ANY two titles, anytime!
+- **Works without tournament** - No need for active tournament or knockout phase
+- **Tournament support** - Still works with active tournament matchups
+- Generates AI-powered "vs" poster mashups using DALL-E 3
 - Creates dramatic split-screen compositions with bold VS text
 - Wide format (1792x1024) perfect for epic showdowns
 - Standard quality ($0.04 per image, cost shown in embed)
 - Cinematic style with high contrast and dramatic lighting
-- Shows round info and tournament name
-- **Only available during knockout phase**
 - **Requires OpenAI API key** configuration
 
-**Without Parameters:**
+**Freeform Generation (NEW!):**
 ```
-/bracket image
+/bracket image title1:"Godzilla" title2:"King Kong"
+/bracket image title1:"The Exorcist" title2:"The Shining"
+/bracket image title1:"Breaking Bad" title2:"The Wire"
 ```
-Shows list: "1. **The Thing** vs **Alien** (round_of_16)"
 
-**With Matchup:**
+**Tournament Matchup:**
 ```
 /bracket image matchup:"The Thing vs Alien"
 ```
+
+**Help Menu:**
+```
+/bracket image
+```
+Shows: Available tournament matchups (if any) + freeform generation syntax
 
 **Generation Process:**
 1. Bot creates cinematic prompt for DALL-E 3
 2. Takes 10-30 seconds to generate
 3. Returns epic movie poster mashup image
-4. Perfect for hyping up championship rounds!
+4. Perfect for hyping matchups or creating custom comparisons!
 
 **Example Prompt Generated:**
 > "Epic movie poster mashup: 'The Thing' versus 'Alien'. Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents The Thing, right side represents Alien. Bold 'VS' text in the center. Movie poster aesthetic, professional design, 4K quality."

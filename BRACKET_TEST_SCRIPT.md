@@ -209,26 +209,31 @@ This guide will walk you through testing all the tournament bracket features, in
 For a quick validation that everything works:
 
 1. **Create Tournament:**
+
    ```
    /bracket create name:"Quick Test" groups:4
    ```
 
 2. **Add Group with Search:**
+
    ```
    /bracket add-group group:A type:movie title1:"The Thing 1982" title2:"Alien 1979" title3:"The Fly 1986" title4:"Evil Dead 1981"
    ```
 
 3. **Freeform AI Image:**
+
    ```
    /bracket image title1:"Godzilla" title2:"King Kong"
    ```
 
 4. **Check Status:**
+
    ```
    /bracket status
    ```
 
 5. **Cancel:**
+
    ```
    /bracket cancel
    ```

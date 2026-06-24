@@ -18,19 +18,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses @napi-rs/canvas for fast image generation
   - Only available during knockout phase
 - **AI-Generated Matchup Images**
-  - `/bracket image` command creates dramatic "vs" movie poster mashups
+  - `/bracket image` command creates dramatic "vs" poster mashups
+  - **NEW: Freeform generation** - Works with ANY two titles, anytime (no tournament needed!)
+  - **NEW: `title1` and `title2` parameters** for custom matchups
+  - Still supports tournament matchup images via `matchup` parameter
   - Integration with OpenAI DALL-E 3 for high-quality image generation
-  - Lists available matchups when called without parameters
-  - Flexible matchup matching by movie titles
   - Wide format (1792x1024) perfect for split-screen compositions
   - Cinematic prompts with dramatic lighting and bold VS text
   - Standard quality mode ($0.04 per image, cost shown)
   - 10-30 second generation time
-  - Only available during knockout phase
+  - **No longer restricted to knockout phase** - works anytime!
   - Requires OpenAI API key configuration
 - **Tournament Bracket System (`/bracket` command)**
-  - Host comprehensive movie or TV show tournaments with flexible sizing (16-48 entries)
-  - Configurable group count: 4-12 groups (default 8), each with 4 movies
+  - Host comprehensive tournaments with flexible sizing (16-48 entries)
+  - **NEW: Smart search integration** - `/bracket add-group` searches TMDB/RAWG/BGG/Google Books
+  - **NEW: Multi-type support** - Movies, TV shows, video games, board games, or books
+  - **NEW: Rich metadata storage** - IDs, years, poster URLs, ratings stored per entry
+  - **NEW: Type validation** - Prevents mixing different types in same tournament
+  - Configurable group count: 4-12 groups (default 8), each with 4 entries
   - Group stage: Members vote for top 2 in each group
   - Dynamic wildcard system: Automatically calculates wildcards needed (0-8) to reach power-of-2 bracket
   - Knockout stage: Single elimination with dynamic round naming (Semifinals → Quarterfinals → Round of 16 → Round of 32)
