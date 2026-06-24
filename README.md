@@ -44,6 +44,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 
 - **`/potion`** - Give magical potions to other users with pop culture references! Helpful (Health, Mana, Strength, Speed, Invisibility, Luck, Love, Energy) or Harmful (Confusion, Poison, Weakness, Curse, Slow) - add fun chaos to chat!
 - **`/survey`** - Create polls/surveys with up to 10 options, track votes in real-time, view results with progress bars, and manage with creator/admin controls
+- **`/bracket`** - Host comprehensive movie/TV tournaments with group stage voting (12 groups × 4 movies), wildcard system (best 8 third-place), and single-elimination knockout bracket from Round of 32 to Finals. Perfect for community competitions!
 
 ## ✨ Key Features
 
