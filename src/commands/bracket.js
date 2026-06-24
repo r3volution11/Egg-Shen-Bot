@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder } from 'discord.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
+import { config } from '../config.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -117,6 +118,17 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('image')
+      .setDescription('Generate AI image for a matchup')
+      .addStringOption(option =>
+        option
+          .setName('matchup')
+          .setDescription('Matchup to visualize (e.g., "The Thing vs Alien")')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('cancel')
       .setDescription('Cancel the tournament (Admin/Mod only)')
   );
@@ -164,6 +176,9 @@ export async function execute(interaction) {
         break;
       case 'view':
         await handleView(interaction);
+        break;
+      case 'image':
+        await handleImage(interaction);
         break;
       case 'cancel':
         await handleCancel(interaction);
@@ -493,6 +508,116 @@ async function handleView(interaction) {
   } catch (error) {
     console.error('Error generating bracket view:', error);
     await interaction.editReply('❌ Failed to generate bracket visualization. Error: ' + error.message);
+  }
+}
+
+async function handleImage(interaction) {
+  await interaction.deferReply();
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  if (!tournament) {
+    await interaction.editReply('❌ No active tournament found.');
+    return;
+  }
+  
+  // Check if tournament is in knockout phase
+  if (tournament.status !== 'knockout' && tournament.status !== 'completed') {
+    await interaction.editReply('❌ AI images are only available during the knockout phase. Complete the group stage first using `/bracket advance-knockout`.');
+    return;
+  }
+  
+  if (!tournament.knockoutBracket || tournament.knockoutBracket.length === 0) {
+    await interaction.editReply('❌ No knockout matchups found.');
+    return;
+  }
+  
+  const matchupInput = interaction.options.getString('matchup');
+  
+  // If no matchup specified, show list of available matchups
+  if (!matchupInput) {
+    const matchupList = tournament.knockoutBracket
+      .filter(m => m.movie1 && m.movie2)
+      .map((m, idx) => `${idx + 1}. **${m.movie1.title}** vs **${m.movie2.title}** (${m.round.replace(/_/g, ' ')})`)
+      .join('\n');
+    
+    await interaction.editReply({
+      content: `🎨 **Available Matchups:**\n\n${matchupList}\n\n💡 To generate an AI image for a matchup, use:\n\`/bracket image matchup:"Movie A vs Movie B"\``,
+    });
+    return;
+  }
+  
+  // Find the matchup based on user input
+  const matchup = tournament.knockoutBracket.find(m => {
+    if (!m.movie1 || !m.movie2) return false;
+    const matchupStr = `${m.movie1.title} vs ${m.movie2.title}`.toLowerCase();
+    const reverseStr = `${m.movie2.title} vs ${m.movie1.title}`.toLowerCase();
+    const input = matchupInput.toLowerCase();
+    return matchupStr.includes(input) || reverseStr.includes(input) || 
+           input.includes(m.movie1.title.toLowerCase()) && input.includes(m.movie2.title.toLowerCase());
+  });
+  
+  if (!matchup) {
+    await interaction.editReply(`❌ Could not find matchup: "${matchupInput}". Use \`/bracket image\` without parameters to see available matchups.`);
+    return;
+  }
+  
+  // Check if OpenAI is configured
+  if (!config.apis.openai?.apiKey) {
+    await interaction.editReply('❌ OpenAI API is not configured. AI image generation requires an OpenAI API key.');
+    return;
+  }
+  
+  try {
+    // Generate AI image using DALL-E 3
+    const movie1 = matchup.movie1.title;
+    const movie2 = matchup.movie2.title;
+    
+    // Create a dramatic prompt
+    const prompt = `Epic movie poster mashup: "${movie1}" versus "${movie2}". Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents ${movie1}, right side represents ${movie2}. Bold "VS" text in the center. Movie poster aesthetic, professional design, 4K quality.`;
+    
+    await interaction.editReply(`🎨 Generating AI image for **${movie1}** vs **${movie2}**...\n\n_This may take 10-30 seconds..._`);
+    
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.apis.openai.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: prompt,
+        n: 1,
+        size: '1792x1024', // Wide format for vs layout
+        quality: 'standard', // or 'hd' for $0.08 instead of $0.04
+      }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const imageUrl = data.data[0].url;
+    
+    // Create embed with the generated image
+    const embed = new EmbedBuilder()
+      .setColor(0xFEE75C)
+      .setTitle(`🎨 ${movie1} vs ${movie2}`)
+      .setDescription(`AI-generated matchup visualization\n**Round:** ${matchup.round.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}`)
+      .setImage(imageUrl)
+      .setFooter({ text: `Generated by DALL-E 3 • Cost: $0.04 • ${tournament.name}` })
+      .setTimestamp();
+    
+    await interaction.editReply({ 
+      content: null,
+      embeds: [embed]
+    });
+    
+  } catch (error) {
+    console.error('Error generating AI image:', error);
+    await interaction.editReply(`❌ Failed to generate AI image: ${error.message}`);
   }
 }
 
