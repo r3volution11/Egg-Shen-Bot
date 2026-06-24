@@ -184,16 +184,16 @@ Host comprehensive movie or TV show tournaments.
 - `cancel` - Cancel tournament (Admin/Mod)
 
 **Features:**
-- 48 movies in 12 groups of 4
+- Flexible sizing: 16-48 movies in 4-12 groups of 4 (default 8)
 - Group stage: vote for top 2 per group
-- Wildcards: best 8 third-place advance
-- Knockout: Round of 32 → Finals
+- Dynamic wildcards: auto-calculated (0-8) to reach power-of-2 bracket
+- Knockout: Adapts to tournament size (Semifinals → Round of 32)
 - Random tiebreaker for fair results
 - Complete vote tracking and management
 
 **Example:**
 ```
-/bracket create name:The Shudder Discord Gore Cup
+/bracket create name:The Shudder Discord Gore Cup groups:12
 /bracket add-group group:A movie1:The Exorcist movie2:Halloween movie3:The Texas Chain Saw Massacre movie4:Night of the Living Dead
 /bracket open-groups groups:A,B,C,D
 /bracket vote-group group:A choice1:1 choice2:3
