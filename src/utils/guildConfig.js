@@ -42,6 +42,8 @@ const defaultConfig = {
     boardgame: true,
     book: true,
     survey: true,
+    soundtrack: true,
+    bracket: true,
   },
   notifications: {
     restartAnnouncements: false, // Send announcements when bot restarts with active timers
