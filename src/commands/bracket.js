@@ -772,7 +772,8 @@ async function handleView(interaction) {
 }
 
 async function handleImage(interaction) {
-  await interaction.deferReply();
+  // Defer with ephemeral to hide command from other users
+  await interaction.deferReply({ ephemeral: true });
   
   // Check rate limits
   const userIsAdmin = await isAdmin(interaction.member);
@@ -978,6 +979,13 @@ async function handleImage(interaction) {
     }
     
     const data = await response.json();
+    
+    // Validate response structure
+    if (!data.data || !data.data[0] || !data.data[0].url) {
+      console.error('Unexpected OpenAI response structure:', JSON.stringify(data, null, 2));
+      throw new Error('Invalid response from OpenAI - missing image URL');
+    }
+    
     const imageUrl = data.data[0].url;
     
     // Download the image from OpenAI
@@ -1007,11 +1015,14 @@ async function handleImage(interaction) {
     
     const attachment = new AttachmentBuilder(imageBuffer, { name: 'bracket-vs.png' });
     
-    await interaction.editReply({ 
-      content: null,
+    // Send the image publicly to the channel
+    await interaction.channel.send({
       embeds: [embed],
       files: [attachment]
     });
+    
+    // Update the ephemeral reply to confirm
+    await interaction.editReply('✅ Image generated and posted to the channel!');
     
   } catch (error) {
     console.error('Error generating AI image:', error);
