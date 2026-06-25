@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING: Tournament Bracket Command Structure**
+  - **Replaced `/bracket add-group`** with **`/bracket add-title`** for precise title selection
+  - **Old workflow:** Add 4 titles at once, auto-select first match when multiple results found
+  - **New workflow:** Add one title at a time with selection menu for disambiguation
+  - **Why:** Aligns with bot's core principle of letting users select the exact title they want
+  - **Migration:** Instead of `/bracket add-group group:A type:movie title1:X title2:Y title3:Z title4:W`, now run `/bracket add-title group:A type:movie title:X` four times
+  - **Benefits:** 
+    - Selection menu shows all matches with years and descriptions (like `/movie`, `/tv`, etc.)
+    - Progress tracking shows "2/4 titles" so you know how many more needed
+    - Prevents duplicate titles in same group
+    - More flexibility - can add 1-4 titles per group before opening voting
+
 ### Added
 - **AI Image Generation System**
   - **NEW: `/image` command** - Generate AI images from text prompts or Discord messages
