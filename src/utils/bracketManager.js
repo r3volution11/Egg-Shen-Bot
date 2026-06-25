@@ -205,6 +205,48 @@ export function addGroupTitle(guildId, groupId, type, entry) {
 }
 
 /**
+ * Remove a title from a group
+ * @param {string} guildId - Guild ID
+ * @param {string} groupId - Group ID (A-L)
+ * @param {number} titleIndex - Index of title to remove (1-4)
+ * @returns {Object} Result with success/error
+ */
+export function removeGroupTitle(guildId, groupId, titleIndex) {
+  const tournament = loadTournament(guildId);
+  if (!tournament || tournament.status !== 'setup') {
+    return { success: false, error: 'Tournament not in setup phase' };
+  }
+  
+  // Validate group exists
+  if (!tournament.groups[groupId]) {
+    return { success: false, error: `Group ${groupId} does not exist or has no titles` };
+  }
+  
+  const group = tournament.groups[groupId];
+  
+  // Validate title index (convert from 1-based to 0-based)
+  const arrayIndex = titleIndex - 1;
+  if (arrayIndex < 0 || arrayIndex >= group.movies.length) {
+    return { success: false, error: `Invalid title number. Group ${groupId} has ${group.movies.length} title(s)` };
+  }
+  
+  // Get title info before removal
+  const removedTitle = group.movies[arrayIndex];
+  
+  // Remove the title
+  group.movies.splice(arrayIndex, 1);
+  
+  // Re-index remaining titles
+  group.movies.forEach((movie, idx) => {
+    movie.index = idx;
+  });
+  
+  return saveTournament(guildId, tournament) 
+    ? { success: true, tournament, group, removedTitle, titleCount: group.movies.length } 
+    : { success: false, error: 'Failed to save' };
+}
+
+/**
  * Open voting for specific groups
  */
 export function openGroupVoting(guildId, groupIds) {
