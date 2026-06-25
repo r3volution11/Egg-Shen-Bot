@@ -168,6 +168,29 @@ export function isAdmin(member) {
 }
 
 /**
+ * Check if a user is a true administrator (not just moderator)
+ */
+export function isTrueAdmin(member) {
+  if (!member) return false;
+  return member.permissions.has('Administrator') || member.permissions.has('ManageGuild');
+}
+
+/**
+ * Check if a user is a moderator (has mod permissions but not admin)
+ */
+export function isModerator(member) {
+  if (!member) return false;
+  
+  const hasModPerms = member.permissions.has('ModerateMembers') ||
+                      member.permissions.has('KickMembers') ||
+                      member.permissions.has('BanMembers');
+  const hasAdminPerms = member.permissions.has('Administrator') ||
+                        member.permissions.has('ManageGuild');
+  
+  return hasModPerms && !hasAdminPerms;
+}
+
+/**
  * Update service toggle
  */
 export async function toggleService(guildId, serviceName, enabled) {

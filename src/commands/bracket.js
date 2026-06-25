@@ -7,7 +7,7 @@ import { searchBoardGames } from '../services/bggService.js';
 import { searchBooks } from '../services/googleBooksService.js';
 import { hybridSearch } from '../services/aiService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
-import { loadGuildConfig } from '../utils/guildConfig.js';
+import { loadGuildConfig, isTrueAdmin, isModerator } from '../utils/guildConfig.js';
 import { config } from '../config.js';
 import { canGenerateImage, recordImageGeneration } from '../utils/aiImageTracker.js';
 import { isAdmin } from '../utils/guildConfig.js';
@@ -821,9 +821,10 @@ async function handleImage(interaction) {
   // Defer with ephemeral to hide command from other users
   await interaction.deferReply({ ephemeral: true });
   
-  // Check rate limits
-  const userIsAdmin = await isAdmin(interaction.member);
-  const rateCheck = canGenerateImage(interaction.guildId, interaction.user.id, userIsAdmin);
+  // Check permissions and feature enabled
+  const userIsTrueAdmin = await isTrueAdmin(interaction.member);
+  const userIsMod = await isModerator(interaction.member) || userIsTrueAdmin;
+  const rateCheck = canGenerateImage(interaction.guildId, interaction.user.id, userIsTrueAdmin, userIsMod);
   
   if (!rateCheck.allowed) {
     return await interaction.editReply(`❌ ${rateCheck.reason}`);

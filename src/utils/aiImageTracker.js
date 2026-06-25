@@ -28,10 +28,15 @@ const guildDailyUsage = new Map();
  * @param {string} guildId - Guild ID
  * @param {string} userId - User ID
  * @param {boolean} isAdmin - Whether user is admin/moderator
+ * @param {boolean} isMod - Whether user is moderator
  * @returns {Object} { allowed: boolean, reason?: string, retryAfter?: number, userUsage?: number, guildUsage?: number, whitelisted?: boolean }
  */
-export function canGenerateImage(guildId, userId, isAdmin = false) {
+export function canGenerateImage(guildId, userId, isAdmin = false, isMod = false) {
   const config = loadGuildConfig(guildId);
+  const aiConfig = config.aiImages || {
+    enabled: true,
+    permissions: 'everyone', // 'everyone', 'moderators', 'admins'
+  };
   const limits = config.rateLimits?.aiImages || {
     enabled: true,
     perUserCooldown: 300,
@@ -41,7 +46,30 @@ export function canGenerateImage(guildId, userId, isAdmin = false) {
     whitelistedUsers: [],
   };
 
-  // Check if user is whitelisted (bypasses ALL limits)
+  // Check if AI image generation is enabled for this server
+  if (!aiConfig.enabled) {
+    return {
+      allowed: false,
+      reason: 'AI image generation is disabled on this server. Contact a server administrator if you believe this is an error.',
+    };
+  }
+
+  // Check permission requirements
+  if (aiConfig.permissions === 'admins' && !isAdmin) {
+    return {
+      allowed: false,
+      reason: 'AI image generation is restricted to administrators only on this server.',
+    };
+  }
+  
+  if (aiConfig.permissions === 'moderators' && !isAdmin && !isMod) {
+    return {
+      allowed: false,
+      reason: 'AI image generation is restricted to moderators and administrators only on this server.',
+    };
+  }
+
+  // Check if user is whitelisted (bypasses rate limits)
   if (limits.whitelistedUsers && limits.whitelistedUsers.includes(userId)) {
     return { allowed: true, whitelisted: true };
   }
