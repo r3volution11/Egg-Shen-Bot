@@ -290,30 +290,12 @@ async function handleAddGroup(interaction) {
     titles.map(async (title) => await searchForTitle(title, type))
   );
   
-  // Check if any searches returned multiple results (need clarification)
-  const needsClarification = searchResults.some(r => r.status === 'multiple');
-  
-  if (needsClarification) {
-    // Build a list of titles that need clarification
-    const ambiguousTitles = searchResults
-      .map((r, idx) => r.status === 'multiple' ? `**${titles[idx]}** (${r.count} matches)` : null)
-      .filter(t => t !== null)
-      .join(', ');
-    
-    await interaction.editReply({
-      content: `❌ Some titles have multiple matches: ${ambiguousTitles}\n\n` +
-        `Please be more specific with these titles (include year or more details).`,
-      ephemeral: true,
-    });
-    return;
-  }
-  
   // Check if any searches failed (no results)
   const failed = searchResults.some(r => r.status === 'none');
   
   if (failed) {
     const notFoundTitles = searchResults
-      .map((r, idx) => r.status === 'none' ? `**${titles[idx]}**` : null)
+      .map((r, idx) => r.status === 'none' ? titles[idx] : null)
       .filter(t => t !== null)
       .join(', ');
     
@@ -325,7 +307,8 @@ async function handleAddGroup(interaction) {
     return;
   }
   
-  // All titles have exactly one match - build the entries array
+  // All titles found - build the entries array
+  // Note: When multiple matches exist, we automatically select the first (best) match
   const entries = searchResults.map(r => r.entry);
   
   const result = bracketManager.addGroupMovies(interaction.guildId, group, type, entries);
@@ -340,13 +323,20 @@ async function handleAddGroup(interaction) {
   const groupsComplete = Object.keys(result.tournament.groups).length;
   const totalGroups = result.tournament.groupCount;
   
+  // Check if any had multiple matches (inform user we picked the best match)
+  const hadMultipleMatches = searchResults.some(r => r.count > 1);
+  const multipleMatchInfo = hadMultipleMatches 
+    ? '\n\n*Note: Some titles had multiple matches. The best match was automatically selected.*' 
+    : '';
+  
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
     .setTitle(`Group ${group} Added (${getTypeLabel(type)})`)
     .setDescription(entries.map((entry, i) => {
       const yearStr = entry.year ? ` (${entry.year})` : '';
-      return `${i + 1}. ${entry.title}${yearStr}`;
-    }).join('\n'))
+      const multipleIcon = searchResults[i].count > 1 ? ' ⚠️' : '';
+      return `${i + 1}. ${entry.title}${yearStr}${multipleIcon}`;
+    }).join('\n') + multipleMatchInfo)
     .addFields(
       { name: 'Progress', value: `${groupsComplete}/${totalGroups} groups added`, inline: true }
     )
@@ -357,7 +347,8 @@ async function handleAddGroup(interaction) {
 
 /**
  * Search for a title using the appropriate service based on type
- * Returns: { status: 'found'|'multiple'|'none', entry: {...}, count: number }
+ * Returns: { status: 'found'|'none', entry: {...}, count: number }
+ * Note: When multiple results are found, returns the first (best) match
  */
 async function searchForTitle(title, type) {
   try {
@@ -385,15 +376,11 @@ async function searchForTitle(title, type) {
       return { status: 'none', entry: null, count: 0 };
     }
     
-    if (results.length > 1) {
-      return { status: 'multiple', entry: null, count: results.length };
-    }
-    
-    // Exactly one result - build entry object
+    // Take the first (best) result - APIs return results sorted by relevance
     const result = results[0];
     const entry = buildEntryFromResult(result, type);
     
-    return { status: 'found', entry, count: 1 };
+    return { status: 'found', entry, count: results.length };
   } catch (error) {
     console.error(`[Bracket] Error searching for "${title}" (${type}):`, error);
     return { status: 'none', entry: null, count: 0 };
