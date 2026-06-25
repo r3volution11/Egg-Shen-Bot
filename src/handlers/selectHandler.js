@@ -245,7 +245,7 @@ export async function handleSelectInteraction(interaction) {
       customImageCache.delete(cacheKey);
       
       if (!addResult.success) {
-        await interaction.update({
+        await interaction.editReply({
           content: `❌ ${addResult.error}`,
           embeds: [],
           components: [],
@@ -285,7 +285,7 @@ export async function handleSelectInteraction(interaction) {
       
       // Delete the selection menu and post the result
       console.log(`[Bracket Selection] Successfully added ${entry.title} to Group ${group}`);
-      await interaction.update({
+      await interaction.editReply({
         content: null,
         embeds: [embed],
         components: [],
@@ -294,7 +294,7 @@ export async function handleSelectInteraction(interaction) {
     } catch (error) {
       console.error('[Bracket Selection] Error:', error);
       console.error('[Bracket Selection] Error stack:', error.stack);
-      await interaction.update({
+      await interaction.editReply({
         content: `❌ An error occurred while adding the title: ${error.message}. Please try again.`,
         embeds: [],
         components: [],
