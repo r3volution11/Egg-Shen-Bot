@@ -95,11 +95,11 @@ export async function execute(interaction) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-image',
+        model: 'gpt-image-2', // OpenAI's latest image model (formerly dall-e-3)
         prompt: finalPrompt,
         n: 1,
         size: '1024x1024', // Square format for general images
-        quality: 'standard',
+        quality: 'medium', // Options: 'low', 'medium', 'high', or 'auto'
       }),
     });
 
