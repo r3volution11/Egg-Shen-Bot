@@ -970,7 +970,6 @@ async function handleImage(interaction) {
         n: 1,
         size: '1792x1024', // Wide format for vs layout
         quality: 'medium', // Options: 'low', 'medium', 'high', or 'auto'
-        response_format: 'url', // Request URL instead of base64
       }),
     });
     
@@ -980,21 +979,30 @@ async function handleImage(interaction) {
     }
     
     const data = await response.json();
+    console.log('[OpenAI Response] Full bracket response:', JSON.stringify(data, null, 2));
     
-    // Validate response structure
-    if (!data.data || !data.data[0] || !data.data[0].url) {
-      console.error('Unexpected OpenAI response structure:', JSON.stringify(data, null, 2));
-      throw new Error('Invalid response from OpenAI - missing image URL');
+    // Check for different response formats
+    let imageBuffer;
+    if (data.data && data.data[0]) {
+      if (data.data[0].url) {
+        console.log('[OpenAI Response] Found URL, downloading...');
+        const imageUrl = data.data[0].url;
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+          throw new Error('Failed to download generated image');
+        }
+        imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+      } else if (data.data[0].b64_json) {
+        console.log('[OpenAI Response] Received base64 data, converting to buffer...');
+        imageBuffer = Buffer.from(data.data[0].b64_json, 'base64');
+      } else {
+        console.error('[OpenAI Response] Unknown format:', data);
+        throw new Error('Invalid response from OpenAI - unexpected format');
+      }
+    } else {
+      console.error('[OpenAI Response] Missing data array:', data);
+      throw new Error('Invalid response from OpenAI - missing data');
     }
-    
-    const imageUrl = data.data[0].url;
-    
-    // Download the image from OpenAI
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error('Failed to download generated image');
-    }
-    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
     
     // Record the image generation
     recordImageGeneration(interaction.guildId, interaction.user.id, 'bracket-image', {
