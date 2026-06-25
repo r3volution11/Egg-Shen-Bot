@@ -89,6 +89,13 @@ export async function execute(interaction) {
 
   // Generate the image with OpenAI
   try {
+    // Log request details for debugging
+    console.log(`[/image] User: ${interaction.user.username} (${interaction.user.id})`);
+    console.log(`[/image] Guild: ${interaction.guildId}`);
+    console.log(`[/image] Prompt source: ${messageInput ? 'Discord message' : 'Text prompt'}`);
+    console.log(`[/image] Prompt length: ${finalPrompt.length} chars`);
+    console.log(`[/image] Prompt: ${finalPrompt.substring(0, 500)}${finalPrompt.length > 500 ? '...' : ''}`);
+    
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -106,20 +113,21 @@ export async function execute(interaction) {
 
     if (!response.ok) {
       const error = await response.json();
+      console.error(`[/image] OpenAI API Error:`, error);
       throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('[OpenAI Response] Full response:', JSON.stringify(data, null, 2));
+    console.log('[/image] OpenAI Response:', JSON.stringify(data, null, 2));
     
     // Check for different response formats
     let imageUrl;
     if (data.data && data.data[0]) {
       if (data.data[0].url) {
         imageUrl = data.data[0].url;
-        console.log('[OpenAI Response] Found URL:', imageUrl);
+        console.log('[/image] Found URL:', imageUrl);
       } else if (data.data[0].b64_json) {
-        console.log('[OpenAI Response] Received base64 data, converting to buffer...');
+        console.log('[/image] Received base64 data, converting to buffer...');
         // Convert base64 to buffer directly
         const imageBuffer = Buffer.from(data.data[0].b64_json, 'base64');
         
@@ -149,11 +157,11 @@ export async function execute(interaction) {
         await interaction.editReply('✅ Image generated and posted to the channel!');
         return;
       } else {
-        console.error('[OpenAI Response] Unknown format:', data);
+        console.error('[/image] Unknown format:', data);
         throw new Error('Invalid response from OpenAI - unexpected format');
       }
     } else {
-      console.error('[OpenAI Response] Missing data array:', data);
+      console.error('[/image] Missing data array:', data);
       throw new Error('Invalid response from OpenAI - missing data');
     }
     
@@ -191,7 +199,7 @@ export async function execute(interaction) {
     await interaction.editReply('✅ Image generated and posted to the channel!');
 
   } catch (error) {
-    console.error('Error generating AI image:', error);
+    console.error('[/image] Error generating AI image:', error);
     await interaction.editReply(`❌ Failed to generate AI image: ${error.message}`);
   }
 }
