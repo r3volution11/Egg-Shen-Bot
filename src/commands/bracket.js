@@ -6,6 +6,8 @@ import { searchGames } from '../services/rawgService.js';
 import { searchBoardGames } from '../services/bggService.js';
 import { searchBooks } from '../services/googleBooksService.js';
 import { config } from '../config.js';
+import { canGenerateImage, recordImageGeneration } from '../utils/aiImageTracker.js';
+import { isAdmin } from '../utils/guildConfig.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -153,6 +155,12 @@ export const data = new SlashCommandBuilder()
         option
           .setName('matchup')
           .setDescription('Or choose from active tournament matchups')
+          .setRequired(false)
+      )
+      .addStringOption(option =>
+        option
+          .setName('prompt')
+          .setDescription('Additional details for the image generation (optional)')
           .setRequired(false)
       )
   )
@@ -766,8 +774,17 @@ async function handleView(interaction) {
 async function handleImage(interaction) {
   await interaction.deferReply();
   
+  // Check rate limits
+  const userIsAdmin = await isAdmin(interaction.member);
+  const rateCheck = canGenerateImage(interaction.guildId, interaction.user.id, userIsAdmin);
+  
+  if (!rateCheck.allowed) {
+    return await interaction.editReply(`❌ ${rateCheck.reason}`);
+  }
+  
   const title1 = interaction.options.getString('title1');
   const title2 = interaction.options.getString('title2');
+  const customPrompt = interaction.options.getString('prompt');
   const matchupInput = interaction.options.getString('matchup');
   
   // Check if OpenAI is configured first
@@ -906,36 +923,37 @@ async function handleImage(interaction) {
   // Generate the AI image
   try {
     // Create a dramatic prompt with type-specific context
-    let promptBase = 'Epic poster mashup';
+    // Use "inspired by" language to comply with OpenAI content policy
+    let promptBase = 'Original poster artwork inspired by';
     let promptDetails = '';
     
     // Add type-specific context if we have metadata
     if (firstEntry && secondEntry) {
       if (firstEntry.type === 'movie' && secondEntry.type === 'movie') {
-        promptBase = 'Epic movie poster mashup';
+        promptBase = 'Original movie poster artwork inspired by the themes of';
       } else if (firstEntry.type === 'tv' && secondEntry.type === 'tv') {
-        promptBase = 'Epic TV show poster mashup';
+        promptBase = 'Original TV show poster artwork inspired by the themes of';
       } else if (firstEntry.type === 'game' && secondEntry.type === 'game') {
-        promptBase = 'Epic video game cover art mashup';
+        promptBase = 'Original video game cover artwork inspired by the themes of';
       } else {
         // Cross-type matchup
         const type1 = getTypeLabel(firstEntry.type).toLowerCase();
         const type2 = getTypeLabel(secondEntry.type).toLowerCase();
-        promptBase = `Epic ${type1} vs ${type2} mashup`;
+        promptBase = `Original artwork inspired by the themes of a ${type1} and a ${type2}`;
       }
       
-      // Add descriptive details if available
+      // Add descriptive details if available (helps guide the AI without copying)
       if (firstEntry.metadata?.overview) {
-        promptDetails += ` ${firstEntry.title}: ${firstEntry.metadata.overview.substring(0, 100)}.`;
+        promptDetails += ` Concept for first side: ${firstEntry.metadata.overview.substring(0, 100)}.`;
       }
       if (secondEntry.metadata?.overview) {
-        promptDetails += ` ${secondEntry.title}: ${secondEntry.metadata.overview.substring(0, 100)}.`;
+        promptDetails += ` Concept for second side: ${secondEntry.metadata.overview.substring(0, 100)}.`;
       }
     } else {
-      promptBase = 'Epic poster mashup';
+      promptBase = 'Original poster artwork inspired by';
     }
     
-    const prompt = `${promptBase}: "${firstTitle}" versus "${secondTitle}". Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents ${firstTitle}, right side represents ${secondTitle}. Bold "VS" text in the center. Professional design, 4K quality.${promptDetails}`;
+    const prompt = `${promptBase} "${firstTitle}" and "${secondTitle}". IMPORTANT: Create a versus battle composition with strict left-right layout. LEFT HALF: "${firstTitle}" theme and imagery. CENTER: Bold "VS" text divider. RIGHT HALF: "${secondTitle}" theme and imagery. Split-screen battle poster with dramatic lighting, cinematic style, high contrast. Professional design, 4K quality. Do not replicate existing poster art - create something new inspired by these titles.${promptDetails}${customPrompt ? ` Additional details: ${customPrompt}` : ''}`;
     
     await interaction.editReply(`🎨 Generating AI image for **${firstTitle}** vs **${secondTitle}**...\n\n_This may take 10-30 seconds..._`);
     
@@ -946,11 +964,11 @@ async function handleImage(interaction) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
+        model: 'gpt-image', // OpenAI renamed from dall-e-3 to gpt-image
         prompt: prompt,
         n: 1,
         size: '1792x1024', // Wide format for vs layout
-        quality: 'standard', // or 'hd' for $0.08 instead of $0.04
+        quality: 'standard', // or 'hd' for higher quality
       }),
     });
     
@@ -962,13 +980,22 @@ async function handleImage(interaction) {
     const data = await response.json();
     const imageUrl = data.data[0].url;
     
+    // Record the image generation
+    recordImageGeneration(interaction.guildId, interaction.user.id, 'bracket-image', {
+      title1: firstTitle,
+      title2: secondTitle,
+      customPrompt: customPrompt || null,
+      type1: firstEntry?.type || null,
+      type2: secondEntry?.type || null,
+    });
+    
     // Create embed with the generated image
     const embed = new EmbedBuilder()
       .setColor(0xFEE75C)
       .setTitle(`🎨 ${firstTitle} vs ${secondTitle}`)
       .setDescription(context ? `AI-generated matchup visualization\n**Matchup:** ${context}` : 'AI-generated matchup visualization')
       .setImage(imageUrl)
-      .setFooter({ text: 'Generated by DALL-E 3 • Cost: $0.04 per image' })
+      .setFooter({ text: 'Generated by OpenAI DALL-E • Cost: $0.04 per image' })
       .setTimestamp();
     
     await interaction.editReply({ 

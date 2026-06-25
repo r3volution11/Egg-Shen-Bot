@@ -316,6 +316,199 @@ Enable server-wide rate limiting (total commands across all users).
 /eggshen-config rate-limit guild-wide enabled:true max-requests:20 window-seconds:60
 ```
 
+---
+
+### AI Images Group
+
+Configure AI image generation limits and whitelist. **Cost control is critical!**
+
+#### View AI Image Settings & Stats
+
+```
+/eggshen-config ai-images view
+```
+
+Shows:
+- Current settings (cooldown, limits, toggles)
+- Server stats (usage today, cost, remaining quota)
+- Your personal stats (usage, cooldown status)
+
+#### Toggle AI Image Rate Limiting
+
+```
+/eggshen-config ai-images toggle enabled:<true/false>
+```
+
+Enable or disable rate limiting for AI image generation.
+
+⚠️ **Warning:** Disabling allows unlimited generations - costs can increase dramatically!
+
+**Example:**
+```
+/eggshen-config ai-images toggle enabled:true
+```
+
+#### Set User Cooldown
+
+```
+/eggshen-config ai-images user-cooldown seconds:<60-3600>
+```
+
+Set time between AI image generations per user.
+
+**Default:** 300 seconds (5 minutes)
+
+**Recommended values:**
+- `300` (5 min) - Default, balanced
+- `600` (10 min) - Stricter, lower costs
+- `60` (1 min) - Looser, higher costs
+
+**Example:**
+```
+/eggshen-config ai-images user-cooldown seconds:300
+```
+
+#### Set User Daily Limit
+
+```
+/eggshen-config ai-images user-daily-limit limit:<1-100>
+```
+
+Maximum AI images per user per day.
+
+**Default:** 10 images/day ($0.40/user/day max)
+
+**Examples:**
+- `limit:5` - Very strict ($0.20/user/day max)
+- `limit:10` - Default ($0.40/user/day max)
+- `limit:25` - Generous ($1.00/user/day max)
+
+Shows estimated monthly cost per user.
+
+**Example:**
+```
+/eggshen-config ai-images user-daily-limit limit:10
+```
+
+#### Set Server Daily Limit
+
+```
+/eggshen-config ai-images guild-daily-limit limit:<1-500>
+```
+
+Maximum AI images per server per day.
+
+**Default:** 50 images/day ($2/day = $60/month max)
+
+**Examples:**
+- `limit:25` - Small server ($0.75/day = $22.50/month max)
+- `limit:50` - Default ($2/day = $60/month max)
+- `limit:100` - Large server ($4/day = $120/month max)
+
+Shows estimated monthly cost.
+
+**Example:**
+```
+/eggshen-config ai-images guild-daily-limit limit:50
+```
+
+#### Toggle Admin Cooldown Bypass
+
+```
+/eggshen-config ai-images admin-bypass enabled:<true/false>
+```
+
+Allow admins/moderators to bypass cooldown (they always respect daily limits).
+
+**Default:** Enabled
+
+**Example:**
+```
+/eggshen-config ai-images admin-bypass enabled:true
+```
+
+#### Add User to Unlimited Whitelist
+
+```
+/eggshen-config ai-images whitelist-add user:<@user>
+```
+
+Grant unlimited AI image generation to a specific user.
+
+**Use cases:**
+- Bot contributors helping with costs
+- Premium/donor users
+- Server boosters
+- Testing accounts
+
+Whitelisted users bypass ALL limits (cooldown + daily limits).
+
+**Example:**
+```
+/eggshen-config ai-images whitelist-add user:@JohnDoe
+```
+
+#### Remove User from Whitelist
+
+```
+/eggshen-config ai-images whitelist-remove user:<@user>
+```
+
+Remove unlimited access - user returns to normal rate limits.
+
+**Example:**
+```
+/eggshen-config ai-images whitelist-remove user:@JohnDoe
+```
+
+#### View Whitelist
+
+```
+/eggshen-config ai-images whitelist-list
+```
+
+Shows all users with unlimited AI image generation access.
+
+#### Reset User Usage
+
+```
+/eggshen-config ai-images reset-user user:<@user>
+```
+
+Reset a user's daily usage and cooldown.
+
+**Use cases:**
+- User hit limit due to testing
+- Reward for event participation
+- Resolve technical issues
+
+**Example:**
+```
+/eggshen-config ai-images reset-user user:@JohnDoe
+```
+
+#### Reset Server Usage
+
+```
+/eggshen-config ai-images reset-guild
+```
+
+Reset the entire server's daily usage (user limits still apply).
+
+**Use cases:**
+- Special events
+- Server milestones
+- Testing periods
+
+**Example:**
+```
+/eggshen-config ai-images reset-guild
+```
+
+**💡 See [AI Image Generation](ai-images.md) for complete documentation on the `/image` and `/bracket image` commands, cost management strategies, and best practices.**
+
+---
+
 ## Other Admin Commands
 
 ### View Statistics

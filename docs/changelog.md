@@ -8,6 +8,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **AI Image Generation System**
+  - **NEW: `/image` command** - Generate AI images from text prompts or Discord messages
+    - Text-to-image: `/image prompt:"A dragon flying over a castle"`
+    - From messages: `/image message:username` (finds recent message from user)
+    - From message ID: `/image message:1234567890123456789`
+    - Square format (1024x1024), standard quality
+    - 10-30 second generation time
+    - Cost: $0.04 per image
+  - **Comprehensive Rate Limiting System**
+    - Per-user cooldown: 5 minutes (configurable 60-3600 seconds)
+    - Per-user daily limit: 10 images (configurable 1-100)
+    - Per-server daily limit: 50 images (configurable 1-500)
+    - Admin/moderator cooldown bypass (optional, respects daily limits)
+    - Whitelisted users: Unlimited generation for contributors/premium users
+    - Cost tracking and statistics
+    - Prevents excessive API costs (default: $60/month max)
+  - **Configuration Commands** (`/eggshen-config ai-images`)
+    - `view` - See settings, server stats, and personal usage
+    - `toggle` - Enable/disable rate limiting
+    - `user-cooldown` - Set cooldown between generations
+    - `user-daily-limit` - Set max images per user per day
+    - `guild-daily-limit` - Set max images per server per day
+    - `admin-bypass` - Toggle admin cooldown bypass
+    - `whitelist-add` - Grant unlimited access to specific users
+    - `whitelist-remove` - Remove unlimited access
+    - `whitelist-list` - View whitelisted users
+    - `reset-user` - Reset user's usage
+    - `reset-guild` - Reset server's usage
+  - **Enhanced `/bracket image` Command**
+    - **NEW: `prompt` parameter** - Add custom details to matchup images
+    - **Smart Search Validation** - Validates titles through TMDB, RAWG, BGG, Google Books
+    - **Disambiguation Menu** - Shows selection when multiple matches found (like `/movie`)
+    - **Cross-Type Support** - Compare movies vs games, TV vs books, etc.
+    - **Strict Left-Right Layout** - Title 1 always left, VS center, Title 2 always right
+    - **Content Policy Compliance** - "Inspired by themes" prompts avoid replication
+    - **Rich Metadata** - Uses overviews and descriptions for better prompts
+    - **Rate Limited** - Same limits as `/image` command
+    - Wide format (1792x1024) for split-screen compositions
+  - **OpenAI Model Update** - Updated to `gpt-image` (renamed from `dall-e-3`)
+  - **Usage Tracking** - Logs all generations with cost, user, guild, and metadata
+  - **Cost Protection** - Prevents runaway costs ($60/month default max vs $2,400/month unlimited)
 - **Tournament Bracket Visualizations**
   - `/bracket view` command generates March Madness-style bracket images
   - Shows full tournament tree with all rounds and matchups
@@ -17,18 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Discord dark theme styling, PNG format
   - Uses @napi-rs/canvas for fast image generation
   - Only available during knockout phase
-- **AI-Generated Matchup Images**
-  - `/bracket image` command creates dramatic "vs" poster mashups
-  - **NEW: Freeform generation** - Works with ANY two titles, anytime (no tournament needed!)
-  - **NEW: `title1` and `title2` parameters** for custom matchups
-  - Still supports tournament matchup images via `matchup` parameter
-  - Integration with OpenAI DALL-E 3 for high-quality image generation
-  - Wide format (1792x1024) perfect for split-screen compositions
-  - Cinematic prompts with dramatic lighting and bold VS text
-  - Standard quality mode ($0.04 per image, cost shown)
-  - 10-30 second generation time
-  - **No longer restricted to knockout phase** - works anytime!
-  - Requires OpenAI API key configuration
 - **Tournament Bracket System (`/bracket` command)**
   - Host comprehensive tournaments with flexible sizing (16-48 entries)
   - **NEW: Smart search integration** - `/bracket add-group` searches TMDB/RAWG/BGG/Google Books
