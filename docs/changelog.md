@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - More flexibility - can add 1-4 titles per group before opening voting
 
 ### Added
+- **Tournament Brackets**
+  - **NEW: `/bracket remove-title`** - Remove titles from groups during setup phase
+    - Remove by position (1-4) from any group
+    - Only available before voting starts
+    - Automatic re-indexing of remaining titles
+    - Confirmation embed shows removed title with thumbnail
+    - Useful for fixing mistakes before opening group voting
 - **AI Image Generation System**
   - **NEW: `/image` command** - Generate AI images from text prompts or Discord messages
     - Text-to-image: `/image prompt:"A dragon flying over a castle"`

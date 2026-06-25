@@ -66,6 +66,26 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('remove-title')
+      .setDescription('Remove a title from a group (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('group')
+          .setDescription('Group letter (A-L)')
+          .setRequired(true)
+          .addChoices(...GROUP_LETTERS.map(letter => ({ name: `Group ${letter}`, value: letter })))
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('position')
+          .setDescription('Position of title to remove (1-4)')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(4)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('open-groups')
       .setDescription('Open groups for voting (Admin/Mod only)')
       .addStringOption(option =>
@@ -169,7 +189,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -190,6 +210,9 @@ export async function execute(interaction) {
         break;
       case 'add-title':
         await handleAddTitle(interaction);
+        break;
+      case 'remove-title':
+        await handleRemoveTitle(interaction);
         break;
       case 'open-groups':
         await handleOpenGroups(interaction);
@@ -270,7 +293,7 @@ async function handleCreate(interaction) {
 }
 
 async function handleAddTitle(interaction) {
-  await interaction.deferReply();
+  await interaction.deferReply({ ephemeral: true });
   
   const group = interaction.options.getString('group');
   const type = interaction.options.getString('type');
@@ -404,6 +427,62 @@ async function handleAddTitle(interaction) {
     embeds: [embed],
     components: [row],
   });
+}
+
+async function handleRemoveTitle(interaction) {
+  const group = interaction.options.getString('group');
+  const position = interaction.options.getInteger('position');
+  const guildId = interaction.guildId;
+  
+  // Check if tournament exists
+  const tournament = bracketManager.loadTournament(guildId);
+  if (!tournament || tournament.status !== 'setup') {
+    await interaction.reply({
+      content: '❌ No tournament in setup phase. Create one with `/bracket create` first.',
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  // Check if group has titles
+  const groupData = tournament.groups[group];
+  if (!groupData || groupData.movies.length === 0) {
+    await interaction.reply({
+      content: `❌ Group ${group} has no titles to remove.`,
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  // Remove the title
+  const result = bracketManager.removeGroupTitle(guildId, group, position);
+  
+  if (!result.success) {
+    await interaction.reply({
+      content: `❌ ${result.error}`,
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  // Success - show what was removed and current progress
+  const embed = new EmbedBuilder()
+    .setColor(0xFF0000)
+    .setTitle(`🗑️ Removed from Group ${group}`)
+    .setDescription(`**${result.removedTitle.title}**${result.removedTitle.year ? ` (${result.removedTitle.year})` : ''}`)
+    .addFields(
+      { name: 'Group Progress', value: `${result.titleCount}/4 titles`, inline: true }
+    );
+  
+  if (result.removedTitle.posterUrl) {
+    embed.setThumbnail(result.removedTitle.posterUrl);
+  }
+  
+  if (result.titleCount < 4) {
+    embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group} with /bracket add-title` });
+  }
+  
+  await interaction.reply({ embeds: [embed], ephemeral: true });
 }
 
 /**

@@ -175,6 +175,42 @@ Bot shows a selection menu with all matches (just like `/movie`, `/tv`, etc.):
 
 ---
 
+### Remove Entry from Group
+
+```
+/bracket remove-title group:[A-L] position:[1-4]
+```
+
+**Parameters:**
+
+- `group` (required) - Group letter (A through L)
+- `position` (required) - Position of title to remove (1-4)
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- **Remove by position**: Specify which title to remove (1st, 2nd, 3rd, or 4th)
+- **Only during setup**: Can only remove titles before voting starts
+- **Progress tracking**: Shows updated title count after removal
+- **Confirmation embed**: Displays removed title with thumbnail
+
+**Examples:**
+
+```
+/bracket remove-title group:A position:3
+/bracket remove-title group:B position:1
+```
+
+**Tips:**
+
+- Use `/bracket status` to see which position each title is in
+- Can only remove titles during setup phase (before `/bracket open-groups`)
+- After removal, remaining titles automatically re-index
+- Use this to fix mistakes before opening voting
+
+---
+
 
 ### Open Group Voting
 
