@@ -970,6 +970,7 @@ async function handleImage(interaction) {
         n: 1,
         size: '1792x1024', // Wide format for vs layout
         quality: 'medium', // Options: 'low', 'medium', 'high', or 'auto'
+        response_format: 'url', // Request URL instead of base64
       }),
     });
     
