@@ -50,6 +50,7 @@ export async function handleSelectInteraction(interaction) {
       interaction.customId !== 'select_random_episode' &&
       interaction.customId !== 'select_similar' &&
       interaction.customId !== 'select_soundtrack' &&
+      interaction.customId !== 'select_bracket_title' &&
       interaction.customId !== 'timer_select_runtime') return;
   
   // Defer the update to acknowledge the interaction
@@ -108,6 +109,149 @@ export async function handleSelectInteraction(interaction) {
     // Now start the timer countdown (post publicly, not ephemeral)
     const { startTimerCountdown } = await import('../commands/timer.js');
     await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, true);
+    return;
+  }
+  
+  // Handle bracket title selection
+  if (interaction.customId === 'select_bracket_title') {
+    const value = interaction.values[0];
+    const [, group, type, id] = value.split('_');
+    
+    try {
+      const { EmbedBuilder } = await import('discord.js');
+      const { addGroupTitle } = await import('../utils/bracketManager.js');
+      
+      // Fetch the selected result to get full details
+      let result = null;
+      let entry = null;
+      
+      if (type === 'movie') {
+        const { getMovieDetails } = await import('../services/tmdbService.js');
+        result = await getMovieDetails(parseInt(id));
+        entry = {
+          type: 'movie',
+          title: result.title,
+          id: result.id,
+          year: result.release_date?.split('-')[0],
+          posterUrl: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null,
+          metadata: {
+            overview: result.overview,
+            vote_average: result.vote_average,
+          },
+        };
+      } else if (type === 'tv') {
+        const { getTVShowDetails } = await import('../services/tmdbService.js');
+        result = await getTVShowDetails(parseInt(id));
+        entry = {
+          type: 'tv',
+          title: result.name,
+          id: result.id,
+          year: result.first_air_date?.split('-')[0],
+          posterUrl: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null,
+          metadata: {
+            overview: result.overview,
+            vote_average: result.vote_average,
+          },
+        };
+      } else if (type === 'game') {
+        const { getGameDetails } = await import('../services/rawgService.js');
+        result = await getGameDetails(parseInt(id));
+        entry = {
+          type: 'game',
+          title: result.name,
+          id: result.id,
+          year: result.released?.split('-')[0],
+          posterUrl: result.background_image,
+          metadata: {
+            rating: result.rating,
+            platforms: result.platforms?.map(p => p.platform.name),
+          },
+        };
+      } else if (type === 'boardgame') {
+        const { getBoardGameDetails } = await import('../services/bggService.js');
+        result = await getBoardGameDetails(id);
+        entry = {
+          type: 'boardgame',
+          title: result.name,
+          id: result.id,
+          year: result.yearPublished,
+          posterUrl: result.thumbnail,
+          metadata: {
+            minPlayers: result.minPlayers,
+            maxPlayers: result.maxPlayers,
+          },
+        };
+      } else if (type === 'book') {
+        const { getBookDetails } = await import('../services/googleBooksService.js');
+        result = await getBookDetails(id);
+        entry = {
+          type: 'book',
+          title: result.title,
+          id: result.id,
+          year: result.publishedDate?.split('-')[0],
+          posterUrl: result.thumbnail,
+          metadata: {
+            authors: result.authors,
+            pageCount: result.pageCount,
+          },
+        };
+      }
+      
+      // Add the title to the bracket
+      const addResult = addGroupTitle(interaction.guildId, group, type, entry);
+      
+      if (!addResult.success) {
+        await interaction.update({
+          content: `❌ ${addResult.error}`,
+          embeds: [],
+          components: [],
+        });
+        return;
+      }
+      
+      // Success - show what was added
+      const getTypeLabel = (t) => ({
+        movie: 'Movies',
+        tv: 'TV Shows',
+        game: 'Video Games',
+        boardgame: 'Board Games',
+        book: 'Books',
+      }[t] || t);
+      
+      const embed = new EmbedBuilder()
+        .setColor(0x00FF00)
+        .setTitle(`✅ Added to Group ${group}`)
+        .setDescription(`**${entry.title}**${entry.year ? ` (${entry.year})` : ''}`)
+        .addFields(
+          { name: 'Type', value: getTypeLabel(type), inline: true },
+          { name: 'Group Progress', value: `${addResult.titleCount}/4 titles`, inline: true }
+        );
+      
+      if (entry.posterUrl) {
+        embed.setThumbnail(entry.posterUrl);
+      }
+      
+      if (addResult.titleCount < 4) {
+        embed.setFooter({ text: `Add ${4 - addResult.titleCount} more title(s) to Group ${group} with /bracket add-title` });
+      } else {
+        embed.setFooter({ text: `Group ${group} is complete! Add more groups or use /bracket open-groups to start voting.` });
+      }
+      
+      // Delete the selection menu and post the result
+      await interaction.update({
+        content: null,
+        embeds: [embed],
+        components: [],
+      });
+      
+    } catch (error) {
+      console.error('Bracket selection error:', error);
+      await interaction.update({
+        content: '❌ An error occurred while adding the title. Please try again.',
+        embeds: [],
+        components: [],
+      });
+    }
     return;
   }
   

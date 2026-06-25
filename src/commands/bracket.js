@@ -5,6 +5,9 @@ import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '
 import { searchGames } from '../services/rawgService.js';
 import { searchBoardGames } from '../services/bggService.js';
 import { searchBooks } from '../services/googleBooksService.js';
+import { hybridSearch } from '../services/aiService.js';
+import { createSearchResults } from '../utils/embedBuilder.js';
+import { loadGuildConfig } from '../utils/guildConfig.js';
 import { config } from '../config.js';
 import { canGenerateImage, recordImageGeneration } from '../utils/aiImageTracker.js';
 import { isAdmin } from '../utils/guildConfig.js';
@@ -35,8 +38,8 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('add-group')
-      .setDescription('Add 4 titles to a group (Admin/Mod only)')
+      .setName('add-title')
+      .setDescription('Add a title to a group (Admin/Mod only)')
       .addStringOption(option =>
         option
           .setName('group')
@@ -58,16 +61,7 @@ export const data = new SlashCommandBuilder()
           )
       )
       .addStringOption(option =>
-        option.setName('title1').setDescription('First title').setRequired(true)
-      )
-      .addStringOption(option =>
-        option.setName('title2').setDescription('Second title').setRequired(true)
-      )
-      .addStringOption(option =>
-        option.setName('title3').setDescription('Third title').setRequired(true)
-      )
-      .addStringOption(option =>
-        option.setName('title4').setDescription('Fourth title').setRequired(true)
+        option.setName('title').setDescription('Title to search for and add').setRequired(true)
       )
   )
   .addSubcommand(subcommand =>
@@ -174,7 +168,7 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-group', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -193,8 +187,8 @@ export async function execute(interaction) {
       case 'create':
         await handleCreate(interaction);
         break;
-      case 'add-group':
-        await handleAddGroup(interaction);
+      case 'add-title':
+        await handleAddTitle(interaction);
         break;
       case 'open-groups':
         await handleOpenGroups(interaction);
@@ -268,81 +262,146 @@ async function handleCreate(interaction) {
       { name: 'Total Movies', value: `${totalMovies}`, inline: true },
       { name: 'Creator', value: `<@${interaction.user.id}>`, inline: false }
     )
-    .setFooter({ text: 'Use /bracket add-group to add movies' });
+    .setFooter({ text: 'Use /bracket add-title to add titles one at a time' });
   
   await interaction.reply({ embeds: [embed] });
 }
 
-async function handleAddGroup(interaction) {
+async function handleAddTitle(interaction) {
   await interaction.deferReply();
   
   const group = interaction.options.getString('group');
   const type = interaction.options.getString('type');
-  const titles = [
-    interaction.options.getString('title1'),
-    interaction.options.getString('title2'),
-    interaction.options.getString('title3'),
-    interaction.options.getString('title4'),
-  ];
+  const title = interaction.options.getString('title');
   
-  // Search for each title and build rich entries
-  const searchResults = await Promise.all(
-    titles.map(async (title) => await searchForTitle(title, type))
-  );
-  
-  // Check if any searches failed (no results)
-  const failed = searchResults.some(r => r.status === 'none');
-  
-  if (failed) {
-    const notFoundTitles = searchResults
-      .map((r, idx) => r.status === 'none' ? titles[idx] : null)
-      .filter(t => t !== null)
-      .join(', ');
-    
+  // Check if tournament exists
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  if (!tournament || tournament.status !== 'setup') {
     await interaction.editReply({
-      content: `❌ Could not find these titles: ${notFoundTitles}\n\n` +
-        `Please check spelling or try different search terms.`,
+      content: '❌ No tournament in setup phase. Create one with `/bracket create` first.',
       ephemeral: true,
     });
     return;
   }
   
-  // All titles found - build the entries array
-  // Note: When multiple matches exist, we automatically select the first (best) match
-  const entries = searchResults.map(r => r.entry);
-  
-  const result = bracketManager.addGroupMovies(interaction.guildId, group, type, entries);
-  
-  if (!result.success) {
+  // Search for the title using the appropriate API
+  let results = [];
+  try {
+    switch (type) {
+      case 'movie':
+        results = await hybridSearch(title, searchMovies, 'movie');
+        break;
+      case 'tv':
+        results = await hybridSearch(title, searchTVShows, 'tv');
+        break;
+      case 'game':
+        results = await searchGames(title);
+        break;
+      case 'boardgame':
+        results = await searchBoardGames(title);
+        break;
+      case 'book':
+        results = await searchBooks(title);
+        break;
+    }
+  } catch (error) {
+    console.error(`[Bracket] Error searching for "${title}" (${type}):`, error);
     await interaction.editReply({
-      content: `❌ ${result.error}`,
+      content: '❌ An error occurred while searching. Please try again.',
+      ephemeral: true,
     });
     return;
   }
   
-  const groupsComplete = Object.keys(result.tournament.groups).length;
-  const totalGroups = result.tournament.groupCount;
+  // No results found
+  if (!results || results.length === 0) {
+    await interaction.editReply({
+      content: `❌ Could not find any ${getTypeLabel(type).toLowerCase()} matching "${title}"\n\nPlease check spelling or try different search terms.`,
+      ephemeral: true,
+    });
+    return;
+  }
   
-  // Check if any had multiple matches (inform user we picked the best match)
-  const hadMultipleMatches = searchResults.some(r => r.count > 1);
-  const multipleMatchInfo = hadMultipleMatches 
-    ? '\n\n*Note: Some titles had multiple matches. The best match was automatically selected.*' 
-    : '';
+  // If only one result, add it directly
+  if (results.length === 1) {
+    const entry = buildEntryFromResult(results[0], type);
+    const result = bracketManager.addGroupTitle(interaction.guildId, group, type, entry);
+    
+    if (!result.success) {
+      await interaction.editReply({
+        content: `❌ ${result.error}`,
+        ephemeral: true,
+      });
+      return;
+    }
+    
+    // Success - show what was added and progress
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle(`✅ Added to Group ${group}`)
+      .setDescription(`**${entry.title}**${entry.year ? ` (${entry.year})` : ''}`)
+      .addFields(
+        { name: 'Type', value: getTypeLabel(type), inline: true },
+        { name: 'Group Progress', value: `${result.titleCount}/4 titles`, inline: true }
+      );
+    
+    if (entry.posterUrl) {
+      embed.setThumbnail(entry.posterUrl);
+    }
+    
+    if (result.titleCount < 4) {
+      embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group} with /bracket add-title` });
+    } else {
+      embed.setFooter({ text: `Group ${group} is complete! Add more groups or use /bracket open-groups to start voting.` });
+    }
+    
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+  
+  // Multiple results - show selection menu
+  const guildConfig = await loadGuildConfig(interaction.guildId);
+  const maxResults = guildConfig.maxSearchResults || 20;
+  const limitedResults = results.slice(0, maxResults);
+  
+  // Create selection menu with bracket context
+  const options = limitedResults.map((result) => {
+    const displayTitle = result.title || result.name || result.Name || result.volumeInfo?.title;
+    let year = null;
+    if (result.release_date) year = result.release_date.split('-')[0];
+    else if (result.first_air_date) year = result.first_air_date.split('-')[0];
+    else if (result.released) year = result.released.split('-')[0];
+    else if (result.YearPublished) year = result.YearPublished;
+    else if (result.volumeInfo?.publishedDate) year = result.volumeInfo.publishedDate.split('-')[0];
+    
+    const yearStr = year ? ` (${year})` : '';
+    const overview = result.overview || result.volumeInfo?.description || 'No description';
+    const truncatedOverview = overview.length > 97 ? overview.substring(0, 97) + '...' : overview;
+    
+    return {
+      label: `${displayTitle}${yearStr}`.substring(0, 100),
+      description: truncatedOverview.substring(0, 100),
+      value: `bracket_${group}_${type}_${result.id}`,
+    };
+  });
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('select_bracket_title')
+    .setPlaceholder('Select the correct title')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
   
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
-    .setTitle(`Group ${group} Added (${getTypeLabel(type)})`)
-    .setDescription(entries.map((entry, i) => {
-      const yearStr = entry.year ? ` (${entry.year})` : '';
-      const multipleIcon = searchResults[i].count > 1 ? ' ⚠️' : '';
-      return `${i + 1}. ${entry.title}${yearStr}${multipleIcon}`;
-    }).join('\n') + multipleMatchInfo)
-    .addFields(
-      { name: 'Progress', value: `${groupsComplete}/${totalGroups} groups added`, inline: true }
-    )
-    .setFooter({ text: groupsComplete === totalGroups ? 'All groups added! Use /bracket open-groups to start voting.' : 'Add more groups with /bracket add-group' });
+    .setTitle(`🏆 Select Title for Group ${group}`)
+    .setDescription(`Found ${results.length} ${getTypeLabel(type).toLowerCase()} matching "${title}". Select the correct one to add to the bracket.`)
+    .setFooter({ text: `Adding to Group ${group} • ${getTypeLabel(type)}` });
   
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row],
+  });
 }
 
 /**

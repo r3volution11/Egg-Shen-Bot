@@ -93,7 +93,7 @@ export function createTournament(guildId, name, creatorId, groupCount = 8) {
 }
 
 /**
- * Add movies to a group
+ * Add movies to a group (legacy - use addGroupTitle instead)
  */
 export function addGroupMovies(guildId, groupId, type, entries) {
   const tournament = loadTournament(guildId);
@@ -136,6 +136,71 @@ export function addGroupMovies(guildId, groupId, type, entries) {
   
   return saveTournament(guildId, tournament) 
     ? { success: true, tournament } 
+    : { success: false, error: 'Failed to save' };
+}
+
+/**
+ * Add a single title to a group (allows 1-4 titles per group)
+ */
+export function addGroupTitle(guildId, groupId, type, entry) {
+  const tournament = loadTournament(guildId);
+  if (!tournament || tournament.status !== 'setup') {
+    return { success: false, error: 'Tournament not in setup phase' };
+  }
+  
+  // Validate group ID is within allowed range
+  const allowedGroups = 'ABCDEFGHIJKL'.slice(0, tournament.groupCount);
+  if (!allowedGroups.includes(groupId)) {
+    return { success: false, error: `Invalid group. This tournament uses groups A-${allowedGroups[allowedGroups.length - 1]} (${tournament.groupCount} groups total)` };
+  }
+  
+  // Store tournament type on first title addition
+  if (!tournament.type) {
+    tournament.type = type;
+  } else if (tournament.type !== type) {
+    return { success: false, error: `Tournament type mismatch. This tournament is for ${tournament.type}s, but you're trying to add ${type}s.` };
+  }
+  
+  // Initialize group if it doesn't exist
+  if (!tournament.groups[groupId]) {
+    tournament.groups[groupId] = {
+      id: groupId,
+      movies: [],
+      status: 'pending',
+      votingOpen: false,
+    };
+  }
+  
+  const group = tournament.groups[groupId];
+  
+  // Check if group already has 4 titles
+  if (group.movies.length >= 4) {
+    return { success: false, error: `Group ${groupId} already has 4 titles. Remove one or use a different group.` };
+  }
+  
+  // Check for duplicate titles in this group
+  const duplicate = group.movies.find(m => 
+    m.title.toLowerCase() === entry.title.toLowerCase() && m.year === entry.year
+  );
+  if (duplicate) {
+    return { success: false, error: `"${entry.title}" is already in Group ${groupId}` };
+  }
+  
+  // Add the title
+  const index = group.movies.length;
+  group.movies.push({
+    index,
+    title: entry.title,
+    type: entry.type,
+    id: entry.id,
+    year: entry.year,
+    posterUrl: entry.posterUrl,
+    metadata: entry.metadata,
+    votes: [],
+  });
+  
+  return saveTournament(guildId, tournament) 
+    ? { success: true, tournament, group, titleCount: group.movies.length } 
     : { success: false, error: 'Failed to save' };
 }
 
