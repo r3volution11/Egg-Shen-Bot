@@ -166,6 +166,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
+  console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
   const requiresAdmin = ['create', 'add-title', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
@@ -215,6 +216,7 @@ export async function execute(interaction) {
         await handleCancel(interaction);
         break;
       default:
+        console.log('[/bracket] Unknown subcommand hit with value:', subcommand);
         await interaction.reply({ content: '❌ Unknown subcommand', ephemeral: true });
     }
   } catch (error) {
