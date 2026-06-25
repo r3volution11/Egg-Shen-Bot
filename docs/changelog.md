@@ -22,8 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Tournament Brackets**
-  - **NEW: Custom Image Support** - Provide your own images when adding titles to brackets
-    - Optional `custom_image` parameter in `/bracket add-title`
+  - **NEW: Custom Image Support** - Upload images or provide URLs when adding titles to brackets
+    - Optional `image` parameter in `/bracket add-title` (attachment option)
+    - Upload images directly from your device (PNG, JPG, GIF, WebP)
+    - Or paste image URLs from Discord CDN, Imgur, or any direct image link
     - Custom images override API posters in matchups and voting screens
     - Perfect for servers that don't want AI-generated images
     - Useful for custom artwork or specific promotional posters

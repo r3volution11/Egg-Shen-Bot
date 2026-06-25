@@ -66,10 +66,10 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option.setName('title').setDescription('Title to search for and add').setRequired(true)
       )
-      .addStringOption(option =>
+      .addAttachmentOption(option =>
         option
-          .setName('custom_image')
-          .setDescription('Optional: Custom image URL for this title (overrides API poster)')
+          .setName('image')
+          .setDescription('Optional: Custom image for this title (overrides API poster)')
           .setRequired(false)
       )
   )
@@ -307,7 +307,8 @@ async function handleAddTitle(interaction) {
   const group = interaction.options.getString('group');
   const type = interaction.options.getString('type');
   const title = interaction.options.getString('title');
-  const customImage = interaction.options.getString('custom_image');
+  const imageAttachment = interaction.options.getAttachment('image');
+  const customImage = imageAttachment?.url;
   
   // Check if tournament exists
   const tournament = bracketManager.loadTournament(interaction.guildId);
