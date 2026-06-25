@@ -95,6 +95,19 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('resize')
+      .setDescription('Change the number of groups in the tournament (Admin/Mod only)')
+      .addIntegerOption(option =>
+        option
+          .setName('groups')
+          .setDescription('New number of groups (4-12)')
+          .setRequired(true)
+          .setMinValue(4)
+          .setMaxValue(12)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('open-groups')
       .setDescription('Open groups for voting (Admin/Mod only)')
       .addStringOption(option =>
@@ -198,7 +211,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -222,6 +235,9 @@ export async function execute(interaction) {
         break;
       case 'remove-title':
         await handleRemoveTitle(interaction);
+        break;
+      case 'resize':
+        await handleResize(interaction);
         break;
       case 'open-groups':
         await handleOpenGroups(interaction);
@@ -512,6 +528,92 @@ async function handleRemoveTitle(interaction) {
   }
   
   await interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
+async function handleResize(interaction) {
+  const newGroupCount = interaction.options.getInteger('groups');
+  const guildId = interaction.guildId;
+  
+  // Check if tournament exists
+  const tournament = bracketManager.loadTournament(guildId);
+  if (!tournament) {
+    await interaction.reply({
+      content: '❌ No tournament found. Create one with `/bracket create` first.',
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  if (tournament.status !== 'setup') {
+    await interaction.reply({
+      content: '❌ Tournament can only be resized during the setup phase, before voting begins.',
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  // Check if current tournament already has this size
+  if (tournament.groupCount === newGroupCount) {
+    await interaction.reply({
+      content: `❌ Tournament is already set to ${newGroupCount} groups.`,
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  // Resize the tournament
+  const result = bracketManager.resizeTournament(guildId, newGroupCount);
+  
+  if (!result.success) {
+    // If error contains formatting (multi-line with options), send as embed
+    if (result.error.includes('\n')) {
+      const embed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle('❌ Cannot Resize Tournament')
+        .setDescription(result.error)
+        .setFooter({ text: 'Fix these issues before resizing' });
+      
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+    } else {
+      await interaction.reply({
+        content: `❌ ${result.error}`,
+        ephemeral: true,
+      });
+    }
+    return;
+  }
+  
+  // Success - show what changed
+  const oldCount = result.oldGroupCount;
+  const oldRange = 'ABCDEFGHIJKL'.slice(0, oldCount);
+  const newRange = 'ABCDEFGHIJKL'.slice(0, newGroupCount);
+  const action = newGroupCount > oldCount ? 'expanded' : 'contracted';
+  const emoji = newGroupCount > oldCount ? '📈' : '📉';
+  
+  const embed = new EmbedBuilder()
+    .setColor(newGroupCount > oldCount ? 0x00FF00 : 0xFFA500)
+    .setTitle(`${emoji} Tournament Resized`)
+    .setDescription(`**${tournament.name}**`)
+    .addFields(
+      { name: 'Previous Size', value: `${oldCount} groups (${oldRange})`, inline: true },
+      { name: 'New Size', value: `${newGroupCount} groups (${newRange})`, inline: true },
+      { name: 'Total Capacity', value: `${newGroupCount * 4} titles`, inline: true }
+    );
+  
+  if (result.filledGroups > 0) {
+    embed.addFields({
+      name: 'Progress',
+      value: `${result.filledGroups} group${result.filledGroups !== 1 ? 's' : ''} already filled with titles`,
+      inline: false,
+    });
+  }
+  
+  if (newGroupCount > oldCount) {
+    const newGroups = 'ABCDEFGHIJKL'.slice(oldCount, newGroupCount);
+    embed.setFooter({ text: `New groups available: ${newGroups.split('').join(', ')}` });
+  }
+  
+  await interaction.reply({ embeds: [embed] });
 }
 
 /**
