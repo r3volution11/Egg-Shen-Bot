@@ -522,6 +522,6 @@ User Today: 3, Guild Today: 12, Guild Cost Today: $0.48
 
 ## See Also
 
-- [Bracket Tournaments](tournaments.md) - Full tournament system including AI images
+- [Tournament Brackets](brackets.md) - Full tournament system including AI images
 - [Configuration Guide](configuration.md) - All bot configuration options
 - [Rate Limiting](../features/rate-limiting.md) - General rate limiting system

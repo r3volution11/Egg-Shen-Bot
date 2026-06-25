@@ -186,6 +186,8 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/commands/' },
           { text: 'Search Commands', link: '/commands/search' },
+          { text: 'Tournament Brackets', link: '/commands/brackets' },
+          { text: 'AI Image Generation', link: '/commands/ai-images' },
           { text: 'Watch Parties', link: '/commands/watch-party' },
           { text: 'Social Commands', link: '/commands/social' },
           { text: 'Admin Configuration', link: '/commands/configuration' },
