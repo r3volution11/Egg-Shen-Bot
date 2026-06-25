@@ -43,18 +43,28 @@ function parseSeasonEpisode(query) {
  * Handle select menu interactions for choosing search results
  */
 export async function handleSelectInteraction(interaction) {
-  if (interaction.customId !== 'select_result' && 
-      interaction.customId !== 'select_episode_show' && 
-      interaction.customId !== 'select_episode_list_show' &&
-      interaction.customId !== 'select_watched' &&
-      interaction.customId !== 'select_random_episode' &&
-      interaction.customId !== 'select_similar' &&
-      interaction.customId !== 'select_soundtrack' &&
-      interaction.customId !== 'select_bracket_title' &&
-      interaction.customId !== 'timer_select_runtime') return;
+  // Check if this is a handled custom ID
+  const handledIds = [
+    'select_result',
+    'select_episode_show',
+    'select_episode_list_show',
+    'select_watched',
+    'select_random_episode',
+    'select_similar',
+    'select_soundtrack',
+    'timer_select_runtime'
+  ];
+  
+  const isHandled = handledIds.includes(interaction.customId) || 
+                    interaction.customId.startsWith('select_bracket_title_');
+  
+  if (!isHandled) return;
+  
+  // For bracket selections, don't defer if it's the wrong user (we'll handle that separately)
+  const isBracketSelection = interaction.customId.startsWith('select_bracket_title_');
   
   // Defer the update to acknowledge the interaction
-  if (!interaction.replied && !interaction.deferred) {
+  if (!interaction.replied && !interaction.deferred && !isBracketSelection) {
     await interaction.deferUpdate();
   }
 
@@ -113,7 +123,24 @@ export async function handleSelectInteraction(interaction) {
   }
   
   // Handle bracket title selection
-  if (interaction.customId === 'select_bracket_title') {
+  if (interaction.customId.startsWith('select_bracket_title_')) {
+    // Extract and validate user ID
+    const customIdParts = interaction.customId.split('_');
+    const expectedUserId = customIdParts[customIdParts.length - 1];
+    
+    if (interaction.user.id !== expectedUserId) {
+      await interaction.reply({
+        content: '❌ Only the user who initiated this selection can choose a title.',
+        ephemeral: true,
+      });
+      return;
+    }
+    
+    // Defer the update now that we've validated the user
+    if (!interaction.deferred) {
+      await interaction.deferUpdate();
+    }
+    
     const value = interaction.values[0];
     const [, group, type, id] = value.split('_');
     
@@ -127,7 +154,9 @@ export async function handleSelectInteraction(interaction) {
       
       if (type === 'movie') {
         const { getMovieDetails } = await import('../services/tmdbService.js');
+        console.log(`[Bracket Selection] Fetching movie details for ID: ${id}`);
         result = await getMovieDetails(parseInt(id));
+        console.log(`[Bracket Selection] Movie details received:`, result?.title || 'No title');
         entry = {
           type: 'movie',
           title: result.title,
@@ -141,7 +170,9 @@ export async function handleSelectInteraction(interaction) {
         };
       } else if (type === 'tv') {
         const { getTVShowDetails } = await import('../services/tmdbService.js');
+        console.log(`[Bracket Selection] Fetching TV show details for ID: ${id}`);
         result = await getTVShowDetails(parseInt(id));
+        console.log(`[Bracket Selection] TV show details received:`, result?.name || 'No name');
         entry = {
           type: 'tv',
           title: result.name,
@@ -238,6 +269,7 @@ export async function handleSelectInteraction(interaction) {
       }
       
       // Delete the selection menu and post the result
+      console.log(`[Bracket Selection] Successfully added ${entry.title} to Group ${group}`);
       await interaction.update({
         content: null,
         embeds: [embed],
@@ -245,9 +277,10 @@ export async function handleSelectInteraction(interaction) {
       });
       
     } catch (error) {
-      console.error('Bracket selection error:', error);
+      console.error('[Bracket Selection] Error:', error);
+      console.error('[Bracket Selection] Error stack:', error.stack);
       await interaction.update({
-        content: '❌ An error occurred while adding the title. Please try again.',
+        content: `❌ An error occurred while adding the title: ${error.message}. Please try again.`,
         embeds: [],
         components: [],
       });
