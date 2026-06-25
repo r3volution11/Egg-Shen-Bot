@@ -9,7 +9,7 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
 | **Discord Bot** | ✅ Yes | Yes | [Discord Portal](https://discord.com/developers/applications) | Instant |
 | **TMDB** | ✅ Yes | Yes | [TMDB](https://www.themoviedb.org/settings/api) | 1-2 minutes |
 | **iTunes Search API** | ⭕ Auto-enabled | Yes (unlimited) | None required | N/A |
-| **OpenAI** | ⭕ Optional | Pay-per-use | [OpenAI Platform](https://platform.openai.com/api-keys) | Instant |
+| **OpenAI** | ⭕ Optional | Pay-per-use | [OpenAI Platform](https://platform.openai.com/api-keys) | Instant ($2-5/month typical) |
 | **Watchmode** | ⭕ Optional | 1000/month | [Watchmode](https://api.watchmode.com/) | Instant |
 | **Spotify** | ⭕ Optional | Yes | [Spotify for Developers](https://developer.spotify.com/dashboard) | Instant |
 | **OMDB** | ⭕ Optional | 1000/day | [OMDB](http://www.omdbapi.com/apikey.aspx) | Instant |
@@ -98,12 +98,23 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
 
 ## OpenAI API Key
 
-**Purpose:** AI-enhanced semantic search for improved result relevance  
-**Features Enabled:** Smart re-ranking of search results based on semantic similarity  
-**Pricing:** Pay-per-use (text-embedding-3-small model: $0.02 per 1M tokens)
+**Purpose:** AI image generation and semantic search  
+**Features Enabled:**
+- **AI Image Generation** - `/image`, `/versus-image`, `/bracket image` commands
+- **Semantic Search** - Smart re-ranking of search results based on semantic similarity  
+**Pricing:** Pay-per-use
+- Image generation (gpt-image-2 model): $0.04 per image
+- Text embeddings (text-embedding-3-small model): $0.02 per 1M tokens
 
 ### Why Use OpenAI?
 
+**AI Image Generation:**
+- Create custom AI-generated images from text prompts
+- Generate epic "versus" battle posters comparing two titles
+- Tournament matchup visualizations
+- Cost: $0.04 per image with built-in rate limiting to control costs
+
+**Semantic Search Enhancement:**
 Standard keyword search works well for exact titles, but can struggle with:
 - Partial titles or misspellings
 - Descriptions instead of titles ("that movie about dreams within dreams")
@@ -114,7 +125,7 @@ OpenAI's semantic search understands **meaning**, not just keywords, providing:
 - **Semantic understanding** - Matches based on context and meaning
 - **Improved relevance** - Works even with imprecise queries
 
-The bot uses a **hybrid approach**: keyword search first (fast and free), then AI re-ranking (smart and accurate). If OpenAI isn't configured, the bot still works with keyword search alone.
+The bot uses a **hybrid approach**: keyword search first (fast and free), then AI re-ranking (smart and accurate). If OpenAI isn't configured, the bot still works with keyword search alone (but image generation will be disabled).
 
 ### Step-by-Step Instructions
 
@@ -136,13 +147,18 @@ The bot uses a **hybrid approach**: keyword search first (fast and free), then A
    - Add to `.env` file as `OPENAI_API_KEY`
 
 **Cost Estimate:**
-- Using `text-embedding-3-small` model: ~$0.02 per 1,000 searches
-- Example: 10,000 searches/month ≈ $0.20
-- Very cost-effective for small-medium servers
+- **Image generation:** $0.04 per image
+  - Default limits: 10 images/user/day, 50 images/server/day
+  - Example: 50 images/month ≈ $2.00
+  - Configurable rate limits prevent runaway costs
+- **Semantic search:** ~$0.02 per 1,000 searches
+  - Example: 10,000 searches/month ≈ $0.20
+  - Very cost-effective for small-medium servers
+- **Total:** Most servers spend $2-5/month
 
-**Usage Limits:** Set custom spending limits in your OpenAI dashboard
+**Usage Limits:** Set custom spending limits in your OpenAI dashboard to prevent surprise bills
 
-**Note:** OpenAI is completely optional. The bot works without it using keyword search alone.
+**Note:** OpenAI is completely optional. The bot works without it using keyword search alone (image generation features will be disabled).
 
 ---
 

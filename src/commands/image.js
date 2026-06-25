@@ -31,6 +31,12 @@ export async function execute(interaction) {
     return await interaction.editReply(`❌ ${rateCheck.reason}`);
   }
 
+  // Check if OpenAI is configured
+  if (!config.apis.openai?.apiKey) {
+    await interaction.editReply('❌ OpenAI API is not configured. AI image generation requires an OpenAI API key.');
+    return;
+  }
+
   const prompt = interaction.options.getString('prompt');
   const messageInput = interaction.options.getString('message');
 
