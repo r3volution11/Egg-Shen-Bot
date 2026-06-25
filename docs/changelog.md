@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - **Rich Metadata** - Uses overviews and descriptions for better prompts
     - **Rate Limited** - Same limits as `/image` command
     - Wide format (1792x1024) for split-screen compositions
-  - **OpenAI Model Update** - Updated to `gpt-image` (renamed from `dall-e-3`)
+  - **OpenAI Model Update** - Updated to `gpt-image-2` (latest image generation model)
   - **Usage Tracking** - Logs all generations with cost, user, guild, and metadata
   - **Cost Protection** - Prevents runaway costs ($60/month default max vs $2,400/month unlimited)
 - **Tournament Bracket Visualizations**
