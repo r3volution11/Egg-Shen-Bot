@@ -77,7 +77,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 ### � AI-Powered Features
 
 - **AI Image Generation** - Create custom images from text prompts or Discord messages using OpenAI (`/image`)
-- **VS Battle Images** - Generate epic "versus" poster mashups for tournament matchups or any title comparison (`/bracket image`)
+- **VS Battle Images** - Generate epic "versus" poster mashups for any title comparison (`/versus-image` or `/bracket image`)
 - **AI-Enhanced Search** - Optional semantic search powered by OpenAI improves result relevance and ranking
 - **Rate Limited** - Built-in cost protection with configurable cooldowns and daily limits
 - **Whitelist System** - Grant unlimited image generation to contributors and supporters
