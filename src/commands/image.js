@@ -101,6 +101,7 @@ export async function execute(interaction) {
         n: 1,
         size: '1024x1024', // Square format for general images
         quality: 'medium', // Options: 'low', 'medium', 'high', or 'auto'
+        response_format: 'url', // Request URL instead of base64
       }),
     });
 
