@@ -7,6 +7,7 @@ Egg Shen can generate AI-powered images using OpenAI's latest image generation A
 - **Cost:** $0.04 per image generated
 - **Generation Time:** 2-3 minutes per image
 - **Privacy:** Command invocation is hidden (only you see it), image posted publicly
+- **Server Controls:** Admins can disable entirely or restrict to moderators/admins only
 - **Default Limits:** 5-minute cooldown, 10 images/user/day, 50 images/server/day
 - **Customizable:** Server admins can adjust all limits
 - **Whitelist:** Contributors/premium users can have unlimited access
@@ -259,9 +260,57 @@ All configuration requires Administrator, Manage Server, or Moderator permission
 ```
 
 Shows:
+- ⚙️ **Feature Status:** Whether AI generation is enabled/disabled
+- 🔒 **Permissions:** Who can use AI image commands (everyone/moderators/admins)
 - ⚙️ **Settings:** All current limits and toggles
 - 📊 **Server Stats:** Today's usage, cost, and remaining quota
 - 👤 **Your Stats:** Your personal usage and cooldown status
+
+### Enable/Disable AI Image Generation
+
+```
+/eggshen-config ai-images feature-toggle enabled:false
+```
+
+Completely enable or disable AI image generation on your server.
+
+**When disabled:**
+- All AI image commands (`/image`, `/versus-image`, `/bracket image`) will show error messages
+- No images can be generated regardless of permissions or rate limits
+- Useful for servers that don't want AI features at all
+
+**Options:**
+- `enabled:true` - Enable AI image generation (default)
+- `enabled:false` - Completely disable all AI image commands
+
+💡 **Note:** This is separate from rate limiting. You can disable the feature entirely OR keep it enabled with rate limits.
+
+### Set Permission Levels
+
+```
+/eggshen-config ai-images set-permissions level:admins
+```
+
+Control who can use AI image generation commands.
+
+**Permission Levels:**
+- `everyone` (default) - All server members can generate images
+- `moderators` - Only moderators and admins (users with Moderate Members, Kick Members, or Ban Members permissions)
+- `admins` - Only administrators (users with Administrator or Manage Server permissions)
+
+**Use cases:**
+- Prevent spam by restricting to moderators
+- Reserve AI features for admins only
+- Open to everyone for community engagement
+
+**Examples:**
+```
+/eggshen-config ai-images set-permissions level:everyone
+/eggshen-config ai-images set-permissions level:moderators
+/eggshen-config ai-images set-permissions level:admins
+```
+
+💡 **Combined with rate limiting:** Permission levels determine WHO can use the commands, rate limits control HOW MUCH they can use them.
 
 ### Toggle Rate Limiting
 
