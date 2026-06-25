@@ -956,6 +956,14 @@ async function handleImage(interaction) {
     
     const prompt = `${promptBase} "${firstTitle}" and "${secondTitle}". IMPORTANT: Create a versus battle composition with strict left-right layout. LEFT HALF: "${firstTitle}" theme and imagery. CENTER: Bold "VS" text divider. RIGHT HALF: "${secondTitle}" theme and imagery. Split-screen battle poster with dramatic lighting, cinematic style, high contrast. Professional design, 4K quality. Do not replicate existing poster art - create something new inspired by these titles.${promptDetails}${customPrompt ? ` Additional details: ${customPrompt}` : ''}`;
     
+    // Log request details for debugging
+    console.log(`[/bracket image] User: ${interaction.user.username} (${interaction.user.id})`);
+    console.log(`[/bracket image] Guild: ${interaction.guildId}`);
+    console.log(`[/bracket image] Title 1: "${firstTitle}" (${firstEntry?.type || 'unknown'})`);
+    console.log(`[/bracket image] Title 2: "${secondTitle}" (${secondEntry?.type || 'unknown'})`);
+    console.log(`[/bracket image] Custom prompt: ${customPrompt || 'none'}`);
+    console.log(`[/bracket image] Generated prompt: ${prompt.substring(0, 300)}...`);
+    
     await interaction.editReply(`🎨 Generating AI image for **${firstTitle}** vs **${secondTitle}**...\n\n_This may take 2-3 minutes..._`);
     
     const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -975,17 +983,18 @@ async function handleImage(interaction) {
     
     if (!response.ok) {
       const error = await response.json();
+      console.error(`[/bracket image] OpenAI API Error:`, error);
       throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
     }
     
     const data = await response.json();
-    console.log('[OpenAI Response] Full bracket response:', JSON.stringify(data, null, 2));
+    console.log('[/bracket image] OpenAI Response:', JSON.stringify(data, null, 2));
     
     // Check for different response formats
     let imageBuffer;
     if (data.data && data.data[0]) {
       if (data.data[0].url) {
-        console.log('[OpenAI Response] Found URL, downloading...');
+        console.log('[/bracket image] Found URL, downloading...');
         const imageUrl = data.data[0].url;
         const imageResponse = await fetch(imageUrl);
         if (!imageResponse.ok) {
@@ -993,14 +1002,14 @@ async function handleImage(interaction) {
         }
         imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
       } else if (data.data[0].b64_json) {
-        console.log('[OpenAI Response] Received base64 data, converting to buffer...');
+        console.log('[/bracket image] Received base64 data, converting to buffer...');
         imageBuffer = Buffer.from(data.data[0].b64_json, 'base64');
       } else {
-        console.error('[OpenAI Response] Unknown format:', data);
+        console.error('[/bracket image] Unknown format:', data);
         throw new Error('Invalid response from OpenAI - unexpected format');
       }
     } else {
-      console.error('[OpenAI Response] Missing data array:', data);
+      console.error('[/bracket image] Missing data array:', data);
       throw new Error('Invalid response from OpenAI - missing data');
     }
     
@@ -1033,7 +1042,7 @@ async function handleImage(interaction) {
     await interaction.editReply('✅ Image generated and posted to the channel!');
     
   } catch (error) {
-    console.error('Error generating AI image:', error);
+    console.error('[/bracket image] Error generating AI image:', error);
     await interaction.editReply(`❌ Failed to generate AI image: ${error.message}`);
   }
 }
