@@ -195,6 +195,7 @@ export function addGroupTitle(guildId, groupId, type, entry) {
     id: entry.id,
     year: entry.year,
     posterUrl: entry.posterUrl,
+    customImageUrl: entry.customImageUrl,
     metadata: entry.metadata,
     votes: [],
   });

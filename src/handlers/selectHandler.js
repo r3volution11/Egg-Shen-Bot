@@ -147,6 +147,11 @@ export async function handleSelectInteraction(interaction) {
     try {
       const { EmbedBuilder } = await import('discord.js');
       const { addGroupTitle } = await import('../utils/bracketManager.js');
+      const { customImageCache } = await import('../commands/bracket.js');
+      
+      // Retrieve custom image from cache if it was provided
+      const cacheKey = `${interaction.user.id}_${group}`;
+      const customImage = customImageCache.get(cacheKey);
       
       // Fetch the selected result to get full details
       let result = null;
@@ -228,8 +233,16 @@ export async function handleSelectInteraction(interaction) {
         };
       }
       
+      // Add custom image if it was provided
+      if (customImage) {
+        entry.customImageUrl = customImage;
+      }
+      
       // Add the title to the bracket
       const addResult = addGroupTitle(interaction.guildId, group, type, entry);
+      
+      // Clean up custom image from cache
+      customImageCache.delete(cacheKey);
       
       if (!addResult.success) {
         await interaction.update({
@@ -258,8 +271,10 @@ export async function handleSelectInteraction(interaction) {
           { name: 'Group Progress', value: `${addResult.titleCount}/4 titles`, inline: true }
         );
       
-      if (entry.posterUrl) {
-        embed.setThumbnail(entry.posterUrl);
+      // Use custom image if provided, otherwise use API poster
+      const imageUrl = entry.customImageUrl || entry.posterUrl;
+      if (imageUrl) {
+        embed.setThumbnail(imageUrl);
       }
       
       if (addResult.titleCount < 4) {
