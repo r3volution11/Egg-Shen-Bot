@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Tournament Brackets**
+  - **NEW: Custom Image Support** - Provide your own images when adding titles to brackets
+    - Optional `custom_image` parameter in `/bracket add-title`
+    - Custom images override API posters in matchups and voting screens
+    - Perfect for servers that don't want AI-generated images
+    - Useful for custom artwork or specific promotional posters
+    - Falls back to API poster if no custom image provided
   - **NEW: `/bracket remove-title`** - Remove titles from groups during setup phase
     - Remove by position (1-4) from any group
     - Only available before voting starts

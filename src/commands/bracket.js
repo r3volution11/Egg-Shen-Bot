@@ -14,6 +14,9 @@ import { isAdmin } from '../utils/guildConfig.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
+// Temporary storage for custom images during selection process
+export const customImageCache = new Map();
+
 export const data = new SlashCommandBuilder()
   .setName('bracket')
   .setDescription('Tournament bracket system for movie competitions')
@@ -62,6 +65,12 @@ export const data = new SlashCommandBuilder()
       )
       .addStringOption(option =>
         option.setName('title').setDescription('Title to search for and add').setRequired(true)
+      )
+      .addStringOption(option =>
+        option
+          .setName('custom_image')
+          .setDescription('Optional: Custom image URL for this title (overrides API poster)')
+          .setRequired(false)
       )
   )
   .addSubcommand(subcommand =>
@@ -298,6 +307,7 @@ async function handleAddTitle(interaction) {
   const group = interaction.options.getString('group');
   const type = interaction.options.getString('type');
   const title = interaction.options.getString('title');
+  const customImage = interaction.options.getString('custom_image');
   
   // Check if tournament exists
   const tournament = bracketManager.loadTournament(interaction.guildId);
@@ -350,6 +360,12 @@ async function handleAddTitle(interaction) {
   // If only one result, add it directly
   if (results.length === 1) {
     const entry = buildEntryFromResult(results[0], type);
+    
+    // Apply custom image if provided
+    if (customImage) {
+      entry.customImageUrl = customImage;
+    }
+    
     const result = bracketManager.addGroupTitle(interaction.guildId, group, type, entry);
     
     if (!result.success) {
@@ -370,8 +386,10 @@ async function handleAddTitle(interaction) {
         { name: 'Group Progress', value: `${result.titleCount}/4 titles`, inline: true }
       );
     
-    if (entry.posterUrl) {
-      embed.setThumbnail(entry.posterUrl);
+    // Use custom image if provided, otherwise use API poster
+    const imageUrl = entry.customImageUrl || entry.posterUrl;
+    if (imageUrl) {
+      embed.setThumbnail(imageUrl);
     }
     
     if (result.titleCount < 4) {
@@ -388,6 +406,14 @@ async function handleAddTitle(interaction) {
   const guildConfig = await loadGuildConfig(interaction.guildId);
   const maxResults = guildConfig.maxSearchResults || 20;
   const limitedResults = results.slice(0, maxResults);
+  
+  // Store custom image in cache if provided
+  if (customImage) {
+    const cacheKey = `${interaction.user.id}_${group}`;
+    customImageCache.set(cacheKey, customImage);
+    // Auto-cleanup after 5 minutes
+    setTimeout(() => customImageCache.delete(cacheKey), 5 * 60 * 1000);
+  }
   
   // Create selection menu with bracket context
   const options = limitedResults.map((result) => {
@@ -474,8 +500,10 @@ async function handleRemoveTitle(interaction) {
       { name: 'Group Progress', value: `${result.titleCount}/4 titles`, inline: true }
     );
   
-  if (result.removedTitle.posterUrl) {
-    embed.setThumbnail(result.removedTitle.posterUrl);
+  // Use custom image if provided, otherwise use API poster
+  const imageUrl = result.removedTitle.customImageUrl || result.removedTitle.posterUrl;
+  if (imageUrl) {
+    embed.setThumbnail(imageUrl);
   }
   
   if (result.titleCount < 4) {
