@@ -282,6 +282,19 @@ Log and view server watch party history.
 
 ## AI Image Generation Commands
 
+### `/versus-image`
+Generate AI "versus" battle images comparing two titles.
+
+**Options:**
+- `title1` - First title (movie, TV, game, book, board game)
+- `title2` - Second title to compare against  
+- `prompt` - Additional style details (optional)
+
+**Features:**
+- Smart search validation
+- Cross-type comparisons
+- Wide format (1792x1024)
+
 ### `/image`
 Generate AI images using OpenAI's image generation API.
 

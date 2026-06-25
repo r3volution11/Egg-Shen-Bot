@@ -1,6 +1,6 @@
 # AI Image Generation
 
-Egg Shen can generate AI-powered images using OpenAI's latest image generation API. The bot provides two commands for creating images, with built-in rate limiting to control costs.
+Egg Shen can generate AI-powered images using OpenAI's latest image generation API. The bot provides three commands for creating images, with built-in rate limiting to control costs.
 
 ## Overview
 
@@ -11,7 +11,64 @@ Egg Shen can generate AI-powered images using OpenAI's latest image generation A
 - **Customizable:** Server admins can adjust all limits
 - **Whitelist:** Contributors/premium users can have unlimited access
 
+**Available Commands:**
+- **`/image`** - Generate images from text prompts or Discord messages
+- **`/versus-image`** - Generate AI "versus" battle images comparing two titles
+- **`/bracket image`** - Generate versus images (alternative to /versus-image)
+
 ---
+
+## `/versus-image` Command
+
+Create AI-generated "versus" battle images comparing any two titles.
+
+### Usage
+
+```
+/versus-image title1:"The Thing 1982" title2:"Alien 1979"
+/versus-image title1:"Breaking Bad" title2:"The Wire" prompt:"dramatic neon lighting"
+/versus-image title1:"Elden Ring" title2:"Dark Souls"
+```
+
+### Parameters
+
+- **`title1`** (required) - First title (movie, TV show, game, book, board game)
+- **`title2`** (required) - Second title to compare against
+- **`prompt`** (optional) - Additional style or setting details
+
+### Features
+
+- **Smart Search** - Validates both titles exist before generating
+- **Cross-Type Support** - Compare movies vs games, TV vs books, etc.
+- **Auto-Disambiguation** - Selects first match if multiple results found
+- **Wide Format** - 1792x1024 split-screen composition
+- **Rate Limited** - Same limits as `/image` (5-min cooldown, daily limits)
+
+## `/versus-image` Command
+
+Create AI-generated "versus" battle images comparing any two titles.
+
+### Usage
+
+```
+/versus-image title1:"The Thing 1982" title2:"Alien 1979"
+/versus-image title1:"Breaking Bad" title2:"The Wire" prompt:"dramatic neon lighting"
+/versus-image title1:"Elden Ring" title2:"Dark Souls"
+```
+
+### Parameters
+
+- **`title1`** (required) - First title (movie, TV show, game, book, board game)
+- **`title2`** (required) - Second title to compare against
+- **`prompt`** (optional) - Additional style or setting details
+
+### Features
+
+- **Smart Search** - Validates both titles exist before generating
+- **Cross-Type Support** - Compare movies vs games, TV vs books, etc.
+- **Auto-Disambiguation** - Selects first match if multiple results found
+- **Wide Format** - 1792x1024 split-screen composition
+- **Rate Limited** - Same limits as `/image` (5-min cooldown, daily limits)
 
 ## `/image` Command
 
