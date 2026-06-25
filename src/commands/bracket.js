@@ -964,11 +964,11 @@ async function handleImage(interaction) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-image', // OpenAI renamed from dall-e-3 to gpt-image
+        model: 'gpt-image-2', // OpenAI's latest image model (formerly dall-e-3)
         prompt: prompt,
         n: 1,
         size: '1792x1024', // Wide format for vs layout
-        quality: 'standard', // or 'hd' for higher quality
+        quality: 'medium', // Options: 'low', 'medium', 'high', or 'auto'
       }),
     });
     
