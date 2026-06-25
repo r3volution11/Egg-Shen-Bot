@@ -214,14 +214,15 @@ Host comprehensive movie or TV show tournaments.
 **Example:**
 ```
 /bracket create name:The Shudder Discord Gore Cup groups:12
-/bracket add-group group:A type:movie title1:"The Exorcist 1973" title2:"Halloween 1978" title3:"The Texas Chain Saw Massacre 1974" title4:"Night of the Living Dead 1968"
+/bracket add-title group:A type:movie title:The Exorcist
+/bracket add-title group:A type:movie title:Halloween
 /bracket open-groups groups:A,B,C,D
 /bracket vote-group group:A choice1:1 choice2:3
 /bracket view
 /bracket image title1:"The Exorcist" title2:"Halloween"
 ```
 
-[Learn more →](/commands/tournaments)
+[Learn more →](/commands/brackets)
 
 ---
 
