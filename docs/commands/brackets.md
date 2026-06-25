@@ -116,7 +116,7 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 ### Add Entries to Group
 
 ```
-/bracket add-title group:[A-L] type:[movie/tv/game/boardgame/book] title:[title] custom_image:[url]
+/bracket add-title group:[A-L] type:[movie/tv/game/boardgame/book] title:[title] image:[attachment]
 ```
 
 **Parameters:**
@@ -124,7 +124,7 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 - `group` (required) - Group letter (A through L)
 - `type` (required) - Tournament type: movie, tv, game, boardgame, or book
 - `title` (required) - Title to search for
-- `custom_image` (optional) - Custom image URL to use instead of API poster
+- `image` (optional) - Custom image file or URL to use instead of API poster
 
 
 **Who can use:** Administrators and Moderators only
@@ -134,7 +134,9 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 - **Smart search integration**: Automatically searches TMDB, RAWG, BGG, or Google Books based on type
 - **Selection menu for precision**: When multiple matches found, shows dropdown menu to choose exact title
 - **Single result auto-add**: If only one match found, adds it immediately
-- **Custom images**: Optionally provide a custom image URL that overrides the API poster
+- **Custom images**: Optionally provide a custom image (upload file or paste URL) that overrides the API poster
+  - Upload images directly from your device (Discord supports PNG, JPG, GIF, WebP)
+  - Or paste image URLs from Discord CDN, Imgur, or any direct image link
   - Perfect for servers that don't want AI-generated images
   - Custom images are displayed in matchups and voting screens
   - Falls back to API poster if no custom image provided
@@ -158,9 +160,9 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 /bracket add-title group:C type:game title:Doom Eternal
 
-# With custom images
-/bracket add-title group:D type:movie title:Akira custom_image:https://example.com/akira-poster.jpg
-/bracket add-title group:D type:movie title:Ghost in the Shell custom_image:https://example.com/gits.png
+# With custom images (upload files or paste URLs)
+/bracket add-title group:D type:movie title:Akira image:[upload file]
+/bracket add-title group:D type:movie title:Ghost in the Shell image:https://example.com/gits.png
 ```
 
 **When Multiple Matches Found:**
@@ -177,10 +179,11 @@ Bot shows a selection menu with all matches (just like `/movie`, `/tv`, etc.):
 - Run command 4 times to fill each group (one title at a time)
 - Can be more general with titles - selection menu lets you pick exact match
 - Progress indicator shows "1/4 titles", "2/4 titles", etc.
-- **Use `custom_image` parameter** to provide your own images instead of relying on API posters
+- **Use `image` parameter** to provide your own images instead of relying on API posters
+  - Click the attachment button to upload images from your device
+  - Or paste an image URL (Discord CDN, Imgur, direct image links, etc.)
   - Useful if you want specific artwork for your tournament
   - Great for servers that don't want to use AI-generated matchup images
-  - Accepts any valid image URL (Discord CDN, Imgur, direct image links, etc.)
 - All entries in a tournament must be the same type
 - Bot displays confirmed titles with years: "The Thing (1982)"
 - Group is complete when it has 4 titles
