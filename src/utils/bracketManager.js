@@ -93,6 +93,92 @@ export function createTournament(guildId, name, creatorId, groupCount = 8) {
 }
 
 /**
+ * Resize an existing tournament (expand or contract group count)
+ * @param {string} guildId - Guild ID
+ * @param {number} newGroupCount - New number of groups (4-12)
+ * @returns {Object} Result with success/error
+ */
+export function resizeTournament(guildId, newGroupCount) {
+  const tournament = loadTournament(guildId);
+  
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+  
+  if (tournament.status !== 'setup') {
+    return { success: false, error: 'Tournament can only be resized during setup phase' };
+  }
+  
+  // Validate new group count
+  if (newGroupCount < 4 || newGroupCount > 12) {
+    return { success: false, error: 'Group count must be between 4 and 12' };
+  }
+  
+  // Check if contracting - make sure we're not removing groups that have titles
+  if (newGroupCount < tournament.groupCount) {
+    const allowedGroups = 'ABCDEFGHIJKL'.slice(0, newGroupCount);
+    const groupsToRemove = 'ABCDEFGHIJKL'.slice(newGroupCount, tournament.groupCount);
+    
+    // Collect all groups that would be removed but have titles
+    const groupsWithTitles = [];
+    let totalTitlesToRemove = 0;
+    
+    for (const groupId of groupsToRemove) {
+      if (tournament.groups[groupId] && tournament.groups[groupId].movies.length > 0) {
+        const titleCount = tournament.groups[groupId].movies.length;
+        groupsWithTitles.push({ id: groupId, count: titleCount });
+        totalTitlesToRemove += titleCount;
+      }
+    }
+    
+    // If any groups have titles, provide detailed error message
+    if (groupsWithTitles.length > 0) {
+      const groupList = groupsWithTitles.map(g => `Group ${g.id} (${g.count} title${g.count !== 1 ? 's' : ''})`).join(', ');
+      const keepRange = 'ABCDEFGHIJKL'.slice(0, newGroupCount);
+      
+      let errorMsg = `❌ Cannot contract to ${newGroupCount} groups. The following groups have titles that would be removed:\n\n${groupList}\n\n`;
+      errorMsg += `**Options:**\n`;
+      errorMsg += `1️⃣ Move ${totalTitlesToRemove} title${totalTitlesToRemove !== 1 ? 's' : ''} from ${groupsWithTitles.map(g => `Group ${g.id}`).join(' and ')} to groups ${keepRange.split('').join(', ')}\n`;
+      errorMsg += `2️⃣ Remove the titles using \`/bracket remove-title\`\n`;
+      
+      // Calculate minimum groups needed to keep all current titles
+      const allGroupsWithTitles = Object.keys(tournament.groups).filter(
+        key => tournament.groups[key].movies && tournament.groups[key].movies.length > 0
+      );
+      const minGroupsNeeded = allGroupsWithTitles.length;
+      
+      if (newGroupCount < minGroupsNeeded) {
+        errorMsg += `3️⃣ Resize to at least ${minGroupsNeeded} groups (to keep all ${minGroupsNeeded} filled groups)`;
+      }
+      
+      return {
+        success: false,
+        error: errorMsg,
+        groupsWithTitles: groupsWithTitles,
+        totalTitlesToRemove: totalTitlesToRemove,
+      };
+    }
+    
+    // Remove empty groups that are outside the new range
+    for (const groupId of groupsToRemove) {
+      delete tournament.groups[groupId];
+    }
+  }
+  
+  const oldGroupCount = tournament.groupCount;
+  tournament.groupCount = newGroupCount;
+  
+  // Count how many groups have titles
+  const filledGroups = Object.keys(tournament.groups).filter(
+    key => tournament.groups[key].movies && tournament.groups[key].movies.length > 0
+  ).length;
+  
+  return saveTournament(guildId, tournament)
+    ? { success: true, tournament, oldGroupCount, newGroupCount, filledGroups }
+    : { success: false, error: 'Failed to save tournament' };
+}
+
+/**
  * Add movies to a group (legacy - use addGroupTitle instead)
  */
 export function addGroupMovies(guildId, groupId, type, entries) {
