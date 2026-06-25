@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import { config } from '../config.js';
 import { canGenerateImage, recordImageGeneration } from '../utils/aiImageTracker.js';
-import { isAdmin } from '../utils/guildConfig.js';
+import { isAdmin, isTrueAdmin, isModerator } from '../utils/guildConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('image')
@@ -23,9 +23,10 @@ export async function execute(interaction) {
   // Defer with ephemeral to hide the command from other users
   await interaction.deferReply({ ephemeral: true });
 
-  // Check rate limits
-  const userIsAdmin = await isAdmin(interaction.member);
-  const rateCheck = canGenerateImage(interaction.guildId, interaction.user.id, userIsAdmin);
+  // Check permissions and feature enabled
+  const userIsTrueAdmin = await isTrueAdmin(interaction.member);
+  const userIsMod = await isModerator(interaction.member) || userIsTrueAdmin;
+  const rateCheck = canGenerateImage(interaction.guildId, interaction.user.id, userIsTrueAdmin, userIsMod);
   
   if (!rateCheck.allowed) {
     return await interaction.editReply(`❌ ${rateCheck.reason}`);

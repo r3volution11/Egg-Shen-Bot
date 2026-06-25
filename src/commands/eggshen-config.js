@@ -384,6 +384,33 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand(subcommand =>
         subcommand
+          .setName('feature-toggle')
+          .setDescription('Enable or disable AI image generation entirely on this server')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable AI image generation features')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('set-permissions')
+          .setDescription('Set who can use AI image generation commands')
+          .addStringOption(option =>
+            option
+              .setName('level')
+              .setDescription('Permission level required to use AI image generation')
+              .setRequired(true)
+              .addChoices(
+                { name: 'Everyone', value: 'everyone' },
+                { name: 'Moderators and Admins', value: 'moderators' },
+                { name: 'Admins Only', value: 'admins' }
+              )
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
           .setName('toggle')
           .setDescription('Enable or disable AI image rate limiting')
           .addBooleanOption(option =>
@@ -1485,6 +1512,10 @@ export async function execute(interaction) {
   } else if (group === 'ai-images' && subcommand === 'view') {
     // View AI image statistics
     const config = await loadGuildConfig(guildId);
+    const aiConfig = config.aiImages || {
+      enabled: true,
+      permissions: 'everyone',
+    };
     const limits = config.rateLimits?.aiImages || {
       enabled: true,
       perUserCooldown: 300,
@@ -1496,14 +1527,22 @@ export async function execute(interaction) {
 
     const guildStats = getGuildImageStats(guildId);
     const userStats = getUserImageStats(guildId, interaction.user.id);
+    
+    const permissionsLabel = {
+      everyone: 'Everyone',
+      moderators: 'Moderators & Admins',
+      admins: 'Admins Only',
+    }[aiConfig.permissions] || 'Everyone';
 
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('🎨 AI Image Generation Settings & Statistics')
       .addFields(
         {
-          name: '⚙️ Settings',
+          name: '⚙️ Feature Settings',
           value: 
+            `${aiConfig.enabled ? '✅' : '❌'} **Feature Status:** ${aiConfig.enabled ? 'Enabled' : 'Disabled'}\n` +
+            `🔒 **Permissions:** ${permissionsLabel}\n` +
             `${limits.enabled ? '✅' : '❌'} **Rate Limiting:** ${limits.enabled ? 'Enabled' : 'Disabled'}\n` +
             `🕒 **User Cooldown:** ${Math.floor(limits.perUserCooldown / 60)} minutes\n` +
             `👤 **User Daily Limit:** ${limits.perUserDailyLimit} images\n` +
@@ -1530,10 +1569,57 @@ export async function execute(interaction) {
           inline: true,
         }
       )
-      .setFooter({ text: 'Use /eggshen-config ai-images to adjust limits' })
+      .setFooter({ text: 'Use /eggshen-config ai-images to adjust settings' })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
+
+  } else if (group === 'ai-images' && subcommand === 'feature-toggle') {
+    // Toggle AI image generation feature entirely
+    const enabled = interaction.options.getBoolean('enabled');
+
+    const config = await loadGuildConfig(guildId);
+    if (!config.aiImages) {
+      config.aiImages = {
+        enabled: true,
+        permissions: 'everyone',
+      };
+    }
+
+    config.aiImages.enabled = enabled;
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: `✅ AI image generation **${enabled ? 'enabled' : 'disabled'}** on this server.${!enabled ? '\n\n🚫 The `/image`, `/versus-image`, and `/bracket image` commands will no longer work until re-enabled.' : '\n\n✨ Users can now generate AI images (subject to rate limits and permissions).'}`,
+      ephemeral: true,
+    });
+
+  } else if (group === 'ai-images' && subcommand === 'set-permissions') {
+    // Set permission level for AI image generation
+    const level = interaction.options.getString('level');
+
+    const config = await loadGuildConfig(guildId);
+    if (!config.aiImages) {
+      config.aiImages = {
+        enabled: true,
+        permissions: 'everyone',
+      };
+    }
+
+    config.aiImages.permissions = level;
+    await saveGuildConfig(guildId, config);
+
+    const levelLabels = {
+      everyone: 'Everyone',
+      moderators: 'Moderators and Administrators',
+      admins: 'Administrators Only',
+    };
+
+    await interaction.reply({
+      content: `✅ AI image generation permissions set to: **${levelLabels[level]}**\n\n` +
+        `Only users with the specified permissions can now use \`/image\`, \`/versus-image\`, and \`/bracket image\` commands.`,
+      ephemeral: true,
+    });
 
   } else if (group === 'ai-images' && subcommand === 'toggle') {
     // Toggle AI image rate limiting
