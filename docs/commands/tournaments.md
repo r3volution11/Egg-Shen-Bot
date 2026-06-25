@@ -403,33 +403,51 @@ Winner: The Exorcist
 ### Generate AI Matchup Image
 
 ```
-/bracket image [title1:"Title A"] [title2:"Title B"]
+/bracket image [title1:"Title A"] [title2:"Title B"] [prompt:"details"]
 /bracket image [matchup:"Title A vs Title B"]
 ```
 
 **Parameters:**
-- `title1` (optional) - First title for freeform generation
-- `title2` (optional) - Second title for freeform generation  
+- `title1` (optional) - First title for freeform generation (validates through APIs)
+- `title2` (optional) - Second title for freeform generation (validates through APIs)
 - `matchup` (optional) - Tournament matchup to visualize (e.g., "The Thing vs Alien")
+- `prompt` (optional) - **NEW!** Additional details for image generation (e.g., "set in space with stars")
 
-**Who can use:** All server members
+**Who can use:** All server members (subject to rate limits)
 
 **Features:**
-- **NEW: Freeform generation** - Create AI images for ANY two titles, anytime!
+- **NEW: Smart Search Validation** - Automatically searches TMDB, RAWG, BGG, and Google Books to validate titles
+- **NEW: Custom Prompt Details** - Add specific style/setting instructions
+- **NEW: Cross-Type Support** - Compare movies vs games, TV shows vs books, etc.
+- **Freeform generation** - Create AI images for ANY two titles, anytime!
 - **Works without tournament** - No need for active tournament or knockout phase
 - **Tournament support** - Still works with active tournament matchups
-- Generates AI-powered "vs" poster mashups using DALL-E 3
+- Generates AI-powered "vs" poster mashups using OpenAI DALL-E
 - Creates dramatic split-screen compositions with bold VS text
+- **Strict Layout** - Title 1 always on left, VS center, Title 2 always on right
 - Wide format (1792x1024) perfect for epic showdowns
 - Standard quality ($0.04 per image, cost shown in embed)
 - Cinematic style with high contrast and dramatic lighting
+- **Rate Limited** - Default: 5-min cooldown, 10/day per user, 50/day per server
 - **Requires OpenAI API key** configuration
 
-**Freeform Generation (NEW!):**
+**Freeform Generation:**
 ```
 /bracket image title1:"Godzilla" title2:"King Kong"
 /bracket image title1:"The Exorcist" title2:"The Shining"
 /bracket image title1:"Breaking Bad" title2:"The Wire"
+```
+
+**With Custom Prompt Details (NEW!):**
+```
+/bracket image title1:"Alien" title2:"The Thing" prompt:"in deep space with stars"
+/bracket image title1:"Batman" title2:"Spider-Man" prompt:"cyberpunk city at night"
+```
+
+**Cross-Type Mashups:**
+```
+/bracket image title1:"Halo" title2:"Star Wars"  # Game vs Movie
+/bracket image title1:"Dune" title2:"Dune"  # Book vs Movie (auto-detects types)
 ```
 
 **Tournament Matchup:**
@@ -443,11 +461,20 @@ Winner: The Exorcist
 ```
 Shows: Available tournament matchups (if any) + freeform generation syntax
 
-**Generation Process:**
-1. Bot creates cinematic prompt for DALL-E 3
-2. Takes 10-30 seconds to generate
-3. Returns epic movie poster mashup image
-4. Perfect for hyping matchups or creating custom comparisons!
+**Smart Search Process:**
+1. **Validation:** Bot searches TMDB (movies/TV), RAWG (games), BGG (board games), Google Books
+2. **Disambiguation:** If multiple matches found, shows selection menu (like `/movie` command)
+3. **Rich Context:** Uses metadata (overview, type) to create better prompts
+4. **Generation:** Creates cinematic prompt for OpenAI (takes 10-30 seconds)
+5. **Result:** Returns epic poster mashup image with embed
+
+**Rate Limiting:**
+- **Default:** 5-minute cooldown, 10 images/user/day, 50 images/server/day
+- **Admins:** Bypass cooldown by default (still subject to daily limits)
+- **Whitelist:** Server admins can grant unlimited access to contributors
+- **Configurable:** All limits adjustable via `/eggshen-config ai-images`
+
+See [AI Image Generation](ai-images.md) for full documentation on rate limits and configuration.
 
 **Example Prompt Generated:**
 > "Epic movie poster mashup: 'The Thing' versus 'Alien'. Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents The Thing, right side represents Alien. Bold 'VS' text in the center. Movie poster aesthetic, professional design, 4K quality."

@@ -280,6 +280,64 @@ Log and view server watch party history.
 
 ---
 
+## AI Image Generation Commands
+
+### `/image`
+Generate AI images using OpenAI DALL-E.
+
+**Options:**
+- `prompt` - Describe the image to generate
+- `message` - Username or message ID to generate from
+
+**Features:**
+- Text-to-image generation
+- Generate from Discord messages
+- Square format (1024x1024)
+- 10-30 second generation time
+- Rate limited (5-min cooldown, 10/day per user, 50/day per server)
+- Whitelisting for unlimited users
+- Cost: $0.04 per image
+
+**Examples:**
+```
+/image prompt:A dragon flying over a medieval castle at sunset
+/image message:username
+/image message:1234567890123456789
+```
+
+[Learn more →](/commands/ai-images)
+
+---
+
+### `/bracket image`
+Generate AI "versus" matchup images.
+
+**Options:**
+- `title1` - First title (validated through APIs)
+- `title2` - Second title (validated through APIs)
+- `matchup` - Tournament matchup to visualize
+- `prompt` - Additional details for generation
+
+**Features:**
+- Smart search validation (TMDB, RAWG, BGG, Google Books)
+- Cross-type support (movies vs games, etc.)
+- Strict left-right layout (Title 1 | VS | Title 2)
+- Wide format (1792x1024)
+- Rich context from metadata
+- Rate limited (same as `/image`)
+- Cost: $0.04 per image
+
+**Examples:**
+```
+/bracket image title1:Godzilla title2:King Kong
+/bracket image title1:Alien title2:The Thing prompt:in deep space
+/bracket image matchup:The Thing vs Alien
+```
+
+[Learn more →](/commands/ai-images#bracket-image-command)
+
+---
+
 ## Utility Commands
 
 ### `/random`

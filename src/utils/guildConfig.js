@@ -72,6 +72,15 @@ const defaultConfig = {
       windowSeconds: 60, // Window for detecting patterns
       minUsers: 3, // Minimum users needed to flag as suspicious
     },
+    aiImages: {
+      enabled: true, // Master switch for AI image rate limiting
+      perUserCooldown: 300, // Cooldown between images per user (in seconds, 300 = 5 minutes)
+      perUserDailyLimit: 10, // Maximum images per user per day
+      perGuildDailyLimit: 50, // Maximum images per guild per day
+      adminsBypassCooldown: true, // Admins/mods bypass cooldown (but not daily limits)
+      costPerImage: 0.04, // Cost tracking (in USD)
+      whitelistedUsers: [], // User IDs who can generate unlimited images (e.g., bot contributors/premium users)
+    },
   },
   moderation: {
     enabled: false, // Master switch for all moderation features
