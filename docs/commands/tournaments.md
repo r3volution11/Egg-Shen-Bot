@@ -422,7 +422,7 @@ Winner: The Exorcist
 - **Freeform generation** - Create AI images for ANY two titles, anytime!
 - **Works without tournament** - No need for active tournament or knockout phase
 - **Tournament support** - Still works with active tournament matchups
-- Generates AI-powered "vs" poster mashups using OpenAI DALL-E
+- Generates AI-powered "vs" poster mashups using OpenAI
 - Creates dramatic split-screen compositions with bold VS text
 - **Strict Layout** - Title 1 always on left, VS center, Title 2 always on right
 - Wide format (1792x1024) perfect for epic showdowns
@@ -465,7 +465,7 @@ Shows: Available tournament matchups (if any) + freeform generation syntax
 1. **Validation:** Bot searches TMDB (movies/TV), RAWG (games), BGG (board games), Google Books
 2. **Disambiguation:** If multiple matches found, shows selection menu (like `/movie` command)
 3. **Rich Context:** Uses metadata (overview, type) to create better prompts
-4. **Generation:** Creates cinematic prompt for OpenAI (takes 10-30 seconds)
+4. **Generation:** Creates cinematic prompt for OpenAI (takes 2-3 minutes)
 5. **Result:** Returns epic poster mashup image with embed
 
 **Rate Limiting:**

@@ -1,10 +1,12 @@
 # AI Image Generation
 
-Egg Shen can generate AI-powered images using OpenAI's DALL-E image generation API. The bot provides two commands for creating images, with built-in rate limiting to control costs.
+Egg Shen can generate AI-powered images using OpenAI's latest image generation API. The bot provides two commands for creating images, with built-in rate limiting to control costs.
 
 ## Overview
 
 - **Cost:** $0.04 per image generated
+- **Generation Time:** 2-3 minutes per image
+- **Privacy:** Command invocation is hidden (only you see it), image posted publicly
 - **Default Limits:** 5-minute cooldown, 10 images/user/day, 50 images/server/day
 - **Customizable:** Server admins can adjust all limits
 - **Whitelist:** Contributors/premium users can have unlimited access
@@ -142,7 +144,7 @@ Generate AI "versus" images for tournament matchups or any title comparisons.
    - Title overviews/descriptions
    - Strict left-right layout instructions
    - Your custom prompt details (if provided)
-4. **Generation:** Sends to OpenAI (takes 10-30 seconds)
+4. **Generation:** Sends to OpenAI (takes 2-3 minutes)
 5. **Result:** Posts wide format (1792x1024) image with embed
 
 ### Rate Limiting
@@ -414,27 +416,35 @@ For `/image message:` usage:
 
 ### API Integration
 
-- **Provider:** OpenAI DALL-E
-- **Model:** `gpt-image` (formerly `dall-e-3`)
+- **Provider:** OpenAI
+- **Model:** `gpt-image-2` (latest image generation model)
 - **Format:** 
   - `/image`: 1024x1024 (square)
   - `/bracket image`: 1792x1024 (wide)
-- **Quality:** Standard ($0.04/image)
-- **Generation Time:** 10-30 seconds average
+- **Quality:** Medium (balance of quality and speed)
+- **Generation Time:** 2-3 minutes average
+- **Response Format:** Handles both URL and base64 responses automatically
 
 ### Content Policy Compliance
 
 Prompts are designed to comply with OpenAI's content policy:
-- Uses "inspired by themes" language
+- Uses "inspired by themes" language for `/bracket image`
 - Avoids direct replication requests
 - Creates "original artwork" not copies
 - References concepts, not specific copyrighted works
+- Content moderation handled by OpenAI's safety systems
 
-### Storage
+### Storage & Display
 
-- Images are hosted by OpenAI temporarily
-- Bot embeds the URL (no local storage)
-- Images expire after some time (OpenAI policy)
+- **Image Hosting:** OpenAI provides temporary URLs or base64 data
+- **Discord Attachment:** Bot downloads/converts and sends as Discord attachment
+- **Permanent Storage:** Discord CDN stores images permanently
+- **Embed Display:**
+  - Title: "🎨 AI Generated Image" or "🎨 Title1 vs Title2"
+  - Image: The generated artwork
+  - Footer: Your username
+  - Timestamp: When it was created
+  - **No prompt shown** - keeps it clean and private
 
 ### Tracking
 

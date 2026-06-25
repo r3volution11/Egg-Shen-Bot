@@ -93,8 +93,10 @@ These enable additional features:
   - Free tier: 1,000 requests/month
   - Supplements TMDB's watch provider data with additional sources
   
-- **[OpenAI API Key](https://platform.openai.com/api-keys)** - Semantic search for `/movie` and `/tv` commands
+- **[OpenAI API Key](https://platform.openai.com/api-keys)** - AI image generation (`/image`, `/bracket image`) and semantic search
   - **IMPORTANT:** Requires a paid OpenAI account with billing set up
+  - Image generation costs $0.04 per image (bot has built-in rate limiting)
+  - Semantic search uses minimal tokens (very low cost)
   - Create account at [platform.openai.com](https://platform.openai.com/)
   - Add payment method in Settings → Billing
   - Go to API Keys → Create new secret key

@@ -207,7 +207,7 @@ Host comprehensive movie or TV show tournaments.
 - Dynamic wildcards: auto-calculated (0-8) to reach power-of-2 bracket
 - Knockout: Adapts to tournament size (Semifinals → Round of 32)
 - **Visual bracket display**: March Madness-style bracket images
-- **AI matchup images**: DALL-E 3 generated "vs" poster mashups
+- **AI matchup images**: AI-generated "vs" poster mashups
 - Random tiebreaker for fair results
 - Complete vote tracking and management
 
@@ -283,7 +283,7 @@ Log and view server watch party history.
 ## AI Image Generation Commands
 
 ### `/image`
-Generate AI images using OpenAI DALL-E.
+Generate AI images using OpenAI's image generation API.
 
 **Options:**
 - `prompt` - Describe the image to generate

@@ -74,7 +74,15 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 - **Stream, Rent, or Buy** - Shows all available options
 - **Region Support** - Configurable per-server (defaults to US)
 
-### 🎯 Interactive & Configurable
+### � AI-Powered Features
+
+- **AI Image Generation** - Create custom images from text prompts or Discord messages using OpenAI (`/image`)
+- **VS Battle Images** - Generate epic "versus" poster mashups for tournament matchups or any title comparison (`/bracket image`)
+- **AI-Enhanced Search** - Optional semantic search powered by OpenAI improves result relevance and ranking
+- **Rate Limited** - Built-in cost protection with configurable cooldowns and daily limits
+- **Whitelist System** - Grant unlimited image generation to contributors and supporters
+
+### �🎯 Interactive & Configurable
 
 - **AI-Enhanced Search** - Optional semantic search powered by OpenAI improves result relevance and ranking
 - **Dropdown Menus** - Choose from search results (1-50 results, default 20)
@@ -113,7 +121,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 - A Discord application and bot token
 - API keys for:
   - **TMDB** (The Movie Database) - Required - [Get free API key](https://www.themoviedb.org/settings/api)
-  - **OpenAI** - Optional (enables AI-enhanced semantic search) - [Get API key](https://platform.openai.com/api-keys)
+  - **OpenAI** - Optional (enables AI image generation and semantic search) - [Get API key](https://platform.openai.com/api-keys)
   - **Watchmode** - Optional (enhanced streaming data) - [Get API key](https://api.watchmode.com/)
   - **OMDB** (Optional Movie Database) - Optional - [Get API key](http://www.omdbapi.com/apikey.aspx)
   - **Trakt** - Optional - [Get API key](https://trakt.tv/oauth/applications)
