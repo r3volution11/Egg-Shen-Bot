@@ -29,6 +29,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Square format (1024x1024), standard quality
     - 10-30 second generation time
     - Cost: $0.04 per image
+  - **NEW: Server-wide Feature Toggle**
+    - Completely disable AI image generation per server
+    - `/eggshen-config ai-images feature-toggle enabled:false` to disable
+    - Separate from rate limiting (can disable feature OR just limit usage)
+    - When disabled, all AI commands show clear error messages
+  - **NEW: Permission Level Controls**
+    - Control who can use AI image commands per server
+    - `/eggshen-config ai-images set-permissions level:[everyone|moderators|admins]`
+    - `everyone` (default) - All members can generate images
+    - `moderators` - Only moderators and admins
+    - `admins` - Only server administrators
+    - Combined with rate limiting for fine-grained control
   - **Comprehensive Rate Limiting System**
     - Per-user cooldown: 5 minutes (configurable 60-3600 seconds)
     - Per-user daily limit: 10 images (configurable 1-100)
@@ -39,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Prevents excessive API costs (default: $60/month max)
   - **Configuration Commands** (`/eggshen-config ai-images`)
     - `view` - See settings, server stats, and personal usage
+    - `feature-toggle` - Enable/disable AI image generation entirely
+    - `set-permissions` - Control who can use the commands
     - `toggle` - Enable/disable rate limiting
     - `user-cooldown` - Set cooldown between generations
     - `user-daily-limit` - Set max images per user per day
