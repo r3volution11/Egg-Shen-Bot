@@ -1,6 +1,6 @@
 # Tournament Bracket Testing Script
 
-This guide will walk you through testing all the tournament bracket features, including search integration and AI image generation.
+This guide will walk you through testing all the tournament bracket features, including search integration with selection menus and AI image generation.
 
 ---
 
@@ -10,19 +10,24 @@ This guide will walk you through testing all the tournament bracket features, in
 
 ```
 /bracket create name:"Horror Movie Showdown" groups:4
-/bracket add-group group:A type:movie title1:"The Thing" title2:"Alien" title3:"The Fly" title4:"Evil Dead"
+/bracket add-title group:A type:movie title:The Thing
+/bracket add-title group:A type:movie title:Alien
+/bracket add-title group:A type:movie title:The Fly
+/bracket add-title group:A type:movie title:Evil Dead
 ```
 
 **Expected Results:**
 
 - ✅ Tournament created successfully
 - ✅ Bot searches TMDB for each movie title
-- ✅ If single match found, auto-selects with year and metadata
-- ✅ If multiple matches, shows error asking for more specific title
+- ✅ If single match found, auto-adds with year and metadata
+- ✅ If multiple matches, shows selection menu (dropdown with options)
+- ✅ User selects exact title from menu
 - ✅ Group A displays with proper titles and years: "The Thing (1982)", "Alien (1979)", etc.
+- ✅ Progress shown: "1/4 titles", "2/4 titles", "3/4 titles", "4/4 titles - Group complete!"
 - ✅ Metadata (poster URLs, IDs) stored in tournament data
 
-**What This Tests:** TMDB search integration, automatic title resolution, metadata storage
+**What This Tests:** TMDB search integration, selection menu workflow, metadata storage, progress tracking
 
 ---
 
@@ -32,16 +37,20 @@ This guide will walk you through testing all the tournament bracket features, in
 
 ```
 /bracket create name:"Best TV Shows" groups:4
-/bracket add-group group:A type:tv title1:"Breaking Bad" title2:"The Wire" title3:"The Sopranos" title4:"Mad Men"
+/bracket add-title group:A type:tv title:Breaking Bad
+/bracket add-title group:A type:tv title:The Wire
+/bracket add-title group:A type:tv title:The Sopranos
+/bracket add-title group:A type:tv title:Mad Men
 ```
 
 **Expected Results:**
 
 - ✅ Bot searches TV shows via TMDB
+- ✅ Shows selection menus if multiple matches
 - ✅ Displays show titles with first air year
 - ✅ Stores TV show metadata (posters, ratings, IDs)
 
-**What This Tests:** TV show search integration
+**What This Tests:** TV show search integration, selection menu for TV
 
 ---
 
@@ -51,12 +60,16 @@ This guide will walk you through testing all the tournament bracket features, in
 
 ```
 /bracket create name:"Best Action Games" groups:4
-/bracket add-group group:A type:game title1:"Doom Eternal" title2:"Resident Evil 4" title3:"Halo 3" title4:"Bioshock"
+/bracket add-title group:A type:game title:Doom Eternal
+/bracket add-title group:A type:game title:Resident Evil 4
+/bracket add-title group:A type:game title:Halo 3
+/bracket add-title group:A type:game title:Bioshock
 ```
 
 **Expected Results:**
 
 - ✅ Bot searches RAWG API for games
+- ✅ Shows selection menu if multiple versions/editions exist
 - ✅ Displays game titles with release years
 - ✅ Stores game metadata (images, ratings, platforms)
 
@@ -64,38 +77,50 @@ This guide will walk you through testing all the tournament bracket features, in
 
 ---
 
-## 🧪 Test 4: Ambiguous Title Handling
+## 🧪 Test 4: Ambiguous Title Handling with Selection Menu
 
 **Commands:**
 
 ```
 /bracket create name:"Spider-Man Tournament" groups:4
-/bracket add-group group:A type:movie title1:"Spider-Man" title2:"The Batman" title3:"Superman" title4:"Iron Man"
+/bracket add-title group:A type:movie title:Spider-Man
 ```
 
 **Expected Results:**
 
-- ✅ Bot detects multiple matches for these common titles
-- ✅ Shows error: "Some titles have multiple matches: Spider-Man (8 matches), The Batman (3 matches)..."
-- ✅ Suggests being more specific (include year or more details)
-- ✅ Group is NOT added until titles are clarified
+- ✅ Bot finds multiple matches for "Spider-Man"
+- ✅ Shows selection menu with all Spider-Man movies
+- ✅ Each option shows: Title, year, and description
+- ✅ User selects "Spider-Man (2002)" from dropdown
+- ✅ Confirms selection with thumbnail: "✅ Added to Group A: Spider-Man (2002)"
+- ✅ Shows progress: "1/4 titles"
 
-**What This Tests:** Multiple search result handling, user guidance
+**What This Tests:** Multiple search result handling, selection menu UX
 
 ---
 
-## 🧪 Test 5: Specific Title Matching
+## 🧪 Test 5: Complete a Group with Specific Titles
 
 **Commands:**
 
 ```
-/bracket add-group group:A type:movie title1:"Spider-Man 2002" title2:"The Batman 2022" title3:"Superman 1978" title4:"Iron Man 2008"
+/bracket add-title group:A type:movie title:Spider-Man
+# (select 2002 version from menu)
+/bracket add-title group:A type:movie title:The Batman
+# (select 2022 version from menu)
+/bracket add-title group:A type:movie title:Superman
+# (select 1978 version from menu)
+/bracket add-title group:A type:movie title:Iron Man
+# (select 2008 version from menu)
 ```
 
 **Expected Results:**
 
-- ✅ More specific searches find single matches
+- ✅ Selection menus shown for each ambiguous title
+- ✅ User picks exact version they want
 - ✅ Titles added with correct years
+- ✅ Progress indicator updates: 1/4, 2/4, 3/4, 4/4
+- ✅ Final message: "Group A is complete! Add more groups or use /bracket open-groups"
 - ✅ Metadata properly stored
 
 **What This Tests:** Search specificity, year-based disambiguation
@@ -129,7 +154,10 @@ This guide will walk you through testing all the tournament bracket features, in
 
 ```
 /bracket create name:"Test Tournament" groups:4
-/bracket add-group group:A type:movie title1:"The Thing" title2:"Alien" title3:"The Fly" title4:"Evil Dead"
+/bracket add-title group:A type:movie title:The Thing
+/bracket add-title group:A type:movie title:Alien
+/bracket add-title group:A type:movie title:The Fly
+/bracket add-title group:A type:movie title:Evil Dead
 /bracket image title1:"Predator" title2:"Terminator"
 ```
 

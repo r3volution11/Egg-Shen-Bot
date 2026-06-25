@@ -32,7 +32,7 @@ A: Between 16 and 48 entries - organized into 4-12 groups (default 8) of 4 entri
 A: Movies, TV shows, video games, board games, or books. Each tournament must be a single type (can't mix movies and TV shows in the same tournament).
 
 **Q: How does the search integration work?**  
-A: When adding entries, the bot automatically searches TMDB (movies/TV), RAWG (video games), BoardGameGeek (board games), or Google Books. If it finds a single match, it's added automatically. If multiple matches found, you'll need to be more specific (e.g., include the year).
+A: When adding entries with `/bracket add-title`, the bot searches TMDB (movies/TV), RAWG (video games), BoardGameGeek (board games), or Google Books. If it finds a single match, it's added automatically. If multiple matches are found, you'll see a selection menu (just like `/movie` or `/tv`) where you can choose the exact title you want.
 
 **Q: Who can create and manage tournaments?**  
 A: Only server administrators and moderators can create, manage, and advance tournaments. All members can vote.
@@ -57,7 +57,8 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 - **4-12 groups** (A through L) with 4 entries each (you choose when creating)
 - Choose type: movies, TV shows, video games, board games, or books
-- Smart search automatically finds and adds entries from appropriate database
+- Smart search finds entries with selection menu for precision
+- Add titles one at a time (4 per group)
 - Members vote for their **top 2 entries** in each group
 - **Top 2 from each group** advance automatically
 - **Dynamic wildcards:** Best third-place finishers needed to reach power of 2 (0-8 wildcards)
@@ -95,7 +96,7 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 - Tournament enters "setup" phase
 - Flexible sizing: smaller tournaments for quick events, larger for epic competitions
 - Wildcards calculated automatically based on group count
-- Type determined by first `/bracket add-group` command
+- Type determined by first `/bracket add-title` command
 
 **Examples:**
 ```
@@ -109,40 +110,52 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 ### Add Entries to Group
 
 ```
-/bracket add-group group:[A-L] type:[movie/tv/game/boardgame/book] title1:[title] title2:[title] title3:[title] title4:[title]
+/bracket add-title group:[A-L] type:[movie/tv/game/boardgame/book] title:[title]
 ```
 
 **Parameters:**
 - `group` (required) - Group letter (A through L)
 - `type` (required) - Tournament type: movie, tv, game, boardgame, or book
-- `title1`-`title4` (required) - Four titles to search for
+- `title` (required) - Title to search for
 
 **Who can use:** Administrators and Moderators only
 
 **Features:**
 - **Smart search integration**: Automatically searches TMDB, RAWG, BGG, or Google Books based on type
-- **Automatic title resolution**: Selects title if single match found
+- **Selection menu for precision**: When multiple matches found, shows dropdown menu to choose exact title
+- **Single result auto-add**: If only one match found, adds it immediately
 - **Metadata storage**: Stores IDs, years, poster URLs, and ratings
-- **Error handling**: Shows helpful guidance if multiple or no matches found
+- **Progress tracking**: Shows how many titles added (e.g., "2/4 titles")
+- **Duplicate prevention**: Won't let you add same title twice to a group
 - **Type validation**: Prevents mixing different types in same tournament
-- Shows progress (e.g., "8/12 groups added")
-- Can overwrite existing group entries
+- **Add 1-4 titles per group**: Flexible - add titles one at a time until group has 4
 
 **Examples:**
 ```
-/bracket add-group group:A type:movie title1:"The Exorcist 1973" title2:"Halloween 1978" title3:"The Texas Chain Saw Massacre 1974" title4:"Night of the Living Dead 1968"
+/bracket add-title group:A type:movie title:The Exorcist
+/bracket add-title group:A type:movie title:Halloween
+/bracket add-title group:A type:movie title:The Texas Chain Saw Massacre
+/bracket add-title group:A type:movie title:Night of the Living Dead
 
-/bracket add-group group:B type:tv title1:"Breaking Bad" title2:"The Wire" title3:"The Sopranos" title4:"Mad Men"
+/bracket add-title group:B type:tv title:Breaking Bad
+/bracket add-title group:B type:tv title:The Wire
 
-/bracket add-group group:C type:game title1:"Doom Eternal" title2:"Resident Evil 4" title3:"Halo 3" title4:"Bioshock"
+/bracket add-title group:C type:game title:Doom Eternal
 ```
 
+**When Multiple Matches Found:**
+Bot shows a selection menu with all matches (just like `/movie`, `/tv`, etc.):
+- Displays title with year and description
+- Select the exact version you want from dropdown
+- Confirms selection with thumbnail and metadata
+
 **Tips:**
-- Include years for common titles to avoid ambiguity (e.g., "Spider-Man 2002")
-- If search finds multiple matches, be more specific with your title
+- Run command 4 times to fill each group (one title at a time)
+- Can be more general with titles - selection menu lets you pick exact match
+- Progress indicator shows "1/4 titles", "2/4 titles", etc.
 - All entries in a tournament must be the same type
-- Bot displays titles with years: "The Thing (1982)"
-- Stored metadata enables future poster/link features
+- Bot displays confirmed titles with years: "The Thing (1982)"
+- Group is complete when it has 4 titles
 
 ---
 
