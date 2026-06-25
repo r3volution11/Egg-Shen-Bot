@@ -411,7 +411,7 @@ async function handleAddTitle(interaction) {
   });
   
   const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId('select_bracket_title')
+    .setCustomId(`select_bracket_title_${interaction.user.id}`)
     .setPlaceholder('Select the correct title')
     .addOptions(options);
   
