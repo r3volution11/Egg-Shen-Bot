@@ -212,6 +212,23 @@ export async function createDetailedEmbed(data, type, enabledServices = null, gu
     });
   }
   
+  // Add language information
+  if (tmdb.spoken_languages && tmdb.spoken_languages.length > 0) {
+    const languages = tmdb.spoken_languages.map(l => l.english_name).join(', ');
+    embed.addFields({
+      name: 'Languages',
+      value: languages,
+      inline: true,
+    });
+  } else if (tmdb.original_language) {
+    // Fallback to original language if spoken_languages not available
+    embed.addFields({
+      name: 'Language',
+      value: tmdb.original_language.toUpperCase(),
+      inline: true,
+    });
+  }
+  
   return { embeds: [embed], components: [] };
 }
 
@@ -532,6 +549,15 @@ export async function createGameDetailedEmbed(game) {
       name: '🏢 Publishers',
       value: game.publishers.map(p => p.name).join(', '),
       inline: false,
+    });
+  }
+  
+  // Add ESRB rating
+  if (game.esrb_rating) {
+    embed.addFields({
+      name: '🔞 ESRB Rating',
+      value: game.esrb_rating.name,
+      inline: true,
     });
   }
   
