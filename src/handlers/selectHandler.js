@@ -469,9 +469,9 @@ export async function handleSelectInteraction(interaction) {
       type: type,
     };
     
-    // Import and call the soundtrack display function
+    // Import and call the soundtrack display function with deleteEphemeral=true
     const { searchAndDisplaySoundtrack } = await import('../commands/soundtrack.js');
-    await searchAndDisplaySoundtrack(interaction, result);
+    await searchAndDisplaySoundtrack(interaction, result, true);
     return;
   }
   
