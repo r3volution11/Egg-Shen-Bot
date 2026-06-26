@@ -666,22 +666,18 @@ export function regenerateKnockoutBracket(guildId) {
     };
   }
   
-  // Check if third place data is missing (bug from old code) and recalculate if needed
-  const missingThirdPlace = Object.values(tournament.groupResults).some(r => r.third === null);
-  if (missingThirdPlace) {
-    // Recalculate all group results with the fixed logic
-    const groupIds = Object.keys(tournament.groupResults);
-    const recalcResult = closeGroupVoting(guildId, groupIds);
-    if (!recalcResult.success) {
-      return { success: false, error: 'Failed to recalculate group results' };
-    }
-    // Reload tournament after recalculation
-    const reloadedTournament = loadTournament(guildId);
-    if (!reloadedTournament) {
-      return { success: false, error: 'Failed to reload tournament' };
-    }
-    Object.assign(tournament, reloadedTournament);
+  // Always recalculate group results to ensure all data (including posterUrl) is up to date
+  const groupIds = Object.keys(tournament.groupResults);
+  const recalcResult = closeGroupVoting(guildId, groupIds);
+  if (!recalcResult.success) {
+    return { success: false, error: 'Failed to recalculate group results' };
   }
+  // Reload tournament after recalculation
+  const reloadedTournament = loadTournament(guildId);
+  if (!reloadedTournament) {
+    return { success: false, error: 'Failed to reload tournament' };
+  }
+  Object.assign(tournament, reloadedTournament);
   
   // Recalculate wildcards
   const wildcardsResult = calculateWildcards(guildId);

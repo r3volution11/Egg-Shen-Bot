@@ -291,7 +291,12 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1) {
 /**
  * Extract dominant color from image URL
  */
-async function getDominantColor(imageUrl) {
+/**
+ * Extract multiple dominant colors from poster image for gradient
+ * @param {string} imageUrl - URL of the poster image
+ * @returns {Promise<string[]>} Array of 3-4 RGB color strings
+ */
+async function extractPosterColors(imageUrl) {
   try {
     const img = await loadImage(imageUrl);
     const tempCanvas = createCanvas(img.width, img.height);
@@ -320,21 +325,22 @@ async function getDominantColor(imageUrl) {
       colorCounts[key] = (colorCounts[key] || 0) + 1;
     }
     
-    // Find most common color
-    let maxCount = 0;
-    let dominantColor = '50,60,68'; // fallback
+    // Sort colors by frequency and get top 4
+    const sortedColors = Object.entries(colorCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([color]) => `rgb(${color})`);
     
-    for (const [color, count] of Object.entries(colorCounts)) {
-      if (count > maxCount) {
-        maxCount = count;
-        dominantColor = color;
-      }
+    // Ensure we have at least 3 colors by duplicating if needed
+    while (sortedColors.length < 3) {
+      sortedColors.push(sortedColors[sortedColors.length - 1] || COLORS.cardBg);
     }
     
-    return `rgb(${dominantColor})`;
+    return sortedColors;
   } catch (error) {
-    console.error('[BracketVisualizer] Error extracting color:', error.message);
-    return COLORS.cardBg; // fallback
+    console.error('[BracketVisualizer] Error extracting colors:', error.message);
+    // Fallback gradient using cardBg
+    return [COLORS.cardBg, COLORS.cardBg, COLORS.cardBg];
   }
 }
 
@@ -346,6 +352,7 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
   const width = PARTICIPANT_WIDTH * scale;
   const height = PARTICIPANT_HEIGHT * scale;
   const fontSize = FONT_SIZE * scale;
+  
   if (!movie || !movie.title) {
     // Empty slot (TBD)
     ctx.fillStyle = COLORS.cardBg;
@@ -361,23 +368,42 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
     return;
   }
   
-  // Get dominant color from poster if available
-  let boxColor = isWinner ? COLORS.winner : COLORS.cardBg;
+  // Extract colors and create gradient for non-winner participants with posters
   if (!isWinner && movie.posterUrl) {
-    boxColor = await getDominantColor(movie.posterUrl);
+    const colors = await extractPosterColors(movie.posterUrl);
+    
+    // Create horizontal gradient with extracted colors
+    const gradient = ctx.createLinearGradient(x, y, x + width, y);
+    if (colors.length >= 3) {
+      gradient.addColorStop(0, colors[0]);
+      gradient.addColorStop(0.5, colors[1]);
+      gradient.addColorStop(1, colors[2]);
+    } else {
+      gradient.addColorStop(0, colors[0]);
+      gradient.addColorStop(1, colors[1] || colors[0]);
+    }
+    
+    ctx.fillStyle = gradient;
+  } else {
+    // Solid color for winners or items without posters
+    ctx.fillStyle = isWinner ? COLORS.winner : COLORS.cardBg;
   }
   
-  // Participant box
-  ctx.fillStyle = boxColor;
   ctx.fillRect(x, y, width, height);
+  
+  // Add semi-transparent overlay to ensure text visibility
+  if (!isWinner && movie.posterUrl) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillRect(x, y, width, height);
+  }
   
   // Border
   ctx.strokeStyle = isWinner ? COLORS.primary : COLORS.cardBorder;
   ctx.lineWidth = isWinner ? 3 * scale : 2 * scale;
   ctx.strokeRect(x, y, width, height);
   
-  // Title
-  ctx.fillStyle = isWinner ? COLORS.background : COLORS.text;
+  // Title - always use white for visibility
+  ctx.fillStyle = COLORS.text;
   ctx.font = `${fontSize}px Arial, sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
