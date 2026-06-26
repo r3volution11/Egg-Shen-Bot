@@ -58,7 +58,7 @@ export async function generateBracketImage(tournament) {
   
   // Title
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${TITLE_FONT_SIZE}px Helvetica, Arial, sans-serif`;
+  ctx.font = `bold ${TITLE_FONT_SIZE}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillText(tournament.name, canvasWidth / 2, CANVAS_PADDING - 10);
   
@@ -70,7 +70,7 @@ export async function generateBracketImage(tournament) {
     
     // Round label
     ctx.fillStyle = '#B5BAC1';
-    ctx.font = `bold ${FONT_SIZE + 2}px Helvetica, Arial, sans-serif`;
+    ctx.font = `bold ${FONT_SIZE + 2}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(getRoundDisplayName(round.name), xOffset + PARTICIPANT_WIDTH / 2, CANVAS_PADDING + 40);
     
@@ -153,7 +153,7 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
     ctx.strokeRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
     
     ctx.fillStyle = '#4E5058';
-    ctx.font = `${FONT_SIZE}px Helvetica, Arial, sans-serif`;
+    ctx.font = `${FONT_SIZE}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('TBD', x + PARTICIPANT_WIDTH / 2, y + PARTICIPANT_HEIGHT / 2);
@@ -172,7 +172,7 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   
   // Title
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = `${FONT_SIZE}px Helvetica, Arial, sans-serif`;
+  ctx.font = `${FONT_SIZE}px sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   
@@ -193,7 +193,7 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   // Type indicator (winner/runnerup/wildcard) - small label on left
   if (movie.type) {
     ctx.fillStyle = '#B5BAC1';
-    ctx.font = `bold ${FONT_SIZE - 2}px Helvetica, Arial, sans-serif`;
+    ctx.font = `bold ${FONT_SIZE - 2}px sans-serif`;
     ctx.textAlign = 'left';
     const typeLabel = movie.type === 'winner' ? 'W' : movie.type === 'runnerup' ? 'R' : 'WC';
     ctx.fillText(typeLabel, x + 5, y + 12);
@@ -202,7 +202,7 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   // Winner checkmark
   if (isWinner) {
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 20px Helvetica, Arial, sans-serif';
+    ctx.font = 'bold 20px sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillText('✓', x + PARTICIPANT_WIDTH - 10, y + PARTICIPANT_HEIGHT / 2);
@@ -251,19 +251,19 @@ function drawChampion(ctx, winner, x, y) {
   ctx.fill();
   
   // Trophy emoji
-  ctx.font = '64px Helvetica, Arial, sans-serif';
+  ctx.font = '64px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('🏆', x, y);
   
   // Champion label
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${FONT_SIZE + 6}px Helvetica, Arial, sans-serif`;
+  ctx.font = `bold ${FONT_SIZE + 6}px sans-serif`;
   ctx.textBaseline = 'top';
   ctx.fillText('CHAMPION', x, y + 80);
   
   // Winner title (truncated)
-  ctx.font = `${FONT_SIZE + 2}px Helvetica, Arial, sans-serif`;
+  ctx.font = `${FONT_SIZE + 2}px sans-serif`;
   ctx.textAlign = 'center';
   const maxWidth = 200;
   let displayText = winner.title;
