@@ -63,7 +63,7 @@ export async function execute(interaction) {
     
     // If only one result, search for its soundtrack directly
     if (limitedResults.length === 1) {
-      await searchAndDisplaySoundtrack(interaction, limitedResults[0]);
+      await searchAndDisplaySoundtrack(interaction, limitedResults[0], true);
       return;
     }
     
@@ -82,8 +82,11 @@ export async function execute(interaction) {
 
 /**
  * Search for and display soundtrack for a specific title
+ * @param {Object} interaction - Discord interaction
+ * @param {Object} result - Title details
+ * @param {boolean} deleteEphemeral - Whether to delete ephemeral message and send publicly
  */
-async function searchAndDisplaySoundtrack(interaction, result) {
+async function searchAndDisplaySoundtrack(interaction, result, deleteEphemeral = false) {
   const { EmbedBuilder } = await import('discord.js');
   const { searchSoundtrack: searchITunes } = await import('../services/itunesService.js');
   const { searchSoundtrack: searchSpotify, isConfigured: isSpotifyConfigured } = await import('../services/spotifyService.js');
@@ -121,9 +124,17 @@ async function searchAndDisplaySoundtrack(interaction, result) {
   // Check if we found any results
   if ((!itunesResults || itunesResults.length === 0) && !spotifyResult) {
     const servicesText = isSpotifyConfigured() ? 'iTunes or Spotify' : 'iTunes';
-    await interaction.editReply({
-      content: `🎵 No soundtracks found for **${title}** on ${servicesText}.\n\nThis could mean:\n• The soundtrack isn't available on these services yet\n• Try searching with a different variation of the title\n• The soundtrack might be available on other platforms`,
-    });
+    
+    if (deleteEphemeral) {
+      await interaction.message.delete().catch(() => {});
+      await interaction.channel.send({
+        content: `🎵 No soundtracks found for **${title}** on ${servicesText}.\n\nThis could mean:\n• The soundtrack isn't available on these services yet\n• Try searching with a different variation of the title\n• The soundtrack might be available on other platforms`,
+      });
+    } else {
+      await interaction.editReply({
+        content: `🎵 No soundtracks found for **${title}** on ${servicesText}.\n\nThis could mean:\n• The soundtrack isn't available on these services yet\n• Try searching with a different variation of the title\n• The soundtrack might be available on other platforms`,
+      });
+    }
     return;
   }
   
@@ -198,7 +209,13 @@ async function searchAndDisplaySoundtrack(interaction, result) {
     });
   }
   
-  await interaction.editReply({ embeds: [embed], components: [] });
+  // If called from single result or selection, delete ephemeral and send publicly
+  if (deleteEphemeral) {
+    await interaction.message.delete().catch(() => {});
+    await interaction.channel.send({ embeds: [embed] });
+  } else {
+    await interaction.editReply({ embeds: [embed], components: [] });
+  }
 }
 
 /**
