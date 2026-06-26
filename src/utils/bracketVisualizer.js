@@ -1,12 +1,12 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { config } from '../config.js';
 
-const POSTER_WIDTH = 100;
-const POSTER_HEIGHT = 150;
-const MATCHUP_SPACING = 180;
-const ROUND_SPACING = 250;
+const POSTER_WIDTH = 180;
+const POSTER_HEIGHT = 120;
+const MATCHUP_SPACING = 160;
+const ROUND_SPACING = 300;
 const CANVAS_PADDING = 40;
-const FONT_SIZE = 14;
+const FONT_SIZE = 11;
 const TITLE_FONT_SIZE = 24;
 
 /**
@@ -172,19 +172,20 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   ctx.font = `${FONT_SIZE}px Arial`;
   ctx.textAlign = 'center';
   
-  // Multi-line text
-  const lines = wrapText(movie.title, POSTER_WIDTH - 10, ctx);
-  const startY = y - (lines.length * 8); // Center vertically
+  // Multi-line text with better wrapping
+  const lines = wrapText(movie.title, POSTER_WIDTH - 20, ctx, 4);
+  const lineHeight = FONT_SIZE + 3;
+  const startY = y - ((lines.length - 1) * lineHeight / 2); // Center vertically
   lines.forEach((line, index) => {
-    ctx.fillText(line, x + POSTER_WIDTH / 2, startY + (index * 16));
+    ctx.fillText(line, x + POSTER_WIDTH / 2, startY + (index * lineHeight));
   });
   
   // Type indicator (winner/runnerup/wildcard)
   if (movie.type) {
     ctx.fillStyle = '#B5BAC1';
-    ctx.font = `${FONT_SIZE - 3}px Arial`;
+    ctx.font = `${FONT_SIZE - 2}px Arial`;
     const typeLabel = movie.type === 'winner' ? 'W' : movie.type === 'runnerup' ? 'R' : 'WC';
-    ctx.fillText(typeLabel, x + POSTER_WIDTH / 2, y + POSTER_HEIGHT / 2 - 10);
+    ctx.fillText(typeLabel, x + POSTER_WIDTH / 2, y + POSTER_HEIGHT / 2 - 8);
   }
   
   // Winner checkmark
@@ -251,27 +252,44 @@ function drawChampion(ctx, winner, x, y) {
 }
 
 /**
- * Wrap text to multiple lines
+ * Wrap text to multiple lines with ellipsis
  */
-function wrapText(text, maxWidth, ctx) {
+function wrapText(text, maxWidth, ctx, maxLines = 4) {
   const words = text.split(' ');
   const lines = [];
-  let currentLine = words[0];
+  let currentLine = words[0] || '';
   
   for (let i = 1; i < words.length; i++) {
     const word = words[i];
-    const width = ctx.measureText(currentLine + ' ' + word).width;
+    const testLine = currentLine + ' ' + word;
+    const width = ctx.measureText(testLine).width;
+    
     if (width < maxWidth) {
-      currentLine += ' ' + word;
+      currentLine = testLine;
     } else {
       lines.push(currentLine);
       currentLine = word;
+      
+      // If we're approaching max lines, check if we need ellipsis
+      if (lines.length >= maxLines - 1 && i < words.length - 1) {
+        // More words remain, add ellipsis
+        const remaining = words.slice(i).join(' ');
+        const ellipsisTest = currentLine + ' ' + remaining;
+        if (ctx.measureText(ellipsisTest).width >= maxWidth) {
+          // Truncate with ellipsis
+          while (ctx.measureText(currentLine + '...').width > maxWidth && currentLine.length > 0) {
+            currentLine = currentLine.slice(0, -1);
+          }
+          currentLine += '...';
+          lines.push(currentLine);
+          return lines;
+        }
+      }
     }
   }
-  lines.push(currentLine);
   
-  // Limit to 3 lines
-  return lines.slice(0, 3);
+  lines.push(currentLine);
+  return lines.slice(0, maxLines);
 }
 
 /**
