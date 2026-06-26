@@ -292,6 +292,15 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1) {
  * Extract dominant color from image URL
  */
 /**
+ * Calculate color difference using simple RGB distance
+ */
+function colorDistance(rgb1, rgb2) {
+  const [r1, g1, b1] = rgb1.split(',').map(Number);
+  const [r2, g2, b2] = rgb2.split(',').map(Number);
+  return Math.sqrt(Math.pow(r2 - r1, 2) + Math.pow(g2 - g1, 2) + Math.pow(b2 - b1, 2));
+}
+
+/**
  * Extract multiple dominant colors from poster image for gradient
  * @param {string} imageUrl - URL of the poster image
  * @returns {Promise<string[]>} Array of 3-4 RGB color strings
@@ -325,22 +334,40 @@ async function extractPosterColors(imageUrl) {
       colorCounts[key] = (colorCounts[key] || 0) + 1;
     }
     
-    // Sort colors by frequency and get top 4
+    // Sort colors by frequency
     const sortedColors = Object.entries(colorCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([color]) => `rgb(${color})`);
+      .map(([color]) => color);
     
-    // Ensure we have at least 3 colors by duplicating if needed
-    while (sortedColors.length < 3) {
-      sortedColors.push(sortedColors[sortedColors.length - 1] || COLORS.cardBg);
+    // Select diverse colors (filter out colors too similar to already selected ones)
+    const selectedColors = [];
+    const minDistance = 80; // Minimum color difference threshold
+    
+    for (const color of sortedColors) {
+      if (selectedColors.length === 0) {
+        selectedColors.push(color);
+      } else {
+        // Check if this color is different enough from already selected colors
+        const isDifferent = selectedColors.every(selected => 
+          colorDistance(color, selected) > minDistance
+        );
+        if (isDifferent) {
+          selectedColors.push(color);
+        }
+      }
+      if (selectedColors.length >= 3) break;
     }
     
-    return sortedColors;
+    // Ensure we have at least 2 colors
+    while (selectedColors.length < 2) {
+      selectedColors.push(selectedColors[selectedColors.length - 1] || '50,60,68');
+    }
+    
+    return selectedColors.map(color => `rgb(${color})`);
   } catch (error) {
     console.error('[BracketVisualizer] Error extracting colors:', error.message);
     // Fallback gradient using cardBg
-    return [COLORS.cardBg, COLORS.cardBg, COLORS.cardBg];
+    return [COLORS.cardBg, COLORS.cardBg];
   }
 }
 
@@ -372,15 +399,22 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
   if (!isWinner && movie.posterUrl) {
     const colors = await extractPosterColors(movie.posterUrl);
     
-    // Create horizontal gradient with extracted colors
-    const gradient = ctx.createLinearGradient(x, y, x + width, y);
+    // Create diagonal gradient (top-left to bottom-right) with extracted colors
+    const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
+    
     if (colors.length >= 3) {
+      // Three colors: distribute evenly
       gradient.addColorStop(0, colors[0]);
       gradient.addColorStop(0.5, colors[1]);
       gradient.addColorStop(1, colors[2]);
-    } else {
+    } else if (colors.length === 2) {
+      // Two colors: smooth transition
       gradient.addColorStop(0, colors[0]);
-      gradient.addColorStop(1, colors[1] || colors[0]);
+      gradient.addColorStop(1, colors[1]);
+    } else {
+      // Fallback to solid color
+      gradient.addColorStop(0, colors[0]);
+      gradient.addColorStop(1, colors[0]);
     }
     
     ctx.fillStyle = gradient;
@@ -393,7 +427,7 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
   
   // Add semi-transparent overlay to ensure text visibility
   if (!isWinner && movie.posterUrl) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.fillRect(x, y, width, height);
   }
   
