@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
@@ -16,6 +16,64 @@ const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L
 
 // Temporary storage for custom images during selection process
 export const customImageCache = new Map();
+
+/**
+ * Parse duration string (e.g., "24h", "3d", "45m") to milliseconds
+ * @param {string} durationStr - Duration string
+ * @returns {number|null} Duration in milliseconds, or null if invalid
+ */
+function parseDuration(durationStr) {
+  if (!durationStr) return null;
+  
+  const match = durationStr.match(/^(\d+)([mhd])$/i);
+  if (!match) return null;
+  
+  const value = parseInt(match[1]);
+  const unit = match[2].toLowerCase();
+  
+  const multipliers = {
+    'm': 60 * 1000,        // minutes
+    'h': 60 * 60 * 1000,   // hours
+    'd': 24 * 60 * 60 * 1000  // days
+  };
+  
+  return value * multipliers[unit];
+}
+
+/**
+ * Validate duration is within allowed range (5 minutes to 30 days)
+ * @param {number} durationMs - Duration in milliseconds
+ * @returns {boolean}
+ */
+function isValidDuration(durationMs) {
+  const MIN_DURATION = 5 * 60 * 1000; // 5 minutes
+  const MAX_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
+  return durationMs >= MIN_DURATION && durationMs <= MAX_DURATION;
+}
+
+/**
+ * Format time remaining until deadline
+ * @param {number} deadline - Timestamp in milliseconds
+ * @returns {string} Formatted string like "23h 45m" or "2d 5h"
+ */
+function formatTimeRemaining(deadline) {
+  const now = Date.now();
+  const remaining = deadline - now;
+  
+  if (remaining <= 0) return 'Voting closed';
+  
+  const days = Math.floor(remaining / (24 * 60 * 60 * 1000));
+  const hours = Math.floor((remaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+  
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  } else if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else {
+    return `${minutes}m`;
+  }
+}
 
 export const data = new SlashCommandBuilder()
   .setName('bracket')
@@ -133,6 +191,12 @@ export const data = new SlashCommandBuilder()
           .setDescription('Groups to open (e.g., "A,B,C,D")')
           .setRequired(true)
       )
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -187,11 +251,44 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('open-knockout')
       .setDescription('Open current round matchups for voting (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
       .setName('close-knockout')
       .setDescription('Close current round and advance winners (Admin/Mod only)')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('extend-voting')
+      .setDescription('Extend or change voting deadline (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('type')
+          .setDescription('Voting type to extend')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Group Voting', value: 'group' },
+            { name: 'Knockout Round', value: 'knockout' }
+          )
+      )
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('New duration to add (e.g., "24h", "3d", "45m")')
+          .setRequired(true)
+      )
+      .addStringOption(option =>
+        option
+          .setName('group')
+          .setDescription('Group letter (only for group voting)')
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -248,7 +345,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'regenerate', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'extend-voting', 'regenerate', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -299,6 +396,9 @@ export async function execute(interaction) {
         break;
       case 'close-knockout':
         await handleCloseKnockout(interaction);
+        break;
+      case 'extend-voting':
+        await handleExtendVoting(interaction);
         break;
       case 'status':
         await handleStatus(interaction);
@@ -931,19 +1031,36 @@ async function handleOpenGroups(interaction) {
   
   const groupsStr = interaction.options.getString('groups');
   const groupIds = groupsStr.split(',').map(g => g.trim().toUpperCase());
+  const durationStr = interaction.options.getString('duration') || '24h';
   
-  const result = bracketManager.openGroupVoting(interaction.guildId, groupIds);
+  // Parse and validate duration
+  const durationMs = parseDuration(durationStr);
+  if (!durationMs) {
+    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
+    return;
+  }
+  
+  if (!isValidDuration(durationMs)) {
+    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
+    return;
+  }
+  
+  const deadline = Date.now() + durationMs;
+  
+  const result = bracketManager.openGroupVoting(interaction.guildId, groupIds, deadline);
   
   if (!result.success) {
     await interaction.editReply(`❌ ${result.error}`);
     return;
   }
   
+  const timeRemaining = formatTimeRemaining(deadline);
+  
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
     .setTitle(`📊 Voting Opened for Groups ${groupIds.join(', ')}`)
-    .setDescription('Members can now vote for their top 2 movies in each group!')
-    .setFooter({ text: 'Vote using /bracket vote-group • Voting open for 24+ hours' });
+    .setDescription(`Members can now vote for their top 2 movies in each group!\n\n⏰ **Voting closes in:** ${timeRemaining}`)
+    .setFooter({ text: `Vote using /bracket vote-group • Deadline: ${new Date(deadline).toLocaleString()}` });
   
   // Calculate groups per row for even distribution
   const groupsPerRow = groupIds.length <= 4 ? 2 : groupIds.length <= 9 ? 3 : 4;
@@ -1541,6 +1658,22 @@ async function handleImage(interaction) {
 async function handleOpenKnockout(interaction) {
   await interaction.deferReply();
   
+  const durationStr = interaction.options.getString('duration') || '24h';
+  
+  // Parse and validate duration
+  const durationMs = parseDuration(durationStr);
+  if (!durationMs) {
+    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
+    return;
+  }
+  
+  if (!isValidDuration(durationMs)) {
+    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
+    return;
+  }
+  
+  const deadline = Date.now() + durationMs;
+  
   const tournament = bracketManager.loadTournament(interaction.guildId);
   
   if (!tournament || tournament.status !== 'knockout') {
@@ -1559,7 +1692,7 @@ async function handleOpenKnockout(interaction) {
   }
   
   // Open matchups for voting
-  const result = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase);
+  const result = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline);
   
   if (!result.success) {
     await interaction.editReply(`❌ ${result.error}`);
@@ -1567,6 +1700,7 @@ async function handleOpenKnockout(interaction) {
   }
   
   const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const timeRemaining = formatTimeRemaining(deadline);
   
   // Create embeds for each matchup
   const embeds = [];
@@ -1615,9 +1749,10 @@ async function handleOpenKnockout(interaction) {
     .setTitle(`📊 ${roundName} Voting Open!`)
     .setDescription(
       `**${currentRoundMatchups.length} matchup${currentRoundMatchups.length !== 1 ? 's' : ''}** are now open for voting.\n\n` +
-      `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.`
+      `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}`
     )
-    .setFooter({ text: `Use /bracket close-knockout to close voting and advance winners` });
+    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
   await interaction.editReply({ embeds: [mainEmbed, ...embeds], components });
 }
@@ -1692,6 +1827,99 @@ async function handleCloseKnockout(interaction) {
   }
   
   await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleExtendVoting(interaction) {
+  await interaction.deferReply();
+  
+  const type = interaction.options.getString('type');
+  const durationStr = interaction.options.getString('duration');
+  const groupId = interaction.options.getString('group')?.toUpperCase();
+  
+  // Parse and validate duration
+  const durationMs = parseDuration(durationStr);
+  if (!durationMs) {
+    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
+    return;
+  }
+  
+  if (!isValidDuration(durationMs)) {
+    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
+    return;
+  }
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  if (!tournament) {
+    await interaction.editReply('❌ No tournament found');
+    return;
+  }
+  
+  if (type === 'group') {
+    // Extend group voting
+    if (!groupId) {
+      await interaction.editReply('❌ Please specify which group to extend using the `group` parameter');
+      return;
+    }
+    
+    const group = tournament.groups[groupId];
+    if (!group) {
+      await interaction.editReply(`❌ Group ${groupId} not found`);
+      return;
+    }
+    
+    if (group.status !== 'voting') {
+      await interaction.editReply(`❌ Group ${groupId} is not currently open for voting`);
+      return;
+    }
+    
+    // Extend the deadline
+    const newDeadline = Date.now() + durationMs;
+    group.votingDeadline = newDeadline;
+    
+    bracketManager.saveTournament(interaction.guildId, tournament);
+    
+    const timeRemaining = formatTimeRemaining(newDeadline);
+    await interaction.editReply(
+      `✅ Extended voting for Group ${groupId}\n\n` +
+      `⏰ **New deadline:** ${timeRemaining}\n` +
+      `📅 **Exact time:** ${new Date(newDeadline).toLocaleString()}`
+    );
+    
+  } else if (type === 'knockout') {
+    // Extend knockout voting
+    if (tournament.status !== 'knockout') {
+      await interaction.editReply('❌ Tournament is not in knockout phase');
+      return;
+    }
+    
+    // Get current round matchups
+    const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
+      m.round === tournament.phase && m.status === 'voting'
+    );
+    
+    if (currentRoundMatchups.length === 0) {
+      await interaction.editReply('❌ No voting is currently open in the knockout round');
+      return;
+    }
+    
+    // Extend the deadline for all matchups in current round
+    const newDeadline = Date.now() + durationMs;
+    currentRoundMatchups.forEach(m => {
+      m.votingDeadline = newDeadline;
+    });
+    
+    bracketManager.saveTournament(interaction.guildId, tournament);
+    
+    const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const timeRemaining = formatTimeRemaining(newDeadline);
+    
+    await interaction.editReply(
+      `✅ Extended voting for ${roundName} (${currentRoundMatchups.length} matchup${currentRoundMatchups.length !== 1 ? 's' : ''})\n\n` +
+      `⏰ **New deadline:** ${timeRemaining}\n` +
+      `📅 **Exact time:** ${new Date(newDeadline).toLocaleString()}`
+    );
+  }
 }
 
 async function handleCancel(interaction) {
