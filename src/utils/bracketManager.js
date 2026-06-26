@@ -433,8 +433,11 @@ export function closeGroupVoting(guildId, groupIds) {
       }
     }
     
-    // Find 2nd place (skip movies in 1st)
-    const remainingAfterFirst = results.filter(r => !firstPlace.includes(r));
+    // Random selection for 1st place
+    const winner = firstPlace[Math.floor(Math.random() * firstPlace.length)];
+    
+    // Find 2nd place (skip only the selected winner, not all tied for first)
+    const remainingAfterFirst = results.filter(r => r.index !== winner.index);
     if (remainingAfterFirst.length > 0) {
       secondPlace.push(remainingAfterFirst[0]);
       for (let i = 1; i < remainingAfterFirst.length; i++) {
@@ -446,8 +449,15 @@ export function closeGroupVoting(guildId, groupIds) {
       }
     }
     
-    // Find 3rd place
-    const remainingAfterSecond = remainingAfterFirst.filter(r => !secondPlace.includes(r));
+    // Random selection for 2nd place
+    const runnerUp = secondPlace.length > 0 
+      ? secondPlace[Math.floor(Math.random() * secondPlace.length)] 
+      : null;
+    
+    // Find 3rd place (skip only the selected winner and runnerUp)
+    const remainingAfterSecond = remainingAfterFirst.filter(r => 
+      !runnerUp || r.index !== runnerUp.index
+    );
     if (remainingAfterSecond.length > 0) {
       thirdPlace.push(remainingAfterSecond[0]);
       for (let i = 1; i < remainingAfterSecond.length; i++) {
@@ -459,10 +469,10 @@ export function closeGroupVoting(guildId, groupIds) {
       }
     }
     
-    // Random selection for ties
-    const winner = firstPlace[Math.floor(Math.random() * firstPlace.length)];
-    const runnerUp = secondPlace[Math.floor(Math.random() * secondPlace.length)];
-    const third = thirdPlace.length > 0 ? thirdPlace[Math.floor(Math.random() * thirdPlace.length)] : null;
+    // Random selection for 3rd place
+    const third = thirdPlace.length > 0 
+      ? thirdPlace[Math.floor(Math.random() * thirdPlace.length)] 
+      : null;
     
     group.status = 'closed';
     group.votingOpen = false;
@@ -648,6 +658,23 @@ export function regenerateKnockoutBracket(guildId) {
       success: false, 
       error: `Cannot regenerate - only ${closedGroups}/${tournament.groupCount} groups are closed. Close all groups first.` 
     };
+  }
+  
+  // Check if third place data is missing (bug from old code) and recalculate if needed
+  const missingThirdPlace = Object.values(tournament.groupResults).some(r => r.third === null);
+  if (missingThirdPlace) {
+    // Recalculate all group results with the fixed logic
+    const groupIds = Object.keys(tournament.groupResults);
+    const recalcResult = closeGroupVoting(guildId, groupIds);
+    if (!recalcResult.success) {
+      return { success: false, error: 'Failed to recalculate group results' };
+    }
+    // Reload tournament after recalculation
+    const reloadedTournament = loadTournament(guildId);
+    if (!reloadedTournament) {
+      return { success: false, error: 'Failed to reload tournament' };
+    }
+    Object.assign(tournament, reloadedTournament);
   }
   
   // Recalculate wildcards
