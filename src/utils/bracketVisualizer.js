@@ -218,30 +218,38 @@ function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups, ySp
   const startX = side === 'left' ? x + PARTICIPANT_WIDTH : x;
   const endX = startX + (CONNECTOR_EXTEND * direction);
   
-  // Horizontal line from matchup
+  // Horizontal line from matchup to vertical connector
   ctx.beginPath();
   ctx.moveTo(startX, y);
   ctx.lineTo(endX, y);
   ctx.stroke();
   
-  // Only draw vertical connector for paired matchups
-  if (matchupIndex % 2 === 0 && matchupIndex + 1 < totalMatchups) {
-    const nextYSpacing = ySpacing * 2;
-    const nextY = y + ySpacing;
+  // Determine if this matchup is the top (even) or bottom (odd) of a pair
+  const isTopOfPair = matchupIndex % 2 === 0;
+  const hasPartner = isTopOfPair ? matchupIndex + 1 < totalMatchups : matchupIndex > 0;
+  
+  if (hasPartner) {
+    // Calculate the midpoint Y between this matchup and its pair
+    const pairOffset = isTopOfPair ? ySpacing : -ySpacing;
+    const partnerY = y + pairOffset;
+    const midY = (y + partnerY) / 2;
     
-    // Vertical line connecting this matchup with the one below
-    ctx.beginPath();
-    ctx.moveTo(endX, y);
-    ctx.lineTo(endX, nextY);
-    ctx.stroke();
+    // Draw vertical line connecting both matchups (only once, from the top matchup)
+    if (isTopOfPair) {
+      ctx.beginPath();
+      ctx.moveTo(endX, y);
+      ctx.lineTo(endX, partnerY);
+      ctx.stroke();
+    }
     
-    // Horizontal line to next round position
-    const midY = y + (ySpacing / 2);
-    const nextRoundX = endX + (ROUND_SPACING - CONNECTOR_EXTEND) * direction;
-    ctx.beginPath();
-    ctx.moveTo(endX, midY);
-    ctx.lineTo(nextRoundX, midY);
-    ctx.stroke();
+    // Draw horizontal line from midpoint to next round position
+    if (isTopOfPair) {
+      const nextRoundX = endX + (ROUND_SPACING - CONNECTOR_EXTEND) * direction;
+      ctx.beginPath();
+      ctx.moveTo(endX, midY);
+      ctx.lineTo(nextRoundX, midY);
+      ctx.stroke();
+    }
   }
 }
 
