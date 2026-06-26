@@ -696,28 +696,24 @@ export function regenerateKnockoutBracket(guildId) {
   // Shuffle non-winners
   const shuffledNonWinners = nonWinners.sort(() => Math.random() - 0.5);
   
-  // Create first round matchups
+  // Create first round matchups - pair all participants
   const firstRoundMatchups = [];
-  const usedNonWinners = new Set();
+  const allParticipants = [...winners, ...shuffledNonWinners];
   
-  winners.forEach((winner, index) => {
-    const opponent = shuffledNonWinners.find(nw => 
-      !usedNonWinners.has(nw.index) && nw.groupId !== winner.groupId
-    ) || shuffledNonWinners.find(nw => !usedNonWinners.has(nw.index));
-    
-    if (opponent) {
-      usedNonWinners.add(opponent.index);
+  // Pair participants two at a time
+  for (let i = 0; i < allParticipants.length; i += 2) {
+    if (allParticipants[i + 1]) {
       firstRoundMatchups.push({
         id: crypto.randomBytes(6).toString('hex'),
         round: startingRound,
-        position: index,
-        movie1: winner,
-        movie2: opponent,
+        position: i / 2,
+        movie1: allParticipants[i],
+        movie2: allParticipants[i + 1],
         status: 'pending',
         votes: { movie1: [], movie2: [] },
       });
     }
-  });
+  }
   
   // Generate all subsequent rounds with TBD placeholders
   const allMatchups = [...firstRoundMatchups];
