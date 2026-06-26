@@ -1,12 +1,12 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { config } from '../config.js';
 
-const POSTER_WIDTH = 320;
-const POSTER_HEIGHT = 200;
-const MATCHUP_SPACING = 280;
-const ROUND_SPACING = 450;
+const POSTER_WIDTH = 280;
+const POSTER_HEIGHT = 80;
+const MATCHUP_SPACING = 200;
+const ROUND_SPACING = 380;
 const CANVAS_PADDING = 60;
-const FONT_SIZE = 16;
+const FONT_SIZE = 14;
 const TITLE_FONT_SIZE = 32;
 
 /**
@@ -134,7 +134,7 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults) {
   
   // VS label in between
   ctx.fillStyle = '#5865F2';
-  ctx.font = `bold ${FONT_SIZE + 4}px Arial`;
+  ctx.font = `bold ${FONT_SIZE + 2}px Arial`;
   ctx.textAlign = 'center';
   ctx.fillText('VS', x + POSTER_WIDTH / 2, y);
 }
@@ -173,8 +173,8 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   ctx.textAlign = 'center';
   
   // Multi-line text with better wrapping
-  const lines = wrapText(movie.title, POSTER_WIDTH - 40, ctx, 5);
-  const lineHeight = FONT_SIZE + 4;
+  const lines = wrapText(movie.title, POSTER_WIDTH - 30, ctx, 3);
+  const lineHeight = FONT_SIZE + 3;
   const startY = y - ((lines.length - 1) * lineHeight / 2); // Center vertically
   lines.forEach((line, index) => {
     ctx.fillText(line, x + POSTER_WIDTH / 2, startY + (index * lineHeight));
@@ -185,14 +185,14 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
     ctx.fillStyle = '#B5BAC1';
     ctx.font = `${FONT_SIZE - 3}px Arial`;
     const typeLabel = movie.type === 'winner' ? 'W' : movie.type === 'runnerup' ? 'R' : 'WC';
-    ctx.fillText(typeLabel, x + POSTER_WIDTH / 2, y + POSTER_HEIGHT / 2 - 15);
+    ctx.fillText(typeLabel, x + POSTER_WIDTH / 2, y + POSTER_HEIGHT / 2 - 10);
   }
   
   // Winner checkmark
   if (isWinner) {
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 28px Arial';
-    ctx.fillText('✓', x + POSTER_WIDTH - 25, y - POSTER_HEIGHT / 2 + 30);
+    ctx.font = 'bold 24px Arial';
+    ctx.fillText('✓', x + POSTER_WIDTH - 20, y - POSTER_HEIGHT / 2 + 25);
   }
 }
 
