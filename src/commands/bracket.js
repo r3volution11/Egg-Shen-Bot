@@ -180,6 +180,11 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('regenerate')
+      .setDescription('Regenerate knockout bracket with full tree structure (Admin/Mod only)')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('status')
       .setDescription('View tournament status and standings')
   )
@@ -233,7 +238,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'regenerate', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -275,6 +280,9 @@ export async function execute(interaction) {
         break;
       case 'advance-knockout':
         await handleAdvanceKnockout(interaction);
+        break;
+      case 'regenerate':
+        await handleRegenerate(interaction);
         break;
       case 'status':
         await handleStatus(interaction);
@@ -1048,6 +1056,25 @@ async function handleAdvanceKnockout(interaction) {
   }
   
   embed.setFooter({ text: `${totalParticipants} movies remain • Use /bracket status to view bracket` });
+  
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleRegenerate(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  
+  const result = bracketManager.regenerateKnockoutBracket(interaction.guildId);
+  
+  if (!result.success) {
+    await interaction.editReply(`❌ ${result.error}`);
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle('✅ Bracket Regenerated')
+    .setDescription(`Successfully regenerated the knockout bracket with full tree structure.\n\n**${result.addedRounds} future matchups** added with TBD placeholders.\n\nUse \`/bracket view\` to see the complete bracket tree!`)
+    .setFooter({ text: 'All rounds will now display in the bracket visualization' });
   
   await interaction.editReply({ embeds: [embed] });
 }

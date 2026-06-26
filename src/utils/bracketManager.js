@@ -618,6 +618,78 @@ export function generateKnockoutBracket(guildId) {
 }
 
 /**
+ * Regenerate knockout bracket with all rounds (for existing tournaments created before full bracket tree feature)
+ */
+export function regenerateKnockoutBracket(guildId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+  
+  if (tournament.status !== 'knockout') {
+    return { success: false, error: 'Tournament not in knockout phase' };
+  }
+  
+  // Check if any knockout voting has started
+  const hasVoting = tournament.knockoutBracket.some(m => 
+    m.status === 'voting' || m.status === 'closed' || 
+    (m.votes && (m.votes.movie1.length > 0 || m.votes.movie2.length > 0))
+  );
+  
+  if (hasVoting) {
+    return { success: false, error: 'Cannot regenerate - knockout voting has already started' };
+  }
+  
+  // Get the existing first round matchups (these should be the only ones that exist)
+  const existingMatchups = tournament.knockoutBracket.filter(m => m.round === tournament.phase);
+  
+  if (existingMatchups.length === 0) {
+    return { success: false, error: 'No matchups found to regenerate from' };
+  }
+  
+  // Generate all subsequent rounds with TBD placeholders
+  const allMatchups = [...existingMatchups];
+  const roundSequence = {
+    'round_of_32': 'round_of_16',
+    'round_of_16': 'quarterfinals',
+    'quarterfinals': 'semifinals',
+    'semifinals': 'finals'
+  };
+  
+  let currentRound = tournament.phase;
+  let currentMatchups = existingMatchups;
+  
+  while (roundSequence[currentRound]) {
+    const nextRound = roundSequence[currentRound];
+    const nextMatchups = [];
+    
+    // Create matchups for next round (each pair of current round feeds into one matchup)
+    for (let i = 0; i < currentMatchups.length; i += 2) {
+      nextMatchups.push({
+        id: crypto.randomBytes(6).toString('hex'),
+        round: nextRound,
+        position: i / 2,
+        movie1: null, // TBD - winner of matchup i
+        movie2: null, // TBD - winner of matchup i+1
+        status: 'pending',
+        votes: { movie1: [], movie2: [] },
+        sourceMatchups: [currentMatchups[i].id, currentMatchups[i + 1]?.id].filter(Boolean)
+      });
+    }
+    
+    allMatchups.push(...nextMatchups);
+    currentMatchups = nextMatchups;
+    currentRound = nextRound;
+  }
+  
+  tournament.knockoutBracket = allMatchups;
+  
+  return saveTournament(guildId, tournament)
+    ? { success: true, tournament, addedRounds: allMatchups.length - existingMatchups.length }
+    : { success: false, error: 'Failed to save' };
+}
+
+/**
  * Open knockout matchup for voting
  */
 export function openKnockoutMatchup(guildId, matchupId) {
