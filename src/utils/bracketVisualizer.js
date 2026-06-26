@@ -12,21 +12,24 @@ const arialPaths = [
 ];
 
 let fontLoaded = false;
+console.log('[BracketVisualizer] Checking font paths...');
 for (const path of arialPaths) {
-  if (existsSync(path)) {
+  const exists = existsSync(path);
+  console.log(`[BracketVisualizer] ${path}: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+  if (exists) {
     try {
       GlobalFonts.registerFromPath(path, 'Arial');
       fontLoaded = true;
-      console.log(`[BracketVisualizer] Loaded font from: ${path}`);
+      console.log(`[BracketVisualizer] ✓ Successfully loaded font from: ${path}`);
       break;
     } catch (error) {
-      console.error(`[BracketVisualizer] Failed to load font from ${path}:`, error.message);
+      console.error(`[BracketVisualizer] ✗ Failed to load font from ${path}:`, error.message);
     }
   }
 }
 
 if (!fontLoaded) {
-  console.warn('[BracketVisualizer] Could not load Arial font, using system default');
+  console.warn('[BracketVisualizer] ⚠️  Could not load Arial font, using system default');
 }
 
 const PARTICIPANT_WIDTH = 240;
