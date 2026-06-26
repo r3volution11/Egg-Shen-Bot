@@ -11,6 +11,18 @@ const FONT_SIZE = 14;
 const TITLE_FONT_SIZE = 28;
 const CONNECTOR_EXTEND = 40; // How far connector lines extend horizontally
 
+// Color scheme with primary blue rgb(78, 197, 237)
+const COLORS = {
+  primary: 'rgb(78, 197, 237)',
+  background: 'rgb(25, 30, 35)',      // Dark with blue tint
+  cardBg: 'rgb(35, 42, 48)',          // Slightly lighter with blue tint
+  cardBorder: 'rgb(50, 60, 68)',      // Border with blue tint
+  text: 'rgb(230, 235, 240)',         // Light text with blue tint
+  textMuted: 'rgb(140, 150, 160)',    // Muted text with blue tint
+  winner: 'rgb(78, 197, 237)',        // Primary blue for winners
+  connectorLine: 'rgb(78, 110, 130)'  // Connector lines with blue tint
+};
+
 /**
  * Generate a visual bracket image for the tournament
  * @param {Object} tournament - Tournament data from bracketManager
@@ -74,12 +86,12 @@ export async function generateBracketImage(tournament) {
   const ctx = canvas.getContext('2d');
   
   // Background
-  ctx.fillStyle = '#2B2D31';
+  ctx.fillStyle = COLORS.background;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   
   // Title
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${TITLE_FONT_SIZE}px sans-serif`;
+  ctx.fillStyle = COLORS.text;
+  ctx.font = `bold ${TITLE_FONT_SIZE}px Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillText(tournament.name, canvasWidth / 2, CANVAS_PADDING - 10);
   
@@ -98,8 +110,8 @@ export async function generateBracketImage(tournament) {
     await drawMatchup(ctx, finalsRound.matchups[0], finalsX, finalsY, knockoutResults);
     
     // Finals label
-    ctx.fillStyle = '#B5BAC1';
-    ctx.font = `bold ${FONT_SIZE + 2}px sans-serif`;
+    ctx.fillStyle = COLORS.primary;
+    ctx.font = `bold ${FONT_SIZE + 2}px Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText('Finals', canvasWidth / 2, CANVAS_PADDING + 40);
   }
@@ -143,8 +155,8 @@ async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, sid
   const ySpacing = availableHeight / (numMatchups + 1);
   
   // Round label
-  ctx.fillStyle = '#B5BAC1';
-  ctx.font = `bold ${FONT_SIZE + 2}px sans-serif`;
+  ctx.fillStyle = COLORS.primary;
+  ctx.font = `bold ${FONT_SIZE + 2}px Arial, sans-serif`;
   ctx.textAlign = 'center';
   const labelX = x + (PARTICIPANT_WIDTH / 2);
   ctx.fillText(getRoundDisplayName(round.name), labelX, CANVAS_PADDING + 40);
@@ -167,7 +179,7 @@ async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, sid
  * Draw connector lines for mirrored bracket layout
  */
 function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups, ySpacing) {
-  ctx.strokeStyle = '#4E5058';
+  ctx.strokeStyle = COLORS.connectorLine;
   ctx.lineWidth = 2;
   
   // Determine direction (left side goes right, right side goes left)
@@ -217,7 +229,7 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults) {
   const participant2Y = y + (MATCHUP_GAP / 2);
   
   // Draw matchup container border (groups the two participants visually)
-  ctx.strokeStyle = '#1E1F22';
+  ctx.strokeStyle = COLORS.cardBorder;
   ctx.lineWidth = 2;
   ctx.strokeRect(
     x - 3, 
@@ -237,13 +249,13 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults) {
 function drawParticipant(ctx, movie, x, y, isWinner) {
   if (!movie || !movie.title) {
     // Empty slot (TBD)
-    ctx.fillStyle = '#1E1F22';
+    ctx.fillStyle = COLORS.cardBg;
     ctx.fillRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
-    ctx.strokeStyle = '#313338';
+    ctx.strokeStyle = COLORS.cardBorder;
     ctx.strokeRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
     
-    ctx.fillStyle = '#4E5058';
-    ctx.font = `${FONT_SIZE}px sans-serif`;
+    ctx.fillStyle = COLORS.textMuted;
+    ctx.font = `${FONT_SIZE}px Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('TBD', x + PARTICIPANT_WIDTH / 2, y + PARTICIPANT_HEIGHT / 2);
@@ -251,18 +263,18 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   }
   
   // Participant box
-  const boxColor = isWinner ? '#3BA55D' : '#313338';
+  const boxColor = isWinner ? COLORS.winner : COLORS.cardBg;
   ctx.fillStyle = boxColor;
   ctx.fillRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
   
   // Border
-  ctx.strokeStyle = isWinner ? '#2D7D46' : '#1E1F22';
+  ctx.strokeStyle = isWinner ? COLORS.primary : COLORS.cardBorder;
   ctx.lineWidth = isWinner ? 3 : 2;
   ctx.strokeRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
   
   // Title
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `${FONT_SIZE}px sans-serif`;
+  ctx.fillStyle = isWinner ? COLORS.background : COLORS.text;
+  ctx.font = `${FONT_SIZE}px Arial, sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   
@@ -282,8 +294,8 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   
   // Type indicator (winner/runnerup/wildcard) - small label on left
   if (movie.type) {
-    ctx.fillStyle = '#B5BAC1';
-    ctx.font = `bold ${FONT_SIZE - 2}px sans-serif`;
+    ctx.fillStyle = isWinner ? COLORS.background : COLORS.textMuted;
+    ctx.font = `bold ${FONT_SIZE - 2}px Arial, sans-serif`;
     ctx.textAlign = 'left';
     const typeLabel = movie.type === 'winner' ? 'W' : movie.type === 'runnerup' ? 'R' : 'WC';
     ctx.fillText(typeLabel, x + 5, y + 12);
@@ -291,8 +303,8 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   
   // Winner checkmark
   if (isWinner) {
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 20px sans-serif';
+    ctx.fillStyle = COLORS.background;
+    ctx.font = 'bold 20px Arial, sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillText('✓', x + PARTICIPANT_WIDTH - 10, y + PARTICIPANT_HEIGHT / 2);
@@ -303,7 +315,7 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
  * Draw connector line between rounds
  */
 function drawConnectorLine(ctx, x, y, roundIndex, matchupIndex, totalMatchups, ySpacing) {
-  ctx.strokeStyle = '#4E5058';
+  ctx.strokeStyle = COLORS.connectorLine;
   ctx.lineWidth = 2;
   
   // Start from right side of matchup, middle point between two participants
@@ -329,25 +341,25 @@ function drawConnectorLine(ctx, x, y, roundIndex, matchupIndex, totalMatchups, y
  */
 function drawChampion(ctx, winner, x, y) {
   // Trophy icon background
-  ctx.fillStyle = '#FEE75C';
+  ctx.fillStyle = COLORS.primary;
   ctx.beginPath();
   ctx.arc(x, y, 70, 0, Math.PI * 2);
   ctx.fill();
   
   // Trophy emoji
-  ctx.font = '64px sans-serif';
+  ctx.font = '64px Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('🏆', x, y);
   
   // Champion label
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${FONT_SIZE + 6}px sans-serif`;
+  ctx.fillStyle = COLORS.text;
+  ctx.font = `bold ${FONT_SIZE + 6}px Arial, sans-serif`;
   ctx.textBaseline = 'top';
   ctx.fillText('CHAMPION', x, y + 80);
   
   // Winner title (truncated)
-  ctx.font = `${FONT_SIZE + 2}px sans-serif`;
+  ctx.font = `${FONT_SIZE + 2}px Arial, sans-serif`;
   ctx.textAlign = 'center';
   const maxWidth = 200;
   let displayText = winner.title;
