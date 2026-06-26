@@ -523,7 +523,23 @@ async function handleRemoveTitle(interaction) {
     embed.setThumbnail(imageUrl);
   }
   
-  if (result.titleCount < 4) {
+  // Provide guidance based on remaining titles
+  if (result.titleCount === 0) {
+    // Group is now empty - suggest next steps
+    const filledGroups = Object.keys(tournament.groups).filter(
+      key => tournament.groups[key].movies && tournament.groups[key].movies.length > 0
+    ).length;
+    
+    const suggestedGroupCount = Math.max(4, filledGroups); // Minimum 4 groups
+    
+    embed.addFields({
+      name: '⚠️ Group Empty',
+      value: `Group ${group} now has no titles. Choose an option:\n\n` +
+             `1️⃣ Add 4 titles to Group ${group} with \`/bracket add-title\`\n` +
+             `2️⃣ Resize tournament to ${suggestedGroupCount} groups with \`/bracket resize groups:${suggestedGroupCount}\``,
+      inline: false
+    });
+  } else if (result.titleCount < 4) {
     embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group} with /bracket add-title` });
   }
   
