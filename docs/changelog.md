@@ -25,6 +25,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Use `/bracket announce` when ready to share tournament with server
   - Keeps channel clean during tournament setup
 
+### Improved
+- **Tournament Bracket Visualization (`/bracket view`)**
+  - **Significantly larger boxes** - 320px wide (3.2x larger than before) for better readability
+  - **Better text wrapping** - Up to 5 lines with proper ellipsis for long titles
+  - **Improved fonts** - 16px text, 32px titles, 20px round labels for clarity
+  - **Professional sizing** - Larger canvas with better spacing and proportions
+  - **Full title display** - Titles like "The Silence of the Lambs" or "Invasion of the Body Snatchers" now display completely
+  - **Larger champion trophy** - 70px trophy circle with 64px emoji for better visibility
+  - **Overall improvement** - Much more professional and easier to read bracket images
+- **Group Voting Display (`/bracket open-groups`)**
+  - **Even distribution** - Groups now display in balanced rows (e.g., 4 groups = 2x2 grid instead of 3-1)
+  - **Dynamic layout** - Automatically calculates optimal groups per row:
+    - 4 or fewer groups: 2 per row
+    - 5-9 groups: 3 per row
+    - 10+ groups: 4 per row
+  - **Better visual balance** - Cleaner, more symmetrical presentation when opening group voting
+
 ### Added
 - **Tournament Brackets**
   - **NEW: Custom Image Support** - Upload images or provide URLs when adding titles to brackets
