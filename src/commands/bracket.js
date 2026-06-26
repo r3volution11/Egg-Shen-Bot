@@ -185,6 +185,11 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('list-groups')
+      .setDescription('View all groups and their titles')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('view')
       .setDescription('View visual bracket (knockout phase only)')
   )
@@ -273,6 +278,9 @@ export async function execute(interaction) {
         break;
       case 'status':
         await handleStatus(interaction);
+        break;
+      case 'list-groups':
+        await handleListGroups(interaction);
         break;
       case 'view':
         await handleView(interaction);
@@ -1085,6 +1093,61 @@ async function handleStatus(interaction) {
   } else if (tournament.status === 'completed') {
     embed.setDescription(`🎉 **Tournament Complete!**\n\n**Winner:** ${tournament.winner.title}`);
   }
+  
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleListGroups(interaction) {
+  await interaction.deferReply();
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  if (!tournament) {
+    await interaction.editReply('❌ No active tournament found.');
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x0099FF)
+    .setTitle(`🏆 ${tournament.name} - Groups`);
+  
+  // Get all group letters that exist
+  const groupLetters = Object.keys(tournament.groups).sort();
+  
+  if (groupLetters.length === 0) {
+    embed.setDescription('No groups have been created yet.');
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+  
+  // Add each group as a field
+  groupLetters.forEach(groupId => {
+    const group = tournament.groups[groupId];
+    const movies = group.movies || [];
+    
+    let groupText;
+    if (movies.length === 0) {
+      groupText = '*Empty - no titles added yet*';
+    } else {
+      groupText = movies.map((m, i) => `${i + 1}. ${m.title}`).join('\n');
+    }
+    
+    // Add status indicator if group is open or closed
+    let statusEmoji = '';
+    if (group.status === 'voting') {
+      statusEmoji = ' 🗳️ *(voting open)*';
+    } else if (group.status === 'closed') {
+      statusEmoji = ' ✅ *(closed)*';
+    }
+    
+    embed.addFields({
+      name: `Group ${groupId}${statusEmoji}`,
+      value: groupText,
+      inline: true
+    });
+  });
+  
+  embed.setFooter({ text: `${groupLetters.length} of ${tournament.groupCount} groups created` });
   
   await interaction.editReply({ embeds: [embed] });
 }
