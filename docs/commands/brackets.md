@@ -646,28 +646,27 @@ Winner: The Exorcist
 
 **Features:**
 
-- Generates a **professional March Madness-style** bracket visualization
-- **Large, readable boxes** (320px wide) - 3.2x larger than typical brackets
-- Shows all knockout rounds with matchup tree structure
-- **Full title display** with smart text wrapping (up to 5 lines with ellipsis)
-- Displays participant names with **winner highlighting** (green ✓)
-- **Larger, clearer fonts** (16px text, 20px labels) for better readability
-- Includes VS indicators and connector lines between rounds
+- Generates a **professional tournament bracket tree** (like March Madness)
+- **Proper matchup pairing** - Each matchup shows two participants grouped together with clear visual borders
+- **Minimum 1200px width** - Wide, spacious layout for optimal readability
+- **Landscape participant boxes** (240px × 50px) - Easy to scan and read
+- **Left-aligned text** - Natural reading flow with smart truncation
+- **Clear bracket tree structure** - Connector lines show tournament progression through rounds
+- **Visual matchup grouping** - Container borders make it obvious which titles are competing
+- Displays participant names with **winner highlighting** (green boxes with ✓)
 - Shows **champion trophy** (70px) when tournament complete
 - Discord dark theme styling
 - Generated on-demand as high-quality PNG image attachment
-
 - **Only available during knockout phase**
 
 **Visual Elements:**
 
 - Round labels (Round of 32/16, Quarterfinals, Semifinals, Finals)
-- Participant boxes with movie titles
-- Type indicators (Winner/Runner-up/Wildcard)
-- Green highlighting for winners with checkmarks
-
+- Grouped participant boxes with clear matchup pairing
+- Type indicators (W/R/WC for Winner/Runner-up/Wildcard)
+- Green highlighting for winners with checkmarks on the right
 - Trophy emoji and "CHAMPION" label for winner
-- Connector lines showing bracket progression
+- Bracket connector lines showing progression to next rounds
 
 **Example:**
 
