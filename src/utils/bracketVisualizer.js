@@ -134,15 +134,16 @@ export async function generateBracketImage(tournament) {
     xOffset += roundWidth;
   }
   
-  // Draw finals in center
+  // Draw finals in center (1.5x bigger)
   if (finalsRound && finalsRound.matchups.length > 0) {
-    const finalsX = (canvasWidth / 2) - (PARTICIPANT_WIDTH / 2);
+    const finalsScale = 1.5;
+    const finalsX = (canvasWidth / 2) - (PARTICIPANT_WIDTH * finalsScale / 2);
     const finalsY = canvasHeight / 2;
-    await drawMatchup(ctx, finalsRound.matchups[0], finalsX, finalsY, knockoutResults);
+    await drawMatchup(ctx, finalsRound.matchups[0], finalsX, finalsY, knockoutResults, finalsScale);
     
     // Finals label
     ctx.fillStyle = COLORS.primary;
-    ctx.font = `bold ${FONT_SIZE + 2}px Arial, sans-serif`;
+    ctx.font = `bold ${(FONT_SIZE + 2) * finalsScale}px Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText('Finals', canvasWidth / 2, CANVAS_PADDING + 40);
   }
@@ -257,68 +258,132 @@ function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups, ySp
 
 /**
  * Draw a single matchup (two participants paired together)
+ * @param {number} scale - Scale factor for finals (default 1)
  */
-async function drawMatchup(ctx, matchup, x, y, knockoutResults) {
+async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1) {
   const { movie1, movie2, id, status } = matchup;
   const result = knockoutResults?.[id];
   const winner = result?.winner; // 'movie1' or 'movie2'
   
+  const width = PARTICIPANT_WIDTH * scale;
+  const height = PARTICIPANT_HEIGHT * scale;
+  const gap = MATCHUP_GAP * scale;
+  
   // Calculate positions for each participant
-  const participant1Y = y - (PARTICIPANT_HEIGHT + MATCHUP_GAP / 2);
-  const participant2Y = y + (MATCHUP_GAP / 2);
+  const participant1Y = y - (height + gap / 2);
+  const participant2Y = y + (gap / 2);
   
   // Draw matchup container border (groups the two participants visually)
   ctx.strokeStyle = COLORS.cardBorder;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2 * scale;
   ctx.strokeRect(
-    x - 3, 
-    participant1Y - 3, 
-    PARTICIPANT_WIDTH + 6, 
-    (PARTICIPANT_HEIGHT * 2) + MATCHUP_GAP + 6
+    x - 3 * scale, 
+    participant1Y - 3 * scale, 
+    width + 6 * scale, 
+    (height * 2) + gap + 6 * scale
   );
   
   // Draw participants
-  drawParticipant(ctx, movie1, x, participant1Y, winner === 'movie1');
-  drawParticipant(ctx, movie2, x, participant2Y, winner === 'movie2');
+  await drawParticipant(ctx, movie1, x, participant1Y, winner === 'movie1', scale);
+  await drawParticipant(ctx, movie2, x, participant2Y, winner === 'movie2', scale);
+}
+
+/**
+ * Extract dominant color from image URL
+ */
+async function getDominantColor(imageUrl) {
+  try {
+    const img = await loadImage(imageUrl);
+    const tempCanvas = createCanvas(img.width, img.height);
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(img, 0, 0);
+    
+    // Sample pixels from the image
+    const imageData = tempCtx.getImageData(0, 0, img.width, img.height);
+    const data = imageData.data;
+    
+    // Count color occurrences
+    const colorCounts = {};
+    const step = 10; // Sample every 10th pixel for performance
+    
+    for (let i = 0; i < data.length; i += 4 * step) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+      
+      // Skip transparent or very dark/light pixels
+      if (a < 128 || (r + g + b) < 60 || (r + g + b) > 700) continue;
+      
+      // Round to nearest 30 to group similar colors
+      const key = `${Math.round(r / 30) * 30},${Math.round(g / 30) * 30},${Math.round(b / 30) * 30}`;
+      colorCounts[key] = (colorCounts[key] || 0) + 1;
+    }
+    
+    // Find most common color
+    let maxCount = 0;
+    let dominantColor = '50,60,68'; // fallback
+    
+    for (const [color, count] of Object.entries(colorCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        dominantColor = color;
+      }
+    }
+    
+    return `rgb(${dominantColor})`;
+  } catch (error) {
+    console.error('[BracketVisualizer] Error extracting color:', error.message);
+    return COLORS.cardBg; // fallback
+  }
 }
 
 /**
  * Draw a single participant
+ * @param {number} scale - Scale factor for finals (default 1)
  */
-function drawParticipant(ctx, movie, x, y, isWinner) {
+async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
+  const width = PARTICIPANT_WIDTH * scale;
+  const height = PARTICIPANT_HEIGHT * scale;
+  const fontSize = FONT_SIZE * scale;
   if (!movie || !movie.title) {
     // Empty slot (TBD)
     ctx.fillStyle = COLORS.cardBg;
-    ctx.fillRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
+    ctx.fillRect(x, y, width, height);
     ctx.strokeStyle = COLORS.cardBorder;
-    ctx.strokeRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
+    ctx.strokeRect(x, y, width, height);
     
     ctx.fillStyle = COLORS.textMuted;
-    ctx.font = `${FONT_SIZE}px Arial, sans-serif`;
+    ctx.font = `${fontSize}px Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('TBD', x + PARTICIPANT_WIDTH / 2, y + PARTICIPANT_HEIGHT / 2);
+    ctx.fillText('TBD', x + width / 2, y + height / 2);
     return;
   }
   
+  // Get dominant color from poster if available
+  let boxColor = isWinner ? COLORS.winner : COLORS.cardBg;
+  if (!isWinner && movie.posterUrl) {
+    boxColor = await getDominantColor(movie.posterUrl);
+  }
+  
   // Participant box
-  const boxColor = isWinner ? COLORS.winner : COLORS.cardBg;
   ctx.fillStyle = boxColor;
-  ctx.fillRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
+  ctx.fillRect(x, y, width, height);
   
   // Border
   ctx.strokeStyle = isWinner ? COLORS.primary : COLORS.cardBorder;
-  ctx.lineWidth = isWinner ? 3 : 2;
-  ctx.strokeRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
+  ctx.lineWidth = isWinner ? 3 * scale : 2 * scale;
+  ctx.strokeRect(x, y, width, height);
   
   // Title
   ctx.fillStyle = isWinner ? COLORS.background : COLORS.text;
-  ctx.font = `${FONT_SIZE}px Arial, sans-serif`;
+  ctx.font = `${fontSize}px Arial, sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   
   // Truncate text if too long
-  const maxWidth = PARTICIPANT_WIDTH - 40;
+  const maxWidth = width - 40 * scale;
   let displayText = movie.title;
   let textWidth = ctx.measureText(displayText).width;
   
@@ -329,24 +394,24 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
     displayText += '...';
   }
   
-  ctx.fillText(displayText, x + 10, y + PARTICIPANT_HEIGHT / 2);
+  ctx.fillText(displayText, x + 10 * scale, y + height / 2);
   
   // Type indicator (winner/runnerup/wildcard) - small label on left
   if (movie.type) {
     ctx.fillStyle = isWinner ? COLORS.background : COLORS.textMuted;
-    ctx.font = `bold ${FONT_SIZE - 2}px Arial, sans-serif`;
+    ctx.font = `bold ${(FONT_SIZE - 2) * scale}px Arial, sans-serif`;
     ctx.textAlign = 'left';
     const typeLabel = movie.type === 'winner' ? 'W' : movie.type === 'runnerup' ? 'R' : 'WC';
-    ctx.fillText(typeLabel, x + 5, y + 12);
+    ctx.fillText(typeLabel, x + 5 * scale, y + 12 * scale);
   }
   
   // Winner checkmark
   if (isWinner) {
     ctx.fillStyle = COLORS.background;
-    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.font = `bold ${20 * scale}px Arial, sans-serif`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText('✓', x + PARTICIPANT_WIDTH - 10, y + PARTICIPANT_HEIGHT / 2);
+    ctx.fillText('✓', x + width - 10 * scale, y + height / 2);
   }
 }
 
