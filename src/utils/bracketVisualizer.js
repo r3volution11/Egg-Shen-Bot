@@ -150,7 +150,7 @@ export async function generateBracketImage(tournament) {
   // Draw right side (first round furthest right, progressing left towards center)
   xOffset = canvasWidth - CANVAS_PADDING - PARTICIPANT_WIDTH;
   for (let i = 0; i < rightSide.length; i++) {
-    const round = rightSide[rightSide.length - 1 - i]; // Reverse order
+    const round = rightSide[i]; // Draw in same order (first round = most teams)
     await drawRoundColumn(ctx, round, xOffset, canvasHeight, knockoutResults, 'right', i, rightSide.length);
     xOffset -= roundWidth;
   }
