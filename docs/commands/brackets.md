@@ -388,10 +388,13 @@ Use /bracket vote-group to cast your votes
 **Features:**
 
 - Open multiple groups at once
-- Posts embed showing all movies in each group
+- Posts embed showing all titles in each group with **balanced layout**:
+  - 4 or fewer groups: 2x2 grid
+  - 5-9 groups: 3 groups per row
+  - 10+ groups: 4 groups per row
 - Voting opens immediately
-
 - Members can vote for top 2 in each group
+- Clean, symmetrical presentation for better readability
 
 **Examples:**
 
@@ -643,13 +646,16 @@ Winner: The Exorcist
 
 **Features:**
 
-- Generates a March Madness-style bracket visualization
+- Generates a **professional March Madness-style** bracket visualization
+- **Large, readable boxes** (320px wide) - 3.2x larger than typical brackets
 - Shows all knockout rounds with matchup tree structure
-- Displays participant names with winner highlighting (green ✓)
+- **Full title display** with smart text wrapping (up to 5 lines with ellipsis)
+- Displays participant names with **winner highlighting** (green ✓)
+- **Larger, clearer fonts** (16px text, 20px labels) for better readability
 - Includes VS indicators and connector lines between rounds
-- Shows champion trophy when tournament complete
+- Shows **champion trophy** (70px) when tournament complete
 - Discord dark theme styling
-- Generated on-demand as PNG image attachment
+- Generated on-demand as high-quality PNG image attachment
 
 - **Only available during knockout phase**
 
