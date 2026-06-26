@@ -36,6 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Automatic re-indexing of remaining titles
     - Confirmation embed shows removed title with thumbnail
     - Useful for fixing mistakes before opening group voting
+  - **NEW: `/bracket resize`** - Dynamically expand or contract tournaments during setup
+    - Change group count from 4-12 groups (16-48 total titles)
+    - **Expanding:** Adds new groups (shows which new groups are available)
+    - **Contracting:** Validates that groups being removed are empty
+    - **Smart Validation:** Provides detailed actionable guidance when resize fails
+      - Lists which groups have titles that would be removed
+      - Shows exactly how many titles need to be moved or removed
+      - Suggests minimum group count needed to keep all current titles
+      - Offers 3 clear options: move titles, remove titles, or adjust target size
+    - Perfect for tournaments that grow larger than initially planned
 - **AI Image Generation System**
   - **NEW: `/image` command** - Generate AI images from text prompts or Discord messages
     - Text-to-image: `/image prompt:"A dragon flying over a castle"`
