@@ -27,13 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Improved
 - **Tournament Bracket Visualization (`/bracket view`)**
-  - **Significantly larger boxes** - 320px wide (3.2x larger than before) for better readability
-  - **Better text wrapping** - Up to 5 lines with proper ellipsis for long titles
-  - **Improved fonts** - 16px text, 32px titles, 20px round labels for clarity
-  - **Professional sizing** - Larger canvas with better spacing and proportions
-  - **Full title display** - Titles like "The Silence of the Lambs" or "Invasion of the Body Snatchers" now display completely
-  - **Larger champion trophy** - 70px trophy circle with 64px emoji for better visibility
-  - **Overall improvement** - Much more professional and easier to read bracket images
+  - **Complete redesign** - Now displays a proper tournament bracket tree layout (like March Madness)
+  - **Clear matchup pairing** - Each matchup has two participant boxes grouped together with container border
+  - **Proper bracket tree structure** - Connector lines show which matchups feed into next round
+  - **Minimum 1200px width** - Wide, spacious, professional appearance
+  - **Landscape participant boxes** - 240px wide × 50px tall for optimal readability
+  - **Left-aligned text** - Easier to read than centered text
+  - **Smart truncation** - Ellipsis for titles that don't fit
+  - **Visual flow** - Clear progression from left to right through rounds
+  - **Matchup spacing** - 140px vertical spacing with 10px gap between paired participants
+  - **Better connector lines** - 40px horizontal extension then vertical connection to next round
+  - **Winner indicators** - Green highlighting and checkmarks on the right side of boxes
 - **Group Voting Display (`/bracket open-groups`)**
   - **Even distribution** - Groups now display in balanced rows (e.g., 4 groups = 2x2 grid instead of 3-1)
   - **Dynamic layout** - Automatically calculates optimal groups per row:
