@@ -108,6 +108,23 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('announce')
+      .setDescription('Announce the tournament to the channel (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('message')
+          .setDescription('Announcement message to the server')
+          .setRequired(false)
+      )
+      .addAttachmentOption(option =>
+        option
+          .setName('image')
+          .setDescription('Optional tournament banner/image')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('open-groups')
       .setDescription('Open groups for voting (Admin/Mod only)')
       .addStringOption(option =>
@@ -211,7 +228,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -238,6 +255,9 @@ export async function execute(interaction) {
         break;
       case 'resize':
         await handleResize(interaction);
+        break;
+      case 'announce':
+        await handleAnnounce(interaction);
         break;
       case 'open-groups':
         await handleOpenGroups(interaction);
@@ -305,16 +325,16 @@ async function handleCreate(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
     .setTitle(`🏆 ${name}`)
-    .setDescription(`Tournament created! Now add movies to ${groupCount} groups.`)
+    .setDescription(`Tournament created! Now add titles to ${groupCount} groups.`)
     .addFields(
       { name: 'Status', value: 'Setup', inline: true },
       { name: 'Groups', value: `0/${groupCount}`, inline: true },
-      { name: 'Total Movies', value: `${totalMovies}`, inline: true },
+      { name: 'Total Capacity', value: `${totalMovies} titles`, inline: true },
       { name: 'Creator', value: `<@${interaction.user.id}>`, inline: false }
     )
-    .setFooter({ text: 'Use /bracket add-title to add titles one at a time' });
+    .setFooter({ text: 'Use /bracket add-title to add titles • Use /bracket announce when ready to share with server' });
   
-  await interaction.reply({ embeds: [embed] });
+  await interaction.reply({ embeds: [embed], ephemeral: true });
 }
 
 async function handleAddTitle(interaction) {
@@ -629,6 +649,76 @@ async function handleResize(interaction) {
     embed.setFooter({ text: `New groups available: ${newGroups.split('').join(', ')}` });
   }
   
+  await interaction.reply({ embeds: [embed] });
+}
+
+async function handleAnnounce(interaction) {
+  const customMessage = interaction.options.getString('message');
+  const imageAttachment = interaction.options.getAttachment('image');
+  const guildId = interaction.guildId;
+  
+  // Check if tournament exists
+  const tournament = bracketManager.loadTournament(guildId);
+  if (!tournament) {
+    await interaction.reply({
+      content: '❌ No tournament found. Create one with `/bracket create` first.',
+      ephemeral: true,
+    });
+    return;
+  }
+  
+  // Count filled groups
+  const filledGroups = Object.keys(tournament.groups).filter(
+    key => tournament.groups[key].movies && tournament.groups[key].movies.length === 4
+  ).length;
+  
+  const totalGroups = tournament.groupCount;
+  const allowedGroupLetters = 'ABCDEFGHIJKL'.slice(0, tournament.groupCount);
+  
+  // Build announcement embed
+  const embed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle(`🏆 ${tournament.name}`)
+    .setDescription(
+      customMessage || 
+      `A new tournament has been created! Get ready to vote for your favorites.`
+    )
+    .addFields(
+      { name: 'Tournament Type', value: tournament.type ? getTypeLabel(tournament.type) : 'Not set yet', inline: true },
+      { name: 'Groups', value: `${allowedGroupLetters.split('').join(', ')} (${totalGroups} groups)`, inline: true },
+      { name: 'Total Entries', value: `${filledGroups * 4} titles`, inline: true }
+    );
+  
+  // Add status based on phase
+  if (tournament.status === 'setup') {
+    embed.addFields({
+      name: 'Status',
+      value: `⚙️ Setup Phase - ${filledGroups}/${totalGroups} groups filled`,
+      inline: false
+    });
+    embed.setFooter({ text: 'Voting will begin soon! Stay tuned for announcements.' });
+  } else if (tournament.status === 'group_stage') {
+    embed.addFields({
+      name: 'Status',
+      value: '🗳️ Group Stage Voting - Vote for your top 2 in each group!',
+      inline: false
+    });
+    embed.setFooter({ text: 'Use /bracket vote-group to cast your votes' });
+  } else if (tournament.status === 'knockout') {
+    embed.addFields({
+      name: 'Status',
+      value: `⚔️ Knockout Stage - ${tournament.phase}`,
+      inline: false
+    });
+    embed.setFooter({ text: 'Head-to-head battles! Vote for your favorites.' });
+  }
+  
+  // Add custom image if provided
+  if (imageAttachment) {
+    embed.setImage(imageAttachment.url);
+  }
+  
+  // Send public announcement
   await interaction.reply({ embeds: [embed] });
 }
 

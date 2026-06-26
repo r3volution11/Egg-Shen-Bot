@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Progress tracking shows "2/4 titles" so you know how many more needed
     - Prevents duplicate titles in same group
     - More flexibility - can add 1-4 titles per group before opening voting
+- **Tournament Creation Privacy**
+  - `/bracket create` is now **ephemeral** (only visible to admin/moderator who created it)
+  - Regular members no longer see setup process
+  - Use `/bracket announce` when ready to share tournament with server
+  - Keeps channel clean during tournament setup
 
 ### Added
 - **Tournament Brackets**
@@ -46,6 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - Suggests minimum group count needed to keep all current titles
       - Offers 3 clear options: move titles, remove titles, or adjust target size
     - Perfect for tournaments that grow larger than initially planned
+  - **NEW: `/bracket announce`** - Public tournament announcements with custom messaging
+    - Share tournament details with the entire server
+    - Optional custom message parameter
+    - Optional tournament banner/image attachment
+    - Shows tournament type, groups, entry count, and current status
+    - Can be used at any phase (setup, group voting, knockout)
+    - Perfect for generating hype and informing members when voting opens
 - **AI Image Generation System**
   - **NEW: `/image` command** - Generate AI images from text prompts or Discord messages
     - Text-to-image: `/image prompt:"A dragon flying over a castle"`

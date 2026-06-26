@@ -96,6 +96,8 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 **Features:**
 
+- **Ephemeral response** - Only visible to the admin/moderator who created it (keeps channel clean)
+- **Use `/bracket announce`** when ready to share tournament with the entire server
 - Only one tournament per server at a time
 - Tournament enters "setup" phase
 - Flexible sizing: smaller tournaments for quick events, larger for epic competitions
@@ -295,6 +297,77 @@ Options:
 - Contracting requires affected groups to be empty
 - Use `/bracket status` to see current group count and which groups have titles
 - Perfect for dynamic tournaments where you're not sure of final size upfront
+
+---
+
+### Announce Tournament
+
+```
+/bracket announce message:[custom message] image:[banner image]
+```
+
+**Parameters:**
+
+- `message` (optional) - Custom announcement message to the server
+- `image` (optional) - Tournament banner or promotional image
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- **Public announcement** - Visible to entire server (unlike create which is ephemeral)
+- **Custom messaging** - Add your own hype text or instructions
+- **Tournament banner** - Upload or link to promotional images
+- **Auto-generated details** - Shows tournament type, groups, entry count, and current status
+- **Phase-aware** - Message adapts based on setup/voting/knockout phase
+- **Use anytime** - Can announce during setup, when voting opens, or during knockouts
+
+**Examples:**
+
+```
+# Simple announcement (uses default message)
+/bracket announce
+
+# With custom message
+/bracket announce message:🎬 The Ultimate Horror Tournament is HERE! Vote for your favorite scary movies and help crown the champion! 🏆
+
+# With custom message and banner image
+/bracket announce message:🔥 Monthly Movie Madness starts NOW! message:[upload tournament banner]
+
+# With image URL
+/bracket announce message:Vote now! image:https://example.com/tournament-banner.png
+```
+
+**When to Use:**
+
+- **After setup** - When all groups are filled and you're ready to start voting
+- **Voting opens** - To remind members when group voting begins
+- **Knockout phase** - To generate hype for playoff rounds
+- **Tournament complete** - To announce the winner
+
+**Example Output:**
+
+```
+🏆 The Shudder Discord Gore Cup
+
+The ultimate horror tournament is here! 32 terrifying movies battle for supremacy. 
+Vote for your favorites and help crown the champion!
+
+Tournament Type: Movies
+Groups: A, B, C, D, E, F, G, H (8 groups)
+Total Entries: 32 titles
+Status: 🗳️ Group Stage Voting - Vote for your top 2 in each group!
+
+Use /bracket vote-group to cast your votes
+```
+
+**Tips:**
+
+- Tournament creation is **ephemeral** (only visible to admin) - use announce to share with server
+- Can announce multiple times throughout tournament lifecycle
+- Custom images are great for generating excitement
+- Keep message concise - embed auto-adds tournament details
+- Announce when voting opens to maximize participation
 
 ---
 
