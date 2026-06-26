@@ -1,5 +1,32 @@
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { config } from '../config.js';
+import { existsSync } from 'fs';
+
+// Register Arial font if available
+const arialPaths = [
+  '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf',           // Ubuntu/Debian
+  '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', // Ubuntu fallback
+  '/Library/Fonts/Arial.ttf',                                    // macOS
+  '/System/Library/Fonts/Supplemental/Arial.ttf',                // macOS alternative
+];
+
+let fontLoaded = false;
+for (const path of arialPaths) {
+  if (existsSync(path)) {
+    try {
+      GlobalFonts.registerFromPath(path, 'Arial');
+      fontLoaded = true;
+      console.log(`[BracketVisualizer] Loaded font from: ${path}`);
+      break;
+    } catch (error) {
+      console.error(`[BracketVisualizer] Failed to load font from ${path}:`, error.message);
+    }
+  }
+}
+
+if (!fontLoaded) {
+  console.warn('[BracketVisualizer] Could not load Arial font, using system default');
+}
 
 const PARTICIPANT_WIDTH = 240;
 const PARTICIPANT_HEIGHT = 50;
