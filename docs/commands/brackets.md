@@ -1085,6 +1085,86 @@ See [AI Image Generation](ai-images.md) for full documentation on rate limits an
 
 ---
 
+### View My Voting Status
+
+```
+/bracket my-votes
+```
+
+**Parameters:** None
+
+**Who can use:** All server members
+
+**Features:**
+
+- **View your voting history** - See which groups and matchups you've voted in
+- **Check time remaining** - Shows countdown for each active vote
+- **Find available votes** - Lists groups/matchups you haven't voted in yet
+- **Track your choices** - See exactly which titles you voted for
+- **Private response** - Only you can see your voting status (ephemeral)
+- **Real-time deadlines** - Know when voting closes for each item
+
+**What You'll See:**
+
+```
+📊 Your Voting Status
+
+Tournament Name
+Phase: Group Stage
+
+✅ Groups Voted (2)
+Group A - Voted for #1 (The Thing) and #3 (Alien)
+⏰ 23h 15m remaining
+
+Group B - Voted for #2 (The Exorcist) and #4 (The Shining)
+⏰ 23h 15m remaining
+
+🗳️ Groups Available (2)
+Group C - ⏰ 23h 15m remaining
+Group D - ⏰ 23h 15m remaining
+
+Use /bracket vote-group to vote
+```
+
+**During Knockout Phase:**
+
+```
+📊 Your Voting Status
+
+Tournament Name
+Phase: Quarterfinals
+
+✅ Knockout Votes Cast (3)
+Quarterfinals #1 - Voted for The Thing vs Alien
+⏰ 12h 30m remaining
+
+Quarterfinals #2 - Voted for The Exorcist vs The Shining
+⏰ 12h 30m remaining
+
+🗳️ Knockout Matchups Available (1)
+Quarterfinals #3 - Jaws vs Psycho
+⏰ 12h 30m remaining
+
+Click buttons on matchup messages to vote
+```
+
+**Benefits:**
+
+- **Never miss a vote** - See exactly what's available
+- **Plan your time** - Know when deadlines expire
+- **Review your picks** - Double-check your choices before deadline
+- **Stay organized** - Especially helpful in tournaments with 8-12 groups
+- **Change votes strategically** - See what you voted for if you want to reconsider
+
+**Tips:**
+
+- Use this command regularly during group stage to track progress
+- Check before deadlines to ensure you voted in all groups
+- Useful for tournaments with staggered voting windows
+- Helps you prioritize which votes to cast first based on deadlines
+
+---
+
 ### Cancel Tournament
 
 

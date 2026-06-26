@@ -336,6 +336,11 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('my-votes')
+      .setDescription('View your voting history and available votes')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('cancel')
       .setDescription('Cancel the tournament (Admin/Mod only)')
   );
@@ -411,6 +416,9 @@ export async function execute(interaction) {
         break;
       case 'image':
         await handleImage(interaction);
+        break;
+      case 'my-votes':
+        await handleMyVotes(interaction);
         break;
       case 'cancel':
         await handleCancel(interaction);
@@ -1920,6 +1928,105 @@ async function handleExtendVoting(interaction) {
       `📅 **Exact time:** ${new Date(newDeadline).toLocaleString()}`
     );
   }
+}
+
+async function handleMyVotes(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  
+  const result = bracketManager.getUserVotingStatus(interaction.guildId, interaction.user.id);
+  
+  if (!result.success) {
+    await interaction.editReply(`❌ ${result.error}`);
+    return;
+  }
+  
+  const { status } = result;
+  
+  // Helper function to format time remaining
+  const formatTime = (ms) => {
+    if (!ms || ms <= 0) return 'Expired';
+    const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+    const hours = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle(`📊 Your Voting Status`)
+    .setDescription(`**${status.tournament.name}**\\nPhase: ${status.tournament.phase.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}\\n`);
+  
+  // Group votes cast
+  if (status.groupVotes.length > 0) {
+    const groupText = status.groupVotes.map(v => {
+      const timeLeft = formatTime(v.timeRemaining);
+      return `**Group ${v.group}** - Voted for #${v.choices[0].position} (${v.choices[0].title}) and #${v.choices[1].position} (${v.choices[1].title})\\n⏰ ${timeLeft} remaining`;
+    }).join('\\n\\n');
+    
+    embed.addFields({ 
+      name: `✅ Groups Voted (${status.groupVotes.length})`, 
+      value: groupText, 
+      inline: false 
+    });
+  }
+  
+  // Available group votes
+  if (status.availableGroupVotes.length > 0) {
+    const availText = status.availableGroupVotes.map(v => {
+      const timeLeft = formatTime(v.timeRemaining);
+      return `**Group ${v.group}** - ⏰ ${timeLeft} remaining`;
+    }).join('\\n');
+    
+    embed.addFields({ 
+      name: `🗳️ Groups Available (${status.availableGroupVotes.length})`, 
+      value: availText + '\\n\\nUse `/bracket vote-group` to vote', 
+      inline: false 
+    });
+  }
+  
+  // Knockout votes cast
+  if (status.knockoutVotes.length > 0) {
+    const knockoutText = status.knockoutVotes.map(v => {
+      const roundName = v.round.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
+      const timeLeft = formatTime(v.timeRemaining);
+      return `**${roundName} #${v.position}** - Voted for **${v.votedFor}** vs ${v.opponent}\\n⏰ ${timeLeft} remaining`;
+    }).join('\\n\\n');
+    
+    embed.addFields({ 
+      name: `✅ Knockout Votes Cast (${status.knockoutVotes.length})`, 
+      value: knockoutText, 
+      inline: false 
+    });
+  }
+  
+  // Available knockout votes
+  if (status.availableKnockoutVotes.length > 0) {
+    const availKnockoutText = status.availableKnockoutVotes.map(v => {
+      const roundName = v.round.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
+      const timeLeft = formatTime(v.timeRemaining);
+      return `**${roundName} #${v.position}** - ${v.movie1} vs ${v.movie2}\\n⏰ ${timeLeft} remaining`;
+    }).join('\\n\\n');
+    
+    embed.addFields({ 
+      name: `🗳️ Knockout Matchups Available (${status.availableKnockoutVotes.length})`, 
+      value: availKnockoutText + '\\n\\nClick buttons on matchup messages to vote', 
+      inline: false 
+    });
+  }
+  
+  // No voting activity
+  if (status.groupVotes.length === 0 && status.availableGroupVotes.length === 0 && 
+      status.knockoutVotes.length === 0 && status.availableKnockoutVotes.length === 0) {
+    embed.setDescription(
+      `**${status.tournament.name}**\\nPhase: ${status.tournament.phase.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}\\n\\n` +
+      `No voting currently available. Check back when admins open voting!`
+    );
+  }
+  
+  await interaction.editReply({ embeds: [embed] });
 }
 
 async function handleCancel(interaction) {
