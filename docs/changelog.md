@@ -91,6 +91,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - Shows updated time remaining and exact deadline after extending
     - **Flexible tournament pacing** - Run quick tournaments (30-minute rounds) or slow-burn events (week-long voting)
     - **Per-server control** - Tournament admins set duration based on their community's needs
+    - **Deadline enforcement** - Voting automatically blocked after deadline expires
+      - Users receive clear error message with time expired ("ended 2 hours ago")
+      - Prevents late votes while allowing admins to extend if needed
+      - Lazy evaluation approach - validates on vote attempt, no background jobs needed
+      - Encourages admins to close voting or extend deadlines proactively
+  - **NEW: `/bracket my-votes`** - View your personal voting status and history
+    - **Private voting dashboard** (ephemeral response - only you can see it)
+    - **Groups voted** - See which groups you've voted in and your exact choices
+    - **Available votes** - Lists groups/matchups you haven't voted in yet
+    - **Time remaining** - Shows countdown for each active vote
+    - **Knockout history** - View all matchup votes you've cast
+    - **Never miss a vote** - Easy way to track what's left to vote on
+    - **Deadline awareness** - See when each vote expires
+    - **Perfect for large tournaments** - Essential when managing 8-12 groups with staggered voting
   - **NEW: Custom Image Support** - Upload images or provide URLs when adding titles to brackets
     - Optional `image` parameter in `/bracket add-title` (attachment option)
     - Upload images directly from your device (PNG, JPG, GIF, WebP)

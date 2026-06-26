@@ -375,6 +375,15 @@ export function voteGroupStage(guildId, userId, groupId, movieIndexes) {
     return { success: false, error: 'This group is not open for voting' };
   }
   
+  // Check if voting deadline has passed
+  if (group.votingDeadline && Date.now() > group.votingDeadline) {
+    const hoursAgo = Math.floor((Date.now() - group.votingDeadline) / (1000 * 60 * 60));
+    const timeAgo = hoursAgo > 24 
+      ? `${Math.floor(hoursAgo / 24)} day${Math.floor(hoursAgo / 24) !== 1 ? 's' : ''} ago`
+      : `${hoursAgo} hour${hoursAgo !== 1 ? 's' : ''} ago`;
+    return { success: false, error: `Voting for Group ${groupId} ended ${timeAgo}. Ask an admin to extend the deadline or close voting.` };
+  }
+  
   if (movieIndexes.length !== 2) {
     return { success: false, error: 'Must vote for exactly 2 movies' };
   }
@@ -845,6 +854,15 @@ export function voteKnockout(guildId, userId, matchupId, choice) {
     return { success: false, error: 'This matchup is not open for voting' };
   }
   
+  // Check if voting deadline has passed
+  if (matchup.votingDeadline && Date.now() > matchup.votingDeadline) {
+    const hoursAgo = Math.floor((Date.now() - matchup.votingDeadline) / (1000 * 60 * 60));
+    const timeAgo = hoursAgo > 24 
+      ? `${Math.floor(hoursAgo / 24)} day${Math.floor(hoursAgo / 24) !== 1 ? 's' : ''} ago`
+      : `${hoursAgo} hour${hoursAgo !== 1 ? 's' : ''} ago`;
+    return { success: false, error: `Voting for this matchup ended ${timeAgo}. Ask an admin to extend the deadline or close the round.` };
+  }
+  
   // Remove previous vote
   matchup.votes.movie1 = matchup.votes.movie1.filter(id => id !== userId);
   matchup.votes.movie2 = matchup.votes.movie2.filter(id => id !== userId);
@@ -1056,6 +1074,97 @@ export function completeTournament(guildId, winnerId) {
   return saveTournament(guildId, tournament)
     ? { success: true, tournament, winner: tournament.winner }
     : { success: false, error: 'Failed to save' };
+}
+
+/**
+ * Get user's voting status and history
+ */
+export function getUserVotingStatus(guildId, userId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+  
+  const userVotes = tournament.votes[userId] || {};
+  const status = {
+    tournament: {
+      name: tournament.name,
+      type: tournament.type,
+      phase: tournament.phase,
+      status: tournament.status
+    },
+    groupVotes: [],
+    knockoutVotes: [],
+    availableGroupVotes: [],
+    availableKnockoutVotes: []
+  };
+  
+  // Group stage voting status
+  if (tournament.status === 'group_stage' || tournament.groupResults) {
+    Object.keys(tournament.groups).forEach(groupId => {
+      const group = tournament.groups[groupId];
+      
+      if (group.votingOpen) {
+        // Check if user has voted
+        if (userVotes[groupId]) {
+          const choices = userVotes[groupId];
+          const movie1 = group.movies[choices[0]];
+          const movie2 = group.movies[choices[1]];
+          
+          status.groupVotes.push({
+            group: groupId,
+            choices: [
+              { position: choices[0] + 1, title: movie1?.title },
+              { position: choices[1] + 1, title: movie2?.title }
+            ],
+            deadline: group.votingDeadline,
+            timeRemaining: group.votingDeadline ? Math.max(0, group.votingDeadline - Date.now()) : null
+          });
+        } else {
+          // Available to vote
+          status.availableGroupVotes.push({
+            group: groupId,
+            deadline: group.votingDeadline,
+            timeRemaining: group.votingDeadline ? Math.max(0, group.votingDeadline - Date.now()) : null
+          });
+        }
+      }
+    });
+  }
+  
+  // Knockout voting status
+  if (tournament.status === 'knockout') {
+    const votingMatchups = tournament.knockoutBracket.filter(m => m.status === 'voting');
+    
+    votingMatchups.forEach(matchup => {
+      if (userVotes[matchup.id]) {
+        const choice = userVotes[matchup.id];
+        const votedMovie = choice === 1 ? matchup.movie1 : matchup.movie2;
+        
+        status.knockoutVotes.push({
+          matchupId: matchup.id,
+          round: matchup.round,
+          position: matchup.position + 1,
+          votedFor: votedMovie.title,
+          opponent: choice === 1 ? matchup.movie2.title : matchup.movie1.title,
+          deadline: matchup.votingDeadline,
+          timeRemaining: matchup.votingDeadline ? Math.max(0, matchup.votingDeadline - Date.now()) : null
+        });
+      } else {
+        status.availableKnockoutVotes.push({
+          matchupId: matchup.id,
+          round: matchup.round,
+          position: matchup.position + 1,
+          movie1: matchup.movie1.title,
+          movie2: matchup.movie2.title,
+          deadline: matchup.votingDeadline,
+          timeRemaining: matchup.votingDeadline ? Math.max(0, matchup.votingDeadline - Date.now()) : null
+        });
+      }
+    });
+  }
+  
+  return { success: true, status };
 }
 
 /**
