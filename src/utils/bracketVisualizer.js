@@ -32,28 +32,49 @@ export async function generateBracketImage(tournament) {
     roundGroups[matchup.round].push(matchup);
   });
   
-  // Determine round order
+  // Determine round order and get rounds
   const roundOrder = ['round_of_32', 'round_of_16', 'quarterfinals', 'semifinals', 'finals'];
   const rounds = roundOrder
     .filter(round => roundGroups[round])
-    .map(round => ({ name: round, matchups: roundGroups[round] }));
+    .map(round => ({ name: round, matchups: roundGroups[round].sort((a, b) => a.position - b.position) }));
   
   if (rounds.length === 0) {
     throw new Error('No rounds found in bracket');
   }
   
-  // Calculate canvas dimensions with minimum width
-  const maxMatchupsInRound = Math.max(...rounds.map(r => r.matchups.length));
-  const calculatedWidth = (rounds.length * ROUND_SPACING) + (CANVAS_PADDING * 2) + 300; // Extra space for champion
-  const canvasWidth = Math.max(1200, calculatedWidth); // Minimum 1200px
-  const canvasHeight = (maxMatchupsInRound * MATCHUP_SPACING) + (CANVAS_PADDING * 2) + 100; // Extra for title
+  // Split bracket into left and right sides (except finals)
+  const leftSide = [];
+  const rightSide = [];
+  const finalsRound = rounds[rounds.length - 1].name === 'finals' ? rounds[rounds.length - 1] : null;
+  const bracketRounds = finalsRound ? rounds.slice(0, -1) : rounds;
+  
+  // Split each round in half
+  bracketRounds.forEach(round => {
+    const midpoint = Math.ceil(round.matchups.length / 2);
+    leftSide.push({
+      name: round.name,
+      matchups: round.matchups.slice(0, midpoint)
+    });
+    rightSide.push({
+      name: round.name,
+      matchups: round.matchups.slice(midpoint)
+    });
+  });
+  
+  // Calculate canvas dimensions
+  const numRounds = bracketRounds.length;
+  const maxMatchupsPerSide = Math.max(...leftSide.map(r => r.matchups.length));
+  const roundWidth = ROUND_SPACING;
+  const finalsWidth = 400;
+  const canvasWidth = (numRounds * 2 * roundWidth) + finalsWidth + (CANVAS_PADDING * 2);
+  const canvasHeight = (maxMatchupsPerSide * MATCHUP_SPACING) + (CANVAS_PADDING * 2) + 100;
   
   // Create canvas
   const canvas = createCanvas(canvasWidth, canvasHeight);
   const ctx = canvas.getContext('2d');
   
   // Background
-  ctx.fillStyle = '#2B2D31'; // Discord dark theme
+  ctx.fillStyle = '#2B2D31';
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   
   // Title
@@ -62,37 +83,38 @@ export async function generateBracketImage(tournament) {
   ctx.textAlign = 'center';
   ctx.fillText(tournament.name, canvasWidth / 2, CANVAS_PADDING - 10);
   
-  // Draw rounds
+  // Draw left side (first round furthest left, progressing right towards center)
   let xOffset = CANVAS_PADDING;
-  for (let roundIndex = 0; roundIndex < rounds.length; roundIndex++) {
-    const round = rounds[roundIndex];
-    const ySpacing = canvasHeight / (round.matchups.length + 1);
+  for (let i = 0; i < leftSide.length; i++) {
+    const round = leftSide[i];
+    await drawRoundColumn(ctx, round, xOffset, canvasHeight, knockoutResults, 'left', i, leftSide.length);
+    xOffset += roundWidth;
+  }
+  
+  // Draw finals in center
+  if (finalsRound && finalsRound.matchups.length > 0) {
+    const finalsX = (canvasWidth / 2) - (PARTICIPANT_WIDTH / 2);
+    const finalsY = canvasHeight / 2;
+    await drawMatchup(ctx, finalsRound.matchups[0], finalsX, finalsY, knockoutResults);
     
-    // Round label
+    // Finals label
     ctx.fillStyle = '#B5BAC1';
     ctx.font = `bold ${FONT_SIZE + 2}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(getRoundDisplayName(round.name), xOffset + PARTICIPANT_WIDTH / 2, CANVAS_PADDING + 40);
-    
-    // Draw matchups
-    for (let i = 0; i < round.matchups.length; i++) {
-      const matchup = round.matchups[i];
-      const yPos = ySpacing * (i + 1);
-      
-      await drawMatchup(ctx, matchup, xOffset, yPos, knockoutResults);
-      
-      // Draw connector lines to next round (except for finals)
-      if (roundIndex < rounds.length - 1) {
-        drawConnectorLine(ctx, xOffset, yPos, roundIndex, i, round.matchups.length, ySpacing);
-      }
-    }
-    
-    xOffset += ROUND_SPACING;
+    ctx.fillText('Finals', canvasWidth / 2, CANVAS_PADDING + 40);
+  }
+  
+  // Draw right side (first round furthest right, progressing left towards center)
+  xOffset = canvasWidth - CANVAS_PADDING - PARTICIPANT_WIDTH;
+  for (let i = 0; i < rightSide.length; i++) {
+    const round = rightSide[rightSide.length - 1 - i]; // Reverse order
+    await drawRoundColumn(ctx, round, xOffset, canvasHeight, knockoutResults, 'right', i, rightSide.length);
+    xOffset -= roundWidth;
   }
   
   // Draw champion if exists
   if (tournament.winner) {
-    drawChampion(ctx, tournament.winner, canvasWidth - CANVAS_PADDING - 150, canvasHeight / 2);
+    drawChampion(ctx, tournament.winner, canvasWidth / 2, canvasHeight - CANVAS_PADDING - 50);
   }
   
   return canvas.toBuffer('image/png');
@@ -110,6 +132,74 @@ function getRoundDisplayName(roundKey) {
     'finals': 'Finals'
   };
   return names[roundKey] || roundKey;
+}
+
+/**
+ * Draw a vertical column of matchups for one round
+ */
+async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, side, roundIndex, totalRounds) {
+  const numMatchups = round.matchups.length;
+  const availableHeight = canvasHeight - (CANVAS_PADDING * 2) - 100;
+  const ySpacing = availableHeight / (numMatchups + 1);
+  
+  // Round label
+  ctx.fillStyle = '#B5BAC1';
+  ctx.font = `bold ${FONT_SIZE + 2}px sans-serif`;
+  ctx.textAlign = 'center';
+  const labelX = x + (PARTICIPANT_WIDTH / 2);
+  ctx.fillText(getRoundDisplayName(round.name), labelX, CANVAS_PADDING + 40);
+  
+  // Draw each matchup in this round
+  for (let i = 0; i < numMatchups; i++) {
+    const matchup = round.matchups[i];
+    const yPos = CANVAS_PADDING + 100 + (ySpacing * (i + 1));
+    
+    await drawMatchup(ctx, matchup, x, yPos, knockoutResults);
+    
+    // Draw connector lines to next round (towards center)
+    if (roundIndex < totalRounds - 1) {
+      drawMirroredConnector(ctx, x, yPos, side, i, numMatchups, ySpacing);
+    }
+  }
+}
+
+/**
+ * Draw connector lines for mirrored bracket layout
+ */
+function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups, ySpacing) {
+  ctx.strokeStyle = '#4E5058';
+  ctx.lineWidth = 2;
+  
+  // Determine direction (left side goes right, right side goes left)
+  const direction = side === 'left' ? 1 : -1;
+  const startX = side === 'left' ? x + PARTICIPANT_WIDTH : x;
+  const endX = startX + (CONNECTOR_EXTEND * direction);
+  
+  // Horizontal line from matchup
+  ctx.beginPath();
+  ctx.moveTo(startX, y);
+  ctx.lineTo(endX, y);
+  ctx.stroke();
+  
+  // Only draw vertical connector for paired matchups
+  if (matchupIndex % 2 === 0 && matchupIndex + 1 < totalMatchups) {
+    const nextYSpacing = ySpacing * 2;
+    const nextY = y + ySpacing;
+    
+    // Vertical line connecting this matchup with the one below
+    ctx.beginPath();
+    ctx.moveTo(endX, y);
+    ctx.lineTo(endX, nextY);
+    ctx.stroke();
+    
+    // Horizontal line to next round position
+    const midY = y + (ySpacing / 2);
+    const nextRoundX = endX + (ROUND_SPACING - CONNECTOR_EXTEND) * direction;
+    ctx.beginPath();
+    ctx.moveTo(endX, midY);
+    ctx.lineTo(nextRoundX, midY);
+    ctx.stroke();
+  }
 }
 
 
@@ -232,12 +322,6 @@ function drawConnectorLine(ctx, x, y, roundIndex, matchupIndex, totalMatchups, y
   ctx.beginPath();
   // Horizontal line from matchup
   ctx.moveTo(startX, startY);
-  ctx.lineTo(midX, startY);
-  // Vertical line to meet next round's center
-  ctx.lineTo(midX, nextY);
-  // Horizontal line to next round
-  ctx.lineTo(endX, nextY);
-  ctx.stroke();
 }
 
 /**
