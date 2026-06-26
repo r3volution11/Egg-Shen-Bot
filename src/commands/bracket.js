@@ -1070,11 +1070,26 @@ async function handleRegenerate(interaction) {
     return;
   }
   
+  const roundName = result.tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle('✅ Bracket Regenerated')
-    .setDescription(`Successfully regenerated the knockout bracket with full tree structure.\n\n**${result.addedRounds} future matchups** added with TBD placeholders.\n\nUse \`/bracket view\` to see the complete bracket tree!`)
-    .setFooter({ text: 'All rounds will now display in the bracket visualization' });
+    .setTitle('✅ Knockout Bracket Regenerated')
+    .setDescription(
+      `Successfully rebuilt the knockout bracket from all ${Object.keys(result.tournament.groupResults).length} closed groups.\n\n` +
+      `**${result.matchups.length} matchups** created in ${roundName}\n` +
+      `**${result.totalMatchups} total matchups** across all rounds\n` +
+      `**${result.wildcards.length} wildcards** included`
+    )
+    .setFooter({ text: 'Use /bracket view to see the complete bracket tree!' });
+  
+  // Show wildcards if any
+  if (result.wildcards.length > 0) {
+    const wildcardsText = result.wildcards
+      .map((w, i) => `${i + 1}. ${w.title} (${w.voteCount} votes, Group ${w.groupId})`)
+      .join('\n');
+    embed.addFields({ name: '🎟️ Wildcards', value: wildcardsText, inline: false });
+  }
   
   await interaction.editReply({ embeds: [embed] });
 }

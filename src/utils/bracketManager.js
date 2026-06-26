@@ -618,7 +618,8 @@ export function generateKnockoutBracket(guildId) {
 }
 
 /**
- * Regenerate knockout bracket with all rounds (for existing tournaments created before full bracket tree feature)
+ * Regenerate knockout bracket completely from current group results
+ * (for tournaments where knockout was generated early or before full bracket tree feature)
  */
 export function regenerateKnockoutBracket(guildId) {
   const tournament = loadTournament(guildId);
@@ -640,15 +641,59 @@ export function regenerateKnockoutBracket(guildId) {
     return { success: false, error: 'Cannot regenerate - knockout voting has already started' };
   }
   
-  // Get the existing first round matchups (these should be the only ones that exist)
-  const existingMatchups = tournament.knockoutBracket.filter(m => m.round === tournament.phase);
-  
-  if (existingMatchups.length === 0) {
-    return { success: false, error: 'No matchups found to regenerate from' };
+  // Check if all groups are closed
+  const closedGroups = Object.keys(tournament.groupResults).length;
+  if (closedGroups < tournament.groupCount) {
+    return { 
+      success: false, 
+      error: `Cannot regenerate - only ${closedGroups}/${tournament.groupCount} groups are closed. Close all groups first.` 
+    };
   }
   
+  // Recalculate wildcards
+  const wildcardsResult = calculateWildcards(guildId);
+  if (!wildcardsResult.success) {
+    return { success: false, error: wildcardsResult.error };
+  }
+  
+  // Completely rebuild knockout bracket from group results
+  const groupResults = Object.values(tournament.groupResults);
+  const winners = groupResults.map(r => ({ ...r.first, type: 'winner', groupId: r.first.groupId }));
+  const runnersUp = groupResults.map(r => ({ ...r.second, type: 'runnerup', groupId: r.second.groupId }));
+  const nonWinners = [...runnersUp, ...wildcardsResult.wildcards.map(w => ({ ...w, type: 'wildcard' }))];
+  
+  // Calculate total participants and starting round
+  const totalParticipants = winners.length + nonWinners.length;
+  const startingRound = getStartingRound(totalParticipants);
+  
+  // Shuffle non-winners
+  const shuffledNonWinners = nonWinners.sort(() => Math.random() - 0.5);
+  
+  // Create first round matchups
+  const firstRoundMatchups = [];
+  const usedNonWinners = new Set();
+  
+  winners.forEach((winner, index) => {
+    const opponent = shuffledNonWinners.find(nw => 
+      !usedNonWinners.has(nw.index) && nw.groupId !== winner.groupId
+    ) || shuffledNonWinners.find(nw => !usedNonWinners.has(nw.index));
+    
+    if (opponent) {
+      usedNonWinners.add(opponent.index);
+      firstRoundMatchups.push({
+        id: crypto.randomBytes(6).toString('hex'),
+        round: startingRound,
+        position: index,
+        movie1: winner,
+        movie2: opponent,
+        status: 'pending',
+        votes: { movie1: [], movie2: [] },
+      });
+    }
+  });
+  
   // Generate all subsequent rounds with TBD placeholders
-  const allMatchups = [...existingMatchups];
+  const allMatchups = [...firstRoundMatchups];
   const roundSequence = {
     'round_of_32': 'round_of_16',
     'round_of_16': 'quarterfinals',
@@ -656,21 +701,20 @@ export function regenerateKnockoutBracket(guildId) {
     'semifinals': 'finals'
   };
   
-  let currentRound = tournament.phase;
-  let currentMatchups = existingMatchups;
+  let currentRound = startingRound;
+  let currentMatchups = firstRoundMatchups;
   
   while (roundSequence[currentRound]) {
     const nextRound = roundSequence[currentRound];
     const nextMatchups = [];
     
-    // Create matchups for next round (each pair of current round feeds into one matchup)
     for (let i = 0; i < currentMatchups.length; i += 2) {
       nextMatchups.push({
         id: crypto.randomBytes(6).toString('hex'),
         round: nextRound,
         position: i / 2,
-        movie1: null, // TBD - winner of matchup i
-        movie2: null, // TBD - winner of matchup i+1
+        movie1: null,
+        movie2: null,
         status: 'pending',
         votes: { movie1: [], movie2: [] },
         sourceMatchups: [currentMatchups[i].id, currentMatchups[i + 1]?.id].filter(Boolean)
@@ -682,10 +726,19 @@ export function regenerateKnockoutBracket(guildId) {
     currentRound = nextRound;
   }
   
+  // Replace knockout bracket entirely
   tournament.knockoutBracket = allMatchups;
+  tournament.phase = startingRound;
+  tournament.wildcards = wildcardsResult.wildcards;
   
   return saveTournament(guildId, tournament)
-    ? { success: true, tournament, addedRounds: allMatchups.length - existingMatchups.length }
+    ? { 
+        success: true, 
+        tournament, 
+        matchups: firstRoundMatchups,
+        totalMatchups: allMatchups.length,
+        wildcards: wildcardsResult.wildcards
+      }
     : { success: false, error: 'Failed to save' };
 }
 
