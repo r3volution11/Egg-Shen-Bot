@@ -1,13 +1,15 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { config } from '../config.js';
 
-const POSTER_WIDTH = 280;
-const POSTER_HEIGHT = 80;
-const MATCHUP_SPACING = 200;
-const ROUND_SPACING = 380;
+const PARTICIPANT_WIDTH = 240;
+const PARTICIPANT_HEIGHT = 50;
+const MATCHUP_GAP = 10; // Gap between two participants in a matchup
+const MATCHUP_SPACING = 140; // Vertical space for each complete matchup (both participants + gap)
+const ROUND_SPACING = 340;
 const CANVAS_PADDING = 60;
 const FONT_SIZE = 14;
-const TITLE_FONT_SIZE = 32;
+const TITLE_FONT_SIZE = 28;
+const CONNECTOR_EXTEND = 40; // How far connector lines extend horizontally
 
 /**
  * Generate a visual bracket image for the tournament
@@ -40,10 +42,11 @@ export async function generateBracketImage(tournament) {
     throw new Error('No rounds found in bracket');
   }
   
-  // Calculate canvas dimensions
+  // Calculate canvas dimensions with minimum width
   const maxMatchupsInRound = Math.max(...rounds.map(r => r.matchups.length));
-  const canvasWidth = (rounds.length * ROUND_SPACING) + (CANVAS_PADDING * 2) + 200; // Extra space for champion
-  const canvasHeight = (maxMatchupsInRound * MATCHUP_SPACING) + (CANVAS_PADDING * 2) + 80; // Extra for title
+  const calculatedWidth = (rounds.length * ROUND_SPACING) + (CANVAS_PADDING * 2) + 300; // Extra space for champion
+  const canvasWidth = Math.max(1200, calculatedWidth); // Minimum 1200px
+  const canvasHeight = (maxMatchupsInRound * MATCHUP_SPACING) + (CANVAS_PADDING * 2) + 100; // Extra for title
   
   // Create canvas
   const canvas = createCanvas(canvasWidth, canvasHeight);
@@ -67,9 +70,9 @@ export async function generateBracketImage(tournament) {
     
     // Round label
     ctx.fillStyle = '#B5BAC1';
-    ctx.font = `bold ${FONT_SIZE + 4}px Arial`;
+    ctx.font = `bold ${FONT_SIZE + 2}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(getRoundDisplayName(round.name), xOffset + POSTER_WIDTH / 2, CANVAS_PADDING + 50);
+    ctx.fillText(getRoundDisplayName(round.name), xOffset + PARTICIPANT_WIDTH / 2, CANVAS_PADDING + 40);
     
     // Draw matchups
     for (let i = 0; i < round.matchups.length; i++) {
@@ -112,31 +115,30 @@ function getRoundDisplayName(roundKey) {
 
 
 /**
- * Draw a single matchup
+ * Draw a single matchup (two participants paired together)
  */
 async function drawMatchup(ctx, matchup, x, y, knockoutResults) {
   const { movie1, movie2, id, status } = matchup;
   const result = knockoutResults?.[id];
   const winner = result?.winner; // 'movie1' or 'movie2'
   
-  // Matchup box background
-  ctx.fillStyle = '#313338';
+  // Calculate positions for each participant
+  const participant1Y = y - (PARTICIPANT_HEIGHT + MATCHUP_GAP / 2);
+  const participant2Y = y + (MATCHUP_GAP / 2);
+  
+  // Draw matchup container border (groups the two participants visually)
   ctx.strokeStyle = '#1E1F22';
   ctx.lineWidth = 2;
+  ctx.strokeRect(
+    x - 3, 
+    participant1Y - 3, 
+    PARTICIPANT_WIDTH + 6, 
+    (PARTICIPANT_HEIGHT * 2) + MATCHUP_GAP + 6
+  );
   
-  // Movie 1
-  const m1Y = y - MATCHUP_SPACING / 3;
-  drawParticipant(ctx, movie1, x, m1Y, winner === 'movie1');
-  
-  // Movie 2
-  const m2Y = y + MATCHUP_SPACING / 3;
-  drawParticipant(ctx, movie2, x, m2Y, winner === 'movie2');
-  
-  // VS label in between
-  ctx.fillStyle = '#5865F2';
-  ctx.font = `bold ${FONT_SIZE + 2}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.fillText('VS', x + POSTER_WIDTH / 2, y);
+  // Draw participants
+  drawParticipant(ctx, movie1, x, participant1Y, winner === 'movie1');
+  drawParticipant(ctx, movie2, x, participant2Y, winner === 'movie2');
 }
 
 /**
@@ -146,77 +148,94 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   if (!movie || !movie.title) {
     // Empty slot (TBD)
     ctx.fillStyle = '#1E1F22';
-    ctx.fillRect(x, y - POSTER_HEIGHT / 2, POSTER_WIDTH, POSTER_HEIGHT);
+    ctx.fillRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
     ctx.strokeStyle = '#313338';
-    ctx.strokeRect(x, y - POSTER_HEIGHT / 2, POSTER_WIDTH, POSTER_HEIGHT);
+    ctx.strokeRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
     
     ctx.fillStyle = '#4E5058';
     ctx.font = `${FONT_SIZE}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText('TBD', x + POSTER_WIDTH / 2, y);
+    ctx.textBaseline = 'middle';
+    ctx.fillText('TBD', x + PARTICIPANT_WIDTH / 2, y + PARTICIPANT_HEIGHT / 2);
     return;
   }
   
   // Participant box
   const boxColor = isWinner ? '#3BA55D' : '#313338';
   ctx.fillStyle = boxColor;
-  ctx.fillRect(x, y - POSTER_HEIGHT / 2, POSTER_WIDTH, POSTER_HEIGHT);
+  ctx.fillRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
   
   // Border
   ctx.strokeStyle = isWinner ? '#2D7D46' : '#1E1F22';
   ctx.lineWidth = isWinner ? 3 : 2;
-  ctx.strokeRect(x, y - POSTER_HEIGHT / 2, POSTER_WIDTH, POSTER_HEIGHT);
+  ctx.strokeRect(x, y, PARTICIPANT_WIDTH, PARTICIPANT_HEIGHT);
   
-  // Title (truncated)
+  // Title
   ctx.fillStyle = '#FFFFFF';
   ctx.font = `${FONT_SIZE}px Arial`;
-  ctx.textAlign = 'center';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
   
-  // Multi-line text with better wrapping
-  const lines = wrapText(movie.title, POSTER_WIDTH - 30, ctx, 3);
-  const lineHeight = FONT_SIZE + 3;
-  const startY = y - ((lines.length - 1) * lineHeight / 2); // Center vertically
-  lines.forEach((line, index) => {
-    ctx.fillText(line, x + POSTER_WIDTH / 2, startY + (index * lineHeight));
-  });
+  // Truncate text if too long
+  const maxWidth = PARTICIPANT_WIDTH - 40;
+  let displayText = movie.title;
+  let textWidth = ctx.measureText(displayText).width;
   
-  // Type indicator (winner/runnerup/wildcard)
+  if (textWidth > maxWidth) {
+    while (ctx.measureText(displayText + '...').width > maxWidth && displayText.length > 0) {
+      displayText = displayText.slice(0, -1);
+    }
+    displayText += '...';
+  }
+  
+  ctx.fillText(displayText, x + 10, y + PARTICIPANT_HEIGHT / 2);
+  
+  // Type indicator (winner/runnerup/wildcard) - small label on left
   if (movie.type) {
     ctx.fillStyle = '#B5BAC1';
     ctx.font = `${FONT_SIZE - 3}px Arial`;
+    ctx.textAlign = 'left';
     const typeLabel = movie.type === 'winner' ? 'W' : movie.type === 'runnerup' ? 'R' : 'WC';
-    ctx.fillText(typeLabel, x + POSTER_WIDTH / 2, y + POSTER_HEIGHT / 2 - 10);
+    ctx.fillText(typeLabel, x + 5, y + 10);
   }
   
   // Winner checkmark
   if (isWinner) {
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 24px Arial';
-    ctx.fillText('✓', x + POSTER_WIDTH - 20, y - POSTER_HEIGHT / 2 + 25);
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✓', x + PARTICIPANT_WIDTH - 10, y + PARTICIPANT_HEIGHT / 2);
   }
 }
 
 /**
  * Draw connector line between rounds
  */
-function drawConnectorLine(ctx, x, y, roundIndex, matchupIndex, totalRounds, ySpacing) {
+function drawConnectorLine(ctx, x, y, roundIndex, matchupIndex, totalMatchups, ySpacing) {
   ctx.strokeStyle = '#4E5058';
   ctx.lineWidth = 2;
   
-  const startX = x + POSTER_WIDTH;
-  const endX = startX + (ROUND_SPACING - POSTER_WIDTH);
+  // Start from right side of matchup, middle point between two participants
+  const startX = x + PARTICIPANT_WIDTH;
   const startY = y;
   
   // Calculate next round's matchup Y position
-  const nextYSpacing = ySpacing * 2;
+  const nextYSpacing = ySpacing * 2; // Next round has half the matchups
   const nextMatchupIndex = Math.floor(matchupIndex / 2);
   const nextY = nextYSpacing * (nextMatchupIndex + 1);
   
-  // Draw L-shaped connector
+  // Draw bracket connector
+  const midX = startX + CONNECTOR_EXTEND;
+  const endX = startX + (ROUND_SPACING - PARTICIPANT_WIDTH);
+  
   ctx.beginPath();
+  // Horizontal line from matchup
   ctx.moveTo(startX, startY);
-  ctx.lineTo(startX + 30, startY);
-  ctx.lineTo(startX + 30, nextY);
+  ctx.lineTo(midX, startY);
+  // Vertical line to meet next round's center
+  ctx.lineTo(midX, nextY);
+  // Horizontal line to next round
   ctx.lineTo(endX, nextY);
   ctx.stroke();
 }
@@ -239,57 +258,25 @@ function drawChampion(ctx, winner, x, y) {
   
   // Champion label
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${FONT_SIZE + 8}px Arial`;
+  ctx.font = `bold ${FONT_SIZE + 6}px Arial`;
   ctx.textBaseline = 'top';
   ctx.fillText('CHAMPION', x, y + 80);
   
-  // Winner title
+  // Winner title (truncated)
   ctx.font = `${FONT_SIZE + 2}px Arial`;
-  const lines = wrapText(winner.title, 220, ctx);
-  lines.forEach((line, index) => {
-    ctx.fillText(line, x, y + 110 + (index * 22));
-  });
-}
-
-/**
- * Wrap text to multiple lines with ellipsis
- */
-function wrapText(text, maxWidth, ctx, maxLines = 4) {
-  const words = text.split(' ');
-  const lines = [];
-  let currentLine = words[0] || '';
+  ctx.textAlign = 'center';
+  const maxWidth = 200;
+  let displayText = winner.title;
+  let textWidth = ctx.measureText(displayText).width;
   
-  for (let i = 1; i < words.length; i++) {
-    const word = words[i];
-    const testLine = currentLine + ' ' + word;
-    const width = ctx.measureText(testLine).width;
-    
-    if (width < maxWidth) {
-      currentLine = testLine;
-    } else {
-      lines.push(currentLine);
-      currentLine = word;
-      
-      // If we're approaching max lines, check if we need ellipsis
-      if (lines.length >= maxLines - 1 && i < words.length - 1) {
-        // More words remain, add ellipsis
-        const remaining = words.slice(i).join(' ');
-        const ellipsisTest = currentLine + ' ' + remaining;
-        if (ctx.measureText(ellipsisTest).width >= maxWidth) {
-          // Truncate with ellipsis
-          while (ctx.measureText(currentLine + '...').width > maxWidth && currentLine.length > 0) {
-            currentLine = currentLine.slice(0, -1);
-          }
-          currentLine += '...';
-          lines.push(currentLine);
-          return lines;
-        }
-      }
+  if (textWidth > maxWidth) {
+    while (ctx.measureText(displayText + '...').width > maxWidth && displayText.length > 0) {
+      displayText = displayText.slice(0, -1);
     }
+    displayText += '...';
   }
   
-  lines.push(currentLine);
-  return lines.slice(0, maxLines);
+  ctx.fillText(displayText, x, y + 110);
 }
 
 /**
