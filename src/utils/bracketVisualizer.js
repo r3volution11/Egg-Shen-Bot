@@ -1,13 +1,13 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { config } from '../config.js';
 
-const POSTER_WIDTH = 180;
-const POSTER_HEIGHT = 120;
-const MATCHUP_SPACING = 160;
-const ROUND_SPACING = 300;
-const CANVAS_PADDING = 40;
-const FONT_SIZE = 11;
-const TITLE_FONT_SIZE = 24;
+const POSTER_WIDTH = 320;
+const POSTER_HEIGHT = 200;
+const MATCHUP_SPACING = 280;
+const ROUND_SPACING = 450;
+const CANVAS_PADDING = 60;
+const FONT_SIZE = 16;
+const TITLE_FONT_SIZE = 32;
 
 /**
  * Generate a visual bracket image for the tournament
@@ -67,9 +67,9 @@ export async function generateBracketImage(tournament) {
     
     // Round label
     ctx.fillStyle = '#B5BAC1';
-    ctx.font = `bold ${FONT_SIZE + 2}px Arial`;
+    ctx.font = `bold ${FONT_SIZE + 4}px Arial`;
     ctx.textAlign = 'center';
-    ctx.fillText(getRoundDisplayName(round.name), xOffset + POSTER_WIDTH / 2, CANVAS_PADDING + 40);
+    ctx.fillText(getRoundDisplayName(round.name), xOffset + POSTER_WIDTH / 2, CANVAS_PADDING + 50);
     
     // Draw matchups
     for (let i = 0; i < round.matchups.length; i++) {
@@ -134,7 +134,7 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults) {
   
   // VS label in between
   ctx.fillStyle = '#5865F2';
-  ctx.font = `bold ${FONT_SIZE}px Arial`;
+  ctx.font = `bold ${FONT_SIZE + 4}px Arial`;
   ctx.textAlign = 'center';
   ctx.fillText('VS', x + POSTER_WIDTH / 2, y);
 }
@@ -173,8 +173,8 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   ctx.textAlign = 'center';
   
   // Multi-line text with better wrapping
-  const lines = wrapText(movie.title, POSTER_WIDTH - 20, ctx, 4);
-  const lineHeight = FONT_SIZE + 3;
+  const lines = wrapText(movie.title, POSTER_WIDTH - 40, ctx, 5);
+  const lineHeight = FONT_SIZE + 4;
   const startY = y - ((lines.length - 1) * lineHeight / 2); // Center vertically
   lines.forEach((line, index) => {
     ctx.fillText(line, x + POSTER_WIDTH / 2, startY + (index * lineHeight));
@@ -183,16 +183,16 @@ function drawParticipant(ctx, movie, x, y, isWinner) {
   // Type indicator (winner/runnerup/wildcard)
   if (movie.type) {
     ctx.fillStyle = '#B5BAC1';
-    ctx.font = `${FONT_SIZE - 2}px Arial`;
+    ctx.font = `${FONT_SIZE - 3}px Arial`;
     const typeLabel = movie.type === 'winner' ? 'W' : movie.type === 'runnerup' ? 'R' : 'WC';
-    ctx.fillText(typeLabel, x + POSTER_WIDTH / 2, y + POSTER_HEIGHT / 2 - 8);
+    ctx.fillText(typeLabel, x + POSTER_WIDTH / 2, y + POSTER_HEIGHT / 2 - 15);
   }
   
   // Winner checkmark
   if (isWinner) {
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 20px Arial';
-    ctx.fillText('✓', x + POSTER_WIDTH - 15, y - POSTER_HEIGHT / 2 + 20);
+    ctx.font = 'bold 28px Arial';
+    ctx.fillText('✓', x + POSTER_WIDTH - 25, y - POSTER_HEIGHT / 2 + 30);
   }
 }
 
@@ -228,26 +228,26 @@ function drawChampion(ctx, winner, x, y) {
   // Trophy icon background
   ctx.fillStyle = '#FEE75C';
   ctx.beginPath();
-  ctx.arc(x, y, 50, 0, Math.PI * 2);
+  ctx.arc(x, y, 70, 0, Math.PI * 2);
   ctx.fill();
   
   // Trophy emoji
-  ctx.font = '48px Arial';
+  ctx.font = '64px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('🏆', x, y);
   
   // Champion label
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${FONT_SIZE + 4}px Arial`;
+  ctx.font = `bold ${FONT_SIZE + 8}px Arial`;
   ctx.textBaseline = 'top';
-  ctx.fillText('CHAMPION', x, y + 60);
+  ctx.fillText('CHAMPION', x, y + 80);
   
   // Winner title
-  ctx.font = `${FONT_SIZE}px Arial`;
-  const lines = wrapText(winner.title, 140, ctx);
+  ctx.font = `${FONT_SIZE + 2}px Arial`;
+  const lines = wrapText(winner.title, 220, ctx);
   lines.forEach((line, index) => {
-    ctx.fillText(line, x, y + 85 + (index * 18));
+    ctx.fillText(line, x, y + 110 + (index * 22));
   });
 }
 
