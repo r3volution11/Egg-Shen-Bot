@@ -412,10 +412,16 @@ export function closeGroupVoting(guildId, groupIds) {
     const group = tournament.groups[groupId];
     if (!group) return;
     
-    // Calculate vote counts
+    // Calculate vote counts - preserve all movie data including posterUrl
     const results = group.movies.map(movie => ({
       index: movie.index,
       title: movie.title,
+      type: movie.type,
+      id: movie.id,
+      year: movie.year,
+      posterUrl: movie.posterUrl,
+      customImageUrl: movie.customImageUrl,
+      metadata: movie.metadata,
       voteCount: movie.votes.length,
     })).sort((a, b) => b.voteCount - a.voteCount);
     
