@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Matchup spacing** - 140px vertical spacing with 10px gap between paired participants
   - **Better connector lines** - 40px horizontal extension then vertical connection to next round
   - **Winner indicators** - Green highlighting and checkmarks on the right side of boxes
+  - **Full bracket tree generation** - All rounds (Round of 32 → Round of 16 → Quarterfinals → Semifinals → Finals) are generated upfront with "TBD" placeholders
+    - Previously only showed current round with completed matchups
+    - Now displays complete tournament structure from start to finish
+    - Future matchups show as "TBD vs TBD" until winners are determined
+    - Provides clear visual roadmap of entire tournament progression
 - **Group Voting Display (`/bracket open-groups`)**
   - **Even distribution** - Groups now display in balanced rows (e.g., 4 groups = 2x2 grid instead of 3-1)
   - **Dynamic layout** - Automatically calculates optimal groups per row:
