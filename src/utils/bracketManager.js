@@ -336,7 +336,7 @@ export function removeGroupTitle(guildId, groupId, titleIndex) {
 /**
  * Open voting for specific groups
  */
-export function openGroupVoting(guildId, groupIds) {
+export function openGroupVoting(guildId, groupIds, deadline = null) {
   const tournament = loadTournament(guildId);
   if (!tournament) {
     return { success: false, error: 'No tournament found' };
@@ -347,6 +347,9 @@ export function openGroupVoting(guildId, groupIds) {
       tournament.groups[groupId].status = 'voting';
       tournament.groups[groupId].votingOpen = true;
       tournament.groups[groupId].votingStarted = Date.now();
+      if (deadline) {
+        tournament.groups[groupId].votingDeadline = deadline;
+      }
     }
   });
   
@@ -792,7 +795,7 @@ export function openKnockoutMatchup(guildId, matchupId) {
 /**
  * Open knockout round for voting
  */
-export function openKnockoutRound(guildId, round) {
+export function openKnockoutRound(guildId, round, deadline = null) {
   const tournament = loadTournament(guildId);
   if (!tournament || tournament.status !== 'knockout') {
     return { success: false, error: 'Tournament not in knockout phase' };
@@ -815,6 +818,9 @@ export function openKnockoutRound(guildId, round) {
   roundMatchups.forEach(m => {
     m.status = 'voting';
     m.votingOpened = Date.now();
+    if (deadline) {
+      m.votingDeadline = deadline;
+    }
     if (!m.votes) {
       m.votes = { movie1: [], movie2: [] };
     }
