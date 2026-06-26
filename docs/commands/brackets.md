@@ -51,6 +51,163 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 ---
 
+## 🚀 Quick Start Guide
+
+**Want to run your first tournament? Here's a complete walkthrough from creation to crowning a champion!**
+
+### Step 1: Create Tournament (Admin Only)
+
+```
+/bracket create name:Horror Movie Showdown groups:4
+```
+
+✅ Tournament created! Only you can see this message. Continue setup privately.
+
+### Step 2: Add 4 Titles to Each Group (Admin Only)
+
+**Group A:**
+```
+/bracket add-title group:A type:movie title:The Thing
+/bracket add-title group:A type:movie title:Alien
+/bracket add-title group:A type:movie title:The Exorcist
+/bracket add-title group:A type:movie title:The Shining
+```
+
+**Repeat for Groups B, C, D** with different movies.
+
+💡 **Tip:** If multiple matches appear, you'll see a dropdown menu to select the exact title you want (just like `/movie`).
+
+### Step 3: Announce Tournament (Admin Only)
+
+```
+/bracket announce message:🎬 Horror Movie Tournament starts NOW! Vote for your favorites!
+```
+
+📢 Now everyone can see the tournament exists!
+
+### Step 4: Open Groups for Voting (Admin Only)
+
+**Open all groups at once:**
+```
+/bracket open-groups groups:A,B,C,D duration:24h
+```
+
+**Or stagger them:**
+```
+/bracket open-groups groups:A,B duration:24h
+```
+Wait a day, then:
+```
+/bracket open-groups groups:C,D duration:24h
+```
+
+🗳️ Members can now vote! They'll see a balanced 2x2 grid of all groups.
+
+### Step 5: Members Vote (Everyone)
+
+**Each member votes for their top 2 in each group:**
+```
+/bracket vote-group group:A choice1:1 choice2:3
+```
+(Votes for The Thing #1 and The Exorcist #3)
+
+**Check your voting status:**
+```
+/bracket my-votes
+```
+See which groups you've voted in and which are still available.
+
+### Step 6: Close Group Voting (Admin Only)
+
+**When time is up:**
+```
+/bracket close-groups groups:A,B,C,D
+```
+
+📊 Results calculated! Top 2 from each group advance automatically. Best 3rd place finishers become wildcards (if needed).
+
+### Step 7: Advance to Knockout (Admin Only)
+
+```
+/bracket advance-knockout
+```
+
+🏆 Knockout bracket generated! 16 titles ready for single-elimination rounds.
+
+### Step 8: Open Knockout Round (Admin Only)
+
+```
+/bracket open-knockout duration:24h
+```
+
+🎯 Matchups posted! Members see buttons for each matchup to vote.
+
+### Step 9: Members Vote on Matchups (Everyone)
+
+**Click buttons on each matchup message:**
+- See: "The Thing vs Alien" with two buttons
+- Click the button for your choice
+- ✅ Vote recorded! Can change anytime before deadline
+
+**Check what you've voted:**
+```
+/bracket my-votes
+```
+
+### Step 10: Close Round & Advance (Admin Only)
+
+**When voting ends:**
+```
+/bracket close-knockout
+```
+
+🏁 Winners determined and **automatically advanced** to next round!
+
+### Step 11: Repeat for Each Round
+
+**Continue the cycle:**
+1. `/bracket open-knockout duration:24h` ← Open next round
+2. Members vote via buttons
+3. `/bracket close-knockout` ← Winners auto-advance
+
+**Rounds progress:** Round of 16 → Quarterfinals → Semifinals → Finals
+
+### Step 12: Champion Crowned! 🏆
+
+**After closing Finals:**
+```
+🏆 Tournament Complete!
+
+The Thing is the champion!
+Congratulations! 🎉
+```
+
+---
+
+## 💡 Pro Tips
+
+**Timing & Pacing:**
+- Use `duration:48h` for slower-paced tournaments
+- Use `duration:1h` for live events
+- Extend deadlines if needed: `/bracket extend-voting`
+
+**Keep Members Engaged:**
+- Announce when new groups/rounds open
+- Remind members to check `/bracket my-votes`
+- Share `/bracket view` to show visual bracket
+
+**Manage Efficiently:**
+- Use `/bracket status` to check progress anytime
+- Use `/bracket list-groups` for simple text overview
+- Open 4 groups at a time to avoid overwhelming voters
+
+**Flexibility:**
+- Started too small? Use `/bracket resize groups:12` during setup
+- Need to change voting time? Use `/bracket extend-voting`
+- Made a mistake? Use `/bracket remove-title` before opening voting
+
+---
+
 ## Tournament Structure
 
 ### Phase 1: Group Stage

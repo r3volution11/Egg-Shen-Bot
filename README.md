@@ -44,7 +44,7 @@ A comprehensive Discord bot for searching and discovering entertainment across *
 
 - **`/potion`** - Give magical potions to other users with pop culture references! Helpful (Health, Mana, Strength, Speed, Invisibility, Luck, Love, Energy) or Harmful (Confusion, Poison, Weakness, Curse, Slow) - add fun chaos to chat!
 - **`/survey`** - Create polls/surveys with up to 10 options, track votes in real-time, view results with progress bars, and manage with creator/admin controls
-- **`/bracket`** - Host comprehensive movie/TV/game/book tournaments with flexible group stage voting (4-12 groups, each with 4 titles). Resize tournaments dynamically as they grow. Dynamic wildcard system and single-elimination knockout brackets adapt to tournament size (16-48 participants). Perfect for community competitions!
+- **`/bracket`** - Host comprehensive movie/TV/game/book tournaments with flexible group stage voting (4-12 groups, each with 4 titles). Resize tournaments dynamically as they grow. Dynamic wildcard system and single-elimination knockout brackets adapt to tournament size (16-48 participants). **[📖 Quick Start Guide](https://r3volution11.github.io/Egg-Shen-Bot/commands/brackets#quick-start-guide)** - Perfect for community competitions!
 
 ## ✨ Key Features
 

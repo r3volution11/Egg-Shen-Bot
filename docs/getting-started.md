@@ -223,7 +223,13 @@ Try these commands in your server:
 
 ## Next Steps
 
+### Explore Commands
+
 - [Learn about all commands](/commands/)
+- **[🏆 Run Your First Tournament](/commands/brackets#quick-start-guide)** - Complete step-by-step guide for hosting bracket tournaments
+
+### Configure Features
+
 - [Configure rate limiting](/features/rate-limiting)
 - [Set up moderation tools](/features/moderation-tools)
 - [Enable statistics tracking](/features/statistics)
