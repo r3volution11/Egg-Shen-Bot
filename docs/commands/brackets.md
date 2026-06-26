@@ -71,9 +71,18 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 - **Round of 32** → **Round of 16** → **Quarterfinals** → **Semifinals** → **Finals**
 - Single elimination (1v1 matchups)
-- Members vote for one entry per matchup
-- Winners advance automatically to next round
+- **Button-based voting**: Click to vote for one title per matchup
+- **One vote per matchup per user** - your vote replaces previous vote if you change your mind
+- **Winners advance automatically** to next round after all matchups close
 - Random tiebreaker for tied matchups
+- Visual bracket available with `/bracket view`
+
+**Knockout Workflow:**
+1. Admin uses `/bracket advance-knockout` to generate bracket from group results
+2. Admin uses `/bracket open-knockout` to open current round for voting
+3. Members vote by clicking buttons on each matchup
+4. Admin uses `/bracket close-knockout` to close round and advance winners
+5. Repeat steps 2-4 for each round until finals complete
 
 ---
 
@@ -556,6 +565,116 @@ Group B
 - 16 matchups created for Round of 32
 - Matchups are pending and ready to open
 - Top 2 from each group + 8 wildcards = 32 movies
+
+---
+
+### Open Knockout Round
+
+```
+/bracket open-knockout
+```
+
+**Parameters:** None
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- Opens current round matchups for voting
+- Creates interactive voting buttons for each matchup
+- Shows real-time vote counts
+- One vote per user per matchup (can change vote anytime)
+- Vote updates immediately when clicked
+
+**Requirements:**
+
+- Tournament must be in knockout phase
+- Current round matchups must have both participants ready
+- Cannot open if matchups already voting
+
+**Output:**
+
+```
+📊 Round of 16 Voting Open!
+
+8 matchups are now open for voting.
+Vote for ONE title in each matchup below.
+
+[For each matchup:]
+Round of 16 - Matchup 1
+Movie A vs Movie B
+5 votes    vs    3 votes
+[Button: Movie A] [Button: Movie B]
+```
+
+**User Experience:**
+
+- Members click buttons to vote for their choice
+- Ephemeral confirmation shows vote was recorded
+- Can change vote by clicking different button
+- Vote counts update in real-time on all messages
+
+---
+
+### Close Knockout Round
+
+```
+/bracket close-knockout
+```
+
+**Parameters:** None
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- Closes all voting in current round
+- Determines winner for each matchup
+- **Automatically advances winners to next round**
+- **Auto-updates tournament phase** when round complete
+- Handles ties with random selection
+- Detects tournament completion (after finals)
+
+**Requirements:**
+
+- Tournament must be in knockout phase
+- At least one matchup must be in voting status
+
+**Output:**
+
+```
+🏁 Round of 16 Complete!
+
+8 matchups closed. Here are the winners:
+
+Matchup 1
+Movie A (15 vs 8) defeats Movie B
+
+Matchup 2
+Movie C (12 vs 11) defeats Movie D
+...
+
+Winners have advanced to Quarterfinals.
+Use /bracket open-knockout to start voting!
+```
+
+**After Finals:**
+
+```
+🏆 Tournament Complete!
+
+Movie Title is the champion!
+Congratulations! 🎉
+```
+
+**What Happens:**
+
+- All voting matchups in current round are closed
+- Winners determined (higher votes win, random if tied)
+- **Winners automatically populate next round matchups**
+- **Tournament phase advances** (e.g., Round of 16 → Quarterfinals)
+- If finals complete, tournament status changes to "completed"
+- Bracket visualization updates with results
 
 ---
 

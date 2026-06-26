@@ -53,6 +53,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Tournament Brackets**
+  - **NEW: Knockout Voting System** - Complete interactive voting for tournament bracket matches
+    - **`/bracket open-knockout`** - Opens current round matchups for member voting
+      - Button-based voting interface for each matchup
+      - Real-time vote count updates
+      - One vote per user per matchup (can change vote anytime)
+      - Displays all matchups for current round with VS presentation
+    - **`/bracket close-knockout`** - Closes round and advances winners automatically
+      - Determines winner for each matchup (higher votes win, random if tied)
+      - **Auto-advances winners** to next round matchups
+      - **Auto-updates tournament phase** when round completes
+      - Shows detailed results with vote counts
+      - Detects tournament completion after finals
+    - **Interactive Button Voting**
+      - Click title buttons to vote in matchups
+      - Ephemeral confirmation when vote recorded
+      - Vote updates immediately in message
+      - Can change vote by clicking different option
+      - Ensures one vote per matchup per user
+    - **Automatic Winner Advancement**
+      - Winners automatically populate next round matchups
+      - Tournament phase advances seamlessly (Round of 16 → Quarterfinals, etc.)
+      - Finals completion marks tournament as complete with champion
+      - Bracket visualization updates with results
+    - **Complete Workflow:** Generate bracket → Open voting → Members vote → Close round → Winners advance → Repeat until champion
   - **NEW: Custom Image Support** - Upload images or provide URLs when adding titles to brackets
     - Optional `image` parameter in `/bracket add-title` (attachment option)
     - Upload images directly from your device (PNG, JPG, GIF, WebP)
