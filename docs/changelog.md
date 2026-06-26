@@ -77,6 +77,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - Finals completion marks tournament as complete with champion
       - Bracket visualization updates with results
     - **Complete Workflow:** Generate bracket → Open voting → Members vote → Close round → Winners advance → Repeat until champion
+  - **NEW: Customizable Voting Timeframes** - Control voting duration for group stage and knockout rounds
+    - **`duration` parameter** added to `/bracket open-groups` and `/bracket open-knockout`
+      - Default: 24 hours
+      - Range: 5 minutes (5m) to 30 days (30d)
+      - Format: "5m", "2h", "24h", "3d", "7d", etc.
+      - Examples: `duration:48h` for 2 days, `duration:3d` for 3 days, `duration:1h` for 1 hour
+    - **Voting deadline display** - Shows time remaining and exact deadline in embeds
+    - **`/bracket extend-voting`** - Extend or change voting deadline after opening
+      - For group voting: extend specific groups by letter
+      - For knockout: extends all matchups in current round
+      - Admins and moderators can modify deadlines as needed
+      - Shows updated time remaining and exact deadline after extending
+    - **Flexible tournament pacing** - Run quick tournaments (30-minute rounds) or slow-burn events (week-long voting)
+    - **Per-server control** - Tournament admins set duration based on their community's needs
   - **NEW: Custom Image Support** - Upload images or provide URLs when adding titles to brackets
     - Optional `image` parameter in `/bracket add-title` (attachment option)
     - Upload images directly from your device (PNG, JPG, GIF, WebP)

@@ -383,13 +383,16 @@ Use /bracket vote-group to cast your votes
 ### Open Group Voting
 
 ```
-/bracket open-groups groups:[group letters]
+/bracket open-groups groups:[group letters] duration:[time]
 
 ```
 
 **Parameters:**
 
 - `groups` (required) - Comma-separated group letters (e.g., "A,B,C,D")
+- `duration` (optional) - Voting duration (default: 24h, range: 5m-30d)
+  - Format: Number + unit (m=minutes, h=hours, d=days)
+  - Examples: "5m", "2h", "24h", "3d", "7d", "30d"
 
 
 **Who can use:** Administrators and Moderators only
@@ -401,6 +404,8 @@ Use /bracket vote-group to cast your votes
   - 4 or fewer groups: 2x2 grid
   - 5-9 groups: 3 groups per row
   - 10+ groups: 4 groups per row
+- **Customizable voting duration** (5 minutes to 30 days)
+- **Displays time remaining** and exact deadline in embed footer
 - Voting opens immediately
 - Members can vote for top 2 in each group
 - Clean, symmetrical presentation for better readability
@@ -408,16 +413,28 @@ Use /bracket vote-group to cast your votes
 **Examples:**
 
 ```
+# Default 24 hour voting period
 /bracket open-groups groups:A,B,C,D
-/bracket open-groups groups:E,F,G,H
-/bracket open-groups groups:I,J,K,L
+
+# 48 hour voting period
+/bracket open-groups groups:A,B,C,D duration:48h
+
+# 3 day voting period
+/bracket open-groups groups:E,F,G,H duration:3d
+
+# Quick 1 hour tournament
+/bracket open-groups groups:A,B,C,D duration:1h
+
+# Week-long voting
+/bracket open-groups groups:I,J,K,L duration:7d
 ```
 
 **Recommended Strategy:**
 
 - Open 4 groups per day to maintain engagement
-
-- Allow 24+ hours per batch for voting
+- Default 24h works well for most communities
+- Use longer periods (48h-7d) for slower-paced tournaments
+- Use shorter periods (1h-6h) for live events or quick competitions
 - Stagger opening to avoid overwhelming voters
 
 ---
@@ -571,10 +588,14 @@ Group B
 ### Open Knockout Round
 
 ```
-/bracket open-knockout
+/bracket open-knockout duration:[time]
 ```
 
-**Parameters:** None
+**Parameters:**
+
+- `duration` (optional) - Voting duration (default: 24h, range: 5m-30d)
+  - Format: Number + unit (m=minutes, h=hours, d=days)
+  - Examples: "5m", "2h", "24h", "3d", "7d", "30d"
 
 **Who can use:** Administrators and Moderators only
 
@@ -582,6 +603,8 @@ Group B
 
 - Opens current round matchups for voting
 - Creates interactive voting buttons for each matchup
+- **Customizable voting duration** (5 minutes to 30 days)
+- **Displays time remaining** and exact deadline in main embed
 - Shows real-time vote counts
 - One vote per user per matchup (can change vote anytime)
 - Vote updates immediately when clicked
@@ -592,6 +615,22 @@ Group B
 - Current round matchups must have both participants ready
 - Cannot open if matchups already voting
 
+**Examples:**
+
+```
+# Default 24 hour voting
+/bracket open-knockout
+
+# 2 day voting period for slower pace
+/bracket open-knockout duration:48h
+
+# Quick 30 minute round for live events
+/bracket open-knockout duration:30m
+
+# Week-long finals voting
+/bracket open-knockout duration:7d
+```
+
 **Output:**
 
 ```
@@ -600,11 +639,15 @@ Group B
 8 matchups are now open for voting.
 Vote for ONE title in each matchup below.
 
+⏰ Voting closes in: 23h 45m
+
 [For each matchup:]
 Round of 16 - Matchup 1
 Movie A vs Movie B
 5 votes    vs    3 votes
 [Button: Movie A] [Button: Movie B]
+
+Deadline: 6/27/2026, 11:00:00 PM
 ```
 
 **User Experience:**
@@ -613,6 +656,7 @@ Movie A vs Movie B
 - Ephemeral confirmation shows vote was recorded
 - Can change vote by clicking different button
 - Vote counts update in real-time on all messages
+- Clear deadline shown so members know when voting ends
 
 ---
 
@@ -675,6 +719,84 @@ Congratulations! 🎉
 - **Tournament phase advances** (e.g., Round of 16 → Quarterfinals)
 - If finals complete, tournament status changes to "completed"
 - Bracket visualization updates with results
+
+---
+
+### Extend Voting Deadline
+
+```
+/bracket extend-voting type:[group|knockout] duration:[time] group:[letter]
+```
+
+**Parameters:**
+
+- `type` (required) - Which voting type to extend
+  - `group` - Extend group stage voting
+  - `knockout` - Extend current knockout round voting
+- `duration` (required) - Additional time to add to deadline
+  - Format: Number + unit (m=minutes, h=hours, d=days)
+  - Examples: "5m", "2h", "24h", "3d", "7d"
+  - Range: 5 minutes to 30 days
+- `group` (optional) - Group letter (required only when type is "group")
+  - Examples: "A", "B", "C"
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- **Extend active voting** after it's already opened
+- **Group voting:** Extend specific groups by letter
+- **Knockout voting:** Extends all matchups in current round
+- **Shows updated deadline** with time remaining and exact timestamp
+- **Flexible adjustments** - Add more time if voting is slow or members request it
+- **No limit** on how many times you can extend (as long as deadline stays within 5m-30d range)
+
+**Examples:**
+
+```
+# Extend Group A voting by 24 hours
+/bracket extend-voting type:group duration:24h group:A
+
+# Extend Group B voting by 2 days
+/bracket extend-voting type:group duration:2d group:B
+
+# Extend current knockout round by 12 hours
+/bracket extend-voting type:knockout duration:12h
+
+# Add just 30 more minutes to knockout round
+/bracket extend-voting type:knockout duration:30m
+```
+
+**Output:**
+
+```
+✅ Extended voting for Group A
+
+⏰ New deadline: 1d 12h
+📅 Exact time: 6/28/2026, 11:30:00 PM
+```
+
+**Use Cases:**
+
+- Members request more time due to busy schedules
+- Voting participation is lower than expected
+- Want to align deadline with specific time (e.g., end of weekend)
+- Technical issues delayed announcement
+- Community engagement warrants extended discussion period
+
+**Requirements:**
+
+- **For groups:** Group must be currently open for voting
+- **For knockout:** Tournament must be in knockout phase with active voting
+- New deadline must be between 5 minutes and 30 days from now
+
+**Tips:**
+
+- Can extend multiple times if needed
+- Each extension adds time from NOW (not from original deadline)
+- Extension applies to all matchups in current knockout round
+- For groups, must extend each group individually
+- Original messages are not edited, but tournament data updates
 
 ---
 
