@@ -395,39 +395,87 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
     return;
   }
   
-  // Extract colors and create gradient for non-winner participants with posters
+  // Draw poster image and gradient for non-winner participants with posters
   if (!isWinner && movie.posterUrl) {
+    try {
+      // Load and draw poster image as background
+      const posterImg = await loadImage(movie.posterUrl);
+      
+      // Calculate scaling to cover the box while maintaining aspect ratio
+      const posterAspect = posterImg.width / posterImg.height;
+      const boxAspect = width / height;
+      
+      let drawWidth, drawHeight, offsetX, offsetY;
+      if (posterAspect > boxAspect) {
+        // Poster is wider - fit to height
+        drawHeight = height;
+        drawWidth = height * posterAspect;
+        offsetX = (width - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        // Poster is taller - fit to width
+        drawWidth = width;
+        drawHeight = width / posterAspect;
+        offsetX = 0;
+        offsetY = (height - drawHeight) / 2;
+      }
+      
+      // Save context and clip to box
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, width, height);
+      ctx.clip();
+      
+      // Draw poster at reduced opacity
+      ctx.globalAlpha = 0.3;
+      ctx.drawImage(posterImg, x + offsetX, y + offsetY, drawWidth, drawHeight);
+      ctx.globalAlpha = 1.0;
+      
+      // Restore context
+      ctx.restore();
+    } catch (error) {
+      console.error('[BracketVisualizer] Error loading poster image:', error.message);
+      // Fall back to solid color if poster fails to load
+      ctx.fillStyle = COLORS.cardBg;
+      ctx.fillRect(x, y, width, height);
+    }
+    
+    // Extract colors and create gradient overlay
     const colors = await extractPosterColors(movie.posterUrl);
     
-    // Create diagonal gradient (top-left to bottom-right) with extracted colors
-    const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
+    // Create extended diagonal gradient for subtle color transition
+    const gradientExtend = 2.5;
+    const gradient = ctx.createLinearGradient(
+      x - width * 0.5, 
+      y - height * 0.5, 
+      x + width * gradientExtend, 
+      y + height * gradientExtend
+    );
     
     if (colors.length >= 3) {
-      // Three colors: distribute evenly
       gradient.addColorStop(0, colors[0]);
       gradient.addColorStop(0.5, colors[1]);
       gradient.addColorStop(1, colors[2]);
     } else if (colors.length === 2) {
-      // Two colors: smooth transition
       gradient.addColorStop(0, colors[0]);
       gradient.addColorStop(1, colors[1]);
     } else {
-      // Fallback to solid color
       gradient.addColorStop(0, colors[0]);
       gradient.addColorStop(1, colors[0]);
     }
     
+    // Apply gradient overlay with transparency
+    ctx.globalAlpha = 0.7;
     ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, width, height);
+    ctx.globalAlpha = 1.0;
+    
+    // Add dark overlay to ensure text visibility
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(x, y, width, height);
   } else {
     // Solid color for winners or items without posters
     ctx.fillStyle = isWinner ? COLORS.winner : COLORS.cardBg;
-  }
-  
-  ctx.fillRect(x, y, width, height);
-  
-  // Add semi-transparent overlay to ensure text visibility
-  if (!isWinner && movie.posterUrl) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.fillRect(x, y, width, height);
   }
   
