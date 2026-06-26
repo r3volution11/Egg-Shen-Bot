@@ -4,8 +4,9 @@ import { existsSync } from 'fs';
 
 // Register Arial font if available
 const arialPaths = [
-  '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf',           // Ubuntu/Debian
-  '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', // Ubuntu fallback
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',             // Ubuntu/Debian (most common)
+  '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', // Ubuntu alternative
+  '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf',           // MS Core fonts
   '/Library/Fonts/Arial.ttf',                                    // macOS
   '/System/Library/Fonts/Supplemental/Arial.ttf',                // macOS alternative
 ];
