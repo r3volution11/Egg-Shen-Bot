@@ -913,12 +913,17 @@ async function handleOpenGroups(interaction) {
     .setDescription('Members can now vote for their top 2 movies in each group!')
     .setFooter({ text: 'Vote using /bracket vote-group • Voting open for 24+ hours' });
   
+  // Calculate groups per row for even distribution
+  const groupsPerRow = groupIds.length <= 4 ? 2 : groupIds.length <= 9 ? 3 : 4;
+  
   // Show each group's movies
-  groupIds.forEach(groupId => {
+  groupIds.forEach((groupId, index) => {
     const group = result.tournament.groups[groupId];
     if (group) {
       const movieList = group.movies.map((m, i) => `${i + 1}. ${m.title}`).join('\n');
-      embed.addFields({ name: `Group ${groupId}`, value: movieList, inline: true });
+      // Force line break after every Nth group for even rows
+      const shouldInline = (index + 1) % groupsPerRow !== 0;
+      embed.addFields({ name: `Group ${groupId}`, value: movieList, inline: shouldInline });
     }
   });
   
