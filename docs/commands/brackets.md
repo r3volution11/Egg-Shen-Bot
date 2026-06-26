@@ -632,6 +632,63 @@ Winner: The Exorcist
 
 ---
 
+### List Groups and Titles
+
+```
+/bracket list-groups
+```
+
+**Parameters:** None
+
+**Who can use:** All server members
+
+**Features:**
+
+- Simple text display of all groups and their titles
+- Shows which groups are currently open for voting (🗳️)
+- Shows which groups are closed (✅)
+- Displays empty groups with clear indication
+- Shows group completion progress (e.g., "4 of 8 groups created")
+- Organized in a clean, easy-to-read format
+
+**Example Output:**
+
+```
+🏆 The Shudder Discord Gore Cup - Groups
+
+Group A 🗳️ (voting open)
+1. The Texas Chain Saw Massacre
+2. Halloween
+3. Ring
+4. The Birds
+
+Group B ✅ (closed)
+1. The Exorcist
+2. Don't Look Now
+3. M
+4. The Witch
+
+Group C
+1. Psycho
+2. Nosferatu
+3. Evil Dead II
+4. Onibaba
+
+Group D
+*Empty - no titles added yet*
+
+4 of 8 groups created
+```
+
+**Use Cases:**
+
+- Quick overview of all tournament titles
+- Check which groups need more titles during setup
+- See voting status at a glance
+- Share tournament lineup with members
+- Verify titles before opening voting
+
+---
 
 ### View Visual Bracket
 

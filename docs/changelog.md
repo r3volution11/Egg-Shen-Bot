@@ -79,6 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Shows tournament type, groups, entry count, and current status
     - Can be used at any phase (setup, group voting, knockout)
     - Perfect for generating hype and informing members when voting opens
+  - **NEW: `/bracket list-groups`** - Simple text display of all groups and titles
+    - Shows all groups with their titles in a clean, easy-to-read format
+    - Displays voting status indicators (🗳️ for open voting, ✅ for closed)
+    - Shows empty groups with clear indication
+    - Group completion progress counter
+    - Available to all members (not just admins/mods)
+    - Perfect for quick overview of tournament lineup without generating images
+    - Useful during setup to see which groups need more titles
 - **AI Image Generation System**
   - **NEW: `/image` command** - Generate AI images from text prompts or Discord messages
     - Text-to-image: `/image prompt:"A dragon flying over a castle"`
