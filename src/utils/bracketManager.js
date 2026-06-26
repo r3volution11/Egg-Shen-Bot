@@ -790,6 +790,42 @@ export function openKnockoutMatchup(guildId, matchupId) {
 }
 
 /**
+ * Open knockout round for voting
+ */
+export function openKnockoutRound(guildId, round) {
+  const tournament = loadTournament(guildId);
+  if (!tournament || tournament.status !== 'knockout') {
+    return { success: false, error: 'Tournament not in knockout phase' };
+  }
+  
+  if (round !== tournament.phase) {
+    return { success: false, error: `Current phase is ${tournament.phase}, not ${round}` };
+  }
+  
+  // Get matchups for this round that have both participants
+  const roundMatchups = tournament.knockoutBracket.filter(
+    m => m.round === round && m.movie1 && m.movie2
+  );
+  
+  if (roundMatchups.length === 0) {
+    return { success: false, error: 'No matchups ready for voting in this round' };
+  }
+  
+  // Open matchups for voting
+  roundMatchups.forEach(m => {
+    m.status = 'voting';
+    m.votingOpened = Date.now();
+    if (!m.votes) {
+      m.votes = { movie1: [], movie2: [] };
+    }
+  });
+  
+  return saveTournament(guildId, tournament)
+    ? { success: true, tournament, matchups: roundMatchups }
+    : { success: false, error: 'Failed to save' };
+}
+
+/**
  * Vote in knockout matchup
  */
 export function voteKnockout(guildId, userId, matchupId, choice) {
@@ -866,9 +902,62 @@ export function closeKnockoutMatchup(guildId, matchupId) {
     wasTie: votes1 === votes2,
   };
   
-  return saveTournament(guildId, tournament)
-    ? { success: true, tournament, winner, votes1, votes2 }
-    : { success: false, error: 'Failed to save' };
+  // Save first
+  if (!saveTournament(guildId, tournament)) {
+    return { success: false, error: 'Failed to save' };
+  }
+  
+  // Check if all matchups in current round are closed
+  const currentRoundMatchups = tournament.knockoutBracket.filter(
+    m => m.round === tournament.phase && m.movie1 && m.movie2
+  );
+  const allClosed = currentRoundMatchups.every(m => m.status === 'closed');
+  
+  if (allClosed) {
+    // Auto-advance winners to next round
+    const roundMap = {
+      'round_of_32': 'round_of_16',
+      'round_of_16': 'quarterfinals',
+      'quarterfinals': 'semifinals',
+      'semifinals': 'finals',
+    };
+    
+    const nextRound = roundMap[tournament.phase];
+    
+    if (nextRound) {
+      // Find next round matchups and populate with winners
+      const nextRoundMatchups = tournament.knockoutBracket.filter(m => m.round === nextRound);
+      
+      currentRoundMatchups.forEach((completedMatchup, index) => {
+        const winner = completedMatchup.winner;
+        if (!winner) return;
+        
+        // Each pair of current matchups feeds into one next matchup
+        const nextMatchupIndex = Math.floor(index / 2);
+        const nextMatchup = nextRoundMatchups[nextMatchupIndex];
+        
+        if (nextMatchup) {
+          // Determine if this winner goes to movie1 or movie2 slot based on position
+          if (index % 2 === 0) {
+            nextMatchup.movie1 = winner;
+          } else {
+            nextMatchup.movie2 = winner;
+          }
+        }
+      });
+      
+      tournament.phase = nextRound;
+      saveTournament(guildId, tournament);
+    } else if (tournament.phase === 'finals') {
+      // Tournament complete
+      tournament.status = 'completed';
+      tournament.champion = winner;
+      tournament.completedAt = Date.now();
+      saveTournament(guildId, tournament);
+    }
+  }
+  
+  return { success: true, tournament, winner, votes1, votes2 };
 }
 
 /**
