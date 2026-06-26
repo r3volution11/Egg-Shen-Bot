@@ -226,6 +226,77 @@ Bot shows a selection menu with all matches (just like `/movie`, `/tv`, etc.):
 
 ---
 
+### Resize Tournament
+
+```
+/bracket resize groups:[4-12]
+```
+
+**Parameters:**
+
+- `groups` (required) - New number of groups (4-12)
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- **Expand or contract tournaments** during the setup phase
+- **Expanding (e.g., 8 → 12):** Adds new groups (I, J, K, L) for more titles
+- **Contracting (e.g., 8 → 6):** Removes groups if they're empty
+- **Smart validation:** Prevents data loss by blocking contraction if groups being removed have titles
+- **Detailed guidance:** When resize fails, provides specific actionable steps:
+  - Lists which groups have titles that would be removed
+  - Shows exactly how many titles need to be moved or deleted
+  - Suggests minimum group count to keep all current titles
+  - Offers 3 clear options: move titles, remove titles, or adjust target size
+- **Progress tracking:** Shows filled groups and total capacity after resize
+- **Only during setup:** Cannot resize once voting has started
+
+**Examples:**
+
+```
+# Expand from 8 groups to 12 groups (adds I, J, K, L)
+/bracket resize groups:12
+
+# Contract from 12 groups to 8 (removes I, J, K, L if empty)
+/bracket resize groups:8
+
+# Reduce to minimum size for quick tournament
+/bracket resize groups:4
+```
+
+**When Contraction Fails:**
+
+If you try to contract but groups being removed have titles, you'll see:
+
+```
+❌ Cannot contract to 6 groups. The following groups have titles that would be removed:
+
+Group G (4 titles), Group H (4 titles)
+
+Options:
+1️⃣ Move 8 titles from Group G and Group H to groups A, B, C, D, E, F
+2️⃣ Remove the titles using /bracket remove-title
+3️⃣ Resize to at least 8 groups (to keep all 8 filled groups)
+```
+
+**Use Cases:**
+
+- Tournament grows larger than initially planned
+- Want to reduce empty groups before starting
+- Need more groups after starting to add titles
+- Consolidate entries into fewer groups for faster tournaments
+
+**Tips:**
+
+- Can resize multiple times during setup
+- Always validates to prevent accidentally losing data
+- Expanding is always safe (just adds new empty groups)
+- Contracting requires affected groups to be empty
+- Use `/bracket status` to see current group count and which groups have titles
+- Perfect for dynamic tournaments where you're not sure of final size upfront
+
+---
 
 ### Open Group Voting
 
