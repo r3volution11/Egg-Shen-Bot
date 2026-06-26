@@ -63,7 +63,7 @@ export async function execute(interaction) {
     
     // If only one result, search for its soundtrack directly
     if (limitedResults.length === 1) {
-      await searchAndDisplaySoundtrack(interaction, limitedResults[0], true);
+      await searchAndDisplaySoundtrack(interaction, limitedResults[0], false);
       return;
     }
     
@@ -125,7 +125,7 @@ async function searchAndDisplaySoundtrack(interaction, result, deleteEphemeral =
   if ((!itunesResults || itunesResults.length === 0) && !spotifyResult) {
     const servicesText = isSpotifyConfigured() ? 'iTunes or Spotify' : 'iTunes';
     
-    if (deleteEphemeral) {
+    if (deleteEphemeral && interaction.message) {
       await interaction.message.delete().catch(() => {});
       await interaction.channel.send({
         content: `🎵 No soundtracks found for **${title}** on ${servicesText}.\n\nThis could mean:\n• The soundtrack isn't available on these services yet\n• Try searching with a different variation of the title\n• The soundtrack might be available on other platforms`,
@@ -210,7 +210,7 @@ async function searchAndDisplaySoundtrack(interaction, result, deleteEphemeral =
   }
   
   // If called from single result or selection, delete ephemeral and send publicly
-  if (deleteEphemeral) {
+  if (deleteEphemeral && interaction.message) {
     await interaction.message.delete().catch(() => {});
     await interaction.channel.send({ embeds: [embed] });
   } else {
