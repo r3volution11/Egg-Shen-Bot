@@ -141,17 +141,32 @@ See which groups you've voted in and which are still available.
 /bracket open-knockout duration:24h
 ```
 
-**Option B: Open Individual Matchups** (For drama/pacing)
+**Option B: Open by Region** (Split left/right sides across days)
 ```
-/bracket open-matchup matchup:1 duration:24h
-/bracket open-matchup matchup:2 duration:24h
+/bracket open-region region:1 duration:24h
+```
+Then later:
+```
+/bracket open-region region:2 duration:24h
+```
+
+**Option C: Open Individual Matchups** (For maximum drama/pacing)
+```
+/bracket open-matchup matchup:1A duration:24h
+/bracket open-matchup matchup:1B duration:24h
 ```
 
 🎯 Matchups posted! Members see buttons for each matchup to vote.
 
 💡 **When to use each:**
 - **Open all at once**: Fast-paced tournaments, all voting happens simultaneously
-- **Open one by one**: Build suspense, space out matchups over days, feature specific matchups
+- **Open by region**: Split rounds across multiple days (left side Monday, right side Wednesday)
+- **Open one by one**: Build suspense, feature "match of the day", space out over days
+
+💡 **Regional Labels:**
+- Matchups use labels like **1A, 1B** (left side) and **2A, 2B** (right side)
+- Makes it easy to reference specific matchups
+- Shows on all displays and bracket images
 
 ### Step 9: Members Vote on Matchups (Everyone)
 
@@ -172,10 +187,10 @@ See which groups you've voted in and which are still available.
 /bracket close-knockout
 ```
 
-**Option B: Close Individual Matchups**
+**Option B: Close Individual Matchups** (using regional labels)
 ```
-/bracket close-matchup matchup:1
-/bracket close-matchup matchup:2
+/bracket close-matchup matchup:1A
+/bracket close-matchup matchup:1B
 ```
 
 🏁 Winners determined! When ALL matchups in the round are closed, winners **automatically advance** to next round!
