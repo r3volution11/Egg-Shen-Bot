@@ -759,6 +759,37 @@ Group B
 
 ---
 
+## Regional Bracket System
+
+**The bracket uses a regional identification system** to organize matchups into left and right sides of the bracket. This makes it easier to reference specific matchups and manage voting by region.
+
+### Regional Labels
+
+Each matchup has a **regional label** combining region number and letter:
+- **Region 1 (Left Side)**: Matchups labeled 1A, 1B, 1C, 1D...
+- **Region 2 (Right Side)**: Matchups labeled 2A, 2B, 2C, 2D...
+
+**Examples by Round:**
+- **Round of 16** (8 matchups): Left = 1A-1D, Right = 2A-2D
+- **Quarterfinals** (4 matchups): Left = 1A-1B, Right = 2A-2B
+- **Semifinals** (2 matchups): Left = 1A, Right = 2A
+- **Finals**: No regional designation (just "Finals")
+
+### Opening Options
+
+You have three ways to open knockout matchups:
+
+1. **Entire Round**: `/bracket open-knockout` - Opens all matchups in current round
+2. **Specific Region**: `/bracket open-region region:1` - Opens all left side OR right side matchups
+3. **Single Matchup**: `/bracket open-matchup matchup:1A` - Opens one specific matchup
+
+This flexibility allows you to:
+- Open the entire round at once for simple management
+- Open one region per day for pacing (left side Monday, right side Tuesday)
+- Open individual matchups for maximum drama and spotlight moments
+
+---
+
 ### Open Knockout Round
 
 ```
@@ -775,11 +806,11 @@ Group B
 
 **Features:**
 
-- Opens current round matchups for voting
+- Opens **all matchups** in current round for voting (both regions)
 - Creates interactive voting buttons for each matchup
 - **Customizable voting duration** (5 minutes to 30 days)
 - **Displays time remaining** and exact deadline in main embed
-- Shows real-time vote counts
+- Shows real-time vote counts with regional labels
 - One vote per user per matchup (can change vote anytime)
 - Vote updates immediately when clicked
 
@@ -792,7 +823,7 @@ Group B
 **Examples:**
 
 ```
-# Default 24 hour voting
+# Default 24 hour voting for all matchups
 /bracket open-knockout
 
 # 2 day voting period for slower pace
@@ -816,10 +847,16 @@ Vote for ONE title in each matchup below.
 ⏰ Voting closes in: 23h 45m
 
 [For each matchup:]
-Round of 16 - Matchup 1
+Round of 16 - Matchup 1A
 Movie A vs Movie B
 5 votes    vs    3 votes
 [Button: Movie A] [Button: Movie B]
+
+Round of 16 - Matchup 2A
+Movie C vs Movie D
+3 votes    vs    7 votes
+[Button: Movie C] [Button: Movie D]
+...
 
 Deadline: 6/27/2026, 11:00:00 PM
 ```
@@ -831,6 +868,72 @@ Deadline: 6/27/2026, 11:00:00 PM
 - Can change vote by clicking different button
 - Vote counts update in real-time on all messages
 - Clear deadline shown so members know when voting ends
+
+---
+
+### Open Region
+
+```
+/bracket open-region region:[1 or 2] duration:[time]
+```
+
+**Parameters:**
+
+- `region` (required) - Region number (1=left side, 2=right side)
+- `duration` (optional) - Voting duration (default: 24h, range: 5m-30d)
+  - Format: Number + unit (m=minutes, h=hours, d=days)
+  - Examples: "5m", "2h", "24h", "3d", "7d", "30d"
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- Opens **all matchups in one region** for voting
+- Perfect for **splitting rounds** across multiple days
+- Same voting interface as full-round opening
+- Creates suspense by releasing regions separately
+- **Customizable duration** per region
+
+**Use Cases:**
+
+- **Region-by-region pacing**: Open left side Monday, right side Wednesday
+- **Balanced scheduling**: Split workload across days
+- **Geographic theming**: "East Coast vs West Coast" narratives
+- **Build anticipation**: Keep one region hidden while the other votes
+
+**Examples:**
+
+```
+# Open all left side matchups
+/bracket open-region region:1 duration:24h
+
+# Open all right side matchups with 2-day voting
+/bracket open-region region:2 duration:48h
+
+# Quick 6-hour regional vote
+/bracket open-region region:1 duration:6h
+```
+
+**Output:**
+
+```
+📊 Round of 16 - Region 1 Voting Open! (Left Side)
+
+4 matchups in Region 1 are now open for voting.
+
+⏰ Voting closes in: 23h 45m
+
+[Shows matchups 1A, 1B, 1C, 1D with voting buttons]
+
+Deadline: 6/27/2026, 11:00:00 PM
+```
+
+**Strategy Tips:**
+
+- Open Region 1 (left) on Monday, Region 2 (right) on Wednesday
+- Use different durations for each region if desired
+- Helps spread engagement throughout the week
+- Creates natural discussion points around each region
 
 ---
 
@@ -865,10 +968,10 @@ Deadline: 6/27/2026, 11:00:00 PM
 
 8 matchups closed. Here are the winners:
 
-Matchup 1
+Matchup 1A
 Movie A (15 vs 8) defeats Movie B
 
-Matchup 2
+Matchup 1B
 Movie C (12 vs 11) defeats Movie D
 ...
 
@@ -899,12 +1002,12 @@ Congratulations! 🎉
 ### Open Individual Matchup
 
 ```
-/bracket open-matchup matchup:[1-32] duration:[time]
+/bracket open-matchup matchup:[regional label] duration:[time]
 ```
 
 **Parameters:**
 
-- `matchup` (required) - Matchup number (1-32, depending on round size)
+- `matchup` (required) - Regional matchup label (e.g., "1A", "2B", "1C")
 - `duration` (optional) - Voting duration (default: 24h, range: 5m-30d)
   - Format: Number + unit (m=minutes, h=hours, d=days)
   - Examples: "5m", "2h", "24h", "3d", "7d", "30d"
@@ -913,21 +1016,125 @@ Congratulations! 🎉
 
 **Features:**
 
-- Opens a **single specific matchup** for voting (instead of entire round)
+- Opens a **single specific matchup** for voting (instead of entire round or region)
 - Creates interactive voting buttons for that matchup
 - **Perfect for pacing** - space out matchups over days
 - **Build suspense** - feature one matchup at a time
 - **Customizable duration** per matchup
 - Shows time remaining and deadline
+- Uses **regional labels** for easy identification
 
 **Use Cases:**
 
-- **One matchup per day**: Open matchup 1 Monday, matchup 2 Tuesday, etc.
+- **One matchup per day**: Open 1A Monday, 1B Tuesday, 2A Wednesday, etc.
 - **Spotlight matchups**: Feature important matchups individually
-- **Flexible pacing**: Mix and match with full-round opening
+- **Flexible pacing**: Mix and match with full-round or regional opening
 - **Drama building**: Create anticipation for each battle
+- **Featured match**: Highlight "match of the week"
 
 **Examples:**
+
+```
+# Open specific left-side matchup
+/bracket open-matchup matchup:1A
+
+# Open specific right-side matchup with 3-day voting
+/bracket open-matchup matchup:2B duration:3d
+
+# Quick 6-hour vote for semifinals matchup
+/bracket open-matchup matchup:1A duration:6h
+```
+
+**Output:**
+
+```
+📊 Round of 16 - Matchup 1A Open! (Left Side)
+
+Voting is now open for this matchup.
+
+⏰ Voting closes in: 23h 45m
+
+Round of 16 - Region 1 - Matchup 1A
+Movie A vs Movie B
+0 votes    vs    0 votes
+[Button: Movie A] [Button: Movie B]
+
+Deadline: 6/27/2026, 11:00:00 PM
+```
+
+**Strategy Tips:**
+
+- Open high-profile matchups individually for maximum engagement
+- Use different durations to keep tournament dynamic
+- Great for "featured match of the day" approach
+- Combine with `/bracket announce` to spotlight important battles
+- Perfect for spacing out semifinals or finals voting
+
+---
+
+### Close Individual Matchup
+
+```
+/bracket close-matchup matchup:[regional label]
+```
+
+**Parameters:**
+
+- `matchup` (required) - Regional matchup label (e.g., "1A", "2B", "1C")
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- Closes a **single specific matchup** and determines winner
+- **Auto-advances winner** when matchup closes
+- Shows final vote counts
+- Indicates if winner was automatically placed in next round
+- Uses **regional labels** for easy identification
+
+**Requirements:**
+
+- Tournament must be in knockout phase
+- Specified matchup must be open for voting
+
+**Examples:**
+
+```
+# Close specific left-side matchup
+/bracket close-matchup matchup:1A
+
+# Close specific right-side matchup
+/bracket close-matchup matchup:2B
+```
+
+**Output:**
+
+```
+🏁 Round of 16 - Matchup 1A Complete! (Left Side)
+
+Movie A wins!
+
+Movie A (15 votes) vs Movie B (8 votes)
+
+✅ Auto-Advanced
+Movie A has been placed in the next round matchup.
+```
+
+**When All Matchups Close:**
+
+If this was the last matchup in the current round:
+```
+All matchups complete! Tournament has advanced to Quarterfinals.
+```
+
+**Strategy:**
+
+- Close matchups individually as voting wraps up
+- Don't need to wait for entire round to finish
+- Winners automatically slot into next round structure
+- Flexible pacing keeps tournament moving
+
+---
 
 ```
 # Open first matchup with 24 hour voting
@@ -963,82 +1170,6 @@ Deadline: 6/27/2026, 11:00:00 PM
 - Combine with `/bracket open-knockout` for some rounds, individual for others
 - Great for building community discussion around specific matchups
 - Members can still vote on multiple matchups if multiple are open
-
----
-
-### Close Individual Matchup
-
-```
-/bracket close-matchup matchup:[1-32]
-```
-
-**Parameters:**
-
-- `matchup` (required) - Matchup number (1-32, depending on round size)
-
-**Who can use:** Administrators and Moderators only
-
-**Features:**
-
-- Closes a **single specific matchup** and determines winner
-- Winner is placed in the next round matchup slot
-- **When all matchups in round are closed**, tournament automatically advances to next round
-- Perfect for staggered closing
-- Shows vote counts and winner
-
-**How Auto-Advancement Works:**
-
-1. You close matchups individually throughout the round
-2. Each winner is placed into their next round slot immediately
-3. When the LAST matchup in the round closes, the tournament phase automatically advances
-4. All winners are now ready in the next round
-
-**Examples:**
-
-```
-# Close first matchup
-/bracket close-matchup matchup:1
-
-# Close second matchup
-/bracket close-matchup matchup:2
-```
-
-**Output:**
-
-```
-🏁 Round of 16 - Matchup 1 Complete!
-
-The Thing wins!
-
-The Thing (15 votes) vs Alien (8 votes)
-
-✅ Auto-Advanced
-The Thing has been placed in the next round matchup.
-```
-
-**After Last Matchup Closes:**
-
-```
-🏁 Round of 16 - Matchup 8 Complete!
-
-Psycho wins!
-
-Jaws (10 votes) vs Psycho (12 votes)
-
-All matchups complete! Tournament has advanced to Quarterfinals.
-```
-
-**Benefits:**
-
-- **Flexibility**: Close matchups as they finish voting
-- **Immediate results**: Winners advance as soon as decided
-- **Gradual progression**: Tournament advances naturally when ready
-- **Mix and match**: Use with `/bracket close-knockout` for some rounds
-
-**Requirements:**
-
-- Matchup must be open for voting
-- Matchup must be in current round
 
 ---
 

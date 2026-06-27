@@ -55,6 +55,42 @@ const COLORS = {
 };
 
 /**
+ * Get regional label for a matchup (e.g., "1A", "2C")
+ * @param {number} position - Matchup position (0-based)
+ * @param {string} round - Round name
+ * @returns {string} Regional label
+ */
+function getRegionalLabel(position, round) {
+  // Finals has no region
+  if (round === 'finals') {
+    return 'Finals';
+  }
+  
+  // Determine total matchups in this round
+  const roundSizes = {
+    'round_of_32': 16,
+    'round_of_16': 8,
+    'quarterfinals': 4,
+    'semifinals': 2
+  };
+  
+  const totalMatchups = roundSizes[round];
+  if (!totalMatchups) return String(position + 1);
+  
+  // Left region: positions 0 to (totalMatchups/2 - 1)
+  // Right region: positions (totalMatchups/2) to (totalMatchups - 1)
+  const midpoint = totalMatchups / 2;
+  const isLeftRegion = position < midpoint;
+  const region = isLeftRegion ? '1' : '2';
+  
+  // Letter within region (A, B, C, D...)
+  const positionInRegion = isLeftRegion ? position : position - midpoint;
+  const letter = String.fromCharCode(65 + positionInRegion); // 65 = 'A'
+  
+  return `${region}${letter}`;
+}
+
+/**
  * Generate a visual bracket image for the tournament
  * @param {Object} tournament - Tournament data from bracketManager
  * @returns {Promise<Buffer>} PNG image buffer
@@ -139,7 +175,7 @@ export async function generateBracketImage(tournament) {
     const finalsScale = 1.5;
     const finalsX = (canvasWidth / 2) - (PARTICIPANT_WIDTH * finalsScale / 2);
     const finalsY = canvasHeight / 2;
-    await drawMatchup(ctx, finalsRound.matchups[0], finalsX, finalsY, knockoutResults, finalsScale);
+    await drawMatchup(ctx, finalsRound.matchups[0], finalsX, finalsY, knockoutResults, finalsScale, 'finals');
     
     // Finals label
     ctx.fillStyle = COLORS.primary;
@@ -198,7 +234,7 @@ async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, sid
     const matchup = round.matchups[i];
     const yPos = CANVAS_PADDING + 100 + (ySpacing * (i + 1));
     
-    await drawMatchup(ctx, matchup, x, yPos, knockoutResults);
+    await drawMatchup(ctx, matchup, x, yPos, knockoutResults, 1, round.name);
     
     // Draw connector lines to next round (towards center)
     if (roundIndex < totalRounds - 1) {
@@ -260,8 +296,8 @@ function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups, ySp
  * Draw a single matchup (two participants paired together)
  * @param {number} scale - Scale factor for finals (default 1)
  */
-async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1) {
-  const { movie1, movie2, id, status } = matchup;
+async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1, roundName = null) {
+  const { movie1, movie2, id, status, position } = matchup;
   const result = knockoutResults?.[id];
   const winner = result?.winner; // 'movie1' or 'movie2'
   
@@ -282,6 +318,15 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1) {
     width + 6 * scale, 
     (height * 2) + gap + 6 * scale
   );
+  
+  // Draw regional label above matchup if we have position and round info
+  if (typeof position === 'number' && roundName) {
+    const regionalLabel = getRegionalLabel(position, roundName);
+    ctx.fillStyle = COLORS.primary;
+    ctx.font = `bold ${FONT_SIZE}px Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(regionalLabel, x + (width / 2), participant1Y - 8 * scale);
+  }
   
   // Draw participants
   await drawParticipant(ctx, movie1, x, participant1Y, winner === 'movie1', scale);

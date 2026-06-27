@@ -75,6 +75,83 @@ function formatTimeRemaining(deadline) {
   }
 }
 
+/**
+ * Get regional label for a matchup (e.g., "1A", "2C")
+ * @param {number} position - Matchup position (0-based)
+ * @param {string} round - Round name
+ * @returns {string} Regional label
+ */
+function getRegionalLabel(position, round) {
+  // Finals has no region
+  if (round === 'finals') {
+    return 'Finals';
+  }
+  
+  // Determine total matchups in this round
+  const roundSizes = {
+    'round_of_32': 16,
+    'round_of_16': 8,
+    'quarterfinals': 4,
+    'semifinals': 2
+  };
+  
+  const totalMatchups = roundSizes[round];
+  if (!totalMatchups) return String(position + 1);
+  
+  // Left region: positions 0 to (totalMatchups/2 - 1)
+  // Right region: positions (totalMatchups/2) to (totalMatchups - 1)
+  const midpoint = totalMatchups / 2;
+  const isLeftRegion = position < midpoint;
+  const region = isLeftRegion ? '1' : '2';
+  
+  // Letter within region (A, B, C, D...)
+  const positionInRegion = isLeftRegion ? position : position - midpoint;
+  const letter = String.fromCharCode(65 + positionInRegion); // 65 = 'A'
+  
+  return `${region}${letter}`;
+}
+
+/**
+ * Parse regional label to position (e.g., "1A" → 0, "2B" → 5 in Round of 16)
+ * @param {string} label - Regional label like "1A" or "2C"
+ * @param {string} round - Round name
+ * @returns {number|null} Position or null if invalid
+ */
+function parseRegionalLabel(label, round) {
+  if (label === 'Finals' || label === 'finals') return 0;
+  
+  const match = label.match(/^([12])([A-Z])$/i);
+  if (!match) return null;
+  
+  const region = parseInt(match[1]);
+  const letter = match[2].toUpperCase();
+  const letterIndex = letter.charCodeAt(0) - 65; // A=0, B=1, etc.
+  
+  const roundSizes = {
+    'round_of_32': 16,
+    'round_of_16': 8,
+    'quarterfinals': 4,
+    'semifinals': 2
+  };
+  
+  const totalMatchups = roundSizes[round];
+  if (!totalMatchups) return null;
+  
+  const midpoint = totalMatchups / 2;
+  
+  // Validate letter is within range for this region
+  if (letterIndex < 0 || letterIndex >= midpoint) return null;
+  
+  // Calculate position
+  if (region === 1) {
+    return letterIndex; // Left region: 0-based from start
+  } else if (region === 2) {
+    return midpoint + letterIndex; // Right region: offset by midpoint
+  }
+  
+  return null;
+}
+
 export const data = new SlashCommandBuilder()
   .setName('bracket')
   .setDescription('Tournament bracket system for movie competitions')
@@ -265,15 +342,34 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('open-matchup')
-      .setDescription('Open a specific matchup for voting (Admin/Mod only)')
+      .setName('open-region')
+      .setDescription('Open all matchups in a region for voting (Admin/Mod only)')
       .addIntegerOption(option =>
         option
-          .setName('matchup')
-          .setDescription('Matchup number (1-16)')
+          .setName('region')
+          .setDescription('Region number (1=left side, 2=right side)')
           .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(32)
+          .addChoices(
+            { name: 'Region 1 (Left Side)', value: 1 },
+            { name: 'Region 2 (Right Side)', value: 2 }
+          )
+      )
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('open-matchup')
+      .setDescription('Open a specific matchup for voting (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('matchup')
+          .setDescription('Matchup ID (e.g., "1A", "2B") - Use regional labels')
+          .setRequired(true)
       )
       .addStringOption(option =>
         option
@@ -286,13 +382,11 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('close-matchup')
       .setDescription('Close a specific matchup and advance winner (Admin/Mod only)')
-      .addIntegerOption(option =>
+      .addStringOption(option =>
         option
           .setName('matchup')
-          .setDescription('Matchup number (1-16)')
+          .setDescription('Matchup ID (e.g., "1A", "2B") - Use regional labels')
           .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(32)
       )
   )
   .addSubcommand(subcommand =>
@@ -430,6 +524,9 @@ export async function execute(interaction) {
         break;
       case 'open-knockout':
         await handleOpenKnockout(interaction);
+        break;
+      case 'open-region':
+        await handleOpenRegion(interaction);
         break;
       case 'close-knockout':
         await handleCloseKnockout(interaction);
@@ -1755,10 +1852,11 @@ async function handleOpenKnockout(interaction) {
   for (const matchup of currentRoundMatchups) {
     const votes1 = matchup.votes?.movie1?.length || 0;
     const votes2 = matchup.votes?.movie2?.length || 0;
+    const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
     
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
-      .setTitle(`${roundName} - Matchup ${matchup.position + 1}`)
+      .setTitle(`${roundName} - Matchup ${regionalLabel}`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
@@ -1849,10 +1947,11 @@ async function handleCloseKnockout(interaction) {
     .setTitle(`🏁 ${roundName} Complete!`)
     .setDescription(`**${results.length} matchup${results.length !== 1 ? 's' : ''}** closed. Here are the winners:\n`);
   
-  results.forEach((r, i) => {
+  results.forEach((r) => {
     const loser = r.winner.title === r.matchup.movie1.title ? r.matchup.movie2 : r.matchup.movie1;
+    const regionalLabel = getRegionalLabel(r.matchup.position, currentRound);
     embed.addFields({
-      name: `Matchup ${i + 1}`,
+      name: `Matchup ${regionalLabel}`,
       value: `**${r.winner.title}** (${r.votes1} vs ${r.votes2}) defeats ${loser.title}`,
       inline: false
     });
@@ -1875,10 +1974,10 @@ async function handleCloseKnockout(interaction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
-async function handleOpenMatchup(interaction) {
+async function handleOpenRegion(interaction) {
   await interaction.deferReply();
   
-  const matchupNumber = interaction.options.getInteger('matchup');
+  const region = interaction.options.getInteger('region');
   const durationStr = interaction.options.getString('duration') || '24h';
   
   // Parse and validate duration
@@ -1902,13 +2001,144 @@ async function handleOpenMatchup(interaction) {
     return;
   }
   
+  // Get all matchups in current round
+  const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
+    m.round === tournament.phase && m.movie1 && m.movie2
+  );
+  
+  if (currentRoundMatchups.length === 0) {
+    await interaction.editReply(`❌ No matchups ready for ${tournament.phase.replace(/_/g, ' ')}.`);
+    return;
+  }
+  
+  // Filter by region (region 1 = left side, region 2 = right side)
+  const midpoint = currentRoundMatchups.length / 2;
+  const regionMatchups = currentRoundMatchups.filter(m => {
+    if (region === 1) {
+      return m.position < midpoint; // Left side
+    } else {
+      return m.position >= midpoint; // Right side
+    }
+  });
+  
+  if (regionMatchups.length === 0) {
+    await interaction.editReply(`❌ No matchups found in Region ${region}.`);
+    return;
+  }
+  
+  // Open all matchups in this region
+  for (const matchup of regionMatchups) {
+    matchup.status = 'voting';
+    matchup.votingOpened = Date.now();
+    matchup.votingDeadline = deadline;
+    if (!matchup.votes) {
+      matchup.votes = { movie1: [], movie2: [] };
+    }
+  }
+  
+  bracketManager.saveTournament(interaction.guildId, tournament);
+  
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const timeRemaining = formatTimeRemaining(deadline);
+  const regionName = region === 1 ? 'Left Side' : 'Right Side';
+  
+  // Build matchup embeds
+  const embeds = [];
+  const components = [];
+  
+  for (const matchup of regionMatchups) {
+    const votes1 = matchup.votes.movie1.length;
+    const votes2 = matchup.votes.movie2.length;
+    const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x4EC5ED)
+      .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+      .addFields(
+        { 
+          name: `${matchup.movie1.title}`, 
+          value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
+          inline: true 
+        },
+        { name: '\u200B', value: 'vs', inline: true },
+        { 
+          name: `${matchup.movie2.title}`, 
+          value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
+          inline: true 
+        }
+      )
+      .setFooter({ text: 'Click a button below to vote • You can change your vote anytime' });
+    
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`knockout_vote_${matchup.id}_1`)
+        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`knockout_vote_${matchup.id}_2`)
+        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
+        .setStyle(ButtonStyle.Primary)
+    );
+    
+    embeds.push(embed);
+    components.push(row);
+  }
+  
+  // Send main message
+  const mainEmbed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`📊 ${roundName} - Region ${region} Voting Open! (${regionName})`)
+    .setDescription(
+      `**${regionMatchups.length} matchup${regionMatchups.length !== 1 ? 's' : ''}** in Region ${region} are now open for voting.\n\n` +
+      `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}`
+    )
+    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+  
+  await interaction.editReply({ embeds: [mainEmbed, ...embeds], components });
+}
+
+async function handleOpenMatchup(interaction) {
+  await interaction.deferReply();
+  
+  const matchupLabel = interaction.options.getString('matchup').toUpperCase();
+  const durationStr = interaction.options.getString('duration') || '24h';
+  
+  // Parse and validate duration
+  const durationMs = parseDuration(durationStr);
+  if (!durationMs) {
+    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
+    return;
+  }
+  
+  if (!isValidDuration(durationMs)) {
+    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
+    return;
+  }
+  
+  const deadline = Date.now() + durationMs;
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  if (!tournament || tournament.status !== 'knockout') {
+    await interaction.editReply('❌ No knockout bracket found. Use `/bracket advance-knockout` first.');
+    return;
+  }
+  
+  // Parse regional label to position
+  const position = parseRegionalLabel(matchupLabel, tournament.phase);
+  if (position === null) {
+    await interaction.editReply(`❌ Invalid matchup label "${matchupLabel}". Use format like "1A", "2B" for regional labels.`);
+    return;
+  }
+  
   // Find the matchup by position in current round
   const matchup = tournament.knockoutBracket.find(m => 
-    m.round === tournament.phase && m.position === matchupNumber - 1 && m.movie1 && m.movie2
+    m.round === tournament.phase && m.position === position && m.movie1 && m.movie2
   );
   
   if (!matchup) {
-    await interaction.editReply(`❌ Matchup #${matchupNumber} not found in ${tournament.phase.replace(/_/g, ' ')}. Make sure both titles are set.`);
+    await interaction.editReply(`❌ Matchup ${matchupLabel} not found in ${tournament.phase.replace(/_/g, ' ')}. Make sure both titles are set.`);
     return;
   }
   
@@ -1928,9 +2158,14 @@ async function handleOpenMatchup(interaction) {
   const votes1 = matchup.votes.movie1.length;
   const votes2 = matchup.votes.movie2.length;
   
+  // Get regional label for display
+  const regionalLabel = getRegionalLabel(position, tournament.phase);
+  const regionNum = parseInt(matchupLabel[0]);
+  const regionName = regionNum === 1 ? 'Left Side' : 'Right Side';
+  
   const embed = new EmbedBuilder()
     .setColor(0x4EC5ED)
-    .setTitle(`${roundName} - Matchup ${matchupNumber}`)
+    .setTitle(`${roundName} - Region ${regionNum} - Matchup ${regionalLabel}`)
     .addFields(
       { 
         name: `${matchup.movie1.title}`, 
@@ -1959,7 +2194,7 @@ async function handleOpenMatchup(interaction) {
   
   const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle(`📊 ${roundName} - Matchup ${matchupNumber} Open!`)
+    .setTitle(`📊 ${roundName} - Matchup ${regionalLabel} Open! (${regionName})`)
     .setDescription(
       `Voting is now open for this matchup.\n\n` +
       `⏰ **Voting closes in:** ${timeRemaining}`
@@ -1972,7 +2207,7 @@ async function handleOpenMatchup(interaction) {
 async function handleCloseMatchup(interaction) {
   await interaction.deferReply();
   
-  const matchupNumber = interaction.options.getInteger('matchup');
+  const matchupLabel = interaction.options.getString('matchup').toUpperCase();
   
   const tournament = bracketManager.loadTournament(interaction.guildId);
   
@@ -1981,18 +2216,25 @@ async function handleCloseMatchup(interaction) {
     return;
   }
   
+  // Parse regional label to position
+  const position = parseRegionalLabel(matchupLabel, tournament.phase);
+  if (position === null) {
+    await interaction.editReply(`❌ Invalid matchup label "${matchupLabel}". Use format like "1A", "2B" for regional labels.`);
+    return;
+  }
+  
   // Find the matchup by position in current round
   const matchup = tournament.knockoutBracket.find(m => 
-    m.round === tournament.phase && m.position === matchupNumber - 1
+    m.round === tournament.phase && m.position === position
   );
   
   if (!matchup) {
-    await interaction.editReply(`❌ Matchup #${matchupNumber} not found in ${tournament.phase.replace(/_/g, ' ')}.`);
+    await interaction.editReply(`❌ Matchup ${matchupLabel} not found in ${tournament.phase.replace(/_/g, ' ')}.`);
     return;
   }
   
   if (matchup.status !== 'voting') {
-    await interaction.editReply(`❌ Matchup #${matchupNumber} is not currently open for voting.`);
+    await interaction.editReply(`❌ Matchup ${matchupLabel} is not currently open for voting.`);
     return;
   }
   
@@ -2011,10 +2253,13 @@ async function handleCloseMatchup(interaction) {
   const votes2 = updatedMatchup.votes.movie2.length;
   
   const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const regionalLabel = getRegionalLabel(position, tournament.phase);
+  const regionNum = parseInt(matchupLabel[0]);
+  const regionName = regionNum === 1 ? 'Left Side' : 'Right Side';
   
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle(`🏁 ${roundName} - Matchup ${matchupNumber} Complete!`)
+    .setTitle(`🏁 ${roundName} - Matchup ${regionalLabel} Complete! (${regionName})`)
     .setDescription(
       `**${updatedMatchup.winner.title}** wins!\n\n` +
       `**${updatedMatchup.movie1.title}** (${votes1} votes) vs **${updatedMatchup.movie2.title}** (${votes2} votes)`
