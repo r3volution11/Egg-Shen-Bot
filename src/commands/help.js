@@ -24,6 +24,11 @@ export async function execute(interaction) {
         inline: false,
       },
       {
+        name: '🎬 /watchparty',
+        value: 'Announce that a watch party is starting soon.\n\n**Remind:** `/watchparty remind minutes:5 role:@Movie Night`\nAuto-detects event from Discord scheduled events, shows TMDB details.',
+        inline: false,
+      },
+      {
         name: '⏱️ /timer',
         value: 'Start, stop, or check a timer in the current channel.\n\n**Start:** `/timer start label:Movie night`\n**Stop:** `/timer stop` (shows watch history button if labeled)\n**Status:** `/timer status`',
         inline: false,

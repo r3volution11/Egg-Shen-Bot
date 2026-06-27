@@ -228,6 +228,29 @@ Host comprehensive movie or TV show tournaments.
 
 ## Watch Party Commands
 
+### `/watchparty`
+Announce that a watch party is starting soon.
+
+**Subcommands:**
+- `/watchparty remind` - Send a "starting soon" announcement
+
+**Features:**
+- **Auto-detects Discord scheduled events** - Finds event linked to current channel
+- **TMDB integration** - Shows poster, runtime, year, overview
+- **Smart buttons** - "View on TMDB" and "Join Voice Channel"
+- **Custom host message** - Add personal touch to announcements
+- **Role mentions** - Ping specific groups
+- **Time countdown** - Show minutes until starting
+
+**Example:**
+```
+/watchparty remind message:Get your snacks ready! role:@Movie Night minutes:5
+```
+
+[Learn more →](/commands/watch-party#watch-party-announcements)
+
+---
+
 ### `/timer`
 Start, stop, or check channel-specific timers.
 
@@ -565,7 +588,7 @@ Display help information and available commands.
 | Category | Commands |
 |----------|----------|
 | **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
-| **Watch Parties** | `/timer`, `/watched` |
+| **Watch Parties** | `/watchparty`, `/timer`, `/watched` |
 | **Discovery** | `/random`, `/similar`, `/soundtrack` |
 | **Fun & Social** | `/survey`, `/potion` |
 | **Statistics** | `/stats` |

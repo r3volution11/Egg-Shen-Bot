@@ -31,6 +31,44 @@ A: No, only content manually logged via the "Log to Watch History" button is tra
 
 Host synchronized watch parties with timers and track what your community watches.
 
+## Watch Party Announcements
+
+Announce that your watch party is starting soon with auto-detected content details.
+
+### Remind Everyone
+
+```
+/watchparty remind message:[optional] role:[optional] minutes:[optional]
+```
+
+**Parameters:**
+- `message` (optional) - Custom message to show (e.g., "Get your snacks ready!")
+- `role` (optional) - Role to ping/mention for the watch party
+- `minutes` (optional) - How many minutes until starting (1-60)
+
+**Features:**
+- **Auto-detects from Discord scheduled events** - Automatically finds the event linked to the current channel
+- **TMDB integration** - Shows poster, runtime, year, and overview
+- **Smart buttons** - "View on TMDB" and "Join Voice Channel" (if applicable)
+- **Custom host message** - Add your own personal touch
+- **Role mentions** - Ping specific groups to gather everyone
+- **Time countdown** - Show how many minutes until you're starting
+
+**Example:**
+```
+/watchparty remind message:Get your snacks ready! role:@Movie Night minutes:5
+```
+
+**How It Works:**
+1. Create a Discord scheduled event (e.g., "The Lord of the Rings")
+2. Set the event location to a voice/stage channel (or mention it in the location)
+3. Run `/watchparty remind` in that channel a few minutes before starting
+4. Bot detects the event, searches TMDB, and posts a beautiful announcement
+5. Everyone gets ready!
+6. Run `/timer start` when you're ready to begin
+
+**Tip:** Works great with `/timer start` - use `/watchparty remind` to gather everyone, then start the timer when you're all ready!
+
 ## Timer Commands
 
 Start simple stopwatch timers for watch parties.
