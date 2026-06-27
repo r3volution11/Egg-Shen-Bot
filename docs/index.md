@@ -33,7 +33,7 @@ features:
   
   - icon: �
     title: Tournament Brackets
-    details: Host movie/TV tournaments with flexible group stage voting (4-12 groups, each with 4 movies). Dynamic wildcard system and single-elimination knockout brackets automatically adapt to tournament size. Perfect for community competitions and championship events.
+    details: Host comprehensive tournaments with flexible group stage voting (4-12 groups, 16-48 participants). Smart wildcard system, regional knockout brackets (1A, 2B labels), and three opening modes (entire round, by region, or individual matchups). Generate AI-powered versus images. Perfect for community competitions! [Full Tournament Guide →](/commands/brackets/)
   
   - icon: 🎪
     title: Social Features
@@ -126,6 +126,34 @@ Type `/book query:Clive Barker Books of Blood` to find:
 - **Page count** and categories/genres
 - **Preview and purchase links** from Google Books
 - **Additional links** to Goodreads and Open Library
+
+### 🏆 Tournament Brackets
+Host comprehensive tournaments for your community! **[View Full Tournament Guide →](/commands/brackets/)**
+
+**Example Tournament Flow:**
+1. **Create**: `/bracket create name:The Shudder Discord Gore Cup groups:8`
+2. **Add Titles**: `/bracket add-title group:A type:movie title:The Thing` (do this 32 times across 8 groups)
+3. **Announce**: `/bracket announce` - Publicly announce the tournament with full details
+4. **Group Voting**: `/bracket open-groups` - Let everyone vote on their favorites
+5. **Advance**: `/bracket advance-knockout` - Calculate winners and wildcards automatically
+6. **Knockout Rounds**: Open matchups flexibly:
+   - `/bracket open-knockout round:Round of 16` - Open entire round at once
+   - `/bracket open-region round:Quarterfinals region:1` - Open left side only
+   - `/bracket open-matchup round:Semifinals matchup:1A` - Open one matchup
+7. **Champion**: Winner is crowned automatically!
+
+**Tournament Features:**
+- **Flexible Sizes**: 4-12 groups (16-48 participants total)
+- **Smart Wildcards**: Automatically calculated based on tournament size
+- **Regional System**: Organized left/right bracket with 1A, 2B labels
+- **Three Opening Modes**: Open entire rounds, by region, or individual matchups
+- **AI Versus Images**: Generate custom matchup posters with `/bracket image`
+- **Visual Brackets**: Create professional bracket tree images
+- **Persistent Storage**: Tournament survives bot restarts
+- **Five Detailed Guides**: Setup, Knockout, Commands, Tips, and Quick Start
+
+**Perfect for community competitions and championship events!**  
+[Quick Start Guide](/commands/brackets/#quick-start-guide) • [Setup Guide](/commands/brackets/setup) • [Knockout Guide](/commands/brackets/knockout) • [Command Reference](/commands/brackets/commands) • [Tips & Strategies](/commands/brackets/tips)
 
 ### Smart Features
 

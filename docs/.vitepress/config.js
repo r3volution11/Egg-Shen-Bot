@@ -186,7 +186,17 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/commands/' },
           { text: 'Search Commands', link: '/commands/search' },
-          { text: 'Tournament Brackets', link: '/commands/brackets' },
+          {
+            text: 'Tournament Brackets',
+            collapsed: false,
+            items: [
+              { text: 'Overview & Quick Start', link: '/commands/brackets/' },
+              { text: 'Setup & Group Stage', link: '/commands/brackets/setup' },
+              { text: 'Knockout Rounds', link: '/commands/brackets/knockout' },
+              { text: 'Command Reference', link: '/commands/brackets/commands' },
+              { text: 'Tips & Strategies', link: '/commands/brackets/tips' }
+            ]
+          },
           { text: 'AI Image Generation', link: '/commands/ai-images' },
           { text: 'Watch Parties', link: '/commands/watch-party' },
           { text: 'Social Commands', link: '/commands/social' },
