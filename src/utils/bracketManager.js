@@ -931,6 +931,8 @@ export function closeKnockoutMatchup(guildId, matchupId) {
     return { success: false, error: 'Failed to save' };
   }
   
+  let autoAdvanced = false;
+  
   // Check if all matchups in current round are closed
   const currentRoundMatchups = tournament.knockoutBracket.filter(
     m => m.round === tournament.phase && m.movie1 && m.movie2
@@ -938,6 +940,8 @@ export function closeKnockoutMatchup(guildId, matchupId) {
   const allClosed = currentRoundMatchups.every(m => m.status === 'closed');
   
   if (allClosed) {
+    autoAdvanced = true;
+    
     // Auto-advance winners to next round
     const roundMap = {
       'round_of_32': 'round_of_16',
@@ -981,7 +985,7 @@ export function closeKnockoutMatchup(guildId, matchupId) {
     }
   }
   
-  return { success: true, tournament, winner, votes1, votes2 };
+  return { success: true, tournament, winner, votes1, votes2, autoAdvanced };
 }
 
 /**
