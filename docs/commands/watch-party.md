@@ -33,18 +33,17 @@ Host synchronized watch parties with timers and track what your community watche
 
 ## Watch Party Announcements
 
-Announce that your watch party is starting soon with auto-detected content details.
+Announce that you're about to start the timer right before beginning the watch party.
 
 ### Remind Everyone
 
 ```
-/watchparty remind message:[optional] role:[optional] minutes:[optional]
+/watchparty remind message:[optional] role:[optional]
 ```
 
 **Parameters:**
-- `message` (optional) - Custom message to show (e.g., "Get your snacks ready!")
-- `role` (optional) - Role to ping/mention for the watch party
-- `minutes` (optional) - How many minutes until starting (1-60)
+- `message` (optional) - Custom message to show (e.g., "Everyone ready?")
+- `role` (optional) - Role to ping/mention
 
 **Features:**
 - **Auto-detects from Discord scheduled events** - Automatically finds the event linked to the current channel
@@ -52,22 +51,21 @@ Announce that your watch party is starting soon with auto-detected content detai
 - **Smart buttons** - "View on TMDB" and "Join Voice Channel" (if applicable)
 - **Custom host message** - Add your own personal touch
 - **Role mentions** - Ping specific groups to gather everyone
-- **Time countdown** - Show how many minutes until you're starting
+- **Pre-timer announcement** - Perfect right before running `/timer start`
 
 **Example:**
 ```
-/watchparty remind message:Get your snacks ready! role:@Movie Night minutes:5
+/watchparty remind message:Everyone ready? Let's go! role:@Movie Night
 ```
 
 **How It Works:**
-1. Create a Discord scheduled event (e.g., "The Lord of the Rings")
-2. Set the event location to a voice/stage channel (or mention it in the location)
-3. Run `/watchparty remind` in that channel a few minutes before starting
-4. Bot detects the event, searches TMDB, and posts a beautiful announcement
-5. Everyone gets ready!
-6. Run `/timer start` when you're ready to begin
+1. You've already announced the watch party 1-2 hours ago via Discord event
+2. Everyone is gathered and ready
+3. Run `/watchparty remind` to give final notice
+4. Shows what you're watching with TMDB details
+5. Immediately run `/timer start` to begin
 
-**Tip:** Works great with `/timer start` - use `/watchparty remind` to gather everyone, then start the timer when you're all ready!
+**Tip:** Use this right before starting the timer to ensure everyone is ready and knows what's playing!
 
 ## Timer Commands
 

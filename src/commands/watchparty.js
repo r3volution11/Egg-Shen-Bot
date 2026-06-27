@@ -111,31 +111,23 @@ function formatRuntime(minutes) {
 
 export const data = new SlashCommandBuilder()
   .setName('watchparty')
-  .setDescription('Watch party announcements and coordination')
+  .setDescription('Watch party timer announcements')
   .addSubcommand(subcommand =>
     subcommand
       .setName('remind')
-      .setDescription('🎬 Announce that the watch party is about to start')
+      .setDescription('🎬 Announce that the timer is about to start')
       .addStringOption(option =>
         option
           .setName('message')
-          .setDescription('Optional custom message (e.g., "Get your snacks ready!")')
+          .setDescription('Optional custom message (e.g., "Everyone ready?")')
           .setRequired(false)
           .setMaxLength(200)
       )
       .addRoleOption(option =>
         option
           .setName('role')
-          .setDescription('Optional role to ping for the watch party')
+          .setDescription('Optional role to ping')
           .setRequired(false)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('minutes')
-          .setDescription('Optional: How many minutes until starting? (e.g., 5)')
-          .setRequired(false)
-          .setMinValue(1)
-          .setMaxValue(60)
       )
   );
 
@@ -148,7 +140,6 @@ export async function execute(interaction) {
     try {
       const customMessage = interaction.options.getString('message');
       const roleToMention = interaction.options.getRole('role');
-      const minutesUntil = interaction.options.getInteger('minutes');
       
       // Try to detect event from Discord scheduled events
       const event = await getEventForChannel(interaction.guild, interaction.channel.id);
@@ -170,20 +161,13 @@ export async function execute(interaction) {
         // No TMDB results - just show a basic announcement
         const embed = new EmbedBuilder()
           .setColor('#FF6B9D')
-          .setTitle('🎬 Watch Party Starting Soon!')
-          .setDescription(`**${eventTitle}**`)
+          .setTitle('⏱️ Starting Timer Now!')
+          .setDescription(`**${eventTitle}**\n\nTimer starting - get ready!`)
           .setFooter({ text: `Hosted by ${interaction.user.username}` })
           .setTimestamp();
         
         if (customMessage) {
-          embed.addFields({ name: '💬 Host Message', value: customMessage });
-        }
-        
-        if (minutesUntil) {
-          embed.addFields({ 
-            name: '⏰ Starting In', 
-            value: `${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''}` 
-          });
+          embed.addFields({ name: '💬 Host', value: customMessage });
         }
         
         // Add voice channel button if event has a voice channel
@@ -224,8 +208,8 @@ export async function execute(interaction) {
       // Build the announcement embed
       const embed = new EmbedBuilder()
         .setColor('#FF6B9D')
-        .setTitle(`🎬 Watch Party Starting Soon!`)
-        .setDescription(`**${details.title || details.name}**${details.tagline ? `\n*${details.tagline}*` : ''}`)
+        .setTitle(`⏱️ Starting Timer Now!`)
+        .setDescription(`**${details.title || details.name}**${details.tagline ? `\n*${details.tagline}*` : ''}\n\nGet ready - timer starting!`)
         .setFooter({ text: `Hosted by ${interaction.user.username}` })
         .setTimestamp();
       
@@ -236,14 +220,6 @@ export async function execute(interaction) {
       
       // Add fields
       const fields = [];
-      
-      if (minutesUntil) {
-        fields.push({ 
-          name: '⏰ Starting In', 
-          value: `${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''}`,
-          inline: true
-        });
-      }
       
       // Runtime
       if (details.runtime) {
@@ -284,7 +260,7 @@ export async function execute(interaction) {
       // Custom message from host
       if (customMessage) {
         fields.push({ 
-          name: '💬 Host Message', 
+          name: '💬 Host', 
           value: customMessage
         });
       }
