@@ -105,6 +105,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - **Never miss a vote** - Easy way to track what's left to vote on
     - **Deadline awareness** - See when each vote expires
     - **Perfect for large tournaments** - Essential when managing 8-12 groups with staggered voting
+  - **NEW: Individual Matchup Control** - Open and close specific matchups for granular tournament pacing
+    - **`/bracket open-matchup`** - Open a single matchup for voting instead of entire round
+      - Specify matchup number (1-32 depending on round)
+      - Set custom duration per matchup
+      - Perfect for spacing out matchups over days
+      - Build suspense by featuring one battle at a time
+      - Example: `/bracket open-matchup matchup:1 duration:24h`
+    - **`/bracket close-matchup`** - Close individual matchup and determine winner
+      - Closes specific matchup by number
+      - Winner immediately placed in next round slot
+      - When ALL matchups in round close, tournament auto-advances
+      - Flexible staggered closing
+      - Example: `/bracket close-matchup matchup:1`
+    - **Use Cases:**
+      - One matchup per day for maximum engagement
+      - Spotlight important matchups individually  
+      - Mix batch mode (whole round) with individual mode
+      - Feature matchups with custom timings
+      - Build community discussion around each battle
+    - **Auto-Advancement Intelligence:**
+      - Each matchup winner advances immediately to their next round slot
+      - Tournament phase advances when last matchup in round closes
+      - Seamless progression whether using batch or individual mode
+      - Combine approaches within same tournament (batch some rounds, individual others)
   - **NEW: Custom Image Support** - Upload images or provide URLs when adding titles to brackets
     - Optional `image` parameter in `/bracket add-title` (attachment option)
     - Upload images directly from your device (PNG, JPG, GIF, WebP)

@@ -265,6 +265,38 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('open-matchup')
+      .setDescription('Open a specific matchup for voting (Admin/Mod only)')
+      .addIntegerOption(option =>
+        option
+          .setName('matchup')
+          .setDescription('Matchup number (1-16)')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(32)
+      )
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('close-matchup')
+      .setDescription('Close a specific matchup and advance winner (Admin/Mod only)')
+      .addIntegerOption(option =>
+        option
+          .setName('matchup')
+          .setDescription('Matchup number (1-16)')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(32)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('extend-voting')
       .setDescription('Extend or change voting deadline (Admin/Mod only)')
       .addStringOption(option =>
@@ -350,7 +382,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'extend-voting', 'regenerate', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'open-matchup', 'close-matchup', 'extend-voting', 'regenerate', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -401,6 +433,12 @@ export async function execute(interaction) {
         break;
       case 'close-knockout':
         await handleCloseKnockout(interaction);
+        break;
+      case 'open-matchup':
+        await handleOpenMatchup(interaction);
+        break;
+      case 'close-matchup':
+        await handleCloseMatchup(interaction);
         break;
       case 'extend-voting':
         await handleExtendVoting(interaction);
@@ -1832,6 +1870,176 @@ async function handleCloseKnockout(interaction) {
     const nextRound = updatedTournament.phase;
     const nextRoundName = nextRound.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     embed.setFooter({ text: `Winners have advanced to ${nextRoundName}. Use /bracket open-knockout to start voting!` });
+  }
+  
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleOpenMatchup(interaction) {
+  await interaction.deferReply();
+  
+  const matchupNumber = interaction.options.getInteger('matchup');
+  const durationStr = interaction.options.getString('duration') || '24h';
+  
+  // Parse and validate duration
+  const durationMs = parseDuration(durationStr);
+  if (!durationMs) {
+    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
+    return;
+  }
+  
+  if (!isValidDuration(durationMs)) {
+    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
+    return;
+  }
+  
+  const deadline = Date.now() + durationMs;
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  if (!tournament || tournament.status !== 'knockout') {
+    await interaction.editReply('❌ No knockout bracket found. Use `/bracket advance-knockout` first.');
+    return;
+  }
+  
+  // Find the matchup by position in current round
+  const matchup = tournament.knockoutBracket.find(m => 
+    m.round === tournament.phase && m.position === matchupNumber - 1 && m.movie1 && m.movie2
+  );
+  
+  if (!matchup) {
+    await interaction.editReply(`❌ Matchup #${matchupNumber} not found in ${tournament.phase.replace(/_/g, ' ')}. Make sure both titles are set.`);
+    return;
+  }
+  
+  // Open this specific matchup
+  matchup.status = 'voting';
+  matchup.votingOpened = Date.now();
+  matchup.votingDeadline = deadline;
+  if (!matchup.votes) {
+    matchup.votes = { movie1: [], movie2: [] };
+  }
+  
+  bracketManager.saveTournament(interaction.guildId, tournament);
+  
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const timeRemaining = formatTimeRemaining(deadline);
+  
+  const votes1 = matchup.votes.movie1.length;
+  const votes2 = matchup.votes.movie2.length;
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle(`${roundName} - Matchup ${matchupNumber}`)
+    .addFields(
+      { 
+        name: `${matchup.movie1.title}`, 
+        value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
+        inline: true 
+      },
+      { name: '\u200B', value: 'vs', inline: true },
+      { 
+        name: `${matchup.movie2.title}`, 
+        value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
+        inline: true 
+      }
+    )
+    .setFooter({ text: 'Click a button below to vote • You can change your vote anytime' });
+  
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`knockout_vote_${matchup.id}_1`)
+      .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`knockout_vote_${matchup.id}_2`)
+      .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
+      .setStyle(ButtonStyle.Primary)
+  );
+  
+  const mainEmbed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`📊 ${roundName} - Matchup ${matchupNumber} Open!`)
+    .setDescription(
+      `Voting is now open for this matchup.\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}`
+    )
+    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+  
+  await interaction.editReply({ embeds: [mainEmbed, embed], components: [row] });
+}
+
+async function handleCloseMatchup(interaction) {
+  await interaction.deferReply();
+  
+  const matchupNumber = interaction.options.getInteger('matchup');
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  if (!tournament || tournament.status !== 'knockout') {
+    await interaction.editReply('❌ No knockout bracket found.');
+    return;
+  }
+  
+  // Find the matchup by position in current round
+  const matchup = tournament.knockoutBracket.find(m => 
+    m.round === tournament.phase && m.position === matchupNumber - 1
+  );
+  
+  if (!matchup) {
+    await interaction.editReply(`❌ Matchup #${matchupNumber} not found in ${tournament.phase.replace(/_/g, ' ')}.`);
+    return;
+  }
+  
+  if (matchup.status !== 'voting') {
+    await interaction.editReply(`❌ Matchup #${matchupNumber} is not currently open for voting.`);
+    return;
+  }
+  
+  // Close this matchup
+  const result = bracketManager.closeKnockoutMatchup(interaction.guildId, matchup.id);
+  
+  if (!result.success) {
+    await interaction.editReply(`❌ ${result.error}`);
+    return;
+  }
+  
+  const updatedTournament = result.tournament;
+  const updatedMatchup = updatedTournament.knockoutBracket.find(m => m.id === matchup.id);
+  
+  const votes1 = updatedMatchup.votes.movie1.length;
+  const votes2 = updatedMatchup.votes.movie2.length;
+  
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`🏁 ${roundName} - Matchup ${matchupNumber} Complete!`)
+    .setDescription(
+      `**${updatedMatchup.winner.title}** wins!\n\n` +
+      `**${updatedMatchup.movie1.title}** (${votes1} votes) vs **${updatedMatchup.movie2.title}** (${votes2} votes)`
+    );
+  
+  // Check if winner has been auto-advanced
+  if (result.autoAdvanced) {
+    embed.addFields({
+      name: '✅ Auto-Advanced',
+      value: `${updatedMatchup.winner.title} has been placed in the next round matchup.`
+    });
+  }
+  
+  // Check if all matchups in round are closed
+  const roundMatchups = updatedTournament.knockoutBracket.filter(m => m.round === tournament.phase);
+  const allClosed = roundMatchups.every(m => m.status === 'closed');
+  
+  if (allClosed) {
+    // Check if tournament phase changed
+    if (updatedTournament.phase !== tournament.phase) {
+      const nextRoundName = updatedTournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      embed.setFooter({ text: `All matchups complete! Tournament has advanced to ${nextRoundName}.` });
+    } else if (updatedTournament.status === 'completed') {
+      embed.setFooter({ text: '🏆 Tournament complete! Check /bracket status for champion.' });
+    }
   }
   
   await interaction.editReply({ embeds: [embed] });

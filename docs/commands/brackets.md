@@ -136,11 +136,22 @@ See which groups you've voted in and which are still available.
 
 ### Step 8: Open Knockout Round (Admin Only)
 
+**Option A: Open All Matchups at Once** (Quick tournaments)
 ```
 /bracket open-knockout duration:24h
 ```
 
+**Option B: Open Individual Matchups** (For drama/pacing)
+```
+/bracket open-matchup matchup:1 duration:24h
+/bracket open-matchup matchup:2 duration:24h
+```
+
 🎯 Matchups posted! Members see buttons for each matchup to vote.
+
+💡 **When to use each:**
+- **Open all at once**: Fast-paced tournaments, all voting happens simultaneously
+- **Open one by one**: Build suspense, space out matchups over days, feature specific matchups
 
 ### Step 9: Members Vote on Matchups (Everyone)
 
@@ -154,14 +165,20 @@ See which groups you've voted in and which are still available.
 /bracket my-votes
 ```
 
-### Step 10: Close Round & Advance (Admin Only)
+### Step 10: Close Voting & Advance Winners (Admin Only)
 
-**When voting ends:**
+**Option A: Close All Matchups at Once**
 ```
 /bracket close-knockout
 ```
 
-🏁 Winners determined and **automatically advanced** to next round!
+**Option B: Close Individual Matchups**
+```
+/bracket close-matchup matchup:1
+/bracket close-matchup matchup:2
+```
+
+🏁 Winners determined! When ALL matchups in the round are closed, winners **automatically advance** to next round!
 
 ### Step 11: Repeat for Each Round
 
@@ -876,6 +893,152 @@ Congratulations! 🎉
 - **Tournament phase advances** (e.g., Round of 16 → Quarterfinals)
 - If finals complete, tournament status changes to "completed"
 - Bracket visualization updates with results
+
+---
+
+### Open Individual Matchup
+
+```
+/bracket open-matchup matchup:[1-32] duration:[time]
+```
+
+**Parameters:**
+
+- `matchup` (required) - Matchup number (1-32, depending on round size)
+- `duration` (optional) - Voting duration (default: 24h, range: 5m-30d)
+  - Format: Number + unit (m=minutes, h=hours, d=days)
+  - Examples: "5m", "2h", "24h", "3d", "7d", "30d"
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- Opens a **single specific matchup** for voting (instead of entire round)
+- Creates interactive voting buttons for that matchup
+- **Perfect for pacing** - space out matchups over days
+- **Build suspense** - feature one matchup at a time
+- **Customizable duration** per matchup
+- Shows time remaining and deadline
+
+**Use Cases:**
+
+- **One matchup per day**: Open matchup 1 Monday, matchup 2 Tuesday, etc.
+- **Spotlight matchups**: Feature important matchups individually
+- **Flexible pacing**: Mix and match with full-round opening
+- **Drama building**: Create anticipation for each battle
+
+**Examples:**
+
+```
+# Open first matchup with 24 hour voting
+/bracket open-matchup matchup:1 duration:24h
+
+# Open second matchup with 2 day voting
+/bracket open-matchup matchup:2 duration:48h
+
+# Quick 1 hour matchup for live events
+/bracket open-matchup matchup:3 duration:1h
+```
+
+**Output:**
+
+```
+📊 Round of 16 - Matchup 1 Open!
+
+Voting is now open for this matchup.
+
+⏰ Voting closes in: 23h 45m
+
+Round of 16 - Matchup 1
+The Thing vs Alien
+0 votes    vs    0 votes
+[Button: The Thing] [Button: Alien]
+
+Deadline: 6/27/2026, 11:00:00 PM
+```
+
+**Tips:**
+
+- Use this for slower-paced, more engaging tournaments
+- Combine with `/bracket open-knockout` for some rounds, individual for others
+- Great for building community discussion around specific matchups
+- Members can still vote on multiple matchups if multiple are open
+
+---
+
+### Close Individual Matchup
+
+```
+/bracket close-matchup matchup:[1-32]
+```
+
+**Parameters:**
+
+- `matchup` (required) - Matchup number (1-32, depending on round size)
+
+**Who can use:** Administrators and Moderators only
+
+**Features:**
+
+- Closes a **single specific matchup** and determines winner
+- Winner is placed in the next round matchup slot
+- **When all matchups in round are closed**, tournament automatically advances to next round
+- Perfect for staggered closing
+- Shows vote counts and winner
+
+**How Auto-Advancement Works:**
+
+1. You close matchups individually throughout the round
+2. Each winner is placed into their next round slot immediately
+3. When the LAST matchup in the round closes, the tournament phase automatically advances
+4. All winners are now ready in the next round
+
+**Examples:**
+
+```
+# Close first matchup
+/bracket close-matchup matchup:1
+
+# Close second matchup
+/bracket close-matchup matchup:2
+```
+
+**Output:**
+
+```
+🏁 Round of 16 - Matchup 1 Complete!
+
+The Thing wins!
+
+The Thing (15 votes) vs Alien (8 votes)
+
+✅ Auto-Advanced
+The Thing has been placed in the next round matchup.
+```
+
+**After Last Matchup Closes:**
+
+```
+🏁 Round of 16 - Matchup 8 Complete!
+
+Psycho wins!
+
+Jaws (10 votes) vs Psycho (12 votes)
+
+All matchups complete! Tournament has advanced to Quarterfinals.
+```
+
+**Benefits:**
+
+- **Flexibility**: Close matchups as they finish voting
+- **Immediate results**: Winners advance as soon as decided
+- **Gradual progression**: Tournament advances naturally when ready
+- **Mix and match**: Use with `/bracket close-knockout` for some rounds
+
+**Requirements:**
+
+- Matchup must be open for voting
+- Matchup must be in current round
 
 ---
 
