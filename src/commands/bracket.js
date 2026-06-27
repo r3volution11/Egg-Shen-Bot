@@ -288,34 +288,6 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('vote-group')
-      .setDescription('Vote for your top 2 movies in a group')
-      .addStringOption(option =>
-        option
-          .setName('group')
-          .setDescription('Group letter')
-          .setRequired(true)
-          .addChoices(...GROUP_LETTERS.map(letter => ({ name: `Group ${letter}`, value: letter })))
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('choice1')
-          .setDescription('Your first choice (1-4)')
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(4)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('choice2')
-          .setDescription('Your second choice (1-4)')
-          .setRequired(true)
-          .setMinValue(1)
-          .setMaxValue(4)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
       .setName('advance-knockout')
       .setDescription('Generate knockout bracket from group results (Admin/Mod only)')
   )
@@ -512,9 +484,6 @@ export async function execute(interaction) {
         break;
       case 'close-groups':
         await handleCloseGroups(interaction);
-        break;
-      case 'vote-group':
-        await handleVoteGroup(interaction);
         break;
       case 'advance-knockout':
         await handleAdvanceKnockout(interaction);
@@ -1199,65 +1168,71 @@ async function handleOpenGroups(interaction) {
   
   const timeRemaining = formatTimeRemaining(deadline);
   
-  const embed = new EmbedBuilder()
+  // Create embeds and button components for each group
+  const embeds = [];
+  const components = [];
+  
+  // Main announcement embed
+  const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle(`📊 Voting Opened for Groups ${groupIds.join(', ')}`)
-    .setDescription(`Members can now vote for their top 2 movies in each group!\n\n⏰ **Voting closes in:** ${timeRemaining}`)
-    .setFooter({ text: `Vote using /bracket vote-group • Deadline: ${new Date(deadline).toLocaleString()}` });
+    .setTitle(`📊 Group Stage Voting Open!`)
+    .setDescription(
+      `Voting is now open for **Groups ${groupIds.join(', ')}**!\n\n` +
+      `**How to vote:**\n` +
+      `• Click the buttons below to select your **top 2** titles in each group\n` +
+      `• Your selections will highlight\n` +
+      `• You can change your vote anytime before voting closes\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}`
+    )
+    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
-  // Calculate groups per row for even distribution
-  const groupsPerRow = groupIds.length <= 4 ? 2 : groupIds.length <= 9 ? 3 : 4;
+  embeds.push(mainEmbed);
   
-  // Show each group's movies
-  groupIds.forEach((groupId, index) => {
+  // Create an embed and buttons for each group
+  groupIds.forEach((groupId) => {
     const group = result.tournament.groups[groupId];
-    if (group) {
-      const movieList = group.movies.map((m, i) => `${i + 1}. ${m.title}`).join('\n');
-      // Force line break after every Nth group for even rows
-      const shouldInline = (index + 1) % groupsPerRow !== 0;
-      embed.addFields({ name: `Group ${groupId}`, value: movieList, inline: shouldInline });
+    if (!group) return;
+    
+    const groupEmbed = new EmbedBuilder()
+      .setColor(0x4EC5ED)
+      .setTitle(`Group ${groupId}`)
+      .setDescription('Click **2 buttons** below to cast your vote:');
+    
+    // Add fields for each movie with vote counts
+    group.movies.forEach((movie, index) => {
+      const voteCount = movie.votes.length;
+      groupEmbed.addFields({
+        name: `${index + 1}. ${movie.title}`,
+        value: `${voteCount} vote${voteCount !== 1 ? 's' : ''}`,
+        inline: true
+      });
+    });
+    
+    embeds.push(groupEmbed);
+    
+    // Create buttons for each movie (max 4 movies per group)
+    const buttons = group.movies.map((movie, index) => {
+      return new ButtonBuilder()
+        .setCustomId(`group_vote_${groupId}_${index}`)
+        .setLabel(`${index + 1}. ${movie.title.length > 60 ? movie.title.substring(0, 57) + '...' : movie.title}`)
+        .setStyle(ButtonStyle.Secondary);
+    });
+    
+    // Split into rows (5 buttons max per row)
+    const rows = [];
+    for (let i = 0; i < buttons.length; i += 5) {
+      rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
     }
+    
+    components.push(...rows);
   });
   
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply({ embeds, components });
 }
 
-async function handleVoteGroup(interaction) {
-  const group = interaction.options.getString('group');
-  const choice1 = interaction.options.getInteger('choice1') - 1; // Convert to 0-indexed
-  const choice2 = interaction.options.getInteger('choice2') - 1;
-  
-  if (choice1 === choice2) {
-    await interaction.reply({
-      content: '❌ You must choose 2 different movies.',
-      ephemeral: true,
-    });
-    return;
-  }
-  
-  const result = bracketManager.voteGroupStage(
-    interaction.guildId,
-    interaction.user.id,
-    group,
-    [choice1, choice2]
-  );
-  
-  if (!result.success) {
-    await interaction.reply({
-      content: `❌ ${result.error}`,
-      ephemeral: true,
-    });
-    return;
-  }
-  
-  const groupData = result.tournament.groups[group];
-  const votedMovies = [choice1, choice2].map(i => groupData.movies[i].title);
-  
-  await interaction.reply({
-    content: `✅ Vote recorded for Group ${group}!\n\nYour choices:\n1. ${votedMovies[0]}\n2. ${votedMovies[1]}\n\nYou can change your vote anytime before voting closes.`,
-    ephemeral: true,
-  });
-}
+// DEPRECATED: Group voting is now button-based via handleOpenGroups
+// This function is no longer used but kept for reference
+// async function handleVoteGroup(interaction) { ... }
 
 async function handleCloseGroups(interaction) {
   await interaction.deferReply();

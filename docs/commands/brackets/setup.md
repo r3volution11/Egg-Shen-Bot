@@ -241,31 +241,34 @@ Open groups for voting.
 
 ---
 
-### `/bracket vote-group`
+## Group Stage Voting
 
-```
-/bracket vote-group group:[A-L] choice1:[1-4] choice2:[1-4]
-```
+### How Members Vote
 
-Vote for your top 2 titles in a group.
+When an admin opens groups with `/bracket open-groups`, the bot posts an interactive voting message with **buttons for each title**.
 
-**Parameters:**
-- `group` (required) - Group letter
-- `choice1` (required) - First choice (1-4)
-- `choice2` (required) - Second choice (1-4, must be different)
-
-**Who can use:** All server members
+**Voting Process:**
+1. Click the button for a title to select it (button turns green)
+2. Click a second title to complete your vote (2 selections required)
+3. Click a selected title again to deselect it
+4. You can change your votes anytime before voting closes
 
 **Features:**
-- Vote for your top 2 entries in each group
-- Can change votes anytime before close
-- Choices must be different entries
-- Private confirmation message
+- ✅ **No commands needed** - just click buttons
+- ✅ **Visual feedback** - selected buttons highlight in green
+- ✅ **Real-time counts** - see vote totals update live
+- ✅ **Change anytime** - modify your selections before deadline
+- ✅ **Clear constraints** - can only select 2 titles per group
 
-**Examples:**
+**Example:**
 ```
-/bracket vote-group group:A choice1:1 choice2:3
-/bracket vote-group group:B choice1:2 choice2:4
+Group A
+1. The Thing (15 votes)
+2. Alien (12 votes)
+3. Event Horizon (8 votes)
+4. The Fly (10 votes)
+
+[Button for each title - click 2 to vote]
 ```
 
 ---
@@ -374,11 +377,12 @@ Matchups are pending and ready to open
 | `/bracket resize` | Change group count |
 | `/bracket announce` | Share tournament publicly |
 | `/bracket list-groups` | Text overview of groups |
-| `/bracket open-groups` | Start group voting |
-| `/bracket vote-group` | Vote for top 2 in group |
+| `/bracket open-groups` | Start group voting (button-based) |
 | `/bracket my-votes` | Check voting status |
 | `/bracket close-groups` | Close voting and show results |
 | `/bracket advance-knockout` | Generate knockout bracket |
+
+**Note:** Group voting is now button-based! Members vote by clicking buttons - no commands needed.
 
 ---
 
