@@ -31,14 +31,14 @@ A: No, only content manually logged via the "Log to Watch History" button is tra
 
 Host synchronized watch parties with timers and track what your community watches.
 
-## Watch Party Announcements
+## Timer Reminders
 
 Announce that you're about to start the timer right before beginning the watch party.
 
 ### Remind Everyone
 
 ```
-/watchparty remind message:[optional] role:[optional]
+/timer remind message:[optional] role:[optional]
 ```
 
 **Parameters:**
@@ -55,13 +55,13 @@ Announce that you're about to start the timer right before beginning the watch p
 
 **Example:**
 ```
-/watchparty remind message:Everyone ready? Let's go! role:@Movie Night
+/timer remind message:Everyone ready? Let's go! role:@Movie Night
 ```
 
 **How It Works:**
 1. You've already announced the watch party 1-2 hours ago via Discord event
 2. Everyone is gathered and ready
-3. Run `/watchparty remind` to give final notice
+3. Run `/timer remind` to give final notice
 4. Shows what you're watching with TMDB details
 5. Immediately run `/timer start` to begin
 
