@@ -226,7 +226,7 @@ Try these commands in your server:
 ### Explore Commands
 
 - [Learn about all commands](/commands/)
-- **[🏆 Run Your First Tournament](/commands/brackets#quick-start-guide)** - Complete step-by-step guide for hosting bracket tournaments
+- **[🏆 Run Your First Tournament](/commands/brackets/#quick-start-guide)** - Complete step-by-step guide for hosting bracket tournaments
 
 ### Configure Features
 
