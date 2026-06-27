@@ -222,7 +222,7 @@ Host comprehensive movie or TV show tournaments.
 /bracket image title1:"The Exorcist" title2:"Halloween"
 ```
 
-[Learn more →](/commands/brackets)
+[Learn more →](/commands/brackets/)
 
 ---
 
