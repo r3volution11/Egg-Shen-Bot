@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Regional Bracket Identification System**
+  - **Regional labels** for all knockout matchups (e.g., "1A", "2B", "1C")
+  - **Region 1 (Left Side)**: Matchups labeled 1A, 1B, 1C, 1D...
+  - **Region 2 (Right Side)**: Matchups labeled 2A, 2B, 2C, 2D...
+  - **Regional labels shown in:**
+    - Command parameters (use "1A" instead of "1")
+    - All voting embeds and displays
+    - Generated bracket images
+    - Result announcements
+  - **New `/bracket open-region` command**
+    - Open all matchups in one region (left or right side)
+    - Perfect for splitting rounds across multiple days
+    - Example: Open Region 1 Monday, Region 2 Wednesday
+  - **Three opening options for maximum flexibility:**
+    - `/bracket open-knockout` - Opens entire round (all matchups, both regions)
+    - `/bracket open-region region:1` - Opens all left side OR right side matchups
+    - `/bracket open-matchup matchup:1A` - Opens one specific matchup
+  - **Benefits:**
+    - Easier to reference specific matchups ("open 1A" vs "open matchup 1")
+    - Visual clarity in bracket structure (left vs right side)
+    - Flexible pacing options (by round, by region, or by matchup)
+    - Better organization for large tournaments
+    - Clear regional narratives ("East vs West", "Old School vs New School")
+
 ### Changed
 - **BREAKING: Tournament Bracket Command Structure**
   - **Replaced `/bracket add-group`** with **`/bracket add-title`** for precise title selection
