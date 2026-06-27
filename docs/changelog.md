@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Button-Based Group Voting**
+  - **Interactive voting** - Members vote by clicking buttons instead of typing commands
+  - **Visual feedback** - Selected titles highlight in green
+  - **Real-time updates** - Vote counts update live on the voting message
+  - **Simplified UX** - No commands needed for members to vote
+  - **Two-click voting** - Click 2 buttons to cast your vote
+  - **Flexible changes** - Deselect by clicking again, change anytime before deadline
+  - **Clear constraints** - Maximum 2 selections enforced automatically
+  - **Benefits:**
+    - Eliminates need to remember movie positions (1-4)
+    - No typing required - just point and click
+    - Consistent with knockout voting (already button-based)
+    - More accessible and intuitive for all users
+    - Reduces voting errors and confusion
 - **Timer Reminder** - New `/timer remind` subcommand
   - **`/timer remind`** - Announce timer is starting right before watch party begins
   - **Auto-detects Discord scheduled events** - Finds event linked to current channel
@@ -59,6 +73,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Regular members no longer see setup process
   - Use `/bracket announce` when ready to share tournament with server
   - Keeps channel clean during tournament setup
+
+### Removed
+- **`/bracket vote-group` command** - No longer needed
+  - Group stage voting is now button-based
+  - Members vote by clicking buttons on the voting message
+  - Eliminates 21 command parameters (group, choice1, choice2) that users had to remember
+  - Simpler, more intuitive user experience
 
 ### Improved
 - **Tournament Bracket Visualization (`/bracket view`)**

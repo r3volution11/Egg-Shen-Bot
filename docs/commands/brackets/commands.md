@@ -6,6 +6,8 @@ title: Command Reference
 
 This page provides detailed documentation for all tournament bracket commands. Commands are organized by tournament phase and use case.
 
+**Note:** Group stage voting is now **button-based**! Members vote by clicking buttons on the voting message - no commands needed.
+
 ## Quick Reference Table
 
 | Command | Who Can Use | Description | Phase |
@@ -16,8 +18,7 @@ This page provides detailed documentation for all tournament bracket commands. C
 | `resize` | Admin/Mod | Change the number of groups | Setup |
 | `announce` | Admin/Mod | Announce the tournament to the channel | Setup |
 | `list-groups` | Everyone | View all groups and their titles | Any |
-| `open-groups` | Admin/Mod | Open groups for voting | Group Stage |
-| `vote-group` | Everyone | Vote for your top 2 titles in a group | Group Stage |
+| `open-groups` | Admin/Mod | Open groups for button-based voting | Group Stage |
 | `my-votes` | Everyone | View your voting history and available votes | Any |
 | `close-groups` | Admin/Mod | Close group voting and calculate results | Group Stage |
 | `advance-knockout` | Admin/Mod | Generate knockout bracket from group results | Transition |
@@ -232,39 +233,20 @@ Open specific groups for voting.
 
 **Notes:**
 - Each group must have exactly 4 titles before opening
-- Posts voting message for each group with reaction buttons
+- Posts interactive voting message with buttons for each title
 - Groups can be opened separately (in waves)
-- Participants vote using `/bracket vote-group`
+- **Participants vote by clicking buttons** - no commands needed!
+- Buttons highlight when selected (green = selected)
+- Real-time vote count updates
+- Members can change votes anytime before deadline
 - Voting deadline is enforced - votes after deadline are ignored
 - Use `/bracket extend-voting` to add more time if needed
 
----
-
-### `/bracket vote-group`
-
-Vote for your top 2 titles in a group.
-
-**Who Can Use:** Everyone
-
-**Parameters:**
-- `group` (required, choice): Group letter (A-L)
-- `choice1` (required, integer): Your first choice (1-4)
-- `choice2` (required, integer): Your second choice (1-4)
-
-**Example Usage:**
-```
-/bracket vote-group group:A choice1:1 choice2:3
-/bracket vote-group group:B choice1:4 choice2:2
-```
-
-**Notes:**
-- First choice receives 3 points, second choice receives 2 points
-- Must choose 2 different titles (cannot vote for same title twice)
-- Group must be open for voting
-- Can only vote once per group (cannot change vote)
-- Votes are recorded privately
-- Use `/bracket my-votes` to see your voting history
-- Must vote before the group's deadline
+**How Members Vote:**
+1. Click a button to select a title (turns green)
+2. Click a second title to complete vote (2 selections required)
+3. Click selected title again to deselect
+4. Maximum 2 selections per group
 
 ---
 
