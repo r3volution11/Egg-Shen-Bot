@@ -228,29 +228,6 @@ Host comprehensive movie or TV show tournaments.
 
 ## Watch Party Commands
 
-### `/watchparty`
-Announce that the timer is starting right now.
-
-**Subcommands:**
-- `/watchparty remind` - Send final notice before starting timer
-
-**Features:**
-- **Auto-detects Discord scheduled events** - Finds event linked to current channel
-- **TMDB integration** - Shows poster, runtime, year, overview
-- **Smart buttons** - "View on TMDB" and "Join Voice Channel"
-- **Custom host message** - Add personal message
-- **Role mentions** - Ping specific groups
-- **Pre-timer announcement** - Run right before `/timer start`
-
-**Example:**
-```
-/watchparty remind message:Everyone ready? Let's go! role:@Movie Night
-```
-
-[Learn more →](/commands/watch-party#watch-party-announcements)
-
----
-
 ### `/timer`
 Start, stop, or check channel-specific timers.
 
@@ -258,6 +235,7 @@ Start, stop, or check channel-specific timers.
 - `/timer start` - Start a timer in the current channel
 - `/timer stop` - Stop the active timer
 - `/timer status` - Check timer status
+- `/timer remind` - Announce timer is starting (with event auto-detection)
 
 **Features:**
 - **Auto-stop timers:** Set duration (1-600 min) for automatic stop
@@ -271,6 +249,7 @@ Start, stop, or check channel-specific timers.
 
 **Example:**
 ```
+/timer remind message:Everyone ready? role:@Movie Night
 /timer start label:Movie Night duration:120
 /timer stop
 /timer status
@@ -588,7 +567,7 @@ Display help information and available commands.
 | Category | Commands |
 |----------|----------|
 | **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
-| **Watch Parties** | `/watchparty`, `/timer`, `/watched` |
+| **Watch Parties** | `/timer`, `/watched` |
 | **Discovery** | `/random`, `/similar`, `/soundtrack` |
 | **Fun & Social** | `/survey`, `/potion` |
 | **Statistics** | `/stats` |

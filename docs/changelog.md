@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Watch Party Timer Announcement** - New `/watchparty` command
-  - **`/watchparty remind`** - Announce timer is starting right before watch party begins
+- **Timer Reminder** - New `/timer remind` subcommand
+  - **`/timer remind`** - Announce timer is starting right before watch party begins
   - **Auto-detects Discord scheduled events** - Finds event linked to current channel
   - **TMDB integration** - Shows poster, runtime, year, and overview
   - **Smart buttons** - "View on TMDB" and "Join Voice Channel" (if applicable)
@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Role mentions** - Ping specific groups
   - **Pre-timer announcement** - Use right before running `/timer start`
   - **Use case:** Already announced watch party 1-2 hours ago? Use this for final "timer starting now" notice
+  - **Integrated with timer** - All timer-related functions in one command
 - **Regional Bracket Identification System**
   - **Regional labels** for all knockout matchups (e.g., "1A", "2B", "1C")
   - **Region 1 (Left Side)**: Matchups labeled 1A, 1B, 1C, 1D...

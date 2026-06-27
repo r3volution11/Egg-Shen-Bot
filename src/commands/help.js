@@ -24,13 +24,8 @@ export async function execute(interaction) {
         inline: false,
       },
       {
-        name: '🎬 /watchparty',
-        value: 'Announce timer is starting right before the watch party.\n\n**Remind:** `/watchparty remind message:Everyone ready? role:@Movie Night`\nAuto-detects event, shows TMDB details. Run right before `/timer start`.',
-        inline: false,
-      },
-      {
         name: '⏱️ /timer',
-        value: 'Start, stop, or check a timer in the current channel.\n\n**Start:** `/timer start label:Movie night`\n**Stop:** `/timer stop` (shows watch history button if labeled)\n**Status:** `/timer status`',
+        value: 'Start, stop, or check a timer in the current channel.\n\n**Start:** `/timer start label:Movie night`\n**Remind:** `/timer remind message:Everyone ready? role:@Movie Night`\n**Stop:** `/timer stop` (shows watch history button if labeled)\n**Status:** `/timer status`',
         inline: false,
       },
       {
