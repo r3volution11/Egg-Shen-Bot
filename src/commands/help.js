@@ -25,7 +25,7 @@ export async function execute(interaction) {
       },
       {
         name: '🎬 /watchparty',
-        value: 'Announce that a watch party is starting soon.\n\n**Remind:** `/watchparty remind minutes:5 role:@Movie Night`\nAuto-detects event from Discord scheduled events, shows TMDB details.',
+        value: 'Announce timer is starting right before the watch party.\n\n**Remind:** `/watchparty remind message:Everyone ready? role:@Movie Night`\nAuto-detects event, shows TMDB details. Run right before `/timer start`.',
         inline: false,
       },
       {
