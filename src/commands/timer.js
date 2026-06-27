@@ -118,6 +118,11 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('status')
       .setDescription('ℹ️ Check the current timer status in this channel')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('check')
+      .setDescription('ℹ️ Check the current timer status in this channel (alias for status)')
   );
 
 export async function execute(interaction) {
@@ -303,7 +308,7 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-  } else if (subcommand === 'status') {
+  } else if (subcommand === 'status' || subcommand === 'check') {
     const timer = getTimerStatus(channelId);
 
     if (timer) {
