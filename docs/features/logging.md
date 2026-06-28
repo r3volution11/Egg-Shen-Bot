@@ -298,6 +298,6 @@ To change settings, edit this file and restart the bot.
 
 ## See Also
 
-- [Commands Reference](commands/index.md) - All bot commands
-- [Getting Started](getting-started.md) - Bot setup guide
-- [Configuration](configuration.md) - Bot configuration options
+- [Commands Reference](/commands/index) - All bot commands
+- [Getting Started](/getting-started) - Bot setup guide
+- [Configuration](/configuration) - Bot configuration options
