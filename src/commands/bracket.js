@@ -439,6 +439,32 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('edit-name')
+      .setDescription('Change the tournament name (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('name')
+          .setDescription('New tournament name')
+          .setRequired(true)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('export')
+      .setDescription('Export tournament results')
+      .addStringOption(option =>
+        option
+          .setName('format')
+          .setDescription('Export format')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Markdown', value: 'markdown' },
+            { name: 'JSON', value: 'json' }
+          )
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('cancel')
       .setDescription('Cancel the tournament (Admin/Mod only)')
   );
@@ -448,7 +474,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'open-matchup', 'close-matchup', 'extend-voting', 'regenerate', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'open-matchup', 'close-matchup', 'extend-voting', 'regenerate', 'edit-name', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -523,6 +549,12 @@ export async function execute(interaction) {
         break;
       case 'my-votes':
         await handleMyVotes(interaction);
+        break;
+      case 'edit-name':
+        await handleEditName(interaction);
+        break;
+      case 'export':
+        await handleExport(interaction);
         break;
       case 'cancel':
         await handleCancel(interaction);
@@ -1378,23 +1410,81 @@ async function handleStatus(interaction) {
   
   if (tournament.status === 'setup') {
     const groupsAdded = Object.keys(tournament.groups).length;
-    embed.setDescription(`Tournament is being set up.\n\n**Groups Added:** ${groupsAdded}/${tournament.groupCount}`);
+    const totalTitles = Object.values(tournament.groups).reduce((sum, g) => sum + (g.movies?.length || 0), 0);
+    embed.setDescription(`Tournament is being set up.\n\n**Groups Added:** ${groupsAdded}/${tournament.groupCount}\n**Titles Added:** ${totalTitles}`);
+    
   } else if (tournament.status === 'group_stage') {
     const openGroups = Object.entries(tournament.groups)
-      .filter(([_, g]) => g.status === 'voting')
-      .map(([id, _]) => id)
-      .join(', ');
+      .filter(([_, g]) => g.status === 'voting' || g.votingOpen);
+    
     const closedGroups = Object.keys(tournament.groupResults).length;
     
-    embed.setDescription(`Group stage in progress!\n\n**Open for voting:** ${openGroups || 'None'}\n**Completed:** ${closedGroups}/${tournament.groupCount} groups`);
+    let description = `Group stage in progress!\n\n**Completed:** ${closedGroups}/${tournament.groupCount} groups\n`;
+    
+    if (openGroups.length > 0) {
+      description += `\n**📊 Active Voting:**\n`;
+      
+      for (const [groupId, group] of openGroups) {
+        // Count unique voters
+        const voterSet = new Set();
+        group.movies.forEach(movie => {
+          movie.votes.forEach(voterId => voterSet.add(voterId));
+        });
+        const voterCount = voterSet.size;
+        
+        // Calculate time remaining
+        const timeRemaining = group.votingDeadline ? formatTimeRemaining(group.votingDeadline) : 'No deadline';
+        const deadlineEmoji = group.votingDeadline && Date.now() > group.votingDeadline - (60 * 60 * 1000) ? '⚠️' : '⏰';
+        
+        // Show leading titles
+        const sortedMovies = [...group.movies].sort((a, b) => b.votes.length - a.votes.length);
+        const topTwo = sortedMovies.slice(0, 2);
+        const leaderText = topTwo.map((m, i) => `  ${i === 0 ? '🥇' : '🥈'} ${m.title} (${m.votes.length})`).join('\n');
+        
+        description += `\n**Group ${groupId}** - ${voterCount} voter${voterCount !== 1 ? 's' : ''}\n`;
+        description += `${deadlineEmoji} ${timeRemaining}\n${leaderText}\n`;
+      }
+    } else {
+      description += `\n*No groups currently open for voting*`;
+    }
+    
+    embed.setDescription(description);
+    
   } else if (tournament.status === 'knockout') {
     const currentRound = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    const openMatchups = tournament.knockoutBracket.filter(m => m.status === 'voting').length;
+    const votingMatchups = tournament.knockoutBracket.filter(m => m.status === 'voting');
     const closedMatchups = Object.keys(tournament.knockoutResults).length;
     
-    embed.setDescription(`**${currentRound}**\n\nSingle elimination bracket\n\n**Open matchups:** ${openMatchups}\n**Completed:** ${closedMatchups}`);
+    let description = `**${currentRound}**\n\nSingle elimination bracket\n\n`;
+    
+    if (votingMatchups.length > 0) {
+      description += `**📊 Active Matchups:**\n`;
+      
+      for (const matchup of votingMatchups) {
+        const votes1 = matchup.votes?.movie1?.length || 0;
+        const votes2 = matchup.votes?.movie2?.length || 0;
+        const totalVotes = votes1 + votes2;
+        const timeRemaining = matchup.votingDeadline ? formatTimeRemaining(matchup.votingDeadline) : 'No deadline';
+        const deadlineEmoji = matchup.votingDeadline && Date.now() > matchup.votingDeadline - (60 * 60 * 1000) ? '⚠️' : '⏰';
+        const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+        
+        const leader = votes1 > votes2 ? matchup.movie1.title : votes2 > votes1 ? matchup.movie2.title : 'Tied';
+        const leaderVotes = Math.max(votes1, votes2);
+        
+        description += `\n**Matchup ${regionalLabel}** - ${totalVotes} vote${totalVotes !== 1 ? 's' : ''}\n`;
+        description += `${deadlineEmoji} ${timeRemaining}\n`;
+        description += `  Leading: ${leader} (${leaderVotes})\n`;
+      }
+    } else {
+      description += `*No matchups currently open for voting*\n\n`;
+    }
+    
+    description += `\n**Completed:** ${closedMatchups} matchup${closedMatchups !== 1 ? 's' : ''}`;
+    embed.setDescription(description);
+    
   } else if (tournament.status === 'completed') {
     embed.setDescription(`🎉 **Tournament Complete!**\n\n**Winner:** ${tournament.winner.title}`);
+    embed.setColor(0xFFD700); // Gold
   }
   
   await interaction.editReply({ embeds: [embed] });
@@ -2473,6 +2563,134 @@ async function handleMyVotes(interaction) {
   }
   
   await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleEditName(interaction) {
+  const newName = interaction.options.getString('name');
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  if (!tournament) {
+    await interaction.reply({
+      content: '❌ No tournament found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  const oldName = tournament.name;
+  tournament.name = newName;
+  
+  const saved = bracketManager.saveTournament(interaction.guildId, tournament);
+  if (!saved) {
+    await interaction.reply({
+      content: '❌ Failed to save tournament changes.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle('✅ Tournament Name Updated')
+    .setDescription(`**Old Name:** ${oldName}\n**New Name:** ${newName}`)
+    .setTimestamp();
+  
+  await interaction.reply({ embeds: [embed] });
+}
+
+async function handleExport(interaction) {
+  await interaction.deferReply();
+  
+  const format = interaction.options.getString('format');
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  if (!tournament) {
+    await interaction.editReply('❌ No tournament found.');
+    return;
+  }
+  
+  if (format === 'json') {
+    // Export as JSON
+    const jsonData = JSON.stringify(tournament, null, 2);
+    const buffer = Buffer.from(jsonData, 'utf-8');
+    const attachment = new AttachmentBuilder(buffer, { name: `${tournament.name.replace(/\s+/g, '_')}_export.json` });
+    
+    await interaction.editReply({
+      content: `📦 **${tournament.name}** - JSON Export`,
+      files: [attachment]
+    });
+    
+  } else if (format === 'markdown') {
+    // Export as Markdown
+    let markdown = `# ${tournament.name}\n\n`;
+    markdown += `**Status:** ${tournament.status}\n`;
+    markdown += `**Phase:** ${tournament.phase}\n`;
+    markdown += `**Created:** ${new Date(tournament.createdAt).toLocaleDateString()}\n\n`;
+    
+    // Group stage results
+    if (Object.keys(tournament.groupResults).length > 0) {
+      markdown += `## Group Stage Results\n\n`;
+      for (const [groupId, result] of Object.entries(tournament.groupResults)) {
+        markdown += `### Group ${groupId}\n\n`;
+        markdown += `1. 🥇 **${result.first.title}** (${result.first.voteCount} votes)\n`;
+        markdown += `2. 🥈 **${result.second.title}** (${result.second.voteCount} votes)\n`;
+        if (result.third) {
+          markdown += `3. 🥉 **${result.third.title}** (${result.third.voteCount} votes)\n`;
+        }
+        if (result.fourth) {
+          markdown += `4. **${result.fourth.title}** (${result.fourth.voteCount} votes)\n`;
+        }
+        markdown += `\n`;
+      }
+    }
+    
+    // Knockout results
+    if (tournament.knockoutBracket && tournament.knockoutBracket.length > 0) {
+      markdown += `## Knockout Stage\n\n`;
+      
+      const rounds = ['finals', 'semifinals', 'quarterfinals', 'round_of_16', 'round_of_32'];
+      for (const round of rounds) {
+        const matchups = tournament.knockoutBracket.filter(m => m.round === round);
+        if (matchups.length === 0) continue;
+        
+        const roundName = round.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        markdown += `### ${roundName}\n\n`;
+        
+        for (const matchup of matchups) {
+          if (matchup.movie1 && matchup.movie2) {
+            const votes1 = matchup.votes?.movie1?.length || 0;
+            const votes2 = matchup.votes?.movie2?.length || 0;
+            const winner = matchup.winner ? matchup.winner.title : 'TBD';
+            
+            markdown += `**Match ${matchup.position + 1}:** ${matchup.movie1.title} (${votes1}) vs ${matchup.movie2.title} (${votes2})\n`;
+            markdown += `  Winner: **${winner}**\n\n`;
+          }
+        }
+      }
+    }
+    
+    // Winner
+    if (tournament.winner) {
+      markdown += `## 🏆 Champion\n\n**${tournament.winner.title}**\n\n`;
+    }
+    
+    // Stats
+    markdown += `## Statistics\n\n`;
+    markdown += `- **Total Groups:** ${tournament.groupCount}\n`;
+    if (tournament.knockoutBracket) {
+      markdown += `- **Total Matchups:** ${tournament.knockoutBracket.length}\n`;
+    }
+    const totalVoters = new Set(Object.keys(tournament.votes || {})).size;
+    markdown += `- **Total Voters:** ${totalVoters}\n`;
+    
+    const buffer = Buffer.from(markdown, 'utf-8');
+    const attachment = new AttachmentBuilder(buffer, { name: `${tournament.name.replace(/\s+/g, '_')}_export.md` });
+    
+    await interaction.editReply({
+      content: `📄 **${tournament.name}** - Markdown Export`,
+      files: [attachment]
+    });
+  }
 }
 
 async function handleCancel(interaction) {
