@@ -4,9 +4,18 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
 import { loadTimers, getTimerStatus, restoreTimerTimeouts } from './utils/timerManager.js';
+import * as logger from './utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Log system startup
+logger.logSystem('Bot starting up', {
+  nodeVersion: process.version,
+  platform: process.platform,
+  arch: process.arch,
+  env: process.env.NODE_ENV || 'development'
+});
 
 // Create Discord client
 const client = new Client({
@@ -64,6 +73,14 @@ for (const file of commandFiles) {
 client.once('ready', async () => {
   console.log(`✓ Logged in as ${client.user.tag}`);
   console.log(`✓ Serving ${client.guilds.cache.size} guilds`);
+  
+  // Log successful connection
+  logger.logSystem('Bot connected to Discord', {
+    botTag: client.user.tag,
+    botId: client.user.id,
+    guildCount: client.guilds.cache.size,
+    commandCount: client.commands.size
+  });
   
   // Load persisted timers from previous session
   const restoredTimers = await loadTimers();
@@ -171,9 +188,50 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
       
+      const startTime = Date.now();
       await command.execute(interaction);
+      const duration = Date.now() - startTime;
+      
+      // Log successful command execution
+      logger.logCommand(
+        interaction.commandName,
+        interaction.user,
+        interaction.guild,
+        {
+          subcommand: interaction.options.getSubcommand?.(false),
+          channelId: interaction.channelId,
+          duration
+        },
+        true
+      );
+      
+      // Log slow commands
+      if (duration > 3000) {
+        logger.logPerformance(
+          `Command: /${interaction.commandName}`,
+          duration,
+          {
+            userId: interaction.user.id,
+            guildId: interaction.guild?.id
+          }
+        );
+      }
     } catch (error) {
       console.error('Command execution error:', error);
+      
+      // Log command error
+      logger.logCommand(
+        interaction.commandName,
+        interaction.user,
+        interaction.guild,
+        {
+          subcommand: interaction.options.getSubcommand?.(false),
+          channelId: interaction.channelId
+        },
+        false,
+        error
+      );
+      
       const errorMessage = { content: 'There was an error executing this command!', ephemeral: true };
       
       try {
@@ -184,6 +242,11 @@ client.on('interactionCreate', async (interaction) => {
         }
       } catch (replyError) {
         console.error('Failed to send error message to user:', replyError.message);
+        logger.error(logger.LogCategory.COMMAND, 'Failed to send error message to user', {
+          originalError: error.message,
+          replyError: replyError.message,
+          userId: interaction.user.id
+        });
       }
     }
   }
@@ -440,6 +503,12 @@ client.login(config.discord.token);
 async function gracefulShutdown(signal) {
   console.log(`\n${signal} received. Shutting down gracefully...`);
   
+  logger.logSystem(`Graceful shutdown initiated: ${signal}`, {
+    signal,
+    uptime: process.uptime(),
+    memoryUsage: process.memoryUsage()
+  });
+  
   // Stop tournament scheduler
   const { shutdown: shutdownScheduler } = await import('./utils/tournamentScheduler.js');
   shutdownScheduler();
@@ -448,8 +517,47 @@ async function gracefulShutdown(signal) {
   client.destroy();
   
   console.log('✓ Shutdown complete');
+  logger.logSystem('Bot shutdown complete');
   process.exit(0);
 }
 
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.emergency(logger.LogCategory.SYSTEM, 'Uncaught exception', {
+    error: error.message,
+    stack: error.stack,
+    memory: process.memoryUsage()
+  });
+  console.error('Uncaught exception:', error);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  logger.critical(logger.LogCategory.SYSTEM, 'Unhandled promise rejection', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+    memory: process.memoryUsage()
+  });
+  console.error('Unhandled rejection at:', promise, 'reason:', reason);
+});
+
+// Handle Discord.js errors
+client.on('error', (error) => {
+  logger.error(logger.LogCategory.SYSTEM, 'Discord client error', {
+    error: error.message,
+    stack: error.stack
+  });
+  console.error('Discord client error:', error);
+});
+
+// Handle Discord.js warnings
+client.on('warn', (warning) => {
+  logger.warning(logger.LogCategory.SYSTEM, 'Discord client warning', {
+    warning
+  });
+  console.warn('Discord client warning:', warning);
+});
