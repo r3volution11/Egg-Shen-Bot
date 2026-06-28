@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Comprehensive Logging System** (Drupal Watchdog-style)
+  - **File-based logging** - All events logged to `logs/` directory in JSON format
+  - **8 severity levels** - EMERGENCY (0) to DEBUG (7) following syslog standards
+  - **Categorized logs** - system, command, button, select, modal, scheduler, bracket, timer, survey, api, database, performance, security
+  - **Daily rotation** - New log file each day: `[category]-YYYY-MM-DD.log`
+  - **Size-based rotation** - Files rotate when exceeding 10MB
+  - **Auto-cleanup** - Logs older than 30 days automatically deleted
+  - **Performance tracking** - Slow operations logged with duration
+  - **Crash diagnosis** - Uncaught exceptions and unhandled rejections captured
+  - **Discord errors** - Client errors and warnings logged
+  - **`/eggshen-logs stats`** - View log statistics (file count, total size)
+  - **`/eggshen-logs errors`** - View recent errors (EMERGENCY to ERROR levels)
+  - **`/eggshen-logs category`** - View logs by category
+  - **Benefits:**
+    - Diagnose production crashes and CPU issues
+    - Track command execution and performance
+    - Monitor button interaction failures
+    - Historical data for troubleshooting
+    - Easy log viewing from Discord
+    - No more diagnostic blackouts
 - **Automatic Voting Closure System**
   - **Auto-close scheduler** - Background service checks voting deadlines every minute
   - **1-hour warnings** - Automatic reminder sent when voting closes in less than 1 hour

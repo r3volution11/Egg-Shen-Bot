@@ -557,6 +557,27 @@ Comprehensive server configuration (Admin/Moderator only).
 
 ---
 
+### `/eggshen-logs`
+View bot logs and diagnostics (Admin only).
+
+**Subcommands:**
+- `stats` - View log file statistics
+- `errors` - View recent errors
+- `category` - View logs by category
+
+**Categories:** system, command, button, scheduler, bracket, api, performance
+
+**Examples:**
+```
+/eggshen-logs stats
+/eggshen-logs errors count:20
+/eggshen-logs category:command count:10
+```
+
+[Learn more →](/features/logging)
+
+---
+
 ### `/help`
 Display help information and available commands.
 

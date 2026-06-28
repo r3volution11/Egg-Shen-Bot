@@ -530,6 +530,39 @@ View bot usage statistics (admin/moderator only).
 /eggshen-stats filter:week
 ```
 
+### View Logs
+
+```
+/eggshen-logs stats
+/eggshen-logs errors count:[1-50]
+/eggshen-logs category:[category] count:[1-50]
+```
+
+View bot logs and diagnostics (admin only).
+
+**Subcommands:**
+- `stats` - View log file statistics
+- `errors` - View recent errors (EMERGENCY to ERROR levels)
+- `category` - View logs by category
+
+**Categories:**
+- `system` - Bot startup, shutdown, errors
+- `command` - Command execution logs
+- `button` - Button interaction logs
+- `scheduler` - Tournament auto-close events
+- `bracket` - Tournament operations
+- `api` - External API calls
+- `performance` - Slow operation tracking
+
+**Examples:**
+```
+/eggshen-logs stats
+/eggshen-logs errors count:20
+/eggshen-logs category:command count:10
+```
+
+**💡 See [Logging System](../features/logging.md) for complete documentation on log levels, file formats, rotation, and troubleshooting.**
+
 ### Restart Bot
 
 ```
