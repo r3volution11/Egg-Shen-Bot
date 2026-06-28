@@ -1227,7 +1227,17 @@ async function handleOpenGroups(interaction) {
     components.push(...rows);
   });
   
-  await interaction.editReply({ embeds, components });
+  const votingMessage = await interaction.editReply({ embeds, components });
+  
+  // Store message IDs for each group so scheduler can update/close them
+  for (const groupId of groupIds) {
+    bracketManager.storeGroupVotingMessage(
+      interaction.guildId,
+      groupId,
+      interaction.channelId,
+      votingMessage.id
+    );
+  }
 }
 
 // DEPRECATED: Group voting is now button-based via handleOpenGroups
@@ -2176,7 +2186,15 @@ async function handleOpenMatchup(interaction) {
     )
     .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
-  await interaction.editReply({ embeds: [mainEmbed, embed], components: [row] });
+  const votingMessage = await interaction.editReply({ embeds: [mainEmbed, embed], components: [row] });
+  
+  // Store message ID so scheduler can update/close it
+  bracketManager.storeMatchupVotingMessage(
+    interaction.guildId,
+    matchup.id,
+    interaction.channelId,
+    votingMessage.id
+  );
 }
 
 async function handleCloseMatchup(interaction) {

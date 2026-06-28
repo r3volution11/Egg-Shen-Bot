@@ -362,6 +362,55 @@ export function openGroupVoting(guildId, groupIds, deadline = null) {
 }
 
 /**
+ * Store voting message IDs for groups (for scheduler to update/close)
+ * @param {string} guildId - Guild ID
+ * @param {string} groupId - Group ID
+ * @param {string} channelId - Channel ID where voting message was posted
+ * @param {string} messageId - Message ID of voting message
+ * @returns {Object} Result with success/error
+ */
+export function storeGroupVotingMessage(guildId, groupId, channelId, messageId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament || !tournament.groups[groupId]) {
+    return { success: false, error: 'Tournament or group not found' };
+  }
+  
+  tournament.groups[groupId].votingMessageChannelId = channelId;
+  tournament.groups[groupId].votingMessageId = messageId;
+  
+  return saveTournament(guildId, tournament)
+    ? { success: true }
+    : { success: false, error: 'Failed to save' };
+}
+
+/**
+ * Store voting message IDs for knockout matchups (for scheduler to update/close)
+ * @param {string} guildId - Guild ID
+ * @param {string} matchupId - Matchup ID
+ * @param {string} channelId - Channel ID where voting message was posted
+ * @param {string} messageId - Message ID of voting message
+ * @returns {Object} Result with success/error
+ */
+export function storeMatchupVotingMessage(guildId, matchupId, channelId, messageId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'Tournament not found' };
+  }
+  
+  const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
+  if (!matchup) {
+    return { success: false, error: 'Matchup not found' };
+  }
+  
+  matchup.messageChannelId = channelId;
+  matchup.messageId = messageId;
+  
+  return saveTournament(guildId, tournament)
+    ? { success: true }
+    : { success: false, error: 'Failed to save' };
+}
+
+/**
  * Cast a vote for group stage (user votes for top 2 in each group)
  */
 export function voteGroupStage(guildId, userId, groupId, movieIndexes) {

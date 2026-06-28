@@ -129,6 +129,10 @@ client.once('ready', async () => {
   
   // Restore auto-stop timeouts for timers with durations
   await restoreTimerTimeouts(client);
+  
+  // Initialize tournament voting scheduler
+  const { initialize: initTournamentScheduler } = await import('./utils/tournamentScheduler.js');
+  initTournamentScheduler(client);
 });
 
 // Event: Interaction (slash commands)
@@ -431,3 +435,21 @@ client.on('messageReactionRemove', async (reaction, user) => {
 
 // Login
 client.login(config.discord.token);
+
+// Graceful shutdown handlers
+async function gracefulShutdown(signal) {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+  
+  // Stop tournament scheduler
+  const { shutdown: shutdownScheduler } = await import('./utils/tournamentScheduler.js');
+  shutdownScheduler();
+  
+  // Destroy Discord client
+  client.destroy();
+  
+  console.log('✓ Shutdown complete');
+  process.exit(0);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
