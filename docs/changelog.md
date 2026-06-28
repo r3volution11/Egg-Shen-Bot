@@ -8,6 +8,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Automatic Voting Closure System**
+  - **Auto-close scheduler** - Background service checks voting deadlines every minute
+  - **1-hour warnings** - Automatic reminder sent when voting closes in less than 1 hour
+  - **Auto-close at deadline** - Groups and matchups automatically close when deadline passes
+  - **Results posted automatically** - Final vote counts and winners announced when voting ends
+  - **Visual closure** - Voting messages updated to show "🔒 CLOSED" status
+  - **Disabled buttons** - All voting buttons disabled when voting ends
+  - **Graceful shutdown** - Clean restart handling ensures no lost state
+  - **Benefits:**
+    - No manual intervention needed to close voting
+    - Members get advance warning to cast votes
+    - Immediate results when voting ends
+    - Consistent tournament pacing
+    - Reduces admin workload
+- **Tournament Export System**
+  - **`/bracket export format:json`** - Export full tournament data as JSON
+    - Complete tournament structure, all groups, matchups, votes
+    - Perfect for archival or data analysis
+    - Can be imported back into bot (future feature)
+  - **`/bracket export format:markdown`** - Export formatted results as Markdown
+    - Group stage results with vote counts
+    - Knockout bracket progression
+    - Tournament statistics (voter participation, total votes)
+    - Ready to paste into announcements or documentation
+  - **Use cases:**
+    - Archive completed tournaments
+    - Share results in Discord or other platforms
+    - Analyze voting patterns
+    - Document tournament history
+- **Tournament Management Improvements**
+  - **`/bracket edit-name`** - Change tournament name after creation
+    - Admin/moderator only
+    - Update tournament branding mid-tournament
+    - Fix typos in tournament name
+  - **Enhanced `/bracket status`** - Real-time tournament dashboard
+    - Shows **active voters count** for each open group/matchup
+    - Displays **time remaining** with ⚠️ warning when <1 hour left
+    - Shows **current leaders** in each active vote
+    - More detailed progress tracking
+    - Live vote counts for all active voting
+- **Robust Error Handling**
+  - **Comprehensive try-catch blocks** around all async operations
+  - **Detailed error logging** with context (guild ID, user ID, custom ID)
+  - **Graceful degradation** for API failures
+  - **User-friendly error messages** instead of generic failures
+  - **Button interaction safety** - Prevents "interaction failed" errors
+  - **Message update protection** - Vote recorded even if message update fails
+  - **Benefits:**
+    - More reliable button voting
+    - Better debugging for production issues
+    - Improved user experience during errors
+    - Prevents crashes from unexpected failures
 - **Button-Based Group Voting**
   - **Interactive voting** - Members vote by clicking buttons instead of typing commands
   - **Visual feedback** - Selected titles highlight in green
