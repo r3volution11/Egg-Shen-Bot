@@ -207,6 +207,7 @@ export default defineConfig({
       {
         text: 'Features',
         items: [
+          { text: 'Logging System', link: '/features/logging' },
           { text: 'Rate Limiting', link: '/features/rate-limiting' },
           { text: 'Moderation Tools', link: '/features/moderation-tools' },
           { text: 'Watch History', link: '/features/watch-history' },
