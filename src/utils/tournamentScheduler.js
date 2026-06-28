@@ -9,6 +9,7 @@ import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'disc
 import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import * as logger from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,6 +38,10 @@ export function initialize(discordClient) {
   schedulerInterval = setInterval(checkVotingDeadlines, CHECK_INTERVAL);
   
   console.log('✓ Tournament scheduler initialized');
+  logger.info(logger.LogCategory.SCHEDULER, 'Tournament scheduler initialized', {
+    checkInterval: `${CHECK_INTERVAL / 1000}s`,
+    warningThreshold: `${WARNING_THRESHOLD / (60 * 1000)}m`
+  });
 }
 
 /**
@@ -78,6 +83,10 @@ async function checkVotingDeadlines() {
     }
   } catch (error) {
     console.error('[TournamentScheduler] Error checking deadlines:', error);
+    logger.error(logger.LogCategory.SCHEDULER, 'Error checking voting deadlines', {
+      error: error.message,
+      stack: error.stack
+    });
   }
 }
 
@@ -185,10 +194,22 @@ async function autoCloseGroup(guild, tournament, groupId, group) {
   try {
     console.log(`[TournamentScheduler] Auto-closing Group ${groupId} for guild ${guild.id}`);
     
+    logger.info(logger.LogCategory.SCHEDULER, `Auto-closing Group ${groupId}`, {
+      guildId: guild.id,
+      tournamentName: tournament.name,
+      groupId,
+      voterCount: Object.keys(group.voters || {}).length
+    });
+    
     // Close the group
     const result = bracketManager.closeGroupVoting(guild.id, [groupId]);
     if (!result.success) {
       console.error(`[TournamentScheduler] Failed to close group ${groupId}:`, result.error);
+      logger.error(logger.LogCategory.SCHEDULER, `Failed to close group ${groupId}`, {
+        guildId: guild.id,
+        groupId,
+        error: result.error
+      });
       return;
     }
     
@@ -202,6 +223,12 @@ async function autoCloseGroup(guild, tournament, groupId, group) {
     
   } catch (error) {
     console.error(`[TournamentScheduler] Error auto-closing group ${groupId}:`, error);
+    logger.error(logger.LogCategory.SCHEDULER, `Error auto-closing group ${groupId}`, {
+      guildId: guild.id,
+      groupId,
+      error: error.message,
+      stack: error.stack
+    });
   }
 }
 
@@ -212,10 +239,23 @@ async function autoCloseMatchup(guild, tournament, matchup) {
   try {
     console.log(`[TournamentScheduler] Auto-closing matchup ${matchup.id} for guild ${guild.id}`);
     
+    logger.info(logger.LogCategory.SCHEDULER, `Auto-closing matchup ${matchup.id}`, {
+      guildId: guild.id,
+      tournamentName: tournament.name,
+      matchupId: matchup.id,
+      round: matchup.round,
+      votes: matchup.votes
+    });
+    
     // Close the matchup
     const result = bracketManager.closeKnockoutMatchup(guild.id, matchup.id);
     if (!result.success) {
       console.error(`[TournamentScheduler] Failed to close matchup ${matchup.id}:`, result.error);
+      logger.error(logger.LogCategory.SCHEDULER, `Failed to close matchup ${matchup.id}`, {
+        guildId: guild.id,
+        matchupId: matchup.id,
+        error: result.error
+      });
       return;
     }
     

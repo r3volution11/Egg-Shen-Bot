@@ -1,7 +1,11 @@
 /**
  * Handle button interactions with comprehensive error handling
  */
+import * as logger from '../utils/logger.js';
+
 export async function handleButtonInteraction(interaction) {
+  const startTime = Date.now();
+  
   try {
     // Defer update for buttons to prevent "interaction failed" errors
     // This gives us 15 minutes to process instead of 3 seconds
@@ -14,23 +18,53 @@ export async function handleButtonInteraction(interaction) {
     // Handle group stage voting buttons
     if (interaction.customId.startsWith('group_vote_')) {
       await handleGroupVote(interaction);
+      
+      // Log successful button interaction
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      
+      if (duration > 2000) {
+        logger.logPerformance('Button: group_vote', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
       return;
     }
     
     // Handle knockout voting buttons
     if (interaction.customId.startsWith('knockout_vote_')) {
       await handleKnockoutVote(interaction);
+      
+      // Log successful button interaction
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      
+      if (duration > 2000) {
+        logger.logPerformance('Button: knockout_vote', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
       return;
     }
     
     // Unknown button type
     console.warn(`[ButtonHandler] Unknown button interaction: ${interaction.customId}`);
+    logger.warning(logger.LogCategory.BUTTON, 'Unknown button interaction', {
+      customId: interaction.customId,
+      userId: interaction.user.id,
+      guildId: interaction.guild?.id
+    });
     
   } catch (error) {
     console.error('[ButtonHandler] Error handling button interaction:', error);
     console.error('[ButtonHandler] CustomId:', interaction.customId);
     console.error('[ButtonHandler] Guild:', interaction.guild?.id);
     console.error('[ButtonHandler] User:', interaction.user?.id);
+    
+    // Log button error
+    logger.logButton(interaction.customId, interaction.user, interaction.guild, false, error);
     
     // Try to send error message to user
     try {
@@ -46,6 +80,11 @@ export async function handleButtonInteraction(interaction) {
       }
     } catch (replyError) {
       console.error('[ButtonHandler] Failed to send error message:', replyError.message);
+      logger.error(logger.LogCategory.BUTTON, 'Failed to send error message after button error', {
+        originalError: error.message,
+        replyError: replyError.message,
+        customId: interaction.customId
+      });
     }
   }
 }
