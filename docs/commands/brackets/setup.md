@@ -239,6 +239,19 @@ Open groups for voting.
 - Use longer periods (48h-7d) for slower-paced tournaments
 - Use shorter periods (1h-6h) for live events
 
+**Automatic Voting Closure:**
+- ⏰ **1-hour warning** - Bot sends reminder when <1 hour remaining
+- 🔒 **Auto-close at deadline** - Voting automatically closes when time expires
+- 📊 **Results posted** - Final vote counts and advancing titles announced
+- 🚫 **Buttons disabled** - Voting message updated to show CLOSED status
+- **No manual intervention needed** - Tournament progresses automatically
+
+**Benefits:**
+- Consistent tournament pacing without admin monitoring
+- Members get advance warning to cast final votes
+- Immediate results when voting ends
+- Reduces admin workload
+
 ---
 
 ## Group Stage Voting

@@ -28,9 +28,11 @@ This page provides detailed documentation for all tournament bracket commands. C
 | `close-knockout` | Admin/Mod | Close current round and advance winners | Knockout |
 | `close-matchup` | Admin/Mod | Close a specific matchup and advance winner | Knockout |
 | `extend-voting` | Admin/Mod | Extend or change voting deadline | Any |
-| `status` | Everyone | View tournament status and standings | Any |
+| `status` | Everyone | View tournament status with live voter counts and leaders | Any |
+| `export` | Everyone | Export tournament results (JSON or Markdown) | Any |
 | `view` | Everyone | View visual bracket (knockout phase only) | Knockout |
 | `image` | Everyone | Generate AI image for any matchup | Any |
+| `edit-name` | Admin/Mod | Change the tournament name | Any |
 | `regenerate` | Admin/Mod | Regenerate knockout bracket with full tree | Knockout |
 | `cancel` | Admin/Mod | Cancel the tournament | Any |
 
@@ -541,7 +543,7 @@ These commands provide information, visualization, and management tools for the 
 
 ### `/bracket status`
 
-View tournament status and standings.
+View real-time tournament status with live voting statistics.
 
 **Who Can Use:** Everyone
 
@@ -552,31 +554,56 @@ View tournament status and standings.
 /bracket status
 ```
 
-**Output Example:**
+**Output Example (Group Stage):**
 ```
-🏆 Summer Movie Madness - STATUS
+🏆 Summer Movie Madness
+Status: group_stage | Phase: groups | Creator: @Admin
 
-Phase: Knockout (Semifinals)
+Group stage in progress!
+Completed: 4/8 groups
 
-Current Round: Semifinals
-- 1A: The Thing vs. Alien (Open - 18h 32m remaining)
-- 2A: Hereditary vs. The Exorcist (Open - 18h 32m remaining)
+📊 Active Voting:
 
-Group Results:
-Group A: ✅ Closed
-  1st: The Thing (47 pts)
-  2nd: Evil Dead (31 pts)
-  3rd: Hereditary (18 pts)
-...
+Group E - 12 voters
+⏰ 2h 15m
+  🥇 The Thing (8)
+  🥈 Evil Dead (7)
+
+Group F - 8 voters
+⚠️ 45m (WARNING: <1 hour remaining!)
+  🥇 Alien (5)
+  🥈 Hereditary (4)
+```
+
+**Output Example (Knockout):**
+```
+🏆 Summer Movie Madness
+Status: knockout | Phase: semifinals | Creator: @Admin
+
+Semifinals
+Single elimination bracket
+
+📊 Active Matchups:
+
+Matchup 1A - 15 votes
+⏰ 18h 32m
+  Leading: The Thing (9)
+
+Matchup 2A - 12 votes
+⚠️ 55m
+  Leading: Tied (6)
+
+Completed: 6 matchups
 ```
 
 **Notes:**
-- Shows tournament phase (Setup, Group Stage, Knockout, Complete)
-- Displays current round and matchup status
-- Shows group results if group stage is complete
-- Indicates open/closed status of voting
-- Displays voting deadlines for active votes
-- Use this to track tournament progress
+- Shows **real-time voter counts** for active voting
+- Displays **time remaining** with ⚠️ warning when <1 hour left
+- Shows **current leaders** in each active vote
+- Tracks tournament progress with completion stats
+- Automatically updates as voting progresses
+- Use this to monitor participation and close voting
+- Warning emoji (⚠️) appears when deadline is approaching
 
 ---
 
@@ -654,6 +681,106 @@ Regenerate knockout bracket with full tree structure.
 - Only use if bracket structure is corrupted
 - Cannot regenerate after Finals are complete
 - **Warning:** May affect in-progress matchups
+
+---
+
+### `/bracket export`
+
+Export tournament results in JSON or Markdown format.
+
+**Who Can Use:** Everyone
+
+**Parameters:**
+- `format` (required, choice): Export format
+  - `json` - Complete tournament data structure
+  - `markdown` - Formatted results for announcements
+
+**Example Usage:**
+```
+/bracket export format:json
+/bracket export format:markdown
+```
+
+**JSON Export:**
+- Complete tournament data structure
+- All groups, matchups, votes, and metadata
+- Perfect for archival or data analysis
+- Can be imported back into bot (future feature)
+- Includes voter IDs, timestamps, and full history
+
+**Markdown Export:**
+- Formatted results ready to paste
+- Group stage results with vote counts
+- Knockout bracket progression with winners
+- Tournament statistics (total voters, total votes)
+- Clean, readable format for Discord or documentation
+
+**Example Markdown Output:**
+```markdown
+# Summer Movie Madness - Results
+
+**Status:** Completed
+**Winner:** 🏆 The Thing
+
+## Group Stage Results
+
+### Group A
+1. 🥇 The Thing (47 votes) ✅ Advances
+2. 🥈 Evil Dead (31 votes) ✅ Advances
+3. 🥉 Hereditary (18 votes)
+4. 📍 The Witch (12 votes)
+
+## Knockout Stage
+
+### Semifinals
+- The Thing def. Alien (23-19)
+- Evil Dead def. Hereditary (21-17)
+
+### Finals
+- **The Thing** def. Evil Dead (31-28) 🏆
+
+## Statistics
+- Total Voters: 58
+- Total Votes Cast: 847
+```
+
+**Use Cases:**
+- Archive completed tournaments
+- Share results in announcements
+- Create tournament history documentation
+- Analyze voting patterns and participation
+- Backup tournament data
+
+---
+
+### `/bracket edit-name`
+
+Change the tournament name after creation.
+
+**Who Can Use:** Admin/Mod only
+
+**Parameters:**
+- `name` (required, string): New tournament name
+
+**Example Usage:**
+```
+/bracket edit-name name:"Epic Summer Movie Championship 2026"
+/bracket edit-name name:"Quick Test Tournament"
+```
+
+**Notes:**
+- Can be used at any tournament phase
+- Updates name in all displays and embeds
+- Useful for fixing typos or rebranding
+- Does not affect tournament data or votes
+- Name is visible to all participants
+- Maximum 100 characters
+
+**Common Use Cases:**
+- Fix typos in tournament name
+- Update branding mid-tournament
+- Add year or season to name
+- Rename based on community feedback
 
 ---
 
