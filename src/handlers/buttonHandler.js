@@ -3,6 +3,21 @@
  */
 import * as logger from '../utils/logger.js';
 
+// In-memory cache for tracking ephemeral voting dashboard messages per user per group
+// Key format: `${guildId}_${userId}_${groupId}`
+// Value: { messageId, channelId, timestamp }
+const userVotingDashboards = new Map();
+
+// Clean up old dashboard entries (older than 1 hour) every 10 minutes
+setInterval(() => {
+  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  for (const [key, value] of userVotingDashboards.entries()) {
+    if (value.timestamp < oneHourAgo) {
+      userVotingDashboards.delete(key);
+    }
+  }
+}, 10 * 60 * 1000);
+
 export async function handleButtonInteraction(interaction) {
   const startTime = Date.now();
   
@@ -168,38 +183,71 @@ async function handleGroupVote(interaction) {
   // Get updated group data
   const updatedGroup = result.tournament.groups[groupId];
   
-  // Build response embed with visual feedback
-  const { EmbedBuilder: ResponseEmbedBuilder } = await import('discord.js');
-  const responseEmbed = new ResponseEmbedBuilder();
+  // Build persistent voting dashboard for this user
+  // This shows their current selections with visual indicators
+  const dashboardEmbed = buildVotingDashboard(updatedGroup, groupId, newVotes);
   
-  if (newVotes.length === 0) {
-    responseEmbed
-      .setColor(0xFFAA00)
-      .setTitle('🗳️ Vote Removed')
-      .setDescription(`Removed all votes from **Group ${groupId}**\n\nClick buttons to vote for your favorites!`);
-  } else if (newVotes.length === 1) {
-    const selectedTitle = updatedGroup.movies[newVotes[0]].title;
-    responseEmbed
-      .setColor(0x4EC5ED)
-      .setTitle('✅ 1 of 2 Selected')
-      .setDescription(`**${selectedTitle}**\n\n📝 Select **one more** title to complete your vote for Group ${groupId}`);
-  } else {
-    const selectedTitles = newVotes.map(i => updatedGroup.movies[i].title);
-    responseEmbed
-      .setColor(0x00FF00)
-      .setTitle('✅ Vote Recorded!')
-      .setDescription(
-        `**Group ${groupId} - Your selections:**\n\n` +
-        `1️⃣ ${selectedTitles[0]}\n` +
-        `2️⃣ ${selectedTitles[1]}\n\n` +
-        `💡 You can change your vote anytime before voting closes.`
-      );
+  // Check if user has an existing voting dashboard for this group
+  const dashboardKey = `${interaction.guild.id}_${interaction.user.id}_${groupId}`;
+  const existingDashboard = userVotingDashboards.get(dashboardKey);
+  
+  try {
+    if (existingDashboard) {
+      // Update existing dashboard
+      const channel = await interaction.client.channels.fetch(existingDashboard.channelId).catch(() => null);
+      if (channel) {
+        const message = await channel.messages.fetch(existingDashboard.messageId).catch(() => null);
+        if (message) {
+          await message.edit({ embeds: [dashboardEmbed] });
+        } else {
+          // Message was deleted, create a new one
+          const newMessage = await interaction.followUp({
+            embeds: [dashboardEmbed],
+            ephemeral: true,
+            fetchReply: true
+          });
+          userVotingDashboards.set(dashboardKey, {
+            messageId: newMessage.id,
+            channelId: interaction.channelId,
+            timestamp: Date.now()
+          });
+        }
+      } else {
+        // Channel not accessible, create new message
+        const newMessage = await interaction.followUp({
+          embeds: [dashboardEmbed],
+          ephemeral: true,
+          fetchReply: true
+        });
+        userVotingDashboards.set(dashboardKey, {
+          messageId: newMessage.id,
+          channelId: interaction.channelId,
+          timestamp: Date.now()
+        });
+      }
+    } else {
+      // Create new dashboard
+      const newMessage = await interaction.followUp({
+        embeds: [dashboardEmbed],
+        ephemeral: true,
+        fetchReply: true
+      });
+      userVotingDashboards.set(dashboardKey, {
+        messageId: newMessage.id,
+        channelId: interaction.channelId,
+        timestamp: Date.now()
+      });
+    }
+  } catch (dashboardError) {
+    console.error('[ButtonHandler] Error managing voting dashboard:', dashboardError);
+    // Fallback to simple confirmation if dashboard fails
+    await interaction.followUp({
+      content: newVotes.length === 0 
+        ? `✅ Votes removed from Group ${groupId}` 
+        : `✅ Vote recorded for Group ${groupId} (${newVotes.length}/2 selected)`,
+      ephemeral: true
+    });
   }
-  
-  await interaction.followUp({
-    embeds: [responseEmbed],
-    ephemeral: true
-  });
   
   // Update the message to show new vote counts
   try {
@@ -325,6 +373,75 @@ async function handleKnockoutVote(interaction) {
     console.error('[ButtonHandler] Error updating knockout voting message:', updateError);
     // Don't throw - vote was already recorded successfully
   }
+}
+
+/**
+ * Build a visual voting dashboard showing all movies with selection indicators
+ * @param {Object} group - The group data
+ * @param {string} groupId - Group ID (e.g., "A", "B")
+ * @param {number[]} userVotes - Array of movie indexes the user has selected
+ * @returns {EmbedBuilder} Dashboard embed
+ */
+function buildVotingDashboard(group, groupId, userVotes) {
+  const { EmbedBuilder } = require('discord.js');
+  
+  // Determine color and status based on vote count
+  let color, statusText, statusEmoji;
+  if (userVotes.length === 0) {
+    color = 0x888888; // Gray
+    statusText = 'No votes selected';
+    statusEmoji = '⬜';
+  } else if (userVotes.length === 1) {
+    color = 0x4EC5ED; // Blue
+    statusText = '1 of 2 selected';
+    statusEmoji = '🔵';
+  } else {
+    color = 0x00FF00; // Green
+    statusText = 'Vote complete!';
+    statusEmoji = '✅';
+  }
+  
+  // Build description with all movies and selection indicators
+  let description = `**${statusEmoji} ${statusText}**\n\n`;
+  
+  group.movies.forEach((movie, index) => {
+    const isSelected = userVotes.includes(index);
+    const indicator = isSelected ? '✅' : '⬜';
+    const titleText = movie.title.length > 45 ? movie.title.substring(0, 42) + '...' : movie.title;
+    description += `${indicator} **${index + 1}.** ${titleText}\n`;
+  });
+  
+  description += `\n💡 *Click buttons to select/deselect*`;
+  if (userVotes.length < 2) {
+    description += `\n📝 *Select ${2 - userVotes.length} more to complete*`;
+  } else {
+    description += `\n🎉 *You can still change your vote*`;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setTitle(`🗳️ Group ${groupId} - Your Votes`)
+    .setDescription(description)
+    .setFooter({ text: 'This message updates as you vote • Only you can see this' })
+    .setTimestamp();
+  
+  return embed;
+}
+
+/**
+ * Clear voting dashboard entries for a specific group (called when voting closes)
+ * @param {string} guildId - Guild ID
+ * @param {string} groupId - Group ID
+ */
+export function clearVotingDashboards(guildId, groupId) {
+  const keysToDelete = [];
+  for (const key of userVotingDashboards.keys()) {
+    if (key.startsWith(`${guildId}_`) && key.endsWith(`_${groupId}`)) {
+      keysToDelete.push(key);
+    }
+  }
+  keysToDelete.forEach(key => userVotingDashboards.delete(key));
+  console.log(`[ButtonHandler] Cleared ${keysToDelete.length} voting dashboard(s) for Group ${groupId}`);
 }
 
 // Handle "Log to Watch History" button from timer stop
