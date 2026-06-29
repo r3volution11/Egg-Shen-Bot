@@ -389,57 +389,12 @@ async function handleKnockoutVote(interaction) {
     m.round === currentRound && m.status === 'voting'
   );
   
-  // Build persistent knockout dashboard for this user
-  const dashboardEmbed = buildKnockoutVotingDashboard(tournament, currentRound, currentRoundMatchups, interaction.user.id);
-  
-  // Check if user has an existing voting dashboard for this round
-  const dashboardKey = `${interaction.guild.id}_${interaction.user.id}_knockout_${currentRound}`;
-  const existingDashboard = userVotingDashboards.get(dashboardKey);
-  
-  try {
-    if (existingDashboard) {
-      // Try to update existing dashboard
-      try {
-        const channel = await interaction.client.channels.fetch(existingDashboard.channelId);
-        const message = await channel.messages.fetch(existingDashboard.messageId);
-        await message.edit({ embeds: [dashboardEmbed] });
-        // Dashboard updated successfully
-        console.log(`[ButtonHandler] Updated knockout dashboard for user ${interaction.user.id}`);
-      } catch (fetchError) {
-        // Message no longer exists, remove from cache and create new one
-        console.log(`[ButtonHandler] Dashboard message not found, creating new one for user ${interaction.user.id}`);
-        userVotingDashboards.delete(dashboardKey);
-        const newMessage = await interaction.followUp({
-          embeds: [dashboardEmbed],
-          ephemeral: true
-        });
-        userVotingDashboards.set(dashboardKey, {
-          messageId: newMessage.id,
-          channelId: interaction.channelId,
-          timestamp: Date.now()
-        });
-      }
-    } else {
-      // First vote - create new dashboard
-      console.log(`[ButtonHandler] Creating first knockout dashboard for user ${interaction.user.id}`);
-      const newMessage = await interaction.followUp({
-        embeds: [dashboardEmbed],
-        ephemeral: true
-      });
-      userVotingDashboards.set(dashboardKey, {
-        messageId: newMessage.id,
-        channelId: interaction.channelId,
-        timestamp: Date.now()
-      });
-    }
-  } catch (dashboardError) {
-    console.error('[ButtonHandler] Error managing knockout voting dashboard:', dashboardError);
-    // Fallback to simple confirmation if dashboard fails
-    await interaction.followUp({
-      content: `✅ Vote recorded for ${matchup.movie1.title} vs ${matchup.movie2.title}`,
-      ephemeral: true
-    }).catch(() => {});
-  }
+  // Send simple vote confirmation (no persistent dashboard for knockout - public leaderboard shows all info)
+  const votedTitle = parseInt(choice) === 1 ? matchup.movie1.title : matchup.movie2.title;
+  await interaction.followUp({
+    content: `✅ Vote recorded for **${votedTitle}**!`,
+    ephemeral: true
+  }).catch(() => {});
   
   // Update or create public "All Votes" leaderboard
   const leaderboardKey = `${interaction.guild.id}_knockout_${currentRound}`;

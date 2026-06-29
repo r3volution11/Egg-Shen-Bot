@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Simplified Knockout Voting Confirmations** (2026-06-29)
+  - **Previous:** Attempted to maintain persistent "Your Votes" dashboard for knockout rounds
+  - **Issue:** Ephemeral messages from `followUp()` cannot be fetched and edited, causing duplicate cards on each vote
+  - **Root cause:** Discord's ephemeral messages are client-side only and not retrievable via API after creation
+  - **New approach:** Simple "✅ Vote recorded for [Title]!" confirmation message
+  - **Rationale:** Public "All Votes" leaderboard already shows all voting information, so persistent personal dashboard is redundant
+  - **Result:** Clean voting experience with no duplicate cards
+  - **What you see now:**
+    - Public "All Votes" leaderboard (updates in place, everyone sees)
+    - Simple vote confirmation (ephemeral, disappears quickly)
+    - No more dashboard spam!
+
 ### Fixed
 - **Knockout Dashboard Still Creating Multiple Cards** (2026-06-29)
   - **Issue:** Dashboard was still creating new cards on each vote instead of updating the existing one
@@ -66,14 +79,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Number of matchups currently open
   - **Persistent tracking** - One leaderboard per guild per round, cached and updated in place
   - **Benefits:**
+    - PRIMARY voting feedback for knockout rounds - shows all matchup tallies in one place
     - Users see real-time competition without voting
     - Transparent vote counts visible to all
     - Creates excitement and engagement around close matchups
     - No chat spam - single card updates silently
-    - Complements personal "Your Votes" dashboard (ephemeral, only voter sees)
-  - **Two-card system:**
-    - "Your Votes" (ephemeral) - Personal voting progress, only you see
-    - "All Votes" (public) - Community leaderboard, everyone sees
+  - **Simple confirmation system:**
+    - Vote button clicked → Simple "✅ Vote recorded!" confirmation (ephemeral)
+    - "All Votes" leaderboard updates automatically (public, persistent)
+    - Clean UX with no dashboard spam
 - **Interactive Region Selector for open-region** (2026-06-29)
   - **`/bracket open-region` with no parameter** - Shows 2 buttons: Region 1 (Left Side) and Region 2 (Right Side)
   - **Simple button selection** - Just 2 options with directional emoji arrows (⬅️ ➡️)
