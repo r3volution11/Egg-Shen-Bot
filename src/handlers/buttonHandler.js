@@ -388,27 +388,17 @@ async function handleKnockoutVote(interaction) {
   
   try {
     if (existingDashboard) {
-      // Update existing dashboard
-      const channel = await interaction.client.channels.fetch(existingDashboard.channelId).catch(() => null);
-      if (channel) {
-        const message = await channel.messages.fetch(existingDashboard.messageId).catch(() => null);
-        if (message) {
-          await message.edit({ embeds: [dashboardEmbed] });
-          // Dashboard updated successfully - no need for additional message
-        } else {
-          // Message was deleted, create a new one
-          const newMessage = await interaction.followUp({
-            embeds: [dashboardEmbed],
-            ephemeral: true
-          });
-          userVotingDashboards.set(dashboardKey, {
-            messageId: newMessage.id,
-            channelId: interaction.channelId,
-            timestamp: Date.now()
-          });
-        }
-      } else {
-        // Channel not accessible, create new message
+      // Try to update existing dashboard
+      try {
+        const channel = await interaction.client.channels.fetch(existingDashboard.channelId);
+        const message = await channel.messages.fetch(existingDashboard.messageId);
+        await message.edit({ embeds: [dashboardEmbed] });
+        // Dashboard updated successfully
+        console.log(`[ButtonHandler] Updated knockout dashboard for user ${interaction.user.id}`);
+      } catch (fetchError) {
+        // Message no longer exists, remove from cache and create new one
+        console.log(`[ButtonHandler] Dashboard message not found, creating new one for user ${interaction.user.id}`);
+        userVotingDashboards.delete(dashboardKey);
         const newMessage = await interaction.followUp({
           embeds: [dashboardEmbed],
           ephemeral: true
@@ -420,7 +410,8 @@ async function handleKnockoutVote(interaction) {
         });
       }
     } else {
-      // Create new dashboard
+      // First vote - create new dashboard
+      console.log(`[ButtonHandler] Creating first knockout dashboard for user ${interaction.user.id}`);
       const newMessage = await interaction.followUp({
         embeds: [dashboardEmbed],
         ephemeral: true
