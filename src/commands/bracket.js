@@ -1563,6 +1563,7 @@ async function handleRegenerate(interaction) {
     .setColor(0x00FF00)
     .setTitle('✅ Knockout Bracket Regenerated')
     .setDescription(
+      (result.warning ? `${result.warning}\n\n` : '') +
       `Successfully rebuilt the knockout bracket from all ${Object.keys(result.tournament.groupResults).length} closed groups.\n\n` +
       `**${result.matchups.length} matchups** created in ${roundName}\n` +
       `**${result.totalMatchups} total matchups** across all rounds\n` +

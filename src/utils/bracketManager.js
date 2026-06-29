@@ -716,16 +716,6 @@ export function regenerateKnockoutBracket(guildId) {
     return { success: false, error: 'Tournament not in knockout phase' };
   }
   
-  // Check if any knockout voting has started
-  const hasVoting = tournament.knockoutBracket.some(m => 
-    m.status === 'voting' || m.status === 'closed' || 
-    (m.votes && (m.votes.movie1.length > 0 || m.votes.movie2.length > 0))
-  );
-  
-  if (hasVoting) {
-    return { success: false, error: 'Cannot regenerate - knockout voting has already started' };
-  }
-  
   // Check if all groups are closed
   const closedGroups = Object.keys(tournament.groupResults).length;
   if (closedGroups < tournament.groupCount) {
@@ -733,6 +723,36 @@ export function regenerateKnockoutBracket(guildId) {
       success: false, 
       error: `Cannot regenerate - only ${closedGroups}/${tournament.groupCount} groups are closed. Close all groups first.` 
     };
+  }
+  
+  // Detect if bracket is broken (wrong number of first-round matchups)
+  // This can happen due to the index-based bug in older versions
+  const expectedParticipants = closedGroups * 2 + (tournament.wildcards?.length || 0);
+  const expectedFirstRoundMatchups = Math.ceil(expectedParticipants / 2);
+  
+  // Get starting round based on expected participants
+  const expectedStartingRound = getStartingRound(expectedParticipants);
+  const existingFirstRoundMatchups = tournament.knockoutBracket.filter(m => m.round === expectedStartingRound);
+  const actualFirstRoundMatchups = existingFirstRoundMatchups.length;
+  
+  const isBrokenBracket = actualFirstRoundMatchups < expectedFirstRoundMatchups;
+  
+  // Check if any knockout voting has started
+  const hasVoting = tournament.knockoutBracket.some(m => 
+    m.status === 'voting' || m.status === 'closed' || 
+    (m.votes && (m.votes.movie1.length > 0 || m.votes.movie2.length > 0))
+  );
+  
+  // Allow regeneration if bracket is broken, even if voting started
+  // This is necessary to fix tournaments affected by the index-based pairing bug
+  if (hasVoting && !isBrokenBracket) {
+    return { success: false, error: 'Cannot regenerate - knockout voting has already started' };
+  }
+  
+  // If bracket is broken and voting started, warn user that votes will be reset
+  let warningMessage = '';
+  if (isBrokenBracket && hasVoting) {
+    warningMessage = `⚠️ Bracket was broken (${actualFirstRoundMatchups} matchups instead of ${expectedFirstRoundMatchups}). Regenerating will reset any existing votes. `;
   }
   
   // Always recalculate group results to ensure all data (including posterUrl) is up to date
@@ -831,7 +851,8 @@ export function regenerateKnockoutBracket(guildId) {
         tournament, 
         matchups: firstRoundMatchups,
         totalMatchups: allMatchups.length,
-        wildcards: wildcardsResult.wildcards
+        wildcards: wildcardsResult.wildcards,
+        warning: warningMessage || undefined
       }
     : { success: false, error: 'Failed to save' };
 }
