@@ -470,30 +470,54 @@ Open all matchups in a specific region (left or right side) for voting.
 
 ### `/bracket open-matchup`
 
-Open a specific matchup for voting.
+Open matchup(s) for voting with text input or interactive buttons.
 
 **Who Can Use:** Admin/Mod only
 
 **Parameters:**
-- `matchup` (required, string): Matchup ID using regional label (e.g., "1A", "2B", "Finals")
+- `matchup` (optional, string): Matchup ID(s) using regional labels. Leave blank to select from buttons.
+  - Single: "1A", "2B", "Finals"
+  - Multiple: "1A,1B,2C" (comma-separated)
 - `duration` (optional, string): Voting duration (default: 24h, range: 5m-30d)
 
 **Example Usage:**
+
+**Interactive mode (no matchup parameter):**
+```
+/bracket open-matchup duration:"24h"
+```
+→ Shows buttons for all pending matchups. Click button(s) to open them.
+
+**Text mode (single matchup):**
 ```
 /bracket open-matchup matchup:"1A"
 /bracket open-matchup matchup:"2C" duration:"24h"
 /bracket open-matchup matchup:"Finals" duration:"48h"
 ```
 
+**Text mode (multiple matchups):**
+```
+/bracket open-matchup matchup:"1A,1B,1C" duration:"24h"
+/bracket open-matchup matchup:"2A,2B,2C,2D"
+```
+
+**Features:**
+- **Interactive buttons** - Leave matchup blank to see all pending matchups as buttons
+- **Multi-matchup support** - Open several matchups at once with comma-separated list
+- **Visual selection** - Buttons show matchup label and movie titles
+- **Batch processing** - Each matchup processed individually with success/error tracking
+- **Regional labels** - Use "1A", "2B" format for easy identification
+
 **Notes:**
-- Opens a single matchup for voting
 - Use regional labels: "1A", "2B", etc.
 - Finals matchup uses "Finals" as the label
+- Interactive mode shows up to 25 matchups (5 per row)
+- Buttons expire after 15 minutes
 - Useful for:
   - Spotlight matchups
   - Resolving technical issues
   - Managing voting flow
-  - Creating suspense
+  - Opening multiple matchups quickly
 - See `/bracket status` to find matchup IDs
 
 ---
@@ -524,30 +548,56 @@ Close all open matchups in the current round and advance winners.
 
 ### `/bracket close-matchup`
 
-Close a specific matchup and advance the winner.
+Close matchup(s) and advance winner(s) with text input or interactive buttons.
 
 **Who Can Use:** Admin/Mod only
 
 **Parameters:**
-- `matchup` (required, string): Matchup ID using regional label (e.g., "1A", "2B", "Finals")
+- `matchup` (optional, string): Matchup ID(s) using regional labels. Leave blank to select from buttons.
+  - Single: "1A", "2B", "Finals"
+  - Multiple: "1A,1B,2C" (comma-separated)
 
 **Example Usage:**
+
+**Interactive mode (no matchup parameter):**
+```
+/bracket close-matchup
+```
+→ Shows red buttons for all open matchups with current vote counts. Click button(s) to close them.
+
+**Text mode (single matchup):**
 ```
 /bracket close-matchup matchup:"1A"
 /bracket close-matchup matchup:"2C"
 /bracket close-matchup matchup:"Finals"
 ```
 
+**Text mode (multiple matchups):**
+```
+/bracket close-matchup matchup:"1A,1B,1C"
+/bracket close-matchup matchup:"2A,2B,2C,2D"
+```
+
+**Features:**
+- **Interactive buttons** - Leave matchup blank to see all open matchups as buttons
+- **Multi-matchup support** - Close several matchups at once with comma-separated list
+- **Visual selection** - Buttons show matchup label, titles, and current votes (e.g., "1A: Jaws(5) vs Night...(3)")
+- **Batch processing** - Each matchup processed individually with success/error tracking
+- **Auto-advance tracking** - Shows which winners were placed in next round
+- **Round completion detection** - Notifies when all matchups in round are closed
+
 **Notes:**
-- Closes a single matchup
-- Calculates winner by reaction count
-- Advances winner to next round
+- Calculates winner by vote count (most votes wins)
+- Advances winner to next round automatically
 - Posts results showing vote counts
 - Cannot undo - winner is locked in
+- Interactive mode shows up to 25 matchups (5 per row)
+- Buttons expire after 15 minutes
 - Useful for:
-  - Closing matchups individually
+  - Closing matchups individually or in batches
   - Managing voting flow
   - Resolving technical issues
+  - Quick tournament progression
 - Does not automatically advance round (use `/bracket close-knockout` for that)
 
 ---
