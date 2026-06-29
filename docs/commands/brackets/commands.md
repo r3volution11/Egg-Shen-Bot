@@ -442,29 +442,43 @@ Open all matchups in the current round for voting.
 
 ### `/bracket open-region`
 
-Open all matchups in a specific region (left or right side) for voting.
+Open all matchups in a specific region (left or right side) for voting with text input or interactive buttons.
 
 **Who Can Use:** Admin/Mod only
 
 **Parameters:**
-- `region` (required, choice): Region number
+- `region` (optional, choice): Region number. Leave blank to select from buttons.
   - `1` - Region 1 (Left Side)
   - `2` - Region 2 (Right Side)
 - `duration` (optional, string): Voting duration (default: 24h, range: 5m-30d)
 
 **Example Usage:**
+
+**Interactive mode (no region parameter):**
+```
+/bracket open-region duration:"24h"
+```
+→ Shows 2 buttons: "Region 1 (Left Side) ⬅️" and "Region 2 (Right Side) ➡️". Click to open.
+
+**Text mode:**
 ```
 /bracket open-region region:1
 /bracket open-region region:2 duration:"36h"
 /bracket open-region region:1 duration:"2d"
 ```
 
+**Features:**
+- **Interactive buttons** - Leave region blank to see 2 simple buttons with emoji indicators
+- **Matchup count preview** - See how many matchups in each region before opening
+- **Staggered voting** - Open half the bracket at a time to manage attention and build anticipation
+- **Visual region indicators** - ⬅️ for left side, ➡️ for right side
+
 **Notes:**
 - Opens half the bracket at a time (one region)
-- Useful for staggered voting or managing attention
-- Posts voting messages for all matchups in the region
+- Posts voting messages for all matchups in the selected region
 - Region 1 = left bracket, Region 2 = right bracket
 - Can open regions independently or simultaneously
+- Buttons expire after 15 minutes
 
 ---
 

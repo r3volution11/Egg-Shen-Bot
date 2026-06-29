@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Interactive Region Selector for open-region** (2026-06-29)
+  - **`/bracket open-region` with no parameter** - Shows 2 buttons: Region 1 (Left Side) and Region 2 (Right Side)
+  - **Simple button selection** - Just 2 options with directional emoji arrows (⬅️ ➡️)
+  - **Shows matchup counts** - See how many matchups in each region before opening
+  - **Consistent with other interactive selectors** - Same UX pattern as open-matchup and close-matchup
+  - **Benefits:**
+    - Faster than typing "1" or "2"
+    - Visual clarity with emoji indicators
+    - See matchup distribution before opening
+    - Consistent button-based workflow
 - **Interactive Matchup Selectors** (2026-06-29)
   - **`/bracket open-matchup` with no parameter** - Shows buttons for all pending matchups
   - **`/bracket close-matchup` with no parameter** - Shows buttons for all open matchups

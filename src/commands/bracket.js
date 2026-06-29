@@ -330,8 +330,8 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption(option =>
         option
           .setName('region')
-          .setDescription('Region number (1=left side, 2=right side)')
-          .setRequired(true)
+          .setDescription('Region number (1=left side, 2=right side). Leave blank to select from buttons.')
+          .setRequired(false)
           .addChoices(
             { name: 'Region 1 (Left Side)', value: 1 },
             { name: 'Region 2 (Right Side)', value: 2 }
@@ -2252,6 +2252,59 @@ async function handleCloseKnockout(interaction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
+/**
+ * Show interactive region selector when no region specified
+ */
+async function showRegionSelector(interaction, tournament, durationMs) {
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  // Get all matchups in current round
+  const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
+    m.round === tournament.phase && m.movie1 && m.movie2
+  );
+  
+  if (currentRoundMatchups.length === 0) {
+    await interaction.editReply(`❌ No matchups ready for ${roundName}.`);
+    return;
+  }
+  
+  // Count matchups by region
+  const midpoint = currentRoundMatchups.length / 2;
+  const region1Matchups = currentRoundMatchups.filter(m => m.position < midpoint);
+  const region2Matchups = currentRoundMatchups.filter(m => m.position >= midpoint);
+  
+  const timeRemaining = formatTimeRemaining(Date.now() + durationMs);
+  
+  // Build embed
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle(`🏆 Select Region to Open - ${roundName}`)
+    .setDescription(
+      `Choose which side of the bracket to open for voting:\n\n` +
+      `**Region 1 (Left Side):** ${region1Matchups.length} matchup${region1Matchups.length !== 1 ? 's' : ''}\n` +
+      `**Region 2 (Right Side):** ${region2Matchups.length} matchup${region2Matchups.length !== 1 ? 's' : ''}\n\n` +
+      `⏰ **Voting duration:** ${timeRemaining}\n` +
+      `💡 **Tip:** Opening by region helps manage voting flow and build anticipation!`
+    )
+    .setFooter({ text: 'Buttons expire after 15 minutes' });
+  
+  // Create region buttons
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`open_region_1_${durationMs}`)
+      .setLabel('Region 1 (Left Side)')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('⬅️'),
+    new ButtonBuilder()
+      .setCustomId(`open_region_2_${durationMs}`)
+      .setLabel('Region 2 (Right Side)')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('➡️')
+  );
+  
+  await interaction.editReply({ embeds: [embed], components: [row] });
+}
+
 async function handleOpenRegion(interaction) {
   await interaction.deferReply();
   
@@ -2270,14 +2323,19 @@ async function handleOpenRegion(interaction) {
     return;
   }
   
-  const deadline = Date.now() + durationMs;
-  
   const tournament = bracketManager.loadTournament(interaction.guildId);
   
   if (!tournament || tournament.status !== 'knockout') {
     await interaction.editReply('❌ No knockout bracket found. Use `/bracket advance-knockout` first.');
     return;
   }
+  
+  // If no region specified, show interactive selector
+  if (region === null || region === undefined) {
+    return await showRegionSelector(interaction, tournament, durationMs);
+  }
+  
+  const deadline = Date.now() + durationMs;
   
   // Get all matchups in current round
   const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
