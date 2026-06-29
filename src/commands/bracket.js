@@ -295,6 +295,12 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('advance-knockout')
       .setDescription('Generate knockout bracket from group results (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('How long voting stays open (e.g., "24h", "3d", "45m") - Default: 24h')
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -601,9 +607,8 @@ async function handleHelp(interaction) {
           '3️⃣ `/bracket open-groups groups:"A,B,C,D"` - Open voting\n' +
           '4️⃣ *Members click buttons to vote!*\n' +
           '5️⃣ Wait for auto-close or `/bracket close-groups`\n' +
-          '6️⃣ `/bracket advance-knockout` - Start bracket\n' +
-          '7️⃣ `/bracket open-knockout` - Open round voting\n' +
-          '8️⃣ Repeat until winner!',
+          '6️⃣ `/bracket advance-knockout duration:"24h"` - Start bracket (auto-opens voting)\n' +
+          '7️⃣ Repeat until winner!',
         inline: false
       },
       {
@@ -1408,6 +1413,21 @@ async function handleCloseGroups(interaction) {
 async function handleAdvanceKnockout(interaction) {
   await interaction.deferReply();
   
+  // Get duration parameter (default to 24h if not specified)
+  const durationStr = interaction.options.getString('duration') || '24h';
+  
+  // Parse and validate duration
+  const durationMs = parseDuration(durationStr);
+  if (!durationMs) {
+    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
+    return;
+  }
+  
+  if (!isValidDuration(durationMs)) {
+    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
+    return;
+  }
+  
   // Calculate wildcards
   const wildcardsResult = bracketManager.calculateWildcards(interaction.guildId);
   if (!wildcardsResult.success) {
@@ -1427,9 +1447,8 @@ async function handleAdvanceKnockout(interaction) {
   const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   const wildcardsCount = wildcardsResult.wildcards.length;
   
-  // Automatically open voting for first round (24 hour default)
-  const votingDuration = 24 * 60 * 60 * 1000; // 24 hours
-  const deadline = Date.now() + votingDuration;
+  // Automatically open voting for first round with specified duration
+  const deadline = Date.now() + durationMs;
   const openResult = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline);
   
   if (!openResult.success) {
