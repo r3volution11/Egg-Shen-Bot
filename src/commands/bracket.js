@@ -1645,33 +1645,39 @@ async function handleView(interaction) {
     return;
   }
   
-  // Check if tournament is in knockout phase
-  if (tournament.status !== 'knockout' && tournament.status !== 'completed') {
-    await interaction.editReply('❌ Visual bracket is only available during the knockout phase. Complete the group stage first using `/bracket advance-knockout`.');
-    return;
-  }
-  
-  if (!tournament.knockoutBracket || tournament.knockoutBracket.length === 0) {
-    await interaction.editReply('❌ No knockout bracket data available.');
-    return;
-  }
-  
   try {
-    // Generate bracket image
-    const imageBuffer = await bracketVisualizer.generateBracketImage(tournament);
+    // Generate appropriate visualization based on tournament phase
+    let imageBuffer;
+    let description;
+    
+    if (tournament.status === 'knockout' || tournament.status === 'completed') {
+      // Knockout phase: Show traditional bracket tree
+      if (!tournament.knockoutBracket || tournament.knockoutBracket.length === 0) {
+        await interaction.editReply('❌ No knockout bracket data available.');
+        return;
+      }
+      
+      imageBuffer = await bracketVisualizer.generateBracketImage(tournament);
+      description = `**Phase:** ${tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\n**Participants:** ${tournament.knockoutBracket.length * 2}`;
+      
+    } else {
+      // Setup or Group stage: Show full tournament structure
+      imageBuffer = await bracketVisualizer.generateFullTournamentView(tournament);
+      description = `**Phase:** ${tournament.status === 'setup' ? 'Setup' : 'Group Stage'}\n**Groups:** ${Object.keys(tournament.groups).length}\n**Total Titles:** ${Object.keys(tournament.groups).length * 4}`;
+    }
     
     // Create attachment
     const attachment = new AttachmentBuilder(imageBuffer, { 
-      name: 'bracket.png',
-      description: `${tournament.name} - Tournament Bracket`
+      name: 'tournament.png',
+      description: `${tournament.name} - Tournament View`
     });
     
     // Create embed
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setTitle(`🏆 ${tournament.name} - Bracket View`)
-      .setDescription(`**Phase:** ${tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\n**Participants:** ${tournament.knockoutBracket.length * 2}`)
-      .setImage('attachment://bracket.png')
+      .setTitle(`🏆 ${tournament.name}`)
+      .setDescription(description)
+      .setImage('attachment://tournament.png')
       .setFooter({ text: 'Use /bracket status for detailed standings' })
       .setTimestamp();
     
@@ -1681,8 +1687,8 @@ async function handleView(interaction) {
     });
     
   } catch (error) {
-    console.error('Error generating bracket view:', error);
-    await interaction.editReply('❌ Failed to generate bracket visualization. Error: ' + error.message);
+    console.error('Error generating tournament view:', error);
+    await interaction.editReply('❌ Failed to generate tournament visualization. Error: ' + error.message);
   }
 }
 
