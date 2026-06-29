@@ -10,12 +10,22 @@ import { EmbedBuilder } from 'discord.js';
 // Value: { messageId, channelId, timestamp }
 const userVotingDashboards = new Map();
 
+// In-memory cache for tracking public "All Votes" leaderboard messages
+// Key format: `${guildId}_knockout_${round}` or `${guildId}_group_${groupId}`
+// Value: { messageId, channelId, timestamp }
+const publicLeaderboards = new Map();
+
 // Clean up old dashboard entries (older than 1 hour) every 10 minutes
 setInterval(() => {
   const oneHourAgo = Date.now() - (60 * 60 * 1000);
   for (const [key, value] of userVotingDashboards.entries()) {
     if (value.timestamp < oneHourAgo) {
       userVotingDashboards.delete(key);
+    }
+  }
+  for (const [key, value] of publicLeaderboards.entries()) {
+    if (value.timestamp < oneHourAgo) {
+      publicLeaderboards.delete(key);
     }
   }
 }, 10 * 60 * 1000);
@@ -429,6 +439,45 @@ async function handleKnockoutVote(interaction) {
       content: `✅ Vote recorded for ${matchup.movie1.title} vs ${matchup.movie2.title}`,
       ephemeral: true
     }).catch(() => {});
+  }
+  
+  // Update or create public "All Votes" leaderboard
+  const leaderboardKey = `${interaction.guild.id}_knockout_${currentRound}`;
+  const existingLeaderboard = publicLeaderboards.get(leaderboardKey);
+  const leaderboardEmbed = buildPublicKnockoutLeaderboard(tournament, currentRound, currentRoundMatchups);
+  
+  try {
+    if (existingLeaderboard) {
+      // Try to update existing leaderboard
+      try {
+        const channel = await interaction.client.channels.fetch(existingLeaderboard.channelId);
+        const message = await channel.messages.fetch(existingLeaderboard.messageId);
+        await message.edit({ embeds: [leaderboardEmbed] });
+        console.log(`[ButtonHandler] Updated public knockout leaderboard for round ${currentRound}`);
+      } catch (fetchError) {
+        // Leaderboard message no longer exists, remove from cache and create new one
+        console.log(`[ButtonHandler] Public leaderboard not found, creating new one for round ${currentRound}`);
+        publicLeaderboards.delete(leaderboardKey);
+        const newLeaderboard = await interaction.channel.send({ embeds: [leaderboardEmbed] });
+        publicLeaderboards.set(leaderboardKey, {
+          messageId: newLeaderboard.id,
+          channelId: interaction.channelId,
+          timestamp: Date.now()
+        });
+      }
+    } else {
+      // First vote in this round - create new public leaderboard
+      console.log(`[ButtonHandler] Creating first public knockout leaderboard for round ${currentRound}`);
+      const newLeaderboard = await interaction.channel.send({ embeds: [leaderboardEmbed] });
+      publicLeaderboards.set(leaderboardKey, {
+        messageId: newLeaderboard.id,
+        channelId: interaction.channelId,
+        timestamp: Date.now()
+      });
+    }
+  } catch (leaderboardError) {
+    console.error('[ButtonHandler] Error managing public knockout leaderboard:', leaderboardError);
+    // Don't throw - leaderboard is nice-to-have, not critical
   }
   
   // Update the embed to show new vote counts
@@ -1040,6 +1089,84 @@ function buildKnockoutVotingDashboard(tournament, currentRound, matchups, userId
     .setTitle(`🏆 ${roundName} - Your Votes`)
     .setDescription(description)
     .setFooter({ text: 'This message updates as you vote • Only you can see this' })
+    .setTimestamp();
+  
+  return embed;
+}
+
+/**
+ * Build public "All Votes" leaderboard for knockout round
+ * @param {Object} tournament - Tournament data
+ * @param {string} currentRound - Current round name
+ * @param {Array} matchups - Array of matchups in current round
+ * @returns {EmbedBuilder} Public leaderboard embed
+ */
+function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups) {
+  const roundName = currentRound.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  // Count total votes across all matchups
+  let totalVotes = 0;
+  matchups.forEach(matchup => {
+    totalVotes += (matchup.votes.movie1.length + matchup.votes.movie2.length);
+  });
+  
+  // Build description with all matchup vote tallies
+  let description = `**📊 Live Vote Counts**\n\n`;
+  
+  // Helper function to get regional label
+  function getRegionalLabel(position, round) {
+    const roundSizes = {
+      'round_of_32': 16,
+      'round_of_16': 8,
+      'quarterfinals': 4,
+      'semifinals': 2,
+      'finals': 1
+    };
+    
+    if (round === 'finals') return 'Finals';
+    
+    const totalMatchups = roundSizes[round];
+    if (!totalMatchups) return String(position + 1);
+    
+    const midpoint = totalMatchups / 2;
+    const isLeftRegion = position < midpoint;
+    const region = isLeftRegion ? '1' : '2';
+    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    const letter = String.fromCharCode(65 + positionInRegion);
+    
+    return `${region}${letter}`;
+  }
+  
+  matchups.forEach((matchup) => {
+    const votes1 = matchup.votes.movie1.length;
+    const votes2 = matchup.votes.movie2.length;
+    const regionalLabel = getRegionalLabel(matchup.position, currentRound);
+    
+    // Truncate titles if needed
+    const title1 = matchup.movie1.title.length > 20 ? matchup.movie1.title.substring(0, 17) + '...' : matchup.movie1.title;
+    const title2 = matchup.movie2.title.length > 20 ? matchup.movie2.title.substring(0, 17) + '...' : matchup.movie2.title;
+    
+    // Determine leader
+    let leaderIndicator = '';
+    if (votes1 > votes2) {
+      leaderIndicator = ' 🔥';
+    } else if (votes2 > votes1) {
+      leaderIndicator = ' 🔥';
+    } else if (votes1 > 0 && votes2 > 0) {
+      leaderIndicator = ' 🤝';
+    }
+    
+    description += `**${regionalLabel}:** ${title1} (**${votes1}**) vs ${title2} (**${votes2}**)${leaderIndicator}\n`;
+  });
+  
+  description += `\n📈 **Total votes cast:** ${totalVotes}`;
+  description += `\n🎯 **Matchups open:** ${matchups.length}`;
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle(`🏆 ${roundName} - All Votes`)
+    .setDescription(description)
+    .setFooter({ text: 'This leaderboard updates in real-time as votes are cast' })
     .setTimestamp();
   
   return embed;

@@ -56,6 +56,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Sweet spot:** 50% provides strong visual presence without overwhelming text content
 
 ### Added
+- **Public "All Votes" Leaderboard for Knockout Rounds** (2026-06-29)
+  - **Real-time public leaderboard** - Single card visible to everyone showing current vote tallies across all matchups in the round
+  - **Updates in place** - Leaderboard refreshes automatically after each vote, not repeated
+  - **Live statistics:**
+    - Each matchup with current vote counts (e.g., "1A: Jaws (5) vs Kwaidan (3) 🔥")
+    - Leader indicator: 🔥 for matchup with more votes, 🤝 for tied matchups
+    - Total votes cast across all matchups
+    - Number of matchups currently open
+  - **Persistent tracking** - One leaderboard per guild per round, cached and updated in place
+  - **Benefits:**
+    - Users see real-time competition without voting
+    - Transparent vote counts visible to all
+    - Creates excitement and engagement around close matchups
+    - No chat spam - single card updates silently
+    - Complements personal "Your Votes" dashboard (ephemeral, only voter sees)
+  - **Two-card system:**
+    - "Your Votes" (ephemeral) - Personal voting progress, only you see
+    - "All Votes" (public) - Community leaderboard, everyone sees
 - **Interactive Region Selector for open-region** (2026-06-29)
   - **`/bracket open-region` with no parameter** - Shows 2 buttons: Region 1 (Left Side) and Region 2 (Right Side)
   - **Simple button selection** - Just 2 options with directional emoji arrows (⬅️ ➡️)
