@@ -11,17 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Persistent Ephemeral Voting Dashboard** (2026-06-28)
   - **Real-time personal dashboard** - Each user gets their own voting tracker (only they can see it)
   - **Updates as you vote** - Dashboard refreshes instantly with checkmarks (✅) for selected titles
-  - **Color-coded status** - Gray (no votes), Blue (1 of 2), Green (complete)
-  - **All titles visible** - Shows every movie with ✅ for selected, ⬜ for not selected
-  - **Progress indicators** - "1 of 2 selected" or "Vote complete!" with guidance
+  - **Color-coded status** - Gray (no votes), Blue (partial), Green (complete)
+  - **Works for BOTH phases:**
+    - **Group Stage:** Shows all titles with ✅ for selected, ⬜ for not selected
+    - **Knockout Rounds:** Shows all matchups with ✅ for voted, ⬜ for not voted
+  - **Progress indicators** - "1 of 2 selected" or "All matchups voted!" with guidance
   - **Persistent across clicks** - Same message updates instead of creating new messages
   - **Smart cleanup** - Old dashboards auto-deleted after 1 hour
   - **Benefits:**
-    - Users see their vote state in real-time
-    - No confusion about which buttons they clicked
+    - Users see their vote state in real-time across ALL matchups
+    - No confusion about which buttons they clicked (especially important in large knockout rounds)
     - Reduces channel clutter (one persistent message vs many)
     - Works perfectly with Discord's ephemeral system
     - No cross-user pollution (each dashboard is private)
+    - Track progress in Round of 32 (16 matchups), Round of 16 (8 matchups), etc.
 - **Consolidated Tournament Warning Messages** (2026-06-28)
   - **Grouped by deadline** - Multiple groups with same deadline = ONE warning message
   - **Before:** 4 groups closing = 4 separate warning messages

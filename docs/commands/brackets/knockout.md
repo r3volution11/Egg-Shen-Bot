@@ -112,7 +112,10 @@ Deadline: 6/27/2026, 11:00:00 PM
 **User Experience:**
 
 - Members click buttons to vote for their choice
-- Ephemeral confirmation shows vote was recorded
+- **Personal voting dashboard appears** (only visible to that user)
+- **Dashboard updates in real-time** showing all matchups with checkmarks (✅) for voted, (⬜) for not voted
+- **Track progress easily** - "3 of 8 voted" with color-coded status (Gray → Blue → Green)
+- **Perfect for large rounds** - See all your votes in Round of 32 (16 matchups), Round of 16 (8 matchups), etc.
 - Can change vote by clicking different button
 - Vote counts update in real-time on all messages
 - Clear deadline shown so members know when voting ends
