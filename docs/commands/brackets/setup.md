@@ -399,6 +399,8 @@ Vote for ONE title in each matchup below.
 **What happens next:**
 - Voting starts immediately (no need for `/bracket open-knockout`)
 - Members vote by clicking buttons for each matchup
+- **Personal voting dashboard appears** for each member showing all matchups with checkmarks
+- Dashboard updates in real-time as they vote (✅ = voted, ⬜ = not voted)
 - Voting auto-closes when deadline is reached
 - Use `/bracket close-knockout` if you need to close early
 
