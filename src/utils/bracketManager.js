@@ -433,8 +433,10 @@ export function voteGroupStage(guildId, userId, groupId, movieIndexes) {
     return { success: false, error: `Voting for Group ${groupId} ended ${timeAgo}. Ask an admin to extend the deadline or close voting.` };
   }
   
-  if (movieIndexes.length !== 2) {
-    return { success: false, error: 'Must vote for exactly 2 movies' };
+  // Allow 0-2 votes (in-progress voting)
+  // Users can select 0, 1, or 2 titles
+  if (movieIndexes.length > 2) {
+    return { success: false, error: 'Can only vote for up to 2 titles per group. Please deselect one first.' };
   }
   
   // Remove previous votes from this user in this group
