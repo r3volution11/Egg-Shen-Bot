@@ -83,6 +83,23 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
     
+    // Handle close matchup buttons
+    if (interaction.customId.startsWith('close_matchup_')) {
+      await handleCloseMatchupButton(interaction);
+      
+      // Log successful button interaction
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      
+      if (duration > 2000) {
+        logger.logPerformance('Button: close_matchup', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+    
     // Unknown button type
     console.warn(`[ButtonHandler] Unknown button interaction: ${interaction.customId}`);
     logger.warning(logger.LogCategory.BUTTON, 'Unknown button interaction', {
@@ -598,6 +615,129 @@ async function handleOpenMatchupButton(interaction) {
   // Send confirmation to button clicker
   await interaction.followUp({
     content: `✅ Opened matchup ${regionalLabel} for voting!`,
+    ephemeral: true
+  });
+}
+
+/**
+ * Handle close matchup button clicks from interactive selector
+ */
+async function handleCloseMatchupButton(interaction) {
+  // Parse button customId: close_matchup_{matchupId}
+  const [, , matchupId] = interaction.customId.split('_');
+  
+  // Dynamically import bracketManager and Discord components
+  const bracketManager = await import('../utils/bracketManager.js');
+  const { EmbedBuilder } = await import('discord.js');
+  
+  const tournament = bracketManager.loadTournament(interaction.guild.id);
+  
+  if (!tournament || tournament.status !== 'knockout') {
+    await interaction.followUp({
+      content: '❌ Tournament not in knockout phase.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Find the matchup
+  const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
+  
+  if (!matchup) {
+    await interaction.followUp({
+      content: '❌ Matchup not found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  if (matchup.status !== 'voting') {
+    await interaction.followUp({
+      content: '⚠️ This matchup is not currently open for voting.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Get regional label helper
+  function getRegionalLabel(position, round) {
+    const roundSizes = {
+      'round_of_32': 16,
+      'round_of_16': 8,
+      'quarterfinals': 4,
+      'semifinals': 2,
+      'finals': 1
+    };
+    
+    if (round === 'finals') return 'Finals';
+    
+    const totalMatchups = roundSizes[round];
+    if (!totalMatchups) return String(position + 1);
+    
+    const midpoint = totalMatchups / 2;
+    const isLeftRegion = position < midpoint;
+    const region = isLeftRegion ? '1' : '2';
+    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    const letter = String.fromCharCode(65 + positionInRegion);
+    
+    return `${region}${letter}`;
+  }
+  
+  const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+  
+  // Close this matchup
+  const result = bracketManager.closeKnockoutMatchup(interaction.guild.id, matchup.id);
+  
+  if (!result.success) {
+    await interaction.followUp({
+      content: `❌ Failed to close matchup: ${result.error}`,
+      ephemeral: true
+    });
+    return;
+  }
+  
+  const updatedTournament = result.tournament;
+  const updatedMatchup = updatedTournament.knockoutBracket.find(m => m.id === matchup.id);
+  
+  const votes1 = updatedMatchup.votes.movie1.length;
+  const votes2 = updatedMatchup.votes.movie2.length;
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  // Post result to channel
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`🏁 ${roundName} - Matchup ${regionalLabel} Complete!`)
+    .setDescription(
+      `**${updatedMatchup.winner.title}** wins!\n\n` +
+      `**${updatedMatchup.movie1.title}** (${votes1} votes) vs **${updatedMatchup.movie2.title}** (${votes2} votes)`
+    );
+  
+  if (result.autoAdvanced) {
+    embed.addFields({
+      name: '✅ Auto-Advanced',
+      value: `${updatedMatchup.winner.title} has been placed in the next round matchup.`
+    });
+  }
+  
+  // Check if all matchups in round are closed
+  const reloadedTournament = bracketManager.loadTournament(interaction.guild.id);
+  const roundMatchups = reloadedTournament.knockoutBracket.filter(m => m.round === tournament.phase);
+  const allClosed = roundMatchups.every(m => m.status === 'closed');
+  
+  if (allClosed) {
+    if (reloadedTournament.phase !== tournament.phase) {
+      const nextRoundName = reloadedTournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      embed.setFooter({ text: `All matchups complete! Tournament has advanced to ${nextRoundName}.` });
+    } else if (reloadedTournament.status === 'completed') {
+      embed.setFooter({ text: '🏆 Tournament complete! Check /bracket status for champion.' });
+    }
+  }
+  
+  await interaction.channel.send({ embeds: [embed] });
+  
+  // Send confirmation to button clicker
+  await interaction.followUp({
+    content: `✅ Closed matchup ${regionalLabel}!`,
     ephemeral: true
   });
 }
