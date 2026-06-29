@@ -8,6 +8,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Persistent Ephemeral Voting Dashboard** (2026-06-28)
+  - **Real-time personal dashboard** - Each user gets their own voting tracker (only they can see it)
+  - **Updates as you vote** - Dashboard refreshes instantly with checkmarks (✅) for selected titles
+  - **Color-coded status** - Gray (no votes), Blue (1 of 2), Green (complete)
+  - **All titles visible** - Shows every movie with ✅ for selected, ⬜ for not selected
+  - **Progress indicators** - "1 of 2 selected" or "Vote complete!" with guidance
+  - **Persistent across clicks** - Same message updates instead of creating new messages
+  - **Smart cleanup** - Old dashboards auto-deleted after 1 hour
+  - **Benefits:**
+    - Users see their vote state in real-time
+    - No confusion about which buttons they clicked
+    - Reduces channel clutter (one persistent message vs many)
+    - Works perfectly with Discord's ephemeral system
+    - No cross-user pollution (each dashboard is private)
+- **Consolidated Tournament Warning Messages** (2026-06-28)
+  - **Grouped by deadline** - Multiple groups with same deadline = ONE warning message
+  - **Before:** 4 groups closing = 4 separate warning messages
+  - **After:** 4 groups closing = 1 consolidated message: "Groups I, J, K, L"
+  - **Works for both phases** - Group stage AND knockout matchups
+  - **Benefits:**
+    - Reduces notification spam (4 messages → 1 message)
+    - Clearer communication (see all closing at once)
+    - Less channel clutter
+    - Better tournament pacing visibility
+- **Auto-Start Knockout Voting** (2026-06-28)
+  - **`/bracket advance-knockout` now auto-opens voting**
+  - **Customizable duration** - `/bracket advance-knockout duration:"24h"` (default: 24h)
+  - **One command workflow** - Generate bracket AND start voting immediately
+  - **Sends voting buttons** - All matchups ready to vote right away
+  - **Stores message IDs** - Scheduler can track and auto-close
+  - **Fallback handling** - Clear error if voting fails to open
+  - **Benefits:**
+    - Eliminates extra `/bracket open-knockout` step
+    - Better tournament flow and momentum
+    - Natural expectation met (knockout starts = voting starts)
+    - Fewer commands to remember
 - **Comprehensive Logging System** (Drupal Watchdog-style)
   - **File-based logging** - All events logged to `logs/` directory in JSON format
   - **8 severity levels** - EMERGENCY (0) to DEBUG (7) following syslog standards
@@ -432,6 +468,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Persistent storage in JSON format per-guild
   - Configurable via `/eggshen-config commands toggle` (can be enabled/disabled per server)
   - Alternative to `/poll` and `/vote` commands that may be provided by other bots
+
+### Fixed
+- **Button Selection Cross-User Pollution Bug** (2026-06-28)
+  - **Issue:** When User A voted, their button selections (green buttons) appeared as selected for ALL users (User B, C, D, etc.)
+  - **Root cause:** Discord messages are shared, not per-user. When buttonHandler edited the message to highlight buttons (ButtonStyle.Success), those style changes applied globally to everyone viewing the message.
+  - **Fix:** Removed button style updates from shared voting messages entirely. Buttons stay gray (ButtonStyle.Secondary) for everyone. Users see their selection feedback only in their private ephemeral dashboard.
+  - **Benefit:** No more confusion about seeing other people's votes highlighted on your screen.
+- **Bracket Visualization Layout Issues** (2026-06-28)
+  - **Issue:** Round of 32 had overlapping titles, missing TBD rectangles, inconsistent spacing
+  - **Root cause:** Used dynamic spacing based on canvas height instead of fixed MATCHUP_SPACING constant, causing overlaps with many matchups
+  - **Fix:** Now uses fixed MATCHUP_SPACING (140px) for consistent positioning, proper canvas height calculation, all matchups positioned at precise intervals
+  - **Benefit:** Clean, properly spaced brackets with no overlapping text and all TBD rectangles visible
 
 ## [1.0.0] - 2026-06-21
 

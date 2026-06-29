@@ -351,11 +351,16 @@ Group A
 
 ```
 /bracket advance-knockout
+/bracket advance-knockout duration:"48h"
 ```
 
-Generate the knockout bracket from group results.
+Generate the knockout bracket from group results and automatically start voting.
 
 **Who can use:** Administrators and Moderators only
+
+**Parameters:**
+- `duration` (optional): How long voting stays open (e.g., "24h", "3d", "45m")
+  - Default: 24 hours
 
 **Features:**
 - Calculates best third-place finishers (wildcards)
@@ -363,6 +368,8 @@ Generate the knockout bracket from group results.
 - Pairs group winners with non-winners from different groups
 - Randomized seeding for fairness
 - Posts wildcard announcement
+- **Automatically opens voting** with customizable duration
+- Sends voting buttons for all first-round matchups
 - **Full bracket tree generated** - All rounds created upfront with TBD placeholders
 
 **Requirements:**
@@ -371,14 +378,29 @@ Generate the knockout bracket from group results.
 
 **Output:**
 ```
-🏆 Knockout Bracket Generated!
+🏆 Round Of 16 - Knockout Stage Begins!
 
-Top 2 from each group advance automatically.
-8 wildcards selected: The Thing, Alien, Halloween...
+16 matchups created • 32 titles remain
+The tournament advances to single elimination!
 
-16 matchups created for Round of 16
-Matchups are pending and ready to open
+🗳️ Voting is now open!
+Vote for ONE title in each matchup below.
+
+⏰ Voting closes in: 24 hours
+
+🎟️ Wildcards (Best 8 Third-Place)
+1. The Thing (12 votes, Group E)
+2. Alien (11 votes, Group C)
+...
+
+[Voting buttons for each matchup appear below]
 ```
+
+**What happens next:**
+- Voting starts immediately (no need for `/bracket open-knockout`)
+- Members vote by clicking buttons for each matchup
+- Voting auto-closes when deadline is reached
+- Use `/bracket close-knockout` if you need to close early
 
 **→ [Continue to Knockout Rounds](./knockout)**
 
@@ -397,7 +419,7 @@ Matchups are pending and ready to open
 | `/bracket open-groups` | Start group voting (button-based) |
 | `/bracket my-votes` | Check voting status |
 | `/bracket close-groups` | Close voting and show results |
-| `/bracket advance-knockout` | Generate knockout bracket |
+| `/bracket advance-knockout` | Generate bracket + start voting |
 
 **Note:** Group voting is now button-based! Members vote by clicking buttons - no commands needed.
 

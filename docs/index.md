@@ -135,11 +135,8 @@ Host comprehensive tournaments for your community! **[View Full Tournament Guide
 2. **Add Titles**: `/bracket add-title group:A type:movie title:The Thing` (do this 32 times across 8 groups)
 3. **Announce**: `/bracket announce` - Publicly announce the tournament with full details
 4. **Group Voting**: `/bracket open-groups` - Let everyone vote on their favorites
-5. **Advance**: `/bracket advance-knockout` - Calculate winners and wildcards automatically
-6. **Knockout Rounds**: Open matchups flexibly:
-   - `/bracket open-knockout round:Round of 16` - Open entire round at once
-   - `/bracket open-region round:Quarterfinals region:1` - Open left side only
-   - `/bracket open-matchup round:Semifinals matchup:1A` - Open one matchup
+5. **Advance**: `/bracket advance-knockout duration:"24h"` - Generate bracket and start voting
+6. **Next Rounds**: After first round closes, use `/bracket open-knockout` for next round
 7. **Champion**: Winner is crowned automatically!
 
 **Tournament Features:**

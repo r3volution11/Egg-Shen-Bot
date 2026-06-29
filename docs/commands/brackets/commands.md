@@ -352,16 +352,29 @@ Close group voting and calculate results.
 
 ### `/bracket advance-knockout`
 
-Generate the knockout bracket from group results.
+Generate the knockout bracket from group results and automatically start voting.
 
 **Who Can Use:** Admin/Mod only
 
-**Parameters:** None
+**Parameters:**
+- `duration` (optional): How long voting stays open (e.g., "24h", "3d", "45m")
+  - Default: 24 hours if not specified
+  - Min: 5 minutes (5m)
+  - Max: 30 days (30d)
 
 **Example Usage:**
 ```
 /bracket advance-knockout
+/bracket advance-knockout duration:"48h"
+/bracket advance-knockout duration:"3d"
 ```
+
+**What It Does:**
+1. Calculates wildcards from 3rd place finishers
+2. Generates complete knockout bracket structure
+3. **Automatically opens voting** for the first round with specified duration
+4. Sends announcement with voting buttons for all matchups
+5. Stores message IDs for auto-close scheduler
 
 **Notes:**
 - All groups must be closed before advancing
@@ -374,8 +387,10 @@ Generate the knockout bracket from group results.
   - 24 titles: Round of 16 (with byes or wildcards)
   - 32 titles: Full Round of 32 bracket
 - Seeding uses serpentine pattern for fairness
+- **Voting starts immediately** - No need for separate `/bracket open-knockout` command
 - Once knockout begins, cannot edit tournament
 - Use `/bracket view` to see the bracket visualization
+- Voting will auto-close when deadline is reached
 
 ---
 
