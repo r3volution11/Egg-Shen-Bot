@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Button State Visual Feedback** (2026-06-29)
   - **Group Stage:** Personal voting dashboard now shows buttons with visual states
-    - Selected movies: Primary style (purple/blue - depends on theme)
-    - Unselected movies: Secondary style (gray)
+    - Selected titles: Primary style (purple/blue - depends on theme)
+    - Unselected titles: Secondary style (gray)
     - Buttons are disabled (display-only) - click the main message buttons to vote
   - **Knockout Rounds:** Vote confirmation shows both options as buttons
     - Your selection: Primary style (purple/blue)
@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Works with your Discord theme color scheme
     - No cross-user pollution (buttons only in your ephemeral messages)
   - **Note:** Buttons in shared voting messages stay gray (Secondary) to prevent cross-user state pollution. You see your selection states in your personal ephemeral dashboard/confirmation.
+  - **Applies to all media types:** Movies, TV shows, video games, board games, books, and any future additions (episodes, music, etc.)
 
 ### Changed
 - **Simplified Knockout Voting Confirmations** (2026-06-29)
