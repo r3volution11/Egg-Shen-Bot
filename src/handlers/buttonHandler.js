@@ -867,10 +867,20 @@ async function handleOpenRegionButton(interaction) {
   const timeRemaining = formatTimeRemaining(deadline);
   const regionName = regionNum === 1 ? 'Left Side' : 'Right Side';
   
-  // Build matchup embeds
-  const embeds = [];
-  const components = [];
+  // Send main announcement to channel
+  const mainEmbed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`📊 ${roundName} - Region ${regionNum} Voting Open! (${regionName})`)
+    .setDescription(
+      `**${regionMatchups.length} matchup${regionMatchups.length !== 1 ? 's' : ''}** in Region ${regionNum} are now open for voting.\n\n` +
+      `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}`
+    )
+    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
+  await interaction.channel.send({ embeds: [mainEmbed] });
+  
+  // Send each matchup as a separate message with its own buttons
   for (const matchup of regionMatchups) {
     const votes1 = matchup.votes.movie1.length;
     const votes2 = matchup.votes.movie2.length;
@@ -906,22 +916,17 @@ async function handleOpenRegionButton(interaction) {
         .setStyle(ButtonStyle.Primary)
     );
     
-    embeds.push(embed);
-    components.push(row);
+    // Send each matchup as its own message
+    const votingMessage = await interaction.channel.send({ embeds: [embed], components: [row] });
+    
+    // Store message ID for this matchup
+    bracketManager.storeMatchupVotingMessage(
+      interaction.guild.id,
+      matchup.id,
+      interaction.channel.id,
+      votingMessage.id
+    );
   }
-  
-  // Send main message to channel
-  const mainEmbed = new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle(`📊 ${roundName} - Region ${regionNum} Voting Open! (${regionName})`)
-    .setDescription(
-      `**${regionMatchups.length} matchup${regionMatchups.length !== 1 ? 's' : ''}** in Region ${regionNum} are now open for voting.\n\n` +
-      `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
-      `⏰ **Voting closes in:** ${timeRemaining}`
-    )
-    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
-  
-  await interaction.channel.send({ embeds: [mainEmbed, ...embeds], components });
   
   // Send confirmation to button clicker
   await interaction.followUp({
