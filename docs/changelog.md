@@ -473,6 +473,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Alternative to `/poll` and `/vote` commands that may be provided by other bots
 
 ### Fixed
+- **CRITICAL: Knockout Bracket Generation Bug** (2026-06-29)
+  - **Issue:** Tournaments with more than 4 groups had incomplete knockout brackets. For example, a 12-group tournament only created 4 first-round matchups instead of 12, leaving 8 qualified movies without matchups. Visualization showed sparse Round of 32/16 with mostly TBD placeholders.
+  - **Root cause:** Code used `opponent.index` to track which runners-up had been matched. The `index` property represents position within each group (0=1st, 1=2nd, 2=3rd, 3=4th), NOT a unique identifier. Multiple runners-up across different groups share the same index value (e.g., all second-place finishers have index=1). After matching one opponent with index=2, ALL other runners-up with index=2 were incorrectly marked as "used", even though they were different movies from different groups.
+  - **Example:** In a 12-group tournament, runners-up had indices Counter({0: 2, 1: 4, 2: 3, 3: 3}). After matching 4 winners (one per unique index value 0-3), the code thought all opponents were used, leaving 8 winners with no matchups.
+  - **Fix:** Changed to use unique key `title + groupId` instead of `index` to track used opponents. Now properly creates matchups for ALL qualified movies.
+  - **Impact:** Affects all tournaments with 5+ groups. Existing broken tournaments can be fixed with `/bracket regenerate`.
+  - **Benefit:** Complete, properly populated knockout brackets with all qualified movies receiving first-round matchups.
 - **Button Selection Cross-User Pollution Bug** (2026-06-28)
   - **Issue:** When User A voted, their button selections (green buttons) appeared as selected for ALL users (User B, C, D, etc.)
   - **Root cause:** Discord messages are shared, not per-user. When buttonHandler edited the message to highlight buttons (ButtonStyle.Success), those style changes applied globally to everyone viewing the message.
