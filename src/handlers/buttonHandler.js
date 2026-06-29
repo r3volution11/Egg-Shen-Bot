@@ -347,6 +347,9 @@ async function handleGroupVote(interaction) {
  * Handle knockout voting button clicks
  */
 async function handleKnockoutVote(interaction) {
+  // Defer the interaction immediately to acknowledge the button click
+  await interaction.deferReply({ ephemeral: true });
+  
   const [, , matchupId, choice] = interaction.customId.split('_');
   
   // Dynamically import bracketManager
@@ -361,9 +364,8 @@ async function handleKnockoutVote(interaction) {
   );
   
   if (!result.success) {
-    await interaction.followUp({
-      content: `❌ ${result.error}`,
-      ephemeral: true
+    await interaction.editReply({
+      content: `❌ ${result.error}`
     });
     return;
   }
@@ -394,41 +396,43 @@ async function handleKnockoutVote(interaction) {
         const message = await channel.messages.fetch(existingDashboard.messageId).catch(() => null);
         if (message) {
           await message.edit({ embeds: [dashboardEmbed] });
-        } else {
-          // Message was deleted, create a new one
-          const newMessage = await interaction.followUp({
-            embeds: [dashboardEmbed],
-            ephemeral: true,
-            fetchReply: true
+          // Acknowledge the interaction with a simple ephemeral message
+          await interaction.editReply({
+            content: '✅ Vote recorded!'
           });
+        } else {
+          // Message was deleted, use editReply to create a new dashboard
+          await interaction.editReply({
+            embeds: [dashboardEmbed]
+          });
+          // Store this new message
+          const replied = await interaction.fetchReply();
           userVotingDashboards.set(dashboardKey, {
-            messageId: newMessage.id,
+            messageId: replied.id,
             channelId: interaction.channelId,
             timestamp: Date.now()
           });
         }
       } else {
-        // Channel not accessible, create new message
-        const newMessage = await interaction.followUp({
-          embeds: [dashboardEmbed],
-          ephemeral: true,
-          fetchReply: true
+        // Channel not accessible, use editReply to create new message
+        await interaction.editReply({
+          embeds: [dashboardEmbed]
         });
+        const replied = await interaction.fetchReply();
         userVotingDashboards.set(dashboardKey, {
-          messageId: newMessage.id,
+          messageId: replied.id,
           channelId: interaction.channelId,
           timestamp: Date.now()
         });
       }
     } else {
-      // Create new dashboard
-      const newMessage = await interaction.followUp({
-        embeds: [dashboardEmbed],
-        ephemeral: true,
-        fetchReply: true
+      // Create new dashboard with editReply
+      await interaction.editReply({
+        embeds: [dashboardEmbed]
       });
+      const replied = await interaction.fetchReply();
       userVotingDashboards.set(dashboardKey, {
-        messageId: newMessage.id,
+        messageId: replied.id,
         channelId: interaction.channelId,
         timestamp: Date.now()
       });
@@ -436,9 +440,14 @@ async function handleKnockoutVote(interaction) {
   } catch (dashboardError) {
     console.error('[ButtonHandler] Error managing knockout voting dashboard:', dashboardError);
     // Fallback to simple confirmation if dashboard fails
-    await interaction.followUp({
-      content: `✅ Vote recorded for ${matchup.movie1.title} vs ${matchup.movie2.title}`,
-      ephemeral: true
+    await interaction.editReply({
+      content: `✅ Vote recorded for ${matchup.movie1.title} vs ${matchup.movie2.title}`
+    }).catch(() => {
+      // If even this fails, try followUp
+      interaction.followUp({
+        content: `✅ Vote recorded!`,
+        ephemeral: true
+      }).catch(() => {});
     });
   }
   
