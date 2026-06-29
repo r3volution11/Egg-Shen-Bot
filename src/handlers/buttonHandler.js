@@ -571,6 +571,7 @@ async function handleOpenMatchupButton(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0x4EC5ED)
     .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+    .setDescription(`**${regionalLabel}:** Vote for your pick!`)
     .addFields(
       { 
         name: `${matchup.movie1.title}`, 

@@ -1501,6 +1501,7 @@ async function handleAdvanceKnockout(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
@@ -2133,6 +2134,7 @@ async function handleOpenKnockout(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
@@ -2330,6 +2332,7 @@ async function handleOpenRegion(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
@@ -2587,6 +2590,7 @@ async function handleOpenMatchup(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`${roundName} - Region ${regionNum} - Matchup ${regionalLabel}`)
+      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
@@ -2673,6 +2677,7 @@ async function handleOpenMatchup(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
