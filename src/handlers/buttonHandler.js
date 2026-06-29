@@ -3,8 +3,9 @@
  */
 import * as logger from '../utils/logger.js';
 
-// In-memory cache for tracking ephemeral voting dashboard messages per user per group
-// Key format: `${guildId}_${userId}_${groupId}`
+// In-memory cache for tracking ephemeral voting dashboard messages per user
+// For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
+// For knockout: Key format: `${guildId}_${userId}_knockout_${round}`
 // Value: { messageId, channelId, timestamp }
 const userVotingDashboards = new Map();
 
@@ -188,7 +189,7 @@ async function handleGroupVote(interaction) {
   const dashboardEmbed = buildVotingDashboard(updatedGroup, groupId, newVotes);
   
   // Check if user has an existing voting dashboard for this group
-  const dashboardKey = `${interaction.guild.id}_${interaction.user.id}_${groupId}`;
+  const dashboardKey = `${interaction.guild.id}_${interaction.user.id}_group_${groupId}`;
   const existingDashboard = userVotingDashboards.get(dashboardKey);
   
   try {
@@ -315,24 +316,79 @@ async function handleKnockoutVote(interaction) {
     return;
   }
   
-  // Find the matchup to get movie titles
-  const matchup = result.tournament.knockoutBracket.find(m => m.id === matchupId);
-  const votedMovie = choice === '1' ? matchup.movie1 : matchup.movie2;
+  const tournament = result.tournament;
   
-  // Create visual feedback embed
-  const responseEmbed = new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle('✅ Vote Recorded!')
-    .setDescription(
-      `**Your selection:**\n🏆 ${votedMovie.title}\n\n` +
-      `💡 You can change your vote anytime before voting closes.`
-    )
-    .setFooter({ text: `Matchup: ${matchup.id || matchup.position + 1}` });
+  // Find the matchup to get current round
+  const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
+  const currentRound = matchup.round;
   
-  await interaction.followUp({
-    embeds: [responseEmbed],
-    ephemeral: true
-  });
+  // Get all matchups in current round that are voting
+  const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
+    m.round === currentRound && m.status === 'voting'
+  );
+  
+  // Build persistent knockout dashboard for this user
+  const dashboardEmbed = buildKnockoutVotingDashboard(tournament, currentRound, currentRoundMatchups, interaction.user.id);
+  
+  // Check if user has an existing voting dashboard for this round
+  const dashboardKey = `${interaction.guild.id}_${interaction.user.id}_knockout_${currentRound}`;
+  const existingDashboard = userVotingDashboards.get(dashboardKey);
+  
+  try {
+    if (existingDashboard) {
+      // Update existing dashboard
+      const channel = await interaction.client.channels.fetch(existingDashboard.channelId).catch(() => null);
+      if (channel) {
+        const message = await channel.messages.fetch(existingDashboard.messageId).catch(() => null);
+        if (message) {
+          await message.edit({ embeds: [dashboardEmbed] });
+        } else {
+          // Message was deleted, create a new one
+          const newMessage = await interaction.followUp({
+            embeds: [dashboardEmbed],
+            ephemeral: true,
+            fetchReply: true
+          });
+          userVotingDashboards.set(dashboardKey, {
+            messageId: newMessage.id,
+            channelId: interaction.channelId,
+            timestamp: Date.now()
+          });
+        }
+      } else {
+        // Channel not accessible, create new message
+        const newMessage = await interaction.followUp({
+          embeds: [dashboardEmbed],
+          ephemeral: true,
+          fetchReply: true
+        });
+        userVotingDashboards.set(dashboardKey, {
+          messageId: newMessage.id,
+          channelId: interaction.channelId,
+          timestamp: Date.now()
+        });
+      }
+    } else {
+      // Create new dashboard
+      const newMessage = await interaction.followUp({
+        embeds: [dashboardEmbed],
+        ephemeral: true,
+        fetchReply: true
+      });
+      userVotingDashboards.set(dashboardKey, {
+        messageId: newMessage.id,
+        channelId: interaction.channelId,
+        timestamp: Date.now()
+      });
+    }
+  } catch (dashboardError) {
+    console.error('[ButtonHandler] Error managing knockout voting dashboard:', dashboardError);
+    // Fallback to simple confirmation if dashboard fails
+    await interaction.followUp({
+      content: `✅ Vote recorded for ${matchup.movie1.title} vs ${matchup.movie2.title}`,
+      ephemeral: true
+    });
+  }
   
   // Update the embed to show new vote counts
   try {
@@ -429,19 +485,102 @@ function buildVotingDashboard(group, groupId, userVotes) {
 }
 
 /**
- * Clear voting dashboard entries for a specific group (called when voting closes)
- * @param {string} guildId - Guild ID
- * @param {string} groupId - Group ID
+ * Build a visual knockout voting dashboard showing all matchups in current round
+ * @param {Object} tournament - Tournament data
+ * @param {string} currentRound - Current round name
+ * @param {Array} matchups - Array of matchups in current round
+ * @param {string} userId - User ID
+ * @returns {EmbedBuilder} Dashboard embed
  */
-export function clearVotingDashboards(guildId, groupId) {
+function buildKnockoutVotingDashboard(tournament, currentRound, matchups, userId) {
+  const { EmbedBuilder } = require('discord.js');
+  
+  // Get user's votes for all matchups in this round
+  const userVotes = tournament.votes?.[userId] || {};
+  const votedCount = matchups.filter(m => userVotes[m.id] !== undefined).length;
+  const totalCount = matchups.length;
+  
+  // Determine color and status
+  let color, statusText, statusEmoji;
+  if (votedCount === 0) {
+    color = 0x888888; // Gray
+    statusText = 'No votes cast';
+    statusEmoji = '⬜';
+  } else if (votedCount < totalCount) {
+    color = 0x4EC5ED; // Blue
+    statusText = `${votedCount} of ${totalCount} voted`;
+    statusEmoji = '🔵';
+  } else {
+    color = 0x00FF00; // Green
+    statusText = 'All matchups voted!';
+    statusEmoji = '✅';
+  }
+  
+  const roundName = currentRound.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  // Build description with all matchups and vote indicators
+  let description = `**${statusEmoji} ${statusText}**\n\n`;
+  
+  matchups.forEach((matchup) => {
+    const userChoice = userVotes[matchup.id];
+    const hasVoted = userChoice !== undefined;
+    const indicator = hasVoted ? '✅' : '⬜';
+    
+    let matchupText = '';
+    if (hasVoted) {
+      const votedTitle = userChoice === 1 ? matchup.movie1.title : matchup.movie2.title;
+      const truncated = votedTitle.length > 35 ? votedTitle.substring(0, 32) + '...' : votedTitle;
+      matchupText = `${indicator} **Matchup ${matchup.position + 1}:** ${truncated}`;
+    } else {
+      const title1 = matchup.movie1.title.length > 18 ? matchup.movie1.title.substring(0, 15) + '...' : matchup.movie1.title;
+      const title2 = matchup.movie2.title.length > 18 ? matchup.movie2.title.substring(0, 15) + '...' : matchup.movie2.title;
+      matchupText = `${indicator} **Matchup ${matchup.position + 1}:** ${title1} vs ${title2}`;
+    }
+    description += matchupText + '\n';
+  });
+  
+  description += `\n💡 *Click matchup buttons to vote*`;
+  if (votedCount < totalCount) {
+    description += `\n📝 *${totalCount - votedCount} matchup${totalCount - votedCount !== 1 ? 's' : ''} remaining*`;
+  } else {
+    description += `\n🎉 *You can still change your votes*`;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setTitle(`🏆 ${roundName} - Your Votes`)
+    .setDescription(description)
+    .setFooter({ text: 'This message updates as you vote • Only you can see this' })
+    .setTimestamp();
+  
+  return embed;
+}
+
+/**
+ * Clear voting dashboard entries for a specific group or knockout round
+ * @param {string} guildId - Guild ID
+ * @param {string} identifier - Group ID or round name
+ * @param {string} type - 'group' or 'knockout'
+ */
+export function clearVotingDashboards(guildId, identifier, type = 'group') {
   const keysToDelete = [];
+  const searchPattern = type === 'knockout' 
+    ? `${guildId}_.*_knockout_${identifier}`
+    : `${guildId}_.*_group_${identifier}`;
+  
   for (const key of userVotingDashboards.keys()) {
-    if (key.startsWith(`${guildId}_`) && key.endsWith(`_${groupId}`)) {
-      keysToDelete.push(key);
+    if (type === 'knockout') {
+      if (key.includes(`${guildId}_`) && key.includes(`_knockout_${identifier}`)) {
+        keysToDelete.push(key);
+      }
+    } else {
+      if (key.startsWith(`${guildId}_`) && key.includes(`_group_${identifier}`)) {
+        keysToDelete.push(key);
+      }
     }
   }
   keysToDelete.forEach(key => userVotingDashboards.delete(key));
-  console.log(`[ButtonHandler] Cleared ${keysToDelete.length} voting dashboard(s) for Group ${groupId}`);
+  console.log(`[ButtonHandler] Cleared ${keysToDelete.length} voting dashboard(s) for ${type === 'knockout' ? 'Round' : 'Group'} ${identifier}`);
 }
 
 // Handle "Log to Watch History" button from timer stop
