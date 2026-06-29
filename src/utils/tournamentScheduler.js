@@ -98,27 +98,48 @@ async function checkGroupDeadlines(guildId, tournament, now) {
     const guild = await client.guilds.fetch(guildId).catch(() => null);
     if (!guild) return;
     
+    // Group warnings by deadline time and channel to consolidate messages
+    const warningsByDeadline = new Map(); // key: `${channelId}_${deadline}`, value: [groupIds]
+    const groupsToClose = [];
+    
     for (const [groupId, group] of Object.entries(tournament.groups)) {
       if (!group.votingOpen || !group.votingDeadline) continue;
       
       const warningKey = `${guildId}_group_${groupId}`;
       const timeUntilDeadline = group.votingDeadline - now;
       
-      // Send 1-hour warning
+      // Collect groups that need warnings (within 1 hour, not already warned)
       if (
         timeUntilDeadline > 0 &&
         timeUntilDeadline <= WARNING_THRESHOLD &&
         !sentWarnings.has(warningKey)
       ) {
-        await sendVotingWarning(guild, tournament, 'group', groupId, group);
-        sentWarnings.set(warningKey, now);
+        const channelId = group.votingMessageChannelId;
+        if (channelId) {
+          const key = `${channelId}_${group.votingDeadline}`;
+          if (!warningsByDeadline.has(key)) {
+            warningsByDeadline.set(key, { channelId, deadline: group.votingDeadline, groups: [] });
+          }
+          warningsByDeadline.get(key).groups.push(groupId);
+          sentWarnings.set(warningKey, now);
+        }
       }
       
-      // Auto-close if deadline passed
+      // Collect groups to auto-close
       if (now > group.votingDeadline) {
-        await autoCloseGroup(guild, tournament, groupId, group);
+        groupsToClose.push({ groupId, group });
         sentWarnings.delete(warningKey);
       }
+    }
+    
+    // Send consolidated warnings (one message per deadline time)
+    for (const { channelId, deadline, groups } of warningsByDeadline.values()) {
+      await sendConsolidatedGroupWarning(guild, tournament, channelId, deadline, groups);
+    }
+    
+    // Auto-close groups individually
+    for (const { groupId, group } of groupsToClose) {
+      await autoCloseGroup(guild, tournament, groupId, group);
     }
   } catch (error) {
     console.error(`[TournamentScheduler] Error checking group deadlines for guild ${guildId}:`, error);
@@ -133,27 +154,48 @@ async function checkKnockoutDeadlines(guildId, tournament, now) {
     const guild = await client.guilds.fetch(guildId).catch(() => null);
     if (!guild) return;
     
+    // Group warnings by deadline time and channel to consolidate messages
+    const warningsByDeadline = new Map(); // key: `${channelId}_${deadline}`, value: [matchups]
+    const matchupsToClose = [];
+    
     for (const matchup of tournament.knockoutBracket) {
       if (matchup.status !== 'voting' || !matchup.votingDeadline) continue;
       
       const warningKey = `${guildId}_matchup_${matchup.id}`;
       const timeUntilDeadline = matchup.votingDeadline - now;
       
-      // Send 1-hour warning
+      // Collect matchups that need warnings (within 1 hour, not already warned)
       if (
         timeUntilDeadline > 0 &&
         timeUntilDeadline <= WARNING_THRESHOLD &&
         !sentWarnings.has(warningKey)
       ) {
-        await sendVotingWarning(guild, tournament, 'matchup', matchup.id, matchup);
-        sentWarnings.set(warningKey, now);
+        const channelId = matchup.messageChannelId;
+        if (channelId) {
+          const key = `${channelId}_${matchup.votingDeadline}`;
+          if (!warningsByDeadline.has(key)) {
+            warningsByDeadline.set(key, { channelId, deadline: matchup.votingDeadline, matchups: [] });
+          }
+          warningsByDeadline.get(key).matchups.push(matchup);
+          sentWarnings.set(warningKey, now);
+        }
       }
       
-      // Auto-close if deadline passed
+      // Collect matchups to auto-close
       if (now > matchup.votingDeadline) {
-        await autoCloseMatchup(guild, tournament, matchup);
+        matchupsToClose.push(matchup);
         sentWarnings.delete(warningKey);
       }
+    }
+    
+    // Send consolidated warnings (one message per deadline time)
+    for (const { channelId, deadline, matchups } of warningsByDeadline.values()) {
+      await sendConsolidatedMatchupWarning(guild, tournament, channelId, deadline, matchups);
+    }
+    
+    // Auto-close matchups individually
+    for (const matchup of matchupsToClose) {
+      await autoCloseMatchup(guild, tournament, matchup);
     }
   } catch (error) {
     console.error(`[TournamentScheduler] Error checking knockout deadlines for guild ${guildId}:`, error);
@@ -161,29 +203,81 @@ async function checkKnockoutDeadlines(guildId, tournament, now) {
 }
 
 /**
- * Send 1-hour warning before voting closes
+ * Send consolidated 1-hour warning for multiple groups with same deadline
  */
-async function sendVotingWarning(guild, tournament, type, id, item) {
+async function sendConsolidatedGroupWarning(guild, tournament, channelId, deadline, groupIds) {
   try {
-    // Find the voting message channel
-    const messageChannelId = type === 'group' ? item.votingMessageChannelId : item.messageChannelId;
-    if (!messageChannelId) return;
-    
-    const channel = await guild.channels.fetch(messageChannelId).catch(() => null);
+    const channel = await guild.channels.fetch(channelId).catch(() => null);
     if (!channel) return;
     
-    const timeRemaining = formatTimeRemaining(item.votingDeadline);
-    const title = type === 'group' ? `Group ${id}` : getMatchupTitle(item);
+    const timeRemaining = formatTimeRemaining(deadline);
+    const groupList = groupIds.length === 1 
+      ? `Group ${groupIds[0]}`
+      : `Groups ${groupIds.join(', ')}`;
     
     const embed = new EmbedBuilder()
       .setColor('#FFA500') // Orange for warning
       .setTitle(`⏰ Voting Closing Soon!`)
-      .setDescription(`**${tournament.name}** - ${title}\n\nVoting closes in **${timeRemaining}**\n\nCast your votes now!`)
+      .setDescription(
+        `**${tournament.name}** - ${groupList}\n\n` +
+        `Voting closes in **${timeRemaining}**\n\n` +
+        `Cast your votes now!\n` +
+        `${new Date(deadline).toLocaleString()}`
+      )
       .setTimestamp();
     
     await channel.send({ embeds: [embed] });
+    
+    logger.notice(logger.LogCategory.SCHEDULER, `Sent voting warning for ${groupList}`, {
+      guildId: guild.id,
+      tournamentName: tournament.name,
+      groupIds,
+      timeRemaining
+    });
   } catch (error) {
-    console.error('[TournamentScheduler] Error sending warning:', error);
+    console.error('[TournamentScheduler] Error sending consolidated warning:', error);
+  }
+}
+
+/**
+ * Send consolidated 1-hour warning for multiple matchups with same deadline
+ */
+async function sendConsolidatedMatchupWarning(guild, tournament, channelId, deadline, matchups) {
+  try {
+    const channel = await guild.channels.fetch(channelId).catch(() => null);
+    if (!channel) return;
+    
+    const timeRemaining = formatTimeRemaining(deadline);
+    const matchupList = matchups.length === 1
+      ? getMatchupTitle(matchups[0])
+      : `${matchups.length} matchup${matchups.length !== 1 ? 's' : ''}`;
+    
+    let description = `**${tournament.name}** - ${matchupList}\n\n` +
+      `Voting closes in **${timeRemaining}**\n\n`;
+    
+    // If only a few matchups, list them
+    if (matchups.length <= 3) {
+      description += matchups.map(m => `• ${getMatchupTitle(m)}`).join('\n') + '\n\n';
+    }
+    
+    description += `Cast your votes now!\n${new Date(deadline).toLocaleString()}`;
+    
+    const embed = new EmbedBuilder()
+      .setColor('#FFA500') // Orange for warning
+      .setTitle(`⏰ Voting Closing Soon!`)
+      .setDescription(description)
+      .setTimestamp();
+    
+    await channel.send({ embeds: [embed] });
+    
+    logger.notice(logger.LogCategory.SCHEDULER, `Sent voting warning for ${matchupList}`, {
+      guildId: guild.id,
+      tournamentName: tournament.name,
+      matchupCount: matchups.length,
+      timeRemaining
+    });
+  } catch (error) {
+    console.error('[TournamentScheduler] Error sending consolidated matchup warning:', error);
   }
 }
 
