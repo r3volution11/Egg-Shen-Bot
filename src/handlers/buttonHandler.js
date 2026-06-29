@@ -100,6 +100,23 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
     
+    // Handle open region buttons
+    if (interaction.customId.startsWith('open_region_')) {
+      await handleOpenRegionButton(interaction);
+      
+      // Log successful button interaction
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      
+      if (duration > 2000) {
+        logger.logPerformance('Button: open_region', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+    
     // Unknown button type
     console.warn(`[ButtonHandler] Unknown button interaction: ${interaction.customId}`);
     logger.warning(logger.LogCategory.BUTTON, 'Unknown button interaction', {
@@ -739,6 +756,176 @@ async function handleCloseMatchupButton(interaction) {
   // Send confirmation to button clicker
   await interaction.followUp({
     content: `✅ Closed matchup ${regionalLabel}!`,
+    ephemeral: true
+  });
+}
+
+/**
+ * Handle open region button clicks from interactive selector
+ */
+async function handleOpenRegionButton(interaction) {
+  // Parse button customId: open_region_{region}_{durationMs}
+  const [, , region, durationMs] = interaction.customId.split('_');
+  const regionNum = parseInt(region);
+  
+  // Dynamically import bracketManager and Discord components
+  const bracketManager = await import('../utils/bracketManager.js');
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+  
+  const tournament = bracketManager.loadTournament(interaction.guild.id);
+  
+  if (!tournament || tournament.status !== 'knockout') {
+    await interaction.followUp({
+      content: '❌ Tournament not in knockout phase.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  const deadline = Date.now() + parseInt(durationMs);
+  
+  // Get all matchups in current round
+  const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
+    m.round === tournament.phase && m.movie1 && m.movie2
+  );
+  
+  if (currentRoundMatchups.length === 0) {
+    await interaction.followUp({
+      content: `❌ No matchups ready for ${tournament.phase.replace(/_/g, ' ')}.`,
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Filter by region (region 1 = left side, region 2 = right side)
+  const midpoint = currentRoundMatchups.length / 2;
+  const regionMatchups = currentRoundMatchups.filter(m => {
+    if (regionNum === 1) {
+      return m.position < midpoint; // Left side
+    } else {
+      return m.position >= midpoint; // Right side
+    }
+  });
+  
+  if (regionMatchups.length === 0) {
+    await interaction.followUp({
+      content: `❌ No matchups found in Region ${regionNum}.`,
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Open all matchups in this region
+  for (const matchup of regionMatchups) {
+    matchup.status = 'voting';
+    matchup.votingOpened = Date.now();
+    matchup.votingDeadline = deadline;
+    if (!matchup.votes) {
+      matchup.votes = { movie1: [], movie2: [] };
+    }
+  }
+  
+  bracketManager.saveTournament(interaction.guild.id, tournament);
+  
+  // Format time remaining helper
+  function formatTimeRemaining(deadline) {
+    const remaining = deadline - Date.now();
+    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  }
+  
+  // Get regional label helper
+  function getRegionalLabel(position, round) {
+    const roundSizes = {
+      'round_of_32': 16,
+      'round_of_16': 8,
+      'quarterfinals': 4,
+      'semifinals': 2,
+      'finals': 1
+    };
+    
+    if (round === 'finals') return 'Finals';
+    
+    const totalMatchups = roundSizes[round];
+    if (!totalMatchups) return String(position + 1);
+    
+    const midpoint = totalMatchups / 2;
+    const isLeftRegion = position < midpoint;
+    const region = isLeftRegion ? '1' : '2';
+    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    const letter = String.fromCharCode(65 + positionInRegion);
+    
+    return `${region}${letter}`;
+  }
+  
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const timeRemaining = formatTimeRemaining(deadline);
+  const regionName = regionNum === 1 ? 'Left Side' : 'Right Side';
+  
+  // Build matchup embeds
+  const embeds = [];
+  const components = [];
+  
+  for (const matchup of regionMatchups) {
+    const votes1 = matchup.votes.movie1.length;
+    const votes2 = matchup.votes.movie2.length;
+    const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x4EC5ED)
+      .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
+      .addFields(
+        { 
+          name: `${matchup.movie1.title}`, 
+          value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
+          inline: true 
+        },
+        { name: '\u200B', value: 'vs', inline: true },
+        { 
+          name: `${matchup.movie2.title}`, 
+          value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
+          inline: true 
+        }
+      )
+      .setFooter({ text: 'Click a button below to vote' });
+    
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`knockout_vote_${matchup.id}_1`)
+        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`knockout_vote_${matchup.id}_2`)
+        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
+        .setStyle(ButtonStyle.Primary)
+    );
+    
+    embeds.push(embed);
+    components.push(row);
+  }
+  
+  // Send main message to channel
+  const mainEmbed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`📊 ${roundName} - Region ${regionNum} Voting Open! (${regionName})`)
+    .setDescription(
+      `**${regionMatchups.length} matchup${regionMatchups.length !== 1 ? 's' : ''}** in Region ${regionNum} are now open for voting.\n\n` +
+      `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}`
+    )
+    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+  
+  await interaction.channel.send({ embeds: [mainEmbed, ...embeds], components });
+  
+  // Send confirmation to button clicker
+  await interaction.followUp({
+    content: `✅ Opened Region ${regionNum} (${regionName}) for voting!`,
     ephemeral: true
   });
 }
