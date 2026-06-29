@@ -634,12 +634,18 @@ export function generateKnockoutBracket(guildId) {
   
   winners.forEach((winner, index) => {
     // Find a non-winner from a different group
-    const opponent = shuffledNonWinners.find(nw => 
-      !usedNonWinners.has(nw.index) && nw.groupId !== winner.groupId
-    ) || shuffledNonWinners.find(nw => !usedNonWinners.has(nw.index));
+    // Use title+groupId as unique key since 'index' is NOT unique across groups
+    const opponent = shuffledNonWinners.find(nw => {
+      const key = `${nw.title}_${nw.groupId}`;
+      return !usedNonWinners.has(key) && nw.groupId !== winner.groupId;
+    }) || shuffledNonWinners.find(nw => {
+      const key = `${nw.title}_${nw.groupId}`;
+      return !usedNonWinners.has(key);
+    });
     
     if (opponent) {
-      usedNonWinners.add(opponent.index);
+      const opponentKey = `${opponent.title}_${opponent.groupId}`;
+      usedNonWinners.add(opponentKey);
       firstRoundMatchups.push({
         id: crypto.randomBytes(6).toString('hex'),
         round: startingRound,
