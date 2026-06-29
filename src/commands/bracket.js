@@ -154,7 +154,12 @@ function parseRegionalLabel(label, round) {
 
 export const data = new SlashCommandBuilder()
   .setName('bracket')
-  .setDescription('Tournament bracket system for movie competitions')
+  .setDescription('🏆 Tournament system - Click buttons to vote, track standings, export results')
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('help')
+      .setDescription('📖 View tournament guide and command overview')
+  )
   .addSubcommand(subcommand =>
     subcommand
       .setName('create')
@@ -490,6 +495,9 @@ export async function execute(interaction) {
   
   try {
     switch (subcommand) {
+      case 'help':
+        await handleHelp(interaction);
+        break;
       case 'create':
         await handleCreate(interaction);
         break;
@@ -570,6 +578,86 @@ export async function execute(interaction) {
       ephemeral: true,
     });
   }
+}
+
+/**
+ * Display comprehensive tournament help and guide
+ */
+async function handleHelp(interaction) {
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle('🏆 Tournament System Guide')
+    .setDescription(
+      '**Welcome to the Button-Based Tournament System!**\n\n' +
+      'Run tournaments for movies, TV shows, games, books, or board games. ' +
+      'Members vote using interactive buttons - no typing required!'
+    )
+    .addFields(
+      {
+        name: '📋 Quick Start (Admin)',
+        value:
+          '1️⃣ `/bracket create name:"My Tournament"` - Create tournament\n' +
+          '2️⃣ `/bracket add-title` - Add 4 titles to each group (A-L)\n' +
+          '3️⃣ `/bracket open-groups groups:"A,B,C,D"` - Open voting\n' +
+          '4️⃣ *Members click buttons to vote!*\n' +
+          '5️⃣ Wait for auto-close or `/bracket close-groups`\n' +
+          '6️⃣ `/bracket advance-knockout` - Start bracket\n' +
+          '7️⃣ `/bracket open-knockout` - Open round voting\n' +
+          '8️⃣ Repeat until winner!',
+        inline: false
+      },
+      {
+        name: '🗳️ How to Vote (Everyone)',
+        value:
+          '**Group Stage:**\n' +
+          '• Click **2 buttons** to select your favorites\n' +
+          '• Selected buttons turn **green** ✅\n' +
+          '• Click again to deselect\n' +
+          '• Change votes anytime before deadline\n\n' +
+          '**Knockout Stage:**\n' +
+          '• Click **1 button** to pick the winner\n' +
+          '• One vote per matchup',
+        inline: false
+      },
+      {
+        name: '👥 Common Commands',
+        value:
+          '**Everyone:**\n' +
+          '• `/bracket status` - View current standings\n' +
+          '• `/bracket view` - See bracket visual\n' +
+          '• `/bracket my-votes` - Check your votes\n' +
+          '• `/bracket list-groups` - See all groups\n\n' +
+          '**Admin/Mod:**\n' +
+          '• `/bracket edit-name` - Change tournament name\n' +
+          '• `/bracket extend-voting` - Add more time\n' +
+          '• `/bracket export` - Save results\n' +
+          '• `/bracket cancel` - Cancel tournament',
+        inline: false
+      },
+      {
+        name: '⚡ Auto-Features',
+        value:
+          '✅ **Auto-close** - Voting closes at deadline\n' +
+          '✅ **1-hour warnings** - Automatic reminders\n' +
+          '✅ **Results posted** - Winners announced\n' +
+          '✅ **Live vote counts** - Updates in real-time\n' +
+          '✅ **Button feedback** - Green = selected',
+        inline: false
+      },
+      {
+        name: '💡 Pro Tips',
+        value:
+          '• Set voting duration: `duration:"48h"` (5m-30d)\n' +
+          '• Use wildcards for uneven brackets\n' +
+          '• Upload custom images with `/bracket add-title`\n' +
+          '• Export results in Markdown or JSON\n' +
+          '• Check logs with `/eggshen-logs category:bracket`',
+        inline: false
+      }
+    )
+    .setFooter({ text: 'Need help? Ask an admin or check the docs at eggshenbot.com' });
+  
+  await interaction.reply({ embeds: [embed], ephemeral: true });
 }
 
 async function handleCreate(interaction) {
@@ -1207,14 +1295,16 @@ async function handleOpenGroups(interaction) {
   // Main announcement embed
   const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle(`📊 Group Stage Voting Open!`)
+    .setTitle(`�️ Group Stage Voting is Now Open!`)
     .setDescription(
       `Voting is now open for **Groups ${groupIds.join(', ')}**!\n\n` +
-      `**How to vote:**\n` +
-      `• Click the buttons below to select your **top 2** titles in each group\n` +
-      `• Your selections will highlight\n` +
-      `• You can change your vote anytime before voting closes\n\n` +
-      `⏰ **Voting closes in:** ${timeRemaining}`
+      `**📝 How to Vote:**\n` +
+      `1️⃣ Click **2 buttons** below for each group\n` +
+      `2️⃣ Selected buttons turn **green** ✅\n` +
+      `3️⃣ Click again to change your selection\n` +
+      `4️⃣ Vote before the deadline!\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}\n` +
+      `💡 **Tip:** You can change votes anytime before it closes!`
     )
     .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
@@ -1228,7 +1318,7 @@ async function handleOpenGroups(interaction) {
     const groupEmbed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`Group ${groupId}`)
-      .setDescription('Click **2 buttons** below to cast your vote:');
+      .setDescription('🗳️ **Vote for your top 2** - Click 2 buttons below:');
     
     // Add fields for each movie with vote counts
     group.movies.forEach((movie, index) => {
@@ -2254,7 +2344,7 @@ async function handleOpenMatchup(interaction) {
         inline: true 
       }
     )
-    .setFooter({ text: 'Click a button below to vote • You can change your vote anytime' });
+    .setFooter({ text: '👇 Click a button below to vote for your pick!' });
   
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -2269,10 +2359,14 @@ async function handleOpenMatchup(interaction) {
   
   const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle(`📊 ${roundName} - Matchup ${regionalLabel} Open! (${regionName})`)
+    .setTitle(`🏆 ${roundName} - Matchup ${regionalLabel} Open! (${regionName})`)
     .setDescription(
-      `Voting is now open for this matchup.\n\n` +
-      `⏰ **Voting closes in:** ${timeRemaining}`
+      `**📝 How to Vote:**\n` +
+      `🔹 Click **1 button** below to pick the winner\n` +
+      `🔹 Your choice is saved instantly\n` +
+      `🔹 Click the other button to change your vote\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}\n` +
+      `💡 **Tip:** You can change your vote anytime!`
     )
     .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
