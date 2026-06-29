@@ -611,7 +611,7 @@ async function handleHelp(interaction) {
         value:
           '**Group Stage:**\n' +
           '• Click **2 buttons** to select your favorites\n' +
-          '• Selected buttons turn **green** ✅\n' +
+          '• You\'ll get a confirmation message (only you see it) ✅\n' +
           '• Click again to deselect\n' +
           '• Change votes anytime before deadline\n\n' +
           '**Knockout Stage:**\n' +
@@ -1300,7 +1300,7 @@ async function handleOpenGroups(interaction) {
       `Voting is now open for **Groups ${groupIds.join(', ')}**!\n\n` +
       `**📝 How to Vote:**\n` +
       `1️⃣ Click **2 buttons** below for each group\n` +
-      `2️⃣ Selected buttons turn **green** ✅\n` +
+      `2️⃣ You'll get a confirmation message (only you see it) ✅\n` +
       `3️⃣ Click again to change your selection\n` +
       `4️⃣ Vote before the deadline!\n\n` +
       `⏰ **Voting closes in:** ${timeRemaining}\n` +

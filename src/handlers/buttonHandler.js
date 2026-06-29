@@ -226,30 +226,14 @@ async function handleGroupVote(interaction) {
       const newEmbeds = [...messageEmbeds];
       newEmbeds[groupEmbedIndex] = updatedEmbed;
       
-      // Update buttons to show user's selection (highlight selected buttons)
-      const components = interaction.message.components;
-      const updatedComponents = components.map(row => {
-        const newRow = new ActionRowBuilder();
-        row.components.forEach(button => {
-          if (button.customId && button.customId.startsWith(`group_vote_${groupId}_`)) {
-            const [, , , idx] = button.customId.split('_');
-            const buttonMovieIndex = parseInt(idx);
-            const isSelected = newVotes.includes(buttonMovieIndex);
-            
-            newRow.addComponents(
-              ButtonBuilder.from(button)
-                .setStyle(isSelected ? ButtonStyle.Success : ButtonStyle.Secondary)
-            );
-          } else {
-            newRow.addComponents(ButtonBuilder.from(button));
-          }
-        });
-        return newRow;
-      });
+      // DO NOT update button styles in the shared message - Discord messages are global
+      // and button style changes affect all users, not just the voter. This causes
+      // User A's selections to appear as selected for User B, User C, etc.
+      // Users see their selection feedback in the ephemeral response instead.
       
       await interaction.message.edit({ 
-        embeds: newEmbeds,
-        components: updatedComponents
+        embeds: newEmbeds
+        // components unchanged - keep all buttons as default ButtonStyle.Secondary
       });
     }
   } catch (updateError) {
