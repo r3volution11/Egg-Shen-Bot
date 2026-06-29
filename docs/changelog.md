@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Knockout Voting Interaction Error Fixed** (2026-06-29)
+  - **Issue:** All knockout votes failed with "An error occurred while processing your vote" after dashboard flooding fix
+  - **Root cause:** Double-defer - `interaction.deferUpdate()` at button handler level + `interaction.deferReply()` in knockout handler = "InteractionAlreadyReplied" error
+  - **Fix:**
+    - Removed `deferReply()` from handleKnockoutVote (interaction already deferred as update)
+    - Changed all `editReply()` calls to `followUp()` for ephemeral dashboard messages
+    - Kept `deferUpdate()` at top level for button message updates
+  - **Result:** Voting works again with proper dashboard tracking
 - **Knockout Voting Dashboard Flooding Fixed** (2026-06-29)
   - **Issue:** Each knockout vote created a NEW ephemeral "Your Votes" card, flooding the channel with multiple cards (user reported 5+ cards stacking up as they voted)
   - **Root cause:** Interaction wasn't properly deferred before trying to update dashboard, causing `followUp()` calls to create new messages instead of updating existing ones
@@ -29,6 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Affected commands:**
     - `/bracket open-matchup` (when opening multiple matchups like "1A,1B,1C")
     - `/bracket open-region` (opens all matchups in a region)
+
+### Changed
+- **Bracket Visualization Poster Opacity Increased** (2026-06-29)
+  - **Previous:** Poster images displayed at 30% opacity behind matchup cards
+  - **New:** Poster images now display at 40% opacity (10% increase)
+  - **Reason:** Improved visual prominence while maintaining text readability
+  - **Impact:** Posters are more visible in bracket visualizations
 
 ### Added
 - **Interactive Region Selector for open-region** (2026-06-29)
