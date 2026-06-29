@@ -659,3 +659,128 @@ export async function fetchTMDBPoster(title) {
     return null;
   }
 }
+
+/**
+ * Generate a complete tournament visualization (groups + knockout path)
+ * Similar to March Madness or World Cup brackets that show the entire tournament structure
+ * @param {Object} tournament - Tournament data
+ * @returns {Promise<Buffer>} PNG image buffer
+ */
+export async function generateFullTournamentView(tournament) {
+  const { groups, name, status } = tournament;
+  const groupIds = Object.keys(groups).sort();
+  const groupCount = groupIds.length;
+  
+  // Calculate dimensions
+  const GROUP_WIDTH = 300;
+  const GROUP_HEIGHT = 280;
+  const GROUP_MARGIN = 30;
+  const GROUPS_PER_ROW = 4;
+  
+  const rows = Math.ceil(groupCount / GROUPS_PER_ROW);
+  const cols = Math.min(groupCount, GROUPS_PER_ROW);
+  
+  const canvasWidth = (cols * (GROUP_WIDTH + GROUP_MARGIN)) + GROUP_MARGIN;
+  const canvasHeight = (rows * (GROUP_HEIGHT + GROUP_MARGIN)) + GROUP_MARGIN + 100; // +100 for title
+  
+  // Create canvas
+  const canvas = createCanvas(canvasWidth, canvasHeight);
+  const ctx = canvas.getContext('2d');
+  
+  // Background
+  ctx.fillStyle = COLORS.background;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  
+  // Title
+  ctx.fillStyle = COLORS.text;
+  ctx.font = `bold ${TITLE_FONT_SIZE}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(name, canvasWidth / 2, 50);
+  
+  // Status subtitle
+  ctx.font = `${FONT_SIZE + 2}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+  ctx.fillStyle = COLORS.textMuted;
+  const statusText = status === 'setup' ? 'Tournament Setup' : 'Group Stage';
+  ctx.fillText(statusText, canvasWidth / 2, 75);
+  
+  // Draw each group
+  groupIds.forEach((groupId, index) => {
+    const group = groups[groupId];
+    const row = Math.floor(index / GROUPS_PER_ROW);
+    const col = index % GROUPS_PER_ROW;
+    
+    const x = GROUP_MARGIN + (col * (GROUP_WIDTH + GROUP_MARGIN));
+    const y = 100 + GROUP_MARGIN + (row * (GROUP_HEIGHT + GROUP_MARGIN));
+    
+    // Group card background
+    ctx.fillStyle = COLORS.cardBg;
+    ctx.fillRect(x, y, GROUP_WIDTH, GROUP_HEIGHT);
+    
+    // Group card border
+    ctx.strokeStyle = COLORS.cardBorder;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, GROUP_WIDTH, GROUP_HEIGHT);
+    
+    // Group header
+    ctx.fillStyle = COLORS.primary;
+    ctx.fillRect(x, y, GROUP_WIDTH, 40);
+    
+    ctx.fillStyle = COLORS.background;
+    ctx.font = `bold ${FONT_SIZE + 4}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`Group ${groupId}`, x + GROUP_WIDTH / 2, y + 26);
+    
+    // Movie titles and votes
+    const titleY = y + 60;
+    const lineHeight = 50;
+    
+    ctx.textAlign = 'left';
+    ctx.font = `${FONT_SIZE}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+    
+    group.movies.forEach((movie, i) => {
+      const movieY = titleY + (i * lineHeight);
+      const voteCount = movie.votes ? movie.votes.length : 0;
+      
+      // Position indicator
+      ctx.fillStyle = COLORS.textMuted;
+      ctx.fillText(`${i + 1}.`, x + 15, movieY);
+      
+      // Movie title (truncated if too long)
+      ctx.fillStyle = COLORS.text;
+      let titleText = movie.title;
+      if (titleText.length > 25) {
+        titleText = titleText.substring(0, 22) + '...';
+      }
+      ctx.fillText(titleText, x + 40, movieY);
+      
+      // Vote count (if voting has started)
+      if (group.votingOpen || group.votingClosed) {
+        ctx.fillStyle = COLORS.textMuted;
+        ctx.textAlign = 'right';
+        ctx.fillText(`${voteCount}`, x + GROUP_WIDTH - 15, movieY);
+        ctx.textAlign = 'left';
+      }
+    });
+    
+    // Voting status indicator
+    if (group.votingOpen) {
+      ctx.fillStyle = 'rgb(88, 197, 77)'; // Green
+      ctx.font = `bold ${FONT_SIZE - 2}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('🗳️ VOTING OPEN', x + GROUP_WIDTH / 2, y + GROUP_HEIGHT - 15);
+    } else if (group.votingClosed) {
+      ctx.fillStyle = COLORS.textMuted;
+      ctx.font = `bold ${FONT_SIZE - 2}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('🔒 CLOSED', x + GROUP_WIDTH / 2, y + GROUP_HEIGHT - 15);
+    }
+  });
+  
+  // Footer with instructions
+  ctx.fillStyle = COLORS.textMuted;
+  ctx.font = `${FONT_SIZE - 2}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+  ctx.textAlign = 'center';
+  ctx.fillText('Use /bracket status for live standings • /bracket help for commands', canvasWidth / 2, canvasHeight - 20);
+  
+  return canvas.toBuffer('image/png');
+}
