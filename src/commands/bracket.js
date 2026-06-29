@@ -347,12 +347,12 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('open-matchup')
-      .setDescription('Open a specific matchup for voting (Admin/Mod only)')
+      .setDescription('Open matchup(s) for voting (Admin/Mod only)')
       .addStringOption(option =>
         option
           .setName('matchup')
-          .setDescription('Matchup ID (e.g., "1A", "2B") - Use regional labels')
-          .setRequired(true)
+          .setDescription('Matchup ID (e.g., "1A", "2B", "1A,1B,1C") - Leave blank to select from buttons')
+          .setRequired(false)
       )
       .addStringOption(option =>
         option
@@ -2374,10 +2374,63 @@ async function handleOpenRegion(interaction) {
   await interaction.editReply({ embeds: [mainEmbed, ...embeds], components });
 }
 
+/**
+ * Show interactive matchup selector when no matchup specified
+ */
+async function showMatchupSelector(interaction, tournament, durationMs) {
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  // Get all pending matchups in current round
+  const pendingMatchups = tournament.knockoutBracket
+    .filter(m => m.round === tournament.phase && m.status === 'pending' && m.movie1 && m.movie2)
+    .sort((a, b) => a.position - b.position);
+  
+  if (pendingMatchups.length === 0) {
+    await interaction.editReply('❌ No pending matchups found in current round. All matchups may already be open or closed.');
+    return;
+  }
+  
+  const timeRemaining = formatTimeRemaining(Date.now() + durationMs);
+  
+  // Build embed
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle(`🏆 Select Matchups to Open - ${roundName}`)
+    .setDescription(
+      `**${pendingMatchups.length} matchup${pendingMatchups.length !== 1 ? 's' : ''} available**\n\n` +
+      `Click button(s) below to open matchup(s) for voting.\n\n` +
+      `⏰ **Voting duration:** ${timeRemaining}\n` +
+      `💡 **Tip:** You can click multiple buttons to open several matchups at once!`
+    )
+    .setFooter({ text: 'Buttons expire after 15 minutes' });
+  
+  // Create buttons (max 25 buttons, 5 per row)
+  const components = [];
+  for (let i = 0; i < pendingMatchups.length; i += 5) {
+    const row = new ActionRowBuilder();
+    const rowMatchups = pendingMatchups.slice(i, i + 5);
+    
+    for (const matchup of rowMatchups) {
+      const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+      const label = `${regionalLabel}: ${matchup.movie1.title.substring(0, 15)}... vs ${matchup.movie2.title.substring(0, 15)}...`;
+      
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`open_matchup_${matchup.id}_${durationMs}`)
+          .setLabel(label.length > 80 ? regionalLabel : label)
+          .setStyle(ButtonStyle.Primary)
+      );
+    }
+    components.push(row);
+  }
+  
+  await interaction.editReply({ embeds: [embed], components });
+}
+
 async function handleOpenMatchup(interaction) {
   await interaction.deferReply();
   
-  const matchupInput = interaction.options.getString('matchup').toUpperCase();
+  const matchupInput = interaction.options.getString('matchup');
   const durationStr = interaction.options.getString('duration') || '24h';
   
   // Parse and validate duration
@@ -2392,8 +2445,6 @@ async function handleOpenMatchup(interaction) {
     return;
   }
   
-  const deadline = Date.now() + durationMs;
-  
   const tournament = bracketManager.loadTournament(interaction.guildId);
   
   if (!tournament || tournament.status !== 'knockout') {
@@ -2401,8 +2452,15 @@ async function handleOpenMatchup(interaction) {
     return;
   }
   
+  // If no matchup provided, show interactive selection
+  if (!matchupInput || matchupInput.trim().length === 0) {
+    return await showMatchupSelector(interaction, tournament, durationMs);
+  }
+  
+  const deadline = Date.now() + durationMs;
+  
   // Parse comma-separated matchup labels
-  const matchupLabels = matchupInput.split(',').map(l => l.trim()).filter(l => l.length > 0);
+  const matchupLabels = matchupInput.toUpperCase().split(',').map(l => l.trim()).filter(l => l.length > 0);
   
   if (matchupLabels.length === 0) {
     await interaction.editReply('❌ No valid matchup labels provided.');

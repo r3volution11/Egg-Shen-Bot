@@ -66,6 +66,23 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
     
+    // Handle open matchup buttons
+    if (interaction.customId.startsWith('open_matchup_')) {
+      await handleOpenMatchupButton(interaction);
+      
+      // Log successful button interaction
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      
+      if (duration > 2000) {
+        logger.logPerformance('Button: open_matchup', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+    
     // Unknown button type
     console.warn(`[ButtonHandler] Unknown button interaction: ${interaction.customId}`);
     logger.warning(logger.LogCategory.BUTTON, 'Unknown button interaction', {
@@ -430,6 +447,159 @@ async function handleKnockoutVote(interaction) {
     console.error('[ButtonHandler] Error updating knockout voting message:', updateError);
     // Don't throw - vote was already recorded successfully
   }
+}
+
+/**
+ * Handle open matchup button clicks from interactive selector
+ */
+async function handleOpenMatchupButton(interaction) {
+  // Parse button customId: open_matchup_{matchupId}_{durationMs}
+  const [, , matchupId, durationMs] = interaction.customId.split('_');
+  
+  // Dynamically import bracketManager and Discord components
+  const bracketManager = await import('../utils/bracketManager.js');
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+  
+  const tournament = bracketManager.loadTournament(interaction.guild.id);
+  
+  if (!tournament || tournament.status !== 'knockout') {
+    await interaction.followUp({
+      content: '❌ Tournament not in knockout phase.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Find the matchup
+  const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
+  
+  if (!matchup) {
+    await interaction.followUp({
+      content: '❌ Matchup not found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  if (matchup.status === 'voting') {
+    await interaction.followUp({
+      content: '⚠️ This matchup is already open for voting.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  if (matchup.status === 'closed') {
+    await interaction.followUp({
+      content: '❌ This matchup has already been closed.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Open the matchup
+  const deadline = Date.now() + parseInt(durationMs);
+  matchup.status = 'voting';
+  matchup.votingOpened = Date.now();
+  matchup.votingDeadline = deadline;
+  if (!matchup.votes) {
+    matchup.votes = { movie1: [], movie2: [] };
+  }
+  
+  bracketManager.saveTournament(interaction.guild.id, tournament);
+  
+  // Format time remaining helper
+  function formatTimeRemaining(deadline) {
+    const remaining = deadline - Date.now();
+    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  }
+  
+  // Get regional label helper
+  function getRegionalLabel(position, round) {
+    const roundSizes = {
+      'round_of_32': 16,
+      'round_of_16': 8,
+      'quarterfinals': 4,
+      'semifinals': 2,
+      'finals': 1
+    };
+    
+    if (round === 'finals') return 'Finals';
+    
+    const totalMatchups = roundSizes[round];
+    if (!totalMatchups) return String(position + 1);
+    
+    const midpoint = totalMatchups / 2;
+    const isLeftRegion = position < midpoint;
+    const region = isLeftRegion ? '1' : '2';
+    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    const letter = String.fromCharCode(65 + positionInRegion);
+    
+    return `${region}${letter}`;
+  }
+  
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const timeRemaining = formatTimeRemaining(deadline);
+  const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+  const votes1 = matchup.votes.movie1.length;
+  const votes2 = matchup.votes.movie2.length;
+  
+  // Create voting embed and buttons
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+    .addFields(
+      { 
+        name: `${matchup.movie1.title}`, 
+        value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
+        inline: true 
+      },
+      { name: '\u200B', value: 'vs', inline: true },
+      { 
+        name: `${matchup.movie2.title}`, 
+        value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
+        inline: true 
+      }
+    )
+    .setFooter({ text: 'Click a button below to vote' });
+  
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`knockout_vote_${matchup.id}_1`)
+      .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`knockout_vote_${matchup.id}_2`)
+      .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
+      .setStyle(ButtonStyle.Primary)
+  );
+  
+  // Send to channel (not ephemeral so everyone can vote)
+  const votingMessage = await interaction.channel.send({ 
+    content: `✅ **Matchup ${regionalLabel} opened!** ⏰ Voting closes in: ${timeRemaining}`,
+    embeds: [embed], 
+    components: [row] 
+  });
+  
+  // Store message ID for scheduler
+  bracketManager.storeMatchupVotingMessage(
+    interaction.guild.id,
+    matchup.id,
+    interaction.channel.id,
+    votingMessage.id
+  );
+  
+  // Send confirmation to button clicker
+  await interaction.followUp({
+    content: `✅ Opened matchup ${regionalLabel} for voting!`,
+    ephemeral: true
+  });
 }
 
 /**
