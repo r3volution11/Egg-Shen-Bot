@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Knockout Dashboard Still Creating Multiple Cards** (2026-06-29)
+  - **Issue:** Dashboard was still creating new cards on each vote instead of updating the existing one
+  - **Root cause:** Fallback logic was too aggressive - if message fetch failed for ANY reason, created new message with `followUp()` instead of updating
+  - **Fix:**
+    - Simplified dashboard update logic with proper try/catch around message fetch
+    - Only delete dashboard from cache and create new one if message truly doesn't exist
+    - Added console logging to track dashboard creation vs updates
+    - Changed from nested if/else to single try/catch for cleaner error handling
+  - **Result:** Dashboard now consistently updates in place on subsequent votes, only creates new message on first vote or if previous message was deleted
 - **Knockout Voting Interaction Error Fixed** (2026-06-29)
   - **Issue:** All knockout votes failed with "An error occurred while processing your vote" after dashboard flooding fix
   - **Root cause:** Double-defer - `interaction.deferUpdate()` at button handler level + `interaction.deferReply()` in knockout handler = "InteractionAlreadyReplied" error
@@ -39,11 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `/bracket open-region` (opens all matchups in a region)
 
 ### Changed
-- **Bracket Visualization Poster Opacity Increased** (2026-06-29)
-  - **Previous:** Poster images displayed at 30% opacity behind matchup cards
-  - **New:** Poster images now display at 40% opacity (10% increase)
-  - **Reason:** Improved visual prominence while maintaining text readability
-  - **Impact:** Posters are more visible in bracket visualizations
+- **Bracket Visualization Poster Opacity Increased to 50%** (2026-06-29)
+  - **Previous:** Started at 30%, increased to 40%, now at 50% opacity
+  - **Progression:** 30% → 40% → 50% (iterative improvements based on user feedback)
+  - **Reason:** User tested 40% and confirmed posters could be even more prominent
+  - **Impact:** Posters now significantly more visible in bracket visualizations while still maintaining excellent text readability
+  - **Sweet spot:** 50% provides strong visual presence without overwhelming text content
 
 ### Added
 - **Interactive Region Selector for open-region** (2026-06-29)
