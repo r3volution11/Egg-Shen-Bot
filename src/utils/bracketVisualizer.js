@@ -229,8 +229,15 @@ function getRoundDisplayName(roundKey) {
 async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, side, roundIndex, totalRounds) {
   const numMatchups = round.matchups.length;
   
-  // Use MATCHUP_SPACING to properly position matchups
-  // This ensures consistent spacing regardless of number of matchups
+  // Calculate proper spacing for this round
+  // Each subsequent round doubles the spacing to center matchups between previous round pairs
+  const spacingMultiplier = Math.pow(2, roundIndex);
+  const spacing = MATCHUP_SPACING * spacingMultiplier;
+  
+  // Calculate offset to center matchups properly relative to previous round
+  // Offset is half of the accumulated spacing from all previous rounds
+  const offset = MATCHUP_SPACING * (spacingMultiplier - 1) / 2;
+  
   const startY = CANVAS_PADDING + 150; // Start below title and round label
   
   // Round label
@@ -243,22 +250,23 @@ async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, sid
   // Draw each matchup in this round
   for (let i = 0; i < numMatchups; i++) {
     const matchup = round.matchups[i];
-    // yPos is the CENTER of the matchup
-    const yPos = startY + (i * MATCHUP_SPACING);
+    // yPos is the CENTER of the matchup, properly positioned relative to source matchups
+    const yPos = startY + offset + (i * spacing);
     
     await drawMatchup(ctx, matchup, x, yPos, knockoutResults, 1, round.name);
     
     // Draw connector lines to next round (towards center)
     if (roundIndex < totalRounds - 1) {
-      drawMirroredConnector(ctx, x, yPos, side, i, numMatchups);
+      drawMirroredConnector(ctx, x, yPos, side, i, numMatchups, spacingMultiplier);
     }
   }
 }
 
 /**
  * Draw connector lines for mirrored bracket layout
+ * @param {number} spacingMultiplier - Spacing multiplier for this round (2^roundIndex)
  */
-function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups) {
+function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups, spacingMultiplier) {
   ctx.strokeStyle = COLORS.connectorLine;
   ctx.lineWidth = 2;
   
@@ -278,9 +286,9 @@ function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups) {
   const hasPartner = isTopOfPair ? matchupIndex + 1 < totalMatchups : matchupIndex > 0;
   
   if (hasPartner) {
-    // Calculate the midpoint Y between this matchup and its pair
-    // Matchups in the next round are positioned at MATCHUP_SPACING * 2 intervals
-    const pairOffset = isTopOfPair ? MATCHUP_SPACING : -MATCHUP_SPACING;
+    // Calculate the partner Y position using proper spacing for this round
+    const spacing = MATCHUP_SPACING * spacingMultiplier;
+    const pairOffset = isTopOfPair ? spacing : -spacing;
     const partnerY = y + pairOffset;
     const midY = (y + partnerY) / 2;
     
