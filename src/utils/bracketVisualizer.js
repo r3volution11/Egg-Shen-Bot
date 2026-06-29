@@ -143,10 +143,19 @@ export async function generateBracketImage(tournament) {
   // Calculate canvas dimensions
   const numRounds = bracketRounds.length;
   const maxMatchupsPerSide = Math.max(...leftSide.map(r => r.matchups.length));
+  
+  // Use MATCHUP_SPACING to properly calculate required height for all matchups
+  // Each matchup needs (PARTICIPANT_HEIGHT * 2) + MATCHUP_GAP height, plus spacing between matchups
+  const matchupTotalHeight = (PARTICIPANT_HEIGHT * 2) + MATCHUP_GAP;
+  const requiredHeightForMatchups = (maxMatchupsPerSide * MATCHUP_SPACING);
+  
   const roundWidth = ROUND_SPACING;
   const finalsWidth = 400;
   const canvasWidth = (numRounds * 2 * roundWidth) + finalsWidth + (CANVAS_PADDING * 2);
-  const canvasHeight = (maxMatchupsPerSide * MATCHUP_SPACING) + (CANVAS_PADDING * 2) + 100;
+  const canvasHeight = Math.max(
+    requiredHeightForMatchups + (CANVAS_PADDING * 2) + 200, // +200 for title and labels
+    800 // Minimum height
+  );
   
   // Create canvas
   const canvas = createCanvas(canvasWidth, canvasHeight);
@@ -219,8 +228,10 @@ function getRoundDisplayName(roundKey) {
  */
 async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, side, roundIndex, totalRounds) {
   const numMatchups = round.matchups.length;
-  const availableHeight = canvasHeight - (CANVAS_PADDING * 2) - 100;
-  const ySpacing = availableHeight / (numMatchups + 1);
+  
+  // Use MATCHUP_SPACING to properly position matchups
+  // This ensures consistent spacing regardless of number of matchups
+  const startY = CANVAS_PADDING + 150; // Start below title and round label
   
   // Round label
   ctx.fillStyle = COLORS.primary;
@@ -232,13 +243,14 @@ async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, sid
   // Draw each matchup in this round
   for (let i = 0; i < numMatchups; i++) {
     const matchup = round.matchups[i];
-    const yPos = CANVAS_PADDING + 100 + (ySpacing * (i + 1));
+    // yPos is the CENTER of the matchup
+    const yPos = startY + (i * MATCHUP_SPACING);
     
     await drawMatchup(ctx, matchup, x, yPos, knockoutResults, 1, round.name);
     
     // Draw connector lines to next round (towards center)
     if (roundIndex < totalRounds - 1) {
-      drawMirroredConnector(ctx, x, yPos, side, i, numMatchups, ySpacing);
+      drawMirroredConnector(ctx, x, yPos, side, i, numMatchups);
     }
   }
 }
@@ -246,7 +258,7 @@ async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, sid
 /**
  * Draw connector lines for mirrored bracket layout
  */
-function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups, ySpacing) {
+function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups) {
   ctx.strokeStyle = COLORS.connectorLine;
   ctx.lineWidth = 2;
   
@@ -267,7 +279,8 @@ function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups, ySp
   
   if (hasPartner) {
     // Calculate the midpoint Y between this matchup and its pair
-    const pairOffset = isTopOfPair ? ySpacing : -ySpacing;
+    // Matchups in the next round are positioned at MATCHUP_SPACING * 2 intervals
+    const pairOffset = isTopOfPair ? MATCHUP_SPACING : -MATCHUP_SPACING;
     const partnerY = y + pairOffset;
     const midY = (y + partnerY) / 2;
     

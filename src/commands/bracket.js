@@ -1422,14 +1422,45 @@ async function handleAdvanceKnockout(interaction) {
     return;
   }
   
+  const tournament = bracketResult.tournament;
   const totalParticipants = bracketResult.matchups.length * 2;
-  const roundName = bracketResult.tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   const wildcardsCount = wildcardsResult.wildcards.length;
   
-  const embed = new EmbedBuilder()
+  // Automatically open voting for first round (24 hour default)
+  const votingDuration = 24 * 60 * 60 * 1000; // 24 hours
+  const deadline = Date.now() + votingDuration;
+  const openResult = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline);
+  
+  if (!openResult.success) {
+    // If opening voting fails, still show bracket was created
+    await interaction.editReply(`✅ Knockout bracket created, but failed to open voting: ${openResult.error}\n\nUse \`/bracket open-knockout\` to manually open voting.`);
+    return;
+  }
+  
+  const timeRemaining = formatTimeRemaining(deadline);
+  
+  // Get current round matchups
+  const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
+    m.round === tournament.phase && m.movie1 && m.movie2
+  );
+  
+  // Build response with voting buttons
+  const embeds = [];
+  const components = [];
+  
+  // Main announcement embed
+  const mainEmbed = new EmbedBuilder()
     .setColor(0xFF0000)
     .setTitle(`🏆 ${roundName} - Knockout Stage Begins!`)
-    .setDescription(`**${bracketResult.matchups.length} matchups created**\n\nThe tournament advances to single elimination!`);
+    .setDescription(
+      `**${bracketResult.matchups.length} matchups created** • ${totalParticipants} titles remain\n\n` +
+      `The tournament advances to single elimination!\n\n` +
+      `**🗳️ Voting is now open!**\n` +
+      `Vote for ONE title in each matchup below.\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}`
+    )
+    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
   // Show wildcards if any
   if (wildcardsCount > 0) {
@@ -1437,12 +1468,64 @@ async function handleAdvanceKnockout(interaction) {
       .map((w, i) => `${i + 1}. ${w.title} (${w.voteCount} votes, Group ${w.groupId})`)
       .join('\n');
     
-    embed.addFields({ name: `🎟️ Wildcards (Best ${wildcardsCount} Third-Place)`, value: wildcardsText, inline: false });
+    mainEmbed.addFields({ name: `🎟️ Wildcards (Best ${wildcardsCount} Third-Place)`, value: wildcardsText, inline: false });
   }
   
-  embed.setFooter({ text: `${totalParticipants} movies remain • Use /bracket status to view bracket` });
+  embeds.push(mainEmbed);
   
-  await interaction.editReply({ embeds: [embed] });
+  // Create embed + buttons for each matchup
+  for (const matchup of currentRoundMatchups) {
+    const votes1 = matchup.votes?.movie1?.length || 0;
+    const votes2 = matchup.votes?.movie2?.length || 0;
+    const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x4EC5ED)
+      .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+      .addFields(
+        { 
+          name: `${matchup.movie1.title}`, 
+          value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
+          inline: true 
+        },
+        { name: '\u200B', value: 'vs', inline: true },
+        { 
+          name: `${matchup.movie2.title}`, 
+          value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
+          inline: true 
+        }
+      )
+      .setFooter({ text: 'Click a button below to vote • You can change your vote anytime' });
+    
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`knockout_vote_${matchup.id}_1`)
+        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`knockout_vote_${matchup.id}_2`)
+        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
+        .setStyle(ButtonStyle.Primary)
+    );
+    
+    embeds.push(embed);
+    components.push(row);
+    
+    // Store message IDs for scheduler (we'll need to update after sending)
+    // This will be handled in the next step after we send
+  }
+  
+  const message = await interaction.editReply({ embeds, components });
+  
+  // Store voting message IDs for scheduler to track
+  for (const matchup of currentRoundMatchups) {
+    bracketManager.storeMatchupVotingMessage(
+      interaction.guildId,
+      matchup.id,
+      interaction.channelId,
+      message.id
+    );
+  }
 }
 
 async function handleRegenerate(interaction) {
