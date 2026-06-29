@@ -493,7 +493,7 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
       ctx.clip();
       
       // Draw poster at reduced opacity
-      ctx.globalAlpha = 0.3;
+      ctx.globalAlpha = 0.4;
       ctx.drawImage(posterImg, x + offsetX, y + offsetY, drawWidth, drawHeight);
       ctx.globalAlpha = 1.0;
       
