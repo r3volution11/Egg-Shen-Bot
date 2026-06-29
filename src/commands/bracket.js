@@ -364,12 +364,12 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('close-matchup')
-      .setDescription('Close a specific matchup and advance winner (Admin/Mod only)')
+      .setDescription('Close matchup(s) and advance winner(s) (Admin/Mod only)')
       .addStringOption(option =>
         option
           .setName('matchup')
-          .setDescription('Matchup ID (e.g., "1A", "2B") - Use regional labels')
-          .setRequired(true)
+          .setDescription('Matchup ID(s) - Single: "1A" or Multiple: "1A,1B,2C". Leave blank to select from buttons')
+          .setRequired(false)
       )
   )
   .addSubcommand(subcommand =>
@@ -2427,6 +2427,63 @@ async function showMatchupSelector(interaction, tournament, durationMs) {
   await interaction.editReply({ embeds: [embed], components });
 }
 
+/**
+ * Show interactive matchup selector for closing open matchups
+ */
+async function showCloseMatchupSelector(interaction, tournament) {
+  if (!tournament || tournament.status !== 'knockout') {
+    await interaction.editReply('❌ No knockout bracket found.');
+    return;
+  }
+  
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  // Get all voting matchups in current round
+  const votingMatchups = tournament.knockoutBracket
+    .filter(m => m.round === tournament.phase && m.status === 'voting' && m.movie1 && m.movie2)
+    .sort((a, b) => a.position - b.position);
+  
+  if (votingMatchups.length === 0) {
+    await interaction.editReply('❌ No open matchups found in current round. Use `/bracket open-matchup` to open voting first.');
+    return;
+  }
+  
+  // Build embed
+  const embed = new EmbedBuilder()
+    .setColor(0xFF6B6B)
+    .setTitle(`🏁 Select Matchups to Close - ${roundName}`)
+    .setDescription(
+      `**${votingMatchups.length} matchup${votingMatchups.length !== 1 ? 's' : ''} currently open**\n\n` +
+      `Click button(s) below to close matchup(s) and advance winner(s).\n\n` +
+      `💡 **Tip:** You can click multiple buttons to close several matchups at once!`
+    )
+    .setFooter({ text: 'Buttons expire after 15 minutes' });
+  
+  // Create buttons (max 25 buttons, 5 per row)
+  const components = [];
+  for (let i = 0; i < votingMatchups.length; i += 5) {
+    const row = new ActionRowBuilder();
+    const rowMatchups = votingMatchups.slice(i, i + 5);
+    
+    for (const matchup of rowMatchups) {
+      const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+      const votes1 = matchup.votes?.movie1?.length || 0;
+      const votes2 = matchup.votes?.movie2?.length || 0;
+      const label = `${regionalLabel}: ${matchup.movie1.title.substring(0, 12)}(${votes1}) vs ${matchup.movie2.title.substring(0, 12)}(${votes2})`;
+      
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`close_matchup_${matchup.id}`)
+          .setLabel(label.length > 80 ? `${regionalLabel} (${votes1}-${votes2})` : label)
+          .setStyle(ButtonStyle.Danger)
+      );
+    }
+    components.push(row);
+  }
+  
+  await interaction.editReply({ embeds: [embed], components });
+}
+
 async function handleOpenMatchup(interaction) {
   await interaction.deferReply();
   
@@ -2666,87 +2723,159 @@ async function handleOpenMatchup(interaction) {
 async function handleCloseMatchup(interaction) {
   await interaction.deferReply();
   
-  const matchupLabel = interaction.options.getString('matchup').toUpperCase();
-  
+  const matchupInput = interaction.options.getString('matchup');
   const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  // If no matchup specified, show interactive selector
+  if (!matchupInput || matchupInput.trim().length === 0) {
+    return await showCloseMatchupSelector(interaction, tournament);
+  }
+  
+  // Support comma-separated multiple matchups
+  const matchupLabels = matchupInput.toUpperCase().split(',').map(m => m.trim()).filter(m => m.length > 0);
   
   if (!tournament || tournament.status !== 'knockout') {
     await interaction.editReply('❌ No knockout bracket found.');
     return;
   }
   
-  // Parse regional label to position
-  const position = parseRegionalLabel(matchupLabel, tournament.phase);
-  if (position === null) {
-    await interaction.editReply(`❌ Invalid matchup label "${matchupLabel}". Use format like "1A", "2B" for regional labels.`);
-    return;
-  }
+  // Process each matchup
+  const successes = [];
+  const errors = [];
   
-  // Find the matchup by position in current round
-  const matchup = tournament.knockoutBracket.find(m => 
-    m.round === tournament.phase && m.position === position
-  );
-  
-  if (!matchup) {
-    await interaction.editReply(`❌ Matchup ${matchupLabel} not found in ${tournament.phase.replace(/_/g, ' ')}.`);
-    return;
-  }
-  
-  if (matchup.status !== 'voting') {
-    await interaction.editReply(`❌ Matchup ${matchupLabel} is not currently open for voting.`);
-    return;
-  }
-  
-  // Close this matchup
-  const result = bracketManager.closeKnockoutMatchup(interaction.guildId, matchup.id);
-  
-  if (!result.success) {
-    await interaction.editReply(`❌ ${result.error}`);
-    return;
-  }
-  
-  const updatedTournament = result.tournament;
-  const updatedMatchup = updatedTournament.knockoutBracket.find(m => m.id === matchup.id);
-  
-  const votes1 = updatedMatchup.votes.movie1.length;
-  const votes2 = updatedMatchup.votes.movie2.length;
-  
-  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  const regionalLabel = getRegionalLabel(position, tournament.phase);
-  const regionNum = parseInt(matchupLabel[0]);
-  const regionName = regionNum === 1 ? 'Left Side' : 'Right Side';
-  
-  const embed = new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle(`🏁 ${roundName} - Matchup ${regionalLabel} Complete! (${regionName})`)
-    .setDescription(
-      `**${updatedMatchup.winner.title}** wins!\n\n` +
-      `**${updatedMatchup.movie1.title}** (${votes1} votes) vs **${updatedMatchup.movie2.title}** (${votes2} votes)`
+  for (const matchupLabel of matchupLabels) {
+    // Parse regional label to position
+    const position = parseRegionalLabel(matchupLabel, tournament.phase);
+    if (position === null) {
+      errors.push(`❌ Invalid matchup label "${matchupLabel}"`);
+      continue;
+    }
+    
+    // Find the matchup by position in current round
+    const matchup = tournament.knockoutBracket.find(m => 
+      m.round === tournament.phase && m.position === position
     );
-  
-  // Check if winner has been auto-advanced
-  if (result.autoAdvanced) {
-    embed.addFields({
-      name: '✅ Auto-Advanced',
-      value: `${updatedMatchup.winner.title} has been placed in the next round matchup.`
+    
+    if (!matchup) {
+      errors.push(`❌ Matchup ${matchupLabel} not found`);
+      continue;
+    }
+    
+    if (matchup.status !== 'voting') {
+      errors.push(`❌ Matchup ${matchupLabel} is not open for voting`);
+      continue;
+    }
+    
+    // Close this matchup
+    const result = bracketManager.closeKnockoutMatchup(interaction.guildId, matchup.id);
+    
+    if (!result.success) {
+      errors.push(`❌ ${matchupLabel}: ${result.error}`);
+      continue;
+    }
+    
+    const updatedTournament = result.tournament;
+    const updatedMatchup = updatedTournament.knockoutBracket.find(m => m.id === matchup.id);
+    
+    const votes1 = updatedMatchup.votes.movie1.length;
+    const votes2 = updatedMatchup.votes.movie2.length;
+    const regionalLabel = getRegionalLabel(position, tournament.phase);
+    
+    successes.push({
+      label: regionalLabel,
+      winner: updatedMatchup.winner.title,
+      movie1: updatedMatchup.movie1.title,
+      movie2: updatedMatchup.movie2.title,
+      votes1,
+      votes2,
+      autoAdvanced: result.autoAdvanced
     });
   }
   
-  // Check if all matchups in round are closed
-  const roundMatchups = updatedTournament.knockoutBracket.filter(m => m.round === tournament.phase);
-  const allClosed = roundMatchups.every(m => m.status === 'closed');
-  
-  if (allClosed) {
-    // Check if tournament phase changed
-    if (updatedTournament.phase !== tournament.phase) {
-      const nextRoundName = updatedTournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      embed.setFooter({ text: `All matchups complete! Tournament has advanced to ${nextRoundName}.` });
-    } else if (updatedTournament.status === 'completed') {
-      embed.setFooter({ text: '🏆 Tournament complete! Check /bracket status for champion.' });
-    }
+  // Build response
+  if (successes.length === 0) {
+    await interaction.editReply(errors.join('\n') || '❌ No matchups were closed.');
+    return;
   }
   
-  await interaction.editReply({ embeds: [embed] });
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const reloadedTournament = bracketManager.loadTournament(interaction.guildId);
+  
+  // Single matchup closed
+  if (successes.length === 1) {
+    const s = successes[0];
+    const regionNum = parseInt(matchupLabels[0][0]);
+    const regionName = regionNum === 1 ? 'Left Side' : 'Right Side';
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle(`🏁 ${roundName} - Matchup ${s.label} Complete! (${regionName})`)
+      .setDescription(
+        `**${s.winner}** wins!\n\n` +
+        `**${s.movie1}** (${s.votes1} votes) vs **${s.movie2}** (${s.votes2} votes)`
+      );
+    
+    if (s.autoAdvanced) {
+      embed.addFields({
+        name: '✅ Auto-Advanced',
+        value: `${s.winner} has been placed in the next round matchup.`
+      });
+    }
+    
+    // Check if all matchups in round are closed
+    const roundMatchups = reloadedTournament.knockoutBracket.filter(m => m.round === tournament.phase);
+    const allClosed = roundMatchups.every(m => m.status === 'closed');
+    
+    if (allClosed) {
+      if (reloadedTournament.phase !== tournament.phase) {
+        const nextRoundName = reloadedTournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        embed.setFooter({ text: `All matchups complete! Tournament has advanced to ${nextRoundName}.` });
+      } else if (reloadedTournament.status === 'completed') {
+        embed.setFooter({ text: '🏆 Tournament complete! Check /bracket status for champion.' });
+      }
+    }
+    
+    if (errors.length > 0) {
+      embed.addFields({ name: '⚠️ Some Issues', value: errors.join('\n') });
+    }
+    
+    await interaction.editReply({ embeds: [embed] });
+  } else {
+    // Multiple matchups closed
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle(`🏁 ${roundName} - ${successes.length} Matchup${successes.length !== 1 ? 's' : ''} Closed!`)
+      .setDescription(
+        successes.map(s => `**${s.label}**: ${s.winner} wins (${s.votes1} vs ${s.votes2})`).join('\n')
+      );
+    
+    const autoAdvanced = successes.filter(s => s.autoAdvanced);
+    if (autoAdvanced.length > 0) {
+      embed.addFields({
+        name: '✅ Auto-Advanced',
+        value: autoAdvanced.map(s => `${s.label}: ${s.winner}`).join('\n')
+      });
+    }
+    
+    // Check if all matchups in round are closed
+    const roundMatchups = reloadedTournament.knockoutBracket.filter(m => m.round === tournament.phase);
+    const allClosed = roundMatchups.every(m => m.status === 'closed');
+    
+    if (allClosed) {
+      if (reloadedTournament.phase !== tournament.phase) {
+        const nextRoundName = reloadedTournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        embed.setFooter({ text: `All matchups complete! Tournament has advanced to ${nextRoundName}.` });
+      } else if (reloadedTournament.status === 'completed') {
+        embed.setFooter({ text: '🏆 Tournament complete! Check /bracket status for champion.' });
+      }
+    }
+    
+    if (errors.length > 0) {
+      embed.addFields({ name: '⚠️ Some Issues', value: errors.join('\n') });
+    }
+    
+    await interaction.editReply({ embeds: [embed] });
+  }
 }
 
 async function handleExtendVoting(interaction) {
