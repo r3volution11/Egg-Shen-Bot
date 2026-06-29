@@ -2,6 +2,7 @@
  * Handle button interactions with comprehensive error handling
  */
 import * as logger from '../utils/logger.js';
+import { EmbedBuilder } from 'discord.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -439,8 +440,6 @@ async function handleKnockoutVote(interaction) {
  * @returns {EmbedBuilder} Dashboard embed
  */
 function buildVotingDashboard(group, groupId, userVotes) {
-  const { EmbedBuilder } = require('discord.js');
-  
   // Determine color and status based on vote count
   let color, statusText, statusEmoji;
   if (userVotes.length === 0) {
@@ -493,8 +492,6 @@ function buildVotingDashboard(group, groupId, userVotes) {
  * @returns {EmbedBuilder} Dashboard embed
  */
 function buildKnockoutVotingDashboard(tournament, currentRound, matchups, userId) {
-  const { EmbedBuilder } = require('discord.js');
-  
   // Get user's votes for all matchups in this round
   const userVotes = tournament.votes?.[userId] || {};
   const votedCount = matchups.filter(m => userVotes[m.id] !== undefined).length;
