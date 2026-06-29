@@ -12,6 +12,7 @@ This page provides detailed documentation for all tournament bracket commands. C
 
 | Command | Who Can Use | Description | Phase |
 |---------|-------------|-------------|-------|
+| `help` | Everyone | View tournament guide and command overview | Any |
 | `create` | Admin/Mod | Create a new tournament | Setup |
 | `add-title` | Admin/Mod | Add a title to a group | Setup |
 | `remove-title` | Admin/Mod | Remove a title from a group | Setup |
@@ -35,6 +36,38 @@ This page provides detailed documentation for all tournament bracket commands. C
 | `edit-name` | Admin/Mod | Change the tournament name | Any |
 | `regenerate` | Admin/Mod | Regenerate knockout bracket with full tree | Knockout |
 | `cancel` | Admin/Mod | Cancel the tournament | Any |
+
+---
+
+## Getting Started
+
+### `/bracket help`
+
+View a comprehensive tournament guide with command overview, voting instructions, and pro tips.
+
+**Parameters:**
+None - this command takes no options.
+
+**What It Shows:**
+- **Quick Start (Admin)** - 8-step process for running a tournament
+- **How to Vote (Everyone)** - Instructions for both group and knockout stages
+- **Common Commands** - Organized by user role (Everyone vs Admin/Mod)
+- **Auto-Features** - Overview of auto-close, warnings, live counts, and button feedback
+- **Pro Tips** - Duration syntax, wildcards, custom images, exports, and logging
+
+**Example Usage:**
+```
+/bracket help
+```
+
+**Benefits:**
+- New users can learn the entire system in one command
+- Quick reference for voting instructions
+- Discover advanced features and tips
+- Find the right command for what you want to do
+
+**Response Type:**
+This command sends an ephemeral reply (only you can see it), keeping the channel clean.
 
 ---
 

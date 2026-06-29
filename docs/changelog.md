@@ -94,6 +94,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Consistent with knockout voting (already button-based)
     - More accessible and intuitive for all users
     - Reduces voting errors and confusion
+- **Improved Tournament Help & Button UX**
+  - **`/bracket help`** - New comprehensive tournament guide command
+    - Quick start steps for admins (8-step tournament flow)
+    - How to vote instructions for members (group + knockout stages)
+    - Common commands organized by role (Everyone vs Admin/Mod)
+    - Auto-features overview (auto-close, warnings, live counts)
+    - Pro tips (duration syntax, wildcards, custom images, exports)
+  - **Enhanced button voting feedback**
+    - Group voting: Visual embeds showing selection progress (1 of 2, 2 of 2)
+    - Knockout voting: Confirmation embeds with trophy emoji and selected title
+    - Color-coded embeds: Blue for partial selection, green for complete
+    - Numbered steps in instructions with emojis (1️⃣ 2️⃣ 3️⃣ 4️⃣)
+  - **Clearer voting instructions**
+    - Opening messages with numbered how-to-vote steps
+    - Prominent tips about changing votes before deadline
+    - Updated footer text to guide users ("👇 Click a button...")
+    - Simplified group embed descriptions
+  - **Benefits:**
+    - New users can learn tournament system with `/bracket help`
+    - Better visual feedback reduces confusion
+    - Consistent emoji-based UI throughout
+    - Ephemeral responses keep channels clean
+    - More intuitive voting experience
 - **Timer Reminder** - New `/timer remind` subcommand
   - **`/timer remind`** - Announce timer is starting right before watch party begins
   - **Auto-detects Discord scheduled events** - Finds event linked to current channel
