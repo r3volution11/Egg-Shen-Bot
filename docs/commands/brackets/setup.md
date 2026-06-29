@@ -262,16 +262,20 @@ When an admin opens groups with `/bracket open-groups`, the bot posts an interac
 
 **Voting Process:**
 1. Click the button for a title to select it (button turns green)
-2. Click a second title to complete your vote (2 selections required)
-3. Click a selected title again to deselect it
-4. You can change your votes anytime before voting closes
+2. You'll see a **blue confirmation embed** showing "✅ 1 of 2 Selected" with a reminder to pick one more
+3. Click a second title to complete your vote (2 selections required)
+4. You'll see a **green confirmation embed** showing both your selections
+5. Click a selected title again to deselect it
+6. You can change your votes anytime before voting closes
 
 **Features:**
 - ✅ **No commands needed** - just click buttons
 - ✅ **Visual feedback** - selected buttons highlight in green
+- ✅ **Confirmation embeds** - See your selection progress (1 of 2, 2 of 2) in color-coded embeds
 - ✅ **Real-time counts** - see vote totals update live
 - ✅ **Change anytime** - modify your selections before deadline
 - ✅ **Clear constraints** - can only select 2 titles per group
+- ✅ **Pro tip reminders** - Each confirmation reminds you that you can change votes
 
 **Example:**
 ```
