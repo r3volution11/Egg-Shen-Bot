@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Knockout Voting Dashboard Flooding Fixed** (2026-06-29)
+  - **Issue:** Each knockout vote created a NEW ephemeral "Your Votes" card, flooding the channel with multiple cards (user reported 5+ cards stacking up as they voted)
+  - **Root cause:** Interaction wasn't properly deferred before trying to update dashboard, causing `followUp()` calls to create new messages instead of updating existing ones
+  - **Fix:**
+    - Added proper `interaction.deferReply({ ephemeral: true })` at the start
+    - Changed dashboard creation to use `interaction.editReply()` for first message
+    - Dashboard updates now properly edit the existing message instead of creating new ones
+    - Personal dashboard persists and updates in place as user votes
+  - **Result:** Users now see ONE "Your Votes" card that updates as they vote, not a flood of cards
+  - **Public tally:** The public matchup voting messages (visible to everyone) continue to update with real-time vote counts
+  - **Benefits:**
+    - Clean UX - only one personal dashboard per round
+    - Real-time progress tracking without clutter
+    - Public voting cards show live vote totals for all users
 - **Multiple Matchup Voting Buttons Separated** (2026-06-29)
   - **Issue:** When opening multiple matchups (via comma-separated input or region selector), all voting buttons were bundled together at the bottom, making it difficult to understand which buttons corresponded to which matchup
   - **Fix:** Each matchup now posts as a separate message with its own voting buttons directly below its card
