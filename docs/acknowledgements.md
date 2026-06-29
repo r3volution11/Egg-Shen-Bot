@@ -25,6 +25,25 @@ This bot wouldn't be what it is today without the help and feedback from some in
 
 ---
 
+## In Memory of Victor Wong
+
+Before thanking the people who helped build this bot, I want to honor the man who inspired its name.
+
+Victor Wong brought Egg Shen to life in *Big Trouble in Little China* (1986), and his performance made me fall in love with filmmaking. The way he balanced wisdom with humor, mysticism with practicality—Egg Shen wasn't just a wizard, he was the heart of that story. Victor Wong had this incredible ability to make you believe in magic while keeping you grounded in humanity.
+
+Beyond *Big Trouble in Little China*, Victor Wong graced so many films that shaped my love of cinema:
+
+- **Prince of Darkness** (1987) - His portrayal of Professor Birack added gravitas to Carpenter's cosmic horror
+- **Tremors** (1990) - Even a small role showed his range and presence
+- **Seven Years in Tibet** (1997) - Brought depth and authenticity to the story
+- **3 Ninjas** (1992) - Made Grandpa Mori a character that inspired a generation (yes, I'm a Millennial with Gen X sensibilities in my heart)
+
+Victor Wong left us in 2001, but his work continues to inspire. This bot carries his character's name because Egg Shen represents something I aspire to: being helpful, knowledgeable, and maybe a little bit magical in unexpected ways.
+
+Thank you, Victor Wong, for showing us that great acting transcends any single role. You made us believe.
+
+---
+
 ## Special Thanks
 
 ### Server Monk & Grizabella
