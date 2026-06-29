@@ -168,22 +168,36 @@ async function handleGroupVote(interaction) {
   // Get updated group data
   const updatedGroup = result.tournament.groups[groupId];
   
-  // Build response message
-  let responseMsg;
+  // Build response embed with visual feedback
+  const { EmbedBuilder: ResponseEmbedBuilder } = await import('discord.js');
+  const responseEmbed = new ResponseEmbedBuilder();
+  
   if (newVotes.length === 0) {
-    responseMsg = `✅ Removed all votes from Group ${groupId}`;
+    responseEmbed
+      .setColor(0xFFAA00)
+      .setTitle('🗳️ Vote Removed')
+      .setDescription(`Removed all votes from **Group ${groupId}**\n\nClick buttons to vote for your favorites!`);
   } else if (newVotes.length === 1) {
     const selectedTitle = updatedGroup.movies[newVotes[0]].title;
-    responseMsg = `✅ Selected **${selectedTitle}** (1 of 2)\n\nSelect one more title to complete your vote.`;
+    responseEmbed
+      .setColor(0x4EC5ED)
+      .setTitle('✅ 1 of 2 Selected')
+      .setDescription(`**${selectedTitle}**\n\n📝 Select **one more** title to complete your vote for Group ${groupId}`);
   } else {
     const selectedTitles = newVotes.map(i => updatedGroup.movies[i].title);
-    responseMsg = `✅ Vote recorded for Group ${groupId}!\n\n` +
-      `Your selections:\n1. ${selectedTitles[0]}\n2. ${selectedTitles[1]}\n\n` +
-      `You can change your vote anytime before voting closes.`;
+    responseEmbed
+      .setColor(0x00FF00)
+      .setTitle('✅ Vote Recorded!')
+      .setDescription(
+        `**Group ${groupId} - Your selections:**\n\n` +
+        `1️⃣ ${selectedTitles[0]}\n` +
+        `2️⃣ ${selectedTitles[1]}\n\n` +
+        `💡 You can change your vote anytime before voting closes.`
+      );
   }
   
   await interaction.followUp({
-    content: responseMsg,
+    embeds: [responseEmbed],
     ephemeral: true
   });
   
@@ -273,8 +287,18 @@ async function handleKnockoutVote(interaction) {
   const matchup = result.tournament.knockoutBracket.find(m => m.id === matchupId);
   const votedMovie = choice === '1' ? matchup.movie1 : matchup.movie2;
   
+  // Create visual feedback embed
+  const responseEmbed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle('✅ Vote Recorded!')
+    .setDescription(
+      `**Your selection:**\n🏆 ${votedMovie.title}\n\n` +
+      `💡 You can change your vote anytime before voting closes.`
+    )
+    .setFooter({ text: `Matchup: ${matchup.id || matchup.position + 1}` });
+  
   await interaction.followUp({
-    content: `✅ Vote recorded for **${votedMovie.title}**!\n\nYou can change your vote anytime before voting closes.`,
+    embeds: [responseEmbed],
     ephemeral: true
   });
   
