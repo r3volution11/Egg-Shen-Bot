@@ -8,6 +8,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Interactive Matchup Selectors** (2026-06-29)
+  - **`/bracket open-matchup` with no parameter** - Shows buttons for all pending matchups
+  - **`/bracket close-matchup` with no parameter** - Shows buttons for all open matchups
+  - **Visual selection interface:**
+    - Open selector: Blue buttons showing matchup label and movie titles (e.g., "1A: Jaws... vs Night of...")
+    - Close selector: Red buttons showing matchup label, titles, and current votes (e.g., "1A: Jaws(5) vs Night of...(3)")
+  - **Multi-select supported** - Click multiple buttons to open/close several matchups at once
+  - **15-minute button timeout** - Buttons expire after 15 minutes to keep UI clean
+  - **Benefits:**
+    - No need to remember/type matchup labels
+    - Visual overview of all available matchups
+    - Faster admin workflow
+    - See current vote counts before closing
+    - Reduces typing errors
+- **Multi-Matchup Support** (2026-06-29)
+  - **Comma-separated matchup lists** - Open or close multiple matchups with one command
+  - **`/bracket open-matchup matchup:"1A,1B,2C"`** - Open multiple matchups at once
+  - **`/bracket close-matchup matchup:"1A,1B,2C"`** - Close multiple matchups at once
+  - **Individual error handling** - Each matchup processed separately with success/error tracking
+  - **Smart response formatting:**
+    - Single matchup: Detailed embed with region name and results
+    - Multiple matchups: Summary embed listing all successes and errors
+  - **Auto-advance tracking** - Shows which winners were automatically placed in next round
+  - **Round completion detection** - Notifies when all matchups in round are closed
+  - **Benefits:**
+    - Faster tournament management
+    - Less command spam in channels
+    - Clear feedback for batch operations
+    - Backwards compatible with single matchup commands
+- **Prominent Matchup Labels in Voting** (2026-06-29)
+  - **Clear matchup identification** - Every voting embed shows "**1A:** Vote for your pick!" in description
+  - **Consistent across all contexts:**
+    - advance-knockout (auto-open first round)
+    - open-knockout (region-based opening)
+    - open-matchup (individual/multi matchup opening)
+    - Interactive button handlers
+  - **Benefits:**
+    - Users immediately see which matchup they're voting for
+    - Reduces confusion when multiple matchups displayed
+    - Better accessibility and clarity
+    - Regional labels impossible to miss
 - **Persistent Ephemeral Voting Dashboard** (2026-06-28)
   - **Real-time personal dashboard** - Each user gets their own voting tracker (only they can see it)
   - **Updates as you vote** - Dashboard refreshes instantly with checkmarks (✅) for selected titles
