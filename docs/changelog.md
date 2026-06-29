@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Multiple Matchup Voting Buttons Separated** (2026-06-29)
+  - **Issue:** When opening multiple matchups (via comma-separated input or region selector), all voting buttons were bundled together at the bottom, making it difficult to understand which buttons corresponded to which matchup
+  - **Fix:** Each matchup now posts as a separate message with its own voting buttons directly below its card
+  - **Impact:** Users can now clearly see which buttons belong to each matchup, significantly improving voting UX
+  - **Affected commands:**
+    - `/bracket open-matchup` (when opening multiple matchups like "1A,1B,1C")
+    - `/bracket open-region` (opens all matchups in a region)
+
 ### Added
 - **Interactive Region Selector for open-region** (2026-06-29)
   - **`/bracket open-region` with no parameter** - Shows 2 buttons: Region 1 (Left Side) and Region 2 (Right Side)

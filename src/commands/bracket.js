@@ -2704,18 +2704,16 @@ async function handleOpenMatchup(interaction) {
     return;
   }
   
-  // Multiple matchups - send embeds for each
-  const embeds = [];
-  const components = [];
+  // Multiple matchups - send main announcement, then each matchup as separate message
   
-  // Main announcement embed
+  // Main announcement embed (sent as reply)
   const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
     .setTitle(`🏆 ${roundName} - ${openedMatchups.length} Matchups Opened!`)
     .setDescription(
       `**Opened matchups:** ${openedMatchups.map(m => m.label).join(', ')}\n\n` +
       `**📝 How to Vote:**\n` +
-      `🔹 Click buttons below to vote in each matchup\n` +
+      `🔹 Click buttons below each matchup to vote\n` +
       `🔹 Your choice is saved instantly\n` +
       `🔹 Click the other button to change your vote\n\n` +
       `⏰ **Voting closes in:** ${timeRemaining}\n` +
@@ -2723,9 +2721,9 @@ async function handleOpenMatchup(interaction) {
     )
     .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
-  embeds.push(mainEmbed);
+  await interaction.editReply({ embeds: [mainEmbed] });
   
-  // Create embed + buttons for each matchup
+  // Send each matchup as a separate message with its own buttons
   for (const { label: matchupLabel, matchup } of openedMatchups) {
     const position = parseRegionalLabel(matchupLabel, tournament.phase);
     const votes1 = matchup.votes.movie1.length;
@@ -2762,14 +2760,10 @@ async function handleOpenMatchup(interaction) {
         .setStyle(ButtonStyle.Primary)
     );
     
-    embeds.push(embed);
-    components.push(row);
-  }
-  
-  const votingMessage = await interaction.editReply({ embeds, components });
-  
-  // Store message IDs for scheduler
-  for (const { matchup } of openedMatchups) {
+    // Send each matchup as its own message
+    const votingMessage = await interaction.channel.send({ embeds: [embed], components: [row] });
+    
+    // Store message ID for this matchup
     bracketManager.storeMatchupVotingMessage(
       interaction.guildId,
       matchup.id,
