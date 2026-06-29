@@ -2,7 +2,7 @@
  * Handle button interactions with comprehensive error handling
  */
 import * as logger from '../utils/logger.js';
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -248,7 +248,7 @@ async function handleGroupVote(interaction) {
   
   // Build persistent voting dashboard for this user
   // This shows their current selections with visual indicators
-  const dashboardEmbed = buildVotingDashboard(updatedGroup, groupId, newVotes);
+  const { embed: dashboardEmbed, components: dashboardComponents } = buildVotingDashboard(updatedGroup, groupId, newVotes);
   
   // Check if user has an existing voting dashboard for this group
   const dashboardKey = `${interaction.guild.id}_${interaction.user.id}_group_${groupId}`;
@@ -261,11 +261,12 @@ async function handleGroupVote(interaction) {
       if (channel) {
         const message = await channel.messages.fetch(existingDashboard.messageId).catch(() => null);
         if (message) {
-          await message.edit({ embeds: [dashboardEmbed] });
+          await message.edit({ embeds: [dashboardEmbed], components: dashboardComponents });
         } else {
           // Message was deleted, create a new one
           const newMessage = await interaction.followUp({
             embeds: [dashboardEmbed],
+            components: dashboardComponents,
             ephemeral: true,
             fetchReply: true
           });
@@ -279,6 +280,7 @@ async function handleGroupVote(interaction) {
         // Channel not accessible, create new message
         const newMessage = await interaction.followUp({
           embeds: [dashboardEmbed],
+          components: dashboardComponents,
           ephemeral: true,
           fetchReply: true
         });
@@ -292,6 +294,7 @@ async function handleGroupVote(interaction) {
       // Create new dashboard
       const newMessage = await interaction.followUp({
         embeds: [dashboardEmbed],
+        components: dashboardComponents,
         ephemeral: true,
         fetchReply: true
       });
@@ -389,10 +392,34 @@ async function handleKnockoutVote(interaction) {
     m.round === currentRound && m.status === 'voting'
   );
   
-  // Send simple vote confirmation (no persistent dashboard for knockout - public leaderboard shows all info)
-  const votedTitle = parseInt(choice) === 1 ? matchup.movie1.title : matchup.movie2.title;
+  // Send vote confirmation with button state feedback
+  const votedChoice = parseInt(choice);
+  const votedTitle = votedChoice === 1 ? matchup.movie1.title : matchup.movie2.title;
+  
+  // Build embed showing both options with button states (purple for selected, gray for unselected)
+  const confirmEmbed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle('✅ Vote Recorded!')
+    .setDescription(`You voted for **${votedTitle}**`);
+  
+  // Create buttons showing visual state (disabled so they're just for display)
+  const button1 = new ButtonBuilder()
+    .setCustomId(`knockout_vote_${matchupId}_1_disabled`)
+    .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
+    .setStyle(votedChoice === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary)
+    .setDisabled(true);
+    
+  const button2 = new ButtonBuilder()
+    .setCustomId(`knockout_vote_${matchupId}_2_disabled`)
+    .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
+    .setStyle(votedChoice === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary)
+    .setDisabled(true);
+  
+  const row = new ActionRowBuilder().addComponents(button1, button2);
+  
   await interaction.followUp({
-    content: `✅ Vote recorded for **${votedTitle}**!`,
+    embeds: [confirmEmbed],
+    components: [row],
     ephemeral: true
   }).catch(() => {});
   
@@ -952,22 +979,16 @@ function buildVotingDashboard(group, groupId, userVotes) {
     statusEmoji = '✅';
   }
   
-  // Build description with all movies and selection indicators
+  // Build description showing status
   let description = `**${statusEmoji} ${statusText}**\n\n`;
   
-  group.movies.forEach((movie, index) => {
-    const isSelected = userVotes.includes(index);
-    const indicator = isSelected ? '✅' : '⬜';
-    const titleText = movie.title.length > 45 ? movie.title.substring(0, 42) + '...' : movie.title;
-    description += `${indicator} **${index + 1}.** ${titleText}\n`;
-  });
-  
-  description += `\n💡 *Click buttons to select/deselect*`;
   if (userVotes.length < 2) {
-    description += `\n📝 *Select ${2 - userVotes.length} more to complete*`;
+    description += `📝 *Select ${2 - userVotes.length} more to complete*\n`;
   } else {
-    description += `\n🎉 *You can still change your vote*`;
+    description += `🎉 *You can still change your vote*\n`;
   }
+  
+  description += `💡 *Click buttons below to select/deselect*`;
   
   const embed = new EmbedBuilder()
     .setColor(color)
@@ -976,7 +997,27 @@ function buildVotingDashboard(group, groupId, userVotes) {
     .setFooter({ text: 'This message updates as you vote • Only you can see this' })
     .setTimestamp();
   
-  return embed;
+  // Build buttons with visual state feedback (Primary = purple/selected, Secondary = gray/unselected)
+  // Disabled buttons are display-only, actual voting happens via the main message buttons
+  const buttons = group.movies.map((movie, index) => {
+    const isSelected = userVotes.includes(index);
+    const titleText = movie.title.length > 80 ? movie.title.substring(0, 77) + '...' : movie.title;
+    
+    return new ButtonBuilder()
+      .setCustomId(`group_vote_${groupId}_${index}_display`)
+      .setLabel(`${index + 1}. ${titleText}`)
+      .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(true); // Display only
+  });
+  
+  // Split buttons into rows (max 5 per row)
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    const rowButtons = buttons.slice(i, i + 5);
+    rows.push(new ActionRowBuilder().addComponents(rowButtons));
+  }
+  
+  return { embed, components: rows };
 }
 
 /**
