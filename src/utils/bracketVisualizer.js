@@ -204,7 +204,7 @@ export async function generateBracketImage(tournament) {
   // Draw champion if exists (check both winner and champion properties)
   const champion = tournament.champion || tournament.winner;
   if (champion) {
-    await drawChampion(ctx, champion, canvasWidth / 2, canvasHeight - CANVAS_PADDING - 50);
+    await drawChampion(ctx, champion, canvasWidth / 2, canvasHeight - 280);
   }
   
   return canvas.toBuffer('image/png');
@@ -616,12 +616,29 @@ function drawConnectorLine(ctx, x, y, roundIndex, matchupIndex, totalMatchups, y
 }
 
 /**
+ * Helper function to draw a rounded rectangle path
+ */
+function roundRectPath(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+/**
  * Draw champion section - large rectangular card with poster
  */
 async function drawChampion(ctx, winner, x, y) {
   const width = 450;
   const height = 180;
-  const scale = 2.0;
+  const borderRadius = 12;
   
   // Center the card at x position
   const cardX = x - (width / 2);
@@ -649,10 +666,9 @@ async function drawChampion(ctx, winner, x, y) {
         offsetY = (height - drawHeight) / 2;
       }
       
-      // Save context and clip to box
+      // Save context and clip to rounded box
       ctx.save();
-      ctx.beginPath();
-      ctx.rect(cardX, cardY, width, height);
+      roundRectPath(ctx, cardX, cardY, width, height, borderRadius);
       ctx.clip();
       
       // Draw poster at reduced opacity
@@ -685,12 +701,14 @@ async function drawChampion(ctx, winner, x, y) {
       
       ctx.globalAlpha = 0.75;
       ctx.fillStyle = gradient;
-      ctx.fillRect(cardX, cardY, width, height);
+      roundRectPath(ctx, cardX, cardY, width, height, borderRadius);
+      ctx.fill();
       ctx.globalAlpha = 1.0;
       
       // Dark overlay for text visibility
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillRect(cardX, cardY, width, height);
+      roundRectPath(ctx, cardX, cardY, width, height, borderRadius);
+      ctx.fill();
     } catch (error) {
       console.error('[BracketVisualizer] Error loading champion poster:', error.message);
       // Fallback to gradient background
@@ -698,7 +716,8 @@ async function drawChampion(ctx, winner, x, y) {
       gradient.addColorStop(0, COLORS.primary);
       gradient.addColorStop(1, COLORS.cardBg);
       ctx.fillStyle = gradient;
-      ctx.fillRect(cardX, cardY, width, height);
+      roundRectPath(ctx, cardX, cardY, width, height, borderRadius);
+      ctx.fill();
     }
   } else {
     // No poster - use gradient background
@@ -706,19 +725,15 @@ async function drawChampion(ctx, winner, x, y) {
     gradient.addColorStop(0, COLORS.primary);
     gradient.addColorStop(1, COLORS.cardBg);
     ctx.fillStyle = gradient;
-    ctx.fillRect(cardX, cardY, width, height);
+    roundRectPath(ctx, cardX, cardY, width, height, borderRadius);
+    ctx.fill();
   }
   
   // Border - thick gold border for champion
   ctx.strokeStyle = '#FFD700'; // Gold
   ctx.lineWidth = 4;
-  ctx.strokeRect(cardX, cardY, width, height);
-  
-  // Trophy emoji in top-left corner
-  ctx.font = '48px Arial, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText('🏆', cardX + 20, cardY + 20);
+  roundRectPath(ctx, cardX, cardY, width, height, borderRadius);
+  ctx.stroke();
   
   // "CHAMPION" label - top center
   ctx.fillStyle = '#FFD700'; // Gold text
