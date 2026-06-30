@@ -951,7 +951,7 @@ async function handleOpenRegionButton(interaction) {
       `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
       `⏰ **Voting closes in:** ${timeRemaining}`
     )
-    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
   
   await interaction.channel.send({ embeds: [mainEmbed] });
   
