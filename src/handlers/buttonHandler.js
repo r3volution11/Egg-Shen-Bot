@@ -361,6 +361,52 @@ async function handleGroupVote(interaction) {
     return;
   }
   
+  // Update the PUBLIC leaderboard message with new vote counts
+  const updatedGroup = result.tournament.groups[groupId];
+  if (updatedGroup.votingMessageChannelId && updatedGroup.votingMessageId) {
+    try {
+      const channel = await interaction.client.channels.fetch(updatedGroup.votingMessageChannelId);
+      const publicMessage = await channel.messages.fetch(updatedGroup.votingMessageId);
+      
+      // Rebuild the public leaderboard embeds
+      const publicEmbeds = publicMessage.embeds.map(embed => EmbedBuilder.from(embed));
+      
+      // Find and update the group embed
+      const groupEmbedIndex = publicEmbeds.findIndex(e => e.data.title === `Group ${groupId}`);
+      if (groupEmbedIndex !== -1) {
+        const groupEmbed = publicEmbeds[groupEmbedIndex];
+        groupEmbed.setFields(
+          updatedGroup.movies.map((movie, index) => {
+            const voteCount = movie.votes.length;
+            return {
+              name: `${index + 1}. ${movie.title}`,
+              value: `${voteCount} vote${voteCount !== 1 ? 's' : ''}`,
+              inline: true
+            };
+          })
+        );
+        
+        // Update the public message
+        await publicMessage.edit({ embeds: publicEmbeds });
+      }
+    } catch (error) {
+      console.error('[ButtonHandler] Error updating public leaderboard:', error);
+      // Don't fail the vote if leaderboard update fails
+    }
+  }
+  
+  // Send confirmation message
+  const movie = updatedGroup.movies[movieIndex];
+  const wasDeselected = !newVotes.includes(movieIndex);
+  const confirmationMessage = wasDeselected
+    ? `❌ Removed vote for **${movie.title}** in Group ${groupId}`
+    : `✅ Voted for **${movie.title}** in Group ${groupId}!`;
+  
+  await interaction.followUp({
+    content: confirmationMessage,
+    ephemeral: true
+  });
+  
   // Rebuild the entire personal voting dashboard with all groups
   const updatedTournament = result.tournament;
   const allUserVotes = updatedTournament.votes?.[interaction.user.id] || {};
