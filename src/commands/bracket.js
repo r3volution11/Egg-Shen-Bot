@@ -291,6 +291,11 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('regenerate')
+      .setDescription('Regenerate knockout bracket tree structure (fixes bracket issues)')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('open-knockout')
       .setDescription('Open ALL matchups in current knockout round (use round-specific commands for clarity)')
       .addStringOption(option =>
@@ -416,11 +421,6 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('list-groups')
-      .setDescription('View all groups and their titles')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
       .setName('view')
       .setDescription('View visual bracket (knockout phase only)')
   )
@@ -455,7 +455,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'open-quarters', 'close-quarters', 'open-semis', 'close-semis', 'open-finals', 'close-finals', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'regenerate', 'open-knockout', 'close-knockout', 'open-quarters', 'close-quarters', 'open-semis', 'close-semis', 'open-finals', 'close-finals', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -495,6 +495,9 @@ export async function execute(interaction) {
       case 'advance-knockout':
         await handleAdvanceKnockout(interaction);
         break;
+      case 'regenerate':
+        await handleRegenerate(interaction);
+        break;
       case 'open-knockout':
         await handleOpenKnockout(interaction);
         break;
@@ -523,9 +526,6 @@ export async function execute(interaction) {
         break;
       case 'status':
         await handleStatus(interaction);
-        break;
-      case 'list-groups':
-        await handleListGroups(interaction);
         break;
       case 'view':
         await handleView(interaction);
@@ -592,18 +592,39 @@ async function handleHelp(interaction) {
         inline: false
       },
       {
-        name: '👥 Common Commands',
+        name: '🎮 Opening Rounds (Admin)',
+        value:
+          '**Round-Specific Commands:**\n' +
+          '• `/bracket open-quarters` - Open Quarterfinals (4 matchups)\n' +
+          '• `/bracket open-semis` - Open Semifinals (2 matchups)\n' +
+          '• `/bracket open-finals` - Open Finals (1 matchup)\n' +
+          '• `/bracket open-knockout` - Generic (any round)\n\n' +
+          '**Advanced:**\n' +
+          '• `/bracket open-matchup matchup:"1A,2A"` - Open specific matchups\n' +
+          '• `/bracket regenerate` - Fix bracket structure issues',
+        inline: false
+      },
+      {
+        name: '✅ Closing Rounds (Admin)',
+        value:
+          '• `/bracket close-quarters` - Close Quarters → Semis\n' +
+          '• `/bracket close-semis` - Close Semis → Finals\n' +
+          '• `/bracket close-finals` - Declare winner!\n' +
+          '• `/bracket close-knockout` - Generic (any round)\n' +
+          '• `/bracket close-matchup` - Close specific matchup(s)',
+        inline: false
+      },
+      {
+        name: '👥 Other Commands',
         value:
           '**Everyone:**\n' +
-          '• `/bracket status` - View current standings\n' +
+          '• `/bracket status` - View standings\n' +
           '• `/bracket view` - See bracket visual\n' +
-          '• `/bracket my-votes` - Check your votes\n' +
-          '• `/bracket list-groups` - See all groups\n\n' +
-          '**Admin/Mod:**\n' +
-          '• `/bracket edit-name` - Change tournament name\n' +
-          '• `/bracket extend-voting` - Add more time\n' +
+          '• `/bracket my-votes` - Your votes\n\n' +
+          '**Admin:**\n' +
+          '• `/bracket extend-voting` - Add time\n' +
           '• `/bracket export` - Save results\n' +
-          '• `/bracket cancel` - Cancel tournament',
+          '• `/bracket cancel` - Cancel',
         inline: false
       },
       {
