@@ -1658,7 +1658,8 @@ async function handleStatus(interaction) {
     embed.setDescription(description);
     
   } else if (tournament.status === 'completed') {
-    embed.setDescription(`🎉 **Tournament Complete!**\n\n**Winner:** ${tournament.winner.title}`);
+    const champion = tournament.champion || tournament.winner;
+    embed.setDescription(`🎉 **Tournament Complete!**\n\n**Winner:** ${champion?.title || 'Unknown'}`);
     embed.setColor(0xFFD700); // Gold
   }
   

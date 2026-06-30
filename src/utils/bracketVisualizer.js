@@ -201,9 +201,10 @@ export async function generateBracketImage(tournament) {
     xOffset -= roundWidth;
   }
   
-  // Draw champion if exists
-  if (tournament.winner) {
-    drawChampion(ctx, tournament.winner, canvasWidth / 2, canvasHeight - CANVAS_PADDING - 50);
+  // Draw champion if exists (check both winner and champion properties)
+  const champion = tournament.champion || tournament.winner;
+  if (champion) {
+    drawChampion(ctx, champion, canvasWidth / 2, canvasHeight - CANVAS_PADDING - 50);
   }
   
   return canvas.toBuffer('image/png');
