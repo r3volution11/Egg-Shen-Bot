@@ -229,8 +229,8 @@ async function handleStartGroupVoting(interaction) {
     .setColor(0x4EC5ED)
     .setTitle('🗳️ Your Group Voting Dashboard')
     .setDescription(
-      `Vote for your **top 2** in each group below.\\n` +
-      `Your selections are shown in **purple**.\\n\\n` +
+      `Vote for your **top 2** in each group below.\n` +
+      `Your selections are shown in **purple**.\n\n` +
       `💡 Click any button to cast or change your vote!`
     )
     .setThumbnail(interaction.client.user.displayAvatarURL())
@@ -250,8 +250,8 @@ async function handleStartGroupVoting(interaction) {
     const userGroupVotes = userVotes[groupId] || [];
     
     // Add separator text
-    const groupLabel = `\\n**Group ${groupId}** - Select 2:`;
-    embed.addFields({ name: '\\u200b', value: groupLabel, inline: false });
+    const groupLabel = `\n**Group ${groupId}** - Select 2:`;
+    embed.addFields({ name: '\u200b', value: groupLabel, inline: false });
     
     // Create buttons for each movie in this group
     const buttons = group.movies.map((movie, index) => {
@@ -289,6 +289,9 @@ async function handleStartGroupVoting(interaction) {
  * Handle group stage voting button clicks
  */
 async function handleGroupVote(interaction) {
+  // Acknowledge the interaction immediately
+  await interaction.deferUpdate();
+  
   const [, , groupId, movieIndexStr] = interaction.customId.split('_');
     const movieIndex = parseInt(movieIndexStr);
   
@@ -439,8 +442,8 @@ async function handleGroupVote(interaction) {
     
     // Add group label
     embed.addFields({ 
-      name: '\\u200b', 
-      value: `\\n**Group ${gId}** - ${voteStatus}`, 
+      name: '\u200b', 
+      value: `\n**Group ${gId}** - ${voteStatus}`, 
       inline: false 
     });
     
