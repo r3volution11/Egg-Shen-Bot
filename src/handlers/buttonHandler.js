@@ -54,6 +54,23 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
     
+    // Handle "Start Voting" button for group stage
+    if (interaction.customId.startsWith('start_group_voting_')) {
+      await handleStartGroupVoting(interaction);
+      
+      // Log successful button interaction
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      
+      if (duration > 2000) {
+        logger.logPerformance('Button: start_group_voting', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+    
     // Handle knockout voting buttons
     if (interaction.customId.startsWith('knockout_vote_')) {
       await handleKnockoutVote(interaction);
@@ -182,6 +199,95 @@ export async function handleButtonInteraction(interaction) {
 /**
  * Handle group stage voting button clicks
  */
+/**
+ * Handle "Start Voting" button for group stage
+ * Sends user a personal voting dashboard with all open groups
+ */
+async function handleStartGroupVoting(interaction) {
+  const groupIdsStr = interaction.customId.replace('start_group_voting_', '');
+  const groupIds = groupIdsStr.split(',');
+  
+  // Dynamically import bracketManager
+  const bracketManager = await import('../utils/bracketManager.js');
+  const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
+  
+  // Load tournament
+  const tournament = bracketManager.loadTournament(interaction.guild.id);
+  if (!tournament) {
+    await interaction.reply({
+      content: '❌ No tournament found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Get user's current votes
+  const userVotes = tournament.votes?.[interaction.user.id] || {};
+  
+  // Build personal voting dashboard
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle('🗳️ Your Group Voting Dashboard')
+    .setDescription(
+      `Vote for your **top 2** in each group below.\\n` +
+      `Your selections are shown in **purple**.\\n\\n` +
+      `💡 Click any button to cast or change your vote!`
+    )
+    .setThumbnail(interaction.client.user.displayAvatarURL())
+    .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
+    .setTimestamp();
+  
+  // Create buttons for each group
+  const components = [];
+  
+  for (const groupId of groupIds) {
+    const group = tournament.groups[groupId];
+    if (!group || !group.votingOpen) continue;
+    
+    // Check deadline
+    if (group.votingDeadline && Date.now() > group.votingDeadline) continue;
+    
+    const userGroupVotes = userVotes[groupId] || [];
+    
+    // Add separator text
+    const groupLabel = `\\n**Group ${groupId}** - Select 2:`;
+    embed.addFields({ name: '\\u200b', value: groupLabel, inline: false });
+    
+    // Create buttons for each movie in this group
+    const buttons = group.movies.map((movie, index) => {
+      const isSelected = userGroupVotes.includes(index);
+      return new ButtonBuilder()
+        .setCustomId(`group_vote_${groupId}_${index}`)
+        .setLabel(`${index + 1}. ${movie.title.length > 50 ? movie.title.substring(0, 47) + '...' : movie.title}`)
+        .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    });
+    
+    // Split into rows (5 buttons max per row)
+    for (let i = 0; i < buttons.length; i += 5) {
+      const row = new ActionRowBuilder().addComponents(buttons.slice(i, i + 5));
+      components.push(row);
+    }
+  }
+  
+  if (components.length === 0) {
+    await interaction.reply({
+      content: '❌ No groups are currently open for voting.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Send ephemeral (private) voting dashboard
+  await interaction.reply({
+    embeds: [embed],
+    components: components,
+    ephemeral: true
+  });
+}
+
+/**
+ * Handle group stage voting button clicks
+ */
 async function handleGroupVote(interaction) {
   const [, , groupId, movieIndexStr] = interaction.customId.split('_');
     const movieIndex = parseInt(movieIndexStr);
@@ -255,55 +361,62 @@ async function handleGroupVote(interaction) {
     return;
   }
   
-  // Get updated group data
-  const updatedGroup = result.tournament.groups[groupId];
+  // Rebuild the entire personal voting dashboard with all groups
+  const updatedTournament = result.tournament;
+  const allUserVotes = updatedTournament.votes?.[interaction.user.id] || {};
   
-  // Update the message embeds with new vote counts
-  const messageEmbeds = interaction.message.embeds;
-  const groupEmbedIndex = messageEmbeds.findIndex(e => 
-    e.title && e.title === `Group ${groupId}`
-  );
-  
-  let updatedEmbeds = [...messageEmbeds];
-  if (groupEmbedIndex !== -1 && groupEmbedIndex > 0) {
-    const updatedEmbed = EmbedBuilder.from(messageEmbeds[groupEmbedIndex]);
-    
-    // Update fields with new vote counts
-    updatedEmbed.setFields(
-      updatedGroup.movies.map((movie, index) => {
-        const voteCount = movie.votes.length;
-        return {
-          name: `${index + 1}. ${movie.title}`,
-          value: `${voteCount} vote${voteCount !== 1 ? 's' : ''}`,
-          inline: true
-        };
-      })
-    );
-    
-    updatedEmbeds[groupEmbedIndex] = updatedEmbed;
+  // Get all open groups (from the original dashboard)
+  const originalEmbed = interaction.message.embeds[0];
+  const openGroups = [];
+  for (const gId in updatedTournament.groups) {
+    const g = updatedTournament.groups[gId];
+    if (g.votingOpen && (!g.votingDeadline || Date.now() <= g.votingDeadline)) {
+      openGroups.push(gId);
+    }
   }
   
-  // Build buttons with THIS USER's selection states
-  // Primary (purple) for their selections, Secondary (gray) for unselected
-  const buttons = updatedGroup.movies.map((movie, index) => {
-    const isSelected = newVotes.includes(index);
-    return new ButtonBuilder()
-      .setCustomId(`group_vote_${groupId}_${index}`)
-      .setLabel(`${index + 1}. ${movie.title.length > 60 ? movie.title.substring(0, 57) + '...' : movie.title}`)
-      .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
-  });
+  openGroups.sort();
   
-  // Split into rows (5 buttons max per row)
-  const rows = [];
-  for (let i = 0; i < buttons.length; i += 5) {
-    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+  // Rebuild embed
+  const embed = EmbedBuilder.from(originalEmbed);
+  embed.setFields([]); // Clear fields
+  
+  // Rebuild buttons for all open groups
+  const components = [];
+  
+  for (const gId of openGroups) {
+    const g = updatedTournament.groups[gId];
+    if (!g) continue;
+    
+    const userGroupVotes = allUserVotes[gId] || [];
+    const voteStatus = userGroupVotes.length === 2 ? '✅' : `${userGroupVotes.length}/2`;
+    
+    // Add group label
+    embed.addFields({ 
+      name: '\\u200b', 
+      value: `\\n**Group ${gId}** - ${voteStatus}`, 
+      inline: false 
+    });
+    
+    // Create buttons
+    const buttons = g.movies.map((movie, index) => {
+      const isSelected = userGroupVotes.includes(index);
+      return new ButtonBuilder()
+        .setCustomId(`group_vote_${gId}_${index}`)
+        .setLabel(`${index + 1}. ${movie.title.length > 50 ? movie.title.substring(0, 47) + '...' : movie.title}`)
+        .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    });
+    
+    // Split into rows
+    for (let i = 0; i < buttons.length; i += 5) {
+      components.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+    }
   }
   
-  // Use interaction.update() to send these button states back to THIS USER ONLY
-  // Other users will see their own button states when they click
+  // Update user's personal dashboard
   await interaction.update({
-    embeds: updatedEmbeds,
-    components: rows
+    embeds: [embed],
+    components: components
   });
 }
 
