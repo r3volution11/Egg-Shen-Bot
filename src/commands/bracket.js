@@ -1576,6 +1576,7 @@ async function handleStatus(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
     .setTitle(`🏆 ${tournament.name}`)
+    .setThumbnail(interaction.client.user.displayAvatarURL())
     .addFields(
       { name: 'Status', value: tournament.status, inline: true },
       { name: 'Phase', value: tournament.phase, inline: true },
@@ -2202,6 +2203,7 @@ async function handleCloseKnockout(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0xFF9900)
     .setTitle(`🏁 ${roundName} Complete!`)
+    .setThumbnail(interaction.client.user.displayAvatarURL())
     .setDescription(`**${results.length} matchup${results.length !== 1 ? 's' : ''}** closed. Here are the winners:\n`);
   
   results.forEach((r) => {
@@ -2265,6 +2267,7 @@ async function showRegionSelector(interaction, tournament, durationMs) {
   const embed = new EmbedBuilder()
     .setColor(0x4EC5ED)
     .setTitle(`🏆 Select Region to Open - ${roundName}`)
+    .setThumbnail(interaction.client.user.displayAvatarURL())
     .setDescription(
       `Choose which side of the bracket to open for voting:\n\n` +
       `**Region 1 (Left Side):** ${region1Matchups.length} matchup${region1Matchups.length !== 1 ? 's' : ''}\n` +
