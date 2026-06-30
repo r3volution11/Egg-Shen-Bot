@@ -705,8 +705,8 @@ async function drawChampion(ctx, winner, x, y) {
       ctx.fill();
       ctx.globalAlpha = 1.0;
       
-      // Dark overlay for text visibility
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      // Dark overlay for text visibility (lighter to let poster show more)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
       roundRectPath(ctx, cardX, cardY, width, height, borderRadius);
       ctx.fill();
     } catch (error) {
