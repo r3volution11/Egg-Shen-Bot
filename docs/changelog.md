@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Round-Specific Command Aliases** (2026-06-30)
+  - **New memorable commands for each knockout round:**
+    - **Opening:** `/bracket open-quarters`, `/bracket open-semis`, `/bracket open-finals`
+    - **Closing:** `/bracket close-quarters`, `/bracket close-semis`, `/bracket close-finals`
+  - **Generic fallbacks still available:** `/bracket open-knockout`, `/bracket close-knockout` work for any round
+  - **Improved help text:** `/bracket help` now documents all round-specific aliases
+  - **Smart next-step guidance:** After closing a round, bot suggests exact command to run next (e.g., "Run /bracket open-semis to start voting!")
+  - **Benefits:**
+    - More intuitive than generic "open-knockout" for admins
+    - Clear progression through tournament rounds
+    - Reduces need to check documentation
+    - Better discovery of available commands
+  - **Commands restored:** `/bracket regenerate` added back (critical for fixing bracket structure issues)
+  - **Commands removed to stay under 25 limit:** `list-groups` (status shows this info)
+- **Discord Timestamp Auto-Timezone Conversion** (2026-06-29)
+  - **Issue:** All timestamps displayed in server time (UTC), causing confusion for users in different timezones
+  - **Fix:** Replaced all `toLocaleString()` calls with Discord's `<t:timestamp:f>` format
+  - **Affected areas:**
+    - Footer deadlines on matchup opening messages
+    - "Voting Closing Soon!" reminder notifications (scheduler)
+    - Voting extension confirmation messages
+  - **Result:** Each user automatically sees times in their own timezone based on Discord settings
+  - **Example:** "10:14 PM" (your timezone) instead of "2:14 AM" (UTC)
 - **Personal Voting Dashboards for Knockout Rounds** (2026-06-29)
   - **How it works:** Users get their own private voting dashboard (completely separate from shared messages)
   - **Flow:**
