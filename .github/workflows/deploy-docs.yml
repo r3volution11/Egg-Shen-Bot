@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'src/commands/bracket.js'
+      - 'src/handlers/buttonHandler.js'
+      - 'src/utils/bracketManager.js'
+      - 'src/utils/tournamentUI.js'
       - 'package.json'
       - '.github/workflows/deploy-docs.yml'
 
@@ -43,6 +47,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate documentation examples
+        run: npm run docs:generate-examples
 
       - name: Build documentation
         run: npm run docs:build
