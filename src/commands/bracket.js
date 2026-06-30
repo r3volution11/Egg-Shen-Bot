@@ -310,7 +310,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('open-knockout')
-      .setDescription('Open current round matchups for voting (Admin/Mod only)')
+      .setDescription('Open ALL matchups in current knockout round (use round-specific commands for clarity)')
       .addStringOption(option =>
         option
           .setName('duration')
@@ -321,7 +321,72 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('close-knockout')
-      .setDescription('Close current round and advance winners (Admin/Mod only)')
+      .setDescription('Close current round and advance winners (use round-specific commands for clarity)')
+  )
+  // Round-specific aliases for clarity
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('open-round16')
+      .setDescription('Open Round of 16 matchups (8 matchups) - Alias for open-knockout')
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('close-round16')
+      .setDescription('Close Round of 16 and advance to Quarterfinals')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('open-quarters')
+      .setDescription('Open Quarterfinals matchups (4 matchups) - Alias for open-knockout')
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('close-quarters')
+      .setDescription('Close Quarterfinals and advance to Semifinals')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('open-semis')
+      .setDescription('Open Semifinals matchups (2 matchups) - Alias for open-knockout')
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('close-semis')
+      .setDescription('Close Semifinals and advance to Finals')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('open-finals')
+      .setDescription('Open the Finals matchup (1 matchup) - Alias for open-knockout')
+      .addStringOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('close-finals')
+      .setDescription('Close Finals and declare tournament winner!')
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -485,7 +550,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'open-matchup', 'close-matchup', 'extend-voting', 'regenerate', 'edit-name', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'open-round16', 'close-round16', 'open-quarters', 'close-quarters', 'open-semis', 'close-semis', 'open-finals', 'close-finals', 'open-matchup', 'close-matchup', 'extend-voting', 'regenerate', 'open-region', 'edit-name', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -538,6 +603,19 @@ export async function execute(interaction) {
         await handleOpenRegion(interaction);
         break;
       case 'close-knockout':
+        await handleCloseKnockout(interaction);
+        break;
+      // Round-specific aliases
+      case 'open-round16':
+      case 'open-quarters':
+      case 'open-semis':
+      case 'open-finals':
+        await handleOpenKnockout(interaction);
+        break;
+      case 'close-round16':
+      case 'close-quarters':
+      case 'close-semis':
+      case 'close-finals':
         await handleCloseKnockout(interaction);
         break;
       case 'open-matchup':
@@ -2238,7 +2316,15 @@ async function handleCloseKnockout(interaction) {
     // Advance to next round
     const nextRound = updatedTournament.phase;
     const nextRoundName = nextRound.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    embed.setFooter({ text: `Winners have advanced to ${nextRoundName}. Use /bracket open-knockout to start voting!` });
+    
+    // Suggest the appropriate round-specific command
+    let nextCommand = '/bracket open-knockout';
+    if (nextRound === 'round_of_16') nextCommand = '/bracket open-round16';
+    else if (nextRound === 'quarterfinals') nextCommand = '/bracket open-quarters';
+    else if (nextRound === 'semifinals') nextCommand = '/bracket open-semis';
+    else if (nextRound === 'finals') nextCommand = '/bracket open-finals';
+    
+    embed.setFooter({ text: `Winners have advanced to ${nextRoundName}. Run ${nextCommand} to start voting!` });
   }
   
   await interaction.editReply({ embeds: [embed] });
