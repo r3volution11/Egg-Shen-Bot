@@ -34,13 +34,7 @@ export async function handleButtonInteraction(interaction) {
   const startTime = Date.now();
   
   try {
-    // Defer update for buttons to prevent "interaction failed" errors
-    // This gives us 15 minutes to process instead of 3 seconds
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferUpdate().catch(() => {
-        // If defer fails, we'll handle it in the catch block
-      });
-    }
+    // DON'T defer update - we'll use interaction.update() to show per-user button states
     
     // Handle group stage voting buttons
     if (interaction.customId.startsWith('group_vote_')) {
@@ -246,63 +240,53 @@ async function handleGroupVote(interaction) {
   // Get updated group data
   const updatedGroup = result.tournament.groups[groupId];
   
-  // Build personalized confirmation showing what they selected
-  const selectedTitle = updatedGroup.movies[movieIndex].title;
-  const isSelected = newVotes.includes(movieIndex);
+  // Update the message embeds with new vote counts
+  const messageEmbeds = interaction.message.embeds;
+  const groupEmbedIndex = messageEmbeds.findIndex(e => 
+    e.title && e.title === `Group ${groupId}`
+  );
   
-  let confirmMessage;
-  if (isSelected) {
-    confirmMessage = `✅ **Vote recorded!**\n\nYou selected: **${selectedTitle}**\n\n`;
-    if (newVotes.length === 1) {
-      confirmMessage += `📝 Select 1 more title to complete your vote for Group ${groupId}`;
-    } else {
-      confirmMessage += `🎉 Vote complete! You've selected ${newVotes.length} titles for Group ${groupId}`;
-    }
-  } else {
-    confirmMessage = `✅ **Vote removed**\n\nYou deselected: **${selectedTitle}**\n\n📝 Select ${2 - newVotes.length} more title(s) to complete your vote for Group ${groupId}`;
-  }
-  
-  await interaction.followUp({
-    content: confirmMessage,
-    ephemeral: true
-  });
-  
-  // Update the message to show new vote counts
-  try {
-    const messageEmbeds = interaction.message.embeds;
-    const groupEmbedIndex = messageEmbeds.findIndex(e => 
-      e.title && e.title === `Group ${groupId}`
+  let updatedEmbeds = [...messageEmbeds];
+  if (groupEmbedIndex !== -1 && groupEmbedIndex > 0) {
+    const updatedEmbed = EmbedBuilder.from(messageEmbeds[groupEmbedIndex]);
+    
+    // Update fields with new vote counts
+    updatedEmbed.setFields(
+      updatedGroup.movies.map((movie, index) => {
+        const voteCount = movie.votes.length;
+        return {
+          name: `${index + 1}. ${movie.title}`,
+          value: `${voteCount} vote${voteCount !== 1 ? 's' : ''}`,
+          inline: true
+        };
+      })
     );
     
-    if (groupEmbedIndex !== -1 && groupEmbedIndex > 0) {
-      const updatedEmbed = EmbedBuilder.from(messageEmbeds[groupEmbedIndex]);
-      
-      // Update fields with new vote counts
-      updatedEmbed.setFields(
-        updatedGroup.movies.map((movie, index) => {
-          const voteCount = movie.votes.length;
-          return {
-            name: `${index + 1}. ${movie.title}`,
-            value: `${voteCount} vote${voteCount !== 1 ? 's' : ''}`,
-            inline: true
-          };
-        })
-      );
-      
-      const newEmbeds = [...messageEmbeds];
-      newEmbeds[groupEmbedIndex] = updatedEmbed;
-      
-      // Keep buttons neutral (Secondary/gray) in shared message
-      // Each user sees their own selection confirmation in ephemeral messages
-      await interaction.message.edit({ 
-        embeds: newEmbeds
-        // components unchanged - buttons stay clickable and neutral for everyone
-      });
-    }
-  } catch (updateError) {
-    console.error('[ButtonHandler] Error updating voting message:', updateError);
-    // Don't throw - vote was already recorded successfully
+    updatedEmbeds[groupEmbedIndex] = updatedEmbed;
   }
+  
+  // Build buttons with THIS USER's selection states
+  // Primary (purple) for their selections, Secondary (gray) for unselected
+  const buttons = updatedGroup.movies.map((movie, index) => {
+    const isSelected = newVotes.includes(index);
+    return new ButtonBuilder()
+      .setCustomId(`group_vote_${groupId}_${index}`)
+      .setLabel(`${index + 1}. ${movie.title.length > 60 ? movie.title.substring(0, 57) + '...' : movie.title}`)
+      .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
+  });
+  
+  // Split into rows (5 buttons max per row)
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+  }
+  
+  // Use interaction.update() to send these button states back to THIS USER ONLY
+  // Other users will see their own button states when they click
+  await interaction.update({
+    embeds: updatedEmbeds,
+    components: rows
+  });
 }
 
 /**
@@ -313,7 +297,7 @@ async function handleKnockoutVote(interaction) {
   
   // Dynamically import bracketManager
   const bracketManager = await import('../utils/bracketManager.js');
-  const { EmbedBuilder } = await import('discord.js');
+  const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
   
   const result = bracketManager.voteKnockout(
     interaction.guild.id,
@@ -341,43 +325,61 @@ async function handleKnockoutVote(interaction) {
     m.round === currentRound && m.status === 'voting'
   );
   
-  // Build personalized confirmation showing what they selected
-  const votedChoice = parseInt(choice);
-  const votedTitle = votedChoice === 1 ? matchup.movie1.title : matchup.movie2.title;
-  const otherTitle = votedChoice === 1 ? matchup.movie2.title : matchup.movie1.title;
+  // Get updated matchup data
+  const updatedMatchup = tournament.knockoutBracket.find(m => m.id === matchupId);
   
-  const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+  // Update the message embeds with new vote counts
+  const messageEmbeds = interaction.message.embeds;
+  const matchupEmbedIndex = messageEmbeds.findIndex(e => 
+    e.title && (
+      e.title.includes(`Matchup ${updatedMatchup.position + 1}`) ||
+      e.title.includes(updatedMatchup.round.replace(/_/g, ' '))
+    )
+  );
   
-  const confirmMessage = `✅ **Vote recorded!**\n\n**Matchup ${regionalLabel}**\nYou selected: **${votedTitle}**\n\n_You can change your vote anytime before voting closes._`;
-  
-  await interaction.followUp({
-    content: confirmMessage,
-    ephemeral: true
-  }).catch(() => {});
-  
-  // Helper function to get regional label
-  function getRegionalLabel(position, round) {
-    const roundSizes = {
-      'round_of_32': 16,
-      'round_of_16': 8,
-      'quarterfinals': 4,
-      'semifinals': 2,
-      'finals': 1
-    };
+  let updatedEmbeds = [...messageEmbeds];
+  if (matchupEmbedIndex !== -1) {
+    const votes1 = updatedMatchup.votes.movie1.length;
+    const votes2 = updatedMatchup.votes.movie2.length;
     
-    if (round === 'finals') return 'Finals';
+    const updatedEmbed = EmbedBuilder.from(messageEmbeds[matchupEmbedIndex])
+      .setFields(
+        { 
+          name: `${updatedMatchup.movie1.title}`, 
+          value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
+          inline: true 
+        },
+        { name: '\u200B', value: 'vs', inline: true },
+        { 
+          name: `${updatedMatchup.movie2.title}`, 
+          value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
+          inline: true 
+        }
+      );
     
-    const totalMatchups = roundSizes[round];
-    if (!totalMatchups) return String(position + 1);
-    
-    const midpoint = totalMatchups / 2;
-    const isLeftRegion = position < midpoint;
-    const region = isLeftRegion ? '1' : '2';
-    const positionInRegion = isLeftRegion ? position : position - midpoint;
-    const letter = String.fromCharCode(65 + positionInRegion);
-    
-    return `${region}${letter}`;
+    updatedEmbeds[matchupEmbedIndex] = updatedEmbed;
   }
+  
+  // Build buttons with THIS USER's selection state
+  const userVote = tournament.votes?.[interaction.user.id]?.[matchupId];
+  
+  const button1 = new ButtonBuilder()
+    .setCustomId(`knockout_vote_${matchupId}_1`)
+    .setLabel(updatedMatchup.movie1.title.length > 80 ? updatedMatchup.movie1.title.substring(0, 77) + '...' : updatedMatchup.movie1.title)
+    .setStyle(userVote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+  
+  const button2 = new ButtonBuilder()
+    .setCustomId(`knockout_vote_${matchupId}_2`)
+    .setLabel(updatedMatchup.movie2.title.length > 80 ? updatedMatchup.movie2.title.substring(0, 77) + '...' : updatedMatchup.movie2.title)
+    .setStyle(userVote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+  
+  const row = new ActionRowBuilder().addComponents(button1, button2);
+  
+  // Use interaction.update() to send these button states back to THIS USER ONLY
+  await interaction.update({
+    embeds: updatedEmbeds,
+    components: [row]
+  });
   
   // Update or create public "All Votes" leaderboard
   const leaderboardKey = `${interaction.guild.id}_knockout_${currentRound}`;
@@ -416,48 +418,6 @@ async function handleKnockoutVote(interaction) {
   } catch (leaderboardError) {
     console.error('[ButtonHandler] Error managing public knockout leaderboard:', leaderboardError);
     // Don't throw - leaderboard is nice-to-have, not critical
-  }
-  
-  // Update the embed to show new vote counts
-  try {
-    const votes1 = matchup.votes.movie1.length;
-    const votes2 = matchup.votes.movie2.length;
-    
-    // Find the embed for this matchup in the original message
-    const messageEmbeds = interaction.message.embeds;
-    const matchupEmbedIndex = messageEmbeds.findIndex(e => 
-      e.title && (
-        e.title.includes(`Matchup ${matchup.position + 1}`) ||
-        e.title.includes(matchup.round.replace(/_/g, ' '))
-      )
-    );
-    
-    if (matchupEmbedIndex !== -1) {
-      const updatedEmbed = EmbedBuilder.from(messageEmbeds[matchupEmbedIndex])
-        .setFields(
-          { 
-            name: `${matchup.movie1.title}`, 
-            value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
-            inline: true 
-          },
-          { name: '\u200B', value: 'vs', inline: true },
-          { 
-            name: `${matchup.movie2.title}`, 
-            value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
-            inline: true 
-          }
-        );
-      
-      const newEmbeds = [...messageEmbeds];
-      newEmbeds[matchupEmbedIndex] = updatedEmbed;
-      
-      // Keep buttons neutral (Secondary/gray) in shared message
-      // Each user sees their own selection confirmation in ephemeral messages
-      await interaction.message.edit({ embeds: newEmbeds });
-    }
-  } catch (updateError) {
-    console.error('[ButtonHandler] Error updating knockout voting message:', updateError);
-    // Don't throw - vote was already recorded successfully
   }
 }
 
