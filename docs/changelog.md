@@ -8,21 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Button State Visual Feedback** (2026-06-29)
-  - **Group Stage:** Personal voting dashboard now shows buttons with visual states
-    - Selected titles: Primary style (purple/blue - depends on theme)
+- **Button State Visual Feedback in Voting Messages** (2026-06-29)
+  - **Group Stage:** Voting buttons in the shared message now show selection state
+    - Selected titles: Primary style (purple/blue based on Discord theme)
     - Unselected titles: Secondary style (gray)
-    - Buttons are disabled (display-only) - click the main message buttons to vote
-  - **Knockout Rounds:** Vote confirmation shows both options as buttons
-    - Your selection: Primary style (purple/blue)
-    - Other option: Secondary style (gray)
-    - Disabled buttons for visual feedback only
+    - Buttons update in real-time as you vote
+    - Simple "✅ Vote recorded" confirmation (ephemeral)
+  - **Knockout Rounds:** Voting buttons show your selection state
+    - Your vote: Primary style (purple/blue)
+    - Other option: Secondary style (gray)  
+    - Buttons update to reflect your choice
+    - Simple "✅ Vote recorded" confirmation (ephemeral)
   - **Benefits:**
-    - Clear visual indication of what you've selected
-    - Familiar button state pattern (gray = inactive, colored = active)
+    - Immediate visual feedback right on the voting buttons
+    - No separate cards to track
+    - Clean, intuitive UX - the button you clicked turns purple
     - Works with your Discord theme color scheme
-    - No cross-user pollution (buttons only in your ephemeral messages)
-  - **Note:** Buttons in shared voting messages stay gray (Secondary) to prevent cross-user state pollution. You see your selection states in your personal ephemeral dashboard/confirmation.
+  - **Note:** Button states show your OWN selections. Other users see their own button states based on their votes.
   - **Applies to all media types:** Movies, TV shows, video games, board games, books, and any future additions (episodes, music, etc.)
 
 ### Changed

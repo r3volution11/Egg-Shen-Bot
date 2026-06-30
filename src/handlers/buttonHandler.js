@@ -246,74 +246,13 @@ async function handleGroupVote(interaction) {
   // Get updated group data
   const updatedGroup = result.tournament.groups[groupId];
   
-  // Build persistent voting dashboard for this user
-  // This shows their current selections with visual indicators
-  const { embed: dashboardEmbed, components: dashboardComponents } = buildVotingDashboard(updatedGroup, groupId, newVotes);
-  
-  // Check if user has an existing voting dashboard for this group
-  const dashboardKey = `${interaction.guild.id}_${interaction.user.id}_group_${groupId}`;
-  const existingDashboard = userVotingDashboards.get(dashboardKey);
-  
-  try {
-    if (existingDashboard) {
-      // Update existing dashboard
-      const channel = await interaction.client.channels.fetch(existingDashboard.channelId).catch(() => null);
-      if (channel) {
-        const message = await channel.messages.fetch(existingDashboard.messageId).catch(() => null);
-        if (message) {
-          await message.edit({ embeds: [dashboardEmbed], components: dashboardComponents });
-        } else {
-          // Message was deleted, create a new one
-          const newMessage = await interaction.followUp({
-            embeds: [dashboardEmbed],
-            components: dashboardComponents,
-            ephemeral: true,
-            fetchReply: true
-          });
-          userVotingDashboards.set(dashboardKey, {
-            messageId: newMessage.id,
-            channelId: interaction.channelId,
-            timestamp: Date.now()
-          });
-        }
-      } else {
-        // Channel not accessible, create new message
-        const newMessage = await interaction.followUp({
-          embeds: [dashboardEmbed],
-          components: dashboardComponents,
-          ephemeral: true,
-          fetchReply: true
-        });
-        userVotingDashboards.set(dashboardKey, {
-          messageId: newMessage.id,
-          channelId: interaction.channelId,
-          timestamp: Date.now()
-        });
-      }
-    } else {
-      // Create new dashboard
-      const newMessage = await interaction.followUp({
-        embeds: [dashboardEmbed],
-        components: dashboardComponents,
-        ephemeral: true,
-        fetchReply: true
-      });
-      userVotingDashboards.set(dashboardKey, {
-        messageId: newMessage.id,
-        channelId: interaction.channelId,
-        timestamp: Date.now()
-      });
-    }
-  } catch (dashboardError) {
-    console.error('[ButtonHandler] Error managing voting dashboard:', dashboardError);
-    // Fallback to simple confirmation if dashboard fails
-    await interaction.followUp({
-      content: newVotes.length === 0 
-        ? `✅ Votes removed from Group ${groupId}` 
-        : `✅ Vote recorded for Group ${groupId} (${newVotes.length}/2 selected)`,
-      ephemeral: true
-    });
-  }
+  // Send simple confirmation
+  await interaction.followUp({
+    content: newVotes.length === 0 
+      ? `✅ Votes removed from Group ${groupId}` 
+      : `✅ Vote recorded for Group ${groupId} (${newVotes.length}/2 selected)`,
+    ephemeral: true
+  });
   
   // Update the message to show new vote counts
   try {
@@ -340,14 +279,26 @@ async function handleGroupVote(interaction) {
       const newEmbeds = [...messageEmbeds];
       newEmbeds[groupEmbedIndex] = updatedEmbed;
       
-      // DO NOT update button styles in the shared message - Discord messages are global
-      // and button style changes affect all users, not just the voter. This causes
-      // User A's selections to appear as selected for User B, User C, etc.
-      // Users see their selection feedback in the ephemeral response instead.
+      // Update button styles to show selection state
+      // Primary (purple/blue) for selected titles, Secondary (gray) for unselected
+      const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
+      const buttons = updatedGroup.movies.map((movie, index) => {
+        const isSelected = newVotes.includes(index);
+        return new ButtonBuilder()
+          .setCustomId(`group_vote_${groupId}_${index}`)
+          .setLabel(`${index + 1}. ${movie.title.length > 60 ? movie.title.substring(0, 57) + '...' : movie.title}`)
+          .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
+      });
+      
+      // Split into rows (5 buttons max per row)
+      const rows = [];
+      for (let i = 0; i < buttons.length; i += 5) {
+        rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+      }
       
       await interaction.message.edit({ 
-        embeds: newEmbeds
-        // components unchanged - keep all buttons as default ButtonStyle.Secondary
+        embeds: newEmbeds,
+        components: rows
       });
     }
   } catch (updateError) {
@@ -392,34 +343,10 @@ async function handleKnockoutVote(interaction) {
     m.round === currentRound && m.status === 'voting'
   );
   
-  // Send vote confirmation with button state feedback
-  const votedChoice = parseInt(choice);
-  const votedTitle = votedChoice === 1 ? matchup.movie1.title : matchup.movie2.title;
-  
-  // Build embed showing both options with button states (purple for selected, gray for unselected)
-  const confirmEmbed = new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle('✅ Vote Recorded!')
-    .setDescription(`You voted for **${votedTitle}**`);
-  
-  // Create buttons showing visual state (disabled so they're just for display)
-  const button1 = new ButtonBuilder()
-    .setCustomId(`knockout_vote_${matchupId}_1_disabled`)
-    .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
-    .setStyle(votedChoice === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary)
-    .setDisabled(true);
-    
-  const button2 = new ButtonBuilder()
-    .setCustomId(`knockout_vote_${matchupId}_2_disabled`)
-    .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
-    .setStyle(votedChoice === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary)
-    .setDisabled(true);
-  
-  const row = new ActionRowBuilder().addComponents(button1, button2);
-  
+  // Send simple vote confirmation
+  const votedTitle = parseInt(choice) === 1 ? matchup.movie1.title : matchup.movie2.title;
   await interaction.followUp({
-    embeds: [confirmEmbed],
-    components: [row],
+    content: `✅ Vote recorded for **${votedTitle}**!`,
     ephemeral: true
   }).catch(() => {});
   
@@ -495,7 +422,26 @@ async function handleKnockoutVote(interaction) {
       const newEmbeds = [...messageEmbeds];
       newEmbeds[matchupEmbedIndex] = updatedEmbed;
       
-      await interaction.message.edit({ embeds: newEmbeds });
+      // Update button styles to show user's selection
+      const userVote = tournament.votes?.[interaction.user.id]?.[matchupId];
+      const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
+      
+      const button1 = new ButtonBuilder()
+        .setCustomId(`knockout_vote_${matchupId}_1`)
+        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
+        .setStyle(userVote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+      
+      const button2 = new ButtonBuilder()
+        .setCustomId(`knockout_vote_${matchupId}_2`)
+        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
+        .setStyle(userVote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+      
+      const row = new ActionRowBuilder().addComponents(button1, button2);
+      
+      await interaction.message.edit({ 
+        embeds: newEmbeds,
+        components: [row]
+      });
     }
   } catch (updateError) {
     console.error('[ButtonHandler] Error updating knockout voting message:', updateError);
