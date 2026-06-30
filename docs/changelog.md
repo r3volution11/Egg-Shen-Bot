@@ -8,23 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Per-User Button State Feedback** (2026-06-29)
-  - **How it works:** Each user sees their own button states without affecting what others see
-  - **Group Stage:** Click a voting button → It turns purple for YOU
-    - Selected titles show as Primary style (purple/blue)
-    - Unselected titles show as Secondary style (gray)
-    - Other users see their own button states based on their votes
-  - **Knockout Rounds:** Click a voting button → It turns purple for YOU
-    - Your vote shows as Primary style (purple/blue)
-    - Other option shows as Secondary style (gray)
-    - Other users see their own button states based on their votes
-  - **Technical:** Uses `interaction.update()` to send personalized button states back to each user
-  - **No cross-user pollution:** User A's purple buttons don't appear purple for User B
+- **Personal Voting Dashboards for Knockout Rounds** (2026-06-29)
+  - **How it works:** Users get their own private voting dashboard (completely separate from shared messages)
+  - **Flow:**
+    1. Admin opens matchups → Summary card appears with "Start Voting" button
+    2. User clicks "Start Voting" → Gets ephemeral voting dashboard
+    3. Dashboard shows ALL open matchups with buttons labeled by matchup ID (e.g., "1A: The Exorcist", "1A: The Witch")
+    4. User's selections show as purple buttons (only they see their own states)
+    5. Click any button to vote or change vote → Dashboard updates instantly
+  - **Shared matchup cards:** Show title matchups and vote counts, but NO voting buttons
+  - **Personal dashboard:** Each user has their own with ALL voting buttons
   - **Benefits:**
-    - Clear visual feedback on what you selected
-    - Buttons themselves show your selections
-    - No confusion about what you voted for
-    - Clean, intuitive UX
+    - TRUE per-user button states (no cross-user pollution)
+    - Users can't see each other's selections on buttons
+    - Simple, clean voting experience
+    - All matchups visible in one dashboard
+    - Buttons clearly labeled with matchup IDs
+    - Easy to understand what you're voting for
   - **Applies to all media types:** Movies, TV shows, video games, board games, books, and any future additions (episodes, music, etc.)
 
 ### Changed

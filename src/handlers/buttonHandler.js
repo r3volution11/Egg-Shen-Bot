@@ -70,6 +70,23 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
     
+    // Handle "Start Voting" button for knockout rounds
+    if (interaction.customId.startsWith('start_knockout_voting_')) {
+      await handleStartKnockoutVoting(interaction);
+      
+      // Log successful button interaction
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      
+      if (duration > 2000) {
+        logger.logPerformance('Button: start_knockout_voting', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+    
     // Handle open matchup buttons
     if (interaction.customId.startsWith('open_matchup_')) {
       await handleOpenMatchupButton(interaction);
@@ -307,7 +324,7 @@ async function handleKnockoutVote(interaction) {
   );
   
   if (!result.success) {
-    await interaction.followUp({
+    await interaction.reply({
       content: `❌ ${result.error}`,
       ephemeral: true
     });
@@ -325,61 +342,69 @@ async function handleKnockoutVote(interaction) {
     m.round === currentRound && m.status === 'voting'
   );
   
-  // Get updated matchup data
-  const updatedMatchup = tournament.knockoutBracket.find(m => m.id === matchupId);
+  // Get user's current votes for ALL matchups
+  const userVotes = tournament.votes?.[interaction.user.id] || {};
   
-  // Update the message embeds with new vote counts
-  const messageEmbeds = interaction.message.embeds;
-  const matchupEmbedIndex = messageEmbeds.findIndex(e => 
-    e.title && (
-      e.title.includes(`Matchup ${updatedMatchup.position + 1}`) ||
-      e.title.includes(updatedMatchup.round.replace(/_/g, ' '))
+  // Rebuild all buttons with updated states
+  const components = [];
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle('🗳️ Your Voting Dashboard')
+    .setDescription(
+      `Vote for ONE title in each matchup below.\n` +
+      `Your selections are shown in **purple**.\n\n` +
+      `💡 Click any button to cast or change your vote!`
     )
-  );
+    .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
+    .setTimestamp();
   
-  let updatedEmbeds = [...messageEmbeds];
-  if (matchupEmbedIndex !== -1) {
-    const votes1 = updatedMatchup.votes.movie1.length;
-    const votes2 = updatedMatchup.votes.movie2.length;
+  for (const m of currentRoundMatchups) {
+    const regionalLabel = getRegionalLabel(m.position, currentRound);
+    const vote = userVotes[m.id];
     
-    const updatedEmbed = EmbedBuilder.from(messageEmbeds[matchupEmbedIndex])
-      .setFields(
-        { 
-          name: `${updatedMatchup.movie1.title}`, 
-          value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
-          inline: true 
-        },
-        { name: '\u200B', value: 'vs', inline: true },
-        { 
-          name: `${updatedMatchup.movie2.title}`, 
-          value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
-          inline: true 
-        }
-      );
+    const button1 = new ButtonBuilder()
+      .setCustomId(`knockout_vote_${m.id}_1`)
+      .setLabel(`${regionalLabel}: ${m.movie1.title.length > 50 ? m.movie1.title.substring(0, 47) + '...' : m.movie1.title}`)
+      .setStyle(vote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
     
-    updatedEmbeds[matchupEmbedIndex] = updatedEmbed;
+    const button2 = new ButtonBuilder()
+      .setCustomId(`knockout_vote_${m.id}_2`)
+      .setLabel(`${regionalLabel}: ${m.movie2.title.length > 50 ? m.movie2.title.substring(0, 47) + '...' : m.movie2.title}`)
+      .setStyle(vote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+    const row = new ActionRowBuilder().addComponents(button1, button2);
+    components.push(row);
   }
   
-  // Build buttons with THIS USER's selection state
-  const userVote = tournament.votes?.[interaction.user.id]?.[matchupId];
-  
-  const button1 = new ButtonBuilder()
-    .setCustomId(`knockout_vote_${matchupId}_1`)
-    .setLabel(updatedMatchup.movie1.title.length > 80 ? updatedMatchup.movie1.title.substring(0, 77) + '...' : updatedMatchup.movie1.title)
-    .setStyle(userVote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-  
-  const button2 = new ButtonBuilder()
-    .setCustomId(`knockout_vote_${matchupId}_2`)
-    .setLabel(updatedMatchup.movie2.title.length > 80 ? updatedMatchup.movie2.title.substring(0, 77) + '...' : updatedMatchup.movie2.title)
-    .setStyle(userVote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-  
-  const row = new ActionRowBuilder().addComponents(button1, button2);
-  
-  // Use interaction.update() to send these button states back to THIS USER ONLY
+  // Update user's personal voting dashboard
   await interaction.update({
-    embeds: updatedEmbeds,
-    components: [row]
+    embeds: [embed],
+    components: components
   });
+  
+  // Helper function to get regional label
+  function getRegionalLabel(position, round) {
+    const roundSizes = {
+      'round_of_32': 16,
+      'round_of_16': 8,
+      'quarterfinals': 4,
+      'semifinals': 2,
+      'finals': 1
+    };
+    
+    if (round === 'finals') return 'Finals';
+    
+    const totalMatchups = roundSizes[round];
+    if (!totalMatchups) return String(position + 1);
+    
+    const midpoint = totalMatchups / 2;
+    const isLeftRegion = position < midpoint;
+    const region = isLeftRegion ? '1' : '2';
+    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    const letter = String.fromCharCode(65 + positionInRegion);
+    
+    return `${region}${letter}`;
+  }
   
   // Update or create public "All Votes" leaderboard
   const leaderboardKey = `${interaction.guild.id}_knockout_${currentRound}`;
@@ -418,6 +443,118 @@ async function handleKnockoutVote(interaction) {
   } catch (leaderboardError) {
     console.error('[ButtonHandler] Error managing public knockout leaderboard:', leaderboardError);
     // Don't throw - leaderboard is nice-to-have, not critical
+  }
+}
+
+/**
+ * Handle "Start Voting" button click - sends personal voting dashboard to user
+ */
+async function handleStartKnockoutVoting(interaction) {
+  const [, , , round] = interaction.customId.split('_');
+  
+  // Dynamically import bracketManager
+  const bracketManager = await import('../utils/bracketManager.js');
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+  
+  const tournament = bracketManager.loadTournament(interaction.guild.id);
+  
+  if (!tournament || tournament.status !== 'knockout') {
+    await interaction.reply({
+      content: '❌ No active knockout tournament found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Get voting matchups for the current round
+  const votingMatchups = tournament.knockoutBracket.filter(m => 
+    m.round === round && m.status === 'voting'
+  );
+  
+  if (votingMatchups.length === 0) {
+    await interaction.reply({
+      content: '❌ No voting matchups found for this round.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Get user's current votes
+  const userVotes = tournament.votes?.[interaction.user.id] || {};
+  
+  // Build voting dashboard with all matchups
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle('🗳️ Your Voting Dashboard')
+    .setDescription(
+      `Vote for ONE title in each matchup below.\n` +
+      `Your selections are shown in **purple**.\n\n` +
+      `💡 Click any button to cast or change your vote!`
+    )
+    .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
+    .setTimestamp();
+  
+  // Create buttons for each matchup
+  // Group buttons by matchup (2 buttons per matchup)
+  const components = [];
+  
+  for (const matchup of votingMatchups) {
+    // Get regional label
+    const regionalLabel = getRegionalLabel(matchup.position, round);
+    const userVote = userVotes[matchup.id];
+    
+    const button1 = new ButtonBuilder()
+      .setCustomId(`knockout_vote_${matchup.id}_1`)
+      .setLabel(`${regionalLabel}: ${matchup.movie1.title.length > 50 ? matchup.movie1.title.substring(0, 47) + '...' : matchup.movie1.title}`)
+      .setStyle(userVote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+    const button2 = new ButtonBuilder()
+      .setCustomId(`knockout_vote_${matchup.id}_2`)
+      .setLabel(`${regionalLabel}: ${matchup.movie2.title.length > 50 ? matchup.movie2.title.substring(0, 47) + '...' : matchup.movie2.title}`)
+      .setStyle(userVote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+    const row = new ActionRowBuilder().addComponents(button1, button2);
+    components.push(row);
+  }
+  
+  // Send ephemeral dashboard
+  const dashboardMessage = await interaction.reply({
+    embeds: [embed],
+    components: components,
+    ephemeral: true,
+    fetchReply: true
+  });
+  
+  // Store dashboard message ID for this user so we can update it
+  const dashboardKey = `${interaction.guild.id}_${interaction.user.id}_knockout_${round}`;
+  userVotingDashboards.set(dashboardKey, {
+    messageId: dashboardMessage.id,
+    channelId: interaction.channelId,
+    timestamp: Date.now()
+  });
+  
+  // Helper function to get regional label
+  function getRegionalLabel(position, round) {
+    const roundSizes = {
+      'round_of_32': 16,
+      'round_of_16': 8,
+      'quarterfinals': 4,
+      'semifinals': 2,
+      'finals': 1
+    };
+    
+    if (round === 'finals') return 'Finals';
+    
+    const totalMatchups = roundSizes[round];
+    if (!totalMatchups) return String(position + 1);
+    
+    const midpoint = totalMatchups / 2;
+    const isLeftRegion = position < midpoint;
+    const region = isLeftRegion ? '1' : '2';
+    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    const letter = String.fromCharCode(65 + positionInRegion);
+    
+    return `${region}${letter}`;
   }
 }
 
