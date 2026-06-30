@@ -25,20 +25,73 @@ Each matchup has a **regional label** combining region number and letter:
 
 ### Opening Options
 
-You have three ways to open knockout matchups:
+You have **multiple ways** to open knockout matchups:
+
+#### Round-Specific Commands (Recommended)
+
+**The easiest way** - use memorable commands for each round:
+
+- `/bracket open-quarters` - Open Quarterfinals (4 matchups)
+- `/bracket open-semis` - Open Semifinals (2 matchups)  
+- `/bracket open-finals` - Open Finals (1 matchup)
+
+**Benefits:**
+- Clear and memorable
+- Self-documenting (command name shows what round)
+- Bot suggests exact command after closing previous round
+- Same `duration` parameter as generic commands
+
+#### Generic Commands
+
+**Fallback option** - works for any round:
 
 1. **Entire Round**: `/bracket open-knockout` - Opens all matchups in current round
-2. **Specific Region**: `/bracket open-region region:1` - Opens all left side OR right side matchups
-3. **Single Matchup**: `/bracket open-matchup matchup:1A` - Opens one specific matchup
+2. **Single Matchup**: `/bracket open-matchup matchup:1A` - Opens one specific matchup
+
+#### Flexibility Benefits
 
 This flexibility allows you to:
-- Open the entire round at once for simple management
-- Open one region per day for pacing (left side Monday, right side Tuesday)
-- Open individual matchups for maximum drama and spotlight moments
+- Use round-specific commands for clarity (`/bracket open-finals`)
+- Open individual matchups for maximum drama (`/bracket open-matchup matchup:1A`)
+- Pace voting by opening matchups one at a time or all at once
 
 ---
 
-## Open Knockout Round
+## Round-Specific Opening Commands
+
+### Open Quarterfinals
+
+```
+/bracket open-quarters duration:[time]
+```
+
+Opens all 4 Quarterfinal matchups (1A, 1B, 2A, 2B).
+
+**Same as:** `/bracket open-knockout` when in Quarterfinals round
+
+### Open Semifinals
+
+```
+/bracket open-semis duration:[time]
+```
+
+Opens both Semifinal matchups (1A, 2A).
+
+**Same as:** `/bracket open-knockout` when in Semifinals round
+
+### Open Finals
+
+```
+/bracket open-finals duration:[time]
+```
+
+Opens the single Finals matchup.
+
+**Same as:** `/bracket open-knockout` when in Finals round
+
+---
+
+## Open Knockout Round (Generic)
 
 ```
 /bracket open-knockout duration:[time]
@@ -266,7 +319,51 @@ Deadline: 6/27/2026, 11:00:00 PM
 
 ---
 
-## Close Knockout Round
+---
+
+## Round-Specific Closing Commands
+
+**Recommended approach** - use clear, self-documenting commands for each round:
+
+### Close Quarterfinals
+
+```
+/bracket close-quarters
+```
+
+Closes all Quarterfinal matchups and advances winners to Semifinals.
+
+**Output includes:** "Winners have advanced to Semifinals. Run `/bracket open-semis` to start voting!"
+
+### Close Semifinals
+
+```
+/bracket close-semis
+```
+
+Closes both Semifinal matchups and advances winners to Finals.
+
+**Output includes:** "Winners have advanced to Finals. Run `/bracket open-finals` to start voting!"
+
+### Close Finals
+
+```
+/bracket close-finals
+```
+
+Closes the Finals matchup and declares the tournament winner!
+
+**Output:** "🏆 Tournament Complete! [Winner] is the champion!"
+
+**Benefits of Round-Specific Commands:**
+- Clear command names show exactly what round you're closing
+- Bot suggests the next command to run after closing
+- Reduces confusion about tournament progression
+- Same functionality as generic `/bracket close-knockout`
+
+---
+
+## Close Knockout Round (Generic)
 
 ```
 /bracket close-knockout
