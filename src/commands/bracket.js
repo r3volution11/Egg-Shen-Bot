@@ -426,35 +426,6 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('image')
-      .setDescription('Generate AI image for any title vs title matchup')
-      .addStringOption(option =>
-        option
-          .setName('title1')
-          .setDescription('First title (movie, show, game, etc.)')
-          .setRequired(false)
-      )
-      .addStringOption(option =>
-        option
-          .setName('title2')
-          .setDescription('Second title to compare against')
-          .setRequired(false)
-      )
-      .addStringOption(option =>
-        option
-          .setName('matchup')
-          .setDescription('Or choose from active tournament matchups')
-          .setRequired(false)
-      )
-      .addStringOption(option =>
-        option
-          .setName('prompt')
-          .setDescription('Additional details for the image generation (optional)')
-          .setRequired(false)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
       .setName('my-votes')
       .setDescription('View your voting history and available votes')
   )
@@ -558,9 +529,6 @@ export async function execute(interaction) {
         break;
       case 'view':
         await handleView(interaction);
-        break;
-      case 'image':
-        await handleImage(interaction);
         break;
       case 'my-votes':
         await handleMyVotes(interaction);
