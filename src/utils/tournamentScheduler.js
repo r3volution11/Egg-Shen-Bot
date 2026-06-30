@@ -222,7 +222,7 @@ async function sendConsolidatedGroupWarning(guild, tournament, channelId, deadli
         `**${tournament.name}** - ${groupList}\n\n` +
         `Voting closes in **${timeRemaining}**\n\n` +
         `Cast your votes now!\n` +
-        `${new Date(deadline).toLocaleString()}`
+        `<t:${Math.floor(deadline / 1000)}:f>`
       )
       .setTimestamp();
     
@@ -260,7 +260,7 @@ async function sendConsolidatedMatchupWarning(guild, tournament, channelId, dead
       description += matchups.map(m => `• ${getMatchupTitle(m)}`).join('\n') + '\n\n';
     }
     
-    description += `Cast your votes now!\n${new Date(deadline).toLocaleString()}`;
+    description += `Cast your votes now!\n<t:${Math.floor(deadline / 1000)}:f>`;
     
     const embed = new EmbedBuilder()
       .setColor('#FFA500') // Orange for warning
