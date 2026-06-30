@@ -371,27 +371,38 @@ async function handleGroupVote(interaction) {
       const channel = await interaction.client.channels.fetch(updatedGroup.votingMessageChannelId);
       const publicMessage = await channel.messages.fetch(updatedGroup.votingMessageId);
       
-      // Rebuild the public leaderboard embeds
-      const publicEmbeds = publicMessage.embeds.map(embed => EmbedBuilder.from(embed));
+      // Rebuild the single public leaderboard embed
+      const leaderboardEmbed = EmbedBuilder.from(publicMessage.embeds[0]);
       
-      // Find and update the group embed
-      const groupEmbedIndex = publicEmbeds.findIndex(e => e.data.title === `Group ${groupId}`);
-      if (groupEmbedIndex !== -1) {
-        const groupEmbed = publicEmbeds[groupEmbedIndex];
-        groupEmbed.setFields(
-          updatedGroup.movies.map((movie, index) => {
-            const voteCount = movie.votes.length;
-            return {
-              name: `${index + 1}. ${movie.title}`,
-              value: `${voteCount} vote${voteCount !== 1 ? 's' : ''}`,
-              inline: true
-            };
-          })
-        );
+      // Get all groups from tournament to rebuild all fields
+      const tournament = result.tournament;
+      const allGroups = Object.keys(tournament.groups).filter(gId => {
+        const g = tournament.groups[gId];
+        return g.votingOpen && g.votingMessageId === updatedGroup.votingMessageId;
+      }).sort();
+      
+      // Clear existing fields and rebuild with updated vote counts
+      leaderboardEmbed.setFields([]);
+      
+      allGroups.forEach((gId) => {
+        const g = tournament.groups[gId];
+        if (!g) return;
         
-        // Update the public message
-        await publicMessage.edit({ embeds: publicEmbeds });
-      }
+        // Build standings text for this group
+        const standingsText = g.movies.map((movie, index) => {
+          const voteCount = movie.votes.length;
+          return `${index + 1}. ${movie.title} - ${voteCount} vote${voteCount !== 1 ? 's' : ''}`;
+        }).join('\n');
+        
+        leaderboardEmbed.addFields({
+          name: `📊 Group ${gId} - Current Standings`,
+          value: standingsText || 'No votes yet',
+          inline: false
+        });
+      });
+      
+      // Update the public message with rebuilt embed
+      await publicMessage.edit({ embeds: [leaderboardEmbed] });
     } catch (error) {
       console.error('[ButtonHandler] Error updating public leaderboard:', error);
       // Don't fail the vote if leaderboard update fails
@@ -462,8 +473,8 @@ async function handleGroupVote(interaction) {
     }
   }
   
-  // Update user's personal dashboard
-  await interaction.update({
+  // Update user's personal dashboard (use editReply because we already deferred)
+  await interaction.editReply({
     embeds: [embed],
     components: components
   });
