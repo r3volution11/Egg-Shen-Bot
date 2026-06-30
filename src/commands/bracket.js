@@ -1492,7 +1492,17 @@ async function handleAdvanceKnockout(interaction) {
   
   embeds.push(mainEmbed);
   
-  // Create embed + buttons for each matchup
+  // Add "Start Voting" button
+  const startVotingButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`start_knockout_voting_${tournament.phase}`)
+      .setLabel('🗳️ Start Voting')
+      .setStyle(ButtonStyle.Success)
+  );
+  
+  await interaction.editReply({ embeds, components: [startVotingButton] });
+  
+  // Send each matchup as a separate card (NO voting buttons)
   for (const matchup of currentRoundMatchups) {
     const votes1 = matchup.votes?.movie1?.length || 0;
     const votes2 = matchup.votes?.movie2?.length || 0;
@@ -1501,7 +1511,7 @@ async function handleAdvanceKnockout(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`${roundName} - Matchup ${regionalLabel}`)
-      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
+      .setDescription(`**${regionalLabel}:** ${matchup.movie1.title} vs ${matchup.movie2.title}`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
@@ -1514,36 +1524,17 @@ async function handleAdvanceKnockout(interaction) {
           value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
           inline: true 
         }
-      )
-      .setFooter({ text: 'Click a button below to vote • You can change your vote anytime' });
+      );
     
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchup.id}_1`)
-        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchup.id}_2`)
-        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
-        .setStyle(ButtonStyle.Primary)
-    );
+    // No buttons on shared message - users vote via personal dashboard
+    const votingMessage = await interaction.channel.send({ embeds: [embed] });
     
-    embeds.push(embed);
-    components.push(row);
-    
-    // Store message IDs for scheduler (we'll need to update after sending)
-    // This will be handled in the next step after we send
-  }
-  
-  const message = await interaction.editReply({ embeds, components });
-  
-  // Store voting message IDs for scheduler to track
-  for (const matchup of currentRoundMatchups) {
+    // Store message ID for scheduler to track
     bracketManager.storeMatchupVotingMessage(
       interaction.guildId,
       matchup.id,
       interaction.channelId,
-      message.id
+      votingMessage.id
     );
   }
 }
@@ -2126,6 +2117,32 @@ async function handleOpenKnockout(interaction) {
   const embeds = [];
   const components = [];
   
+  // Send main summary message with Start Voting button
+  const mainEmbed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`📊 ${roundName} - ${currentRoundMatchups.length} Matchups Opened!`)
+    .setDescription(
+      `**Opened matchups:** ${currentRoundMatchups.map(m => getRegionalLabel(m.position, tournament.phase)).join(', ')}\n\n` +
+      `**📝 How to Vote:**\n` +
+      `🔹 Click the "Start Voting" button below\n` +
+      `🔹 You'll get your own personal voting dashboard\n` +
+      `🔹 Your choices are saved instantly\n` +
+      `🔹 Only you can see your selections\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}\n` +
+      `💡 **Tip:** You can change your votes anytime!`
+    )
+    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+  
+  const startVotingButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`start_knockout_voting_${tournament.phase}`)
+      .setLabel('🗳️ Start Voting')
+      .setStyle(ButtonStyle.Success)
+  );
+  
+  await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
+  
+  // Send each matchup as a separate card (NO voting buttons)
   for (const matchup of currentRoundMatchups) {
     const votes1 = matchup.votes?.movie1?.length || 0;
     const votes2 = matchup.votes?.movie2?.length || 0;
@@ -2134,7 +2151,7 @@ async function handleOpenKnockout(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`${roundName} - Matchup ${regionalLabel}`)
-      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
+      .setDescription(`**${regionalLabel}:** ${matchup.movie1.title} vs ${matchup.movie2.title}`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
@@ -2147,36 +2164,11 @@ async function handleOpenKnockout(interaction) {
           value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
           inline: true 
         }
-      )
-      .setFooter({ text: 'Click a button below to vote • You can change your vote anytime' });
+      );
     
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchup.id}_1`)
-        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchup.id}_2`)
-        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
-        .setStyle(ButtonStyle.Primary)
-    );
-    
-    embeds.push(embed);
-    components.push(row);
+    // No buttons on shared message - users vote via personal dashboard
+    await interaction.channel.send({ embeds: [embed] });
   }
-  
-  // Send main message
-  const mainEmbed = new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle(`📊 ${roundName} Voting Open!`)
-    .setDescription(
-      `**${currentRoundMatchups.length} matchup${currentRoundMatchups.length !== 1 ? 's' : ''}** are now open for voting.\n\n` +
-      `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
-      `⏰ **Voting closes in:** ${timeRemaining}`
-    )
-    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
-  
-  await interaction.editReply({ embeds: [mainEmbed, ...embeds], components });
 }
 
 async function handleCloseKnockout(interaction) {
@@ -2390,7 +2382,7 @@ async function handleOpenRegion(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`${roundName} - Matchup ${regionalLabel}`)
-      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
+      .setDescription(`**${regionalLabel}:** ${matchup.movie1.title} vs ${matchup.movie2.title}`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
@@ -2403,36 +2395,36 @@ async function handleOpenRegion(interaction) {
           value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
           inline: true 
         }
-      )
-      .setFooter({ text: 'Click a button below to vote • You can change your vote anytime' });
+      );
     
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchup.id}_1`)
-        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchup.id}_2`)
-        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
-        .setStyle(ButtonStyle.Primary)
-    );
-    
-    embeds.push(embed);
-    components.push(row);
+    // No buttons on shared message - users vote via personal dashboard
+    await interaction.channel.send({ embeds: [embed] });
   }
   
-  // Send main message
+  // Send main summary message with Start Voting button
   const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle(`📊 ${roundName} - Region ${region} Voting Open! (${regionName})`)
+    .setTitle(`📊 ${roundName} - Region ${region} - ${regionMatchups.length} Matchups Opened!`)
     .setDescription(
-      `**${regionMatchups.length} matchup${regionMatchups.length !== 1 ? 's' : ''}** in Region ${region} are now open for voting.\n\n` +
-      `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
-      `⏰ **Voting closes in:** ${timeRemaining}`
+      `**Opened matchups:** ${regionMatchups.map(m => getRegionalLabel(m.position, tournament.phase)).join(', ')}\n\n` +
+      `**📝 How to Vote:**\n` +
+      `🔹 Click the "Start Voting" button below\n` +
+      `🔹 You'll get your own personal voting dashboard\n` +
+      `🔹 Your choices are saved instantly\n` +
+      `🔹 Only you can see your selections\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}\n` +
+      `💡 **Tip:** You can change your votes anytime!`
     )
     .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
-  await interaction.editReply({ embeds: [mainEmbed, ...embeds], components });
+  const startVotingButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`start_knockout_voting_${tournament.phase}`)
+      .setLabel('🗳️ Start Voting')
+      .setStyle(ButtonStyle.Success)
+  );
+  
+  await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
 }
 
 /**
@@ -2647,8 +2639,8 @@ async function handleOpenMatchup(interaction) {
     
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
-      .setTitle(`${roundName} - Region ${regionNum} - Matchup ${regionalLabel}`)
-      .setDescription(`**${regionalLabel}:** Vote for your pick!`)
+      .setTitle(`${roundName} - Matchup ${regionalLabel}`)
+      .setDescription(`**${regionalLabel}:** ${matchup.movie1.title} vs ${matchup.movie2.title}`)
       .addFields(
         { 
           name: `${matchup.movie1.title}`, 
@@ -2661,34 +2653,33 @@ async function handleOpenMatchup(interaction) {
           value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
           inline: true 
         }
-      )
-      .setFooter({ text: '👇 Click a button below to vote for your pick!' });
-    
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchup.id}_1`)
-        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchup.id}_2`)
-        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
-        .setStyle(ButtonStyle.Primary)
-    );
+      );
     
     const mainEmbed = new EmbedBuilder()
       .setColor(0x00FF00)
-      .setTitle(`🏆 ${roundName} - Matchup ${regionalLabel} Open! (${regionName})`)
+      .setTitle(`🏆 ${roundName} - Matchup ${regionalLabel} Open!`)
       .setDescription(
         `**📝 How to Vote:**\n` +
-        `🔹 Click **1 button** below to pick the winner\n` +
-        `🔹 Your choice is saved instantly\n` +
-        `🔹 Click the other button to change your vote\n\n` +
+        `🔹 Click the "Start Voting" button below\n` +
+        `🔹 You'll get your own personal voting dashboard\n` +
+        `🔹 Your choices are saved instantly\n` +
+        `🔹 Only you can see your selections\n\n` +
         `⏰ **Voting closes in:** ${timeRemaining}\n` +
         `💡 **Tip:** You can change your vote anytime!`
     )
     .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
   
-    const votingMessage = await interaction.editReply({ embeds: [mainEmbed, embed], components: [row] });
+    const startVotingButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`start_knockout_voting_${tournament.phase}`)
+        .setLabel('🗳️ Start Voting')
+        .setStyle(ButtonStyle.Success)
+    );
+  
+    await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
+    
+    // Send matchup card WITHOUT buttons
+    const votingMessage = await interaction.channel.send({ embeds: [embed] });
     
     // Store message ID so scheduler can update/close it
     bracketManager.storeMatchupVotingMessage(
