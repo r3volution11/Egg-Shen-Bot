@@ -1281,9 +1281,8 @@ async function handleOpenGroups(interaction) {
   
   const timeRemaining = formatTimeRemaining(deadline);
   
-  // Create embeds and button components for each group
+  // Create leaderboard embeds (public - no voting buttons)
   const embeds = [];
-  const components = [];
   
   // Main announcement embed
   const mainEmbed = new EmbedBuilder()
@@ -1292,10 +1291,10 @@ async function handleOpenGroups(interaction) {
     .setDescription(
       `Voting is now open for **Groups ${groupIds.join(', ')}**!\n\n` +
       `**📝 How to Vote:**\n` +
-      `1️⃣ Click **2 buttons** below for each group\n` +
-      `2️⃣ Your personal voting dashboard appears with checkmarks ✅\n` +
-      `3️⃣ Dashboard updates in real-time as you vote (only you see it)\n` +
-      `4️⃣ Click buttons again to change your selection\n` +
+      `1️⃣ Click "Start Voting" button below\n` +
+      `2️⃣ Your personal voting dashboard appears with all groups\n` +
+      `3️⃣ Click 2 buttons per group to vote (shown in purple when selected)\n` +
+      `4️⃣ Dashboard updates in real-time as you vote (only you see it)\n` +
       `5️⃣ Vote before the deadline!\n\n` +
       `⏰ **Voting closes in:** ${timeRemaining}\n` +
       `💡 **Tip:** You can change votes anytime before it closes!`
@@ -1304,7 +1303,7 @@ async function handleOpenGroups(interaction) {
   
   embeds.push(mainEmbed);
   
-  // Create an embed and buttons for each group
+  // Create leaderboard embeds for each group (read-only, shows vote counts)
   groupIds.forEach((groupId) => {
     const group = result.tournament.groups[groupId];
     if (!group) return;
@@ -1312,7 +1311,7 @@ async function handleOpenGroups(interaction) {
     const groupEmbed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`Group ${groupId}`)
-      .setDescription('🗳️ **Vote for your top 2** - Click 2 buttons below:');
+      .setDescription('📊 **Current Standings:**');
     
     // Add fields for each movie with vote counts
     group.movies.forEach((movie, index) => {
@@ -1325,25 +1324,20 @@ async function handleOpenGroups(interaction) {
     });
     
     embeds.push(groupEmbed);
-    
-    // Create buttons for each movie (max 4 movies per group)
-    const buttons = group.movies.map((movie, index) => {
-      return new ButtonBuilder()
-        .setCustomId(`group_vote_${groupId}_${index}`)
-        .setLabel(`${index + 1}. ${movie.title.length > 60 ? movie.title.substring(0, 57) + '...' : movie.title}`)
-        .setStyle(ButtonStyle.Secondary);
-    });
-    
-    // Split into rows (5 buttons max per row)
-    const rows = [];
-    for (let i = 0; i < buttons.length; i += 5) {
-      rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
-    }
-    
-    components.push(...rows);
   });
   
-  const votingMessage = await interaction.editReply({ embeds, components });
+  // Add single "Start Voting" button
+  const startButton = new ButtonBuilder()
+    .setCustomId(`start_group_voting_${groupIds.join(',')}`)
+    .setLabel('🗳️ Start Voting')
+    .setStyle(ButtonStyle.Primary);
+  
+  const buttonRow = new ActionRowBuilder().addComponents(startButton);
+  
+  const votingMessage = await interaction.editReply({ 
+    embeds, 
+    components: [buttonRow]
+  });
   
   // Store message IDs for each group so scheduler can update/close them
   for (const groupId of groupIds) {
