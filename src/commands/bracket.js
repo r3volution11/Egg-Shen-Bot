@@ -1313,7 +1313,7 @@ async function handleOpenGroups(interaction) {
       `⏰ **Voting closes in:** ${timeRemaining}\n` +
       `💡 **Tip:** You can change votes anytime before it closes!`
     )
-    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
   
   embeds.push(mainEmbed);
   
@@ -1479,7 +1479,7 @@ async function handleAdvanceKnockout(interaction) {
       `Vote for ONE title in each matchup below.\n\n` +
       `⏰ **Voting closes in:** ${timeRemaining}`
     )
-    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
   
   // Show wildcards if any
   if (wildcardsCount > 0) {
@@ -2131,7 +2131,7 @@ async function handleOpenKnockout(interaction) {
       `⏰ **Voting closes in:** ${timeRemaining}\n` +
       `💡 **Tip:** You can change your votes anytime!`
     )
-    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
   
   const startVotingButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -2415,7 +2415,7 @@ async function handleOpenRegion(interaction) {
       `⏰ **Voting closes in:** ${timeRemaining}\n` +
       `💡 **Tip:** You can change your votes anytime!`
     )
-    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
   
   const startVotingButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -2667,7 +2667,7 @@ async function handleOpenMatchup(interaction) {
         `⏰ **Voting closes in:** ${timeRemaining}\n` +
         `💡 **Tip:** You can change your vote anytime!`
     )
-    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
   
     const startVotingButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -2711,7 +2711,7 @@ async function handleOpenMatchup(interaction) {
       `⏰ **Voting closes in:** ${timeRemaining}\n` +
       `💡 **Tip:** You can change your votes anytime!`
     )
-    .setFooter({ text: `Deadline: ${new Date(deadline).toLocaleString()}` });
+    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
   
   // Add "Start Voting" button
   const startVotingButton = new ActionRowBuilder().addComponents(
@@ -2977,7 +2977,7 @@ async function handleExtendVoting(interaction) {
     await interaction.editReply(
       `✅ Extended voting for Group ${groupId}\n\n` +
       `⏰ **New deadline:** ${timeRemaining}\n` +
-      `📅 **Exact time:** ${new Date(newDeadline).toLocaleString()}`
+      `📅 **Exact time:** <t:${Math.floor(newDeadline / 1000)}:f>`
     );
     
   } else if (type === 'knockout') {
@@ -3011,7 +3011,7 @@ async function handleExtendVoting(interaction) {
     await interaction.editReply(
       `✅ Extended voting for ${roundName} (${currentRoundMatchups.length} matchup${currentRoundMatchups.length !== 1 ? 's' : ''})\n\n` +
       `⏰ **New deadline:** ${timeRemaining}\n` +
-      `📅 **Exact time:** ${new Date(newDeadline).toLocaleString()}`
+      `📅 **Exact time:** <t:${Math.floor(newDeadline / 1000)}:f>`
     );
   }
 }
