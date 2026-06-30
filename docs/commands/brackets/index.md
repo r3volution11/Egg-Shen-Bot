@@ -119,6 +119,15 @@ Check your voting status: `/bracket my-votes`
 
 🏆 Knockout bracket generated!
 
+**Check tournament status anytime:**
+
+```
+/bracket status
+```
+
+![Tournament Status](../public/images/examples/tournaments/tournament-status.png)
+*Tournament status showing active knockout voting with live vote counts*
+
 ### Step 8: Open Knockout Round (Admin Only)
 
 **Choose your opening style:**

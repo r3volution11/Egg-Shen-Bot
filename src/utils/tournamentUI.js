@@ -30,6 +30,24 @@ export function createProgressBar(value, max, length = 10, showPercentage = true
 }
 
 /**
+ * Get color for progress bar based on percentage (for HTML rendering)
+ * @param {number} percentage - Percentage value (0-100)
+ * @returns {string} Hex color code
+ */
+export function getProgressBarColor(percentage) {
+  if (percentage >= 67) {
+    // High performance - Green shades
+    return '#43b581'; // Discord green
+  } else if (percentage >= 34) {
+    // Medium performance - Yellow/Orange shades
+    return '#faa61a'; // Discord yellow
+  } else {
+    // Low performance - Red shades
+    return '#f04747'; // Discord red
+  }
+}
+
+/**
  * Generate a visual progress bar with vote counts
  * @param {number} votes - Number of votes
  * @param {number} totalVotes - Total votes across both options
@@ -47,6 +65,38 @@ export function createVoteBar(votes, totalVotes, length = 12) {
   
   const bar = '█'.repeat(filled) + '░'.repeat(empty);
   return `${bar} ${votes} vote${votes !== 1 ? 's' : ''} (${percentage}%)`;
+}
+
+/**
+ * Generate vote bar with color information (for HTML rendering)
+ * @param {number} votes - Number of votes
+ * @param {number} totalVotes - Total votes across both options
+ * @param {number} length - Bar length (default 12)
+ * @returns {Object} { text, percentage, color, filled, empty }
+ */
+export function createVoteBarWithColor(votes, totalVotes, length = 12) {
+  if (totalVotes === 0) {
+    return {
+      text: `${votes} votes (0%)`,
+      percentage: 0,
+      color: '#4f545c', // Gray for no votes
+      filled: 0,
+      empty: length
+    };
+  }
+  
+  const percentage = Math.round((votes / totalVotes) * 100);
+  const filled = Math.round((votes / totalVotes) * length);
+  const empty = length - filled;
+  const color = getProgressBarColor(percentage);
+  
+  return {
+    text: `${votes} vote${votes !== 1 ? 's' : ''} (${percentage}%)`,
+    percentage,
+    color,
+    filled,
+    empty
+  };
 }
 
 /**

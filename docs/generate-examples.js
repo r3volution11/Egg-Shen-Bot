@@ -37,6 +37,36 @@ const mockClient = {
 };
 
 /**
+ * Convert progress bar text to colored HTML
+ * Detects patterns like "████████░░░░ 45 votes (60%)" and creates colored bars
+ */
+function processProgressBars(text) {
+  // Match progress bar pattern: filled blocks + empty blocks + vote text
+  const progressBarPattern = /([█]+)([░]+)\s+(\d+)\s+vote/g;
+  
+  return text.replace(progressBarPattern, (match, filled, empty, votes) => {
+    const totalLength = filled.length + empty.length;
+    const percentage = Math.round((filled.length / totalLength) * 100);
+    
+    // Color coding based on percentage
+    let color;
+    if (percentage >= 67) {
+      color = '#43b581'; // Discord green
+    } else if (percentage >= 34) {
+      color = '#faa61a'; // Discord yellow
+    } else {
+      color = '#f04747'; // Discord red
+    }
+    
+    // Create colored HTML bar
+    return `<span class="progress-bar">` +
+           `<span class="progress-filled" style="background-color: ${color}; width: ${percentage}%"></span>` +
+           `<span class="progress-empty" style="width: ${100 - percentage}%"></span>` +
+           `</span> ${votes} vote`;
+  });
+}
+
+/**
  * Convert Discord.js embed to HTML for rendering
  */
 function embedToHTML(embedData) {
@@ -139,6 +169,25 @@ function embedToHTML(embedData) {
           border-radius: 50%;
           margin-right: 8px;
         }
+        .progress-bar {
+          display: inline-flex;
+          width: 120px;
+          height: 16px;
+          background-color: #2f3136;
+          border-radius: 3px;
+          overflow: hidden;
+          vertical-align: middle;
+          margin-right: 6px;
+          border: 1px solid #202225;
+        }
+        .progress-filled,
+        .progress-empty {
+          height: 100%;
+          display: inline-block;
+        }
+        .progress-empty {
+          background-color: #4f545c;
+        }
       </style>
     </head>
     <body>
@@ -167,7 +216,8 @@ function embedToHTML(embedData) {
 
   // Description
   if (embed.description) {
-    html += `<div class="embed-description">${embed.description}</div>`;
+    const processedDescription = processProgressBars(embed.description);
+    html += `<div class="embed-description">${processedDescription}</div>`;
   }
 
   // Fields
