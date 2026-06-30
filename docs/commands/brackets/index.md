@@ -125,7 +125,7 @@ Check your voting status: `/bracket my-votes`
 /bracket status
 ```
 
-![Tournament Status](../public/images/examples/tournaments/tournament-status.png)
+![Tournament Status](/images/examples/tournaments/tournament-status.png)
 *Tournament status showing active knockout voting with live vote counts*
 
 ### Step 8: Open Knockout Round (Admin Only)
