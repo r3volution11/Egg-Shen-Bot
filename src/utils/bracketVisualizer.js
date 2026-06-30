@@ -638,11 +638,17 @@ function roundRectPath(ctx, x, y, width, height, radius) {
 async function drawChampion(ctx, winner, x, y) {
   const width = 450;
   const height = 180;
-  const borderRadius = 12;
+  const borderRadius = 24;
   
   // Center the card at x position
   const cardX = x - (width / 2);
   const cardY = y - (height / 2);
+  
+  // Draw trophy emoji above the card (3x normal bracket label size)
+  ctx.font = '48px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('🏆', x, cardY - 10);
   
   // Draw poster background if available
   if (winner.posterUrl) {
