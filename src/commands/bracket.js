@@ -1335,7 +1335,7 @@ async function handleOpenGroups(interaction) {
   const buttonRow = new ActionRowBuilder().addComponents(startButton);
   
   const votingMessage = await interaction.editReply({ 
-    embeds, 
+    embeds: [leaderboardEmbed], 
     components: [buttonRow]
   });
   
