@@ -3,6 +3,7 @@
  */
 import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import * as tournamentUI from '../utils/tournamentUI.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -345,6 +346,12 @@ async function handleKnockoutVote(interaction) {
   // Get user's current votes for ALL matchups
   const userVotes = tournament.votes?.[interaction.user.id] || {};
   
+  // Get user participation stats
+  const userStats = tournament.participation?.[interaction.user.id];
+  const statsText = userStats 
+    ? `🔥 **Streak:** ${userStats.streak} rounds | 📊 **Total votes:** ${userStats.totalVotes}`
+    : '✨ This is your first vote!';
+  
   // Rebuild all buttons with updated states
   const components = [];
   const embed = new EmbedBuilder()
@@ -353,8 +360,10 @@ async function handleKnockoutVote(interaction) {
     .setDescription(
       `Vote for ONE title in each matchup below.\n` +
       `Your selections are shown in **purple**.\n\n` +
-      `💡 Click any button to cast or change your vote!`
+      `💡 Click any button to cast or change your vote!\n\n` +
+      statsText
     )
+    .setThumbnail(interaction.client.user.displayAvatarURL())
     .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
     .setTimestamp();
   
@@ -409,7 +418,7 @@ async function handleKnockoutVote(interaction) {
   // Update or create public "All Votes" leaderboard
   const leaderboardKey = `${interaction.guild.id}_knockout_${currentRound}`;
   const existingLeaderboard = publicLeaderboards.get(leaderboardKey);
-  const leaderboardEmbed = buildPublicKnockoutLeaderboard(tournament, currentRound, currentRoundMatchups);
+  const leaderboardEmbed = buildPublicKnockoutLeaderboard(tournament, currentRound, currentRoundMatchups, interaction.client);
   
   try {
     if (existingLeaderboard) {
@@ -482,6 +491,12 @@ async function handleStartKnockoutVoting(interaction) {
   // Get user's current votes
   const userVotes = tournament.votes?.[interaction.user.id] || {};
   
+  // Get user participation stats
+  const userStats = tournament.participation?.[interaction.user.id];
+  const statsText = userStats 
+    ? `🔥 **Streak:** ${userStats.streak} rounds | 📊 **Total votes:** ${userStats.totalVotes}`
+    : '✨ This is your first vote!';
+  
   // Build voting dashboard with all matchups
   const embed = new EmbedBuilder()
     .setColor(0x4EC5ED)
@@ -489,8 +504,10 @@ async function handleStartKnockoutVoting(interaction) {
     .setDescription(
       `Vote for ONE title in each matchup below.\n` +
       `Your selections are shown in **purple**.\n\n` +
-      `💡 Click any button to cast or change your vote!`
+      `💡 Click any button to cast or change your vote!\n\n` +
+      statsText
     )
+    .setThumbnail(interaction.client.user.displayAvatarURL())
     .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
     .setTimestamp();
   
@@ -1150,9 +1167,10 @@ function buildKnockoutVotingDashboard(tournament, currentRound, matchups, userId
  * @param {Object} tournament - Tournament data
  * @param {string} currentRound - Current round name
  * @param {Array} matchups - Array of matchups in current round
+ * @param {Object} client - Discord client (for bot avatar)
  * @returns {EmbedBuilder} Public leaderboard embed
  */
-function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups) {
+function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups, client = null) {
   const roundName = currentRound.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   
   // Count total votes across all matchups
@@ -1161,7 +1179,10 @@ function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups) {
     totalVotes += (matchup.votes.movie1.length + matchup.votes.movie2.length);
   });
   
-  // Build description with all matchup vote tallies
+  // Get tournament stats
+  const uniqueVoters = tournament.statistics?.uniqueVoters || Object.keys(tournament.votes || {}).length;
+  
+  // Build description with all matchup vote tallies WITH PROGRESS BARS
   let description = `**📊 Live Vote Counts**\n\n`;
   
   // Helper function to get regional label
@@ -1191,33 +1212,37 @@ function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups) {
   matchups.forEach((matchup) => {
     const votes1 = matchup.votes.movie1.length;
     const votes2 = matchup.votes.movie2.length;
+    const totalMatchupVotes = votes1 + votes2;
     const regionalLabel = getRegionalLabel(matchup.position, currentRound);
     
-    // Truncate titles if needed
-    const title1 = matchup.movie1.title.length > 20 ? matchup.movie1.title.substring(0, 17) + '...' : matchup.movie1.title;
-    const title2 = matchup.movie2.title.length > 20 ? matchup.movie2.title.substring(0, 17) + '...' : matchup.movie2.title;
+    // Truncate titles if needed (shorter for progress bar layout)
+    const title1 = matchup.movie1.title.length > 25 ? matchup.movie1.title.substring(0, 22) + '...' : matchup.movie1.title;
+    const title2 = matchup.movie2.title.length > 25 ? matchup.movie2.title.substring(0, 22) + '...' : matchup.movie2.title;
     
-    // Determine leader
-    let leaderIndicator = '';
-    if (votes1 > votes2) {
-      leaderIndicator = ' 🔥';
-    } else if (votes2 > votes1) {
-      leaderIndicator = ' 🔥';
-    } else if (votes1 > 0 && votes2 > 0) {
-      leaderIndicator = ' 🤝';
-    }
+    // Create progress bars
+    const bar1 = tournamentUI.createVoteBar(votes1, totalMatchupVotes, 12);
+    const bar2 = tournamentUI.createVoteBar(votes2, totalMatchupVotes, 12);
     
-    description += `**${regionalLabel}:** ${title1} (**${votes1}**) vs ${title2} (**${votes2}**)${leaderIndicator}\n`;
+    // Determine leader emoji
+    let leader1 = votes1 > votes2 ? ' 🔥' : '';
+    let leader2 = votes2 > votes1 ? ' 🔥' : '';
+    const tie = votes1 === votes2 && votes1 > 0 ? ' 🤝' : '';
+    
+    description += `**${regionalLabel}**\n`;
+    description += `${title1}${leader1}\n${bar1}\n`;
+    description += `${title2}${leader2}${tie}\n\n`;
   });
   
-  description += `\n📈 **Total votes cast:** ${totalVotes}`;
-  description += `\n🎯 **Matchups open:** ${matchups.length}`;
+  description += `📈 **Total votes:** ${totalVotes}`;
+  description += `\n👥 **Voters:** ${uniqueVoters}`;
+  description += `\n🎯 **Matchups:** ${matchups.length}`;
   
   const embed = new EmbedBuilder()
     .setColor(0x4EC5ED)
-    .setTitle(`🏆 ${roundName} - All Votes`)
+    .setTitle(`🏆 ${roundName} - Live Standings`)
     .setDescription(description)
-    .setFooter({ text: 'This leaderboard updates in real-time as votes are cast' })
+    .setThumbnail(client?.user?.displayAvatarURL() || null)
+    .setFooter({ text: 'Updates in real-time as votes are cast' })
     .setTimestamp();
   
   return embed;

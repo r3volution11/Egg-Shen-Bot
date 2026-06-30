@@ -44,6 +44,115 @@ export function saveTournament(guildId, tournament) {
 }
 
 /**
+ * Update participation stats for a user (Tatsu-style tracking)
+ * @param {Object} tournament - Tournament object
+ * @param {string} userId - User ID
+ * @param {string} voteType - 'group' or 'knockout'
+ */
+function updateParticipationStats(tournament, userId, voteType = 'group') {
+  // Initialize participation tracking if it doesn't exist (for older tournaments)
+  if (!tournament.participation) {
+    tournament.participation = {};
+  }
+  if (!tournament.statistics) {
+    tournament.statistics = {
+      totalVotes: 0,
+      uniqueVoters: 0,
+      mostActiveVoter: null,
+      highestStreak: 0
+    };
+  }
+  
+  // Initialize user's participation record
+  if (!tournament.participation[userId]) {
+    tournament.participation[userId] = {
+      totalVotes: 0,
+      groupVotes: 0,
+      knockoutVotes: 0,
+      streak: 0,
+      lastVoted: null,
+      firstVoted: Date.now()
+    };
+  }
+  
+  const userStats = tournament.participation[userId];
+  
+  // Update vote counts
+  userStats.totalVotes++;
+  if (voteType === 'group') {
+    userStats.groupVotes++;
+  } else if (voteType === 'knockout') {
+    userStats.knockoutVotes++;
+  }
+  
+  // Update streak (consecutive rounds voted in)
+  const lastVoted = userStats.lastVoted;
+  const now = Date.now();
+  
+  if (!lastVoted) {
+    // First vote
+    userStats.streak = 1;
+  } else {
+    // Check if this is a new round/group (different day or different phase)
+    const hoursSinceLastVote = (now - lastVoted) / (1000 * 60 * 60);
+    if (hoursSinceLastVote < 48) {
+      // Within 48 hours - continue streak
+      userStats.streak++;
+    } else {
+      // Reset streak if too long between votes
+      userStats.streak = 1;
+    }
+  }
+  
+  userStats.lastVoted = now;
+  
+  // Update tournament-wide statistics
+  tournament.statistics.totalVotes++;
+  tournament.statistics.uniqueVoters = Object.keys(tournament.participation).length;
+  
+  // Update most active voter
+  const allParticipants = Object.entries(tournament.participation);
+  const mostActive = allParticipants.reduce((max, [uid, stats]) => {
+    return (stats.totalVotes > (max[1]?.totalVotes || 0)) ? [uid, stats] : max;
+  }, [null, { totalVotes: 0 }]);
+  
+  tournament.statistics.mostActiveVoter = mostActive[0];
+  tournament.statistics.highestStreak = Math.max(
+    tournament.statistics.highestStreak,
+    userStats.streak
+  );
+}
+
+/**
+ * Get user participation stats
+ * @param {string} guildId - Guild ID
+ * @param {string} userId - User ID
+ * @returns {Object} User's participation stats
+ */
+export function getUserParticipation(guildId, userId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament || !tournament.participation) {
+    return null;
+  }
+  
+  return tournament.participation[userId] || null;
+}
+
+/**
+ * Get tournament statistics
+ * @param {string} guildId - Guild ID
+ * @returns {Object} Tournament statistics
+ */
+export function getTournamentStatistics(guildId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament || !tournament.statistics) {
+    return null;
+  }
+  
+  return tournament.statistics;
+}
+
+/**
  * Calculate number of wildcards needed based on group count
  */
 function calculateWildcardCount(groupCount) {
@@ -87,6 +196,14 @@ export function createTournament(guildId, name, creatorId, groupCount = 8) {
     knockoutResults: {}, // Results of knockout matchups
     votes: {}, // userId -> {groupId: [movieIndexes], matchupId: movieIndex}
     winner: null,
+    // Participation tracking (Tatsu-style)
+    participation: {}, // userId -> { totalVotes: number, groupVotes: number, knockoutVotes: number, streak: number, lastVoted: timestamp }
+    statistics: { // Tournament-wide stats
+      totalVotes: 0,
+      uniqueVoters: 0,
+      mostActiveVoter: null,
+      highestStreak: 0
+    }
   };
   
   return saveTournament(guildId, tournament) ? tournament : null;
@@ -456,6 +573,11 @@ export function voteGroupStage(guildId, userId, groupId, movieIndexes) {
     tournament.votes[userId] = {};
   }
   tournament.votes[userId][groupId] = movieIndexes;
+  
+  // Update participation stats (Tatsu-style tracking)
+  if (movieIndexes.length > 0) {
+    updateParticipationStats(tournament, userId, 'group');
+  }
   
   return saveTournament(guildId, tournament)
     ? { success: true, tournament }
@@ -957,6 +1079,9 @@ export function voteKnockout(guildId, userId, matchupId, choice) {
     tournament.votes[userId] = {};
   }
   tournament.votes[userId][matchupId] = choice;
+  
+  // Update participation stats (Tatsu-style tracking)
+  updateParticipationStats(tournament, userId, 'knockout');
   
   return saveTournament(guildId, tournament)
     ? { success: true, tournament }
