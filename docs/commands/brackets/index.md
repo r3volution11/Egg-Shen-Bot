@@ -149,7 +149,17 @@ Check your voting status: `/bracket my-votes`
 
 ### Step 9: Members Vote on Matchups (Everyone)
 
-Click buttons on each matchup message to vote.
+Click the **"Start Voting"** button to get your personal voting dashboard.
+
+![Personal Voting Dashboard](../public/images/examples/tournaments/voting-dashboard.png)
+*Personal voting dashboard tracks your progress and streak*
+
+**What you'll see:**
+- 🗳️ All open matchups with buttons to vote
+- 🔥 Your voting streak and total votes
+- 💜 Purple buttons show your current selections
+- ⚡ Real-time updates as you vote
+- 📊 Live standings visible to everyone
 
 ### Step 10: Close Voting & Advance Winners (Admin Only)
 

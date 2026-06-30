@@ -31,6 +31,23 @@ This page provides detailed documentation for all tournament bracket commands. C
 | `extend-voting` | Admin/Mod | Extend or change voting deadline | Any |
 | `status` | Everyone | View tournament status with live voter counts and leaders | Any |
 | `export` | Everyone | Export tournament results (JSON or Markdown) | Any |
+
+**Visual Examples:**
+
+<div style="display: flex; gap: 10px; margin: 20px 0;">
+<div>
+
+![Tournament Status](../../public/images/examples/tournaments/tournament-status.png)
+*Live tournament status with vote counts*
+
+</div>
+<div>
+
+![Round Results](../../public/images/examples/tournaments/round-complete.png)
+*Round completion with winner announcements*
+
+</div>
+</div>
 | `view` | Everyone | View visual bracket (knockout phase only) | Knockout |
 | `image` | Everyone | Generate AI image for any matchup | Any |
 | `edit-name` | Admin/Mod | Change the tournament name | Any |
