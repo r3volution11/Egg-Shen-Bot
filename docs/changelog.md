@@ -8,22 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Personalized Vote Confirmation Messages** (2026-06-29)
-  - **Group Stage:** Click a voting button → Get ephemeral confirmation message
-    - Shows which title you selected
-    - Shows selection progress (e.g., "Select 1 more title to complete your vote")
-    - Vote complete notification when you've selected 2 titles
-    - Works for both selections and deselections
-  - **Knockout Rounds:** Click a voting button → Get ephemeral confirmation message
-    - Shows matchup label (e.g., "Matchup 1A")
-    - Shows which title you selected
-    - Reminds you that you can change your vote
-  - **Shared buttons stay neutral:** All voting buttons in shared messages remain gray (Secondary style)
+- **Per-User Button State Feedback** (2026-06-29)
+  - **How it works:** Each user sees their own button states without affecting what others see
+  - **Group Stage:** Click a voting button → It turns purple for YOU
+    - Selected titles show as Primary style (purple/blue)
+    - Unselected titles show as Secondary style (gray)
+    - Other users see their own button states based on their votes
+  - **Knockout Rounds:** Click a voting button → It turns purple for YOU
+    - Your vote shows as Primary style (purple/blue)
+    - Other option shows as Secondary style (gray)
+    - Other users see their own button states based on their votes
+  - **Technical:** Uses `interaction.update()` to send personalized button states back to each user
+  - **No cross-user pollution:** User A's purple buttons don't appear purple for User B
   - **Benefits:**
-    - Clear personal feedback on what you selected
-    - No confusion about your selections
-    - Buttons work for everyone without cross-user state pollution
-    - Simple, clean confirmation messages
+    - Clear visual feedback on what you selected
+    - Buttons themselves show your selections
+    - No confusion about what you voted for
+    - Clean, intuitive UX
   - **Applies to all media types:** Movies, TV shows, video games, board games, books, and any future additions (episodes, music, etc.)
 
 ### Changed
