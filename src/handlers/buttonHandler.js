@@ -246,11 +246,24 @@ async function handleGroupVote(interaction) {
   // Get updated group data
   const updatedGroup = result.tournament.groups[groupId];
   
-  // Send simple confirmation
+  // Build personalized confirmation showing what they selected
+  const selectedTitle = updatedGroup.movies[movieIndex].title;
+  const isSelected = newVotes.includes(movieIndex);
+  
+  let confirmMessage;
+  if (isSelected) {
+    confirmMessage = `✅ **Vote recorded!**\n\nYou selected: **${selectedTitle}**\n\n`;
+    if (newVotes.length === 1) {
+      confirmMessage += `📝 Select 1 more title to complete your vote for Group ${groupId}`;
+    } else {
+      confirmMessage += `🎉 Vote complete! You've selected ${newVotes.length} titles for Group ${groupId}`;
+    }
+  } else {
+    confirmMessage = `✅ **Vote removed**\n\nYou deselected: **${selectedTitle}**\n\n📝 Select ${2 - newVotes.length} more title(s) to complete your vote for Group ${groupId}`;
+  }
+  
   await interaction.followUp({
-    content: newVotes.length === 0 
-      ? `✅ Votes removed from Group ${groupId}` 
-      : `✅ Vote recorded for Group ${groupId} (${newVotes.length}/2 selected)`,
+    content: confirmMessage,
     ephemeral: true
   });
   
@@ -279,26 +292,11 @@ async function handleGroupVote(interaction) {
       const newEmbeds = [...messageEmbeds];
       newEmbeds[groupEmbedIndex] = updatedEmbed;
       
-      // Update button styles to show selection state
-      // Primary (purple/blue) for selected titles, Secondary (gray) for unselected
-      const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
-      const buttons = updatedGroup.movies.map((movie, index) => {
-        const isSelected = newVotes.includes(index);
-        return new ButtonBuilder()
-          .setCustomId(`group_vote_${groupId}_${index}`)
-          .setLabel(`${index + 1}. ${movie.title.length > 60 ? movie.title.substring(0, 57) + '...' : movie.title}`)
-          .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
-      });
-      
-      // Split into rows (5 buttons max per row)
-      const rows = [];
-      for (let i = 0; i < buttons.length; i += 5) {
-        rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
-      }
-      
+      // Keep buttons neutral (Secondary/gray) in shared message
+      // Each user sees their own selection confirmation in ephemeral messages
       await interaction.message.edit({ 
-        embeds: newEmbeds,
-        components: rows
+        embeds: newEmbeds
+        // components unchanged - buttons stay clickable and neutral for everyone
       });
     }
   } catch (updateError) {
@@ -343,12 +341,43 @@ async function handleKnockoutVote(interaction) {
     m.round === currentRound && m.status === 'voting'
   );
   
-  // Send simple vote confirmation
-  const votedTitle = parseInt(choice) === 1 ? matchup.movie1.title : matchup.movie2.title;
+  // Build personalized confirmation showing what they selected
+  const votedChoice = parseInt(choice);
+  const votedTitle = votedChoice === 1 ? matchup.movie1.title : matchup.movie2.title;
+  const otherTitle = votedChoice === 1 ? matchup.movie2.title : matchup.movie1.title;
+  
+  const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
+  
+  const confirmMessage = `✅ **Vote recorded!**\n\n**Matchup ${regionalLabel}**\nYou selected: **${votedTitle}**\n\n_You can change your vote anytime before voting closes._`;
+  
   await interaction.followUp({
-    content: `✅ Vote recorded for **${votedTitle}**!`,
+    content: confirmMessage,
     ephemeral: true
   }).catch(() => {});
+  
+  // Helper function to get regional label
+  function getRegionalLabel(position, round) {
+    const roundSizes = {
+      'round_of_32': 16,
+      'round_of_16': 8,
+      'quarterfinals': 4,
+      'semifinals': 2,
+      'finals': 1
+    };
+    
+    if (round === 'finals') return 'Finals';
+    
+    const totalMatchups = roundSizes[round];
+    if (!totalMatchups) return String(position + 1);
+    
+    const midpoint = totalMatchups / 2;
+    const isLeftRegion = position < midpoint;
+    const region = isLeftRegion ? '1' : '2';
+    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    const letter = String.fromCharCode(65 + positionInRegion);
+    
+    return `${region}${letter}`;
+  }
   
   // Update or create public "All Votes" leaderboard
   const leaderboardKey = `${interaction.guild.id}_knockout_${currentRound}`;
@@ -422,26 +451,9 @@ async function handleKnockoutVote(interaction) {
       const newEmbeds = [...messageEmbeds];
       newEmbeds[matchupEmbedIndex] = updatedEmbed;
       
-      // Update button styles to show user's selection
-      const userVote = tournament.votes?.[interaction.user.id]?.[matchupId];
-      const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
-      
-      const button1 = new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchupId}_1`)
-        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
-        .setStyle(userVote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-      
-      const button2 = new ButtonBuilder()
-        .setCustomId(`knockout_vote_${matchupId}_2`)
-        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
-        .setStyle(userVote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-      
-      const row = new ActionRowBuilder().addComponents(button1, button2);
-      
-      await interaction.message.edit({ 
-        embeds: newEmbeds,
-        components: [row]
-      });
+      // Keep buttons neutral (Secondary/gray) in shared message
+      // Each user sees their own selection confirmation in ephemeral messages
+      await interaction.message.edit({ embeds: newEmbeds });
     }
   } catch (updateError) {
     console.error('[ButtonHandler] Error updating knockout voting message:', updateError);

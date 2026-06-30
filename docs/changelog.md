@@ -8,23 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Button State Visual Feedback in Voting Messages** (2026-06-29)
-  - **Group Stage:** Voting buttons in the shared message now show selection state
-    - Selected titles: Primary style (purple/blue based on Discord theme)
-    - Unselected titles: Secondary style (gray)
-    - Buttons update in real-time as you vote
-    - Simple "✅ Vote recorded" confirmation (ephemeral)
-  - **Knockout Rounds:** Voting buttons show your selection state
-    - Your vote: Primary style (purple/blue)
-    - Other option: Secondary style (gray)  
-    - Buttons update to reflect your choice
-    - Simple "✅ Vote recorded" confirmation (ephemeral)
+- **Personalized Vote Confirmation Messages** (2026-06-29)
+  - **Group Stage:** Click a voting button → Get ephemeral confirmation message
+    - Shows which title you selected
+    - Shows selection progress (e.g., "Select 1 more title to complete your vote")
+    - Vote complete notification when you've selected 2 titles
+    - Works for both selections and deselections
+  - **Knockout Rounds:** Click a voting button → Get ephemeral confirmation message
+    - Shows matchup label (e.g., "Matchup 1A")
+    - Shows which title you selected
+    - Reminds you that you can change your vote
+  - **Shared buttons stay neutral:** All voting buttons in shared messages remain gray (Secondary style)
   - **Benefits:**
-    - Immediate visual feedback right on the voting buttons
-    - No separate cards to track
-    - Clean, intuitive UX - the button you clicked turns purple
-    - Works with your Discord theme color scheme
-  - **Note:** Button states show your OWN selections. Other users see their own button states based on their votes.
+    - Clear personal feedback on what you selected
+    - No confusion about your selections
+    - Buttons work for everyone without cross-user state pollution
+    - Simple, clean confirmation messages
   - **Applies to all media types:** Movies, TV shows, video games, board games, books, and any future additions (episodes, music, etc.)
 
 ### Changed
