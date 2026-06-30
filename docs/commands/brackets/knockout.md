@@ -173,7 +173,7 @@ Deadline: 6/27/2026, 11:00:00 PM
 - Vote counts update in real-time on all messages
 - Clear deadline shown so members know when voting ends
 
-![Personal Voting Dashboard](../../public/images/examples/tournaments/voting-dashboard.png)
+![Personal Voting Dashboard](/images/examples/tournaments/voting-dashboard.png)
 *Personal voting dashboard with voting streak and stats*
 
 **Live Standings:**
@@ -182,7 +182,7 @@ Deadline: 6/27/2026, 11:00:00 PM
 - Updates automatically as votes come in
 - Visible to all members in the channel
 
-![Live Tournament Standings](../../public/images/examples/tournaments/live-standings.png)
+![Live Tournament Standings](/images/examples/tournaments/live-standings.png)
 *Live standings with color-coded progress bars*
 
 **When to use:**
@@ -373,7 +373,7 @@ Closes the Finals matchup and declares the tournament winner!
 - Reduces confusion about tournament progression
 - Same functionality as generic `/bracket close-knockout`
 
-![Round Complete Results](../../public/images/examples/tournaments/round-complete.png)
+![Round Complete Results](/images/examples/tournaments/round-complete.png)
 *Round completion results with winner announcements*
 
 ---

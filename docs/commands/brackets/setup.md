@@ -268,7 +268,7 @@ When an admin opens groups with `/bracket open-groups`, the bot posts an interac
 5. Click a selected title again to deselect it
 6. You can change your votes anytime before voting closes
 
-![First-Time Voter Welcome](../../public/images/examples/tournaments/first-vote-welcome.png)
+![First-Time Voter Welcome](/images/examples/tournaments/first-vote-welcome.png)
 *What first-time voters see when they start voting*
 
 **Features:**

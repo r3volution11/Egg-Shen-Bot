@@ -151,7 +151,7 @@ Check your voting status: `/bracket my-votes`
 
 Click the **"Start Voting"** button to get your personal voting dashboard.
 
-![Personal Voting Dashboard](../public/images/examples/tournaments/voting-dashboard.png)
+![Personal Voting Dashboard](/images/examples/tournaments/voting-dashboard.png)
 *Personal voting dashboard tracks your progress and streak*
 
 **What you'll see:**
