@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Tatsu-Style Tournament UI Enhancements** (2026-06-30)
+  - **Inspired by:** tatsu.gg Discord bot's polished voting system with visual progress bars and gamification
+  - **Visual Progress Bars:**
+    - Vote counts now display as visual bars: `████████░░ 12 votes (60%)`
+    - Real-time progress visualization in all leaderboards
+    - Percentage displays alongside vote counts
+    - Makes results immediately clear at a glance
+  - **Participation Tracking & Gamification:**
+    - Track each user's total votes across tournament
+    - Voting streak system (consecutive rounds participated)
+    - Tournament-wide statistics (unique voters, most active voter)
+    - Personal stats shown in voting dashboard: `🔥 Streak: 5 rounds | 📊 Total votes: 12`
+    - First-time voter detection with welcoming message
+    - Encourages consistent participation
+  - **Bot Avatar Branding:**
+    - Egg Shen avatar appears in top-right corner of all tournament cards
+    - Professional, polished look matching Tatsu's style
+    - Consistent branding across status, results, leaderboards, dashboards
+  - **Enhanced Emoji Usage:**
+    - 🔥 for leaders in matchups
+    - 🤝 for ties
+    - 🥇🥈🥉 for rankings
+    - 📊 for stats
+    - ⚡ for streaks and active status
+    - Consistent visual language throughout
+  - **New Utility Module:** `src/utils/tournamentUI.js`
+    - Progress bar generators
+    - Streak visualizations
+    - Status emoji helpers
+    - Ranking badges
+    - Reusable UI components
+  - **Benefits:**
+    - More engaging, game-like experience
+    - Tatsu-level polish and professionalism
+    - Progress bars make results instantly clear
+    - Gamification encourages participation
+    - Bot branding consistency
+    - Minimal chat spam (already using ephemeral messages)
 - **Round-Specific Command Aliases** (2026-06-30)
   - **New memorable commands for each knockout round:**
     - **Opening:** `/bracket open-quarters`, `/bracket open-semis`, `/bracket open-finals`
