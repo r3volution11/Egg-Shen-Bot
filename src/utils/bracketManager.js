@@ -1386,6 +1386,16 @@ export function cancelTournament(guildId) {
   tournament.status = 'cancelled';
   tournament.cancelledAt = Date.now();
   
+  // Clear all vote data when cancelling
+  tournament.votes = {};
+  tournament.participation = {};
+  tournament.statistics = {
+    totalVotes: 0,
+    uniqueVoters: 0,
+    mostActiveVoter: null,
+    highestStreak: 0
+  };
+  
   return saveTournament(guildId, tournament)
     ? { success: true, tournament }
     : { success: false, error: 'Failed to save' };
