@@ -235,19 +235,6 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('resize')
-      .setDescription('Change the number of groups in the tournament (Admin/Mod only)')
-      .addIntegerOption(option =>
-        option
-          .setName('groups')
-          .setDescription('New number of groups (4-12)')
-          .setRequired(true)
-          .setMinValue(4)
-          .setMaxValue(12)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
       .setName('announce')
       .setDescription('Announce the tournament to the channel (Admin/Mod only)')
       .addStringOption(option =>
@@ -304,11 +291,6 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('regenerate')
-      .setDescription('Regenerate knockout bracket with full tree structure (Admin/Mod only)')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
       .setName('open-knockout')
       .setDescription('Open ALL matchups in current knockout round (use round-specific commands for clarity)')
       .addStringOption(option =>
@@ -323,27 +305,11 @@ export const data = new SlashCommandBuilder()
       .setName('close-knockout')
       .setDescription('Close current round and advance winners (use round-specific commands for clarity)')
   )
-  // Round-specific aliases for clarity
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('open-round16')
-      .setDescription('Open Round of 16 matchups (8 matchups) - Alias for open-knockout')
-      .addStringOption(option =>
-        option
-          .setName('duration')
-          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
-          .setRequired(false)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('close-round16')
-      .setDescription('Close Round of 16 and advance to Quarterfinals')
-  )
+  // Round-specific aliases for common rounds (Round of 16 uses open-knockout)
   .addSubcommand(subcommand =>
     subcommand
       .setName('open-quarters')
-      .setDescription('Open Quarterfinals matchups (4 matchups) - Alias for open-knockout')
+      .setDescription('Open Quarterfinals matchups (4 matchups)')
       .addStringOption(option =>
         option
           .setName('duration')
@@ -359,7 +325,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('open-semis')
-      .setDescription('Open Semifinals matchups (2 matchups) - Alias for open-knockout')
+      .setDescription('Open Semifinals matchups (2 matchups)')
       .addStringOption(option =>
         option
           .setName('duration')
@@ -375,7 +341,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('open-finals')
-      .setDescription('Open the Finals matchup (1 matchup) - Alias for open-knockout')
+      .setDescription('Open the Finals matchup (1 matchup)')
       .addStringOption(option =>
         option
           .setName('duration')
@@ -387,27 +353,6 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('close-finals')
       .setDescription('Close Finals and declare tournament winner!')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('open-region')
-      .setDescription('Open all matchups in a region for voting (Admin/Mod only)')
-      .addIntegerOption(option =>
-        option
-          .setName('region')
-          .setDescription('Region number (1=left side, 2=right side). Leave blank to select from buttons.')
-          .setRequired(false)
-          .addChoices(
-            { name: 'Region 1 (Left Side)', value: 1 },
-            { name: 'Region 2 (Right Side)', value: 2 }
-          )
-      )
-      .addStringOption(option =>
-        option
-          .setName('duration')
-          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
-          .setRequired(false)
-      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -515,17 +460,6 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('edit-name')
-      .setDescription('Change the tournament name (Admin/Mod only)')
-      .addStringOption(option =>
-        option
-          .setName('name')
-          .setDescription('New tournament name')
-          .setRequired(true)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
       .setName('export')
       .setDescription('Export tournament results')
       .addStringOption(option =>
@@ -550,7 +484,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'resize', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'open-round16', 'close-round16', 'open-quarters', 'close-quarters', 'open-semis', 'close-semis', 'open-finals', 'close-finals', 'open-matchup', 'close-matchup', 'extend-voting', 'regenerate', 'open-region', 'edit-name', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'open-knockout', 'close-knockout', 'open-quarters', 'close-quarters', 'open-semis', 'close-semis', 'open-finals', 'close-finals', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -578,9 +512,6 @@ export async function execute(interaction) {
       case 'remove-title':
         await handleRemoveTitle(interaction);
         break;
-      case 'resize':
-        await handleResize(interaction);
-        break;
       case 'announce':
         await handleAnnounce(interaction);
         break;
@@ -593,26 +524,18 @@ export async function execute(interaction) {
       case 'advance-knockout':
         await handleAdvanceKnockout(interaction);
         break;
-      case 'regenerate':
-        await handleRegenerate(interaction);
-        break;
       case 'open-knockout':
         await handleOpenKnockout(interaction);
-        break;
-      case 'open-region':
-        await handleOpenRegion(interaction);
         break;
       case 'close-knockout':
         await handleCloseKnockout(interaction);
         break;
-      // Round-specific aliases
-      case 'open-round16':
+      // Round-specific aliases (Round of 16 uses open-knockout)
       case 'open-quarters':
       case 'open-semis':
       case 'open-finals':
         await handleOpenKnockout(interaction);
         break;
-      case 'close-round16':
       case 'close-quarters':
       case 'close-semis':
       case 'close-finals':
@@ -641,9 +564,6 @@ export async function execute(interaction) {
         break;
       case 'my-votes':
         await handleMyVotes(interaction);
-        break;
-      case 'edit-name':
-        await handleEditName(interaction);
         break;
       case 'export':
         await handleExport(interaction);
@@ -2319,8 +2239,7 @@ async function handleCloseKnockout(interaction) {
     
     // Suggest the appropriate round-specific command
     let nextCommand = '/bracket open-knockout';
-    if (nextRound === 'round_of_16') nextCommand = '/bracket open-round16';
-    else if (nextRound === 'quarterfinals') nextCommand = '/bracket open-quarters';
+    if (nextRound === 'quarterfinals') nextCommand = '/bracket open-quarters';
     else if (nextRound === 'semifinals') nextCommand = '/bracket open-semis';
     else if (nextRound === 'finals') nextCommand = '/bracket open-finals';
     
