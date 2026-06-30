@@ -37,13 +37,13 @@ This page provides detailed documentation for all tournament bracket commands. C
 <div style="display: flex; gap: 10px; margin: 20px 0;">
 <div>
 
-![Tournament Status](../../public/images/examples/tournaments/tournament-status.png)
+![Tournament Status](/images/examples/tournaments/tournament-status.png)
 *Live tournament status with vote counts*
 
 </div>
 <div>
 
-![Round Results](../../public/images/examples/tournaments/round-complete.png)
+![Round Results](/images/examples/tournaments/round-complete.png)
 *Round completion with winner announcements*
 
 </div>
