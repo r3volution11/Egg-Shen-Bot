@@ -545,10 +545,22 @@ export async function execute(interaction) {
     }
   } catch (error) {
     console.error('Error in bracket command:', error);
-    await interaction.reply({
+    
+    // Handle error response based on interaction state
+    const errorMessage = {
       content: '❌ An error occurred. Please try again.',
-      ephemeral: true,
-    });
+      ephemeral: true
+    };
+    
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    } catch (replyError) {
+      console.error('Failed to send error message:', replyError);
+    }
   }
 }
 
