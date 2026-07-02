@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Automatic Watch History Logging for Timers** (2026-07-01)
+  - **What changed:** Timers with titles now automatically log to server watch history when they complete
+  - **How it works:**
+    1. Timer completes (manual `/timer stop` or auto-stop after duration)
+    2. Bot searches TMDB for the timer's title/label
+    3. Finds best match (uses first result)
+    4. Automatically saves to server watch history
+    5. Shows confirmation embed with poster, title, year, type, duration
+  - **Information logged:**
+    - Movie/TV show title from TMDB
+    - Year and type (movie/TV)
+    - Date watched
+    - Timer duration as notes (e.g., "Watch party timer: 3:02:15")
+    - Channel where watched
+    - Who started and stopped the timer
+    - Poster image
+  - **Benefits:**
+    - No button to click - completely automatic
+    - Tracks all watch parties without manual intervention
+    - Creates comprehensive server watch history
+    - Works for both manual stops and auto-complete timers
+    - Shows rich TMDB details (poster, year, type)
+  - **Fallback:** If title not found on TMDB, shows warning and suggests `/watched add` for manual logging
+  - **Removed:** "Log to Watch History" button (no longer needed)
+  - **Note:** Only timers with labels/titles trigger auto-logging; blank timers stop normally
 - **Tatsu-Style Tournament UI Enhancements** (2026-06-30)
   - **Inspired by:** tatsu.gg Discord bot's polished voting system with visual progress bars and gamification
   - **Visual Progress Bars:**

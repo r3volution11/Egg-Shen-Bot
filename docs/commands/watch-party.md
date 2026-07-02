@@ -24,8 +24,8 @@ A: Yes! Either set a manual duration (1-600 minutes) or let the bot detect runti
 **Q: Who can stop a timer?**  
 A: The person who started it or anyone with moderation permissions.
 
-**Q: Does watch history work retroactively?**  
-A: No, only content manually logged via the "Log to Watch History" button is tracked.
+**Q: Does watch history work automatically?**  
+A: Yes! When a timer with a title/label completes (manual stop or auto-stop), it automatically logs to server watch history. No button needed!
 
 ---
 
@@ -89,10 +89,9 @@ Start simple stopwatch timers for watch parties.
 - **Auto-stop:** Set duration to automatically stop timer when time expires
 - **Runtime auto-detection:** When label is auto-detected from Discord events, bot searches TMDB and adds 10-minute buffer
 - **Smart selection:** If multiple TMDB matches found, shows selection menu to pick correct title
+- **Automatic watch history logging:** When timer completes (manual or auto-stop), automatically logs to server watch history if title found on TMDB
 - **Runs continuously:** Without duration, runs until manually stopped
 - 5-second countdown before starting (with visual/text animation)
-- "Log to Watch History" button appears when stopped (if label was provided)
-- Only timer starter or moderators can log to history
 - Public display visible to all channel members
 - Shows remaining time when duration is set
 
@@ -147,28 +146,47 @@ Stops the current timer in the channel. Only available to:
 
 Track what your server community watches together.
 
-### Log to Watch History
+### Automatic Watch History Logging
 
-After a timer completes, click the "Log to Watch History" button to save it.
+**NEW:** Timers now automatically log to watch history!
 
-**Who Can Save:**
-- The user who started the timer
-- Server administrators
-- Users with Manage Guild permission
-- Users with Moderate Members permission
+When a timer with a title/label completes (via `/timer stop` or auto-stop):
+
+1. **Bot searches TMDB** for the title
+2. **Finds best match** (first result)
+3. **Automatically logs to server watch history**
+4. **Shows confirmation** with poster, title, year, type
 
 **Information Saved:**
-- Movie/TV show title
+- Movie/TV show title from TMDB
+- Year and type (movie/TV)
 - Date watched
 - Channel where watched
-- Who saved it (public)
-- Optional notes
+- Who started the timer
+- Who stopped the timer
+- Timer duration as notes
+- Poster image
 
-**Example Modal:**
+**What You See:**
 ```
-Title: The Fellowship of the Ring
-Notes: Epic movie night! Everyone loved it.
+⏹️ Timer Stopped & Logged 🛑📝
+
+The Lord of the Rings: The Fellowship of the Ring (2001)
+
+✅ Automatically logged to watch history
+
+Total Time: 3:02:15
+Type: Movie
+Channel: #movie-night
+Started by: MovieFan
+Stopped by: MovieFan
 ```
+
+**No TMDB Match?**
+If the title isn't found on TMDB, the timer stops normally with a warning. You can manually log using `/watched add`.
+
+**No Button Needed!**
+The "Log to Watch History" button has been removed - logging happens automatically.
 
 ### Manual Watch History Entry
 
