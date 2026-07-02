@@ -92,9 +92,38 @@ export async function restoreTimerTimeouts(client) {
                   channelId
                 );
               } else {
-                await channel.send({
-                  content: `⏰ Timer completed while bot was offline. Duration: ${result.elapsedFormatted}`,
-                });
+                // Timer without label - show button to manually log
+                const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+                
+                const embed = new EmbedBuilder()
+                  .setColor(0xFF0000)
+                  .setTitle('⏰ Timer Completed 🛑')
+                  .setDescription('Timer has completed')
+                  .addFields(
+                    {
+                      name: 'Total Time',
+                      value: result.elapsedFormatted,
+                      inline: true,
+                    },
+                    {
+                      name: 'Started by',
+                      value: result.username,
+                      inline: true,
+                    }
+                  )
+                  .setFooter({ text: 'Use the button below to log what you watched • Only timer starter/mods/admins can log' })
+                  .setTimestamp();
+
+                // Add button for manual logging (timer starter/mods/admins only)
+                const button = new ButtonBuilder()
+                  .setCustomId(`log_watched_${channelId}_${result.userId}`)
+                  .setLabel('Log to Watch History')
+                  .setStyle(ButtonStyle.Primary)
+                  .setEmoji('📝');
+
+                const row = new ActionRowBuilder().addComponents(button);
+
+                await channel.send({ embeds: [embed], components: [row] });
               }
             }
           } catch (error) {
@@ -120,12 +149,42 @@ export async function restoreTimerTimeouts(client) {
                     result.label,
                     result.elapsedFormatted,
                     result.username,
-                    channelId
+                    channelId,
+                    result.userId
                   );
                 } else {
-                  await channel.send({
-                    content: `⏰ Timer completed! Duration: ${result.elapsedFormatted}`,
-                  });
+                  // Timer without label - show button to manually log
+                  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+                  
+                  const embed = new EmbedBuilder()
+                    .setColor(0xFF0000)
+                    .setTitle('⏰ Timer Completed 🛑')
+                    .setDescription('Timer has completed')
+                    .addFields(
+                      {
+                        name: 'Total Time',
+                        value: result.elapsedFormatted,
+                        inline: true,
+                      },
+                      {
+                        name: 'Started by',
+                        value: result.username,
+                        inline: true,
+                      }
+                    )
+                    .setFooter({ text: 'Use the button below to log what you watched • Only timer starter/mods/admins can log' })
+                    .setTimestamp();
+
+                  // Add button for manual logging (timer starter/mods/admins only)
+                  const button = new ButtonBuilder()
+                    .setCustomId(`log_watched_${channelId}_${result.userId}`)
+                    .setLabel('Log to Watch History')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('📝');
+
+                  const row = new ActionRowBuilder().addComponents(button);
+
+                  await channel.send({ embeds: [embed], components: [row] });
                 }
               }
             } catch (error) {
@@ -188,12 +247,42 @@ export function startTimer(channelId, userId, username, label = '', durationMinu
                   result.label,
                   result.elapsedFormatted,
                   result.username,
-                  channelId
+                  channelId,
+                  result.userId
                 );
               } else {
-                await channel.send({
-                  content: `⏰ Timer completed! Duration: ${result.elapsedFormatted}`,
-                });
+                // Timer without label - show button to manually log
+                const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+                
+                const embed = new EmbedBuilder()
+                  .setColor(0xFF0000)
+                  .setTitle('⏰ Timer Completed 🛑')
+                  .setDescription('Timer has completed')
+                  .addFields(
+                    {
+                      name: 'Total Time',
+                      value: result.elapsedFormatted,
+                      inline: true,
+                    },
+                    {
+                      name: 'Started by',
+                      value: result.username,
+                      inline: true,
+                    }
+                  )
+                  .setFooter({ text: 'Use the button below to log what you watched • Only timer starter/mods/admins can log' })
+                  .setTimestamp();
+
+                // Add button for manual logging (timer starter/mods/admins only)
+                const button = new ButtonBuilder()
+                  .setCustomId(`log_watched_${channelId}_${result.userId}`)
+                  .setLabel('Log to Watch History')
+                  .setStyle(ButtonStyle.Primary)
+                  .setEmoji('📝');
+
+                const row = new ActionRowBuilder().addComponents(button);
+
+                await channel.send({ embeds: [embed], components: [row] });
               }
             }
           } catch (error) {
@@ -318,12 +407,12 @@ export function clearAllTimers() {
  * @param {string} startedBy - Username who started timer
  * @param {string} channelId - Channel ID
  */
-async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, startedBy, channelId) {
+async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, startedBy, channelId, starterUserId) {
   try {
     const { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } = await import('../services/tmdbService.js');
     const { saveWatchHistory } = await import('./watchHistoryManager.js');
     const { trackSearch } = await import('./statsTracker.js');
-    const { EmbedBuilder } = await import('discord.js');
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
     
     // Search for the title
     const [movieResults, tvResults] = await Promise.all([
@@ -337,10 +426,36 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
     ];
     
     if (allResults.length === 0) {
-      // Could not find title - send simple completion message
-      await channel.send({
-        content: `⏰ Timer completed! Duration: ${elapsedTime}\n**${title}**\n\n⚠️ Could not find this title on TMDB to log to watch history.`,
-      });
+      // Could not find title - send simple completion message with manual log button
+      const embed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle('⏰ Timer Completed 🛑')
+        .setDescription(`**${title}**\n\n⚠️ Could not find this title on TMDB to log automatically.`)
+        .addFields(
+          {
+            name: 'Total Time',
+            value: elapsedTime,
+            inline: true,
+          },
+          {
+            name: 'Started by',
+            value: startedBy,
+            inline: true,
+          }
+        )
+        .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log' })
+        .setTimestamp();
+      
+      // Add button for manual logging (timer starter/mods/admins only)
+      const button = new ButtonBuilder()
+        .setCustomId(`log_watched_${channelId}_${starterUserId}`)
+        .setLabel('Log to Watch History')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📝');
+
+      const row = new ActionRowBuilder().addComponents(button);
+      
+      await channel.send({ embeds: [embed], components: [row] });
       return;
     }
     
@@ -409,21 +524,58 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
           inline: true,
         }
       )
-      .setFooter({ text: 'Use /watched history to view watch history • Use /timer start to begin a new timer' })
+      .setFooter({ text: 'Use /watched history to view watch history • Use button to manually log again • Use /timer start to begin a new timer' })
       .setTimestamp();
     
     if (posterPath) {
       embed.setThumbnail(posterPath);
     }
     
-    await channel.send({ embeds: [embed] });
+    // Add button for manual override (timer starter/mods/admins only)
+    const button = new ButtonBuilder()
+      .setCustomId(`log_watched_${channelId}_${starterUserId}`)
+      .setLabel('Log to Watch History')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('📝');
+
+    const row = new ActionRowBuilder().addComponents(button);
+    
+    await channel.send({ embeds: [embed], components: [row] });
     
   } catch (error) {
     console.error('[Timer] Error auto-logging to watch history:', error);
     
-    // Send simple completion message with error
-    await channel.send({
-      content: `⏰ Timer completed! Duration: ${elapsedTime}\n**${title}**\n\n❌ Error logging to watch history: ${error.message}`,
-    });
+    // Send error message with manual log button
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setTitle('⏰ Timer Completed 🛑')
+      .setDescription(`**${title}**\n\n❌ Error logging to watch history: ${error.message}`)
+      .addFields(
+        {
+          name: 'Total Time',
+          value: elapsedTime,
+          inline: true,
+        },
+        {
+          name: 'Started by',
+          value: startedBy,
+          inline: true,
+        }
+      )
+      .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log' })
+      .setTimestamp();
+    
+    // Add button for manual logging (timer starter/mods/admins only)
+    const button = new ButtonBuilder()
+      .setCustomId(`log_watched_${channelId}_${starterUserId}`)
+      .setLabel('Log to Watch History')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('📝');
+
+    const row = new ActionRowBuilder().addComponents(button);
+    
+    await channel.send({ embeds: [embed], components: [row] });
   }
 }

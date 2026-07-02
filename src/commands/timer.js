@@ -396,9 +396,11 @@ export async function execute(interaction) {
           result.elapsedFormatted,
           result.username,
           interaction.user.username,
-          channelId
+          channelId,
+          result.userId
         );
       } else {
+        // Timer without label - show button to manually log
         const embed = new EmbedBuilder()
           .setColor(0xFF0000)
           .setTitle('⏹️ Timer Stopped 🛑')
@@ -420,10 +422,19 @@ export async function execute(interaction) {
               inline: true,
             }
           )
-          .setFooter({ text: 'Use /timer start to begin a new timer' })
+          .setFooter({ text: 'Use the button below to log what you watched • Only timer starter/mods/admins can log' })
           .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
+        // Add button for manual logging (timer starter/mods/admins only)
+        const button = new ButtonBuilder()
+          .setCustomId(`log_watched_${channelId}_${result.userId}`)
+          .setLabel('Log to Watch History')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📝');
+
+        const row = new ActionRowBuilder().addComponents(button);
+
+        await interaction.reply({ embeds: [embed], components: [row] });
       }
     } else {
       await interaction.reply({
@@ -827,7 +838,7 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
  * @param {string} stoppedBy - Username who stopped timer
  * @param {string} channelId - Channel ID
  */
-async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, startedBy, stoppedBy, channelId) {
+async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, startedBy, stoppedBy, channelId, starterUserId) {
   // Defer reply
   await interaction.deferReply();
   
@@ -848,11 +859,11 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
     ];
     
     if (allResults.length === 0) {
-      // Could not find title - show timer stopped message without watch history
+      // Could not find title - show timer stopped message with manual log button
       const embed = new EmbedBuilder()
         .setColor(0xFF0000)
         .setTitle('⏹️ Timer Stopped 🛑')
-        .setDescription(`**${title}**\n\n⚠️ Could not find this title on TMDB to log to watch history.`)
+        .setDescription(`**${title}**\n\n⚠️ Could not find this title on TMDB to log automatically.`)
         .addFields(
           {
             name: 'Total Time',
@@ -870,10 +881,19 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
             inline: true,
           }
         )
-        .setFooter({ text: 'Use /watched add to manually log to watch history' })
+        .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log' })
         .setTimestamp();
       
-      await interaction.editReply({ embeds: [embed] });
+      // Add button for manual logging (timer starter/mods/admins only)
+      const button = new ButtonBuilder()
+        .setCustomId(`log_watched_${channelId}_${starterUserId}`)
+        .setLabel('Log to Watch History')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📝');
+
+      const row = new ActionRowBuilder().addComponents(button);
+      
+      await interaction.editReply({ embeds: [embed], components: [row] });
       return;
     }
     
@@ -944,14 +964,23 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
           inline: true,
         }
       )
-      .setFooter({ text: 'Use /watched history to view watch history • Use /timer start to begin a new timer' })
+      .setFooter({ text: 'Use /watched history to view watch history • Use button to manually log again • Use /timer start to begin a new timer' })
       .setTimestamp();
     
     if (posterPath) {
       embed.setThumbnail(posterPath);
     }
     
-    await interaction.editReply({ embeds: [embed] });
+    // Add button for manual override (timer starter/mods/admins only)
+    const button = new ButtonBuilder()
+      .setCustomId(`log_watched_${channelId}_${starterUserId}`)
+      .setLabel('Log to Watch History')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('📝');
+
+    const row = new ActionRowBuilder().addComponents(button);
+    
+    await interaction.editReply({ embeds: [embed], components: [row] });
     
   } catch (error) {
     console.error('[Timer] Error auto-logging to watch history:', error);
@@ -978,9 +1007,18 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
           inline: true,
         }
       )
-      .setFooter({ text: 'Use /watched add to manually log to watch history' })
+      .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log' })
       .setTimestamp();
     
-    await interaction.editReply({ embeds: [embed] });
+    // Add button for manual logging (timer starter/mods/admins only)
+    const button = new ButtonBuilder()
+      .setCustomId(`log_watched_${channelId}_${starterUserId}`)
+      .setLabel('Log to Watch History')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('📝');
+
+    const row = new ActionRowBuilder().addComponents(button);
+    
+    await interaction.editReply({ embeds: [embed], components: [row] });
   }
 }

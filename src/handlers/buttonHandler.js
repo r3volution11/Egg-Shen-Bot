@@ -1467,23 +1467,30 @@ export async function handleWatchHistoryButton(interaction) {
     }
     
     // Get the timer label from the message
+    // Get the timer label from the message (if available)
     const embed = interaction.message.embeds[0];
-    const title = embed.description?.replace(/\*\*/g, '') || null;
+    const description = embed.description?.split('\n')[0] || ''; // Get first line
+    const title = description.replace(/\*\*/g, '').trim() || null;
     
-    if (!title) {
-      await interaction.reply({
-        content: '❌ No title found. The timer needs a label to be logged to watch history.',
-        ephemeral: true,
-      });
-      return;
-    }
-    
-    // Prompt for rating and notes
+    // Prompt for title (if needed) and notes
     const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
     
     const modal = new ModalBuilder()
-      .setCustomId(`watched_modal_${channelId}_${starterUserId}_${Buffer.from(title).toString('base64')}`)
+      .setCustomId(`watched_modal_${channelId}_${starterUserId}_${title ? Buffer.from(title).toString('base64') : 'notitle'}`)
       .setTitle('Log to Watch History');
+    
+    // If no title, add a title search field
+    if (!title) {
+      const titleInput = new TextInputBuilder()
+        .setCustomId('title')
+        .setLabel('Movie or TV Show Title')
+        .setPlaceholder('Enter the title of what you watched')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+      
+      const titleRow = new ActionRowBuilder().addComponents(titleInput);
+      modal.addComponents(titleRow);
+    }
     
     const notesInput = new TextInputBuilder()
       .setCustomId('notes')

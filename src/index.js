@@ -277,7 +277,16 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
       
-      const title = Buffer.from(encodedTitle, 'base64').toString('utf-8');
+      // Get title either from customId (pre-filled) or from modal input (user searched)
+      let title;
+      if (encodedTitle === 'notitle') {
+        // Timer had no label - user must provide title
+        title = interaction.fields.getTextInputValue('title');
+      } else {
+        // Timer had label - title was pre-filled
+        title = Buffer.from(encodedTitle, 'base64').toString('utf-8');
+      }
+      
       const notes = interaction.fields.getTextInputValue('notes') || null;
       
       // Defer reply publicly so everyone can see the watch history entry
