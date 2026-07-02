@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Manual Watch History Button for All Timers** (2026-07-02)
+  - **What changed:** "Log to Watch History" button now appears on ALL timer completion messages (not just errors)
+  - **For timers WITH labels:**
+    - Automatic logging happens first (searches TMDB, logs first result)
+    - Button appears for manual override if wrong title was detected
+    - Can add custom notes or log a different title
+  - **For timers WITHOUT labels:**
+    - Button lets you add what you watched after the fact
+    - Opens modal with title search field and notes
+    - Searches TMDB when you submit
+  - **Permissions:**
+    - ✅ Timer starter can always use the button
+    - ✅ Server administrators can use it
+    - ✅ Server moderators (Manage Guild or Moderate Members) can use it
+    - ❌ Other users get error message if they try
+  - **Benefits:**
+    - Flexibility to override auto-detection
+    - Can log generic timers after completion
+    - Prevents unauthorized logging by non-starters
+    - Maintains automatic convenience while allowing manual control
+  - **Implementation:** Button customId includes starter's user ID for permission checking
 - **Automatic Watch History Logging for Timers** (2026-07-01)
   - **What changed:** Timers with titles now automatically log to server watch history when they complete
   - **How it works:**
@@ -30,9 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Creates comprehensive server watch history
     - Works for both manual stops and auto-complete timers
     - Shows rich TMDB details (poster, year, type)
-  - **Fallback:** If title not found on TMDB, shows warning and suggests `/watched add` for manual logging
-  - **Removed:** "Log to Watch History" button (no longer needed)
-  - **Note:** Only timers with labels/titles trigger auto-logging; blank timers stop normally
+  - **Fallback:** If title not found on TMDB, shows button for manual logging
+  - **Note:** Only timers with labels/titles trigger auto-logging; blank timers show button for manual logging
 - **Tatsu-Style Tournament UI Enhancements** (2026-06-30)
   - **Inspired by:** tatsu.gg Discord bot's polished voting system with visual progress bars and gamification
   - **Visual Progress Bars:**
