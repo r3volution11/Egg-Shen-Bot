@@ -60,30 +60,47 @@ When viewing ends, stop the timer:
 /timer stop
 ```
 
-A "Log to Watch History" button appears (only if a label was provided).
+**NEW:** The timer automatically logs to watch history!
 
-### 4. Save to History
+### 4. Automatic Logging
 
-The person who started the timer (or a moderator) clicks the button. A modal appears to enter:
+When the timer completes (manual stop or auto-stop), if a label was provided:
 
-- **Title** - Movie/TV show name (pre-filled with timer label)
-- **Notes** - Optional viewing notes, reactions, highlights
+1. **Bot searches TMDB** for the title
+2. **Finds best match** (uses first result)
+3. **Automatically saves** to watch history
+4. **Shows confirmation** with full details
+
+**Information Saved:**
+- Movie/TV show title from TMDB
+- Year and type (movie/TV)
+- Date watched
+- Timer duration as notes
+- Channel where watched
+- Who started/stopped the timer
+- Poster image
+
+**No TMDB Match?**
+If the title isn't found, you can manually log using `/watched add`.
 
 ### 5. Public Record
 
 The entry appears publicly in the channel for everyone to see:
 
 ```
-📝 Watch History Saved
+⏹️ Timer Stopped & Logged 🛑📝
 
 The Lord of the Rings: The Fellowship of the Ring (2001)
-⭐ 8.8/10 • 🎬 178 min • Adventure, Fantasy
 
-📅 Watched: June 21, 2026
-📺 Channel: #movie-night
-⏱️ Timer: 3:02:15
-💾 Saved by: @MovieFan
-📝 Notes: Epic trilogy start! Everyone loved the cinematography.
+✅ Automatically logged to watch history
+
+Total Time: 3:02:15
+Type: Movie
+Channel: #movie-night
+Started by: MovieFan
+Stopped by: MovieFan
+
+Use /watched history to view watch history • Use /timer start to begin a new timer
 ```
 
 ## Permission System
