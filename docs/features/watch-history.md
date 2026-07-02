@@ -62,7 +62,7 @@ When viewing ends, stop the timer:
 
 **NEW:** The timer automatically logs to watch history!
 
-### 4. Automatic Logging
+### 4. Automatic Logging (Timers with Labels)
 
 When the timer completes (manual stop or auto-stop), if a label was provided:
 
@@ -70,6 +70,7 @@ When the timer completes (manual stop or auto-stop), if a label was provided:
 2. **Finds best match** (uses first result)
 3. **Automatically saves** to watch history
 4. **Shows confirmation** with full details
+5. **"Log to Watch History" button appears** for manual override
 
 **Information Saved:**
 - Movie/TV show title from TMDB
@@ -80,8 +81,17 @@ When the timer completes (manual stop or auto-stop), if a label was provided:
 - Who started/stopped the timer
 - Poster image
 
-**No TMDB Match?**
-If the title isn't found, you can manually log using `/watched add`.
+**Manual Override Button:**
+- Appears on ALL timer completions
+- Lets timer starter/mods/admins manually log or correct
+- For timers WITHOUT labels: enter title after the fact
+- For timers WITH labels: override if wrong title detected
+
+**Button Permissions:**
+- ✅ Timer starter
+- ✅ Server administrators
+- ✅ Server moderators
+- ❌ Other users (shows permission error)
 
 ### 5. Public Record
 

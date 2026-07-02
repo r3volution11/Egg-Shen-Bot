@@ -25,7 +25,7 @@ A: Yes! Either set a manual duration (1-600 minutes) or let the bot detect runti
 A: The person who started it or anyone with moderation permissions.
 
 **Q: Does watch history work automatically?**  
-A: Yes! When a timer with a title/label completes (manual stop or auto-stop), it automatically logs to server watch history. No button needed!
+A: Yes! When a timer with a title/label completes, it automatically logs to server watch history. A "Log to Watch History" button also appears for manual override or corrections. For timers without labels, use the button to manually log what you watched. Only the timer starter, administrators, or moderators can use the button.
 
 ---
 
@@ -156,6 +156,17 @@ When a timer with a title/label completes (via `/timer stop` or auto-stop):
 2. **Finds best match** (first result)
 3. **Automatically logs to server watch history**
 4. **Shows confirmation** with poster, title, year, type
+5. **"Log to Watch History" button appears** for manual override
+
+**For timers WITHOUT labels:**
+- Button appears to let you manually add what you watched
+- Click button → Enter title → Add optional notes → Submit
+
+**Button Permissions:**
+- ✅ Timer starter can use it
+- ✅ Server administrators can use it
+- ✅ Server moderators can use it
+- ❌ Other users cannot log timers they didn't start
 
 **Information Saved:**
 - Movie/TV show title from TMDB
@@ -167,7 +178,7 @@ When a timer with a title/label completes (via `/timer stop` or auto-stop):
 - Timer duration as notes
 - Poster image
 
-**What You See:**
+**What You See (with label):**
 ```
 ⏹️ Timer Stopped & Logged 🛑📝
 
@@ -180,13 +191,28 @@ Type: Movie
 Channel: #movie-night
 Started by: MovieFan
 Stopped by: MovieFan
+
+[📝 Log to Watch History] ← Click to manually log again or correct
+```
+
+**What You See (without label):**
+```
+⏹️ Timer Stopped 🛑
+
+Timer has been stopped
+
+Total Time: 2:15:30
+Started by: MovieFan
+Stopped by: MovieFan
+
+[📝 Log to Watch History] ← Click to add what you watched
 ```
 
 **No TMDB Match?**
-If the title isn't found on TMDB, the timer stops normally with a warning. You can manually log using `/watched add`.
+If the title isn't found on TMDB, you'll see a warning but the button will still appear so you can manually search and log.
 
-**No Button Needed!**
-The "Log to Watch History" button has been removed - logging happens automatically.
+**Manual Override:**
+The button lets you log a different title if auto-detection picked the wrong result, or add custom notes to the entry.
 
 ### Manual Watch History Entry
 
