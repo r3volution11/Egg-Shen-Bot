@@ -81,9 +81,21 @@ export async function restoreTimerTimeouts(client) {
           try {
             const channel = await client.channels.fetch(channelId);
             if (channel && channel.isTextBased()) {
-              await channel.send({
-                content: `⏰ Timer completed while bot was offline. Duration: ${result.elapsedFormatted}`,
-              });
+              // Auto-log to watch history if timer has a label
+              if (result.label) {
+                await autoLogTimerToWatchHistory(
+                  channel,
+                  client,
+                  result.label,
+                  result.elapsedFormatted,
+                  result.username,
+                  channelId
+                );
+              } else {
+                await channel.send({
+                  content: `⏰ Timer completed while bot was offline. Duration: ${result.elapsedFormatted}`,
+                });
+              }
             }
           } catch (error) {
             console.error('[Timer] Error sending expired timer message:', error);
@@ -100,9 +112,21 @@ export async function restoreTimerTimeouts(client) {
             try {
               const channel = await client.channels.fetch(channelId);
               if (channel && channel.isTextBased()) {
-                await channel.send({
-                  content: `⏰ Timer completed! Duration: ${result.elapsedFormatted}`,
-                });
+                // Auto-log to watch history if timer has a label
+                if (result.label) {
+                  await autoLogTimerToWatchHistory(
+                    channel,
+                    client,
+                    result.label,
+                    result.elapsedFormatted,
+                    result.username,
+                    channelId
+                  );
+                } else {
+                  await channel.send({
+                    content: `⏰ Timer completed! Duration: ${result.elapsedFormatted}`,
+                  });
+                }
               }
             } catch (error) {
               console.error('[Timer] Error sending auto-stop message:', error);
@@ -156,9 +180,21 @@ export function startTimer(channelId, userId, username, label = '', durationMinu
           try {
             const channel = await client.channels.fetch(channelId);
             if (channel && channel.isTextBased()) {
-              await channel.send({
-                content: `⏰ Timer completed! Duration: ${result.elapsedFormatted}`,
-              });
+              // Auto-log to watch history if timer has a label
+              if (result.label) {
+                await autoLogTimerToWatchHistory(
+                  channel,
+                  client,
+                  result.label,
+                  result.elapsedFormatted,
+                  result.username,
+                  channelId
+                );
+              } else {
+                await channel.send({
+                  content: `⏰ Timer completed! Duration: ${result.elapsedFormatted}`,
+                });
+              }
             }
           } catch (error) {
             console.error('[Timer] Error sending auto-stop message:', error);
@@ -271,4 +307,123 @@ export function getAllTimers() {
  */
 export function clearAllTimers() {
   activeTimers.clear();
+}
+
+/**
+ * Automatically log timer to watch history (for auto-stop)
+ * @param {object} channel - Discord channel
+ * @param {object} client - Discord client
+ * @param {string} title - Timer title/label
+ * @param {string} elapsedTime - Formatted elapsed time
+ * @param {string} startedBy - Username who started timer
+ * @param {string} channelId - Channel ID
+ */
+async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, startedBy, channelId) {
+  try {
+    const { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } = await import('../services/tmdbService.js');
+    const { saveWatchHistory } = await import('./watchHistoryManager.js');
+    const { trackSearch } = await import('./statsTracker.js');
+    const { EmbedBuilder } = await import('discord.js');
+    
+    // Search for the title
+    const [movieResults, tvResults] = await Promise.all([
+      searchMovies(title),
+      searchTVShows(title),
+    ]);
+    
+    const allResults = [
+      ...(movieResults || []).map(r => ({ ...r, type: 'movie' })),
+      ...(tvResults || []).map(r => ({ ...r, type: 'tv' })),
+    ];
+    
+    if (allResults.length === 0) {
+      // Could not find title - send simple completion message
+      await channel.send({
+        content: `⏰ Timer completed! Duration: ${elapsedTime}\n**${title}**\n\n⚠️ Could not find this title on TMDB to log to watch history.`,
+      });
+      return;
+    }
+    
+    // Use the first result
+    const result = allResults[0];
+    const details = result.type === 'movie' 
+      ? await getMovieDetails(result.id)
+      : await getTVShowDetails(result.id);
+    
+    const fullTitle = details.title || details.name;
+    const year = details.release_date || details.first_air_date;
+    const yearStr = year ? year.split('-')[0] : '';
+    const posterPath = details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : null;
+    
+    // Save to watch history (use bot as the saver since this is automatic)
+    await saveWatchHistory(channel.guild.id, {
+      tmdbId: result.id,
+      type: result.type,
+      title: fullTitle,
+      year: yearStr,
+      notes: `Watch party timer: ${elapsedTime} (auto-completed)`,
+      savedBy: 'Egg Shen Bot',
+      savedById: client.user.id,
+      watchedAt: Date.now(),
+      channelId: channelId,
+      channelName: channel.name || 'Unknown Channel',
+    });
+    
+    // Track in stats (use first guild member as placeholder for auto-stop)
+    const guild = channel.guild;
+    if (guild) {
+      await trackSearch(
+        guild.id,
+        client.user.id,
+        'Egg Shen Bot',
+        'watched',
+        fullTitle,
+        yearStr
+      );
+    }
+    
+    // Build confirmation embed
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle('⏰ Timer Completed & Logged 🛑📝')
+      .setDescription(`**${fullTitle}** (${yearStr})\n\n✅ Automatically logged to watch history`)
+      .addFields(
+        {
+          name: 'Total Time',
+          value: elapsedTime,
+          inline: true,
+        },
+        {
+          name: 'Type',
+          value: result.type === 'movie' ? 'Movie' : 'TV Show',
+          inline: true,
+        },
+        {
+          name: 'Channel',
+          value: `<#${channelId}>`,
+          inline: true,
+        },
+        {
+          name: 'Started by',
+          value: startedBy,
+          inline: true,
+        }
+      )
+      .setFooter({ text: 'Use /watched history to view watch history • Use /timer start to begin a new timer' })
+      .setTimestamp();
+    
+    if (posterPath) {
+      embed.setThumbnail(posterPath);
+    }
+    
+    await channel.send({ embeds: [embed] });
+    
+  } catch (error) {
+    console.error('[Timer] Error auto-logging to watch history:', error);
+    
+    // Send simple completion message with error
+    await channel.send({
+      content: `⏰ Timer completed! Duration: ${elapsedTime}\n**${title}**\n\n❌ Error logging to watch history: ${error.message}`,
+    });
+  }
 }
