@@ -388,44 +388,41 @@ export async function execute(interaction) {
     const result = stopTimer(channelId);
 
     if (result) {
-      const embed = new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle('⏹️ Timer Stopped 🛑')
-        .setDescription(result.label ? `**${result.label}**` : 'Timer has been stopped')
-        .addFields(
-          {
-            name: 'Total Time',
-            value: result.elapsedFormatted,
-            inline: true,
-          },
-          {
-            name: 'Started by',
-            value: result.username,
-            inline: true,
-          },
-          {
-            name: 'Stopped by',
-            value: interaction.user.username,
-            inline: true,
-          }
-        )
-        .setFooter({ text: 'Use /timer start to begin a new timer' })
-        .setTimestamp();
-
-      // Add button to log to watch history if there's a label
+      // Automatically log to watch history if timer has a label
       if (result.label) {
-        const logButton = new ButtonBuilder()
-          .setCustomId(`log_watched_${channelId}_${result.userId}`)
-          .setLabel('📝 Log to Watch History')
-          .setStyle(ButtonStyle.Primary);
-
-        const row = new ActionRowBuilder().addComponents(logButton);
-
-        await interaction.reply({ 
-          embeds: [embed],
-          components: [row],
-        });
+        await autoLogTimerToWatchHistory(
+          interaction,
+          result.label,
+          result.elapsedFormatted,
+          result.username,
+          interaction.user.username,
+          channelId
+        );
       } else {
+        const embed = new EmbedBuilder()
+          .setColor(0xFF0000)
+          .setTitle('⏹️ Timer Stopped 🛑')
+          .setDescription('Timer has been stopped')
+          .addFields(
+            {
+              name: 'Total Time',
+              value: result.elapsedFormatted,
+              inline: true,
+            },
+            {
+              name: 'Started by',
+              value: result.username,
+              inline: true,
+            },
+            {
+              name: 'Stopped by',
+              value: interaction.user.username,
+              inline: true,
+            }
+          )
+          .setFooter({ text: 'Use /timer start to begin a new timer' })
+          .setTimestamp();
+
         await interaction.reply({ embeds: [embed] });
       }
     } else {
@@ -819,4 +816,171 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
       await message.edit({ embeds: [embed] });
       return;
     }
+}
+
+/**
+ * Automatically log timer to watch history
+ * @param {object} interaction - Discord interaction
+ * @param {string} title - Timer title/label
+ * @param {string} elapsedTime - Formatted elapsed time
+ * @param {string} startedBy - Username who started timer
+ * @param {string} stoppedBy - Username who stopped timer
+ * @param {string} channelId - Channel ID
+ */
+async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, startedBy, stoppedBy, channelId) {
+  // Defer reply
+  await interaction.deferReply();
+  
+  try {
+    const { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } = await import('./services/tmdbService.js');
+    const { saveWatchHistory } = await import('./utils/watchHistoryManager.js');
+    const { trackSearch } = await import('./utils/statsTracker.js');
+    
+    // Search for the title
+    const [movieResults, tvResults] = await Promise.all([
+      searchMovies(title),
+      searchTVShows(title),
+    ]);
+    
+    const allResults = [
+      ...(movieResults || []).map(r => ({ ...r, type: 'movie' })),
+      ...(tvResults || []).map(r => ({ ...r, type: 'tv' })),
+    ];
+    
+    if (allResults.length === 0) {
+      // Could not find title - show timer stopped message without watch history
+      const embed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle('⏹️ Timer Stopped 🛑')
+        .setDescription(`**${title}**\n\n⚠️ Could not find this title on TMDB to log to watch history.`)
+        .addFields(
+          {
+            name: 'Total Time',
+            value: elapsedTime,
+            inline: true,
+          },
+          {
+            name: 'Started by',
+            value: startedBy,
+            inline: true,
+          },
+          {
+            name: 'Stopped by',
+            value: stoppedBy,
+            inline: true,
+          }
+        )
+        .setFooter({ text: 'Use /watched add to manually log to watch history' })
+        .setTimestamp();
+      
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
+    
+    // Use the first result
+    const result = allResults[0];
+    const details = result.type === 'movie' 
+      ? await getMovieDetails(result.id)
+      : await getTVShowDetails(result.id);
+    
+    const fullTitle = details.title || details.name;
+    const year = details.release_date || details.first_air_date;
+    const yearStr = year ? year.split('-')[0] : '';
+    const posterPath = details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : null;
+    
+    // Save to watch history
+    await saveWatchHistory(interaction.guildId, {
+      tmdbId: result.id,
+      type: result.type,
+      title: fullTitle,
+      year: yearStr,
+      notes: `Watch party timer: ${elapsedTime}`,
+      savedBy: stoppedBy,
+      savedById: interaction.user.id,
+      watchedAt: Date.now(),
+      channelId: channelId,
+      channelName: interaction.channel?.name || 'Unknown Channel',
+    });
+    
+    // Track in stats
+    await trackSearch(
+      interaction.guildId,
+      interaction.user.id,
+      stoppedBy,
+      'watched',
+      fullTitle,
+      yearStr
+    );
+    
+    // Build confirmation embed
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle('⏹️ Timer Stopped & Logged 🛑📝')
+      .setDescription(`**${fullTitle}** (${yearStr})\n\n✅ Automatically logged to watch history`)
+      .addFields(
+        {
+          name: 'Total Time',
+          value: elapsedTime,
+          inline: true,
+        },
+        {
+          name: 'Type',
+          value: result.type === 'movie' ? 'Movie' : 'TV Show',
+          inline: true,
+        },
+        {
+          name: 'Channel',
+          value: `<#${channelId}>`,
+          inline: true,
+        },
+        {
+          name: 'Started by',
+          value: startedBy,
+          inline: true,
+        },
+        {
+          name: 'Stopped by',
+          value: stoppedBy,
+          inline: true,
+        }
+      )
+      .setFooter({ text: 'Use /watched history to view watch history • Use /timer start to begin a new timer' })
+      .setTimestamp();
+    
+    if (posterPath) {
+      embed.setThumbnail(posterPath);
+    }
+    
+    await interaction.editReply({ embeds: [embed] });
+    
+  } catch (error) {
+    console.error('[Timer] Error auto-logging to watch history:', error);
+    
+    // Show timer stopped message with error
+    const embed = new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setTitle('⏹️ Timer Stopped 🛑')
+      .setDescription(`**${title}**\n\n❌ Error logging to watch history: ${error.message}`)
+      .addFields(
+        {
+          name: 'Total Time',
+          value: elapsedTime,
+          inline: true,
+        },
+        {
+          name: 'Started by',
+          value: startedBy,
+          inline: true,
+        },
+        {
+          name: 'Stopped by',
+          value: stoppedBy,
+          inline: true,
+        }
+      )
+      .setFooter({ text: 'Use /watched add to manually log to watch history' })
+      .setTimestamp();
+    
+    await interaction.editReply({ embeds: [embed] });
+  }
 }
