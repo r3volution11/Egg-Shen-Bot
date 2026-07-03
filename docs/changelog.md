@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Smart Tournament Warning Timing** (2026-07-02)
+  - **What changed:** "Voting Closing Soon!" warnings now appear at intelligent times based on total voting duration instead of a fixed 1-hour-before threshold
+  - **New warning schedule:**
+    - **< 30 min votes:** Warning after 5 minutes (e.g., 30-min test = warn at 5 min)
+    - **30 min - 2 hour votes:** Warning after 10 minutes
+    - **2-6 hour votes:** Warning 1 hour before deadline
+    - **> 6 hour votes:** Warning 2 hours before deadline
+  - **Benefits:**
+    - Short test tournaments get early warnings with plenty of time remaining
+    - No more 29-minute warnings for 30-minute votes
+    - Longer tournaments still get appropriate late warnings
+    - Scales automatically based on chosen duration
+  - **Applies to:** Both group stage and knockout voting periods
 - **Manual Watch History Button for All Timers** (2026-07-02)
   - **What changed:** "Log to Watch History" button now appears on ALL timer completion messages (not just errors)
   - **For timers WITH labels:**
@@ -147,6 +160,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - No more dashboard spam!
 
 ### Fixed
+- **Group Stage Open Command Error** (2026-07-02)
+  - **Issue:** `/bracket open-groups` command failed with "An error occurred" when trying to display voting announcement
+  - **Root cause:** Code referenced undefined variable `leaderboardEmbed` instead of the `embeds` array that was built earlier in the function
+  - **Fix:** Changed `embeds: [leaderboardEmbed]` to `embeds: embeds` on line 1350 of bracket.js
+  - **Result:** Group stage voting now opens correctly with announcement embed, leaderboards, and "Start Voting" button
 - **Knockout Dashboard Still Creating Multiple Cards** (2026-06-29)
   - **Issue:** Dashboard was still creating new cards on each vote instead of updating the existing one
   - **Root cause:** Fallback logic was too aggressive - if message fetch failed for ANY reason, created new message with `followUp()` instead of updating
