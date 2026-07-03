@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request a Watch Party - Shudder Discord Drive-In</title>
+    <meta name="description" content="Request a watch party event on the Shudder Discord server">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Shudder Drive-In</h1>
+            <p class="subtitle">Request a Watch Party Event</p>
+        </header>
+
+        <div class="info-box">
+            <p>Submit a watch party request for the <strong>Shudder Discord server</strong>. Moderators will review and approve your event.</p>
+            <a href="https://discord.com/invite/shudder-348924434679332864" target="_blank" class="discord-link">
+                Join Shudder Discord →
+            </a>
+        </div>
+
+        <!-- Login Section -->
+        <div id="auth-section" class="auth-section">
+            <button id="login-btn" class="btn btn-primary">
+                Login with Discord
+            </button>
+            <div id="user-info" class="user-info" style="display:none;">
+                <img id="user-avatar" class="user-avatar" src="" alt="">
+                <span id="user-name"></span>
+                <button id="logout-btn" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+
+        <!-- Event Request Form -->
+        <form id="event-form" style="display:none;">
+            <div class="form-group">
+                <label for="title">Event Title *</label>
+                <input type="text" id="title" name="title" required 
+                       placeholder="e.g., Friday Night Frights: The Thing">
+                <small>The name of your watch party event</small>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" rows="4" 
+                          placeholder="Details about the event, where to watch (Shudder, AMC+, etc.), and any other info..."></textarea>
+                <small>Optional: Include where to find the content and any special notes</small>
+            </div>
+
+            <div class="form-group">
+                <label for="channel">Voice Channel *</label>
+                <select id="channel" name="channel" required>
+                    <option value="">Loading channels...</option>
+                </select>
+                <small>Where the watch party will take place</small>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="start-date">Start Date *</label>
+                    <input type="date" id="start-date" name="startDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="start-time">Start Time *</label>
+                    <input type="time" id="start-time" name="startTime" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="end-date">End Date</label>
+                    <input type="date" id="end-date" name="endDate">
+                </div>
+
+                <div class="form-group">
+                    <label for="end-time">End Time</label>
+                    <input type="time" id="end-time" name="endTime">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="frequency">Frequency</label>
+                <select id="frequency" name="frequency">
+                    <option value="">One-time event</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Biweekly">Biweekly</option>
+                    <option value="Monthly">Monthly</option>
+                </select>
+                <small>Optional: For recurring events</small>
+            </div>
+
+            <!-- Captcha Placeholder -->
+            <div id="captcha-container" class="form-group">
+                <!-- Captcha will be inserted here by app.js -->
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-submit" id="submit-btn">
+                    Submit Request
+                </button>
+            </div>
+
+            <div id="form-message" class="message" style="display:none;"></div>
+        </form>
+
+        <footer>
+            <p>Powered by <a href="https://eggshenbot.com" target="_blank">Egg Shen Bot</a></p>
+            <p class="disclaimer">Event requests are subject to moderator approval</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

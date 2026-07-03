@@ -150,6 +150,11 @@ client.once('ready', async () => {
   // Initialize tournament voting scheduler
   const { initialize: initTournamentScheduler } = await import('./utils/tournamentScheduler.js');
   initTournamentScheduler(client);
+  
+  // Start API server for event requests
+  const { startApiServer } = await import('./api/server.js');
+  const apiPort = process.env.API_PORT || 3000;
+  startApiServer(client, apiPort);
 });
 
 // Event: Interaction (slash commands)
