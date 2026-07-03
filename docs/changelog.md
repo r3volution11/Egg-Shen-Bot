@@ -160,6 +160,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - No more dashboard spam!
 
 ### Fixed
+- **Knockout Channel Flooding with Individual Matchup Cards** (2026-07-02)
+  - **Issue:** When opening knockout rounds, bot was flooding channels with one card per matchup (e.g., 32 cards for Round of 32) in addition to the main announcement
+  - **Root cause:** All knockout opening functions were looping through matchups and sending individual cards to the channel
+  - **Affected commands:** `/bracket advance-knockout`, `/bracket open-knockout`, `/bracket open-quarters`, `/bracket open-semis`, `/bracket open-finals`, `/bracket open-matchup`, `/bracket open-region`
+  - **Fix:** Removed individual matchup card loops from all opening functions - now only the main announcement with "Start Voting" button appears
+  - **Result:** Clean, spam-free channel with single announcement. Users click "Start Voting" to see all matchups in their personal dashboard
+  - **Benefits:**
+    - No more channel spam/flooding
+    - Cleaner tournament experience
+    - Personal dashboard remains the single source for voting
+    - Maintains all functionality while reducing visual clutter
 - **Group Stage Open Command Error** (2026-07-02)
   - **Issue:** `/bracket open-groups` command failed with "An error occurred" when trying to display voting announcement
   - **Root cause:** Code referenced undefined variable `leaderboardEmbed` instead of the `embeds` array that was built earlier in the function
