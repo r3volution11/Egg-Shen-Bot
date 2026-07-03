@@ -1495,41 +1495,8 @@ async function handleAdvanceKnockout(interaction) {
   
   await interaction.editReply({ embeds, components: [startVotingButton] });
   
-  // Send each matchup as a separate card (NO voting buttons)
-  for (const matchup of currentRoundMatchups) {
-    const votes1 = matchup.votes?.movie1?.length || 0;
-    const votes2 = matchup.votes?.movie2?.length || 0;
-    const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
-    
-    const embed = new EmbedBuilder()
-      .setColor(0x4EC5ED)
-      .setTitle(`${roundName} - Matchup ${regionalLabel}`)
-      .setDescription(`**${regionalLabel}:** ${matchup.movie1.title} vs ${matchup.movie2.title}`)
-      .addFields(
-        { 
-          name: `${matchup.movie1.title}`, 
-          value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
-          inline: true 
-        },
-        { name: '\u200B', value: 'vs', inline: true },
-        { 
-          name: `${matchup.movie2.title}`, 
-          value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
-          inline: true 
-        }
-      );
-    
-    // No buttons on shared message - users vote via personal dashboard
-    const votingMessage = await interaction.channel.send({ embeds: [embed] });
-    
-    // Store message ID for scheduler to track
-    bracketManager.storeMatchupVotingMessage(
-      interaction.guildId,
-      matchup.id,
-      interaction.channelId,
-      votingMessage.id
-    );
-  }
+  // Users vote via personal dashboard - no individual matchup cards needed
+  // Prevents channel flooding with one card per matchup
 }
 
 async function handleRegenerate(interaction) {
@@ -2137,33 +2104,8 @@ async function handleOpenKnockout(interaction) {
   
   await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
   
-  // Send each matchup as a separate card (NO voting buttons)
-  for (const matchup of currentRoundMatchups) {
-    const votes1 = matchup.votes?.movie1?.length || 0;
-    const votes2 = matchup.votes?.movie2?.length || 0;
-    const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
-    
-    const embed = new EmbedBuilder()
-      .setColor(0x4EC5ED)
-      .setTitle(`${roundName} - Matchup ${regionalLabel}`)
-      .setDescription(`**${regionalLabel}:** ${matchup.movie1.title} vs ${matchup.movie2.title}`)
-      .addFields(
-        { 
-          name: `${matchup.movie1.title}`, 
-          value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
-          inline: true 
-        },
-        { name: '\u200B', value: 'vs', inline: true },
-        { 
-          name: `${matchup.movie2.title}`, 
-          value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
-          inline: true 
-        }
-      );
-    
-    // No buttons on shared message - users vote via personal dashboard
-    await interaction.channel.send({ embeds: [embed] });
-  }
+  // Users vote via personal dashboard - no individual matchup cards needed
+  // Prevents channel flooding with one card per matchup
 }
 
 async function handleCloseKnockout(interaction) {
@@ -2374,37 +2316,6 @@ async function handleOpenRegion(interaction) {
   const timeRemaining = formatTimeRemaining(deadline);
   const regionName = region === 1 ? 'Left Side' : 'Right Side';
   
-  // Build matchup embeds
-  const embeds = [];
-  const components = [];
-  
-  for (const matchup of regionMatchups) {
-    const votes1 = matchup.votes.movie1.length;
-    const votes2 = matchup.votes.movie2.length;
-    const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
-    
-    const embed = new EmbedBuilder()
-      .setColor(0x4EC5ED)
-      .setTitle(`${roundName} - Matchup ${regionalLabel}`)
-      .setDescription(`**${regionalLabel}:** ${matchup.movie1.title} vs ${matchup.movie2.title}`)
-      .addFields(
-        { 
-          name: `${matchup.movie1.title}`, 
-          value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
-          inline: true 
-        },
-        { name: '\u200B', value: 'vs', inline: true },
-        { 
-          name: `${matchup.movie2.title}`, 
-          value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
-          inline: true 
-        }
-      );
-    
-    // No buttons on shared message - users vote via personal dashboard
-    await interaction.channel.send({ embeds: [embed] });
-  }
-  
   // Send main summary message with Start Voting button
   const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
@@ -2428,6 +2339,7 @@ async function handleOpenRegion(interaction) {
       .setStyle(ButtonStyle.Success)
   );
   
+  // Users vote via personal dashboard - no individual matchup cards needed
   await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
 }
 
@@ -2682,16 +2594,7 @@ async function handleOpenMatchup(interaction) {
   
     await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
     
-    // Send matchup card WITHOUT buttons
-    const votingMessage = await interaction.channel.send({ embeds: [embed] });
-    
-    // Store message ID so scheduler can update/close it
-    bracketManager.storeMatchupVotingMessage(
-      interaction.guildId,
-      matchup.id,
-      interaction.channelId,
-      votingMessage.id
-    );
+    // Users vote via personal dashboard - no individual matchup card needed
     
     if (errors.length > 0) {
       await interaction.followUp({ content: errors.join('\n'), ephemeral: true });
@@ -2727,42 +2630,8 @@ async function handleOpenMatchup(interaction) {
   
   await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
   
-  // Send each matchup as a separate message with its own buttons
-  for (const { label: matchupLabel, matchup } of openedMatchups) {
-    const position = parseRegionalLabel(matchupLabel, tournament.phase);
-    const votes1 = matchup.votes.movie1.length;
-    const votes2 = matchup.votes.movie2.length;
-    const regionalLabel = getRegionalLabel(position, tournament.phase);
-    
-    const embed = new EmbedBuilder()
-      .setColor(0x4EC5ED)
-      .setTitle(`${roundName} - Matchup ${regionalLabel}`)
-      .setDescription(`**${regionalLabel}:** ${matchup.movie1.title} vs ${matchup.movie2.title}`)
-      .addFields(
-        { 
-          name: `${matchup.movie1.title}`, 
-          value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
-          inline: true 
-        },
-        { name: '\u200B', value: 'vs', inline: true },
-        { 
-          name: `${matchup.movie2.title}`, 
-          value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
-          inline: true 
-        }
-      );
-    
-    // No buttons on shared message - users will vote via personal dashboard
-    const votingMessage = await interaction.channel.send({ embeds: [embed] });
-    
-    // Store message ID so scheduler can update/close it
-    bracketManager.storeMatchupVotingMessage(
-      interaction.guildId,
-      matchup.id,
-      interaction.channelId,
-      votingMessage.id
-    );
-  }
+  // Users vote via personal dashboard - no individual matchup cards needed
+  // Prevents channel flooding with one card per matchup
   
   if (errors.length > 0) {
     await interaction.followUp({ content: `⚠️ Some issues:\n${errors.join('\n')}`, ephemeral: true });
