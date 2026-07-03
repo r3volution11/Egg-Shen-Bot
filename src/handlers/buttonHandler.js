@@ -1505,4 +1505,130 @@ export async function handleWatchHistoryButton(interaction) {
     
     await interaction.showModal(modal);
   }
+  
+  // Handle event request approval
+  if (interaction.customId.startsWith('approve_event_')) {
+    const requestId = interaction.customId.replace('approve_event_', '');
+    
+    // Check if user has moderation permissions
+    if (!interaction.member.permissions.has('ManageEvents') && 
+        !interaction.member.permissions.has('Administrator')) {
+      await interaction.reply({
+        content: '❌ Only moderators and administrators can approve event requests.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    // Get stored request data
+    if (!global.eventRequests || !global.eventRequests.has(requestId)) {
+      await interaction.reply({
+        content: '❌ This event request has expired or was already processed.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    const requestData = global.eventRequests.get(requestId);
+    
+    try {
+      await interaction.deferReply({ ephemeral: true });
+      
+      // Create Discord scheduled event
+      const guild = interaction.guild;
+      const scheduledEvent = await guild.scheduledEvents.create({
+        name: requestData.title,
+        description: requestData.description || undefined,
+        scheduledStartTime: requestData.startTime,
+        scheduledEndTime: requestData.endTime || undefined,
+        channel: requestData.channelId,
+        entityType: 2, // Voice channel event
+        privacyLevel: 2 // Guild only
+      });
+      
+      // Update the original message to show approval
+      const { EmbedBuilder } = await import('discord.js');
+      const originalEmbed = interaction.message.embeds[0];
+      
+      const approvedEmbed = new EmbedBuilder(originalEmbed)
+        .setColor(0x00FF00)
+        .setTitle('✅ Event Request Approved')
+        .setFooter({ text: `Approved by ${interaction.user.tag} • ${originalEmbed.footer?.text || ''}` });
+      
+      await interaction.message.edit({
+        embeds: [approvedEmbed],
+        components: [] // Remove buttons
+      });
+      
+      // Clean up stored data
+      global.eventRequests.delete(requestId);
+      
+      await interaction.editReply({
+        content: `✅ Event created successfully!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`
+      });
+      
+    } catch (error) {
+      console.error('[EventRequest] Error creating event:', error);
+      await interaction.editReply({
+        content: `❌ Failed to create event: ${error.message}`
+      });
+    }
+  }
+  
+  // Handle event request denial
+  if (interaction.customId.startsWith('deny_event_')) {
+    const requestId = interaction.customId.replace('deny_event_', '');
+    
+    // Check if user has moderation permissions
+    if (!interaction.member.permissions.has('ManageEvents') && 
+        !interaction.member.permissions.has('Administrator')) {
+      await interaction.reply({
+        content: '❌ Only moderators and administrators can deny event requests.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    // Get stored request data
+    if (!global.eventRequests || !global.eventRequests.has(requestId)) {
+      await interaction.reply({
+        content: '❌ This event request has expired or was already processed.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    const requestData = global.eventRequests.get(requestId);
+    
+    try {
+      await interaction.deferReply({ ephemeral: true });
+      
+      // Update the original message to show denial
+      const { EmbedBuilder } = await import('discord.js');
+      const originalEmbed = interaction.message.embeds[0];
+      
+      const deniedEmbed = new EmbedBuilder(originalEmbed)
+        .setColor(0xFF0000)
+        .setTitle('❌ Event Request Denied')
+        .setFooter({ text: `Denied by ${interaction.user.tag} • ${originalEmbed.footer?.text || ''}` });
+      
+      await interaction.message.edit({
+        embeds: [deniedEmbed],
+        components: [] // Remove buttons
+      });
+      
+      // Clean up stored data
+      global.eventRequests.delete(requestId);
+      
+      await interaction.editReply({
+        content: `Event request denied.`
+      });
+      
+    } catch (error) {
+      console.error('[EventRequest] Error denying event:', error);
+      await interaction.editReply({
+        content: `❌ Failed to deny event: ${error.message}`
+      });
+    }
+  }
 }
