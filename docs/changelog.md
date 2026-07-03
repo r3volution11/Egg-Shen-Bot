@@ -8,6 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **4-Region Knockout Tournament System** (2026-07-02)
+  - **What changed:** Knockout tournaments now use 4 regions (March Madness style) instead of 2 regions
+  - **Regional labeling:** Matchups labeled 1A-4D based on position (e.g., "1A", "2C", "3B", "4D")
+  - **New `/bracket open-matchup` parameters:**
+    - `region`: Open all matchups in a specific region (1-4)
+    - `matchup`: Open specific matchup(s) by label (e.g., "1A", "2B,3C")
+    - `duration`: Voting duration (default 24h)
+  - **Smart selector behavior:**
+    - **>5 matchups:** Shows region selector (4 buttons for regions 1-4)
+    - **≤5 matchups:** Shows individual matchup selector
+    - **Example:** Round of 32 (12 matchups) = 3 matchups per region
+  - **Benefits:**
+    - Respects Discord's 5 ActionRow limit per message
+    - Voting dashboards work for all knockout rounds
+    - Admin can directly specify `region:2` instead of using buttons
+    - Matches real tournament bracket structure
+  - **Migration:** Existing 2-region tournaments will automatically use new 4-region labels on next round
+- **Matchup Reset on Reopen** (2026-07-02)
+  - **What changed:** Closing and reopening matchups now fully resets the matchup state
+  - **Clears:** Previous votes, winner selection, vote counts, closed timestamps, and results cache
+  - **Benefits:** 
+    - Easy testing workflow: close → fix code → reopen → test
+    - Fresh slate for fixing broken voting rounds
+    - No stale data from previous voting sessions
+  - **Applies to:** `/bracket open-matchup`, `/bracket open-knockout`, regional opening
+- **Vote Confirmation Spam Removed** (2026-07-02)
+  - **What changed:** Individual "✅ Voted for [Title] in Group X!" messages removed from group voting
+  - **New feedback:** Button color change (purple = selected, gray = unselected) provides instant visual confirmation
+  - **Benefits:**
+    - Clean channels without 3+ messages per vote
+    - Faster voting experience
+    - Still see vote reflected immediately in dashboard
+  - **Note:** Personal voting dashboard still updates in real-time with vote counts
 - **Smart Tournament Warning Timing** (2026-07-02)
   - **What changed:** "Voting Closing Soon!" warnings now appear at intelligent times based on total voting duration instead of a fixed 1-hour-before threshold
   - **New warning schedule:**

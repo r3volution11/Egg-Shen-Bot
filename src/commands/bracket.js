@@ -354,6 +354,14 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('open-matchup')
       .setDescription('Open matchup(s) for voting (Admin/Mod only)')
+      .addIntegerOption(option =>
+        option
+          .setName('region')
+          .setDescription('Region number (1-4) to open all matchups in that region')
+          .setRequired(false)
+          .setMinValue(1)
+          .setMaxValue(4)
+      )
       .addStringOption(option =>
         option
           .setName('matchup')
@@ -2194,6 +2202,87 @@ async function handleCloseKnockout(interaction) {
 }
 
 /**
+ * Open all matchups in a specific region
+ */
+async function openRegionMatchups(interaction, tournament, regionNum, durationMs) {
+  const deadline = Date.now() + durationMs;
+  
+  // Get all matchups in current round
+  const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
+    m.round === tournament.phase && m.movie1 && m.movie2
+  );
+  
+  if (currentRoundMatchups.length === 0) {
+    await interaction.editReply(`❌ No matchups ready for ${tournament.phase.replace(/_/g, ' ')}.`);
+    return;
+  }
+  
+  // Filter by region (4 regions, March Madness style)
+  const matchupsPerRegion = currentRoundMatchups.length / 4;
+  const regionMatchups = currentRoundMatchups.filter((m, i) => {
+    const regionStart = (regionNum - 1) * matchupsPerRegion;
+    const regionEnd = regionNum * matchupsPerRegion;
+    return i >= regionStart && i < regionEnd;
+  });
+  
+  if (regionMatchups.length === 0) {
+    await interaction.editReply(`❌ No matchups found in Region ${regionNum}.`);
+    return;
+  }
+  
+  // Open all matchups in this region
+  for (const matchup of regionMatchups) {
+    matchup.status = 'voting';
+    matchup.votingOpened = Date.now();
+    matchup.votingStarted = Date.now();
+    matchup.votingDeadline = deadline;
+    
+    // Reset votes (clears previous votes if reopening)
+    matchup.votes = { movie1: [], movie2: [] };
+    
+    // Clear previous results if reopening
+    delete matchup.winner;
+    delete matchup.votingClosed;
+    delete matchup.votes1Count;
+    delete matchup.votes2Count;
+    
+    // Remove from knockout results if it was previously closed
+    if (tournament.knockoutResults && tournament.knockoutResults[matchup.id]) {
+      delete tournament.knockoutResults[matchup.id];
+    }
+  }
+  
+  bracketManager.saveTournament(interaction.guildId, tournament);
+  
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const timeRemaining = formatTimeRemaining(deadline);
+  
+  const mainEmbed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`📊 ${roundName} - Region ${regionNum} - ${regionMatchups.length} Matchups Opened!`)
+    .setDescription(
+      `**Opened matchups:** ${regionMatchups.map(m => getRegionalLabel(m.position, tournament.phase)).join(', ')}\\n\\n` +
+      `**📝 How to Vote:**\\n` +
+      `🔹 Click the "Start Voting" button below\\n` +
+      `🔹 You'll get your own personal voting dashboard\\n` +
+      `🔹 Your choices are saved instantly\\n` +
+      `🔹 Only you can see your selections\\n\\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}\\n` +
+      `💡 **Tip:** You can change your votes anytime!`
+    )
+    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
+  
+  const startVotingButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`start_knockout_voting_${tournament.phase}`)
+      .setLabel('🗳️ Start Voting')
+      .setStyle(ButtonStyle.Success)
+  );
+  
+  await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
+}
+
+/**
  * Show interactive region selector when no region specified
  */
 async function showRegionSelector(interaction, tournament, durationMs) {
@@ -2489,6 +2578,7 @@ async function showCloseMatchupSelector(interaction, tournament) {
 async function handleOpenMatchup(interaction) {
   await interaction.deferReply();
   
+  const regionParam = interaction.options.getInteger('region');
   const matchupInput = interaction.options.getString('matchup');
   const durationStr = interaction.options.getString('duration') || '24h';
   
@@ -2511,7 +2601,22 @@ async function handleOpenMatchup(interaction) {
     return;
   }
   
-  // If no matchup provided, show interactive selection
+  // If region specified, open all matchups in that region
+  if (regionParam) {
+    return await openRegionMatchups(interaction, tournament, regionParam, durationMs);
+  }
+  
+  // Get all matchups in current round
+  const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
+    m.round === tournament.phase && m.movie1 && m.movie2
+  );
+  
+  // If no matchup/region provided and too many matchups, show region selector
+  if ((!matchupInput || matchupInput.trim().length === 0) && currentRoundMatchups.length > 5) {
+    return await showRegionSelector(interaction, tournament, durationMs);
+  }
+  
+  // If no matchup provided, show interactive matchup selection
   if (!matchupInput || matchupInput.trim().length === 0) {
     return await showMatchupSelector(interaction, tournament, durationMs);
   }
