@@ -105,6 +105,16 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
     
+    // Handle knockout voting pagination buttons
+    if (interaction.customId.startsWith('knockout_page_')) {
+      await handleKnockoutPagination(interaction);
+      
+      // Log successful button interaction
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      return;
+    }
+    
     // Handle open matchup buttons
     if (interaction.customId.startsWith('open_matchup_')) {
       await handleOpenMatchupButton(interaction);
@@ -686,26 +696,87 @@ async function handleStartKnockoutVoting(interaction) {
     .setTimestamp();
   
   // Create buttons for each matchup
-  // Group buttons by matchup (2 buttons per matchup)
-  const components = [];
+  // Discord limits: 5 ActionRows per message, 5 buttons per row = 25 buttons max
+  // With 2 buttons per matchup, we can show ~12 matchups per page (leaving room for nav)
+  const MATCHUPS_PER_PAGE = 10; // 10 matchups = 20 buttons in 4 rows, leaving 1 row for navigation
+  const totalPages = Math.ceil(votingMatchups.length / MATCHUPS_PER_PAGE);
+  const currentPage = 1; // Start on page 1
   
-  for (const matchup of votingMatchups) {
+  const startIdx = (currentPage - 1) * MATCHUPS_PER_PAGE;
+  const endIdx = Math.min(startIdx + MATCHUPS_PER_PAGE, votingMatchups.length);
+  const pageMatchups = votingMatchups.slice(startIdx, endIdx);
+  
+  const components = [];
+  const allButtons = [];
+  
+  for (const matchup of pageMatchups) {
     // Get regional label
     const regionalLabel = getRegionalLabel(matchup.position, round);
     const userVote = userVotes[matchup.id];
     
     const button1 = new ButtonBuilder()
       .setCustomId(`knockout_vote_${matchup.id}_1`)
-      .setLabel(`${regionalLabel}: ${matchup.movie1.title.length > 50 ? matchup.movie1.title.substring(0, 47) + '...' : matchup.movie1.title}`)
+      .setLabel(`${regionalLabel}: ${matchup.movie1.title.length > 45 ? matchup.movie1.title.substring(0, 42) + '...' : matchup.movie1.title}`)
       .setStyle(userVote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
     
     const button2 = new ButtonBuilder()
       .setCustomId(`knockout_vote_${matchup.id}_2`)
-      .setLabel(`${regionalLabel}: ${matchup.movie2.title.length > 50 ? matchup.movie2.title.substring(0, 47) + '...' : matchup.movie2.title}`)
+      .setLabel(`${regionalLabel}: ${matchup.movie2.title.length > 45 ? matchup.movie2.title.substring(0, 42) + '...' : matchup.movie2.title}`)
       .setStyle(userVote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
     
-    const row = new ActionRowBuilder().addComponents(button1, button2);
+    allButtons.push(button1, button2);
+  }
+  
+  // Pack buttons into rows (4 buttons = 2 matchups per row)
+  for (let i = 0; i < allButtons.length; i += 4) {
+    const rowButtons = allButtons.slice(i, i + 4);
+    const row = new ActionRowBuilder().addComponents(...rowButtons);
     components.push(row);
+  }
+  
+  // Add pagination buttons if needed
+  if (totalPages > 1) {
+    const navButtons = [];
+    
+    if (currentPage > 1) {
+      navButtons.push(
+        new ButtonBuilder()
+          .setCustomId(`knockout_page_${round}_${currentPage - 1}`)
+          .setLabel('◀️ Previous')
+          .setStyle(ButtonStyle.Secondary)
+      );
+    }
+    
+    navButtons.push(
+      new ButtonBuilder()
+        .setCustomId(`knockout_page_info_${round}`)
+        .setLabel(`Page ${currentPage}/${totalPages}`)
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true)
+    );
+    
+    if (currentPage < totalPages) {
+      navButtons.push(
+        new ButtonBuilder()
+          .setCustomId(`knockout_page_${round}_${currentPage + 1}`)
+          .setLabel('Next ▶️')
+          .setStyle(ButtonStyle.Primary)
+      );
+    }
+    
+    const navRow = new ActionRowBuilder().addComponents(...navButtons);
+    components.push(navRow);
+  }
+  
+  // Update embed description to show page info
+  if (totalPages > 1) {
+    embed.setDescription(
+      `Vote for ONE title in each matchup below.\n` +
+      `Your selections are shown in **purple**.\n\n` +
+      `💡 Click any button to cast or change your vote!\n` +
+      `📄 Showing matchups ${startIdx + 1}-${endIdx} of ${votingMatchups.length}\n\n` +
+      statsText
+    );
   }
   
   // Send ephemeral dashboard
@@ -740,6 +811,178 @@ async function handleStartKnockoutVoting(interaction) {
     if (!totalMatchups) return String(position + 1);
     
     const midpoint = totalMatchups / 2;
+    const isLeftRegion = position < midpoint;
+    const region = isLeftRegion ? '1' : '2';
+    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    const letter = String.fromCharCode(65 + positionInRegion);
+    
+    return `${region}${letter}`;
+  }
+}
+
+/**
+ * Handle knockout voting dashboard pagination
+ */
+async function handleKnockoutPagination(interaction) {
+  // Parse: knockout_page_{round}_{pageNum} or knockout_page_info_{round}
+  const parts = interaction.customId.split('_');
+  if (parts[2] === 'info') return; // Info button is disabled, ignore
+  
+  const round = parts.slice(2, -1).join('_'); // Rejoin round name (e.g., round_of_32)
+  const pageNum = parseInt(parts[parts.length - 1]);
+  
+  // Dynamically import bracketManager
+  const bracketManager = await import('../utils/bracketManager.js');
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+  
+  const tournament = bracketManager.loadTournament(interaction.guild.id);
+  
+  if (!tournament || tournament.status !== 'knockout') {
+    await interaction.update({
+      content: '❌ No active knockout tournament found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  // Get voting matchups for the current round
+  const votingMatchups = tournament.knockoutBracket.filter(m => 
+    m.round === round && m.status === 'voting'
+  );
+  
+  if (votingMatchups.length === 0) {
+    await interaction.update({
+      content: '❌ No voting matchups found for this round.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  // Get user's current votes
+  const userVotes = tournament.votes?.[interaction.user.id] || {};
+  
+  // Get user participation stats
+  const userStats = tournament.participation?.[interaction.user.id];
+  const statsText = userStats 
+    ? `🔥 **Streak:** ${userStats.streak} rounds | 📊 **Total votes:** ${userStats.totalVotes}`
+    : '✨ This is your first vote!';
+  
+  // Pagination logic
+  const MATCHUPS_PER_PAGE = 10;
+  const totalPages = Math.ceil(votingMatchups.length / MATCHUPS_PER_PAGE);
+  const currentPage = Math.min(Math.max(1, pageNum), totalPages);
+  
+  const startIdx = (currentPage - 1) * MATCHUPS_PER_PAGE;
+  const endIdx = Math.min(startIdx + MATCHUPS_PER_PAGE, votingMatchups.length);
+  const pageMatchups = votingMatchups.slice(startIdx, endIdx);
+  
+  // Build embed
+  const embed = new EmbedBuilder()
+    .setColor(0x4EC5ED)
+    .setTitle('🗳️ Your Voting Dashboard')
+    .setThumbnail(interaction.client.user.displayAvatarURL())
+    .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
+    .setTimestamp();
+  
+  if (totalPages > 1) {
+    embed.setDescription(
+      `Vote for ONE title in each matchup below.\n` +
+      `Your selections are shown in **purple**.\n\n` +
+      `💡 Click any button to cast or change your vote!\n` +
+      `📄 Showing matchups ${startIdx + 1}-${endIdx} of ${votingMatchups.length}\n\n` +
+      statsText
+    );
+  } else {
+    embed.setDescription(
+      `Vote for ONE title in each matchup below.\n` +
+      `Your selections are shown in **purple**.\n\n` +
+      `💡 Click any button to cast or change your vote!\n\n` +
+      statsText
+    );
+  }
+  
+  // Create buttons for page matchups
+  const components = [];
+  const allButtons = [];
+  
+  for (const matchup of pageMatchups) {
+    const regionalLabel = getRegionalLabel(matchup.position, round);
+    const userVote = userVotes[matchup.id];
+    
+    const button1 = new ButtonBuilder()
+      .setCustomId(`knockout_vote_${matchup.id}_1`)
+      .setLabel(`${regionalLabel}: ${matchup.movie1.title.length > 45 ? matchup.movie1.title.substring(0, 42) + '...' : matchup.movie1.title}`)
+      .setStyle(userVote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+    const button2 = new ButtonBuilder()
+      .setCustomId(`knockout_vote_${matchup.id}_2`)
+      .setLabel(`${regionalLabel}: ${matchup.movie2.title.length > 45 ? matchup.movie2.title.substring(0, 42) + '...' : matchup.movie2.title}`)
+      .setStyle(userVote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
+    
+    allButtons.push(button1, button2);
+  }
+  
+  // Pack buttons into rows (4 buttons per row)
+  for (let i = 0; i < allButtons.length; i += 4) {
+    const rowButtons = allButtons.slice(i, i + 4);
+    const row = new ActionRowBuilder().addComponents(...rowButtons);
+    components.push(row);
+  }
+  
+  // Add pagination buttons if needed
+  if (totalPages > 1) {
+    const navButtons = [];
+    
+    if (currentPage > 1) {
+      navButtons.push(
+        new ButtonBuilder()
+          .setCustomId(`knockout_page_${round}_${currentPage - 1}`)
+          .setLabel('◀️ Previous')
+          .setStyle(ButtonStyle.Secondary)
+      );
+    }
+    
+    navButtons.push(
+      new ButtonBuilder()
+        .setCustomId(`knockout_page_info_${round}`)
+        .setLabel(`Page ${currentPage}/${totalPages}`)
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true)
+    );
+    
+    if (currentPage < totalPages) {
+      navButtons.push(
+        new ButtonBuilder()
+          .setCustomId(`knockout_page_${round}_${currentPage + 1}`)
+          .setLabel('Next ▶️')
+          .setStyle(ButtonStyle.Primary)
+      );
+    }
+    
+    const navRow = new ActionRowBuilder().addComponents(...navButtons);
+    components.push(navRow);
+  }
+  
+  // Update the message
+  await interaction.update({
+    embeds: [embed],
+    components: components
+  });
+  
+  // Helper function to get regional label
+  function getRegionalLabel(position, round) {
+    const roundSizes = {
+      'round_of_32': 16,
+      'round_of_16': 8,
+      'quarter_finals': 4,
+      'semi_finals': 2,
+      'finals': 1
+    };
+    
+    const halfSize = roundSizes[round] || 8;
+    const midpoint = halfSize;
     const isLeftRegion = position < midpoint;
     const region = isLeftRegion ? '1' : '2';
     const positionInRegion = isLeftRegion ? position : position - midpoint;
