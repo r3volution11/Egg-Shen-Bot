@@ -993,8 +993,19 @@ export function openKnockoutMatchup(guildId, matchupId) {
     return { success: false, error: 'Matchup not found' };
   }
   
+  // Reset matchup state (clears previous votes and results if reopening)
   matchup.status = 'voting';
   matchup.votingStarted = Date.now();
+  matchup.votes = { movie1: [], movie2: [] };
+  delete matchup.winner;
+  delete matchup.votingClosed;
+  delete matchup.votes1Count;
+  delete matchup.votes2Count;
+  
+  // Remove from knockout results if it was previously closed
+  if (tournament.knockoutResults && tournament.knockoutResults[matchupId]) {
+    delete tournament.knockoutResults[matchupId];
+  }
   
   return saveTournament(guildId, tournament)
     ? { success: true, tournament, matchup }
@@ -1031,8 +1042,18 @@ export function openKnockoutRound(guildId, round, deadline = null) {
     if (deadline) {
       m.votingDeadline = deadline;
     }
-    if (!m.votes) {
-      m.votes = { movie1: [], movie2: [] };
+    // Reset votes (clears previous votes if reopening)
+    m.votes = { movie1: [], movie2: [] };
+    
+    // Clear previous results if reopening
+    delete m.winner;
+    delete m.votingClosed;
+    delete m.votes1Count;
+    delete m.votes2Count;
+    
+    // Remove from knockout results if it was previously closed
+    if (tournament.knockoutResults && tournament.knockoutResults[m.id]) {
+      delete tournament.knockoutResults[m.id];
     }
   });
   

@@ -2306,8 +2306,19 @@ async function handleOpenRegion(interaction) {
     matchup.votingOpened = Date.now();
     matchup.votingStarted = Date.now(); // For smart warning timing
     matchup.votingDeadline = deadline;
-    if (!matchup.votes) {
-      matchup.votes = { movie1: [], movie2: [] };
+    
+    // Reset votes (clears previous votes if reopening)
+    matchup.votes = { movie1: [], movie2: [] };
+    
+    // Clear previous results if reopening
+    delete matchup.winner;
+    delete matchup.votingClosed;
+    delete matchup.votes1Count;
+    delete matchup.votes2Count;
+    
+    // Remove from knockout results if it was previously closed
+    if (tournament.knockoutResults && tournament.knockoutResults[matchup.id]) {
+      delete tournament.knockoutResults[matchup.id];
     }
   }
   
@@ -2526,8 +2537,19 @@ async function handleOpenMatchup(interaction) {
     matchup.votingOpened = Date.now();
     matchup.votingStarted = Date.now(); // For smart warning timing
     matchup.votingDeadline = deadline;
-    if (!matchup.votes) {
-      matchup.votes = { movie1: [], movie2: [] };
+    
+    // Reset votes (clears previous votes if reopening)
+    matchup.votes = { movie1: [], movie2: [] };
+    
+    // Clear previous results if reopening
+    delete matchup.winner;
+    delete matchup.votingClosed;
+    delete matchup.votes1Count;
+    delete matchup.votes2Count;
+    
+    // Remove from knockout results if it was previously closed
+    if (tournament.knockoutResults && tournament.knockoutResults[matchup.id]) {
+      delete tournament.knockoutResults[matchup.id];
     }
     
     openedMatchups.push({ label: matchupLabel, matchup });
