@@ -2064,6 +2064,19 @@ async function handleOpenKnockout(interaction) {
     return;
   }
   
+  // Discord has a 5 ActionRow limit - if there are more than 5 matchups, use regional opening
+  if (currentRoundMatchups.length > 5) {
+    const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    await interaction.editReply(
+      `❌ **${roundName} has ${currentRoundMatchups.length} matchups** - too many for one voting session.\n\n` +
+      `Use \`/bracket open-region\` to open matchups by region instead:\n` +
+      `• Region 1 (Left Side): Matchups 1A-${String.fromCharCode(64 + currentRoundMatchups.length / 2)}\n` +
+      `• Region 2 (Right Side): Matchups 2A-${String.fromCharCode(64 + currentRoundMatchups.length / 2)}\n\n` +
+      `💡 This splits voting into manageable groups!`
+    );
+    return;
+  }
+  
   // Open matchups for voting
   const result = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline);
   

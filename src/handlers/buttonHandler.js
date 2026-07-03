@@ -508,6 +508,15 @@ async function handleKnockoutVote(interaction) {
     m.round === currentRound && m.status === 'voting'
   );
   
+  // Safety check: Discord has a 5 ActionRow limit
+  if (currentRoundMatchups.length > 5) {
+    await interaction.reply({
+      content: `❌ **Too many matchups open** (${currentRoundMatchups.length})\\n\\nAsk an admin to close some matchups and reopen by region.`,
+      ephemeral: true
+    });
+    return;
+  }
+  
   // Get user's current votes for ALL matchups
   const userVotes = tournament.votes?.[interaction.user.id] || {};
   
@@ -651,6 +660,15 @@ async function handleStartKnockoutVoting(interaction) {
   if (votingMatchups.length === 0) {
     await interaction.reply({
       content: '❌ No voting matchups found for this round.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Discord has a 5 ActionRow limit - enforce it
+  if (votingMatchups.length > 5) {
+    await interaction.reply({
+      content: `❌ **Too many matchups open** (${votingMatchups.length})\\n\\nDiscord limits voting dashboards to 5 matchups at a time.\\nAsk an admin to close some matchups and reopen by region instead.`,
       ephemeral: true
     });
     return;
