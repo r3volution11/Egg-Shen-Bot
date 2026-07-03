@@ -160,6 +160,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - No more dashboard spam!
 
 ### Fixed
+- **"No voting matchups found" Error on Knockout Start Voting Button** (2026-07-02)
+  - **Issue:** Clicking "Start Voting" button in knockout rounds returned "No voting matchups found for this round" error
+  - **Root cause:** Button handler was incorrectly parsing the round from button customId using `split('_')` which broke `round_of_32` into just `'round'`
+  - **Example:** Button customId `start_knockout_voting_round_of_32` → split by `_` → `['start', 'knockout', 'voting', 'round', 'of', '32']` → extracted index [3] = `'round'` (wrong!)
+  - **Fix:** Changed to extract everything after `start_knockout_voting_` prefix to preserve full round name like `round_of_32`, `quarter_finals`, etc.
+  - **Also fixed:** Added missing `votingStarted` timestamps to all knockout matchup opening functions so smart warning timing works correctly
+  - **Result:** Personal voting dashboards now load correctly for all knockout rounds
 - **Knockout Channel Flooding with Individual Matchup Cards** (2026-07-02)
   - **Issue:** When opening knockout rounds, bot was flooding channels with one card per matchup (e.g., 32 cards for Round of 32) in addition to the main announcement
   - **Root cause:** All knockout opening functions were looping through matchups and sending individual cards to the channel
