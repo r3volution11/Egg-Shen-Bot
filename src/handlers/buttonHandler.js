@@ -411,17 +411,7 @@ async function handleGroupVote(interaction) {
     }
   }
   
-  // Send confirmation message
-  const movie = updatedGroup.movies[movieIndex];
-  const wasDeselected = !newVotes.includes(movieIndex);
-  const confirmationMessage = wasDeselected
-    ? `❌ Removed vote for **${movie.title}** in Group ${groupId}`
-    : `✅ Voted for **${movie.title}** in Group ${groupId}!`;
-  
-  await interaction.followUp({
-    content: confirmationMessage,
-    ephemeral: true
-  });
+  // Vote feedback is provided by button color change in dashboard - no need for additional messages
   
   // Rebuild the entire personal voting dashboard with all groups
   const updatedTournament = result.tournament;
