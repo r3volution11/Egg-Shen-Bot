@@ -18,10 +18,37 @@ const tournamentsDir = join(__dirname, '../../guild_tournaments');
 let client = null;
 let schedulerInterval = null;
 const CHECK_INTERVAL = 60 * 1000; // Check every 1 minute
-const WARNING_THRESHOLD = 60 * 60 * 1000; // 1 hour before deadline
 
 // Track warnings sent so we don't spam
 const sentWarnings = new Map(); // key: `${guildId}_${groupId/matchupId}`, value: timestamp
+
+/**
+ * Calculate when to send warning based on total voting duration
+ * Smart scaling: shorter votes get early warnings, longer votes get late warnings
+ * @param {number} totalDuration - Total voting duration in milliseconds
+ * @returns {number} Time after voting starts when warning should be sent (in milliseconds)
+ */
+function calculateWarningTime(totalDuration) {
+  const minutes = totalDuration / (60 * 1000);
+  
+  // For very short votes (< 30 min): warn after 5 minutes
+  if (minutes < 30) {
+    return 5 * 60 * 1000;
+  }
+  
+  // For short votes (30 min - 2 hours): warn after 10 minutes
+  if (minutes < 120) {
+    return 10 * 60 * 1000;
+  }
+  
+  // For medium votes (2-6 hours): warn 1 hour before deadline
+  if (minutes < 360) {
+    return totalDuration - (60 * 60 * 1000);
+  }
+  
+  // For long votes (> 6 hours): warn 2 hours before deadline
+  return totalDuration - (2 * 60 * 60 * 1000);
+}
 
 /**
  * Initialize the scheduler with Discord client
@@ -40,7 +67,7 @@ export function initialize(discordClient) {
   console.log('✓ Tournament scheduler initialized');
   logger.info(logger.LogCategory.SCHEDULER, 'Tournament scheduler initialized', {
     checkInterval: `${CHECK_INTERVAL / 1000}s`,
-    warningThreshold: `${WARNING_THRESHOLD / (60 * 1000)}m`
+    warningLogic: 'Dynamic based on voting duration'
   });
 }
 
@@ -103,16 +130,19 @@ async function checkGroupDeadlines(guildId, tournament, now) {
     const groupsToClose = [];
     
     for (const [groupId, group] of Object.entries(tournament.groups)) {
-      if (!group.votingOpen || !group.votingDeadline) continue;
+      if (!group.votingOpen || !group.votingDeadline || !group.votingStarted) continue;
       
       const warningKey = `${guildId}_group_${groupId}`;
-      const timeUntilDeadline = group.votingDeadline - now;
+      const now_time = now;
+      const totalDuration = group.votingDeadline - group.votingStarted;
+      const elapsedTime = now_time - group.votingStarted;
+      const warningTime = calculateWarningTime(totalDuration);
       
-      // Collect groups that need warnings (within 1 hour, not already warned)
+      // Send warning if enough time has elapsed and we haven't warned yet
       if (
-        timeUntilDeadline > 0 &&
-        timeUntilDeadline <= WARNING_THRESHOLD &&
-        !sentWarnings.has(warningKey)
+        now_time < group.votingDeadline && // Voting still open
+        elapsedTime >= warningTime && // Time to warn
+        !sentWarnings.has(warningKey) // Haven't warned yet
       ) {
         const channelId = group.votingMessageChannelId;
         if (channelId) {
@@ -121,12 +151,12 @@ async function checkGroupDeadlines(guildId, tournament, now) {
             warningsByDeadline.set(key, { channelId, deadline: group.votingDeadline, groups: [] });
           }
           warningsByDeadline.get(key).groups.push(groupId);
-          sentWarnings.set(warningKey, now);
+          sentWarnings.set(warningKey, now_time);
         }
       }
       
       // Collect groups to auto-close
-      if (now > group.votingDeadline) {
+      if (now_time > group.votingDeadline) {
         groupsToClose.push({ groupId, group });
         sentWarnings.delete(warningKey);
       }
@@ -159,16 +189,19 @@ async function checkKnockoutDeadlines(guildId, tournament, now) {
     const matchupsToClose = [];
     
     for (const matchup of tournament.knockoutBracket) {
-      if (matchup.status !== 'voting' || !matchup.votingDeadline) continue;
+      if (matchup.status !== 'voting' || !matchup.votingDeadline || !matchup.votingStarted) continue;
       
       const warningKey = `${guildId}_matchup_${matchup.id}`;
-      const timeUntilDeadline = matchup.votingDeadline - now;
+      const now_time = now;
+      const totalDuration = matchup.votingDeadline - matchup.votingStarted;
+      const elapsedTime = now_time - matchup.votingStarted;
+      const warningTime = calculateWarningTime(totalDuration);
       
-      // Collect matchups that need warnings (within 1 hour, not already warned)
+      // Send warning if enough time has elapsed and we haven't warned yet
       if (
-        timeUntilDeadline > 0 &&
-        timeUntilDeadline <= WARNING_THRESHOLD &&
-        !sentWarnings.has(warningKey)
+        now_time < matchup.votingDeadline && // Voting still open
+        elapsedTime >= warningTime && // Time to warn
+        !sentWarnings.has(warningKey) // Haven't warned yet
       ) {
         const channelId = matchup.messageChannelId;
         if (channelId) {
@@ -177,12 +210,12 @@ async function checkKnockoutDeadlines(guildId, tournament, now) {
             warningsByDeadline.set(key, { channelId, deadline: matchup.votingDeadline, matchups: [] });
           }
           warningsByDeadline.get(key).matchups.push(matchup);
-          sentWarnings.set(warningKey, now);
+          sentWarnings.set(warningKey, now_time);
         }
       }
       
       // Collect matchups to auto-close
-      if (now > matchup.votingDeadline) {
+      if (now_time > matchup.votingDeadline) {
         matchupsToClose.push(matchup);
         sentWarnings.delete(warningKey);
       }
@@ -203,7 +236,7 @@ async function checkKnockoutDeadlines(guildId, tournament, now) {
 }
 
 /**
- * Send consolidated 1-hour warning for multiple groups with same deadline
+ * Send consolidated warning for multiple groups with same deadline
  */
 async function sendConsolidatedGroupWarning(guild, tournament, channelId, deadline, groupIds) {
   try {
@@ -240,7 +273,7 @@ async function sendConsolidatedGroupWarning(guild, tournament, channelId, deadli
 }
 
 /**
- * Send consolidated 1-hour warning for multiple matchups with same deadline
+ * Send consolidated warning for multiple matchups with same deadline
  */
 async function sendConsolidatedMatchupWarning(guild, tournament, channelId, deadline, matchups) {
   try {
