@@ -580,10 +580,10 @@ async function handleKnockoutVote(interaction) {
     const totalMatchups = roundSizes[round];
     if (!totalMatchups) return String(position + 1);
     
-    const midpoint = totalMatchups / 2;
-    const isLeftRegion = position < midpoint;
-    const region = isLeftRegion ? '1' : '2';
-    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    // Divide into 4 regions (March Madness style)
+    const matchupsPerRegion = totalMatchups / 4;
+    const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
+    const positionInRegion = position % matchupsPerRegion;
     const letter = String.fromCharCode(65 + positionInRegion);
     
     return `${region}${letter}`;
@@ -755,10 +755,10 @@ async function handleStartKnockoutVoting(interaction) {
     const totalMatchups = roundSizes[round];
     if (!totalMatchups) return String(position + 1);
     
-    const midpoint = totalMatchups / 2;
-    const isLeftRegion = position < midpoint;
-    const region = isLeftRegion ? '1' : '2';
-    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    // Divide into 4 regions (March Madness style)
+    const matchupsPerRegion = totalMatchups / 4;
+    const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
+    const positionInRegion = position % matchupsPerRegion;
     const letter = String.fromCharCode(65 + positionInRegion);
     
     return `${region}${letter}`;
@@ -851,10 +851,10 @@ async function handleOpenMatchupButton(interaction) {
     const totalMatchups = roundSizes[round];
     if (!totalMatchups) return String(position + 1);
     
-    const midpoint = totalMatchups / 2;
-    const isLeftRegion = position < midpoint;
-    const region = isLeftRegion ? '1' : '2';
-    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    // Divide into 4 regions (March Madness style)
+    const matchupsPerRegion = totalMatchups / 4;
+    const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
+    const positionInRegion = position % matchupsPerRegion;
     const letter = String.fromCharCode(65 + positionInRegion);
     
     return `${region}${letter}`;
@@ -974,10 +974,10 @@ async function handleCloseMatchupButton(interaction) {
     const totalMatchups = roundSizes[round];
     if (!totalMatchups) return String(position + 1);
     
-    const midpoint = totalMatchups / 2;
-    const isLeftRegion = position < midpoint;
-    const region = isLeftRegion ? '1' : '2';
-    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    // Divide into 4 regions (March Madness style)
+    const matchupsPerRegion = totalMatchups / 4;
+    const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
+    const positionInRegion = position % matchupsPerRegion;
     const letter = String.fromCharCode(65 + positionInRegion);
     
     return `${region}${letter}`;
@@ -1079,14 +1079,12 @@ async function handleOpenRegionButton(interaction) {
     return;
   }
   
-  // Filter by region (region 1 = left side, region 2 = right side)
-  const midpoint = currentRoundMatchups.length / 2;
-  const regionMatchups = currentRoundMatchups.filter(m => {
-    if (regionNum === 1) {
-      return m.position < midpoint; // Left side
-    } else {
-      return m.position >= midpoint; // Right side
-    }
+  // Filter by region (4 regions, March Madness style)
+  const matchupsPerRegion = currentRoundMatchups.length / 4;
+  const regionMatchups = currentRoundMatchups.filter((m, i) => {
+    const regionStart = (regionNum - 1) * matchupsPerRegion;
+    const regionEnd = regionNum * matchupsPerRegion;
+    return i >= regionStart && i < regionEnd;
   });
   
   if (regionMatchups.length === 0) {
@@ -1136,10 +1134,10 @@ async function handleOpenRegionButton(interaction) {
     const totalMatchups = roundSizes[round];
     if (!totalMatchups) return String(position + 1);
     
-    const midpoint = totalMatchups / 2;
-    const isLeftRegion = position < midpoint;
-    const region = isLeftRegion ? '1' : '2';
-    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    // Divide into 4 regions (March Madness style)
+    const matchupsPerRegion = totalMatchups / 4;
+    const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
+    const positionInRegion = position % matchupsPerRegion;
     const letter = String.fromCharCode(65 + positionInRegion);
     
     return `${region}${letter}`;
@@ -1390,10 +1388,10 @@ function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups, clie
     const totalMatchups = roundSizes[round];
     if (!totalMatchups) return String(position + 1);
     
-    const midpoint = totalMatchups / 2;
-    const isLeftRegion = position < midpoint;
-    const region = isLeftRegion ? '1' : '2';
-    const positionInRegion = isLeftRegion ? position : position - midpoint;
+    // Divide into 4 regions (March Madness style)
+    const matchupsPerRegion = totalMatchups / 4;
+    const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
+    const positionInRegion = position % matchupsPerRegion;
     const letter = String.fromCharCode(65 + positionInRegion);
     
     return `${region}${letter}`;

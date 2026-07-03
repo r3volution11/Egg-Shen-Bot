@@ -76,7 +76,8 @@ function formatTimeRemaining(deadline) {
 }
 
 /**
- * Get regional label for a matchup (e.g., "1A", "2C")
+ * Get regional label for a matchup (e.g., "1A", "2C", "3B", "4A")
+ * March Madness style: 4 regions numbered 1-4
  * @param {number} position - Matchup position (0-based)
  * @param {string} round - Round name
  * @returns {string} Regional label
@@ -98,32 +99,28 @@ function getRegionalLabel(position, round) {
   const totalMatchups = roundSizes[round];
   if (!totalMatchups) return String(position + 1);
   
-  // Left region: positions 0 to (totalMatchups/2 - 1)
-  // Right region: positions (totalMatchups/2) to (totalMatchups - 1)
-  const midpoint = totalMatchups / 2;
-  const isLeftRegion = position < midpoint;
-  const region = isLeftRegion ? '1' : '2';
-  
-  // Letter within region (A, B, C, D...)
-  const positionInRegion = isLeftRegion ? position : position - midpoint;
-  const letter = String.fromCharCode(65 + positionInRegion); // 65 = 'A'
+  // Divide into 4 regions (March Madness style)
+  const matchupsPerRegion = totalMatchups / 4;
+  const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
+  const positionInRegion = position % matchupsPerRegion;
+  const letter = String.fromCharCode(65 + positionInRegion); // A, B, C...
   
   return `${region}${letter}`;
 }
 
 /**
- * Parse regional label to position (e.g., "1A" → 0, "2B" → 5 in Round of 16)
- * @param {string} label - Regional label like "1A" or "2C"
+ * Parse regional label to position (e.g., "1A" → 0, "3B" → 9 in Round of 16)
+ * @param {string} label - Regional label like "1A", "2C", "3B", or "4D"
  * @param {string} round - Round name
  * @returns {number|null} Position or null if invalid
  */
 function parseRegionalLabel(label, round) {
   if (label === 'Finals' || label === 'finals') return 0;
   
-  const match = label.match(/^([12])([A-Z])$/i);
+  const match = label.match(/^([1-4])([A-Z])$/i);
   if (!match) return null;
   
-  const region = parseInt(match[1]);
+  const region = parseInt(match[1]); // 1-4
   const letter = match[2].toUpperCase();
   const letterIndex = letter.charCodeAt(0) - 65; // A=0, B=1, etc.
   
@@ -137,19 +134,13 @@ function parseRegionalLabel(label, round) {
   const totalMatchups = roundSizes[round];
   if (!totalMatchups) return null;
   
-  const midpoint = totalMatchups / 2;
+  const matchupsPerRegion = totalMatchups / 4;
   
   // Validate letter is within range for this region
-  if (letterIndex < 0 || letterIndex >= midpoint) return null;
+  if (letterIndex < 0 || letterIndex >= matchupsPerRegion) return null;
   
-  // Calculate position
-  if (region === 1) {
-    return letterIndex; // Left region: 0-based from start
-  } else if (region === 2) {
-    return midpoint + letterIndex; // Right region: offset by midpoint
-  }
-  
-  return null;
+  // Calculate position: (region - 1) * matchupsPerRegion + letterIndex
+  return (region - 1) * matchupsPerRegion + letterIndex;
 }
 
 export const data = new SlashCommandBuilder()
@@ -2067,12 +2058,12 @@ async function handleOpenKnockout(interaction) {
   // Discord has a 5 ActionRow limit - if there are more than 5 matchups, use regional opening
   if (currentRoundMatchups.length > 5) {
     const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const matchupsPerRegion = Math.ceil(currentRoundMatchups.length / 4);
     await interaction.editReply(
       `❌ **${roundName} has ${currentRoundMatchups.length} matchups** - too many for one voting session.\n\n` +
-      `Use \`/bracket open-region\` to open matchups by region instead:\n` +
-      `• Region 1 (Left Side): Matchups 1A-${String.fromCharCode(64 + currentRoundMatchups.length / 2)}\n` +
-      `• Region 2 (Right Side): Matchups 2A-${String.fromCharCode(64 + currentRoundMatchups.length / 2)}\n\n` +
-      `💡 This splits voting into manageable groups!`
+      `This round will be split into 4 regions with ~${matchupsPerRegion} matchup${matchupsPerRegion !== 1 ? 's' : ''} each.\n` +
+      `Use \`/bracket open-matchup\` with no parameters to select which region to open.\n\n` +
+      `💡 **March Madness style:** Open regions one at a time to manage voting flow!`
     );
     return;
   }
@@ -2218,10 +2209,12 @@ async function showRegionSelector(interaction, tournament, durationMs) {
     return;
   }
   
-  // Count matchups by region
-  const midpoint = currentRoundMatchups.length / 2;
-  const region1Matchups = currentRoundMatchups.filter(m => m.position < midpoint);
-  const region2Matchups = currentRoundMatchups.filter(m => m.position >= midpoint);
+  // Count matchups by region (4 regions, March Madness style)
+  const matchupsPerRegion = currentRoundMatchups.length / 4;
+  const region1Matchups = currentRoundMatchups.filter((m, i) => i < matchupsPerRegion);
+  const region2Matchups = currentRoundMatchups.filter((m, i) => i >= matchupsPerRegion && i < matchupsPerRegion * 2);
+  const region3Matchups = currentRoundMatchups.filter((m, i) => i >= matchupsPerRegion * 2 && i < matchupsPerRegion * 3);
+  const region4Matchups = currentRoundMatchups.filter((m, i) => i >= matchupsPerRegion * 3);
   
   const timeRemaining = formatTimeRemaining(Date.now() + durationMs);
   
@@ -2231,29 +2224,44 @@ async function showRegionSelector(interaction, tournament, durationMs) {
     .setTitle(`🏆 Select Region to Open - ${roundName}`)
     .setThumbnail(interaction.client.user.displayAvatarURL())
     .setDescription(
-      `Choose which side of the bracket to open for voting:\n\n` +
-      `**Region 1 (Left Side):** ${region1Matchups.length} matchup${region1Matchups.length !== 1 ? 's' : ''}\n` +
-      `**Region 2 (Right Side):** ${region2Matchups.length} matchup${region2Matchups.length !== 1 ? 's' : ''}\n\n` +
+      `Choose which region of the bracket to open for voting:\n\n` +
+      `**Region 1:** ${region1Matchups.length} matchup${region1Matchups.length !== 1 ? 's' : ''}\n` +
+      `**Region 2:** ${region2Matchups.length} matchup${region2Matchups.length !== 1 ? 's' : ''}\n` +
+      `**Region 3:** ${region3Matchups.length} matchup${region3Matchups.length !== 1 ? 's' : ''}\n` +
+      `**Region 4:** ${region4Matchups.length} matchup${region4Matchups.length !== 1 ? 's' : ''}\n\n` +
       `⏰ **Voting duration:** ${timeRemaining}\n` +
-      `💡 **Tip:** Opening by region helps manage voting flow and build anticipation!`
+      `💡 **Tip:** Opening by region keeps voting manageable and builds anticipation!`
     )
     .setFooter({ text: 'Buttons expire after 15 minutes' });
   
-  // Create region buttons
-  const row = new ActionRowBuilder().addComponents(
+  // Create region buttons (2 rows of 2 buttons each)
+  const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`open_region_1_${durationMs}`)
-      .setLabel('Region 1 (Left Side)')
+      .setLabel(`Region 1 (${region1Matchups.length})`)
       .setStyle(ButtonStyle.Primary)
-      .setEmoji('⬅️'),
+      .setEmoji('🟦'),
     new ButtonBuilder()
       .setCustomId(`open_region_2_${durationMs}`)
-      .setLabel('Region 2 (Right Side)')
+      .setLabel(`Region 2 (${region2Matchups.length})`)
       .setStyle(ButtonStyle.Primary)
-      .setEmoji('➡️')
+      .setEmoji('🟩')
   );
   
-  await interaction.editReply({ embeds: [embed], components: [row] });
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`open_region_3_${durationMs}`)
+      .setLabel(`Region 3 (${region3Matchups.length})`)
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🟪'),
+    new ButtonBuilder()
+      .setCustomId(`open_region_4_${durationMs}`)
+      .setLabel(`Region 4 (${region4Matchups.length})`)
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🟫')
+  );
+  
+  await interaction.editReply({ embeds: [embed], components: [row1, row2] });
 }
 
 async function handleOpenRegion(interaction) {
