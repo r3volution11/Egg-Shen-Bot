@@ -160,6 +160,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - No more dashboard spam!
 
 ### Fixed
+- **Discord 5-Row Limit Error in Knockout Voting Dashboard** (2026-07-02)
+  - **Issue:** Clicking "Start Voting" in rounds with many matchups (Round of 32, Round of 16) failed with "Invalid Form Body - data.components[BASE_TYPE_MAX_LENGTH]: Must be 5 or fewer in length"
+  - **Root cause:** Dashboard tried to display ALL matchups at once (1 row per matchup), exceeding Discord's 5 ActionRow limit per message
+  - **Example:** Round of 32 = 32 matchups = 32 rows (limit is 5!)
+  - **Fix:** Implemented pagination system - shows 10 matchups per page (20 buttons in 4 rows + 1 navigation row)
+  - **Features:**
+    - Previous/Next buttons to navigate between pages
+    - Page indicator showing current page (e.g., "Page 1/4")
+    - Vote counts preserved across pages
+    - Purple highlighting for user's selections maintained across navigation
+  - **Result:** All knockout rounds now work regardless of size, users can browse and vote on all matchups
 - **"No voting matchups found" Error on Knockout Start Voting Button** (2026-07-02)
   - **Issue:** Clicking "Start Voting" button in knockout rounds returned "No voting matchups found for this round" error
   - **Root cause:** Button handler was incorrectly parsing the round from button customId using `split('_')` which broke `round_of_32` into just `'round'`
