@@ -2304,6 +2304,7 @@ async function handleOpenRegion(interaction) {
   for (const matchup of regionMatchups) {
     matchup.status = 'voting';
     matchup.votingOpened = Date.now();
+    matchup.votingStarted = Date.now(); // For smart warning timing
     matchup.votingDeadline = deadline;
     if (!matchup.votes) {
       matchup.votes = { movie1: [], movie2: [] };
@@ -2523,6 +2524,7 @@ async function handleOpenMatchup(interaction) {
     // Open this specific matchup
     matchup.status = 'voting';
     matchup.votingOpened = Date.now();
+    matchup.votingStarted = Date.now(); // For smart warning timing
     matchup.votingDeadline = deadline;
     if (!matchup.votes) {
       matchup.votes = { movie1: [], movie2: [] };

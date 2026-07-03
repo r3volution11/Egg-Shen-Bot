@@ -632,7 +632,8 @@ async function handleKnockoutVote(interaction) {
  * Handle "Start Voting" button click - sends personal voting dashboard to user
  */
 async function handleStartKnockoutVoting(interaction) {
-  const [, , , round] = interaction.customId.split('_');
+  // Extract round from customId (e.g., 'start_knockout_voting_round_of_32' -> 'round_of_32')
+  const round = interaction.customId.replace('start_knockout_voting_', '');
   
   // Dynamically import bracketManager
   const bracketManager = await import('../utils/bracketManager.js');

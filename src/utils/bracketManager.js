@@ -1027,6 +1027,7 @@ export function openKnockoutRound(guildId, round, deadline = null) {
   roundMatchups.forEach(m => {
     m.status = 'voting';
     m.votingOpened = Date.now();
+    m.votingStarted = Date.now(); // For smart warning timing
     if (deadline) {
       m.votingDeadline = deadline;
     }
