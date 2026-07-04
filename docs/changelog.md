@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Comprehensive Help Commands** (2026-07-04)
+  - **Updated `/eggshen-help`** - Complete command list covering all bot features
+    - Movies & TV Shows: movie, tv, episode, episode-list, similar, watched
+    - Games & Entertainment: game, boardgame, book, soundtrack
+    - Random & Discovery: random with filters
+    - Tournaments & Polls: bracket, survey
+    - AI Image Generation: image, versus-image, potion
+    - Watch Party Tools: timer, watchparty, stats
+    - Admin commands shown conditionally for moderators
+  - **Updated `/bracket help`** - Comprehensive tournament guide
+    - Valid tournament sizes clearly listed (2, 4, 8, 16, 32, 36, 40, 44, 48)
+    - Explains bracket vs group mode auto-detection
+    - Documents smart commands (`/bracket open`, `/bracket close`)
+    - Interactive selector tips
+    - Voting instructions for both modes
+    - Pro tips and duration syntax
+  - **Benefits:**
+    - New users can discover all bot features in one place
+    - Context-specific help for complex features (tournaments)
+    - Links to full documentation at eggshenbot.com
+    - Admin commands hidden from regular members
+
 - **Tournament Size Validation** (2026-07-04)
   - **What changed:** The `max-titles` parameter now only accepts specific valid tournament sizes
   - **Valid bracket sizes:** 2, 4, 8, 16, 32 (powers of 2 for balanced single-elimination)
