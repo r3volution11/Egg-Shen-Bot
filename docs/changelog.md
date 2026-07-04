@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Timer Duration Adjustment** (2026-07-03)
+  - **New command:** `/timer adjust duration:[minutes]`
+  - **What it does:** Adjusts the total duration of an active timer while it's running
+  - **Smart calculation:** Bot automatically calculates elapsed time and reschedules auto-stop based on the new total duration
+  - **Use case:** Started timer with auto-detected runtime (e.g., 1h 48m) but watching director's cut (2h 20m) - adjust mid-watch without stopping
+  - **Protection:** Won't allow setting duration shorter than elapsed time (prevents instant auto-stop)
+  - **Feedback:** Shows new total duration, time elapsed, and time remaining
+  - **Example:** Timer running for 45 minutes, adjust to 140 minutes = 95 minutes remaining
+- **Timer Auto-Stop Disable** (2026-07-03)
+  - **New command:** `/timer autostop`
+  - **What it does:** Disables automatic stopping for an active timer with a duration set
+  - **Use case:** Timer scheduled to auto-stop but content is running longer than expected - disable auto-stop and manually stop when finished
+  - **Behavior:** Removes duration constraint, cancels scheduled auto-stop, timer continues until manually stopped with `/timer stop`
+  - **Benefits:** 
+    - No need to restart timer
+    - Preserves elapsed time and watch history data
+    - Simple solution for unpredictable runtimes
+  - **Feedback:** Confirms auto-stop disabled and shows current elapsed time
 - **4-Region Knockout Tournament System** (2026-07-02)
   - **What changed:** Knockout tournaments now use 4 regions (March Madness style) instead of 2 regions
   - **Regional labeling:** Matchups labeled 1A-4D based on position (e.g., "1A", "2C", "3B", "4D")
