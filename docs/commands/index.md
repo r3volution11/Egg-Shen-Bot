@@ -190,6 +190,7 @@ Search for books with comprehensive information.
 Host comprehensive tournaments for movies, TV shows, video games, board games, or books.
 
 **Key Subcommands:**
+- `help` - **🆕 Comprehensive tournament guide** (All members)
 - `create` - Create new tournament (Admin/Mod)
 - `manage-titles` - Add or remove titles from groups (Admin/Mod)
 - `open` - **🆕 Smart:** Auto-opens next round based on phase (Admin/Mod)
@@ -210,17 +211,19 @@ Host comprehensive tournaments for movies, TV shows, video games, board games, o
 - **Button-based voting**: No commands needed - just click to vote!
 - **Smart phase detection**: Commands automatically detect tournament phase
 - **Automatic tiebreakers**: Creates short voting rounds when ties occur
-- Flexible sizing: 16-48 entries in 4-12 groups of 4 (default 8)
+- **Valid tournament sizes**: 2, 4, 8, 16, 32 (bracket mode) or 36, 40, 44, 48 (group mode)
+- **Auto-detection**: Bot automatically chooses bracket or group mode based on size
 - Group stage: Members vote for top 2 per group via buttons
-- Dynamic wildcards: Auto-calculated (0-8) to reach power-of-2 bracket
+- Dynamic wildcards: Auto-calculated to reach power-of-2 bracket
 - 4-region knockout bracket (March Madness style)
 - Visual bracket display with live vote counts
 - Complete vote tracking and history
 
 **Example:**
 ```
-/bracket create name:Horror Movie Madness groups:8
-/bracket manage-titles action:"Add Title" group:A type:movie title:The Exorcist
+/bracket help
+/bracket create name:Horror Movie Madness max-titles:32
+/bracket manage-titles action:add group:A type:movie
 /bracket open duration:24h
 /bracket close tiebreaker-duration:30m
 /bracket status
@@ -392,6 +395,33 @@ Find similar content recommendations.
 /similar title:The Matrix type:movie
 /similar title:Dracula type:book
 ```
+
+---
+
+### `/eggshen-help`
+Display comprehensive bot help with complete command list.
+
+**Features:**
+- Overview of all bot commands organized by category
+- Movies & TV Shows: movie, tv, episode, episode-list, similar, watched
+- Games & Entertainment: game, boardgame, book, soundtrack
+- Random & Discovery: random with filters
+- Tournaments & Polls: bracket, survey
+- AI Image Generation: image, versus-image, potion
+- Watch Party Tools: timer, watchparty, stats
+- Admin commands shown conditionally for moderators
+- Links to full documentation at eggshenbot.com
+- Tips for command-specific help (e.g., `/bracket help`)
+
+**Example:**
+```
+/eggshen-help
+```
+
+**Pro Tip:** Many complex commands have their own help subcommands:
+- `/bracket help` - Tournament system guide
+- `/timer help` - Timer features and usage
+- Use these for detailed, context-specific guidance!
 
 ---
 
