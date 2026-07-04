@@ -16,16 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Protection:** Won't allow setting duration shorter than elapsed time (prevents instant auto-stop)
   - **Feedback:** Shows new total duration, time elapsed, and time remaining
   - **Example:** Timer running for 45 minutes, adjust to 140 minutes = 95 minutes remaining
-- **Timer Auto-Stop Disable** (2026-07-03)
-  - **New command:** `/timer autostop`
-  - **What it does:** Disables automatic stopping for an active timer with a duration set
-  - **Use case:** Timer scheduled to auto-stop but content is running longer than expected - disable auto-stop and manually stop when finished
-  - **Behavior:** Removes duration constraint, cancels scheduled auto-stop, timer continues until manually stopped with `/timer stop`
+- **Timer Auto-Stop Control** (2026-07-03)
+  - **New command:** `/timer autostop autostop:[enable|disable] duration:[minutes]`
+  - **Actions:**
+    - **Disable:** Removes auto-stop from timer with duration - timer continues until manually stopped
+    - **Enable:** Adds auto-stop to timer without duration - requires `duration` parameter
+  - **Use cases:** 
+    - **Disable:** Timer scheduled to auto-stop but content is running longer than expected
+    - **Enable:** Started timer without duration, realized you want automatic stopping
   - **Benefits:** 
-    - No need to restart timer
+    - Toggle auto-stop mid-timer without restarting
     - Preserves elapsed time and watch history data
-    - Simple solution for unpredictable runtimes
-  - **Feedback:** Confirms auto-stop disabled and shows current elapsed time
+    - Flexible solution for unpredictable runtimes
+  - **Examples:**
+    - `/timer autostop autostop:disable` - removes auto-stop, continue indefinitely
+    - `/timer autostop autostop:enable duration:180` - adds 3-hour auto-stop to running timer
 - **4-Region Knockout Tournament System** (2026-07-02)
   - **What changed:** Knockout tournaments now use 4 regions (March Madness style) instead of 2 regions
   - **Regional labeling:** Matchups labeled 1A-4D based on position (e.g., "1A", "2C", "3B", "4D")
