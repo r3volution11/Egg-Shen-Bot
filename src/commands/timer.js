@@ -843,9 +843,9 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
   await interaction.deferReply();
   
   try {
-    const { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } = await import('./services/tmdbService.js');
-    const { saveWatchHistory } = await import('./utils/watchHistoryManager.js');
-    const { trackSearch } = await import('./utils/statsTracker.js');
+    const { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } = await import('../services/tmdbService.js');
+    const { saveWatchHistory } = await import('../utils/watchHistoryManager.js');
+    const { trackSearch } = await import('../utils/statsTracker.js');
     
     // Search for the title
     const [movieResults, tvResults] = await Promise.all([
