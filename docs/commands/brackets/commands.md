@@ -99,25 +99,25 @@ These commands are used to create and configure a tournament before voting begin
 
 ### `/bracket create`
 
-Create a new tournament bracket.
+Create a new tournament bracket. The bot automatically selects the best tournament format based on size.
 
 **Parameters:**
 - `name` (required, string): Tournament name (e.g., "The Shudder Discord Gore Cup")
-- `groups` (optional, integer): Number of groups (4-12, default: 8)
-  - Each group will contain 4 titles
-  - Total participants = groups × 4
-  - Valid range: 4-12 groups (16-48 total titles)
+- `max-titles` (optional, integer): Maximum number of titles (2-48, default: 32)
+  - **2-32 titles**: Bracket Mode (direct matchup voting)
+  - **33-48 titles**: Group Stage Mode (group voting → knockout)
 
 **Example Usage:**
 ```
-/bracket create name:"Summer Movie Madness" groups:8
-/bracket create name:"Quick Tournament Test" groups:4
-/bracket create name:"Epic Community Championship" groups:12
+/bracket create name:"Summer Movie Madness" max-titles:32
+/bracket create name:"Quick 8-Title Showdown" max-titles:8
+/bracket create name:"Epic 48-Title Championship" max-titles:48
 ```
 
 **Notes:**
 - Tournament names are visible to all participants
-- Default is 8 groups if not specified (32 titles total)
+- Default is 32 titles if not specified (Bracket Mode)
+- The bot automatically chooses between bracket-only or group stage format
 - You can change the group count later with `/bracket resize`
 - Only one active tournament per server at a time
 

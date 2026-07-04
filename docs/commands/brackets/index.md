@@ -26,7 +26,12 @@ head:
 ## Quick FAQ
 
 **Q: How many entries can participate in a tournament?**  
-A: Between 16 and 48 entries - organized into 4-12 groups (default 8) of 4 entries each. Choose the size when creating your tournament.
+A: Between 2 and 48 entries. The bot automatically chooses the best format:
+- **2-32 entries**: Bracket Mode (direct matchup voting, like March Madness)
+- **33-48 entries**: Group Stage Mode (vote for top 2 in groups, then knockout bracket)
+
+**Q: How do I choose which mode to use?**  
+A: You don't! Just specify the max number of titles when creating (`/bracket create max-titles:16`). The bot automatically detects the best tournament structure based on size.
 
 **Q: What types of tournaments can I run?**  
 A: Movies, TV shows, video games, board games, or books. Each tournament must be a single type (can't mix movies and TV shows in the same tournament).
