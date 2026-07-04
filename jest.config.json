@@ -1,0 +1,13 @@
+{
+  "testEnvironment": "node",
+  "transform": {},
+  "testMatch": [
+    "**/tests/**/*.test.js"
+  ],
+  "collectCoverageFrom": [
+    "src/utils/bracketManager.js",
+    "src/commands/bracket.js"
+  ],
+  "coverageDirectory": "coverage",
+  "verbose": true
+}

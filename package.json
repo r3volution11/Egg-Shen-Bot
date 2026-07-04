@@ -10,7 +10,11 @@
     "deploy-commands": "node src/deploy-commands.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:simulate": "node tests/simulate-tournament.js"
   },
   "keywords": [
     "discord",
@@ -34,6 +38,8 @@
     "letterboxd-retriever": "^1.1.0"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "jest": "^29.7.0",
     "playwright": "^1.61.1",
     "vitepress": "^1.6.4"
   }
