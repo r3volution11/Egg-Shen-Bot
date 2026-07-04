@@ -187,39 +187,44 @@ Search for books with comprehensive information.
 ## Tournament Commands
 
 ### `/bracket`
-Host comprehensive movie or TV show tournaments.
+Host comprehensive tournaments for movies, TV shows, video games, board games, or books.
 
-**Subcommands:**
+**Key Subcommands:**
 - `create` - Create new tournament (Admin/Mod)
-- `add-group` - Add 4 entries with smart search (Admin/Mod)
-- `open-groups` - Open groups for voting (Admin/Mod)
-- `close-groups` - Close voting and calculate results (Admin/Mod)
-- `vote-group` - Vote for top 2 in a group (All members)
+- `manage-titles` - Add or remove titles from groups (Admin/Mod)
+- `open` - **🆕 Smart:** Auto-opens next round based on phase (Admin/Mod)
+- `close` - **🆕 Smart:** Auto-closes current round and advances (Admin/Mod)
+- `open-groups` - Open specific groups for voting (Admin/Mod)
+- `close-groups` - Close specific groups (Admin/Mod)
 - `advance-knockout` - Generate knockout bracket (Admin/Mod)
+- `resolve-tiebreaker` - **🆕** Manually resolve ties (Admin/Mod)
+- `open-matchup` - Open specific matchup(s) (Admin/Mod)
+- `close-matchup` - Close specific matchup(s) (Admin/Mod)
 - `status` - View tournament progress (All members)
-- `view` - Generate visual bracket image (All members, knockout phase)
-- `image` - Generate AI matchup image (All members, knockout phase)
+- `my-votes` - View your voting history (All members)
+- `view` - Generate visual bracket image (All members)
+- `export` - Export results as JSON/Markdown (All members)
 - `cancel` - Cancel tournament (Admin/Mod)
 
 **Features:**
-- Flexible sizing: 16-48 movies in 4-12 groups of 4 (default 8)
-- Group stage: vote for top 2 per group
-- Dynamic wildcards: auto-calculated (0-8) to reach power-of-2 bracket
-- Knockout: Adapts to tournament size (Semifinals → Round of 32)
-- **Visual bracket display**: March Madness-style bracket images
-- **AI matchup images**: AI-generated "vs" poster mashups
-- Random tiebreaker for fair results
-- Complete vote tracking and management
+- **Button-based voting**: No commands needed - just click to vote!
+- **Smart phase detection**: Commands automatically detect tournament phase
+- **Automatic tiebreakers**: Creates short voting rounds when ties occur
+- Flexible sizing: 16-48 entries in 4-12 groups of 4 (default 8)
+- Group stage: Members vote for top 2 per group via buttons
+- Dynamic wildcards: Auto-calculated (0-8) to reach power-of-2 bracket
+- 4-region knockout bracket (March Madness style)
+- Visual bracket display with live vote counts
+- Complete vote tracking and history
 
 **Example:**
 ```
-/bracket create name:The Shudder Discord Gore Cup groups:12
-/bracket add-title group:A type:movie title:The Exorcist
-/bracket add-title group:A type:movie title:Halloween
-/bracket open-groups groups:A,B,C,D
-/bracket vote-group group:A choice1:1 choice2:3
+/bracket create name:Horror Movie Madness groups:8
+/bracket manage-titles action:"Add Title" group:A type:movie title:The Exorcist
+/bracket open duration:24h
+/bracket close tiebreaker-duration:30m
+/bracket status
 /bracket view
-/bracket image title1:"The Exorcist" title2:"Halloween"
 ```
 
 [Learn more →](/commands/brackets/)
