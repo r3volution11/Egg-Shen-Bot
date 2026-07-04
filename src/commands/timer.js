@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
-import { startTimer, stopTimer, getTimerStatus } from '../utils/timerManager.js';
+import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop } from '../utils/timerManager.js';
 import { loadGuildConfig } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
 
@@ -249,6 +249,24 @@ export const data = new SlashCommandBuilder()
           .setDescription('Optional role to ping')
           .setRequired(false)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('adjust')
+      .setDescription('⚙️ Adjust the duration of the active timer')
+      .addIntegerOption(option =>
+        option
+          .setName('duration')
+          .setDescription('New total duration in minutes (e.g., 140 for 2h 20m)')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(600) // 10 hours max
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('autostop')
+      .setDescription('🚫 Disable auto-stop for the active timer (must manually stop)')
   );
 
 export async function execute(interaction) {
@@ -677,6 +695,104 @@ export async function execute(interaction) {
         });
       }
     }
+  } else if (subcommand === 'adjust') {
+    const newDuration = interaction.options.getInteger('duration');
+    const timer = getTimerStatus(channelId);
+    
+    if (!timer) {
+      return await interaction.reply({
+        content: '❌ No active timer in this channel. Use `/timer start` to begin one.',
+        ephemeral: true,
+      });
+    }
+    
+    const result = adjustTimerDuration(channelId, newDuration, interaction.client);
+    
+    if (!result || result.error) {
+      const errorMsg = result?.message || 'Failed to adjust timer duration.';
+      return await interaction.reply({
+        content: `❌ ${errorMsg}`,
+        ephemeral: true,
+      });
+    }
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle('⚙️ Timer Duration Adjusted')
+      .setDescription(timer.label ? `**${timer.label}**` : 'Timer duration updated')
+      .addFields(
+        {
+          name: 'New Total Duration',
+          value: `${newDuration} minutes (${formatRuntime(newDuration)})`,
+          inline: true,
+        },
+        {
+          name: 'Time Elapsed',
+          value: result.elapsedFormatted,
+          inline: true,
+        },
+        {
+          name: 'Time Remaining',
+          value: result.remainingFormatted,
+          inline: true,
+        }
+      )
+      .setFooter({ text: 'Timer will auto-stop when the new duration is reached' })
+      .setTimestamp();
+    
+    await interaction.reply({ embeds: [embed] });
+    
+  } else if (subcommand === 'autostop') {
+    const timer = getTimerStatus(channelId);
+    
+    if (!timer) {
+      return await interaction.reply({
+        content: '❌ No active timer in this channel. Use `/timer start` to begin one.',
+        ephemeral: true,
+      });
+    }
+    
+    if (!timer.duration && !timer.endTime) {
+      return await interaction.reply({
+        content: '❌ This timer does not have auto-stop enabled. It must already be stopped manually.',
+        ephemeral: true,
+      });
+    }
+    
+    const success = disableTimerAutostop(channelId);
+    
+    if (!success) {
+      return await interaction.reply({
+        content: '❌ Failed to disable auto-stop for this timer.',
+        ephemeral: true,
+      });
+    }
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xFFA500)
+      .setTitle('🚫 Auto-Stop Disabled')
+      .setDescription(timer.label ? `**${timer.label}**\n\nAuto-stop has been disabled.` : 'Auto-stop has been disabled.')
+      .addFields(
+        {
+          name: 'Timer Status',
+          value: 'Timer will continue running until manually stopped',
+          inline: false,
+        },
+        {
+          name: 'Time Elapsed',
+          value: timer.elapsedFormatted,
+          inline: true,
+        },
+        {
+          name: 'Started by',
+          value: timer.username,
+          inline: true,
+        }
+      )
+      .setFooter({ text: 'Use /timer stop to end the timer when finished' })
+      .setTimestamp();
+    
+    await interaction.reply({ embeds: [embed] });
   }
 }
 
