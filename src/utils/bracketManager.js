@@ -593,7 +593,7 @@ export function voteGroupStage(guildId, userId, groupId, movieIndexes) {
  * @param {number} tiebreakerDurationMs - Duration for any tiebreaker rounds (default 1 hour)
  */
 export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 3600000) {
-  const tournament = loadTournament(guildId);
+  let tournament = loadTournament(guildId);
   if (!tournament) {
     return { success: false, error: 'No tournament found' };
   }
@@ -638,7 +638,17 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
       const result = createTiebreaker(guildId, groupId, '1st', firstPlace, tiebreakerDurationMs);
       if (result.success) {
         tiebreakersCreated.push({ groupId, position: '1st', tiebreaker: result.tiebreaker });
-        group.status = 'tiebreaker'; // Mark group as waiting for tiebreaker
+        // Update with fresh tournament that has the tiebreaker
+        tournament = result.tournament;
+        const currentGroup = tournament.groups[groupId];
+        currentGroup.status = 'tiebreaker'; // Mark group as waiting for tiebreaker
+        // Store partial results (all positions TBD after tiebreaker)
+        tournament.groupResults[groupId] = {
+          first: null, // To be determined by tiebreaker
+          second: null,
+          third: null,
+          allResults: results,
+        };
         return; // Don't finalize this group yet
       }
       // Fallback to random if tiebreaker creation failed
@@ -667,7 +677,10 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
       const result = createTiebreaker(guildId, groupId, '2nd', secondPlace, tiebreakerDurationMs);
       if (result.success) {
         tiebreakersCreated.push({ groupId, position: '2nd', tiebreaker: result.tiebreaker });
-        group.status = 'tiebreaker';
+        // Update with fresh tournament that has the tiebreaker
+        tournament = result.tournament;
+        const currentGroup = tournament.groups[groupId];
+        currentGroup.status = 'tiebreaker';
         // Store partial results
         tournament.groupResults[groupId] = {
           first: winner,

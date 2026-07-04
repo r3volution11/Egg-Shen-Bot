@@ -230,8 +230,13 @@ async function runSimulation() {
               if (item.position === 'knockout') {
                 bracketManager.finalizeKnockoutMatchupAfterTiebreaker(SIMULATION_GUILD_ID, tb.id);
               } else {
-                bracketManager.finalizeGroupAfterTiebreaker(SIMULATION_GUILD_ID, tb.id);
+                const finalizeResult = bracketManager.finalizeGroupAfterTiebreaker(SIMULATION_GUILD_ID, tb.id);
+                if (!finalizeResult.success) {
+                  log(`    ❌ Failed to finalize: ${finalizeResult.error}`, 'red');
+                }
               }
+            } else {
+              log(`    ❌ Failed to resolve tiebreaker: ${resolveResult.error}`, 'red');
             }
           }
         }
@@ -240,12 +245,21 @@ async function runSimulation() {
       // Show results
       log('\nGroup Results:', 'yellow');
       const t = bracketManager.loadTournament(SIMULATION_GUILD_ID);
-      for (const [group, results] of Object.entries(t.groupResults)) {
-        log(`\nGroup ${group}:`, 'cyan');
-        results.forEach((movie, idx) => {
-          const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '  ';
-          log(`  ${medal} ${movie.title} - ${movie.points} points`, 'green');
-        });
+      for (const [groupId, result] of Object.entries(t.groupResults)) {
+        log(`\nGroup ${groupId}:`, 'cyan');
+        if (result.first) {
+          log(`  🥇 ${result.first.title} (1st place)`, 'green');
+        } else {
+          log(`  🥇 TBD (pending tiebreaker)`, 'yellow');
+        }
+        if (result.second) {
+          log(`  🥈 ${result.second.title} (2nd place)`, 'green');
+        } else {
+          log(`  🥈 TBD (pending tiebreaker)`, 'yellow');
+        }
+        if (result.third) {
+          log(`  🥉 ${result.third.title} (3rd place)`, 'green');
+        }
       }
     } else {
       log(`❌ Failed to close groups: ${closeResult.error}`, 'red');
