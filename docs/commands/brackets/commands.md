@@ -103,9 +103,12 @@ Create a new tournament bracket. The bot automatically selects the best tourname
 
 **Parameters:**
 - `name` (required, string): Tournament name (e.g., "The Shudder Discord Gore Cup")
-- `max-titles` (optional, integer): Maximum number of titles (2-48, default: 32)
-  - **2-32 titles**: Bracket Mode (direct matchup voting)
-  - **33-48 titles**: Group Stage Mode (group voting → knockout)
+- `max-titles` (optional, dropdown): Maximum number of titles (default: 32)
+  - **Valid bracket sizes:** 2, 4, 8, 16, 32 (powers of 2)
+  - **Valid group sizes:** 36, 40, 44, 48 (multiples of 4)
+  - **Bracket Mode** (2-32 titles): Direct matchup voting, like March Madness
+  - **Group Stage Mode** (36-48 titles): Group voting → knockout
+  - Discord shows labeled choices: "8 titles (Quarterfinals)", "36 titles (9 groups)", etc.
 
 **Example Usage:**
 ```
@@ -117,8 +120,8 @@ Create a new tournament bracket. The bot automatically selects the best tourname
 **Notes:**
 - Tournament names are visible to all participants
 - Default is 32 titles if not specified (Bracket Mode)
-- The bot automatically chooses between bracket-only or group stage format
-- You can change the group count later with `/bracket resize`
+- Only mathematically clean sizes are allowed to ensure professional tournament structures
+- Powers of 2 create balanced brackets; multiples of 4 create complete groups
 - Only one active tournament per server at a time
 
 ---

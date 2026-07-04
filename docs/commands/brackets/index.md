@@ -26,12 +26,14 @@ head:
 ## Quick FAQ
 
 **Q: How many entries can participate in a tournament?**  
-A: Between 2 and 48 entries. The bot automatically chooses the best format:
-- **2-32 entries**: Bracket Mode (direct matchup voting, like March Madness)
-- **33-48 entries**: Group Stage Mode (vote for top 2 in groups, then knockout bracket)
+A: Specific valid sizes only, to ensure clean tournament structures:
+- **Bracket Mode**: 2, 4, 8, 16, or 32 entries (powers of 2 for balanced brackets)
+- **Group Stage Mode**: 36, 40, 44, or 48 entries (multiples of 4 for complete groups)
+
+The bot only allows these specific values to prevent awkward structures like incomplete groups or brackets with excessive byes.
 
 **Q: How do I choose which mode to use?**  
-A: You don't! Just specify the max number of titles when creating (`/bracket create max-titles:16`). The bot automatically detects the best tournament structure based on size.
+A: You don't! Just specify the max number of titles when creating (`/bracket create max-titles:16`). The bot automatically detects the best tournament structure based on size. Discord shows a dropdown with labeled options like "8 titles (Quarterfinals)" or "36 titles (9 groups)".
 
 **Q: What types of tournaments can I run?**  
 A: Movies, TV shows, video games, board games, or books. Each tournament must be a single type (can't mix movies and TV shows in the same tournament).
