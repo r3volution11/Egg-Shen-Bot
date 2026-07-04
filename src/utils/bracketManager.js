@@ -174,10 +174,40 @@ function getStartingRound(participantCount) {
 /**
  * Create a new tournament
  */
-export function createTournament(guildId, name, creatorId, groupCount = 8) {
-  // Validate group count (4-12)
+/**
+ * Determine tournament mode and group count based on max titles
+ * @param {number} maxTitles - Maximum number of titles for tournament
+ * @returns {{mode: string, groupCount: number|null}} Mode and group count
+ */
+function determineTournamentMode(maxTitles) {
+  // ≤32 titles: Pure bracket mode (no groups)
+  if (maxTitles <= 32) {
+    return { mode: 'bracket', groupCount: null };
+  }
+  
+  // 33-48 titles: Group stage mode
+  // Calculate optimal group count (each group has 4 titles)
+  const groupCount = Math.ceil(maxTitles / 4);
+  
+  // Validate range
   if (groupCount < 4 || groupCount > 12) {
-    console.error('Invalid group count. Must be between 4 and 12.');
+    return null; // Invalid
+  }
+  
+  return { mode: 'groups', groupCount };
+}
+
+export function createTournament(guildId, name, creatorId, maxTitles = 32) {
+  // Validate title count (2-48)
+  if (maxTitles < 2 || maxTitles > 48) {
+    console.error('Invalid title count. Must be between 2 and 48.');
+    return null;
+  }
+  
+  // Determine tournament mode
+  const config = determineTournamentMode(maxTitles);
+  if (!config) {
+    console.error('Could not determine valid tournament configuration.');
     return null;
   }
   
@@ -186,17 +216,20 @@ export function createTournament(guildId, name, creatorId, groupCount = 8) {
     name: name,
     guildId: guildId,
     creatorId: creatorId,
-    groupCount: groupCount, // Number of groups (4-12)
+    mode: config.mode, // 'bracket' or 'groups'
+    maxTitles: maxTitles, // Maximum titles for tournament
+    groupCount: config.groupCount, // Number of groups (4-12) for group mode, null for bracket mode
     status: 'setup', // setup, group_stage, knockout, completed, cancelled
     phase: 'setup', // setup, groups, round_of_32, round_of_16, quarterfinals, semifinals, finals
     createdAt: Date.now(),
-    groups: {}, // A-L, each with 4 movies
-    groupResults: {}, // Results after group stage voting
+    groups: {}, // A-L, each with 4 movies (group mode only)
+    groupResults: {}, // Results after group stage voting (group mode only)
     tiebreakers: [], // Active tiebreaker rounds: { id, groupId, position, tiedOptions, votes, deadline, status }
     knockoutBracket: [], // Array of matchups
     knockoutResults: {}, // Results of knockout matchups
     votes: {}, // userId -> {groupId: [movieIndexes], matchupId: movieIndex}
     winner: null,
+    titles: [], // All titles added to tournament (bracket mode stores them here)
     // Participation tracking (Tatsu-style)
     participation: {}, // userId -> { totalVotes: number, groupVotes: number, knockoutVotes: number, streak: number, lastVoted: timestamp }
     statistics: { // Tournament-wide stats
@@ -346,6 +379,79 @@ export function addGroupMovies(guildId, groupId, type, entries) {
 /**
  * Add a single title to a group (allows 1-4 titles per group)
  */
+/**
+ * Add a title to the tournament (auto-detects mode)
+ * @param {string} guildId - Guild ID
+ * @param {string} groupId - Group ID (A-L) for group mode, ignored for bracket mode
+ * @param {string} type - Type of entry (movie, tv, game, etc.)
+ * @param {Object} entry - Entry data
+ * @returns {Object} Result with success/error
+ */
+export function addTitle(guildId, groupId, type, entry) {
+  const tournament = loadTournament(guildId);
+  if (!tournament || tournament.status !== 'setup') {
+    return { success: false, error: 'Tournament not in setup phase' };
+  }
+  
+  // Store tournament type on first title addition
+  if (!tournament.type) {
+    tournament.type = type;
+  } else if (tournament.type !== type) {
+    return { success: false, error: `Tournament type mismatch. This tournament is for ${tournament.type}s, but you're trying to add ${type}s.` };
+  }
+  
+  // Route to appropriate handler based on mode
+  if (tournament.mode === 'bracket') {
+    return addTitleToBracket(guildId, type, entry);
+  } else {
+    return addGroupTitle(guildId, groupId, type, entry);
+  }
+}
+
+/**
+ * Add a title to bracket mode tournament
+ * @param {string} guildId - Guild ID
+ * @param {string} type - Type of entry
+ * @param {Object} entry - Entry data
+ * @returns {Object} Result with success/error
+ */
+function addTitleToBracket(guildId, type, entry) {
+  const tournament = loadTournament(guildId);
+  if (!tournament || tournament.status !== 'setup') {
+    return { success: false, error: 'Tournament not in setup phase' };
+  }
+  
+  // Check if at max titles
+  if (tournament.titles.length >= tournament.maxTitles) {
+    return { success: false, error: `Tournament is at maximum capacity (${tournament.maxTitles} titles)` };
+  }
+  
+  // Check for duplicates
+  const duplicate = tournament.titles.find(t => 
+    t.title.toLowerCase() === entry.title.toLowerCase() && t.year === entry.year
+  );
+  if (duplicate) {
+    return { success: false, error: `"${entry.title}" is already in this tournament` };
+  }
+  
+  // Add the title
+  const index = tournament.titles.length;
+  tournament.titles.push({
+    index,
+    title: entry.title,
+    type: entry.type,
+    id: entry.id,
+    year: entry.year,
+    posterUrl: entry.posterUrl,
+    customImageUrl: entry.customImageUrl,
+    metadata: entry.metadata,
+  });
+  
+  return saveTournament(guildId, tournament) 
+    ? { success: true, tournament, titleCount: tournament.titles.length } 
+    : { success: false, error: 'Failed to save' };
+}
+
 export function addGroupTitle(guildId, groupId, type, entry) {
   const tournament = loadTournament(guildId);
   if (!tournament || tournament.status !== 'setup') {
@@ -1125,7 +1231,117 @@ export function calculateWildcards(guildId) {
 }
 
 /**
- * Generate knockout bracket (Round of 32)
+ * Generate initial bracket for bracket mode tournament
+ * Creates matchups from all titles added to tournament
+ * @param {string} guildId - Guild ID
+ * @returns {Object} Result with success/error
+ */
+function generateInitialBracket(guildId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+  
+  if (tournament.titles.length < 2) {
+    return { success: false, error: 'Need at least 2 titles to generate bracket' };
+  }
+  
+  // Shuffle titles for random seeding
+  const shuffledTitles = [...tournament.titles].sort(() => Math.random() - 0.5);
+  const totalParticipants = shuffledTitles.length;
+  const startingRound = getStartingRound(totalParticipants);
+  
+  // Calculate number of first round matchups
+  // For powers of 2, all play in first round
+  // For non-powers of 2, some get byes
+  const nearestPowerOf2 = Math.pow(2, Math.ceil(Math.log2(totalParticipants)));
+  const numByes = nearestPowerOf2 - totalParticipants;
+  const numFirstRoundMatchups = Math.floor((totalParticipants - numByes) / 2);
+  
+  // Create first round matchups
+  const firstRoundMatchups = [];
+  let titleIndex = 0;
+  
+  for (let i = 0; i < numFirstRoundMatchups; i++) {
+    firstRoundMatchups.push({
+      id: crypto.randomBytes(6).toString('hex'),
+      round: startingRound,
+      position: i,
+      movie1: shuffledTitles[titleIndex++],
+      movie2: shuffledTitles[titleIndex++],
+      status: 'pending',
+      votes: { movie1: [], movie2: [] },
+    });
+  }
+  
+  // Remaining titles get byes to next round
+  const byeRecipients = shuffledTitles.slice(titleIndex);
+  
+  // Generate ALL subsequent rounds with TBD/bye placeholders
+  const allMatchups = [...firstRoundMatchups];
+  const roundSequence = {
+    'round_of_32': 'round_of_16',
+    'round_of_16': 'quarterfinals',
+    'quarterfinals': 'semifinals',
+    'semifinals': 'finals'
+  };
+  
+  let currentRound = startingRound;
+  let currentMatchups = firstRoundMatchups;
+  let byeIndex = 0;
+  
+  while (roundSequence[currentRound]) {
+    const nextRound = roundSequence[currentRound];
+    const nextMatchups = [];
+    
+    // Create matchups for next round
+    for (let i = 0; i < currentMatchups.length; i += 2) {
+      const matchup = {
+        id: crypto.randomBytes(6).toString('hex'),
+        round: nextRound,
+        position: Math.floor(nextMatchups.length),
+        movie1: null, // TBD - winner of matchup i
+        movie2: null, // TBD - winner of matchup i+1
+        status: 'pending',
+        votes: { movie1: [], movie2: [] },
+        sourceMatchups: [currentMatchups[i].id, currentMatchups[i + 1]?.id].filter(Boolean)
+      };
+      nextMatchups.push(matchup);
+    }
+    
+    // Add bye recipients to next round if applicable
+    while (byeIndex < byeRecipients.length && nextMatchups.length < Math.pow(2, Math.ceil(Math.log2(totalParticipants)) - Object.keys(roundSequence).indexOf(nextRound) - 1)) {
+      // Find an empty slot for bye recipient
+      for (let matchup of nextMatchups) {
+        if (!matchup.movie1) {
+          matchup.movie1 = byeRecipients[byeIndex++];
+          break;
+        } else if (!matchup.movie2) {
+          matchup.movie2 = byeRecipients[byeIndex++];
+          break;
+        }
+      }
+    }
+    
+    allMatchups.push(...nextMatchups);
+    currentMatchups = nextMatchups;
+    currentRound = nextRound;
+    
+    if (currentRound === 'finals') break;
+  }
+  
+  tournament.knockoutBracket = allMatchups;
+  tournament.status = 'knockout';
+  tournament.phase = startingRound;
+  
+  return saveTournament(guildId, tournament) 
+    ? { success: true, tournament, matchups: firstRoundMatchups, startingRound }
+    : { success: false, error: 'Failed to save bracket' };
+}
+
+/**
+ * Generate knockout bracket
+ * Routes to appropriate handler based on tournament mode
  */
 export function generateKnockoutBracket(guildId) {
   const tournament = loadTournament(guildId);
@@ -1133,7 +1349,12 @@ export function generateKnockoutBracket(guildId) {
     return { success: false, error: 'No tournament found' };
   }
   
-  // Validate that ALL groups have been closed before advancing
+  // Route based on mode
+  if (tournament.mode === 'bracket') {
+    return generateInitialBracket(guildId);
+  }
+  
+  // Group mode: validate groups are closed
   const totalGroups = tournament.groupCount || Object.keys(tournament.groups).length;
   const closedGroups = Object.keys(tournament.groupResults).length;
   

@@ -163,11 +163,11 @@ export const data = new SlashCommandBuilder()
       )
       .addIntegerOption(option =>
         option
-          .setName('groups')
-          .setDescription('Number of groups (4-12, each with 4 movies)')
+          .setName('max-titles')
+          .setDescription('Maximum titles (2-32: bracket mode, 33-48: group stage mode)')
           .setRequired(false)
-          .setMinValue(4)
-          .setMaxValue(12)
+          .setMinValue(2)
+          .setMaxValue(48)
       )
   )
   .addSubcommand(subcommand =>
@@ -187,8 +187,8 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('group')
-          .setDescription('Group letter (A-L)')
-          .setRequired(true)
+          .setDescription('Group letter (auto-assigned in bracket mode)')
+          .setRequired(false)
           .addChoices(...GROUP_LETTERS.map(letter => ({ name: `Group ${letter}`, value: letter })))
       )
       .addStringOption(option =>
@@ -636,7 +636,7 @@ async function handleHelp(interaction) {
 
 async function handleCreate(interaction) {
   const name = interaction.options.getString('name');
-  const groupCount = interaction.options.getInteger('groups') || 8; // Default to 8 groups
+  const maxTitles = interaction.options.getInteger('max-titles') || 32; // Default to 32 titles
   const guildId = interaction.guildId;
   
   // Check if tournament already exists
@@ -649,28 +649,40 @@ async function handleCreate(interaction) {
     return;
   }
   
-  const tournament = bracketManager.createTournament(guildId, name, interaction.user.id, groupCount);
+  const tournament = bracketManager.createTournament(guildId, name, interaction.user.id, maxTitles);
   
   if (!tournament) {
     await interaction.reply({
-      content: '❌ Failed to create tournament.',
+      content: `❌ Failed to create tournament. Max titles must be between 2 and 48.`,
       ephemeral: true,
     });
     return;
   }
   
-  const totalMovies = groupCount * 4;
+  // Build description based on mode
+  let description, modeInfo;
+  if (tournament.mode === 'bracket') {
+    description = `Tournament created in **Bracket Mode**! Add up to ${maxTitles} titles, then generate the bracket.`;
+    modeInfo = `Direct matchup voting (A vs B)`;
+  } else {
+    description = `Tournament created in **Group Stage Mode**! Add titles to ${tournament.groupCount} groups (4 per group).`;
+    modeInfo = `Groups → Knockout (${tournament.groupCount} groups)`;
+  }
+  
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
     .setTitle(`🏆 ${name}`)
-    .setDescription(`Tournament created! Now add titles to ${groupCount} groups.`)
+    .setDescription(description)
     .addFields(
       { name: 'Status', value: 'Setup', inline: true },
-      { name: 'Groups', value: `0/${groupCount}`, inline: true },
-      { name: 'Total Capacity', value: `${totalMovies} titles`, inline: true },
+      { name: 'Mode', value: modeInfo, inline: true },
+      { name: 'Max Titles', value: `${maxTitles} titles`, inline: true },
       { name: 'Creator', value: `<@${interaction.user.id}>`, inline: false }
     )
-    .setFooter({ text: 'Use /bracket add-title to add titles • Use /bracket announce when ready to share with server' });
+    .setFooter({ text: tournament.mode === 'bracket' 
+      ? 'Use /bracket manage-titles to add titles • Auto-selects groups if not specified'
+      : 'Use /bracket manage-titles to add titles to groups A-' + String.fromCharCode(64 + tournament.groupCount) 
+    });
   
   await interaction.reply({ embeds: [embed], ephemeral: true });
 }
@@ -696,7 +708,7 @@ async function handleManageTitles(interaction) {
 async function handleAddTitle(interaction) {
   await interaction.deferReply({ ephemeral: true });
   
-  const group = interaction.options.getString('group');
+  let group = interaction.options.getString('group');
   const type = interaction.options.getString('type');
   const title = interaction.options.getString('title');
   const imageAttachment = interaction.options.getAttachment('image');
@@ -710,6 +722,30 @@ async function handleAddTitle(interaction) {
       ephemeral: true,
     });
     return;
+  }
+  
+  // Auto-assign group for bracket mode, or if not specified in group mode
+  if (!group || tournament.mode === 'bracket') {
+    if (tournament.mode === 'bracket') {
+      group = 'A'; // Placeholder - won't be used in bracket mode
+    } else {
+      // Group mode: find first available group
+      const allowedGroups = 'ABCDEFGHIJKL'.slice(0, tournament.groupCount);
+      for (const g of allowedGroups) {
+        const currentGroup = tournament.groups[g];
+        if (!currentGroup || currentGroup.movies.length < 4) {
+          group = g;
+          break;
+        }
+      }
+      if (!group) {
+        await interaction.editReply({
+          content: '❌ All groups are full! Generate the bracket to proceed.',
+          ephemeral: true,
+        });
+        return;
+      }
+    }
   }
   
   // Search for the title using the appropriate API
@@ -759,7 +795,7 @@ async function handleAddTitle(interaction) {
       entry.customImageUrl = customImage;
     }
     
-    const result = bracketManager.addGroupTitle(interaction.guildId, group, type, entry);
+    const result = bracketManager.addTitle(interaction.guildId, group, type, entry);
     
     if (!result.success) {
       await interaction.editReply({
@@ -771,24 +807,42 @@ async function handleAddTitle(interaction) {
     
     // Success - show what was added and progress
     const embed = new EmbedBuilder()
-      .setColor(0x00FF00)
-      .setTitle(`✅ Added to Group ${group}`)
-      .setDescription(`**${entry.title}**${entry.year ? ` (${entry.year})` : ''}`)
-      .addFields(
-        { name: 'Type', value: getTypeLabel(type), inline: true },
-        { name: 'Group Progress', value: `${result.titleCount}/4 titles`, inline: true }
-      );
+      .setColor(0x00FF00);
+    
+    if (tournament.mode === 'bracket') {
+      embed
+        .setTitle(`✅ Added to Tournament`)
+        .setDescription(`**${entry.title}**${entry.year ? ` (${entry.year})` : ''}`)
+        .addFields(
+          { name: 'Type', value: getTypeLabel(type), inline: true },
+          { name: 'Progress', value: `${result.titleCount}/${tournament.maxTitles} titles`, inline: true }
+        );
+      
+      if (result.titleCount < tournament.maxTitles) {
+        embed.setFooter({ text: `Add ${tournament.maxTitles - result.titleCount} more title(s) or use /bracket open to start` });
+      } else {
+        embed.setFooter({ text: `All titles added! Use /bracket open to generate bracket` });
+      }
+    } else {
+      embed
+        .setTitle(`✅ Added to Group ${group}`)
+        .setDescription(`**${entry.title}**${entry.year ? ` (${entry.year})` : ''}`)
+        .addFields(
+          { name: 'Type', value: getTypeLabel(type), inline: true },
+          { name: 'Group Progress', value: `${result.titleCount}/4 titles`, inline: true }
+        );
+      
+      if (result.titleCount < 4) {
+        embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group}` });
+      } else {
+        embed.setFooter({ text: `Group ${group} is complete! Add more groups or use /bracket open to start` });
+      }
+    }
     
     // Use custom image if provided, otherwise use API poster
     const imageUrl = entry.customImageUrl || entry.posterUrl;
     if (imageUrl) {
       embed.setThumbnail(imageUrl);
-    }
-    
-    if (result.titleCount < 4) {
-      embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group} with /bracket add-title` });
-    } else {
-      embed.setFooter({ text: `Group ${group} is complete! Add more groups or use /bracket open-groups to start voting.` });
     }
     
     await interaction.editReply({ embeds: [embed] });
