@@ -172,8 +172,18 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('add-title')
-      .setDescription('Add a title to a group (Admin/Mod only)')
+      .setName('manage-titles')
+      .setDescription('Add or remove titles from groups (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('action')
+          .setDescription('Action to perform')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Add Title', value: 'add' },
+            { name: 'Remove Title', value: 'remove' }
+          )
+      )
       .addStringOption(option =>
         option
           .setName('group')
@@ -184,8 +194,8 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('type')
-          .setDescription('Tournament type')
-          .setRequired(true)
+          .setDescription('Tournament type (required for adding)')
+          .setRequired(false)
           .addChoices(
             { name: 'Movies', value: 'movie' },
             { name: 'TV Shows', value: 'tv' },
@@ -195,33 +205,21 @@ export const data = new SlashCommandBuilder()
           )
       )
       .addStringOption(option =>
-        option.setName('title').setDescription('Title to search for and add').setRequired(true)
-      )
-      .addAttachmentOption(option =>
-        option
-          .setName('image')
-          .setDescription('Optional: Custom image for this title (overrides API poster)')
-          .setRequired(false)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('remove-title')
-      .setDescription('Remove a title from a group (Admin/Mod only)')
-      .addStringOption(option =>
-        option
-          .setName('group')
-          .setDescription('Group letter (A-L)')
-          .setRequired(true)
-          .addChoices(...GROUP_LETTERS.map(letter => ({ name: `Group ${letter}`, value: letter })))
+        option.setName('title').setDescription('Title to search for and add (required for adding)').setRequired(false)
       )
       .addIntegerOption(option =>
         option
           .setName('position')
-          .setDescription('Position of title to remove (1-4)')
-          .setRequired(true)
+          .setDescription('Position to remove (1-4, required for removing)')
+          .setRequired(false)
           .setMinValue(1)
           .setMaxValue(4)
+      )
+      .addAttachmentOption(option =>
+        option
+          .setName('image')
+          .setDescription('Optional: Custom image (for adding only)')
+          .setRequired(false)
       )
   )
   .addSubcommand(subcommand =>
@@ -307,13 +305,8 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('regenerate')
-      .setDescription('Regenerate knockout bracket tree structure (fixes bracket issues)')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('open-knockout')
-      .setDescription('Open ALL matchups in current knockout round (use round-specific commands for clarity)')
+      .setName('open')
+      .setDescription('Open voting for next round (auto-detects phase) (Admin/Mod only)')
       .addStringOption(option =>
         option
           .setName('duration')
@@ -323,57 +316,14 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
-      .setName('close-knockout')
-      .setDescription('Close current round and advance winners (use round-specific commands for clarity)')
-  )
-  // Round-specific aliases for common rounds (Round of 16 uses open-knockout)
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('open-quarters')
-      .setDescription('Open Quarterfinals matchups (4 matchups)')
+      .setName('close')
+      .setDescription('Close current round voting and advance (auto-detects phase) (Admin/Mod only)')
       .addStringOption(option =>
         option
-          .setName('duration')
-          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setName('tiebreaker-duration')
+          .setDescription('Duration for tiebreaker votes if needed (e.g., "1h", "30m") - Default: 1h')
           .setRequired(false)
       )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('close-quarters')
-      .setDescription('Close Quarterfinals and advance to Semifinals')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('open-semis')
-      .setDescription('Open Semifinals matchups (2 matchups)')
-      .addStringOption(option =>
-        option
-          .setName('duration')
-          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
-          .setRequired(false)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('close-semis')
-      .setDescription('Close Semifinals and advance to Finals')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('open-finals')
-      .setDescription('Open the Finals matchup (1 matchup)')
-      .addStringOption(option =>
-        option
-          .setName('duration')
-          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
-          .setRequired(false)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('close-finals')
-      .setDescription('Close Finals and declare tournament winner!')
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -485,7 +435,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'resolve-tiebreaker', 'regenerate', 'open-knockout', 'close-knockout', 'open-quarters', 'close-quarters', 'open-semis', 'close-semis', 'open-finals', 'close-finals', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
+  const requiresAdmin = ['create', 'manage-titles', 'announce', 'open', 'close', 'open-groups', 'close-groups', 'advance-knockout', 'resolve-tiebreaker', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -507,14 +457,17 @@ export async function execute(interaction) {
       case 'create':
         await handleCreate(interaction);
         break;
-      case 'add-title':
-        await handleAddTitle(interaction);
-        break;
-      case 'remove-title':
-        await handleRemoveTitle(interaction);
+      case 'manage-titles':
+        await handleManageTitles(interaction);
         break;
       case 'announce':
         await handleAnnounce(interaction);
+        break;
+      case 'open':
+        await handleSmartOpen(interaction);
+        break;
+      case 'close':
+        await handleSmartClose(interaction);
         break;
       case 'open-groups':
         await handleOpenGroups(interaction);
@@ -527,26 +480,6 @@ export async function execute(interaction) {
         break;
       case 'resolve-tiebreaker':
         await handleResolveTiebreaker(interaction);
-        break;
-      case 'regenerate':
-        await handleRegenerate(interaction);
-        break;
-      case 'open-knockout':
-        await handleOpenKnockout(interaction);
-        break;
-      case 'close-knockout':
-        await handleCloseKnockout(interaction);
-        break;
-      // Round-specific aliases (Round of 16 uses open-knockout)
-      case 'open-quarters':
-      case 'open-semis':
-      case 'open-finals':
-        await handleOpenKnockout(interaction);
-        break;
-      case 'close-quarters':
-      case 'close-semis':
-      case 'close-finals':
-        await handleCloseKnockout(interaction);
         break;
       case 'open-matchup':
         await handleOpenMatchup(interaction);
@@ -740,6 +673,24 @@ async function handleCreate(interaction) {
     .setFooter({ text: 'Use /bracket add-title to add titles • Use /bracket announce when ready to share with server' });
   
   await interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
+/**
+ * Unified title management (add or remove)
+ */
+async function handleManageTitles(interaction) {
+  const action = interaction.options.getString('action');
+  
+  if (action === 'add') {
+    await handleAddTitle(interaction);
+  } else if (action === 'remove') {
+    await handleRemoveTitle(interaction);
+  } else {
+    await interaction.reply({
+      content: '❌ Invalid action. Choose "Add Title" or "Remove Title".',
+      ephemeral: true,
+    });
+  }
 }
 
 async function handleAddTitle(interaction) {
@@ -1630,6 +1581,7 @@ async function handleResolveTiebreaker(interaction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
+/* DISABLED DUE TO DISCORD 25 SUBCOMMAND LIMIT
 async function handleRegenerate(interaction) {
   await interaction.deferReply({ ephemeral: true });
   
@@ -1663,6 +1615,258 @@ async function handleRegenerate(interaction) {
   }
   
   await interaction.editReply({ embeds: [embed] });
+}
+*/
+
+/**
+ * Smart open - auto-detects tournament phase and opens next appropriate round
+ */
+async function handleSmartOpen(interaction) {
+  await interaction.deferReply();
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  if (!tournament) {
+    await interaction.editReply('❌ No tournament found. Create one with `/bracket create` first.');
+    return;
+  }
+  
+  const durationStr = interaction.options.getString('duration') || '24h';
+  
+  // Parse and validate duration
+  const durationMs = parseDuration(durationStr);
+  if (!durationMs) {
+    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
+    return;
+  }
+  
+  if (!isValidDuration(durationMs)) {
+    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
+    return;
+  }
+  
+  const deadline = Date.now() + durationMs;
+  
+  // Auto-detect phase
+  if (tournament.status === 'group_stage') {
+    // Open all groups that aren't already open
+    const closedGroups = Object.entries(tournament.groups)
+      .filter(([_, g]) => g.status === 'closed' || !g.votingOpen)
+      .map(([id, _]) => id);
+    
+    if (closedGroups.length === 0) {
+      await interaction.editReply('❌ All groups are already open for voting.');
+      return;
+    }
+    
+    const result = bracketManager.openGroupVoting(interaction.guildId, closedGroups, deadline);
+    
+    if (!result.success) {
+      await interaction.editReply(`❌ ${result.error}`);
+      return;
+    }
+    
+    const timeRemaining = formatTimeRemaining(deadline);
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle('📊 Group Stage Voting Opened')
+      .setDescription(
+        `**Opened groups:** ${closedGroups.join(', ')}\n\n` +
+        `**📝 How to Vote:**\n` +
+        `🔹 Click the "Start Voting" button below\n` +
+        `🔹 Select your top 2 favorites in each group\n` +
+        `🔹 Your choices are saved instantly\n\n` +
+        `⏰ **Voting closes in:** ${timeRemaining}`
+      )
+      .setFooter({ text: 'Top 2 from each group advance to knockout bracket' });
+    
+    const startVotingButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('start_group_voting')
+        .setLabel('🗳️ Start Voting')
+        .setStyle(ButtonStyle.Success)
+    );
+    
+    await interaction.editReply({ embeds: [embed], components: [startVotingButton] });
+    
+  } else if (tournament.status === 'knockout') {
+    // Open knockout round matchups
+    const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
+      m.round === tournament.phase && m.movie1 && m.movie2
+    );
+    
+    if (currentRoundMatchups.length === 0) {
+      await interaction.editReply(`❌ No matchups ready for ${tournament.phase.replace(/_/g, ' ')}. Winners need to be advanced first.`);
+      return;
+    }
+    
+    // Check if too many for one message
+    if (currentRoundMatchups.length > 5) {
+      const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const matchupsPerRegion = Math.ceil(currentRoundMatchups.length / 4);
+      await interaction.editReply(
+        `❌ **${roundName} has ${currentRoundMatchups.length} matchups** - too many for one voting session.\n\n` +
+        `This round will be split into 4 regions with ~${matchupsPerRegion} matchup${matchupsPerRegion !== 1 ? 's' : ''} each.\n` +
+        `Use \`/bracket open-matchup\` with no parameters to select which region to open.\n\n` +
+        `💡 **Tip:** Open regions one at a time to manage voting flow!`
+      );
+      return;
+    }
+    
+    const result = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline);
+    
+    if (!result.success) {
+      await interaction.editReply(`❌ ${result.error}`);
+      return;
+    }
+    
+    const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const timeRemaining = formatTimeRemaining(deadline);
+    
+    const mainEmbed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle(`📊 ${roundName} - Voting Opened!`)
+      .setDescription(
+        `**Opened matchups:** ${currentRoundMatchups.map(m => getRegionalLabel(m.position, tournament.phase)).join(', ')}\n\n` +
+        `**📝 How to Vote:**\n` +
+        `🔹 Click the "Start Voting" button below\n` +
+        `🔹 Choose ONE winner from each matchup\n` +
+        `🔹 Your choices are saved instantly\n\n` +
+        `⏰ **Voting closes in:** ${timeRemaining}`
+      )
+      .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
+    
+    const startVotingButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`start_knockout_voting_${tournament.phase}`)
+        .setLabel('🗳️ Start Voting')
+        .setStyle(ButtonStyle.Success)
+    );
+    
+    await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
+    
+  } else {
+    await interaction.editReply(`❌ Tournament is in "${tournament.status}" phase. Cannot open voting.`);
+  }
+}
+
+/**
+ * Smart close - auto-detects tournament phase and closes current round
+ */
+async function handleSmartClose(interaction) {
+  await interaction.deferReply();
+  
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  
+  if (!tournament) {
+    await interaction.editReply('❌ No tournament found.');
+    return;
+  }
+  
+  const tiebreakerDurationStr = interaction.options.getString('tiebreaker-duration') || '1h';
+  const tiebreakerDurationMs = parseDuration(tiebreakerDurationStr);
+  
+  if (!tiebreakerDurationMs) {
+    await interaction.editReply('❌ Invalid tiebreaker duration format. Use format like "1h", "30m", "2h"');
+    return;
+  }
+  
+  // Auto-detect phase
+  if (tournament.status === 'group_stage') {
+    // Close all groups that are voting
+    const votingGroups = Object.entries(tournament.groups)
+      .filter(([_, g]) => g.status === 'voting' || g.votingOpen)
+      .map(([id, _]) => id);
+    
+    if (votingGroups.length === 0) {
+      await interaction.editReply('❌ No groups are currently open for voting.');
+      return;
+    }
+    
+    const result = bracketManager.closeGroupVoting(interaction.guildId, votingGroups, tiebreakerDurationMs);
+    
+    if (!result.success) {
+      await interaction.editReply(`❌ ${result.error}`);
+      return;
+    }
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setTitle('✅ Group Voting Closed')
+      .setDescription(`Closed groups: ${votingGroups.join(', ')}`);
+    
+    if (result.tiebreakersCreated && result.tiebreakersCreated.length > 0) {
+      const tiebreakerText = result.tiebreakersCreated
+        .map(tb => `• Group ${tb.groupId} ${tb.position} place: ${tb.tiedOptions.map(o => o.title).join(' vs ')}`)
+        .join('\n');
+      embed.addFields({
+        name: '⚖️ Tiebreakers Created',
+        value: tiebreakerText + `\n\nVoting duration: ${tiebreakerDurationStr}`,
+        inline: false
+      });
+    }
+    
+    await interaction.editReply({ embeds: [embed] });
+    
+  } else if (tournament.status === 'knockout') {
+    // Close all voting matchups in current round
+    const votingMatchups = tournament.knockoutBracket.filter(m => 
+      m.round === tournament.phase && m.status === 'voting'
+    );
+    
+    if (votingMatchups.length === 0) {
+      await interaction.editReply(`❌ No voting matchups found for ${tournament.phase.replace(/_/g, ' ')}.`);
+      return;
+    }
+    
+    const results = [];
+    const tiebreakersCreated = [];
+    
+    for (const matchup of votingMatchups) {
+      const result = bracketManager.closeKnockoutMatchup(interaction.guildId, matchup.id, tiebreakerDurationMs);
+      if (result.success) {
+        if (result.tiebreakerCreated && result.tiebreaker) {
+          tiebreakersCreated.push(result.tiebreaker);
+        } else {
+          results.push({
+            matchup,
+            winner: result.winner,
+            votes1: matchup.votes.movie1.length,
+            votes2: matchup.votes.movie2.length
+          });
+        }
+      }
+    }
+    
+    const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const embed = new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setTitle(`✅ ${roundName} Closed`)
+      .setDescription(`Closed ${votingMatchups.length} matchup${votingMatchups.length !== 1 ? 's' : ''}`);
+    
+    if (results.length > 0) {
+      const winnersText = results
+        .map(r => `• ${getRegionalLabel(r.matchup.position, tournament.phase)}: **${r.winner.title}** (${r.votes1} vs ${r.votes2})`)
+        .join('\n');
+      embed.addFields({ name: '🏆 Winners', value: winnersText, inline: false });
+    }
+    
+    if (tiebreakersCreated.length > 0) {
+      const tiebreakerText = tiebreakersCreated
+        .map(tb => `• ${tb.tiedOptions.map(o => o.title).join(' vs ')}`)
+        .join('\n');
+      embed.addFields({
+        name: '⚖️ Tiebreakers Created',
+        value: tiebreakerText + `\n\nVoting duration: ${tiebreakerDurationStr}`,
+        inline: false
+      });
+    }
+    
+    await interaction.editReply({ embeds: [embed] });
+    
+  } else {
+    await interaction.editReply(`❌ Tournament is in "${tournament.status}" phase. Cannot close voting.`);
+  }
 }
 
 async function handleStatus(interaction) {
