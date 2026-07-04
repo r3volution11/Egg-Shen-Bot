@@ -399,6 +399,159 @@ export function clearAllTimers() {
 }
 
 /**
+ * Adjust the duration of an active timer
+ * Calculates elapsed time and reschedules auto-stop based on new total duration
+ * @param {string} channelId - Discord channel ID
+ * @param {number} newDurationMinutes - New total duration in minutes
+ * @param {object} client - Discord client (needed for auto-stop callback)
+ * @returns {object|null} - Updated timer data with remaining time, or null if no timer
+ */
+export function adjustTimerDuration(channelId, newDurationMinutes, client) {
+  const timer = activeTimers.get(channelId);
+  
+  if (!timer) {
+    return null;
+  }
+
+  // Calculate elapsed time
+  const elapsedMs = Date.now() - timer.startTime;
+  const elapsedMinutes = elapsedMs / (60 * 1000);
+  
+  // If new duration is less than elapsed time, the timer would be expired
+  if (newDurationMinutes <= elapsedMinutes) {
+    return {
+      error: 'duration_too_short',
+      elapsedMinutes: Math.ceil(elapsedMinutes),
+      message: `Timer has already run for ${Math.ceil(elapsedMinutes)} minutes. New duration must be longer.`
+    };
+  }
+
+  // Clear existing auto-stop timeout if it exists
+  if (timer.autoStopTimeout) {
+    clearTimeout(timer.autoStopTimeout);
+  }
+
+  // Calculate new endTime
+  const newEndTime = timer.startTime + (newDurationMinutes * 60 * 1000);
+  const remainingMs = newEndTime - Date.now();
+
+  // Update timer data
+  timer.duration = newDurationMinutes;
+  timer.endTime = newEndTime;
+
+  // Set up new auto-stop timeout
+  if (client) {
+    const autoStopTimeout = setTimeout(async () => {
+      console.log(`[Timer] Auto-stopping adjusted timer in channel ${channelId} after ${newDurationMinutes} minutes`);
+      const result = stopTimer(channelId);
+      
+      if (result) {
+        try {
+          const channel = await client.channels.fetch(channelId);
+          if (channel && channel.isTextBased()) {
+            // Auto-log to watch history if timer has a label
+            if (result.label) {
+              await autoLogTimerToWatchHistory(
+                channel,
+                client,
+                result.label,
+                result.elapsedFormatted,
+                result.username,
+                channelId,
+                result.userId
+              );
+            } else {
+              // Timer without label - show button to manually log
+              const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+              
+              const embed = new EmbedBuilder()
+                .setColor(0xFF0000)
+                .setTitle('⏰ Timer Completed 🛑')
+                .setDescription('Timer has completed')
+                .addFields(
+                  {
+                    name: 'Total Time',
+                    value: result.elapsedFormatted,
+                    inline: true,
+                  },
+                  {
+                    name: 'Started by',
+                    value: result.username,
+                    inline: true,
+                  }
+                )
+                .setFooter({ text: 'Use the button below to log what you watched • Only timer starter/mods/admins can log' })
+                .setTimestamp();
+
+              // Add button for manual logging (timer starter/mods/admins only)
+              const button = new ButtonBuilder()
+                .setCustomId(`log_watched_${channelId}_${result.userId}`)
+                .setLabel('Log to Watch History')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('📝');
+
+              const row = new ActionRowBuilder().addComponents(button);
+
+              await channel.send({ embeds: [embed], components: [row] });
+            }
+          }
+        } catch (error) {
+          console.error('[Timer] Error sending auto-stop message:', error);
+        }
+      }
+    }, remainingMs);
+
+    timer.autoStopTimeout = autoStopTimeout;
+  }
+
+  // Save to disk
+  saveTimers().catch(err => console.error('Failed to save timers:', err));
+
+  return {
+    success: true,
+    duration: newDurationMinutes,
+    remainingMs,
+    remainingFormatted: formatElapsedTime(remainingMs),
+    elapsedMs,
+    elapsedFormatted: formatElapsedTime(elapsedMs),
+  };
+}
+
+/**
+ * Disable auto-stop for an active timer
+ * Timer will continue running until manually stopped
+ * @param {string} channelId - Discord channel ID
+ * @returns {boolean} - True if disabled, false if no timer or already disabled
+ */
+export function disableTimerAutostop(channelId) {
+  const timer = activeTimers.get(channelId);
+  
+  if (!timer) {
+    return false;
+  }
+
+  // Check if auto-stop is already disabled
+  if (!timer.duration && !timer.endTime && !timer.autoStopTimeout) {
+    return false; // Already disabled
+  }
+
+  // Clear the timeout if it exists
+  if (timer.autoStopTimeout) {
+    clearTimeout(timer.autoStopTimeout);
+    delete timer.autoStopTimeout;
+  }
+
+  // Remove duration and endTime
+  delete timer.duration;
+  delete timer.endTime;
+
+  // Save to disk
+  saveTimers().catch(err => console.error('Failed to save timers:', err));
+
+  return true;
+}
+
+/**
  * Automatically log timer to watch history (for auto-stop)
  * @param {object} channel - Discord channel
  * @param {object} client - Discord client
