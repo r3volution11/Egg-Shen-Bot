@@ -164,10 +164,19 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption(option =>
         option
           .setName('max-titles')
-          .setDescription('Maximum titles (2-32: bracket mode, 33-48: group stage mode)')
+          .setDescription('Max titles (2-32: bracket, 36-48: groups)')
           .setRequired(false)
-          .setMinValue(2)
-          .setMaxValue(48)
+          .addChoices(
+            { name: '2 titles (Finals only)', value: 2 },
+            { name: '4 titles (Semifinals)', value: 4 },
+            { name: '8 titles (Quarterfinals)', value: 8 },
+            { name: '16 titles (Round of 16)', value: 16 },
+            { name: '32 titles (Round of 32)', value: 32 },
+            { name: '36 titles (9 groups)', value: 36 },
+            { name: '40 titles (10 groups)', value: 40 },
+            { name: '44 titles (11 groups)', value: 44 },
+            { name: '48 titles (12 groups)', value: 48 }
+          )
       )
   )
   .addSubcommand(subcommand =>

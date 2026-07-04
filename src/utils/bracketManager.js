@@ -175,39 +175,50 @@ function getStartingRound(participantCount) {
  * Create a new tournament
  */
 /**
+ * Get valid tournament sizes
+ * @returns {Object} Object with bracket and group mode valid sizes
+ */
+export function getValidTournamentSizes() {
+  return {
+    bracket: [2, 4, 8, 16, 32], // Powers of 2 for clean brackets
+    groups: [36, 40, 44, 48],    // Multiples of 4 (9, 10, 11, 12 groups)
+    all: [2, 4, 8, 16, 32, 36, 40, 44, 48]
+  };
+}
+
+/**
  * Determine tournament mode and group count based on max titles
  * @param {number} maxTitles - Maximum number of titles for tournament
- * @returns {{mode: string, groupCount: number|null}} Mode and group count
+ * @returns {{mode: string, groupCount: number|null, error: string|null}} Mode, group count, and error
  */
 function determineTournamentMode(maxTitles) {
+  const validSizes = getValidTournamentSizes();
+  
+  // Check if value is valid
+  if (!validSizes.all.includes(maxTitles)) {
+    return { 
+      mode: null, 
+      groupCount: null, 
+      error: `Invalid title count. Must be one of: ${validSizes.all.join(', ')}` 
+    };
+  }
+  
   // ≤32 titles: Pure bracket mode (no groups)
   if (maxTitles <= 32) {
-    return { mode: 'bracket', groupCount: null };
+    return { mode: 'bracket', groupCount: null, error: null };
   }
   
-  // 33-48 titles: Group stage mode
-  // Calculate optimal group count (each group has 4 titles)
-  const groupCount = Math.ceil(maxTitles / 4);
+  // 33-48 titles: Group stage mode (must be divisible by 4)
+  const groupCount = maxTitles / 4;
   
-  // Validate range
-  if (groupCount < 4 || groupCount > 12) {
-    return null; // Invalid
-  }
-  
-  return { mode: 'groups', groupCount };
+  return { mode: 'groups', groupCount, error: null };
 }
 
 export function createTournament(guildId, name, creatorId, maxTitles = 32) {
-  // Validate title count (2-48)
-  if (maxTitles < 2 || maxTitles > 48) {
-    console.error('Invalid title count. Must be between 2 and 48.');
-    return null;
-  }
-  
-  // Determine tournament mode
+  // Determine tournament mode and validate
   const config = determineTournamentMode(maxTitles);
-  if (!config) {
-    console.error('Could not determine valid tournament configuration.');
+  if (config.error) {
+    console.error(config.error);
     return null;
   }
   
