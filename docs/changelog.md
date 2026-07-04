@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Tournament Size Validation** (2026-07-04)
+  - **What changed:** The `max-titles` parameter now only accepts specific valid tournament sizes
+  - **Valid bracket sizes:** 2, 4, 8, 16, 32 (powers of 2 for balanced single-elimination)
+  - **Valid group sizes:** 36, 40, 44, 48 (multiples of 4 for complete groups of 4 entries each)
+  - **Why:** Prevents awkward tournament structures like 7-title brackets (requiring many byes) or 35-title group stages (leaving incomplete groups)
+  - **User experience:** Discord command shows dropdown with 9 labeled choices (e.g., "8 titles (Quarterfinals)", "36 titles (9 groups)")
+  - **Benefits:**
+    - Ensures clean, professional tournament structures
+    - No confusing bracket layouts with excessive byes
+    - Complete groups in group stage mode (all groups have exactly 4 entries)
+    - Clear labeling helps admins choose the right size
+
 - **Streamlined Tournament Commands with Smart Phase Detection** (2026-07-03)
   - **What changed:** Reduced from 25 to 18 subcommands by consolidating and adding intelligence
   - **New smart commands:**
