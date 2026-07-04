@@ -41,7 +41,7 @@ A: Only server administrators and moderators can create, manage, and advance tou
 A: After group stage, the top 2 from each group advance automatically. Then the system calculates how many third-place finishers are needed to reach the next power of 2 (4, 8, 16, or 32). For example: 8 groups = 16 direct + 0 wildcards = 16 total; 12 groups = 24 direct + 8 wildcards = 32 total.
 
 **Q: What happens if there's a tie?**  
-A: The system uses random selection as a tiebreaker - ensuring fair and unbiased results.
+A: The bot automatically creates a short tiebreaker voting round (default 1 hour, configurable). Members vote again between the tied options. If the tiebreaker also ties, random selection is used as a final fallback.
 
 **Q: Can users change their votes?**  
 A: Yes! Users can change their votes anytime before the group or matchup is closed.
@@ -67,10 +67,10 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 **Group A:**
 ```
-/bracket add-title group:A type:movie title:The Thing
-/bracket add-title group:A type:movie title:Alien
-/bracket add-title group:A type:movie title:The Exorcist
-/bracket add-title group:A type:movie title:The Shining
+/bracket manage-titles action:"Add Title" group:A type:movie title:The Thing
+/bracket manage-titles action:"Add Title" group:A type:movie title:Alien
+/bracket manage-titles action:"Add Title" group:A type:movie title:The Exorcist
+/bracket manage-titles action:"Add Title" group:A type:movie title:The Shining
 ```
 
 **Repeat for Groups B, C, D** with different movies.
@@ -97,9 +97,12 @@ A: No, only one tournament can be active per server at a time. You must cancel o
 
 ### Step 5: Members Vote (Everyone)
 
-```
-/bracket vote-group group:A choice1:1 choice2:3
-```
+Click the **"Start Voting"** button on the voting message to see your options!
+
+**How voting works:**
+- Click 2 buttons to select your favorites in each group
+- Your selections are saved instantly
+- You can change your votes anytime before voting closes
 
 Check your voting status: `/bracket my-votes`
 
@@ -110,6 +113,8 @@ Check your voting status: `/bracket my-votes`
 ```
 
 📊 Results calculated! Top 2 from each group advance. Best 3rd place finishers become wildcards.
+
+💡 **Tip:** Add `tiebreaker-duration:30m` if you want faster tiebreaker rounds!
 
 ### Step 7: Advance to Knockout (Admin Only)
 
@@ -130,20 +135,25 @@ Check your voting status: `/bracket my-votes`
 
 ### Step 8: Open Knockout Round (Admin Only)
 
-**Choose your opening style:**
+**🆕 Use the smart command (recommended):**
 
 ```
-# Option A: Open entire round at once
-/bracket open-knockout duration:24h
-
-# Option B: Open by region (left/right sides)
-/bracket open-region region:1 duration:24h
-
-# Option C: Open individual matchups
-/bracket open-matchup matchup:1A duration:24h
+/bracket open duration:24h
 ```
 
-💡 **Regional Labels:** Matchups use labels like **1A, 1B** (left side) and **2A, 2B** (right side) for easy reference.
+The bot automatically detects which round you're in and opens all matchups!
+
+**Or use granular control for specific matchups:**
+
+```
+# Open specific matchups
+/bracket open-matchup matchup:1A,1B,2A duration:24h
+
+# Leave matchup parameter blank for interactive button selection
+/bracket open-matchup duration:24h
+```
+
+💡 **Regional Labels:** Matchups use labels like **1A, 1B, 2C, 2D** for easy reference across 4 regions.
 
 **→ [Learn about knockout rounds and regional system](./knockout)**
 
@@ -163,11 +173,21 @@ Click the **"Start Voting"** button to get your personal voting dashboard.
 
 ### Step 10: Close Voting & Advance Winners (Admin Only)
 
+**🆕 Use the smart command (recommended):**
+
 ```
-/bracket close-knockout
+/bracket close
 ```
 
-🏁 Winners auto-advance to next round!
+The bot automatically detects which round you're in, closes all matchups, and advances winners!
+
+**Or use granular control for specific matchups:**
+
+```
+/bracket close-matchup matchup:1A,2B
+```
+
+🏁 Winners auto-advance to next round! Ties automatically create short tiebreaker votes.
 
 ### Step 11: Repeat for Each Round
 
