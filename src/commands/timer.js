@@ -266,7 +266,25 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('autostop')
-      .setDescription('🚫 Disable auto-stop for the active timer (must manually stop)')
+      .setDescription('⚙️ Enable or disable auto-stop for the active timer')
+      .addStringOption(option =>
+        option
+          .setName('autostop')
+          .setDescription('Enable or disable auto-stop')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Enable', value: 'enable' },
+            { name: 'Disable', value: 'disable' }
+          )
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Duration in minutes (required when enabling, e.g., 140 for 2h 20m)')
+          .setRequired(false)
+          .setMinValue(1)
+          .setMaxValue(600) // 10 hours max
+      )
   );
 
 export async function execute(interaction) {
@@ -743,6 +761,8 @@ export async function execute(interaction) {
     await interaction.reply({ embeds: [embed] });
     
   } else if (subcommand === 'autostop') {
+    const action = interaction.options.getString('autostop');
+    const duration = interaction.options.getInteger('duration');
     const timer = getTimerStatus(channelId);
     
     if (!timer) {
@@ -752,47 +772,102 @@ export async function execute(interaction) {
       });
     }
     
-    if (!timer.duration && !timer.endTime) {
-      return await interaction.reply({
-        content: '❌ This timer does not have auto-stop enabled. It must already be stopped manually.',
-        ephemeral: true,
-      });
+    if (action === 'disable') {
+      // Disable auto-stop
+      if (!timer.duration && !timer.endTime) {
+        return await interaction.reply({
+          content: '❌ This timer does not have auto-stop enabled. It already requires manual stopping.',
+          ephemeral: true,
+        });
+      }
+      
+      const success = disableTimerAutostop(channelId);
+      
+      if (!success) {
+        return await interaction.reply({
+          content: '❌ Failed to disable auto-stop for this timer.',
+          ephemeral: true,
+        });
+      }
+      
+      const embed = new EmbedBuilder()
+        .setColor(0xFFA500)
+        .setTitle('🚫 Auto-Stop Disabled')
+        .setDescription(timer.label ? `**${timer.label}**\n\nAuto-stop has been disabled.` : 'Auto-stop has been disabled.')
+        .addFields(
+          {
+            name: 'Timer Status',
+            value: 'Timer will continue running until manually stopped',
+            inline: false,
+          },
+          {
+            name: 'Time Elapsed',
+            value: timer.elapsedFormatted,
+            inline: true,
+          },
+          {
+            name: 'Started by',
+            value: timer.username,
+            inline: true,
+          }
+        )
+        .setFooter({ text: 'Use /timer stop to end the timer when finished' })
+        .setTimestamp();
+      
+      await interaction.reply({ embeds: [embed] });
+      
+    } else if (action === 'enable') {
+      // Enable auto-stop
+      if (!duration) {
+        return await interaction.reply({
+          content: '❌ You must specify a `duration` parameter when enabling auto-stop (e.g., `duration:140` for 2h 20m).',
+          ephemeral: true,
+        });
+      }
+      
+      if (timer.duration && timer.endTime) {
+        return await interaction.reply({
+          content: '❌ This timer already has auto-stop enabled. Use `/timer adjust duration:[minutes]` to change the duration.',
+          ephemeral: true,
+        });
+      }
+      
+      const result = adjustTimerDuration(channelId, duration, interaction.client);
+      
+      if (!result || result.error) {
+        const errorMsg = result?.message || 'Failed to enable auto-stop for this timer.';
+        return await interaction.reply({
+          content: `❌ ${errorMsg}`,
+          ephemeral: true,
+        });
+      }
+      
+      const embed = new EmbedBuilder()
+        .setColor(0x00FF00)
+        .setTitle('✅ Auto-Stop Enabled')
+        .setDescription(timer.label ? `**${timer.label}**\n\nAuto-stop has been enabled.` : 'Auto-stop has been enabled.')
+        .addFields(
+          {
+            name: 'Total Duration',
+            value: `${duration} minutes (${formatRuntime(duration)})`,
+            inline: true,
+          },
+          {
+            name: 'Time Elapsed',
+            value: result.elapsedFormatted,
+            inline: true,
+          },
+          {
+            name: 'Time Remaining',
+            value: result.remainingFormatted,
+            inline: true,
+          }
+        )
+        .setFooter({ text: 'Timer will automatically stop when duration is reached' })
+        .setTimestamp();
+      
+      await interaction.reply({ embeds: [embed] });
     }
-    
-    const success = disableTimerAutostop(channelId);
-    
-    if (!success) {
-      return await interaction.reply({
-        content: '❌ Failed to disable auto-stop for this timer.',
-        ephemeral: true,
-      });
-    }
-    
-    const embed = new EmbedBuilder()
-      .setColor(0xFFA500)
-      .setTitle('🚫 Auto-Stop Disabled')
-      .setDescription(timer.label ? `**${timer.label}**\n\nAuto-stop has been disabled.` : 'Auto-stop has been disabled.')
-      .addFields(
-        {
-          name: 'Timer Status',
-          value: 'Timer will continue running until manually stopped',
-          inline: false,
-        },
-        {
-          name: 'Time Elapsed',
-          value: timer.elapsedFormatted,
-          inline: true,
-        },
-        {
-          name: 'Started by',
-          value: timer.username,
-          inline: true,
-        }
-      )
-      .setFooter({ text: 'Use /timer stop to end the timer when finished' })
-      .setTimestamp();
-    
-    await interaction.reply({ embeds: [embed] });
   }
 }
 
