@@ -478,24 +478,6 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('cancel')
       .setDescription('Cancel the tournament (Admin/Mod only)')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('resolve-tiebreaker')
-      .setDescription('Manually resolve a tiebreaker by selecting winner (Admin/Mod only)')
-      .addStringOption(option =>
-        option
-          .setName('tiebreaker-id')
-          .setDescription('ID of the tiebreaker to resolve')
-          .setRequired(true)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('winner-index')
-          .setDescription('Index of the winning option (0, 1, 2, etc.)')
-          .setRequired(true)
-          .setMinValue(0)
-      )
   );
 
 export async function execute(interaction) {
