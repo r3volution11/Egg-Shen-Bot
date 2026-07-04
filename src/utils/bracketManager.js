@@ -192,6 +192,7 @@ export function createTournament(guildId, name, creatorId, groupCount = 8) {
     createdAt: Date.now(),
     groups: {}, // A-L, each with 4 movies
     groupResults: {}, // Results after group stage voting
+    tiebreakers: [], // Active tiebreaker rounds: { id, groupId, position, tiedOptions, votes, deadline, status }
     knockoutBracket: [], // Array of matchups
     knockoutResults: {}, // Results of knockout matchups
     votes: {}, // userId -> {groupId: [movieIndexes], matchupId: movieIndex}
@@ -586,12 +587,18 @@ export function voteGroupStage(guildId, userId, groupId, movieIndexes) {
 
 /**
  * Close group voting and calculate results
+ * Handles ties by creating tiebreaker rounds
+ * @param {string} guildId 
+ * @param {Array} groupIds - Array of group IDs to close
+ * @param {number} tiebreakerDurationMs - Duration for any tiebreaker rounds (default 1 hour)
  */
-export function closeGroupVoting(guildId, groupIds) {
+export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 3600000) {
   const tournament = loadTournament(guildId);
   if (!tournament) {
     return { success: false, error: 'No tournament found' };
   }
+  
+  const tiebreakersCreated = [];
   
   groupIds.forEach(groupId => {
     const group = tournament.groups[groupId];
@@ -610,7 +617,7 @@ export function closeGroupVoting(guildId, groupIds) {
       voteCount: movie.votes.length,
     })).sort((a, b) => b.voteCount - a.voteCount);
     
-    // Handle ties with random selection
+    // Detect ties
     const firstPlace = [results[0]];
     const secondPlace = [];
     const thirdPlace = [];
@@ -624,8 +631,21 @@ export function closeGroupVoting(guildId, groupIds) {
       }
     }
     
-    // Random selection for 1st place
-    const winner = firstPlace[Math.floor(Math.random() * firstPlace.length)];
+    // Check for 1st place tie - create tiebreaker if needed
+    let winner;
+    if (firstPlace.length > 1) {
+      // Create tiebreaker for 1st place
+      const result = createTiebreaker(guildId, groupId, '1st', firstPlace, tiebreakerDurationMs);
+      if (result.success) {
+        tiebreakersCreated.push({ groupId, position: '1st', tiebreaker: result.tiebreaker });
+        group.status = 'tiebreaker'; // Mark group as waiting for tiebreaker
+        return; // Don't finalize this group yet
+      }
+      // Fallback to random if tiebreaker creation failed
+      winner = firstPlace[Math.floor(Math.random() * firstPlace.length)];
+    } else {
+      winner = firstPlace[0];
+    }
     
     // Find 2nd place (skip only the selected winner, not all tied for first)
     const remainingAfterFirst = results.filter(r => r.index !== winner.index);
@@ -640,10 +660,28 @@ export function closeGroupVoting(guildId, groupIds) {
       }
     }
     
-    // Random selection for 2nd place
-    const runnerUp = secondPlace.length > 0 
-      ? secondPlace[Math.floor(Math.random() * secondPlace.length)] 
-      : null;
+    // Check for 2nd place tie - create tiebreaker if needed
+    let runnerUp;
+    if (secondPlace.length > 1) {
+      // Create tiebreaker for 2nd place
+      const result = createTiebreaker(guildId, groupId, '2nd', secondPlace, tiebreakerDurationMs);
+      if (result.success) {
+        tiebreakersCreated.push({ groupId, position: '2nd', tiebreaker: result.tiebreaker });
+        group.status = 'tiebreaker';
+        // Store partial results
+        tournament.groupResults[groupId] = {
+          first: winner,
+          second: null, // To be determined by tiebreaker
+          third: null,
+          allResults: results,
+        };
+        return;
+      }
+      // Fallback to random
+      runnerUp = secondPlace[Math.floor(Math.random() * secondPlace.length)];
+    } else {
+      runnerUp = secondPlace.length > 0 ? secondPlace[0] : null;
+    }
     
     // Find 3rd place (skip only the selected winner and runnerUp)
     const remainingAfterSecond = remainingAfterFirst.filter(r => 
@@ -660,11 +698,12 @@ export function closeGroupVoting(guildId, groupIds) {
       }
     }
     
-    // Random selection for 3rd place
+    // Random selection for 3rd place (less critical, so we don't create tiebreaker)
     const third = thirdPlace.length > 0 
       ? thirdPlace[Math.floor(Math.random() * thirdPlace.length)] 
       : null;
     
+    // Finalize group
     group.status = 'closed';
     group.votingOpen = false;
     group.votingClosed = Date.now();
@@ -678,8 +717,354 @@ export function closeGroupVoting(guildId, groupIds) {
   });
   
   return saveTournament(guildId, tournament)
-    ? { success: true, tournament }
+    ? { success: true, tournament, tiebreakersCreated }
     : { success: false, error: 'Failed to save' };
+}
+
+/**
+ * Create a tiebreaker round for a group
+ * @param {string} guildId 
+ * @param {string} groupId 
+ * @param {string} position - '1st', '2nd', or '3rd'
+ * @param {Array} tiedOptions - Array of tied movie objects
+ * @param {number} durationMs - Tiebreaker duration in milliseconds
+ * @returns {object} - { success, tiebreaker } or { success: false, error }
+ */
+export function createTiebreaker(guildId, groupId, position, tiedOptions, durationMs) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+
+  if (!tournament.tiebreakers) {
+    tournament.tiebreakers = [];
+  }
+
+  const tiebreaker = {
+    id: crypto.randomBytes(6).toString('hex'),
+    groupId,
+    position, // '1st', '2nd', or '3rd'
+    tiedOptions, // Array of movie objects that are tied
+    votes: {}, // userId -> optionIndex
+    deadline: Date.now() + durationMs,
+    status: 'active', // active, closed
+    createdAt: Date.now(),
+  };
+
+  tournament.tiebreakers.push(tiebreaker);
+
+  return saveTournament(guildId, tournament)
+    ? { success: true, tiebreaker, tournament }
+    : { success: false, error: 'Failed to save tiebreaker' };
+}
+
+/**
+ * Vote in a tiebreaker
+ * @param {string} guildId 
+ * @param {string} tiebreakerId 
+ * @param {string} userId 
+ * @param {number} optionIndex - Index of the tied option being voted for
+ * @returns {object}
+ */
+export function voteInTiebreaker(guildId, tiebreakerId, userId, optionIndex) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+
+  const tiebreaker = tournament.tiebreakers.find(t => t.id === tiebreakerId);
+  if (!tiebreaker) {
+    return { success: false, error: 'Tiebreaker not found' };
+  }
+
+  if (tiebreaker.status !== 'active') {
+    return { success: false, error: 'Tiebreaker voting is closed' };
+  }
+
+  if (Date.now() > tiebreaker.deadline) {
+    return { success: false, error: 'Tiebreaker voting has expired' };
+  }
+
+  // Record vote
+  tiebreaker.votes[userId] = optionIndex;
+
+  // Track participation
+  trackVote(tournament, userId, 'group');
+
+  return saveTournament(guildId, tournament)
+    ? { success: true, tournament, tiebreaker }
+    : { success: false, error: 'Failed to save vote' };
+}
+
+/**
+ * Close a tiebreaker and determine the winner
+ * @param {string} guildId 
+ * @param {string} tiebreakerId 
+ * @returns {object} - { success, winner, tiebreaker } or { success: false, error }
+ */
+export function closeTiebreaker(guildId, tiebreakerId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+
+  const tiebreaker = tournament.tiebreakers.find(t => t.id === tiebreakerId);
+  if (!tiebreaker) {
+    return { success: false, error: 'Tiebreaker not found' };
+  }
+
+  if (tiebreaker.status === 'closed') {
+    return { success: false, error: 'Tiebreaker already closed' };
+  }
+
+  // Count votes for each option
+  const voteCounts = {};
+  tiebreaker.tiedOptions.forEach((_, index) => {
+    voteCounts[index] = 0;
+  });
+
+  Object.values(tiebreaker.votes).forEach(optionIndex => {
+    voteCounts[optionIndex] = (voteCounts[optionIndex] || 0) + 1;
+  });
+
+  // Find winner (highest votes)
+  let winnerIndex = 0;
+  let maxVotes = voteCounts[0] || 0;
+  const tiedForWin = [0];
+
+  for (let i = 1; i < tiebreaker.tiedOptions.length; i++) {
+    const votes = voteCounts[i] || 0;
+    if (votes > maxVotes) {
+      maxVotes = votes;
+      winnerIndex = i;
+      tiedForWin.length = 0;
+      tiedForWin.push(i);
+    } else if (votes === maxVotes) {
+      tiedForWin.push(i);
+    }
+  }
+
+  // If still tied, random selection
+  if (tiedForWin.length > 1) {
+    winnerIndex = tiedForWin[Math.floor(Math.random() * tiedForWin.length)];
+  }
+
+  const winner = tiebreaker.tiedOptions[winnerIndex];
+
+  tiebreaker.status = 'closed';
+  tiebreaker.closedAt = Date.now();
+  tiebreaker.winner = winner;
+  tiebreaker.voteCounts = voteCounts;
+
+  return saveTournament(guildId, tournament)
+    ? { success: true, winner, tiebreaker, tournament }
+    : { success: false, error: 'Failed to save tiebreaker result' };
+}
+
+/**
+ * Finalize group results after tiebreaker resolution
+ * @param {string} guildId 
+ * @param {string} tiebreakerId 
+ * @returns {object}
+ */
+export function finalizeGroupAfterTiebreaker(guildId, tiebreakerId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+
+  const tiebreaker = tournament.tiebreakers.find(t => t.id === tiebreakerId);
+  if (!tiebreaker) {
+    return { success: false, error: 'Tiebreaker not found' };
+  }
+
+  if (!tiebreaker.winner) {
+    return { success: false, error: 'Tiebreaker has no winner yet' };
+  }
+
+  const group = tournament.groups[tiebreaker.groupId];
+  if (!group) {
+    return { success: false, error: 'Group not found' };
+  }
+
+  const groupResults = tournament.groupResults[tiebreaker.groupId] || {};
+
+  // Apply tiebreaker winner to the appropriate position
+  if (tiebreaker.position === '1st') {
+    groupResults.first = tiebreaker.winner;
+    // Now need to determine 2nd and 3rd from remaining entries
+    const results = group.movies.map(movie => ({
+      index: movie.index,
+      title: movie.title,
+      type: movie.type,
+      id: movie.id,
+      year: movie.year,
+      posterUrl: movie.posterUrl,
+      customImageUrl: movie.customImageUrl,
+      metadata: movie.metadata,
+      voteCount: movie.votes.length,
+    })).sort((a, b) => b.voteCount - a.voteCount);
+
+    const remainingAfterFirst = results.filter(r => r.index !== tiebreaker.winner.index);
+    groupResults.second = remainingAfterFirst[0] || null;
+    groupResults.third = remainingAfterFirst[1] || null;
+    groupResults.allResults = results;
+  } else if (tiebreaker.position === '2nd') {
+    groupResults.second = tiebreaker.winner;
+    // 1st is already set, determine 3rd from remaining
+    const results = group.movies.map(movie => ({
+      index: movie.index,
+      title: movie.title,
+      type: movie.type,
+      id: movie.id,
+      year: movie.year,
+      posterUrl: movie.posterUrl,
+      customImageUrl: movie.customImageUrl,
+      metadata: movie.metadata,
+      voteCount: movie.votes.length,
+    })).sort((a, b) => b.voteCount - a.voteCount);
+
+    const remainingAfterSecond = results.filter(r => 
+      r.index !== groupResults.first.index && r.index !== tiebreaker.winner.index
+    );
+    groupResults.third = remainingAfterSecond[0] || null;
+    groupResults.allResults = results;
+  }
+
+  tournament.groupResults[tiebreaker.groupId] = groupResults;
+  group.status = 'closed';
+  group.votingClosed = Date.now();
+
+  return saveTournament(guildId, tournament)
+    ? { success: true, tournament, groupResults }
+    : { success: false, error: 'Failed to save group results' };
+}
+
+/**
+ * Finalize knockout matchup after tiebreaker resolution
+ * @param {string} guildId 
+ * @param {string} tiebreakerId 
+ * @returns {object}
+ */
+export function finalizeKnockoutMatchupAfterTiebreaker(guildId, tiebreakerId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+
+  const tiebreaker = tournament.tiebreakers.find(t => t.id === tiebreakerId);
+  if (!tiebreaker) {
+    return { success: false, error: 'Tiebreaker not found' };
+  }
+
+  if (!tiebreaker.winner) {
+    return { success: false, error: 'Tiebreaker has no winner yet' };
+  }
+
+  // For knockout tiebreakers, groupId is actually the matchupId
+  const matchupId = tiebreaker.groupId;
+  const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
+  
+  if (!matchup) {
+    return { success: false, error: 'Matchup not found' };
+  }
+
+  // Set winner and close matchup
+  matchup.status = 'closed';
+  matchup.votingClosed = Date.now();
+  matchup.winner = tiebreaker.winner;
+  matchup.votes1Count = matchup.votes.movie1.length;
+  matchup.votes2Count = matchup.votes.movie2.length;
+
+  tournament.knockoutResults[matchupId] = {
+    winner: tiebreaker.winner,
+    votes1: matchup.votes.movie1.length,
+    votes2: matchup.votes.movie2.length,
+    wasTie: true,
+    resolvedByTiebreaker: true,
+  };
+
+  // Check if we should auto-advance to next round
+  const currentRoundMatchups = tournament.knockoutBracket.filter(
+    m => m.round === tournament.phase && m.movie1 && m.movie2
+  );
+  const allClosed = currentRoundMatchups.every(m => m.status === 'closed');
+
+  if (allClosed) {
+    // Auto-advance logic (same as in closeKnockoutMatchup)
+    const roundMap = {
+      'round_of_32': 'round_of_16',
+      'round_of_16': 'quarterfinals',
+      'quarterfinals': 'semifinals',
+      'semifinals': 'finals',
+    };
+    
+    const nextRound = roundMap[tournament.phase];
+    
+    if (nextRound) {
+      const nextRoundMatchups = tournament.knockoutBracket.filter(m => m.round === nextRound);
+      
+      currentRoundMatchups.forEach((completedMatchup, index) => {
+        const winner = completedMatchup.winner;
+        if (!winner) return;
+        
+        const nextMatchupIndex = Math.floor(index / 2);
+        const nextMatchup = nextRoundMatchups[nextMatchupIndex];
+        
+        if (nextMatchup) {
+          if (index % 2 === 0) {
+            nextMatchup.movie1 = winner;
+          } else {
+            nextMatchup.movie2 = winner;
+          }
+        }
+      });
+      
+      tournament.phase = nextRound;
+    } else if (tournament.phase === 'finals') {
+      // Tournament complete
+      tournament.status = 'completed';
+      tournament.winner = matchup.winner;
+    }
+  }
+
+  return saveTournament(guildId, tournament)
+    ? { success: true, tournament, matchup, autoAdvanced: allClosed }
+    : { success: false, error: 'Failed to save matchup result' };
+}
+
+/**
+ * Manually resolve a tiebreaker (admin override)
+ * @param {string} guildId 
+ * @param {string} tiebreakerId 
+ * @param {number} winnerIndex - Index of the option to declare as winner
+ * @returns {object}
+ */
+export function manuallyResolveTiebreaker(guildId, tiebreakerId, winnerIndex) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) {
+    return { success: false, error: 'No tournament found' };
+  }
+
+  const tiebreaker = tournament.tiebreakers.find(t => t.id === tiebreakerId);
+  if (!tiebreaker) {
+    return { success: false, error: 'Tiebreaker not found' };
+  }
+
+  if (winnerIndex < 0 || winnerIndex >= tiebreaker.tiedOptions.length) {
+    return { success: false, error: 'Invalid winner index' };
+  }
+
+  const winner = tiebreaker.tiedOptions[winnerIndex];
+
+  tiebreaker.status = 'closed';
+  tiebreaker.closedAt = Date.now();
+  tiebreaker.winner = winner;
+  tiebreaker.manuallyResolved = true;
+
+  return saveTournament(guildId, tournament)
+    ? { success: true, winner, tiebreaker, tournament }
+    : { success: false, error: 'Failed to save manual resolution' };
 }
 
 /**
@@ -733,6 +1118,27 @@ export function generateKnockoutBracket(guildId) {
   const tournament = loadTournament(guildId);
   if (!tournament) {
     return { success: false, error: 'No tournament found' };
+  }
+  
+  // Validate that ALL groups have been closed before advancing
+  const totalGroups = tournament.groupCount || Object.keys(tournament.groups).length;
+  const closedGroups = Object.keys(tournament.groupResults).length;
+  
+  if (closedGroups < totalGroups) {
+    return { 
+      success: false, 
+      error: `Cannot advance to knockout: Only ${closedGroups} of ${totalGroups} groups have been closed. Close all groups first with \`/bracket close-group\`.` 
+    };
+  }
+  
+  // Check for active tiebreakers
+  const activeTiebreakers = (tournament.tiebreakers || []).filter(t => t.status === 'active');
+  if (activeTiebreakers.length > 0) {
+    const groupsWithTiebreakers = activeTiebreakers.map(t => t.groupId).join(', ');
+    return {
+      success: false,
+      error: `Cannot advance to knockout: Active tiebreakers in groups: ${groupsWithTiebreakers}. Resolve all tiebreakers first.`
+    };
   }
   
   // Get winners and runners-up
@@ -1113,7 +1519,14 @@ export function voteKnockout(guildId, userId, matchupId, choice) {
 /**
  * Close knockout matchup and determine winner
  */
-export function closeKnockoutMatchup(guildId, matchupId) {
+/**
+ * Close a knockout matchup and determine winner
+ * @param {string} guildId 
+ * @param {string} matchupId 
+ * @param {number} tiebreakerDurationMs - Duration for tiebreaker if needed (default 1 hour)
+ * @returns {object}
+ */
+export function closeKnockoutMatchup(guildId, matchupId, tiebreakerDurationMs = 3600000) {
   const tournament = loadTournament(guildId);
   if (!tournament) {
     return { success: false, error: 'No tournament found' };
@@ -1127,14 +1540,36 @@ export function closeKnockoutMatchup(guildId, matchupId) {
   const votes1 = matchup.votes.movie1.length;
   const votes2 = matchup.votes.movie2.length;
   
-  // Determine winner (random if tied)
+  // Determine winner
   let winner;
+  let tiebreakerCreated = false;
+  
   if (votes1 > votes2) {
     winner = matchup.movie1;
   } else if (votes2 > votes1) {
     winner = matchup.movie2;
   } else {
-    // Tie - random selection
+    // Tie - create tiebreaker vote
+    const tiedOptions = [matchup.movie1, matchup.movie2];
+    const result = createTiebreaker(guildId, matchupId, 'knockout', tiedOptions, tiebreakerDurationMs);
+    
+    if (result.success) {
+      matchup.status = 'tiebreaker';
+      matchup.tiebreakerId = result.tiebreaker.id;
+      
+      if (!saveTournament(guildId, tournament)) {
+        return { success: false, error: 'Failed to save tiebreaker' };
+      }
+      
+      return { 
+        success: true, 
+        tiebreaker: result.tiebreaker,
+        tiebreakerCreated: true,
+        matchup
+      };
+    }
+    
+    // Fallback to random if tiebreaker creation failed
     winner = Math.random() < 0.5 ? matchup.movie1 : matchup.movie2;
   }
   

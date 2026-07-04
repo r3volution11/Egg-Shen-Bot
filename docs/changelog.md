@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Automatic Tiebreaker Voting System** (2026-07-03)
+  - **What it does:** Automatically creates dedicated voting rounds when ties occur during tournaments
+  - **Applies to:**
+    - **Group stage:** 1st and 2nd place ties
+    - **Knockout rounds:** All matchup ties (Round of 32, Round of 16, Quarterfinals, Semifinals, Finals)
+  - **How it works:**
+    1. When closing voting with tied results, bot creates tiebreaker round
+    2. Users vote in short tiebreaker round (configurable duration, default 1 hour)
+    3. Tiebreaker winner advances automatically
+    4. If tiebreaker also ties, random selection used (prevents infinite loops)
+  - **Configurable duration:**
+    - **Group stage:** `/bracket close-groups groups:[A,B,C] tiebreaker-duration:[1h]`
+    - **Knockout:** `/bracket close-matchup matchup:[1A] tiebreaker-duration:[30m]`
+    - Format: "1h", "30m", "2h", etc. (5 min - 7 days)
+  - **Manual resolution:**
+    - **New command:** `/bracket resolve-tiebreaker tiebreaker-id:[id] winner:[1-based index]`
+    - **Who can use:** Tournament creator, Admins, Moderators
+    - **Use case:** Manually decide winner if needed instead of waiting for tiebreaker vote
+    - **Fallback:** If tiebreaker creation fails, random selection used
+  - **Benefits:**
+    - Fair resolution of ties through community voting
+    - Prevents arbitrary random selections for important decisions
+    - Flexible duration allows quick tiebreakers for fast tournaments
+    - Admin override available when needed
+- **Tournament Validation Before Knockout** (2026-07-03)
+  - **What changed:** `/bracket advance-knockout` now validates all groups are closed before generating bracket
+  - **Prevents:** Creating incomplete brackets (e.g., 12 matchups instead of 16 for Round of 32)
+  - **Error message:** Shows which groups still need to be closed
+  - **Also checks:** Active tiebreakers must be resolved before advancing
 - **Timer Duration Adjustment** (2026-07-03)
   - **New command:** `/timer adjust duration:[minutes]`
   - **What it does:** Adjusts the total duration of an active timer while it's running
