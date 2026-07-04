@@ -110,13 +110,18 @@ async function runSimulation() {
     
     section('🏆 TOURNAMENT SIMULATION START');
     
+    // CONFIGURATION: Change maxTitles to test different modes
+    // ≤32 titles = Bracket Mode (direct matchup voting)
+    // 33-48 titles = Group Stage Mode (group voting → knockout)
+    const maxTitles = 36; // Try: 8 (bracket), 16 (bracket), 32 (bracket), 36 (groups), 48 (groups)
+    
     // Step 1: Create Tournament
     section('Step 1: Create Tournament');
     const tournament = bracketManager.createTournament(
       SIMULATION_GUILD_ID,
       'Horror Movie Madness (Simulated)',
       'admin-user',
-      4 // 4 groups = 16 movies total
+      maxTitles
     );
     
     if (!tournament) {
@@ -125,79 +130,164 @@ async function runSimulation() {
     }
     
     log('✓ Tournament created: ' + tournament.name, 'green');
-    log(`  Groups: ${tournament.groupCount}`, 'cyan');
+    log(`  Mode: ${tournament.mode}`, 'cyan');
+    log(`  Max Titles: ${tournament.maxTitles}`, 'cyan');
+    if (tournament.mode === 'groups') {
+      log(`  Groups: ${tournament.groupCount}`, 'cyan');
+    }
     log(`  Status: ${tournament.status}`, 'cyan');
     
-    // Step 2: Add Titles to Groups
-    section('Step 2: Add Titles to Groups');
-    const moviesByGroup = {
-      A: ['The Thing', 'Alien', 'The Exorcist', 'The Shining'],
-      B: ['Hereditary', 'Midsommar', 'The Witch', 'It Follows'],
-      C: ['Evil Dead', 'Halloween', 'The Texas Chain Saw Massacre', 'A Nightmare on Elm Street'],
-      D: ['Scream', 'The Ring', 'The Descent', '28 Days Later']
+    // Route to appropriate simulation based on mode
+    if (tournament.mode === 'bracket') {
+      await runBracketModeSimulation();
+    } else {
+      await runGroupModeSimulation();
+    }
+    
+  } catch (error) {
+    log(`\n❌ SIMULATION FAILED: ${error.message}`, 'red');
+    console.error(error);
+  }
+}
+
+async function runBracketModeSimulation() {
+  const tournament = bracketManager.loadTournament(SIMULATION_GUILD_ID);
+  const targetTitles = Math.min(tournament.maxTitles, 8); // Limit to 8 for quick simulation
+  
+  // Step 2: Add Titles
+  section(`Step 2: Add ${targetTitles} Titles (Bracket Mode)`);
+  const movies = ['The Thing', 'Alien', 'The Exorcist', 'The Shining', 'Hereditary', 'Midsommar', 'The Witch', 'It Follows'];
+  
+  for (let i = 0; i < targetTitles; i++) {
+    const entry = {
+      id: `movie-${i + 1}`,
+      title: movies[i],
+      year: '2020',
+      posterUrl: `https://example.com/${movies[i].replace(/\s/g, '')}.jpg`
     };
     
-    for (const [group, movies] of Object.entries(moviesByGroup)) {
-      log(`\nGroup ${group}:`, 'yellow');
-      for (let i = 0; i < movies.length; i++) {
-        const entry = {
-          id: `${group.toLowerCase()}-movie-${i + 1}`,
-          title: movies[i],
-          year: '2020',
-          posterUrl: `https://example.com/${movies[i].replace(/\s/g, '')}.jpg`
-        };
-        
-        const result = bracketManager.addGroupTitle(SIMULATION_GUILD_ID, group, 'movie', entry);
-        if (result.success) {
-          log(`  ✓ ${movies[i]} (${result.titleCount}/4)`, 'green');
-        } else {
-          log(`  ❌ Failed: ${result.error}`, 'red');
-        }
-      }
-    }
-    
-    // Step 3: Open Groups for Voting
-    section('Step 3: Open Groups for Voting');
-    const deadline = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
-    const openResult = bracketManager.openGroupVoting(
-      SIMULATION_GUILD_ID,
-      ['A', 'B', 'C', 'D'],
-      deadline
-    );
-    
-    if (openResult.success) {
-      log('✓ All groups opened for voting', 'green');
+    const result = bracketManager.addTitle(SIMULATION_GUILD_ID, null, 'movie', entry);
+    if (result.success) {
+      log(`  ✓ ${movies[i]} (${result.titleCount}/${tournament.maxTitles})`, 'green');
     } else {
-      log(`❌ Failed to open groups: ${openResult.error}`, 'red');
+      log(`  ❌ Failed: ${result.error}`, 'red');
       return;
     }
-    
-    // Step 4: Simulate Voting
-    section('Step 4: Simulate Voting (10 users per group)');
-    for (const group of ['A', 'B', 'C', 'D']) {
-      const votes = simulateVotes(group, 10); // Increased to 10 users to reduce ties
-      log(`\nGroup ${group} - ${Object.keys(votes).length} votes cast:`, 'yellow');
+  }
+  
+  // Step 3: Generate Bracket
+  section('Step 3: Generate Bracket');
+  const bracketResult = bracketManager.generateKnockoutBracket(SIMULATION_GUILD_ID);
+  if (bracketResult.success) {
+    log('✓ Bracket generated', 'green');
+    log(`  Starting Round: ${bracketResult.startingRound}`, 'cyan');
+    log(`  First Round Matchups: ${bracketResult.matchups.length}`, 'cyan');
+  } else {
+    log(`❌ Failed to generate bracket: ${bracketResult.error}`, 'red');
+    return;
+  }
+  
+  // Step 4: Simulate First Round Voting
+  section('Step 4: Simulate First Round Voting');
+  const t = bracketManager.loadTournament(SIMULATION_GUILD_ID);
+  const firstRoundMatchups = t.knockoutBracket.filter(m => m.round === t.phase && m.status === 'pending');
+  
+  log(`Simulating votes for ${firstRoundMatchups.length} matchups...`, 'yellow');
+  for (const matchup of firstRoundMatchups) {
+    const voteResult = simulateKnockoutVotes(matchup.id, 10);
+    if (voteResult) {
+      log(`  ${matchup.movie1.title}: ${voteResult.movie1.length} votes`, 'cyan');
+      log(`  ${matchup.movie2.title}: ${voteResult.movie2.length} votes`, 'cyan');
+    }
+  }
+  
+  // Complete simulation
+  section('✅ BRACKET MODE SIMULATION COMPLETE');
+  log('Tournament Status:', 'yellow');
+  log(`  Name: ${t.name}`, 'cyan');
+  log(`  Mode: ${t.mode}`, 'cyan');
+  log(`  Status: ${t.status}`, 'cyan');
+  log(`  Phase: ${t.phase}`, 'cyan');
+  log(`  Titles: ${t.titles.length}`, 'cyan');
+  log(`  Matchups: ${t.knockoutBracket.length}`, 'cyan');
+  
+  const filePath = path.join(TEST_TOURNAMENT_DIR, `${SIMULATION_GUILD_ID}.json`);
+  log(`\n💾 Tournament data saved to:`, 'yellow');
+  log(`  ${filePath}`, 'cyan');
+  log(`\nYou can inspect the JSON file to see the complete tournament state.`, 'blue');
+}
+
+async function runGroupModeSimulation() {
+  // Step 2: Add Titles to Groups
+  section('Step 2: Add Titles to Groups');
+  const moviesByGroup = {
+    A: ['The Thing', 'Alien', 'The Exorcist', 'The Shining'],
+    B: ['Hereditary', 'Midsommar', 'The Witch', 'It Follows'],
+    C: ['Evil Dead', 'Halloween', 'The Texas Chain Saw Massacre', 'A Nightmare on Elm Street'],
+    D: ['Scream', 'The Ring', 'The Descent', '28 Days Later']
+  };
+  
+  for (const [group, movies] of Object.entries(moviesByGroup)) {
+    log(`\nGroup ${group}:`, 'yellow');
+    for (let i = 0; i < movies.length; i++) {
+      const entry = {
+        id: `${group.toLowerCase()}-movie-${i + 1}`,
+        title: movies[i],
+        year: '2020',
+        posterUrl: `https://example.com/${movies[i].replace(/\s/g, '')}.jpg`
+      };
       
-      // Only show first 3 votes to keep output concise
-      const voteEntries = Object.entries(votes).slice(0, 3);
-      for (const [userId, choices] of voteEntries) {
-        const t = bracketManager.loadTournament(SIMULATION_GUILD_ID);
-        const movie1 = t.groups[group].movies.find(m => m.id === choices[0])?.title;
-        const movie2 = t.groups[group].movies.find(m => m.id === choices[1])?.title;
-        log(`  ${userId}: ${movie1}, ${movie2}`, 'cyan');
-      }
-      if (Object.keys(votes).length > 3) {
-        log(`  ... and ${Object.keys(votes).length - 3} more voters`, 'cyan');
+      const result = bracketManager.addGroupTitle(SIMULATION_GUILD_ID, group, 'movie', entry);
+      if (result.success) {
+        log(`  ✓ ${movies[i]} (${result.titleCount}/4)`, 'green');
+      } else {
+        log(`  ❌ Failed: ${result.error}`, 'red');
       }
     }
+  }
+  
+  // Step 3: Open Groups for Voting
+  section('Step 3: Open Groups for Voting');
+  const deadline = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+  const openResult = bracketManager.openGroupVoting(
+    SIMULATION_GUILD_ID,
+    ['A', 'B', 'C', 'D'],
+    deadline
+  );
+  
+  if (openResult.success) {
+    log('✓ All groups opened for voting', 'green');
+  } else {
+    log(`❌ Failed to open groups: ${openResult.error}`, 'red');
+    return;
+  }
+  
+  // Step 4: Simulate Voting
+  section('Step 4: Simulate Voting (10 users per group)');
+  for (const group of ['A', 'B', 'C', 'D']) {
+    const votes = simulateVotes(group, 10); // Increased to 10 users to reduce ties
+    log(`\nGroup ${group} - ${Object.keys(votes).length} votes cast:`, 'yellow');
     
-    // Step 5: Close Groups
-    section('Step 5: Close Groups and Calculate Results');
-    const closeResult = bracketManager.closeGroupVoting(
-      SIMULATION_GUILD_ID,
-      ['A', 'B', 'C', 'D'],
-      3600000 // 1 hour tiebreaker duration
-    );
+    // Only show first 3 votes to keep output concise
+    const voteEntries = Object.entries(votes).slice(0, 3);
+    for (const [userId, choices] of voteEntries) {
+      const t = bracketManager.loadTournament(SIMULATION_GUILD_ID);
+      const movie1 = t.groups[group].movies.find(m => m.id === choices[0])?.title;
+      const movie2 = t.groups[group].movies.find(m => m.id === choices[1])?.title;
+      log(`  ${userId}: ${movie1}, ${movie2}`, 'cyan');
+    }
+    if (Object.keys(votes).length > 3) {
+      log(`  ... and ${Object.keys(votes).length - 3} more voters`, 'cyan');
+    }
+  }
+  
+  // Step 5: Close Groups
+  section('Step 5: Close Groups and Calculate Results');
+  const closeResult = bracketManager.closeGroupVoting(
+    SIMULATION_GUILD_ID,
+    ['A', 'B', 'C', 'D'],
+    3600000 // 1 hour tiebreaker duration
+  );
     
     if (closeResult.success) {
       log('✓ All groups closed successfully', 'green');
@@ -386,11 +476,6 @@ async function runSimulation() {
     log('\n💾 Tournament data saved to:', 'bright');
     log(`  ${path.join(TEST_TOURNAMENT_DIR, `${SIMULATION_GUILD_ID}.json`)}`, 'cyan');
     log('\nYou can inspect the JSON file to see the complete tournament state.', 'yellow');
-    
-  } catch (error) {
-    log(`\n❌ SIMULATION FAILED: ${error.message}`, 'red');
-    console.error(error);
-  }
 }
 
 // Run the simulation
