@@ -10,32 +10,65 @@ export async function execute(interaction) {
   
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle('🎬 Egg Shen - Help')
-    .setDescription('Your mystical guide to movies, TV shows, episodes, and games with ratings from multiple services!')
+    .setTitle('🧙 Egg Shen Bot - Complete Command List')
+    .setDescription('Your mystical guide to movies, TV shows, games, music, books, and more!\n\n💡 **Tip:** Many commands have detailed help - try `/bracket help`, `/timer help`, etc.')
     .addFields(
       {
-        name: '🔍 Search Commands',
-        value: '**📺 /movie** - Search for a movie\n**📺 /tv** - Search for a TV show\n**🎞️ /episode** - Search for a specific episode by name\n**🎮 /game** - Search for a video game',
+        name: '🎬 Movies & TV Shows',
+        value: 
+          '**🎥 /movie** - Search for movies with ratings\n' +
+          '**📺 /tv** - Search for TV shows with ratings\n' +
+          '**🎞️ /episode** - Search for specific episodes by name\n' +
+          '**📋 /episode-list** - List all episodes in a season\n' +
+          '**🔍 /similar** - Find similar movies or TV shows\n' +
+          '**📝 /watched** - Log or view watch history',
         inline: false,
       },
       {
-        name: '🎲 Watch Party Features',
-        value: '**🎲 /random** - Get random movie, TV show, episode, or game (with filters)\n**📝 /watched** - Log or view watch history with ratings and notes\n**🔍 /similar** - Find similar content recommendations',
+        name: '🎮 Games & Entertainment',
+        value:
+          '**🎮 /game** - Search for video games (RAWG)\n' +
+          '**🎲 /boardgame** - Search for board games (BoardGameGeek)\n' +
+          '**📚 /book** - Search for books (Google Books)\n' +
+          '**🎵 /soundtrack** - Search for soundtracks (iTunes)',
         inline: false,
       },
       {
-        name: '⏱️ /timer',
-        value: 'Start, stop, or check a timer in the current channel.\n\n**Start:** `/timer start label:Movie night`\n**Remind:** `/timer remind message:Everyone ready? role:@Movie Night`\n**Stop:** `/timer stop` (shows watch history button if labeled)\n**Status:** `/timer status`',
+        name: '🎲 Random & Discovery',
+        value:
+          '**🎲 /random** - Get random movie, TV, episode, or game\n' +
+          '**🔀 Filters:** genre, year, rating, platform, etc.',
         inline: false,
       },
       {
-        name: '📊 /stats',
-        value: 'View server or personal statistics.\n\n**Server stats:** `/stats type:server filter:all-time`\n**Personal stats:** `/stats type:personal`',
+        name: '🏆 Tournaments & Polls',
+        value:
+          '**🏆 /bracket** - Run tournaments (movies, TV, games, books, boardgames)\n' +
+          '**📊 /survey** - Create polls with up to 10 options\n' +
+          '**💡 Pro Tip:** Use `/bracket help` for tournament guide',
         inline: false,
       },
       {
-        name: '❓ /eggshen-help',
-        value: 'Display this help message.',
+        name: '🎨 AI Image Generation',
+        value:
+          '**🎨 /image** - Generate AI images (Stable Diffusion)\n' +
+          '**⚔️ /versus-image** - Generate matchup comparison images\n' +
+          '**🧪 /potion** - Generate mystical potion images',
+        inline: false,
+      },
+      {
+        name: '⏱️ Watch Party Tools',
+        value:
+          '**⏱️ /timer** - Start, stop, or check channel timers\n' +
+          '**🎉 /watchparty** - Schedule watch party events\n' +
+          '**📊 /stats** - View server or personal statistics',
+        inline: false,
+      },
+      {
+        name: '❓ Help & Info',
+        value:
+          '**❓ /eggshen-help** - This help message\n' +
+          '**📖 Full Documentation:** [eggshenbot.com](https://eggshenbot.com)',
         inline: false,
       }
     );
@@ -44,18 +77,16 @@ export async function execute(interaction) {
   if (userIsAdmin) {
     embed.addFields(
       {
-        name: '⚙️ /eggshen-config (Admin/Moderator Only)',
-        value: 'Configure Egg Shen settings for your server.\n\n**View settings:** `/eggshen-config view`\n**Toggle service:** `/eggshen-config toggle service:<service> enabled:<true/false>`\n**Set emoji:** `/eggshen-config emoji service:<service> emoji:<emoji>`\n**Toggle stats:** `/eggshen-config stats-toggle setting:<setting> enabled:<true/false>`\n**Clear stats:** `/eggshen-config stats-clear`\n**Toggle commands:** `/eggshen-config commands-toggle setting:<setting> enabled:<true/false>`\n\n*Services: IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch*',
-        inline: false,
-      },
-      {
-        name: '📊 /eggshen-stats (Admin/Moderator Only)',
-        value: 'View usage statistics for your server.\n\n**Example:** `/eggshen-stats filter:month`\n\n*Filters: all-time, month, week, today*',
-        inline: false,
-      },
-      {
-        name: '🔄 /eggshen-restart (Admin/Moderator Only)',
-        value: 'Restart the bot (requires PM2 or similar process manager).\n\n**Note:** The bot will exit and automatically restart if running under a process manager.',
+        name: '⚙️ Admin & Moderation',
+        value:
+          '**⚙️ /eggshen-config** - Configure bot settings\n' +
+          '  • Toggle services (IMDb, Letterboxd, Trakt, RT, JustWatch)\n' +
+          '  • Set custom emojis\n' +
+          '  • Toggle stats tracking\n' +
+          '  • Configure commands\n\n' +
+          '**📊 /eggshen-stats** - View detailed usage statistics\n' +
+          '**📋 /eggshen-logs** - View bot activity logs\n' +
+          '**🔄 /eggshen-restart** - Restart the bot (requires PM2)',
         inline: false,
       }
     );
@@ -63,18 +94,29 @@ export async function execute(interaction) {
 
   embed.addFields(
     {
-      name: '\u200B',
-      value: '**How it works:**\n1️⃣ Use a command to search\n2️⃣ Select from up to 5 results in the dropdown\n3️⃣ View detailed info with ratings and links!',
+      name: '💡 How It Works',
+      value: 
+        '1️⃣ Use a command to search\n' +
+        '2️⃣ Select from results in the dropdown menu\n' +
+        '3️⃣ View detailed info with ratings, links, and streaming!\n' +
+        '4️⃣ Click buttons for interactive features',
       inline: false,
     },
     {
-      name: '⭐ Available Ratings & Links',
-      value: '• **IMDb** - User ratings (episode-specific for /episode)\n• **Letterboxd** - Film community (movies only)\n• **Trakt** - Community ratings (episode-specific for /episode)\n• **RT Critics** - Rotten Tomatoes critic scores\n• **JustWatch** - Streaming availability',
+      name: '⭐ Ratings & Services',
+      value: 
+        '• **IMDb** - User ratings\n' +
+        '• **Letterboxd** - Film community (movies)\n' +
+        '• **Trakt** - Community ratings (movies & TV)\n' +
+        '• **Rotten Tomatoes** - Critics & audience scores\n' +
+        '• **TMDB** - Streaming availability\n' +
+        '• **RAWG** - Game ratings\n' +
+        '• **BoardGameGeek** - Board game ratings',
       inline: false,
     }
   );
   
-  embed.setFooter({ text: 'Egg Shen • Your mystical guide to ratings and streaming' });
+  embed.setFooter({ text: 'Egg Shen Bot • Your mystical entertainment companion' });
 
   await interaction.reply({ embeds: [embed], ephemeral: true });
 }

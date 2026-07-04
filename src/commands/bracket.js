@@ -548,97 +548,131 @@ export async function execute(interaction) {
 async function handleHelp(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0x4EC5ED)
-    .setTitle('🏆 Tournament System Guide')
+    .setTitle('🏆 Tournament System - Complete Guide')
     .setDescription(
-      '**Welcome to the Button-Based Tournament System!**\n\n' +
-      'Run tournaments for movies, TV shows, games, books, or board games. ' +
-      'Members vote using interactive buttons - no typing required!'
+      '**Host professional tournaments** for movies, TV shows, games, books, or board games!\n\n' +
+      '✨ **Button-based voting** • 🤖 **Auto-detection** • 📊 **Live results**'
     )
     .addFields(
       {
         name: '📋 Quick Start (Admin)',
         value:
-          '1️⃣ `/bracket create name:"My Tournament"` - Create tournament\n' +
-          '2️⃣ `/bracket add-title` - Add 4 titles to each group (A-L)\n' +
-          '3️⃣ `/bracket open-groups groups:"A,B,C,D"` - Open voting\n' +
-          '4️⃣ *Members click buttons to vote!*\n' +
-          '5️⃣ Wait for auto-close or `/bracket close-groups`\n' +
-          '6️⃣ `/bracket advance-knockout duration:"24h"` - Start bracket (auto-opens voting)\n' +
-          '7️⃣ Repeat until winner!',
+          '1️⃣ `/bracket create name:"Tournament Name" max-titles:32`\n' +
+          '2️⃣ Bot auto-selects bracket or group mode based on size\n' +
+          '3️⃣ `/bracket manage-titles action:add` - Add titles\n' +
+          '4️⃣ `/bracket announce` - Announce to members\n' +
+          '5️⃣ `/bracket open` - Smart command opens next round\n' +
+          '6️⃣ Members vote using buttons!\n' +
+          '7️⃣ `/bracket close` - Smart command closes & advances\n' +
+          '8️⃣ Repeat until winner declared! 🎉',
+        inline: false
+      },
+      {
+        name: '🎯 Tournament Sizes',
+        value:
+          '**Bracket Mode** (Direct single-elimination):\n' +
+          '• 2 titles (Finals only)\n' +
+          '• 4 titles (Semifinals)\n' +
+          '• 8 titles (Quarterfinals)\n' +
+          '• 16 titles (Round of 16)\n' +
+          '• 32 titles (Round of 32)\n\n' +
+          '**Group Mode** (Groups → Knockout):\n' +
+          '• 36 titles (9 groups)\n' +
+          '• 40 titles (10 groups)\n' +
+          '• 44 titles (11 groups)\n' +
+          '• 48 titles (12 groups)\n\n' +
+          '💡 **Bot automatically picks the best format!**',
         inline: false
       },
       {
         name: '🗳️ How to Vote (Everyone)',
         value:
-          '**Group Stage:**\n' +
-          '• Click **2 buttons** to select your favorites\n' +
-          '• Your personal dashboard shows checkmarks for your votes ✅\n' +
-          '• Dashboard updates in real-time (only you see it)\n' +
-          '• Click again to deselect\n' +
+          '**Group Stage** (if applicable):\n' +
+          '• Click **"Start Voting"** button\n' +
+          '• Get your personal voting dashboard (only you see it)\n' +
+          '• Select **top 2 favorites** - checkmarks show your picks ✅\n' +
           '• Change votes anytime before deadline\n\n' +
           '**Knockout Stage:**\n' +
-          '• Click **1 button** to pick the winner\n' +
-          '• One vote per matchup',
+          '• Click **"Start Voting"** button\n' +
+          '• Vote for **1 winner per matchup**\n' +
+          '• Dashboard shows all open matchups',
         inline: false
       },
       {
-        name: '🎮 Opening Rounds (Admin)',
+        name: '🎮 Smart Commands (Admin)',
         value:
-          '**Round-Specific Commands:**\n' +
-          '• `/bracket open-quarters` - Open Quarterfinals (4 matchups)\n' +
-          '• `/bracket open-semis` - Open Semifinals (2 matchups)\n' +
-          '• `/bracket open-finals` - Open Finals (1 matchup)\n' +
-          '• `/bracket open-knockout` - Generic (any round)\n\n' +
-          '**Advanced:**\n' +
-          '• `/bracket open-matchup matchup:"1A,2A"` - Open specific matchups\n' +
-          '• `/bracket regenerate` - Fix bracket structure issues',
+          '**🤖 Auto-Detection Commands:**\n' +
+          '• `/bracket open` - Opens next round (any phase)\n' +
+          '• `/bracket close` - Closes current round (any phase)\n\n' +
+          '**Granular Control:**\n' +
+          '• `/bracket open-groups groups:"A,B,C"` - Open specific groups\n' +
+          '• `/bracket close-groups groups:"A,B,C"` - Close specific groups\n' +
+          '• `/bracket open-matchup matchup:"1A,2B"` - Open matchups\n' +
+          '• `/bracket close-matchup matchup:"1A"` - Close matchups\n\n' +
+          '💡 Leave parameters blank for **interactive selectors**!',
         inline: false
       },
       {
-        name: '✅ Closing Rounds (Admin)',
+        name: '👥 Everyone Commands',
         value:
-          '• `/bracket close-quarters` - Close Quarters → Semis\n' +
-          '• `/bracket close-semis` - Close Semis → Finals\n' +
-          '• `/bracket close-finals` - Declare winner!\n' +
-          '• `/bracket close-knockout` - Generic (any round)\n' +
-          '• `/bracket close-matchup` - Close specific matchup(s)',
+          '• `/bracket status` - Live standings & vote counts\n' +
+          '• `/bracket view` - Visual bracket diagram\n' +
+          '• `/bracket my-votes` - Your voting history\n' +
+          '• `/bracket help` - This guide',
         inline: false
       },
       {
-        name: '👥 Other Commands',
+        name: '⚙️ Admin Commands',
         value:
-          '**Everyone:**\n' +
-          '• `/bracket status` - View standings\n' +
-          '• `/bracket view` - See bracket visual\n' +
-          '• `/bracket my-votes` - Your votes\n\n' +
-          '**Admin:**\n' +
-          '• `/bracket extend-voting` - Add time\n' +
-          '• `/bracket export` - Save results\n' +
-          '• `/bracket cancel` - Cancel',
+          '• `/bracket manage-titles` - Add/remove titles\n' +
+          '• `/bracket advance-knockout` - Start knockout phase\n' +
+          '• `/bracket extend-voting` - Add more time\n' +
+          '• `/bracket resolve-tiebreaker` - Manually resolve ties\n' +
+          '• `/bracket export` - Save results (JSON/Markdown)\n' +
+          '• `/bracket cancel` - Cancel tournament',
         inline: false
       },
       {
-        name: '⚡ Auto-Features',
+        name: '⚡ Automatic Features',
         value:
-          '✅ **Auto-close** - Voting closes at deadline\n' +
-          '✅ **1-hour warnings** - Automatic reminders\n' +
-          '✅ **Results posted** - Winners announced\n' +
-          '✅ **Live vote counts** - Updates in real-time\n' +
-          '✅ **Button feedback** - Green = selected',
+          '✅ **Auto-close voting** at deadline\n' +
+          '✅ **1-hour warnings** before deadline\n' +
+          '✅ **Live vote counts** update in real-time\n' +
+          '✅ **Tiebreaker voting** for tied results\n' +
+          '✅ **Results announcement** when rounds close\n' +
+          '✅ **Button feedback** - selected votes show blue\n' +
+          '✅ **Interactive selectors** - click to choose regions/matchups',
         inline: false
       },
       {
         name: '💡 Pro Tips',
         value:
-          '• Set voting duration: `duration:"48h"` (5m-30d)\n' +
-          '• Use wildcards for uneven brackets\n' +
-          '• Upload custom images with `/bracket add-title`\n' +
-          '• Export results in Markdown or JSON\n' +
-          '• Check logs with `/eggshen-logs category:bracket`',
+          '• **Duration syntax:** `"24h"`, `"3d"`, `"30m"` (5min-30days)\n' +
+          '• **Multi-input:** `groups:"A,B,C"` or `matchup:"1A,2B,3C"`\n' +
+          '• **Region selector:** For large brackets (>5 matchups), bot shows regions\n' +
+          '• **Search integration:** Bot auto-searches when adding titles\n' +
+          '• **Custom images:** Upload your own when adding titles\n' +
+          '• **AI images:** Generate matchup images with `/bracket image`\n' +
+          '• **Export options:** Markdown for Discord, JSON for archiving',
+        inline: false
+      },
+      {
+        name: '📊 Vote Tracking',
+        value:
+          '**Participation Stats:**\n' +
+          '• Voting streaks tracked per user\n' +
+          '• Total votes counted (group + knockout)\n' +
+          '• Last voted timestamp\n' +
+          '• View with `/bracket my-votes`\n\n' +
+          '**Server Stats:**\n' +
+          '• Total tournaments run\n' +
+          '• Total votes cast\n' +
+          '• Popular tournament types\n' +
+          '• View with `/eggshen-stats`',
         inline: false
       }
     )
-    .setFooter({ text: 'Need help? Ask an admin or check the docs at eggshenbot.com' });
+    .setFooter({ text: 'Full documentation: eggshenbot.com/commands/brackets' });
   
   await interaction.reply({ embeds: [embed], ephemeral: true });
 }
