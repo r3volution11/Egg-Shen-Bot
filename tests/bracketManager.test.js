@@ -82,11 +82,11 @@ describe('Tournament Creation', () => {
     testFile = path.join(TEST_TOURNAMENT_DIR, `${TEST_GUILD_ID}.json`);
     fs.unlinkSync(testFile);
 
-    // Test group mode (33 titles = 9 groups)
-    const tournament33 = bracketManager.createTournament(TEST_GUILD_ID, 'Group Tournament', 'user-123', 33);
-    expect(tournament33.mode).toBe('groups');
-    expect(tournament33.maxTitles).toBe(33);
-    expect(tournament33.groupCount).toBe(9);
+    // Test group mode (36 titles = 9 groups)
+    const tournament36 = bracketManager.createTournament(TEST_GUILD_ID, 'Group Tournament', 'user-123', 36);
+    expect(tournament36.mode).toBe('groups');
+    expect(tournament36.maxTitles).toBe(36);
+    expect(tournament36.groupCount).toBe(9);
   });
 });
 
@@ -391,11 +391,10 @@ describe('Tiebreaker System', () => {
 
 describe('Knockout Bracket Generation', () => {
   test('should generate knockout bracket from group results', () => {
-    // Create tournament with exactly 4 groups (33 titles min for group mode, use 33 titles)
-    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 33); // 33 titles = 9 groups, but we'll only use 4
+    // Create tournament with 36 titles (9 groups), but we'll only use 4 for testing
+    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 36); // 36 titles = 9 groups, but we'll only use 4
 
-    // Actually, let's create with minimum for 4 groups which requires knowing it would be groups mode
-    // Since 33 creates 9 groups, let's just manually adjust this tournament after creation
+    // Manually adjust this tournament to use 4 groups for this test
     const tournament = bracketManager.loadTournament(TEST_GUILD_ID);
     tournament.groupCount = 4; // Override to 4 groups for this test
     bracketManager.saveTournament(TEST_GUILD_ID, tournament);
