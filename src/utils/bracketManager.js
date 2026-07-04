@@ -801,8 +801,8 @@ export function voteInTiebreaker(guildId, tiebreakerId, userId, optionIndex) {
   // Record vote
   tiebreaker.votes[userId] = optionIndex;
 
-  // Track participation
-  trackVote(tournament, userId, 'group');
+  // TODO: Track participation (not yet implemented)
+  // trackVote(tournament, userId, 'group');
 
   return saveTournament(guildId, tournament)
     ? { success: true, tournament, tiebreaker }
