@@ -29,38 +29,119 @@ afterEach(() => {
 });
 
 describe('Tournament Creation', () => {
-  test('should create a new tournament', () => {
+  test('should create bracket mode tournament (≤32 titles)', () => {
     const tournament = bracketManager.createTournament(
       TEST_GUILD_ID,
-      'Test Tournament',
+      'Bracket Tournament',
       'user-123',
-      8
+      16 // 16 titles = bracket mode
     );
 
     expect(tournament).toBeDefined();
-    expect(tournament.name).toBe('Test Tournament');
+    expect(tournament.name).toBe('Bracket Tournament');
     expect(tournament.status).toBe('setup');
-    expect(tournament.groupCount).toBe(8);
-    // Groups are created when titles are added
+    expect(tournament.mode).toBe('bracket');
+    expect(tournament.maxTitles).toBe(16);
+    expect(tournament.groupCount).toBeNull();
+    expect(tournament.titles).toEqual([]);
+  });
+
+  test('should create group mode tournament (33-48 titles)', () => {
+    const tournament = bracketManager.createTournament(
+      TEST_GUILD_ID,
+      'Group Tournament',
+      'user-123',
+      40 // 40 titles = 10 groups of 4
+    );
+
+    expect(tournament).toBeDefined();
+    expect(tournament.name).toBe('Group Tournament');
+    expect(tournament.status).toBe('setup');
+    expect(tournament.mode).toBe('groups');
+    expect(tournament.maxTitles).toBe(40);
+    expect(tournament.groupCount).toBe(10);
     expect(tournament.groups).toEqual({});
   });
 
-  test('should support different group counts', () => {
-    const tournament4 = bracketManager.createTournament(TEST_GUILD_ID, 'Small Tournament', 'user-123', 4);
-    expect(tournament4.groupCount).toBe(4);
+  test('should support different title counts', () => {
+    // Test small bracket (2 titles)
+    const tournament2 = bracketManager.createTournament(TEST_GUILD_ID, 'Tiny Tournament', 'user-123', 2);
+    expect(tournament2.mode).toBe('bracket');
+    expect(tournament2.maxTitles).toBe(2);
 
-    // Clean up for next test
-    const testFile = path.join(TEST_TOURNAMENT_DIR, `${TEST_GUILD_ID}.json`);
+    // Clean up
+    let testFile = path.join(TEST_TOURNAMENT_DIR, `${TEST_GUILD_ID}.json`);
     fs.unlinkSync(testFile);
 
-    const tournament12 = bracketManager.createTournament(TEST_GUILD_ID, 'Large Tournament', 'user-123', 12);
-    expect(tournament12.groupCount).toBe(12);
+    // Test large bracket (32 titles)
+    const tournament32 = bracketManager.createTournament(TEST_GUILD_ID, 'Large Bracket', 'user-123', 32);
+    expect(tournament32.mode).toBe('bracket');
+    expect(tournament32.maxTitles).toBe(32);
+
+    // Clean up
+    testFile = path.join(TEST_TOURNAMENT_DIR, `${TEST_GUILD_ID}.json`);
+    fs.unlinkSync(testFile);
+
+    // Test group mode (33 titles = 9 groups)
+    const tournament33 = bracketManager.createTournament(TEST_GUILD_ID, 'Group Tournament', 'user-123', 33);
+    expect(tournament33.mode).toBe('groups');
+    expect(tournament33.maxTitles).toBe(33);
+    expect(tournament33.groupCount).toBe(9);
+  });
+});
+
+describe('Adding Titles - Bracket Mode', () => {
+  beforeEach(() => {
+    bracketManager.createTournament(TEST_GUILD_ID, 'Bracket Tournament', 'user-123', 8);
+  });
+
+  test('should add title to bracket mode tournament', () => {
+    const entry = {
+      id: 'movie-123',
+      title: 'The Matrix',
+      year: '1999',
+      posterUrl: 'https://example.com/poster.jpg'
+    };
+
+    const result = bracketManager.addTitle(TEST_GUILD_ID, null, 'movie', entry);
+
+    expect(result.success).toBe(true);
+    expect(result.titleCount).toBe(1);
+    
+    const tournament = bracketManager.loadTournament(TEST_GUILD_ID);
+    expect(tournament.titles.length).toBe(1);
+    expect(tournament.titles[0].title).toBe('The Matrix');
+  });
+
+  test('should prevent adding more titles than max', () => {
+    const entries = [
+      { id: '1', title: 'Movie 1', year: '2020' },
+      { id: '2', title: 'Movie 2', year: '2021' },
+      { id: '3', title: 'Movie 3', year: '2022' },
+      { id: '4', title: 'Movie 4', year: '2023' },
+      { id: '5', title: 'Movie 5', year: '2024' },
+      { id: '6', title: 'Movie 6', year: '2025' },
+      { id: '7', title: 'Movie 7', year: '2026' },
+      { id: '8', title: 'Movie 8', year: '2027' },
+      { id: '9', title: 'Movie 9', year: '2028' } // Exceeds max of 8
+    ];
+
+    // Add 8 titles successfully
+    for (let i = 0; i < 8; i++) {
+      const result = bracketManager.addTitle(TEST_GUILD_ID, null, 'movie', entries[i]);
+      expect(result.success).toBe(true);
+    }
+
+    // 9th title should fail
+    const result = bracketManager.addTitle(TEST_GUILD_ID, null, 'movie', entries[8]);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('maximum capacity');
   });
 });
 
 describe('Adding Titles to Groups', () => {
   beforeEach(() => {
-    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 4);
+    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 40); // Group mode
   });
 
   test('should add title to group', () => {
@@ -112,7 +193,7 @@ describe('Adding Titles to Groups', () => {
 
 describe('Group Voting', () => {
   beforeEach(() => {
-    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 4);
+    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 36); // 36 titles = 9 groups (group mode)
     
     // Add 4 titles to group A
     for (let i = 1; i <= 4; i++) {
@@ -178,7 +259,7 @@ describe('Group Voting', () => {
 
 describe('Tiebreaker System', () => {
   beforeEach(() => {
-    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 4);
+    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 36); // 36 titles = 9 groups (group mode)
     
     // Add 4 titles to group A
     for (let i = 1; i <= 4; i++) {
@@ -310,8 +391,14 @@ describe('Tiebreaker System', () => {
 
 describe('Knockout Bracket Generation', () => {
   test('should generate knockout bracket from group results', () => {
-    // Create tournament with 4 groups
-    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 4);
+    // Create tournament with exactly 4 groups (33 titles min for group mode, use 33 titles)
+    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 33); // 33 titles = 9 groups, but we'll only use 4
+
+    // Actually, let's create with minimum for 4 groups which requires knowing it would be groups mode
+    // Since 33 creates 9 groups, let's just manually adjust this tournament after creation
+    const tournament = bracketManager.loadTournament(TEST_GUILD_ID);
+    tournament.groupCount = 4; // Override to 4 groups for this test
+    bracketManager.saveTournament(TEST_GUILD_ID, tournament);
 
     // Add titles and simulate completed groups
     const groups = ['A', 'B', 'C', 'D'];
@@ -350,13 +437,13 @@ describe('Knockout Bracket Generation', () => {
     expect(result.success).toBe(true);
     expect(result.matchups.length).toBeGreaterThan(0);
 
-    const tournament = bracketManager.loadTournament(TEST_GUILD_ID);
-    expect(tournament.status).toBe('knockout');
-    expect(tournament.knockoutBracket).toBeDefined();
+    const finalTournament = bracketManager.loadTournament(TEST_GUILD_ID);
+    expect(finalTournament.status).toBe('knockout');
+    expect(finalTournament.knockoutBracket).toBeDefined();
   });
 
   test('should validate all groups closed before generating bracket', () => {
-    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 4);
+    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 36); // 36 titles = 9 groups (group mode)
 
     // Add titles to groups but don't close them
     ['A', 'B', 'C', 'D'].forEach(group => {
@@ -374,12 +461,37 @@ describe('Knockout Bracket Generation', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Cannot advance to knockout');
   });
+
+  test('should generate bracket for bracket mode tournament', () => {
+    // Create bracket mode tournament with 8 titles
+    bracketManager.createTournament(TEST_GUILD_ID, 'Bracket Tournament', 'user-123', 8);
+
+    // Add 8 titles
+    for (let i = 1; i <= 8; i++) {
+      bracketManager.addTitle(TEST_GUILD_ID, null, 'movie', {
+        id: `movie-${i}`,
+        title: `Movie ${i}`,
+        year: '2020'
+      });
+    }
+
+    // Generate bracket
+    const result = bracketManager.generateKnockoutBracket(TEST_GUILD_ID);
+    expect(result.success).toBe(true);
+    expect(result.matchups).toBeDefined();
+    expect(result.matchups.length).toBe(4); // 8 titles = 4 first-round matchups
+
+    const tournament = bracketManager.loadTournament(TEST_GUILD_ID);
+    expect(tournament.status).toBe('knockout');
+    expect(tournament.phase).toBe('quarterfinals'); // 8 participants start at quarterfinals
+    expect(tournament.knockoutBracket.length).toBeGreaterThan(4); // Should include all rounds
+  });
 });
 
 describe('Knockout Voting', () => {
   test('should open knockout matchup for voting', () => {
     // Set up tournament in knockout phase (simplified)
-    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 4);
+    bracketManager.createTournament(TEST_GUILD_ID, 'Test Tournament', 'user-123', 8); // 8 titles = bracket mode
     
     const tournament = bracketManager.loadTournament(TEST_GUILD_ID);
     tournament.status = 'knockout';
