@@ -268,6 +268,12 @@ export const data = new SlashCommandBuilder()
           .setDescription('Groups to close (e.g., "A,B,C,D")')
           .setRequired(true)
       )
+      .addStringOption(option =>
+        option
+          .setName('tiebreaker-duration')
+          .setDescription('Duration for tiebreaker votes if needed (e.g., "1h", "30m", "2h") - Default: 1h')
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -278,6 +284,25 @@ export const data = new SlashCommandBuilder()
           .setName('duration')
           .setDescription('How long voting stays open (e.g., "24h", "3d", "45m") - Default: 24h')
           .setRequired(false)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('resolve-tiebreaker')
+      .setDescription('Manually resolve a tiebreaker (Admin/Mod/Creator only)')
+      .addStringOption(option =>
+        option
+          .setName('tiebreaker-id')
+          .setDescription('ID of the tiebreaker to resolve')
+          .setRequired(true)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('winner')
+          .setDescription('Which option should win (1 for first option, 2 for second, etc.)')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(4)
       )
   )
   .addSubcommand(subcommand =>
@@ -385,6 +410,12 @@ export const data = new SlashCommandBuilder()
           .setDescription('Matchup ID(s) - Single: "1A" or Multiple: "1A,1B,2C". Leave blank to select from buttons')
           .setRequired(false)
       )
+      .addStringOption(option =>
+        option
+          .setName('tiebreaker-duration')
+          .setDescription('Duration for tiebreaker votes if needed (e.g., "1h", "30m", "2h") - Default: 1h')
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -447,6 +478,24 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('cancel')
       .setDescription('Cancel the tournament (Admin/Mod only)')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('resolve-tiebreaker')
+      .setDescription('Manually resolve a tiebreaker by selecting winner (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('tiebreaker-id')
+          .setDescription('ID of the tiebreaker to resolve')
+          .setRequired(true)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('winner-index')
+          .setDescription('Index of the winning option (0, 1, 2, etc.)')
+          .setRequired(true)
+          .setMinValue(0)
+      )
   );
 
 export async function execute(interaction) {
@@ -454,7 +503,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'add-title', 'remove-title', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'regenerate', 'open-knockout', 'close-knockout', 'open-quarters', 'close-quarters', 'open-semis', 'close-semis', 'open-finals', 'close-finals', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
+  const requiresAdmin = ['create', 'add-title', 'remove-title', 'announce', 'open-groups', 'close-groups', 'advance-knockout', 'resolve-tiebreaker', 'regenerate', 'open-knockout', 'close-knockout', 'open-quarters', 'close-quarters', 'open-semis', 'close-semis', 'open-finals', 'close-finals', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -493,6 +542,9 @@ export async function execute(interaction) {
         break;
       case 'advance-knockout':
         await handleAdvanceKnockout(interaction);
+        break;
+      case 'resolve-tiebreaker':
+        await handleResolveTiebreaker(interaction);
         break;
       case 'regenerate':
         await handleRegenerate(interaction);
@@ -534,6 +586,9 @@ export async function execute(interaction) {
         break;
       case 'export':
         await handleExport(interaction);
+        break;
+      case 'resolve-tiebreaker':
+        await handleResolveTiebreaker(interaction);
         break;
       case 'cancel':
         await handleCancel(interaction);
@@ -1371,10 +1426,48 @@ async function handleCloseGroups(interaction) {
   const groupsStr = interaction.options.getString('groups');
   const groupIds = groupsStr.split(',').map(g => g.trim().toUpperCase());
   
-  const result = bracketManager.closeGroupVoting(interaction.guildId, groupIds);
+  // Get tiebreaker duration (default to 1 hour)
+  const tiebreakerDurationStr = interaction.options.getString('tiebreaker-duration') || '1h';
+  const tiebreakerDurationMs = parseDuration(tiebreakerDurationStr);
+  
+  if (!tiebreakerDurationMs) {
+    await interaction.editReply('❌ Invalid tiebreaker duration format. Use format like "1h", "30m", "2h"');
+    return;
+  }
+  
+  if (!isValidDuration(tiebreakerDurationMs)) {
+    await interaction.editReply('❌ Tiebreaker duration must be between 5 minutes (5m) and 7 days (7d)');
+    return;
+  }
+  
+  const result = bracketManager.closeGroupVoting(interaction.guildId, groupIds, tiebreakerDurationMs);
   
   if (!result.success) {
     await interaction.editReply(`❌ ${result.error}`);
+    return;
+  }
+  
+  // Check if tiebreakers were created
+  if (result.tiebreakersCreated && result.tiebreakersCreated.length > 0) {
+    const tiebreakerInfo = result.tiebreakersCreated.map(tb => {
+      const optionNames = tb.tiebreaker.tiedOptions.map(o => o.title).join(' vs ');
+      return `**Group ${tb.groupId}** - ${tb.position} place tie: ${optionNames}`;
+    }).join('\n');
+    
+    const tiebreakerDuration = formatTimeRemaining(Date.now() + tiebreakerDurationMs);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xFFAA00)
+      .setTitle('🔀 Tiebreaker Voting Started')
+      .setDescription(`Some groups have ties! Tiebreaker voting is now open.\n\n${tiebreakerInfo}`)
+      .addFields({
+        name: '⏰ Time Remaining',
+        value: tiebreakerDuration,
+        inline: false
+      })
+      .setFooter({ text: 'Vote in the tiebreaker to help decide the winners!' });
+    
+    await interaction.editReply({ embeds: [embed] });
     return;
   }
   
@@ -1496,6 +1589,63 @@ async function handleAdvanceKnockout(interaction) {
   
   // Users vote via personal dashboard - no individual matchup cards needed
   // Prevents channel flooding with one card per matchup
+}
+
+async function handleResolveTiebreaker(interaction) {
+  await interaction.deferReply();
+  
+  const tiebreakerId = interaction.options.getString('tiebreaker-id');
+  const winnerOption = interaction.options.getInteger('winner');
+  
+  // Convert 1-based user input to 0-based index
+  const winnerIndex = winnerOption - 1;
+  
+  // Manually resolve the tiebreaker
+  const resolveResult = bracketManager.manuallyResolveTiebreaker(interaction.guildId, tiebreakerId, winnerIndex);
+  
+  if (!resolveResult.success) {
+    await interaction.editReply(`❌ ${resolveResult.error}`);
+    return;
+  }
+  
+  const tiebreaker = resolveResult.tiebreaker;
+  const winner = resolveResult.winner;
+  
+  // Determine if this is a group or knockout tiebreaker and finalize accordingly
+  let finalizeResult;
+  
+  if (tiebreaker.position === 'knockout') {
+    // Knockout tiebreaker
+    finalizeResult = bracketManager.finalizeKnockoutMatchupAfterTiebreaker(interaction.guildId, tiebreakerId);
+  } else {
+    // Group tiebreaker
+    finalizeResult = bracketManager.finalizeGroupAfterTiebreaker(interaction.guildId, tiebreakerId);
+  }
+  
+  if (!finalizeResult.success) {
+    await interaction.editReply(`✅ Tiebreaker resolved, but failed to finalize: ${finalizeResult.error}`);
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle('✅ Tiebreaker Resolved (Manual)')
+    .setDescription(`Admin manually resolved tiebreaker for ${tiebreaker.position === 'knockout' ? 'knockout matchup' : `Group ${tiebreaker.groupId} ${tiebreaker.position} place`}`)
+    .addFields(
+      {
+        name: '🏆 Winner',
+        value: winner.title,
+        inline: false
+      },
+      {
+        name: '⚖️ Resolution Method',
+        value: 'Manual (Admin Override)',
+        inline: true
+      }
+    )
+    .setTimestamp();
+  
+  await interaction.editReply({ embeds: [embed] });
 }
 
 async function handleRegenerate(interaction) {
@@ -2794,9 +2944,23 @@ async function handleCloseMatchup(interaction) {
   const matchupInput = interaction.options.getString('matchup');
   const tournament = bracketManager.loadTournament(interaction.guildId);
   
+  // Get tiebreaker duration (default to 1 hour)
+  const tiebreakerDurationStr = interaction.options.getString('tiebreaker-duration') || '1h';
+  const tiebreakerDurationMs = parseDuration(tiebreakerDurationStr);
+  
+  if (!tiebreakerDurationMs) {
+    await interaction.editReply('❌ Invalid tiebreaker duration format. Use format like "1h", "30m", "2h"');
+    return;
+  }
+  
+  if (!isValidDuration(tiebreakerDurationMs)) {
+    await interaction.editReply('❌ Tiebreaker duration must be between 5 minutes (5m) and 7 days (7d)');
+    return;
+  }
+  
   // If no matchup specified, show interactive selector
-  if (!matchupInput || matchupInput.trim().length === 0) {
-    return await showCloseMatchupSelector(interaction, tournament);
+  if (!matchupInput || matchupInput.trim() === '') {
+    return await showCloseMatchupSelector(interaction, tournament, tiebreakerDurationMs);
   }
   
   // Support comma-separated multiple matchups
@@ -2810,6 +2974,7 @@ async function handleCloseMatchup(interaction) {
   // Process each matchup
   const successes = [];
   const errors = [];
+  const tiebreakersCreated = [];
   
   for (const matchupLabel of matchupLabels) {
     // Parse regional label to position
@@ -2835,10 +3000,20 @@ async function handleCloseMatchup(interaction) {
     }
     
     // Close this matchup
-    const result = bracketManager.closeKnockoutMatchup(interaction.guildId, matchup.id);
+    const result = bracketManager.closeKnockoutMatchup(interaction.guildId, matchup.id, tiebreakerDurationMs);
     
     if (!result.success) {
       errors.push(`❌ ${matchupLabel}: ${result.error}`);
+      continue;
+    }
+    
+    // Check if tiebreaker was created
+    if (result.tiebreakerCreated) {
+      const regionalLabel = getRegionalLabel(position, tournament.phase);
+      tiebreakersCreated.push({
+        label: regionalLabel,
+        tiebreaker: result.tiebreaker
+      });
       continue;
     }
     
@@ -2861,6 +3036,31 @@ async function handleCloseMatchup(interaction) {
   }
   
   // Build response
+  
+  // Check if tiebreakers were created
+  if (tiebreakersCreated.length > 0) {
+    const tiebreakerInfo = tiebreakersCreated.map(tb => {
+      const optionNames = tb.tiebreaker.tiedOptions.map(o => o.title).join(' vs ');
+      return `**Matchup ${tb.label}** - ${optionNames}`;
+    }).join('\n');
+    
+    const tiebreakerDuration = formatTimeRemaining(Date.now() + tiebreakerDurationMs);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xFFAA00)
+      .setTitle('🔀 Tiebreaker Voting Started')
+      .setDescription(`Some matchups ended in ties! Tiebreaker voting is now open.\n\n${tiebreakerInfo}`)
+      .addFields({
+        name: '⏰ Time Remaining',
+        value: tiebreakerDuration,
+        inline: false
+      })
+      .setFooter({ text: `Vote in the tiebreaker to help decide the winners! • Tiebreaker ID: ${tiebreakersCreated[0].tiebreaker.id}` });
+    
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+  
   if (successes.length === 0) {
     await interaction.editReply(errors.join('\n') || '❌ No matchups were closed.');
     return;
