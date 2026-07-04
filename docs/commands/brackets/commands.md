@@ -14,23 +14,28 @@ This page provides detailed documentation for all tournament bracket commands. C
 |---------|-------------|-------------|-------|
 | `help` | Everyone | View tournament guide and command overview | Any |
 | `create` | Admin/Mod | Create a new tournament | Setup |
-| `add-title` | Admin/Mod | Add a title to a group | Setup |
-| `remove-title` | Admin/Mod | Remove a title from a group | Setup |
-| `resize` | Admin/Mod | Change the number of groups | Setup |
+| `manage-titles` | Admin/Mod | Add or remove titles from groups | Setup |
 | `announce` | Admin/Mod | Announce the tournament to the channel | Setup |
-| `list-groups` | Everyone | View all groups and their titles | Any |
-| `open-groups` | Admin/Mod | Open groups for button-based voting | Group Stage |
-| `my-votes` | Everyone | View your voting history and available votes | Any |
-| `close-groups` | Admin/Mod | Close group voting and calculate results | Group Stage |
+| `open` | Admin/Mod | Smart: Opens next round (auto-detects phase) | Any |
+| `close` | Admin/Mod | Smart: Closes current round (auto-detects phase) | Any |
+| `open-groups` | Admin/Mod | Open specific groups for button-based voting | Group Stage |
+| `close-groups` | Admin/Mod | Close specific groups and calculate results | Group Stage |
 | `advance-knockout` | Admin/Mod | Generate knockout bracket from group results | Transition |
-| `open-knockout` | Admin/Mod | Open current round matchups for voting | Knockout |
-| `open-region` | Admin/Mod | Open all matchups in a region for voting | Knockout |
-| `open-matchup` | Admin/Mod | Open a specific matchup for voting | Knockout |
-| `close-knockout` | Admin/Mod | Close current round and advance winners | Knockout |
-| `close-matchup` | Admin/Mod | Close a specific matchup and advance winner | Knockout |
+| `resolve-tiebreaker` | Admin/Mod | Manually resolve a tiebreaker vote | Any |
+| `open-matchup` | Admin/Mod | Open specific matchup(s) for voting | Knockout |
+| `close-matchup` | Admin/Mod | Close specific matchup(s) and advance winner(s) | Knockout |
 | `extend-voting` | Admin/Mod | Extend or change voting deadline | Any |
+| `my-votes` | Everyone | View your voting history and available votes | Any |
 | `status` | Everyone | View tournament status with live voter counts and leaders | Any |
+| `view` | Everyone | View visual bracket (knockout phase only) | Knockout |
 | `export` | Everyone | Export tournament results (JSON or Markdown) | Any |
+| `cancel` | Admin/Mod | Cancel the tournament | Any |
+
+**Key Changes:**
+- 🆕 **Smart Commands**: `/bracket open` and `/bracket close` auto-detect tournament phase
+- 🔄 **Unified Management**: `/bracket manage-titles` replaces `add-title` and `remove-title`
+- ⚖️ **Tiebreaker Resolution**: New `/bracket resolve-tiebreaker` command for manual tie resolution
+- ❌ **Removed**: `open-knockout`, `close-knockout`, `open-quarters`, `close-quarters`, `open-semis`, `close-semis`, `open-finals`, `close-finals`, `regenerate`
 
 **Visual Examples:**
 
@@ -118,81 +123,47 @@ Create a new tournament bracket.
 
 ---
 
-### `/bracket add-title`
+### `/bracket manage-titles`
 
-Add a title to a specific group in the tournament.
+Add or remove titles from tournament groups. This unified command replaces the old `add-title` and `remove-title` commands.
 
 **Parameters:**
-- `group` (required, choice): Group letter (A-L) to add the title to
-- `type` (required, choice): Tournament type
+- `action` (required, choice): Action to perform
+  - `Add Title` - Add a new title to a group
+  - `Remove Title` - Remove a title from a group
+- `group` (required, choice): Group letter (A-L)
+- `type` (optional, choice): Tournament type (required when adding)
   - `movie` - Movies (searches TMDB)
   - `tv` - TV Shows (searches TMDB)
   - `game` - Video Games (searches RAWG)
   - `boardgame` - Board Games (searches BoardGameGeek)
   - `book` - Books (searches Google Books)
-- `title` (required, string): Title to search for and add
-- `image` (optional, attachment): Custom image for this title (overrides API poster)
+- `title` (optional, string): Title to search for (required when adding)
+- `position` (optional, integer): Position to remove (1-4, required when removing)
+- `image` (optional, attachment): Custom image (for adding only, overrides API poster)
 
-**Example Usage:**
+**Example Usage (Adding):**
 ```
-/bracket add-title group:A type:movie title:"The Thing"
-/bracket add-title group:B type:tv title:"Breaking Bad"
-/bracket add-title group:C type:game title:"Elden Ring"
-/bracket add-title group:A type:movie title:"Evil Dead" image:[uploaded-file.jpg]
+/bracket manage-titles action:"Add Title" group:A type:movie title:"The Thing"
+/bracket manage-titles action:"Add Title" group:B type:tv title:"Breaking Bad"
+/bracket manage-titles action:"Add Title" group:C type:game title:"Elden Ring"
+/bracket manage-titles action:"Add Title" group:A type:movie title:"Evil Dead" image:[uploaded-file.jpg]
 ```
 
-**Notes:**
-- Searches the selected API for matching titles
-- Returns up to 5 results - select the correct one
-- Custom images override the default poster/cover art
-- Each group must have exactly 4 titles before voting can begin
-- Tournament type is set on first title added and cannot be changed
-- Cannot add titles after group voting begins
-
----
-
-### `/bracket remove-title`
-
-Remove a title from a group.
-
-**Parameters:**
-- `group` (required, choice): Group letter (A-L)
-- `position` (required, integer): Position of title to remove (1-4)
-
-**Example Usage:**
+**Example Usage (Removing):**
 ```
-/bracket remove-title group:A position:2
-/bracket remove-title group:D position:4
+/bracket manage-titles action:"Remove Title" group:A position:2
+/bracket manage-titles action:"Remove Title" group:D position:4
 ```
 
 **Notes:**
-- Positions are numbered 1-4 based on display order
-- Use `/bracket list-groups` to see current positions
-- Cannot remove titles after group voting begins
-- Removing a title shifts remaining titles up in position
-
----
-
-### `/bracket resize`
-
-Change the number of groups in the tournament.
-
-**Parameters:**
-- `groups` (required, integer): New number of groups (4-12)
-
-**Example Usage:**
-```
-/bracket resize groups:6
-/bracket resize groups:10
-```
-
-**Notes:**
-- Can expand (add groups) or contract (remove groups)
-- When contracting: removes empty groups from the end
-- When expanding: adds new empty groups at the end
-- Cannot resize after titles have been added to groups being removed
-- Cannot resize after group voting begins
-- Total participants will be: groups × 4
+- **Adding:** Searches the selected API for matching titles, returns up to 5 results
+- **Adding:** Custom images override the default poster/cover art
+- **Adding:** Each group must have exactly 4 titles before voting can begin
+- **Adding:** Tournament type is set on first title added and cannot be changed
+- **Removing:** Positions are numbered 1-4 based on display order
+- **Removing:** Shifts remaining titles up in position
+- Cannot manage titles after group voting begins
 
 ---
 
@@ -220,46 +191,81 @@ Announce the tournament to the channel with optional custom message and banner.
 
 ---
 
-## Group Stage Commands
+## Smart Phase Commands
 
-These commands manage the group stage voting phase where participants vote for their top 2 titles in each group.
+These intelligent commands automatically detect the tournament phase and perform the appropriate action. Use these for streamlined tournament management!
 
-### `/bracket list-groups`
+### `/bracket open`
 
-View all groups and their titles in a simple text format.
+**🆕 Smart Command** - Automatically opens the next round of voting based on tournament phase.
 
-**Who Can Use:** Everyone
+**Who Can Use:** Admin/Mod only
 
-**Parameters:** None
+**Parameters:**
+- `duration` (optional, string): Voting duration
+  - Format: `<number><unit>` where unit is m (minutes), h (hours), or d (days)
+  - Examples: "24h", "3d", "45m", "12h"
+  - Default: 24h if not specified
+  - Range: 5m minimum, 30d maximum
+
+**What It Does:**
+- **Group Stage:** Opens all closed groups for voting
+- **Knockout Stage:** Opens all matchups in the current round (Round of 32, Round of 16, Quarterfinals, Semifinals, Finals)
+- Automatically detects which phase the tournament is in
+- No need to remember phase-specific commands!
 
 **Example Usage:**
 ```
-/bracket list-groups
-```
-
-**Output:**
-```
-📋 Groups Overview
-
-Group A:
-1. The Thing (1982)
-2. Evil Dead (1981)
-3. Hereditary (2018)
-4. The Witch (2015)
-
-Group B:
-1. Alien (1979)
-2. The Exorcist (1973)
-...
+/bracket open
+/bracket open duration:"48h"
+/bracket open duration:"3d"
 ```
 
 **Notes:**
-- Shows all groups with their current titles
-- Positions are numbered 1-4 for easy reference
-- Use this to help participants decide their votes
-- Available at any time during tournament
+- Simplifies tournament management - one command for all phases
+- For group stage, opens all groups that aren't already voting
+- For knockout stage, may require using `/bracket open-matchup` if there are too many matchups (>5) for one message
+- Bot will guide you if regional opening is needed
 
 ---
+
+### `/bracket close`
+
+**🆕 Smart Command** - Automatically closes the current voting round based on tournament phase.
+
+**Who Can Use:** Admin/Mod only
+
+**Parameters:**
+- `tiebreaker-duration` (optional, string): Duration for tiebreaker votes if needed
+  - Format: `<number><unit>` where unit is m (minutes), h (hours), or d (days)
+  - Examples: "1h", "30m", "2h"
+  - Default: 1h if not specified
+  - Range: 5m minimum, 7d maximum
+
+**What It Does:**
+- **Group Stage:** Closes all open groups and calculates results
+- **Knockout Stage:** Closes all voting matchups in current round and advances winners
+- Automatically creates tiebreaker votes if ties are detected
+- No need to remember phase-specific commands!
+
+**Example Usage:**
+```
+/bracket close
+/bracket close tiebreaker-duration:"30m"
+/bracket close tiebreaker-duration:"2h"
+```
+
+**Notes:**
+- Simplifies tournament management - one command for all phases
+- Automatically detects and creates tiebreakers for tied votes
+- Advances tournament to next phase when appropriate
+- Shows detailed results with winners and vote counts
+
+---
+
+## Group Stage Commands
+
+These commands manage the group stage voting phase where participants vote for their top 2 titles in each group. Use these for **granular control** when you need to open/close specific groups.
 
 ### `/bracket open-groups`
 
@@ -343,26 +349,34 @@ Knockout Round:
 
 ### `/bracket close-groups`
 
-Close group voting and calculate results.
+Close group voting and calculate results. Automatically creates tiebreaker votes if ties are detected.
 
 **Who Can Use:** Admin/Mod only
 
 **Parameters:**
 - `groups` (required, string): Comma-separated list of groups to close (e.g., "A,B,C,D")
+- `tiebreaker-duration` (optional, string): Duration for tiebreaker votes if needed
+  - Format: `<number><unit>` where unit is m (minutes), h (hours), or d (days)
+  - Examples: "1h", "30m", "2h"
+  - Default: 1h if not specified
+  - Range: 5m minimum, 7d maximum
 
 **Example Usage:**
 ```
 /bracket close-groups groups:"A,B,C,D"
-/bracket close-groups groups:"E,F,G,H"
+/bracket close-groups groups:"A,B,C,D" tiebreaker-duration:"30m"
+/bracket close-groups groups:"E,F,G,H" tiebreaker-duration:"2h"
 /bracket close-groups groups:"A"
 ```
 
 **Notes:**
 - Calculates point totals for each title (3 points for 1st choice, 2 for 2nd)
 - Determines 1st, 2nd, and 3rd place in each group
+- **Automatically creates tiebreaker votes** if 1st or 2nd place ties detected
 - Posts results to channel showing final standings
 - Groups must be open before they can be closed
 - Cannot reopen groups after closing
+- Tiebreaker winners are automatically applied to final standings
 - Use `/bracket advance-knockout` after all groups are closed
 
 ---
@@ -434,70 +448,13 @@ Matchups in the knockout bracket are identified by regional labels:
 
 Open all matchups in the current round for voting.
 
-**Who Can Use:** Admin/Mod only
+## Knockout Commands
 
-**Parameters:**
-- `duration` (optional, string): Voting duration (default: 24h, range: 5m-30d)
-  - Format: `<number><unit>` where unit is m, h, or d
-  - Examples: "24h", "3d", "45m"
+These commands manage the knockout/elimination phase where titles face off head-to-head. Use these for **granular control** when you need to open/close specific matchups or regions.
 
-**Example Usage:**
-```
-/bracket open-knockout
-/bracket open-knockout duration:"48h"
-/bracket open-knockout duration:"2d"
-```
-
-**Notes:**
-- Opens ALL matchups in the current knockout round
-- Posts a voting message for each matchup with reaction buttons
-- Current round advances automatically based on bracket structure
-- Use this for standard tournament flow (all matchups at once)
-- Alternative: Use `/bracket open-region` or `/bracket open-matchup` for more control
-
----
-
-### `/bracket open-region`
-
-Open all matchups in a specific region (left or right side) for voting with text input or interactive buttons.
-
-**Who Can Use:** Admin/Mod only
-
-**Parameters:**
-- `region` (optional, choice): Region number. Leave blank to select from buttons.
-  - `1` - Region 1 (Left Side)
-  - `2` - Region 2 (Right Side)
-- `duration` (optional, string): Voting duration (default: 24h, range: 5m-30d)
-
-**Example Usage:**
-
-**Interactive mode (no region parameter):**
-```
-/bracket open-region duration:"24h"
-```
-→ Shows 2 buttons: "Region 1 (Left Side) ⬅️" and "Region 2 (Right Side) ➡️". Click to open.
-
-**Text mode:**
-```
-/bracket open-region region:1
-/bracket open-region region:2 duration:"36h"
-/bracket open-region region:1 duration:"2d"
-```
-
-**Features:**
-- **Interactive buttons** - Leave region blank to see 2 simple buttons with emoji indicators
-- **Matchup count preview** - See how many matchups in each region before opening
-- **Staggered voting** - Open half the bracket at a time to manage attention and build anticipation
-- **Visual region indicators** - ⬅️ for left side, ➡️ for right side
-
-**Notes:**
-- Opens half the bracket at a time (one region)
-- Posts voting messages for all matchups in the selected region
-- Region 1 = left bracket, Region 2 = right bracket
-- Can open regions independently or simultaneously
-- Buttons expire after 15 minutes
-
----
+::: tip Use Smart Commands
+For streamlined management, use `/bracket open` and `/bracket close` instead - they automatically detect the tournament phase and perform the right action!
+:::
 
 ### `/bracket open-matchup`
 
@@ -553,33 +510,9 @@ Open matchup(s) for voting with text input or interactive buttons.
 
 ---
 
-### `/bracket close-knockout`
-
-Close all open matchups in the current round and advance winners.
-
-**Who Can Use:** Admin/Mod only
-
-**Parameters:** None
-
-**Example Usage:**
-```
-/bracket close-knockout
-```
-
-**Notes:**
-- Closes ALL open matchups in current round
-- Calculates winner by reaction count (most votes wins)
-- Advances winners to next round automatically
-- Posts results showing vote counts
-- Cannot undo - winners are locked in
-- Advances tournament to next round if all matchups closed
-- Use this for standard tournament flow
-
----
-
 ### `/bracket close-matchup`
 
-Close matchup(s) and advance winner(s) with text input or interactive buttons.
+Close matchup(s) and advance winner(s) with text input or interactive buttons. Automatically creates tiebreaker votes if ties are detected.
 
 **Who Can Use:** Admin/Mod only
 
@@ -587,31 +520,38 @@ Close matchup(s) and advance winner(s) with text input or interactive buttons.
 - `matchup` (optional, string): Matchup ID(s) using regional labels. Leave blank to select from buttons.
   - Single: "1A", "2B", "Finals"
   - Multiple: "1A,1B,2C" (comma-separated)
+- `tiebreaker-duration` (optional, string): Duration for tiebreaker votes if needed
+  - Format: `<number><unit>` where unit is m (minutes), h (hours), or d (days)
+  - Examples: "1h", "30m", "2h"
+  - Default: 1h if not specified
+  - Range: 5m minimum, 7d maximum
 
 **Example Usage:**
 
 **Interactive mode (no matchup parameter):**
 ```
 /bracket close-matchup
+/bracket close-matchup tiebreaker-duration:"30m"
 ```
 → Shows red buttons for all open matchups with current vote counts. Click button(s) to close them.
 
 **Text mode (single matchup):**
 ```
 /bracket close-matchup matchup:"1A"
-/bracket close-matchup matchup:"2C"
-/bracket close-matchup matchup:"Finals"
+/bracket close-matchup matchup:"2C" tiebreaker-duration:"2h"
+/bracket close-matchup matchup:"Finals" tiebreaker-duration:"30m"
 ```
 
 **Text mode (multiple matchups):**
 ```
 /bracket close-matchup matchup:"1A,1B,1C"
-/bracket close-matchup matchup:"2A,2B,2C,2D"
+/bracket close-matchup matchup:"2A,2B,2C,2D" tiebreaker-duration:"1h"
 ```
 
 **Features:**
 - **Interactive buttons** - Leave matchup blank to see all open matchups as buttons
 - **Multi-matchup support** - Close several matchups at once with comma-separated list
+- **Automatic tiebreakers** - Creates tiebreaker vote if matchup ends in a tie
 - **Visual selection** - Buttons show matchup label, titles, and current votes (e.g., "1A: Jaws(5) vs Night...(3)")
 - **Batch processing** - Each matchup processed individually with success/error tracking
 - **Auto-advance tracking** - Shows which winners were placed in next round
@@ -619,17 +559,51 @@ Close matchup(s) and advance winner(s) with text input or interactive buttons.
 
 **Notes:**
 - Calculates winner by vote count (most votes wins)
-- Advances winner to next round automatically
+- **Automatically creates tiebreaker votes** if matchup ends in a tie
+- Advances winner to next round automatically (or after tiebreaker resolves)
 - Posts results showing vote counts
-- Cannot undo - winner is locked in
+- Cannot undo - winner is locked in (unless tiebreaker created)
 - Interactive mode shows up to 25 matchups (5 per row)
 - Buttons expire after 15 minutes
+- Tiebreaker winners are automatically advanced
 - Useful for:
   - Closing matchups individually or in batches
   - Managing voting flow
   - Resolving technical issues
   - Quick tournament progression
-- Does not automatically advance round (use `/bracket close-knockout` for that)
+
+---
+
+### `/bracket resolve-tiebreaker`
+
+**🆕 New Command** - Manually resolve a tiebreaker vote by selecting the winner (Admin/Mod override).
+
+**Who Can Use:** Admin/Mod/Tournament Creator only
+
+**Parameters:**
+- `tiebreaker-id` (required, string): ID of the tiebreaker to resolve
+- `winner` (required, integer): Which option should win (1 for first option, 2 for second, etc.)
+  - Use 1-based indexing (1 = first option, 2 = second option, etc.)
+  - Maximum depends on how many options are tied (usually 2-4)
+
+**Example Usage:**
+```
+/bracket resolve-tiebreaker tiebreaker-id:"tb_abc123" winner:1
+/bracket resolve-tiebreaker tiebreaker-id:"tb_xyz789" winner:2
+```
+
+**Notes:**
+- Overrides the tiebreaker vote with manual selection
+- Applies immediately - winner is advanced to appropriate position
+- Shows who resolved it (for transparency)
+- Useful when:
+  - Tiebreaker vote itself ends in a tie
+  - Community voting isn't resolving the tie
+  - Quick resolution is needed for tournament progression
+  - Technical issues with tiebreaker voting
+- Cannot be undone - winner is locked in
+- Tournament creator, Admins, and Moderators can use this command
+- Tiebreaker ID can be found in the tiebreaker voting message or `/bracket status`
 
 ---
 
@@ -786,30 +760,6 @@ Generate an AI-powered versus image for any matchup.
 - Images are ephemeral and not saved
 - Rate limits apply (tracks per-user and per-server usage)
 - Generated images are 1024x1024 PNG format
-
----
-
-### `/bracket regenerate`
-
-Regenerate knockout bracket with full tree structure.
-
-**Who Can Use:** Admin/Mod only
-
-**Parameters:** None
-
-**Example Usage:**
-```
-/bracket regenerate
-```
-
-**Notes:**
-- Rebuilds knockout bracket from group results
-- Useful for fixing bracket structure issues
-- Preserves completed matchup results
-- Recalculates wildcard seeding
-- Only use if bracket structure is corrupted
-- Cannot regenerate after Finals are complete
-- **Warning:** May affect in-progress matchups
 
 ---
 
