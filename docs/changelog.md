@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Streamlined Tournament Commands with Smart Phase Detection** (2026-07-03)
+  - **What changed:** Reduced from 25 to 18 subcommands by consolidating and adding intelligence
+  - **New smart commands:**
+    - `/bracket open` - Automatically detects tournament phase and opens next round (groups or knockout)
+    - `/bracket close` - Automatically detects phase and closes current round with tiebreaker support
+    - `/bracket manage-titles action:[add|remove]` - Unified title management command
+  - **Removed commands:** 
+    - Replaced `add-title` and `remove-title` with `manage-titles`
+    - Replaced `open-knockout`, `close-knockout` with smart `open`/`close`
+    - Removed `open-quarters`, `close-quarters`, `open-semis`, `close-semis`, `open-finals`, `close-finals` (use smart `open`/`close` instead)
+    - Temporarily removed `regenerate` (rarely used, hit Discord's 25 command limit)
+  - **Benefits:**
+    - Easier for admins: No need to remember which round-specific command to use
+    - Fewer commands to learn: Bot figures out context automatically
+    - Cleaner command list in Discord
+    - Opens more room for future features
+  - **Granular control still available:** Use `open-groups`, `close-groups`, `open-matchup`, `close-matchup` for specific control
 - **Automatic Tiebreaker Voting System** (2026-07-03)
   - **What it does:** Automatically creates dedicated voting rounds when ties occur during tournaments
   - **Applies to:**
