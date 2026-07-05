@@ -176,7 +176,10 @@ async function handleLogout() {
 // Load available channels
 async function loadChannels() {
     const channelSelect = document.getElementById('channel');
+    const voiceChannelSelect = document.getElementById('voice-channel');
+    
     channelSelect.innerHTML = '<option value="">Loading channels...</option>';
+    voiceChannelSelect.innerHTML = '<option value="">Loading channels...</option>';
     
     try {
         const response = await fetch(`${API_BASE_URL}/channels/${GUILD_ID}`);
@@ -186,18 +189,32 @@ async function loadChannels() {
             throw new Error(data.error || 'Failed to load channels');
         }
         
-        channelSelect.innerHTML = '<option value="">Select a voice channel...</option>';
+        // Separate channels by type
+        const textChannels = data.channels.filter(c => c.type === 'text');
+        const voiceChannels = data.channels.filter(c => c.type === 'voice' || c.type === 'stage');
         
-        data.channels.forEach(channel => {
+        // Populate text channel selector (required)
+        channelSelect.innerHTML = '<option value="">Select coordination channel...</option>';
+        textChannels.forEach(channel => {
+            const option = document.createElement('option');
+            option.value = channel.id;
+            option.textContent = `# ${channel.name}`;
+            channelSelect.appendChild(option);
+        });
+        
+        // Populate voice channel selector (optional)
+        voiceChannelSelect.innerHTML = '<option value="">No voice channel (external event)</option>';
+        voiceChannels.forEach(channel => {
             const option = document.createElement('option');
             option.value = channel.id;
             option.textContent = `${channel.type === 'stage' ? '🎤' : '🔊'} ${channel.name}`;
-            channelSelect.appendChild(option);
+            voiceChannelSelect.appendChild(option);
         });
         
     } catch (error) {
         console.error('Error loading channels:', error);
         channelSelect.innerHTML = '<option value="">Error loading channels</option>';
+        voiceChannelSelect.innerHTML = '<option value="">Error loading channels</option>';
         showMessage('Failed to load channels. Please refresh the page.', 'error');
     }
 }
@@ -216,11 +233,13 @@ async function handleSubmit(e) {
     submitBtn.textContent = 'Submitting...';
     
     // Gather form data
+    const voiceChannelValue = document.getElementById('voice-channel').value;
     const formData = {
         guildId: GUILD_ID,
         title: document.getElementById('title').value.trim(),
         description: document.getElementById('description').value.trim() || null,
         channelId: document.getElementById('channel').value,
+        voiceChannelId: voiceChannelValue || null,
         startTime: combineDateTimeToISO('start-date', 'start-time'),
         endTime: combineDateTimeToISO('end-date', 'end-time'),
         frequency: document.getElementById('frequency').value || null,

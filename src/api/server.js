@@ -204,7 +204,7 @@ export function createApiServer(client) {
     res.json({ success: true });
   });
   
-  // Get available voice/stage channels for a guild
+  // Get available channels for a guild
   app.get('/api/channels/:guildId', channelFetchLimiter, async (req, res) => {
     try {
       const { guildId } = req.params;
@@ -214,15 +214,27 @@ export function createApiServer(client) {
         return res.status(404).json({ error: 'Guild not found' });
       }
       
-      // Get voice and stage channels
+      // Get text, voice, and stage channels
       const channels = guild.channels.cache
-        .filter(channel => channel.type === 2 || channel.type === 13) // 2=Voice, 13=Stage
+        .filter(channel => 
+          channel.type === 0 ||  // Text channel
+          channel.type === 2 ||  // Voice channel
+          channel.type === 13    // Stage channel
+        )
         .map(channel => ({
           id: channel.id,
           name: channel.name,
-          type: channel.type === 13 ? 'stage' : 'voice'
+          type: channel.type === 0 ? 'text' : 
+                channel.type === 13 ? 'stage' : 'voice'
         }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => {
+          // Sort by type (text first, then voice, then stage), then by name
+          if (a.type !== b.type) {
+            const order = { text: 0, voice: 1, stage: 2 };
+            return order[a.type] - order[b.type];
+          }
+          return a.name.localeCompare(b.name);
+        });
       
       res.json({ channels });
     } catch (error) {
@@ -239,6 +251,7 @@ export function createApiServer(client) {
         title,
         description,
         channelId,
+        voiceChannelId,
         startTime,
         endTime,
         frequency,
@@ -278,9 +291,12 @@ export function createApiServer(client) {
         return res.status(500).json({ error: 'Moderation channel not found or invalid' });
       }
       
-      // Get channel name
-      const channel = guild.channels.cache.get(channelId);
-      const channelName = channel?.name || 'Unknown Channel';
+      // Get channel names for display
+      const textChannel = guild.channels.cache.get(channelId);
+      const textChannelName = textChannel?.name || 'Unknown Channel';
+      
+      const voiceChannel = voiceChannelId ? guild.channels.cache.get(voiceChannelId) : null;
+      const voiceChannelName = voiceChannel?.name || null;
       
       // Create embed for mod channel
       const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
@@ -296,16 +312,32 @@ export function createApiServer(client) {
             inline: false
           },
           {
-            name: '📍 Location',
-            value: `<#${channelId}> (${channelName})`,
-            inline: true
-          },
-          {
-            name: '📅 Start Time',
-            value: `<t:${Math.floor(new Date(startTime).getTime() / 1000)}:F>`,
+            name: '� Coordination Channel',
+            value: `<#${channelId}> (${textChannelName})`,
             inline: true
           }
         );
+      
+      // Add voice channel if specified
+      if (voiceChannelId && voiceChannel) {
+        embed.addFields({
+          name: '🔊 Voice Channel',
+          value: `<#${voiceChannelId}> (${voiceChannelName})`,
+          inline: true
+        });
+      } else {
+        embed.addFields({
+          name: '📍 Event Type',
+          value: 'External (no voice channel)',
+          inline: true
+        });
+      }
+      
+      embed.addFields({
+        name: '📅 Start Time',
+        value: `<t:${Math.floor(new Date(startTime).getTime() / 1000)}:F>`,
+        inline: true
+      });
       
       if (endTime) {
         embed.addFields({
@@ -366,6 +398,7 @@ export function createApiServer(client) {
         title,
         description,
         channelId,
+        voiceChannelId: voiceChannelId || null,
         startTime: new Date(startTime).toISOString(),
         endTime: endTime ? new Date(endTime).toISOString() : null,
         frequency,
