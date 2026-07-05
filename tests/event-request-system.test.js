@@ -479,3 +479,64 @@ describe('Event Request Button Handlers', () => {
     expect(replyContent).toContain('expired');
   });
 });
+
+describe('OAuth Configuration Validation', () => {
+  test('should validate OAUTH_REDIRECT_URI is set', () => {
+    const redirectUri = process.env.OAUTH_REDIRECT_URI;
+    expect(redirectUri).toBeDefined();
+    expect(redirectUri).toMatch(/^https?:\/\/.+\/api\/auth\/discord\/callback$/);
+  });
+
+  test('should validate DISCORD_CLIENT_SECRET is set', () => {
+    const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+    expect(clientSecret).toBeDefined();
+    expect(clientSecret.length).toBeGreaterThan(10);
+  });
+
+  test('should validate FORM_URL matches ALLOWED_ORIGINS', () => {
+    const formUrl = process.env.FORM_URL;
+    const allowedOrigins = process.env.ALLOWED_ORIGINS;
+    
+    expect(formUrl).toBeDefined();
+    expect(allowedOrigins).toBeDefined();
+    
+    if (formUrl && allowedOrigins) {
+      const origins = allowedOrigins.split(',').map(o => o.trim());
+      expect(origins).toContain(formUrl);
+    }
+  });
+
+  test('should validate production URLs use HTTPS', () => {
+    const redirectUri = process.env.OAUTH_REDIRECT_URI;
+    const formUrl = process.env.FORM_URL;
+    
+    // If not localhost, should use HTTPS
+    if (redirectUri && !redirectUri.includes('localhost')) {
+      expect(redirectUri).toMatch(/^https:\/\//);
+    }
+    
+    if (formUrl && !formUrl.includes('localhost')) {
+      expect(formUrl).toMatch(/^https:\/\//);
+    }
+  });
+
+  test('should validate redirect URI domain matches form URL domain', () => {
+    const redirectUri = process.env.OAUTH_REDIRECT_URI;
+    const formUrl = process.env.FORM_URL;
+    
+    if (redirectUri && formUrl && !redirectUri.includes('localhost')) {
+      const redirectDomain = new URL(redirectUri).hostname;
+      const formDomain = new URL(formUrl).hostname;
+      expect(redirectDomain).toBe(formDomain);
+    }
+  });
+
+  test('should validate API_PORT is a valid number', () => {
+    const apiPort = process.env.API_PORT;
+    if (apiPort) {
+      const port = parseInt(apiPort, 10);
+      expect(port).toBeGreaterThan(0);
+      expect(port).toBeLessThan(65536);
+    }
+  });
+});

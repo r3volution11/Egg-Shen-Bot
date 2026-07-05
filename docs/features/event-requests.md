@@ -44,14 +44,19 @@ This feature requires:
 
 ### Step 1: Discord Developer Portal Setup
 
+::: danger CRITICAL: OAuth Redirect URI
+**You MUST add the redirect URI to Discord Developer Portal BEFORE testing!** Without this, users will get "Invalid OAuth2 redirect_uri" errors when trying to login.
+:::
+
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
 2. Select your bot application
 3. Navigate to **OAuth2** section
-4. Add redirect URI:
+4. Click **Add Redirect** and enter:
    - For local testing: `http://localhost:3000/api/auth/discord/callback`
    - For production: `https://yourdomain.com/api/auth/discord/callback`
-5. Click **Save Changes**
-6. Copy your **Client Secret** (keep it secure!)
+   - **The URL MUST match your `OAUTH_REDIRECT_URI` environment variable exactly**
+5. Click **Save Changes** (don't forget this!)
+6. Copy your **Client Secret** from the OAuth2 page (keep it secure!)
 
 ### Step 2: Environment Variables
 
@@ -336,12 +341,38 @@ Don't forget to add `http://localhost:3000/api/auth/discord/callback` to Discord
 - ✅ Ensure the bot is a member of that server
 - ✅ Check event requests are enabled: `/eggshen-config event-requests view`
 
+### "Invalid OAuth2 redirect_uri" Error
+
+::: danger Common Issue
+This is the most common error when setting up event requests. It means Discord doesn't recognize your callback URL.
+:::
+
+**Solution:**
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Select your application → OAuth2 → Redirects
+3. Add the **exact** URL from your `OAUTH_REDIRECT_URI` environment variable
+4. Click **Save Changes** (required!)
+5. Wait 1-2 minutes for changes to propagate
+6. Try logging in again
+
+**Common mistakes:**
+- ❌ Forgetting to click "Save Changes" in Discord portal
+- ❌ Using HTTP instead of HTTPS in production
+- ❌ Typo in the URL (even `/callback` vs `/callbacks` matters)
+- ❌ Port number mismatch
+
+**Validate your configuration:**
+```bash
+npm run validate-oauth
+```
+
 ### OAuth Redirect Mismatch
 
 - ✅ `OAUTH_REDIRECT_URI` in `.env` must exactly match Discord Developer Portal
 - ✅ Check for HTTP vs HTTPS mismatches
 - ✅ Verify port numbers match
 - ✅ Restart the bot after changing `.env`
+- ✅ Run `npm run validate-oauth` to check configuration
 
 ### Requests Not Appearing
 
