@@ -46,10 +46,10 @@ export function createApiServer(client) {
   });
   
   // Get guild configuration for event requests
-  app.get('/api/guild-config/:guildId', (req, res) => {
+  app.get('/api/guild-config/:guildId', async (req, res) => {
     try {
       const { guildId } = req.params;
-      const guildConfig = loadGuildConfig(guildId);
+      const guildConfig = await loadGuildConfig(guildId);
       const eventRequestConfig = guildConfig.eventRequests || {};
       
       if (!eventRequestConfig.enabled) {
@@ -216,7 +216,7 @@ export function createApiServer(client) {
       }
       
       // Get guild config to check allowed channels
-      const guildConfig = loadGuildConfig(guildId);
+      const guildConfig = await loadGuildConfig(guildId);
       const eventRequestConfig = guildConfig.eventRequests || {};
       const allowedTextChannels = eventRequestConfig.allowedTextChannels || [];
       const allowedVoiceChannels = eventRequestConfig.allowedVoiceChannels || [];
@@ -277,7 +277,7 @@ export function createApiServer(client) {
       } = req.body;
       
       // Get guild config for event requests
-      const guildConfig = loadGuildConfig(guildId);
+      const guildConfig = await loadGuildConfig(guildId);
       const eventRequestConfig = guildConfig.eventRequests || {};
       
       // Validate required fields
