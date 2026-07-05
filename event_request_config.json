@@ -3,9 +3,9 @@
     "eventRequests": {
       "enabled": true,
       "moderationChannel": "1515874601534754890",
-      "serverName": "Test Server",
-      "inviteUrl": "https://discord.com/invite/shudder-348924434679332864",
-      "websiteUrl": "https://shudderdrivein.com"
+      "serverName": "Egg Shen Test Server",
+      "inviteUrl": null,
+      "websiteUrl": "http://localhost:8080"
     }
   }
 }

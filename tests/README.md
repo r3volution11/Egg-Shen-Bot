@@ -97,6 +97,8 @@ Re-runs tests automatically when you change code.
 ## Test Files
 
 - **`bracketManager.test.js`** - Unit tests for core tournament logic
+- **`event-request-system.test.js`** - Unit tests for event request system (API endpoints, OAuth, configuration)
+- **`discord-limits.test.js`** - Tests for Discord API limits and constraints
 - **`simulate-tournament.js`** - Full simulation script with visual output
 
 ## Tips
