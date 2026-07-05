@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.2.0] - 2026-07-05
 
 ### Added
-- **Event Request Channel Whitelisting** (2026-07-05)
+- **Event Request Channel Whitelisting**
   - **Control Which Channels Appear in Form:** Admins can specify exactly which text and voice channels users can select from
   - **New Commands:**
     - `/eggshen-config event-requests set-allowed-text-channels channel-ids:"123,456,789"` - Whitelist specific text channels
@@ -34,7 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - No UI changes needed - just configure and it works
   - **Documentation:** Configuration commands documented in `/eggshen-config event-requests` section
 
-- **Event Request Voice Channel Opt-In & Granular Approval** (2026-07-05)
+## [2.1.0] - 2026-07-05
+
+### Added
+- **Event Request Voice Channel Opt-In & Granular Approval**
   - **Clearer Labels:** "Location" instead of "Coordination Channel" (text channel is always required)
   - **Voice Channel Opt-In:** Checkbox to optionally include voice/stage channel for events
     - Only shows when checkbox is checked
@@ -54,7 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Accommodates different community preferences
   - **Documentation:** See [Event Requests Setup](/features/event-requests) for complete configuration guide
 
-- **Comprehensive Help Commands** (2026-07-04)
+## [2.0.0] - 2026-07-04
+
+### Added
+- **Comprehensive Help Commands**
   - **Updated `/eggshen-help`** - Complete command list covering all bot features
     - Movies & TV Shows: movie, tv, episode, episode-list, similar, watched
     - Games & Entertainment: game, boardgame, book, soundtrack
@@ -76,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Links to full documentation at eggshenbot.com
     - Admin commands hidden from regular members
 
-- **Tournament Size Validation** (2026-07-04)
+- **Tournament Size Validation**
   - **What changed:** The `max-titles` parameter now only accepts specific valid tournament sizes
   - **Valid bracket sizes:** 2, 4, 8, 16, 32 (powers of 2 for balanced single-elimination)
   - **Valid group sizes:** 36, 40, 44, 48 (multiples of 4 for complete groups of 4 entries each)
@@ -88,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Complete groups in group stage mode (all groups have exactly 4 entries)
     - Clear labeling helps admins choose the right size
 
-- **Streamlined Tournament Commands with Smart Phase Detection** (2026-07-03)
+- **Streamlined Tournament Commands with Smart Phase Detection**
   - **What changed:** Reduced from 25 to 18 subcommands by consolidating and adding intelligence
   - **New smart commands:**
     - `/bracket open` - Automatically detects tournament phase and opens next round (groups or knockout)
@@ -105,7 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Cleaner command list in Discord
     - Opens more room for future features
   - **Granular control still available:** Use `open-groups`, `close-groups`, `open-matchup`, `close-matchup` for specific control
-- **Automatic Tiebreaker Voting System** (2026-07-03)
+- **Automatic Tiebreaker Voting System**
   - **What it does:** Automatically creates dedicated voting rounds when ties occur during tournaments
   - **Applies to:**
     - **Group stage:** 1st and 2nd place ties
@@ -129,12 +135,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Prevents arbitrary random selections for important decisions
     - Flexible duration allows quick tiebreakers for fast tournaments
     - Admin override available when needed
-- **Tournament Validation Before Knockout** (2026-07-03)
+- **Tournament Validation Before Knockout**
   - **What changed:** `/bracket advance-knockout` now validates all groups are closed before generating bracket
   - **Prevents:** Creating incomplete brackets (e.g., 12 matchups instead of 16 for Round of 32)
   - **Error message:** Shows which groups still need to be closed
   - **Also checks:** Active tiebreakers must be resolved before advancing
-- **Timer Duration Adjustment** (2026-07-03)
+- **Timer Duration Adjustment**
   - **New command:** `/timer adjust duration:[minutes]`
   - **What it does:** Adjusts the total duration of an active timer while it's running
   - **Smart calculation:** Bot automatically calculates elapsed time and reschedules auto-stop based on the new total duration
@@ -142,7 +148,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Protection:** Won't allow setting duration shorter than elapsed time (prevents instant auto-stop)
   - **Feedback:** Shows new total duration, time elapsed, and time remaining
   - **Example:** Timer running for 45 minutes, adjust to 140 minutes = 95 minutes remaining
-- **Timer Auto-Stop Control** (2026-07-03)
+- **Timer Auto-Stop Control**
   - **New command:** `/timer autostop autostop:[enable|disable] duration:[minutes]`
   - **Actions:**
     - **Disable:** Removes auto-stop from timer with duration - timer continues until manually stopped
@@ -157,7 +163,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Examples:**
     - `/timer autostop autostop:disable` - removes auto-stop, continue indefinitely
     - `/timer autostop autostop:enable duration:180` - adds 3-hour auto-stop to running timer
-- **4-Region Knockout Tournament System** (2026-07-02)
+- **4-Region Knockout Tournament System**
   - **What changed:** Knockout tournaments now use 4 regions (March Madness style) instead of 2 regions
   - **Regional labeling:** Matchups labeled 1A-4D based on position (e.g., "1A", "2C", "3B", "4D")
   - **New `/bracket open-matchup` parameters:**
@@ -174,7 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Admin can directly specify `region:2` instead of using buttons
     - Matches real tournament bracket structure
   - **Migration:** Existing 2-region tournaments will automatically use new 4-region labels on next round
-- **Matchup Reset on Reopen** (2026-07-02)
+- **Matchup Reset on Reopen**
   - **What changed:** Closing and reopening matchups now fully resets the matchup state
   - **Clears:** Previous votes, winner selection, vote counts, closed timestamps, and results cache
   - **Benefits:** 
@@ -182,7 +188,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fresh slate for fixing broken voting rounds
     - No stale data from previous voting sessions
   - **Applies to:** `/bracket open-matchup`, `/bracket open-knockout`, regional opening
-- **Vote Confirmation Spam Removed** (2026-07-02)
+- **Vote Confirmation Spam Removed**
   - **What changed:** Individual "✅ Voted for [Title] in Group X!" messages removed from group voting
   - **New feedback:** Button color change (purple = selected, gray = unselected) provides instant visual confirmation
   - **Benefits:**
@@ -190,7 +196,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Faster voting experience
     - Still see vote reflected immediately in dashboard
   - **Note:** Personal voting dashboard still updates in real-time with vote counts
-- **Smart Tournament Warning Timing** (2026-07-02)
+- **Smart Tournament Warning Timing**
   - **What changed:** "Voting Closing Soon!" warnings now appear at intelligent times based on total voting duration instead of a fixed 1-hour-before threshold
   - **New warning schedule:**
     - **< 30 min votes:** Warning after 5 minutes (e.g., 30-min test = warn at 5 min)
@@ -203,7 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Longer tournaments still get appropriate late warnings
     - Scales automatically based on chosen duration
   - **Applies to:** Both group stage and knockout voting periods
-- **Manual Watch History Button for All Timers** (2026-07-02)
+- **Manual Watch History Button for All Timers**
   - **What changed:** "Log to Watch History" button now appears on ALL timer completion messages (not just errors)
   - **For timers WITH labels:**
     - Automatic logging happens first (searches TMDB, logs first result)
@@ -224,7 +230,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Prevents unauthorized logging by non-starters
     - Maintains automatic convenience while allowing manual control
   - **Implementation:** Button customId includes starter's user ID for permission checking
-- **Automatic Watch History Logging for Timers** (2026-07-01)
+- **Automatic Watch History Logging for Timers**
   - **What changed:** Timers with titles now automatically log to server watch history when they complete
   - **How it works:**
     1. Timer completes (manual `/timer stop` or auto-stop after duration)
@@ -248,7 +254,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Shows rich TMDB details (poster, year, type)
   - **Fallback:** If title not found on TMDB, shows button for manual logging
   - **Note:** Only timers with labels/titles trigger auto-logging; blank timers show button for manual logging
-- **Tatsu-Style Tournament UI Enhancements** (2026-06-30)
+- **Tatsu-Style Tournament UI Enhancements**
   - **Inspired by:** tatsu.gg Discord bot's polished voting system with visual progress bars and gamification
   - **Visual Progress Bars:**
     - Vote counts now display as visual bars: `████████░░ 12 votes (60%)`
@@ -286,7 +292,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Gamification encourages participation
     - Bot branding consistency
     - Minimal chat spam (already using ephemeral messages)
-- **Round-Specific Command Aliases** (2026-06-30)
+- **Round-Specific Command Aliases**
   - **New memorable commands for each knockout round:**
     - **Opening:** `/bracket open-quarters`, `/bracket open-semis`, `/bracket open-finals`
     - **Closing:** `/bracket close-quarters`, `/bracket close-semis`, `/bracket close-finals`
@@ -300,7 +306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Better discovery of available commands
   - **Commands restored:** `/bracket regenerate` added back (critical for fixing bracket structure issues)
   - **Commands removed to stay under 25 limit:** `list-groups` (status shows this info)
-- **Discord Timestamp Auto-Timezone Conversion** (2026-06-29)
+- **Discord Timestamp Auto-Timezone Conversion**
   - **Issue:** All timestamps displayed in server time (UTC), causing confusion for users in different timezones
   - **Fix:** Replaced all `toLocaleString()` calls with Discord's `<t:timestamp:f>` format
   - **Affected areas:**
@@ -309,7 +315,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Voting extension confirmation messages
   - **Result:** Each user automatically sees times in their own timezone based on Discord settings
   - **Example:** "10:14 PM" (your timezone) instead of "2:14 AM" (UTC)
-- **Personal Voting Dashboards for Knockout Rounds** (2026-06-29)
+- **Personal Voting Dashboards for Knockout Rounds**
   - **How it works:** Users get their own private voting dashboard (completely separate from shared messages)
   - **Flow:**
     1. Admin opens matchups → Summary card appears with "Start Voting" button
@@ -329,7 +335,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Applies to all media types:** Movies, TV shows, video games, board games, books, and any future additions (episodes, music, etc.)
 
 ### Changed
-- **Simplified Knockout Voting Confirmations** (2026-06-29)
+- **Simplified Knockout Voting Confirmations**
   - **Previous:** Attempted to maintain persistent "Your Votes" dashboard for knockout rounds
   - **Issue:** Ephemeral messages from `followUp()` cannot be fetched and edited, causing duplicate cards on each vote
   - **Root cause:** Discord's ephemeral messages are client-side only and not retrievable via API after creation
@@ -342,7 +348,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - No more dashboard spam!
 
 ### Fixed
-- **Discord 5-Row Limit Error in Knockout Voting Dashboard** (2026-07-02)
+- **Discord 5-Row Limit Error in Knockout Voting Dashboard**
   - **Issue:** Clicking "Start Voting" in rounds with many matchups (Round of 32, Round of 16) failed with "Invalid Form Body - data.components[BASE_TYPE_MAX_LENGTH]: Must be 5 or fewer in length"
   - **Root cause:** Dashboard tried to display ALL matchups at once (1 row per matchup), exceeding Discord's 5 ActionRow limit per message
   - **Example:** Round of 32 = 32 matchups = 32 rows (limit is 5!)
@@ -353,14 +359,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Vote counts preserved across pages
     - Purple highlighting for user's selections maintained across navigation
   - **Result:** All knockout rounds now work regardless of size, users can browse and vote on all matchups
-- **"No voting matchups found" Error on Knockout Start Voting Button** (2026-07-02)
+- **"No voting matchups found" Error on Knockout Start Voting Button**
   - **Issue:** Clicking "Start Voting" button in knockout rounds returned "No voting matchups found for this round" error
   - **Root cause:** Button handler was incorrectly parsing the round from button customId using `split('_')` which broke `round_of_32` into just `'round'`
   - **Example:** Button customId `start_knockout_voting_round_of_32` → split by `_` → `['start', 'knockout', 'voting', 'round', 'of', '32']` → extracted index [3] = `'round'` (wrong!)
   - **Fix:** Changed to extract everything after `start_knockout_voting_` prefix to preserve full round name like `round_of_32`, `quarter_finals`, etc.
   - **Also fixed:** Added missing `votingStarted` timestamps to all knockout matchup opening functions so smart warning timing works correctly
   - **Result:** Personal voting dashboards now load correctly for all knockout rounds
-- **Knockout Channel Flooding with Individual Matchup Cards** (2026-07-02)
+- **Knockout Channel Flooding with Individual Matchup Cards**
   - **Issue:** When opening knockout rounds, bot was flooding channels with one card per matchup (e.g., 32 cards for Round of 32) in addition to the main announcement
   - **Root cause:** All knockout opening functions were looping through matchups and sending individual cards to the channel
   - **Affected commands:** `/bracket advance-knockout`, `/bracket open-knockout`, `/bracket open-quarters`, `/bracket open-semis`, `/bracket open-finals`, `/bracket open-matchup`, `/bracket open-region`
@@ -371,12 +377,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Cleaner tournament experience
     - Personal dashboard remains the single source for voting
     - Maintains all functionality while reducing visual clutter
-- **Group Stage Open Command Error** (2026-07-02)
+- **Group Stage Open Command Error**
   - **Issue:** `/bracket open-groups` command failed with "An error occurred" when trying to display voting announcement
   - **Root cause:** Code referenced undefined variable `leaderboardEmbed` instead of the `embeds` array that was built earlier in the function
   - **Fix:** Changed `embeds: [leaderboardEmbed]` to `embeds: embeds` on line 1350 of bracket.js
   - **Result:** Group stage voting now opens correctly with announcement embed, leaderboards, and "Start Voting" button
-- **Knockout Dashboard Still Creating Multiple Cards** (2026-06-29)
+- **Knockout Dashboard Still Creating Multiple Cards**
   - **Issue:** Dashboard was still creating new cards on each vote instead of updating the existing one
   - **Root cause:** Fallback logic was too aggressive - if message fetch failed for ANY reason, created new message with `followUp()` instead of updating
   - **Fix:**
@@ -385,7 +391,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added console logging to track dashboard creation vs updates
     - Changed from nested if/else to single try/catch for cleaner error handling
   - **Result:** Dashboard now consistently updates in place on subsequent votes, only creates new message on first vote or if previous message was deleted
-- **Knockout Voting Interaction Error Fixed** (2026-06-29)
+- **Knockout Voting Interaction Error Fixed**
   - **Issue:** All knockout votes failed with "An error occurred while processing your vote" after dashboard flooding fix
   - **Root cause:** Double-defer - `interaction.deferUpdate()` at button handler level + `interaction.deferReply()` in knockout handler = "InteractionAlreadyReplied" error
   - **Fix:**
@@ -393,7 +399,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Changed all `editReply()` calls to `followUp()` for ephemeral dashboard messages
     - Kept `deferUpdate()` at top level for button message updates
   - **Result:** Voting works again with proper dashboard tracking
-- **Knockout Voting Dashboard Flooding Fixed** (2026-06-29)
+- **Knockout Voting Dashboard Flooding Fixed**
   - **Issue:** Each knockout vote created a NEW ephemeral "Your Votes" card, flooding the channel with multiple cards (user reported 5+ cards stacking up as they voted)
   - **Root cause:** Interaction wasn't properly deferred before trying to update dashboard, causing `followUp()` calls to create new messages instead of updating existing ones
   - **Fix:**
@@ -407,7 +413,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Clean UX - only one personal dashboard per round
     - Real-time progress tracking without clutter
     - Public voting cards show live vote totals for all users
-- **Multiple Matchup Voting Buttons Separated** (2026-06-29)
+- **Multiple Matchup Voting Buttons Separated**
   - **Issue:** When opening multiple matchups (via comma-separated input or region selector), all voting buttons were bundled together at the bottom, making it difficult to understand which buttons corresponded to which matchup
   - **Fix:** Each matchup now posts as a separate message with its own voting buttons directly below its card
   - **Impact:** Users can now clearly see which buttons belong to each matchup, significantly improving voting UX
@@ -416,7 +422,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `/bracket open-region` (opens all matchups in a region)
 
 ### Changed
-- **Bracket Visualization Poster Opacity Increased to 50%** (2026-06-29)
+- **Bracket Visualization Poster Opacity Increased to 50%**
   - **Previous:** Started at 30%, increased to 40%, now at 50% opacity
   - **Progression:** 30% → 40% → 50% (iterative improvements based on user feedback)
   - **Reason:** User tested 40% and confirmed posters could be even more prominent
@@ -424,7 +430,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Sweet spot:** 50% provides strong visual presence without overwhelming text content
 
 ### Added
-- **Public "All Votes" Leaderboard for Knockout Rounds** (2026-06-29)
+- **Public "All Votes" Leaderboard for Knockout Rounds**
   - **Real-time public leaderboard** - Single card visible to everyone showing current vote tallies across all matchups in the round
   - **Updates in place** - Leaderboard refreshes automatically after each vote, not repeated
   - **Live statistics:**
@@ -443,7 +449,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Vote button clicked → Simple "✅ Vote recorded!" confirmation (ephemeral)
     - "All Votes" leaderboard updates automatically (public, persistent)
     - Clean UX with no dashboard spam
-- **Interactive Region Selector for open-region** (2026-06-29)
+- **Interactive Region Selector for open-region**
   - **`/bracket open-region` with no parameter** - Shows 2 buttons: Region 1 (Left Side) and Region 2 (Right Side)
   - **Simple button selection** - Just 2 options with directional emoji arrows (⬅️ ➡️)
   - **Shows matchup counts** - See how many matchups in each region before opening
@@ -453,7 +459,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Visual clarity with emoji indicators
     - See matchup distribution before opening
     - Consistent button-based workflow
-- **Interactive Matchup Selectors** (2026-06-29)
+- **Interactive Matchup Selectors**
   - **`/bracket open-matchup` with no parameter** - Shows buttons for all pending matchups
   - **`/bracket close-matchup` with no parameter** - Shows buttons for all open matchups
   - **Visual selection interface:**
@@ -467,7 +473,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Faster admin workflow
     - See current vote counts before closing
     - Reduces typing errors
-- **Multi-Matchup Support** (2026-06-29)
+- **Multi-Matchup Support**
   - **Comma-separated matchup lists** - Open or close multiple matchups with one command
   - **`/bracket open-matchup matchup:"1A,1B,2C"`** - Open multiple matchups at once
   - **`/bracket close-matchup matchup:"1A,1B,2C"`** - Close multiple matchups at once
@@ -482,7 +488,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Less command spam in channels
     - Clear feedback for batch operations
     - Backwards compatible with single matchup commands
-- **Prominent Matchup Labels in Voting** (2026-06-29)
+- **Prominent Matchup Labels in Voting**
   - **Clear matchup identification** - Every voting embed shows "**1A:** Vote for your pick!" in description
   - **Consistent across all contexts:**
     - advance-knockout (auto-open first round)
@@ -494,7 +500,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Reduces confusion when multiple matchups displayed
     - Better accessibility and clarity
     - Regional labels impossible to miss
-- **Persistent Ephemeral Voting Dashboard** (2026-06-28)
+- **Persistent Ephemeral Voting Dashboard**
   - **Real-time personal dashboard** - Each user gets their own voting tracker (only they can see it)
   - **Updates as you vote** - Dashboard refreshes instantly with checkmarks (✅) for selected titles
   - **Color-coded status** - Gray (no votes), Blue (partial), Green (complete)
@@ -511,7 +517,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Works perfectly with Discord's ephemeral system
     - No cross-user pollution (each dashboard is private)
     - Track progress in Round of 32 (16 matchups), Round of 16 (8 matchups), etc.
-- **Consolidated Tournament Warning Messages** (2026-06-28)
+- **Consolidated Tournament Warning Messages**
   - **Grouped by deadline** - Multiple groups with same deadline = ONE warning message
   - **Before:** 4 groups closing = 4 separate warning messages
   - **After:** 4 groups closing = 1 consolidated message: "Groups I, J, K, L"
@@ -521,7 +527,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Clearer communication (see all closing at once)
     - Less channel clutter
     - Better tournament pacing visibility
-- **Auto-Start Knockout Voting** (2026-06-28)
+- **Auto-Start Knockout Voting**
   - **`/bracket advance-knockout` now auto-opens voting**
   - **Customizable duration** - `/bracket advance-knockout duration:"24h"` (default: 24h)
   - **One command workflow** - Generate bracket AND start voting immediately
@@ -959,19 +965,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Alternative to `/poll` and `/vote` commands that may be provided by other bots
 
 ### Fixed
-- **CRITICAL: Knockout Bracket Generation Bug** (2026-06-29)
+- **CRITICAL: Knockout Bracket Generation Bug**
   - **Issue:** Tournaments with more than 4 groups had incomplete knockout brackets. For example, a 12-group tournament only created 4 first-round matchups instead of 12, leaving 8 qualified movies without matchups. Visualization showed sparse Round of 32/16 with mostly TBD placeholders.
   - **Root cause:** Code used `opponent.index` to track which runners-up had been matched. The `index` property represents position within each group (0=1st, 1=2nd, 2=3rd, 3=4th), NOT a unique identifier. Multiple runners-up across different groups share the same index value (e.g., all second-place finishers have index=1). After matching one opponent with index=2, ALL other runners-up with index=2 were incorrectly marked as "used", even though they were different movies from different groups.
   - **Example:** In a 12-group tournament, runners-up had indices Counter({0: 2, 1: 4, 2: 3, 3: 3}). After matching 4 winners (one per unique index value 0-3), the code thought all opponents were used, leaving 8 winners with no matchups.
   - **Fix:** Changed to use unique key `title + groupId` instead of `index` to track used opponents. Now properly creates matchups for ALL qualified movies.
   - **Impact:** Affects all tournaments with 5+ groups. Existing broken tournaments can be fixed with `/bracket regenerate`.
   - **Benefit:** Complete, properly populated knockout brackets with all qualified movies receiving first-round matchups.
-- **Button Selection Cross-User Pollution Bug** (2026-06-28)
+- **Button Selection Cross-User Pollution Bug**
   - **Issue:** When User A voted, their button selections (green buttons) appeared as selected for ALL users (User B, C, D, etc.)
   - **Root cause:** Discord messages are shared, not per-user. When buttonHandler edited the message to highlight buttons (ButtonStyle.Success), those style changes applied globally to everyone viewing the message.
   - **Fix:** Removed button style updates from shared voting messages entirely. Buttons stay gray (ButtonStyle.Secondary) for everyone. Users see their selection feedback only in their private ephemeral dashboard.
   - **Benefit:** No more confusion about seeing other people's votes highlighted on your screen.
-- **Bracket Visualization Layout Issues** (2026-06-28)
+- **Bracket Visualization Layout Issues**
   - **Issue:** Round of 32 had overlapping titles, missing TBD rectangles, inconsistent spacing
   - **Root cause:** Used dynamic spacing based on canvas height instead of fixed MATCHUP_SPACING constant, causing overlaps with many matchups
   - **Fix:** Now uses fixed MATCHUP_SPACING (140px) for consistent positioning, proper canvas height calculation, all matchups positioned at precise intervals
@@ -1051,59 +1057,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed timer command timeout issues (3-second interaction expiry)
   - Applied fixes to movie, tv, game, boardgame commands and select handlers
 - Ghost timer persistence issue resolved
-
-## [Unreleased]
-
-### Added
-- **AI-Enhanced Semantic Search with OpenAI** (2026-06-22)
-  - Optional OpenAI integration for smarter search result ranking
-  - Hybrid approach: keyword search first, then AI re-ranking for relevance
-  - Uses cost-effective `text-embedding-3-small` model (~$0.02/1000 searches)
-  - Calculates cosine similarity between query and result embeddings
-  - Re-ranks top 20 results by semantic score for better accuracy
-  - Progressive enhancement: falls back to keyword-only if API key missing
-  - Better handles partial titles, descriptions, thematic queries
-  - Example: "that movie about dreams within dreams" → Inception
-  - Updated `/movie` and `/tv` commands to use hybrid search
-  - Documentation includes setup guide and cost estimates
-- **Enhanced Streaming Availability with Watchmode API** (2026-06-22)
-  - Optional Watchmode API integration for comprehensive streaming data
-  - Unified watch provider system merges TMDB + Watchmode sources
-  - Better coverage of free services (Tubi, Pluto TV, Freevee, Plex, etc.)
-  - 150+ streaming services tracked with up-to-date availability
-  - Progressive enhancement: falls back to TMDB-only if API key missing
-  - Shows stream/rent/buy options for movies and TV shows
-  - Region-configurable per server (defaults to US)
-  - Free tier: 1,000 requests/month (sufficient for small-medium servers)
-  - Applied to `/movie`, `/tv`, `/random`, and `/similar` commands
-  - New `watchmodeService.js` with search and provider lookup functions
-  - Documentation includes setup guide and usage limits
-- **Fun & Social Potion System** (2026-06-22)
-  - New `/potion give` command for playful user interactions
-  - 13 potion types: 8 helpful, 5 harmful for chat dynamics
-  - 78+ unique responses with horror, comedy, fantasy references
-  - Helpful potions: Health, Mana, Strength, Speed, Invisibility, Luck, Love, Energy
-  - Harmful potions: Confusion, Poison, Weakness, Curse, Slow
-  - Pop culture references: LOTR, Harry Potter, Dark Souls, Get Out, The Ring, etc.
-  - Admin-configurable custom responses per guild
-  - Subcommands: `/potion responses add/remove/list/reset` (admin/mod only)
-  - Custom responses stored per-guild, merged with defaults
-  - Validates {giver} and {receiver} placeholders in custom responses
-  - Permission checking ensures only admins/mods manage responses
-
-### Fixed
-- **Watchmode streaming providers not displaying** (2026-06-23)
-  - `/movie` and `/tv` commands weren't calling unified watch provider functions
-  - Created `getUnifiedMovieWatchProviders()` and `getUnifiedTVWatchProviders()` but forgot to invoke them
-  - Now properly calls unified functions and passes `watchProviders` to `createDetailedEmbed()`
-  - Tubi and other Watchmode-exclusive services now appear in search results
-  - `/random` already had correct implementation
-  - `/similar` doesn't need it (shows list-only results, not detailed embeds)
-
-### Planned
-- Statistics export functionality
-- Web dashboard for statistics and configuration
-- Unit and integration test suite
 
 ---
 
