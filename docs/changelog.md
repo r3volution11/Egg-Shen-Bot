@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Event Request Voice Channel Opt-In & Granular Approval** (2026-07-05)
+  - **Clearer Labels:** "Location" instead of "Coordination Channel" (text channel is always required)
+  - **Voice Channel Opt-In:** Checkbox to optionally include voice/stage channel for events
+    - Only shows when checkbox is checked
+    - Reduces form clutter, makes intent clearer
+  - **Server Control:** New `/eggshen-config event-requests allow-voice-requests` command
+    - Enable/disable voice channel requests server-wide
+    - When disabled, checkbox is hidden and all events are text-only
+    - Useful for servers that primarily use text chat for watch parties
+  - **Granular Moderator Approval:**
+    - **Voice requests:** ✅ Approve Both | 💬 Text Only | ❌ Deny
+    - **Text-only requests:** ✅ Approve & Create Event | ❌ Deny
+    - Moderators can modify requests during approval (e.g., remove voice channel)
+  - **Benefits:**
+    - Server admins control voice channel availability
+    - Moderators have flexibility to adjust requests
+    - Clearer terminology and streamlined form UX
+    - Accommodates different community preferences
+  - **Documentation:** See [Event Requests Setup](../features/event-requests.md) for complete configuration guide
+
 - **Comprehensive Help Commands** (2026-07-04)
   - **Updated `/eggshen-help`** - Complete command list covering all bot features
     - Movies & TV Shows: movie, tv, episode, episode-list, similar, watched

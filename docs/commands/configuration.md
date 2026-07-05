@@ -509,6 +509,111 @@ Reset the entire server's daily usage (user limits still apply).
 
 ---
 
+### Event Requests Group
+
+Configure event request system for watch parties. See [Event Requests Setup](../features/event-requests.md) for complete documentation.
+
+::: tip
+Event requests allow community members to submit watch party events via a web form. Moderators approve or deny requests in Discord, and approved events are automatically created as Discord Scheduled Events.
+:::
+
+#### View Current Configuration
+
+```
+/eggshen-config event-requests view
+```
+
+Shows current event request settings including:
+- Enabled status
+- Server name displayed on form
+- Moderation channel for approval queue
+- Website URL where form is hosted
+- Discord invite link (optional)
+- Voice channel requests allowed/disallowed
+
+#### Enable/Disable Event Requests
+
+```
+/eggshen-config event-requests toggle enabled:true
+/eggshen-config event-requests toggle enabled:false
+```
+
+Turn event requests on or off for your server.
+
+#### Set Moderation Channel
+
+```
+/eggshen-config event-requests moderation-channel channel:#mod-queue
+```
+
+Set where event request approval messages appear. Moderators will see:
+- Request details (title, description, channels, date/time)
+- Submitter information
+- Approval buttons (varies based on voice channel request)
+
+#### Set Server Name
+
+```
+/eggshen-config event-requests server-name name:My Cool Server
+```
+
+Customize the server name shown on the event request form.
+
+#### Set Invite Link (Optional)
+
+```
+/eggshen-config event-requests invite-url url:https://discord.gg/yourserver
+```
+
+Discord invite link displayed on the form. Leave empty to hide.
+
+#### Set Website URL
+
+```
+/eggshen-config event-requests website-url url:https://yourdomain.com
+```
+
+The URL where your event request form is hosted.
+
+::: warning
+After setting the website URL, you must also configure `GUILD_ID` in your `public/app.js` file on your web server. See the [Event Requests Setup Guide](../features/event-requests.md) for deployment instructions.
+:::
+
+#### Allow/Disallow Voice Requests
+
+```
+/eggshen-config event-requests allow-voice-requests allow:true
+/eggshen-config event-requests allow-voice-requests allow:false
+```
+
+Control whether users can request voice/stage channels for events.
+
+**When disabled:**
+- Voice channel checkbox hidden on form
+- All events are text-channel only
+- Simplifies form for servers that don't use voice for watch parties
+
+**When enabled (default):**
+- Checkbox appears on form: "Include voice/stage channel for this event"
+- Users can optionally add voice channel to requests
+- Moderators get granular approval options
+
+**Moderator Approval Options:**
+- **Voice requested:** ✅ Approve Both | 💬 Text Only | ❌ Deny
+- **Text-only request:** ✅ Approve & Create Event | ❌ Deny
+
+#### Get Configuration Summary
+
+```
+/eggshen-config event-requests get-link
+```
+
+Shows your form URL and reminds you to configure `GUILD_ID` in your web deployment.
+
+**💡 See [Event Requests Setup](../features/event-requests.md) for complete documentation including OAuth configuration, web server setup, and testing guide.**
+
+---
+
 ## Other Admin Commands
 
 ### View Statistics
