@@ -201,20 +201,29 @@ Shows your form URL and reminds you to configure the GUILD_ID in your web form d
 3. **Fill out the form:**
    - Event title (required)
    - Description (optional)
-   - Voice/Stage channel (required)
+   - **Coordination channel** (required) - Text channel for announcements and chat
+   - **Voice channel** (optional) - For voice/stage events
    - Start date and time (required)
    - End date and time (optional)
    - Frequency (optional: Once, Weekly, Biweekly, Monthly)
 4. **Click "Submit Request"**
 5. **Wait for moderator approval**
 
+::: tip Watch Party Channels
+**Text channels are primary** for watch parties! Most communities prefer text chat during watch parties so conversations don't interfere with audio. Voice channels are optional for those who want to voice chat.
+
+- **Text-only event**: Creates an "External" Discord event with coordination channel mentioned
+- **With voice channel**: Creates a voice channel event with text channel for coordination
+:::
+
 ### For Moderators
 
 When a request is submitted:
 
 1. **Request appears in moderation channel** with all details
-2. **Two buttons appear:** ✅ Approve & Create Event | ❌ Deny
-3. **Click a button:**
+2. **Shows both coordination channel (text) and voice channel (if selected)**
+3. **Two buttons appear:** ✅ Approve & Create Event | ❌ Deny
+4. **Click a button:**
    - **Approve** → Creates Discord Scheduled Event automatically
    - **Deny** → Removes the request without action
 

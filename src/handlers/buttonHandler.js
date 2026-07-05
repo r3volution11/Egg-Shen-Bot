@@ -1551,15 +1551,32 @@ export async function handleWatchHistoryButton(interaction) {
       
       // Create Discord scheduled event
       const guild = interaction.guild;
-      const scheduledEvent = await guild.scheduledEvents.create({
+      
+      // Determine event type based on selected channels
+      const eventConfig = {
         name: requestData.title,
         description: requestData.description || undefined,
         scheduledStartTime: requestData.startTime,
         scheduledEndTime: requestData.endTime || undefined,
-        channel: requestData.channelId,
-        entityType: 2, // Voice channel event
         privacyLevel: 2 // Guild only
-      });
+      };
+      
+      // If voice/stage channel specified, create voice event
+      // Otherwise create external event with text channel reference
+      if (requestData.voiceChannelId) {
+        eventConfig.channel = requestData.voiceChannelId;
+        eventConfig.entityType = 2; // Voice channel event
+      } else {
+        // External event with channel mentioned in description
+        const textChannel = guild.channels.cache.get(requestData.channelId);
+        const channelMention = textChannel ? `<#${textChannel.id}>` : 'the server';
+        eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') + 
+          `📍 Coordination channel: ${channelMention}`;
+        eventConfig.entityType = 3; // External event
+        eventConfig.entityMetadata = { location: 'Discord Server' };
+      }
+      
+      const scheduledEvent = await guild.scheduledEvents.create(eventConfig);
       
       // Update the original message to show approval
       const { EmbedBuilder } = await import('discord.js');
