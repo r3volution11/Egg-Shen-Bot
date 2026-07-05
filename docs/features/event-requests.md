@@ -184,6 +184,20 @@ The website where your event request form is hosted.
 
 Discord invite link shown on the form. Leave empty to hide.
 
+### Allow/Disallow Voice Requests
+
+```
+/eggshen-config event-requests allow-voice-requests allow:true
+/eggshen-config event-requests allow-voice-requests allow:false
+```
+
+Control whether users can request voice/stage channels for events. When disabled, all events will be text-channel only.
+
+**Use cases for disabling:**
+- Server primarily uses text chat for watch parties
+- Voice channels are reserved for specific purposes
+- Simplify the event request form
+
 ### Get Configuration Summary
 
 ```
@@ -201,19 +215,18 @@ Shows your form URL and reminds you to configure the GUILD_ID in your web form d
 3. **Fill out the form:**
    - Event title (required)
    - Description (optional)
-   - **Coordination channel** (required) - Text channel for announcements and chat
-   - **Voice channel** (optional) - For voice/stage events
+   - **Location** (required) - Text channel for the watch party
+   - **Voice channel** (optional) - Check the box to add voice/stage channel
    - Start date and time (required)
    - End date and time (optional)
    - Frequency (optional: Once, Weekly, Biweekly, Monthly)
 4. **Click "Submit Request"**
 5. **Wait for moderator approval**
 
-::: tip Watch Party Channels
-**Text channels are primary** for watch parties! Most communities prefer text chat during watch parties so conversations don't interfere with audio. Voice channels are optional for those who want to voice chat.
+::: tip Channel Selection
+**Location** is where the watch party chat happens (text channel, always required).
 
-- **Text-only event**: Creates an "External" Discord event with coordination channel mentioned
-- **With voice channel**: Creates a voice channel event with text channel for coordination
+**Voice channel** is optional and only shown if enabled by server admins. Check the box if you want to include a voice/stage channel for the event.
 :::
 
 ### For Moderators
@@ -221,11 +234,14 @@ Shows your form URL and reminds you to configure the GUILD_ID in your web form d
 When a request is submitted:
 
 1. **Request appears in moderation channel** with all details
-2. **Shows both coordination channel (text) and voice channel (if selected)**
-3. **Two buttons appear:** ✅ Approve & Create Event | ❌ Deny
-4. **Click a button:**
-   - **Approve** → Creates Discord Scheduled Event automatically
-   - **Deny** → Removes the request without action
+2. **Shows location (text channel) and voice channel (if requested)**
+3. **Approval buttons vary based on request:**
+   - **Text-only request**: ✅ Approve or ❌ Deny
+   - **Request with voice**: ✅ Approve Both, 💬 Text Only, or ❌ Deny
+4. **Choose approval type:**
+   - **Approve Both** → Creates voice channel event with text channel coordination
+   - **Text Only** → Creates text-only event (removes voice channel from request)
+   - **Deny** → Removes the request without creating an event
 
 ::: tip Moderator Permissions
 Only members with **Manage Events** permission or Administrator/Moderator roles can approve/deny requests.

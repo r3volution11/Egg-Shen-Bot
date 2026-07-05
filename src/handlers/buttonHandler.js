@@ -1523,7 +1523,19 @@ export async function handleWatchHistoryButton(interaction) {
   
   // Handle event request approval
   if (interaction.customId.startsWith('approve_event_')) {
-    const requestId = interaction.customId.replace('approve_event_', '');
+    let requestId;
+    let approvalType = 'full'; // full, both, text
+    
+    if (interaction.customId.startsWith('approve_event_both_')) {
+      requestId = interaction.customId.replace('approve_event_both_', '');
+      approvalType = 'both';
+    } else if (interaction.customId.startsWith('approve_event_text_')) {
+      requestId = interaction.customId.replace('approve_event_text_', '');
+      approvalType = 'text';
+    } else {
+      requestId = interaction.customId.replace('approve_event_', '');
+      approvalType = 'full';
+    }
     
     // Check if user has moderation permissions
     if (!interaction.member.permissions.has('ManageEvents') && 
@@ -1552,7 +1564,7 @@ export async function handleWatchHistoryButton(interaction) {
       // Create Discord scheduled event
       const guild = interaction.guild;
       
-      // Determine event type based on selected channels
+      // Determine event type based on approval type
       const eventConfig = {
         name: requestData.title,
         description: requestData.description || undefined,
@@ -1561,17 +1573,25 @@ export async function handleWatchHistoryButton(interaction) {
         privacyLevel: 2 // Guild only
       };
       
-      // If voice/stage channel specified, create voice event
-      // Otherwise create external event with text channel reference
-      if (requestData.voiceChannelId) {
+      // Determine which channels to use based on approval type
+      const useVoiceChannel = (approvalType === 'both' || approvalType === 'full') && requestData.voiceChannelId;
+      
+      if (useVoiceChannel) {
+        // Voice channel event
         eventConfig.channel = requestData.voiceChannelId;
         eventConfig.entityType = 2; // Voice channel event
-      } else {
-        // External event with channel mentioned in description
+        
+        // Add text channel to description
         const textChannel = guild.channels.cache.get(requestData.channelId);
         const channelMention = textChannel ? `<#${textChannel.id}>` : 'the server';
         eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') + 
-          `📍 Coordination channel: ${channelMention}`;
+          `💬 Coordination: ${channelMention}`;
+      } else {
+        // External event (text-only)
+        const textChannel = guild.channels.cache.get(requestData.channelId);
+        const channelMention = textChannel ? `<#${textChannel.id}>` : 'the server';
+        eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') + 
+          `📍 Location: ${channelMention}`;
         eventConfig.entityType = 3; // External event
         eventConfig.entityMetadata = { location: 'Discord Server' };
       }
@@ -1582,9 +1602,12 @@ export async function handleWatchHistoryButton(interaction) {
       const { EmbedBuilder } = await import('discord.js');
       const originalEmbed = interaction.message.embeds[0];
       
+      const approvalLabel = approvalType === 'text' ? ' (Text Channel Only)' : 
+                           approvalType === 'both' ? ' (Both Channels)' : '';
+      
       const approvedEmbed = new EmbedBuilder(originalEmbed)
         .setColor(0x00FF00)
-        .setTitle('✅ Event Request Approved')
+        .setTitle(`✅ Event Request Approved${approvalLabel}`)
         .setFooter({ text: `Approved by ${interaction.user.tag} • ${originalEmbed.footer?.text || ''}` });
       
       await interaction.message.edit({
@@ -1595,8 +1618,9 @@ export async function handleWatchHistoryButton(interaction) {
       // Clean up stored data
       global.eventRequests.delete(requestId);
       
+      const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
       await interaction.editReply({
-        content: `✅ Event created successfully!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`
+        content: `✅ Event created successfully as ${eventTypeText}!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`
       });
       
     } catch (error) {

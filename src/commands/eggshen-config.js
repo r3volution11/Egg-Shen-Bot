@@ -737,6 +737,17 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand(subcommand =>
         subcommand
+          .setName('allow-voice-requests')
+          .setDescription('Allow or disallow users from requesting voice/stage channels')
+          .addBooleanOption(option =>
+            option
+              .setName('allow')
+              .setDescription('Allow voice channel requests?')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
           .setName('get-link')
           .setDescription('Get the event request submission link for this server')
       )
@@ -2381,6 +2392,11 @@ export async function execute(interaction) {
           name: 'Invite URL',
           value: eventConfig.inviteUrl || 'Not shown on form',
           inline: false
+        },
+        {
+          name: 'Allow Voice Requests',
+          value: eventConfig.allowVoiceRequests !== false ? '✅ Yes' : '❌ No',
+          inline: true
         }
       );
     
@@ -2488,6 +2504,24 @@ export async function execute(interaction) {
     
     await interaction.reply({
       content: `✅ Website URL set to: ${url}\n\n⚠️ **Important:** Update \`GUILD_ID\` in your \`public/app.js\` file to: \`'${guildId}'\``,
+      ephemeral: true
+    });
+    
+  } else if (group === 'event-requests' && subcommand === 'allow-voice-requests') {
+    const allow = interaction.options.getBoolean('allow');
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    
+    config.eventRequests.allowVoiceRequests = allow;
+    await saveGuildConfig(guildId, config);
+    
+    await interaction.reply({
+      content: allow 
+        ? '✅ Users can now request voice/stage channels for events.' 
+        : '❌ Voice/stage channel requests are now disabled. Events will be text-only.',
       ephemeral: true
     });
     

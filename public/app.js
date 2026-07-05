@@ -52,6 +52,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
     document.getElementById('event-form').addEventListener('submit', handleSubmit);
     
+    // Voice channel checkbox handler
+    const voiceCheckbox = document.getElementById('use-voice-channel');
+    const voiceChannelGroup = document.getElementById('voice-channel-group');
+    const voiceChannelSelect = document.getElementById('voice-channel');
+    
+    voiceCheckbox.addEventListener('change', () => {
+        if (voiceCheckbox.checked) {
+            voiceChannelGroup.style.display = 'block';
+            voiceChannelSelect.required = true;
+        } else {
+            voiceChannelGroup.style.display = 'none';
+            voiceChannelSelect.required = false;
+            voiceChannelSelect.value = '';
+        }
+    });
+    
     // Set min date to today
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('start-date').min = today;
@@ -135,6 +151,14 @@ async function loadGuildConfig() {
                 inviteLinkElement.style.display = 'block';
             } else {
                 inviteLinkElement.style.display = 'none';
+            }
+            
+            // Show/hide voice channel option based on config
+            const voiceCheckboxContainer = document.getElementById('use-voice-channel').parentElement.parentElement;
+            if (guildConfig.allowVoiceRequests === false) {
+                voiceCheckboxContainer.style.display = 'none';
+            } else {
+                voiceCheckboxContainer.style.display = 'block';
             }
         } else {
             // Config not found or disabled - show generic message
@@ -233,7 +257,8 @@ async function handleSubmit(e) {
     submitBtn.textContent = 'Submitting...';
     
     // Gather form data
-    const voiceChannelValue = document.getElementById('voice-channel').value;
+    const useVoice = document.getElementById('use-voice-channel').checked;
+    const voiceChannelValue = useVoice ? document.getElementById('voice-channel').value : null;
     const formData = {
         guildId: GUILD_ID,
         title: document.getElementById('title').value.trim(),

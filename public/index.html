@@ -50,19 +50,26 @@
             </div>
 
             <div class="form-group">
-                <label for="channel">Coordination Channel *</label>
+                <label for="channel">Location *</label>
                 <select id="channel" name="channel" required>
                     <option value="">Loading channels...</option>
                 </select>
-                <small>Text channel for announcements and coordination (required)</small>
+                <small>Select the text channel where this watch party will be coordinated</small>
             </div>
 
             <div class="form-group">
-                <label for="voice-channel">Voice Channel</label>
+                <label>
+                    <input type="checkbox" id="use-voice-channel" name="useVoiceChannel">
+                    <span>Include voice/stage channel for this event</span>
+                </label>
+            </div>
+
+            <div class="form-group" id="voice-channel-group" style="display:none;">
+                <label for="voice-channel">Voice Channel *</label>
                 <select id="voice-channel" name="voiceChannel">
-                    <option value="">No voice channel (external event)</option>
+                    <option value="">Select a voice channel...</option>
                 </select>
-                <small>Optional: Select if watch party uses voice/stage channel</small>
+                <small>Voice or stage channel for audio chat during the event</small>
             </div>
 
             <div class="form-row">
