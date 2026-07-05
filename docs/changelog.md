@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Moderators have flexibility to adjust requests
     - Clearer terminology and streamlined form UX
     - Accommodates different community preferences
+  - **Important:** Event requests are **disabled by default** - admins must enable with `/eggshen-config event-requests toggle enabled:true`
   - **Documentation:** See [Event Requests Setup](/features/event-requests) for complete configuration guide
 
 ## 2.0.0 - 2026-07-04

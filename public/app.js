@@ -134,7 +134,18 @@ async function loadGuildConfig() {
         const response = await fetch(`${API_BASE_URL}/guild-config/${GUILD_ID}`);
         const data = await response.json();
         
-        if (response.ok && data.config) {
+        if (!response.ok) {
+            // Event requests not enabled or other error
+            if (response.status === 404 || data.error?.includes('not enabled')) {
+                showDisabledMessage();
+                return;
+            }
+            // Other error - show generic content
+            showGenericContent();
+            return;
+        }
+        
+        if (data.config) {
             guildConfig = data.config;
             
             // Update page title and header
@@ -156,36 +167,36 @@ async function loadGuildConfig() {
                 inviteLinkElement.style.display = 'none';
             }
             
-            // Show/hide channel selectors based on config
-            const locationChannelGroup = document.getElementById('location-channel-group');
-            const voiceCheckboxGroup = document.getElementById('voice-checkbox-group');
-            const voiceChannelGroup = document.getElementById('voice-channel-group');
-            const channelSelect = document.getElementById('channel');
-            
-            if (guildConfig.allowUserChannelSelection === false) {
-                // Hide all channel selectors - moderators will assign during approval
-                locationChannelGroup.style.display = 'none';
-                voiceCheckboxGroup.style.display = 'none';
-                voiceChannelGroup.style.display = 'none';
-                channelSelect.required = false;
-                
-                // Update info text to explain the flow
-                document.getElementById('info-text').innerHTML = 
-                    `Submit a watch party request for <strong>${serverName}</strong>. <strong>Moderators will select the channels</strong> when approving your event.`;
+            // Show/hide voice channel option based on config
+            const voiceCheckboxContainer = document.getElementById('use-voice-channel').parentElement.parentElement;
+            if (guildConfig.allowVoiceRequests === false) {
+                voiceCheckboxContainer.style.display = 'none';
             } else {
-                // Show channel selectors
-                locationChannelGroup.style.display = 'block';
-                channelSelect.required = true;
-                voiceCheckboxGroup.style.display = guildConfig.allowVoiceRequests !== false ? 'block' : 'none';
+                voiceCheckboxContainer.style.display = 'block';
             }
         } else {
-            // Config not found or disabled - show generic message
+            // Config not found - show generic message
             showGenericContent();
         }
     } catch (error) {
         console.error('Error loading guild config:', error);
         showGenericContent();
     }
+}
+
+// Show message when event requests are disabled
+function showDisabledMessage() {
+    // Hide the entire form
+    document.getElementById('event-form').style.display = 'none';
+    document.getElementById('login-btn').style.display = 'none';
+    document.getElementById('user-info').style.display = 'none';
+    
+    // Show disabled message
+    document.getElementById('page-title').textContent = '🎬 Event Requests';
+    document.getElementById('info-text').innerHTML = 
+        '<strong>Event requests are currently disabled for this server.</strong><br><br>' +
+        'Server administrators can enable this feature using the <code>/eggshen-config event-requests toggle enabled:true</code> command in Discord.';
+    document.getElementById('discord-invite-link').style.display = 'none';
 }
 
 // Show generic content if config fails to load

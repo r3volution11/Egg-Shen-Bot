@@ -111,13 +111,26 @@ Run `/eggshen-config event-requests get-link` in your Discord server to see your
 
 ### Step 4: Configure Your Server
 
+::: warning Event Requests Disabled by Default
+Event requests are **disabled by default** for all servers. You must enable them using the toggle command below. Until enabled, the event request form will show a "disabled" message to users.
+:::
+
 Use `/eggshen-config event-requests` commands in your Discord server:
 
+**1. Enable event requests (required first step):**
 ```
 /eggshen-config event-requests toggle enabled:true
+```
+
+**2. Configure required settings:**
+```
 /eggshen-config event-requests moderation-channel channel:#event-requests
 /eggshen-config event-requests server-name name:"Your Server Name"
 /eggshen-config event-requests website-url url:https://yourdomain.com
+```
+
+**3. Optional settings:**
+```
 /eggshen-config event-requests invite-url url:https://discord.gg/yourserver
 ```
 
@@ -151,6 +164,10 @@ Shows your current configuration including the event request link.
 ```
 
 Turn event requests on or off for your server.
+
+::: tip Default State
+Event requests are **disabled by default**. You must explicitly enable them with `enabled:true` before users can submit requests. When disabled, the event request form shows a message telling users the feature is not available.
+:::
 
 ### Set Moderation Channel
 
