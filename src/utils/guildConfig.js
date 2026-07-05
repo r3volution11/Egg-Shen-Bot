@@ -102,6 +102,14 @@ const defaultConfig = {
     // Example: { health: ["Custom healing message!"] }
   },
   potionThemes: null, // null = all themes active, or array of active theme keys
+  eventRequests: {
+    enabled: false, // Master switch for event request system
+    moderationChannel: null, // Channel ID where requests are sent for approval
+    serverName: null, // Display name shown on event request form
+    inviteUrl: null, // Optional Discord invite link shown on form
+    websiteUrl: null, // URL where event request form is hosted
+    allowVoiceRequests: true, // Allow users to request voice/stage channels for events
+  },
 };
 
 /**

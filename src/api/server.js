@@ -63,7 +63,8 @@ export function createApiServer(client) {
         config: {
           serverName: eventRequestConfig.serverName || 'Discord Server',
           inviteUrl: eventRequestConfig.inviteUrl || null,
-          websiteUrl: eventRequestConfig.websiteUrl || null
+          websiteUrl: eventRequestConfig.websiteUrl || null,
+          allowVoiceRequests: eventRequestConfig.allowVoiceRequests !== false
         }
       });
     } catch (error) {
@@ -368,19 +369,44 @@ export function createApiServer(client) {
       
       // Create approval buttons
       const requestId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      const buttons = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId(`approve_event_${requestId}`)
-            .setLabel('Approve & Create Event')
-            .setStyle(ButtonStyle.Success)
-            .setEmoji('✅'),
-          new ButtonBuilder()
-            .setCustomId(`deny_event_${requestId}`)
-            .setLabel('Deny')
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('❌')
-        );
+      
+      let buttons;
+      if (voiceChannelId) {
+        // If voice channel requested, offer granular approval options
+        buttons = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId(`approve_event_both_${requestId}`)
+              .setLabel('Approve Both')
+              .setStyle(ButtonStyle.Success)
+              .setEmoji('✅'),
+            new ButtonBuilder()
+              .setCustomId(`approve_event_text_${requestId}`)
+              .setLabel('Text Only')
+              .setStyle(ButtonStyle.Primary)
+              .setEmoji('💬'),
+            new ButtonBuilder()
+              .setCustomId(`deny_event_${requestId}`)
+              .setLabel('Deny')
+              .setStyle(ButtonStyle.Danger)
+              .setEmoji('❌')
+          );
+      } else {
+        // Text-only request, simple approve/deny
+        buttons = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId(`approve_event_${requestId}`)
+              .setLabel('Approve & Create Event')
+              .setStyle(ButtonStyle.Success)
+              .setEmoji('✅'),
+            new ButtonBuilder()
+              .setCustomId(`deny_event_${requestId}`)
+              .setLabel('Deny')
+              .setStyle(ButtonStyle.Danger)
+              .setEmoji('❌')
+          );
+      }
       
       // Send to moderation channel
       const message = await modChannel.send({ 
