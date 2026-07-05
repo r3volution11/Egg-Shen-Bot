@@ -127,6 +127,35 @@ TMDB_API_KEY=your_tmdb_api_key
 
 ---
 
+## 🎨 Customization & Building Your Own
+
+Egg Shen Bot is designed to be a **starting point for your own entertainment bot**! Feel free to:
+
+- **Fork and customize** for your specific community needs
+- **Add new commands** and features
+- **Modify the branding** (bot name, colors, emojis)
+- **Integrate new APIs** (music services, streaming platforms, etc.)
+- **Extend tournament systems** with your own game types
+- **Build on the event request system** for your use cases
+
+The codebase is structured for extensibility:
+- `/src/commands/` - Add new slash commands
+- `/src/services/` - Integrate new APIs
+- `/src/utils/` - Shared utilities and helpers
+- `/public/` - Event request web form (fully customizable)
+- `/docs/` - VitePress documentation (edit and deploy your own)
+
+**Developer-friendly features:**
+- ✅ Clear file structure with separation of concerns
+- ✅ Reusable embed builders and formatting utilities
+- ✅ Comprehensive example commands showing best practices
+- ✅ Built-in error handling and logging
+- ✅ Unit tests to ensure stability as you build
+
+**Need help getting started?** Check out the existing commands as templates, or open a [Discussion](https://github.com/r3volution11/Egg-Shen-Bot/discussions) for guidance!
+
+---
+
 ## 📄 License
 
 This work is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).

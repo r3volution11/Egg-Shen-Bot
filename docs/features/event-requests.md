@@ -11,23 +11,34 @@ The Event Request System provides:
 - ✅ **Moderation Queue** - Review and approve/deny requests
 - 🎉 **Auto-create Events** - Approved events become Discord Scheduled Events
 - ⏱️ **Rate Limiting** - Prevents spam (1 request per 5 minutes per user)
-- 🌐 **Multi-server Support** - One web form, multiple Discord servers
+- 🌐 **Dedicated Deployment** - Each website serves one specific Discord server
 
 ## How It Works
 
-1. **User visits the event request form** with your server's unique link
+1. **User visits your event request form** at your configured website
 2. **User logs in with Discord** (OAuth authentication)
 3. **User submits event details** (title, description, channel, time)
 4. **Request appears in your moderation channel** with Approve/Deny buttons
 5. **Moderator clicks a button** to approve or deny
 6. **If approved, Discord Scheduled Event is created automatically**
 
+## Deployment Model
+
+::: tip One Website = One Discord Server
+Each event request form deployment is dedicated to **one specific Discord server**. If you host the bot for multiple servers, each server should deploy its own instance of the web form on their own domain.
+
+**Example:**
+- shudderdrivein.com → Shudder Discord Server
+- yourdomain.com → Your Discord Server
+:::
+
 ## Setup Requirements
 
 ::: warning Prerequisites
 This feature requires:
-- A web server to host the event request form (e.g., shudderdrivein.com)
+- A web server to host the event request form (e.g., yourdomain.com)
 - Discord Client Secret from the Developer Portal
+- Web server configuration (e.g., nginx)
 - Additional environment variables
 :::
 
@@ -74,7 +85,22 @@ The bot includes a web form in the `/public` folder. Deploy these files to your 
 - `public/app.js` - Form logic
 - `public/style.css` - Styling
 
+**Required Configuration:**
+
+1. Open `public/app.js`
+2. Find the `GUILD_ID` constant (around line 11)
+3. Replace the placeholder with your Discord server's Guild ID:
+
+```javascript
+const GUILD_ID = 'YOUR_GUILD_ID_HERE'; // Change this!
+```
+
+::: tip Finding Your Guild ID
+Run `/eggshen-config event-requests get-link` in your Discord server to see your Guild ID.
+:::
+
 **Example deployment:**
+- Update `GUILD_ID` in `public/app.js`
 - Upload `/public` contents to `https://yourdomain.com`
 - Ensure the domain matches your environment variables
 
@@ -153,13 +179,13 @@ The website where your event request form is hosted.
 
 Discord invite link shown on the form. Leave empty to hide.
 
-### Get Event Request Link
+### Get Configuration Summary
 
 ```
 /eggshen-config event-requests get-link
 ```
 
-Generates your unique event request submission link.
+Shows your form URL and reminds you to configure the GUILD_ID in your web form deployment.
 
 ## User Experience
 
@@ -208,27 +234,39 @@ Built-in protection against spam:
 - ✅ Rate limiting
 - ✅ Request expiration (7 days)
 
-## Multiple Servers
+## Customizing for Your Server
 
-The same web form supports multiple Discord servers! Each server gets a unique link with its guild ID:
+### Making It Your Own
+
+The event request system is designed to be easily customized:
+
+1. **Update `GUILD_ID` in `public/app.js`** - Point to your Discord server
+2. **Configure server name and invite** - Use `/eggshen-config event-requests` commands
+3. **Customize styling** - Edit `public/style.css` to match your branding
+4. **Deploy to your domain** - Host on any web server (Apache, nginx, Netlify, Vercel, etc.)
+
+### Multiple Servers (Advanced)
+
+If you host the bot for multiple communities, each should deploy their own instance:
 
 ```
-https://yourdomain.com?guild=SERVER_1_ID
-https://yourdomain.com?guild=SERVER_2_ID
-https://yourdomain.com?guild=SERVER_3_ID
+Server 1: Deploy to movienight.com with GUILD_ID = 'SERVER_1_ID'
+Server 2: Deploy to gamenight.com with GUILD_ID = 'SERVER_2_ID'
+Server 3: Deploy to bookclub.com with GUILD_ID = 'SERVER_3_ID'
 ```
 
-Configure each server independently:
+Each deployment is independent with its own:
+- Domain/subdomain
+- GUILD_ID configuration
+- Custom branding and styling
+- Separate Discord OAuth configuration
 
-```
-# Server 1
-/eggshen-config event-requests server-name name:"Movie Night Server"
-/eggshen-config event-requests moderation-channel channel:#mod-queue
-
-# Server 2
-/eggshen-config event-requests server-name name:"Gaming Server"
-/eggshen-config event-requests moderation-channel channel:#events
-```
+::: tip For Bot Hosts
+If you're running the bot for multiple servers and want to offer event requests as a feature, provide each server with:
+1. Instructions to deploy the web form files
+2. Their specific GUILD_ID to configure
+3. Discord OAuth setup guide
+:::
 
 ## Local Testing
 
@@ -267,13 +305,21 @@ Don't forget to add `http://localhost:3000/api/auth/discord/callback` to Discord
 
 ### 4. Test the Flow
 
+1. Update `GUILD_ID` in `public/app.js` to your test server's ID
+2. Configure your test server:
+
 ```
 # In Discord
+/eggshen-config event-requests toggle enabled:true
+/eggshen-config event-requests moderation-channel channel:#test-events
+/eggshen-config event-requests server-name name:"Test Server"
 /eggshen-config event-requests website-url url:http://localhost:8080
-/eggshen-config event-requests get-link
 
-# Open the link in browser and test!
+# Check configuration
+/eggshen-config event-requests view
 ```
+
+3. Open http://localhost:8080 in browser and test the full flow!
 
 ## Troubleshooting
 
@@ -344,25 +390,32 @@ The bot exposes these endpoints for the event request system:
 ### For Web Hosting
 
 - 🔐 **Use HTTPS in production** for security
-- 🌐 **Use a memorable domain** (e.g., shudderdrivein.com)
+- 🌐 **Use a memorable domain** that matches your community brand
 - 📊 **Monitor traffic** and adjust rate limits if needed
 - 💾 **Back up your configuration** regularly
+- 🎨 **Customize the styling** to match your server's theme
 
 ## Example Use Cases
 
-### Movie Night Server
+### Movie Watch Party Server
 ```
 Server Name: "Friday Horror Nights"
 Invite URL: https://discord.gg/horrorlovers
 Website: https://horrornights.com
+GUILD_ID: '1234567890123456789'
 ```
 
-Users can submit horror movie requests for Friday watch parties.
+Users submit horror movie requests for Friday watch parties.
 
 ### Gaming Community
 ```
 Server Name: "Speedrun Central"
 Invite URL: https://discord.gg/speedruns
+Website: https://speedrungaming.com
+GUILD_ID: '9876543210987654321'
+```
+
+Coordinate speedrun events and tournaments.
 Website: https://speedruncalendar.com
 ```
 

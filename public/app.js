@@ -1,32 +1,41 @@
 // Configuration
 const API_BASE_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000/api' 
-    : 'https://shudderdrivein.com/api';
+    : '/api';
+
+// ===================================================================
+// DEPLOYMENT CONFIGURATION
+// Set this to your Discord server's Guild ID when deploying the form
+// Each website deployment is dedicated to ONE specific Discord server
+// 
+// To find your Guild ID:
+// 1. Enable Developer Mode in Discord (User Settings → Advanced)
+// 2. Right-click your server icon → "Copy Server ID"
+// 
+// Example: const GUILD_ID = '1234567890123456789';
+// ===================================================================
+const GUILD_ID = 'YOUR_GUILD_ID_HERE'; // ⚠️ CHANGE THIS!
+
+// Validate configuration
+if (!GUILD_ID || GUILD_ID === 'YOUR_GUILD_ID_HERE') {
+    document.body.innerHTML = '<div class="container"><div class="error-message" style="background: #fee; border: 1px solid #c33; padding: 20px; border-radius: 8px; color: #c33; text-align: center; margin-top: 50px;"><h2>⚠️ Configuration Required</h2><p>This event request form has not been configured with a Discord server ID.</p><p><strong>Edit <code>public/app.js</code></strong> and set the <code>GUILD_ID</code> constant to your server\'s Guild ID.</p><p>See the comments in the file for instructions on finding your Guild ID.</p></div></div>';
+    throw new Error('GUILD_ID not configured in app.js');
+}
 
 // State
 let currentUser = null;
-let GUILD_ID = null;
 let guildConfig = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-    // Get guild ID from URL parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    GUILD_ID = urlParams.get('guild');
-    
-    if (!GUILD_ID) {
-        showMessage('❌ Missing guild parameter. Please use the correct link from your Discord server.', 'error');
-        document.getElementById('login-btn').disabled = true;
-        return;
-    }
-    
     // Load guild configuration
     await loadGuildConfig();
     
     // Check for auth success callback
+    const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('auth') === 'success') {
-        // Clean URL but preserve guild parameter
-        const newUrl = `${window.location.pathname}?guild=${GUILD_ID}`;
+        // Clean URL after successful auth
+        const newUrl = window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
     }
     
