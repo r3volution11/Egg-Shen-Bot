@@ -110,29 +110,39 @@ async function loadGuildConfig() {
             guildConfig = data.config;
             
             // Update page title and header
-            if (guildConfig.serverName) {
-                document.title = `Request a Watch Party - ${guildConfig.serverName}`;
-                document.querySelector('.subtitle').textContent = `Request a Watch Party Event`;
-            }
+            const serverName = guildConfig.serverName || 'Discord Server';
+            document.title = `Request a Watch Party - ${serverName}`;
+            document.getElementById('page-title').textContent = `🎬 ${serverName}`;
             
             // Update info box
-            const serverName = guildConfig.serverName || 'this Discord server';
-            const inviteUrl = guildConfig.inviteUrl;
-            
-            document.querySelector('.info-box p').innerHTML = 
+            document.getElementById('info-text').innerHTML = 
                 `Submit a watch party request for <strong>${serverName}</strong>. Moderators will review and approve your event.`;
             
-            if (inviteUrl) {
-                document.querySelector('.discord-link').href = inviteUrl;
-                document.querySelector('.discord-link').style.display = 'block';
+            // Update invite link
+            const inviteLinkElement = document.getElementById('discord-invite-link');
+            if (guildConfig.inviteUrl) {
+                inviteLinkElement.href = guildConfig.inviteUrl;
+                inviteLinkElement.textContent = `Join ${serverName} →`;
+                inviteLinkElement.style.display = 'block';
             } else {
-                document.querySelector('.discord-link').style.display = 'none';
+                inviteLinkElement.style.display = 'none';
             }
+        } else {
+            // Config not found or disabled - show generic message
+            showGenericContent();
         }
     } catch (error) {
         console.error('Error loading guild config:', error);
-        // Continue anyway - use defaults
+        showGenericContent();
     }
+}
+
+// Show generic content if config fails to load
+function showGenericContent() {
+    document.getElementById('page-title').textContent = '🎬 Discord Event Request';
+    document.getElementById('info-text').innerHTML = 
+        'Submit a watch party request for this Discord server. Moderators will review and approve your event.';
+    document.getElementById('discord-invite-link').style.display = 'none';
 }
 
 // Handle login
