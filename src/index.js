@@ -70,7 +70,7 @@ for (const file of commandFiles) {
 }
 
 // Event: Bot ready
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   console.log(`✓ Logged in as ${client.user.tag}`);
   console.log(`✓ Serving ${client.guilds.cache.size} guilds`);
   
