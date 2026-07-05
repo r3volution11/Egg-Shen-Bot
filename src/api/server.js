@@ -45,6 +45,33 @@ export function createApiServer(client) {
     });
   });
   
+  // Get guild configuration for event requests
+  app.get('/api/guild-config/:guildId', (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const guildConfig = loadGuildConfig(guildId);
+      const eventRequestConfig = guildConfig.eventRequests || {};
+      
+      if (!eventRequestConfig.enabled) {
+        return res.status(404).json({ 
+          error: 'Event requests are not enabled for this server',
+          config: null
+        });
+      }
+      
+      res.json({
+        config: {
+          serverName: eventRequestConfig.serverName || 'Discord Server',
+          inviteUrl: eventRequestConfig.inviteUrl || null,
+          websiteUrl: eventRequestConfig.websiteUrl || null
+        }
+      });
+    } catch (error) {
+      console.error('[API] Error fetching guild config:', error);
+      res.status(500).json({ error: 'Failed to fetch guild configuration' });
+    }
+  });
+  
   // Discord OAuth - Redirect to Discord authorization
   app.get('/api/auth/discord', (req, res) => {
     const { guildId } = req.query;

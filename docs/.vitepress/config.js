@@ -212,7 +212,8 @@ export default defineConfig({
           { text: 'Moderation Tools', link: '/features/moderation-tools' },
           { text: 'Watch History', link: '/features/watch-history' },
           { text: 'Statistics', link: '/features/statistics' },
-          { text: 'Notifications', link: '/features/notifications' }
+          { text: 'Notifications', link: '/features/notifications' },
+          { text: 'Event Requests', link: '/features/event-requests' }
         ]
       },
       {

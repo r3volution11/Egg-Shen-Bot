@@ -2,19 +2,32 @@
 const API_BASE_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3000/api' 
     : 'https://shudderdrivein.com/api';
-    
-const GUILD_ID = '1515874601534754887'; // Test server
 
 // State
 let currentUser = null;
+let GUILD_ID = null;
+let guildConfig = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-    // Check for auth success callback
+    // Get guild ID from URL parameter
     const urlParams = new URLSearchParams(window.location.search);
+    GUILD_ID = urlParams.get('guild');
+    
+    if (!GUILD_ID) {
+        showMessage('❌ Missing guild parameter. Please use the correct link from your Discord server.', 'error');
+        document.getElementById('login-btn').disabled = true;
+        return;
+    }
+    
+    // Load guild configuration
+    await loadGuildConfig();
+    
+    // Check for auth success callback
     if (urlParams.get('auth') === 'success') {
-        // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // Clean URL but preserve guild parameter
+        const newUrl = `${window.location.pathname}?guild=${GUILD_ID}`;
+        window.history.replaceState({}, document.title, newUrl);
     }
     
     // Check session
@@ -85,6 +98,41 @@ function showLoggedOut() {
     document.getElementById('user-info').style.display = 'none';
     document.getElementById('event-form').style.display = 'none';
     currentUser = null;
+}
+
+// Load guild configuration (server name, invite link, etc.)
+async function loadGuildConfig() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/guild-config/${GUILD_ID}`);
+        const data = await response.json();
+        
+        if (response.ok && data.config) {
+            guildConfig = data.config;
+            
+            // Update page title and header
+            if (guildConfig.serverName) {
+                document.title = `Request a Watch Party - ${guildConfig.serverName}`;
+                document.querySelector('.subtitle').textContent = `Request a Watch Party Event`;
+            }
+            
+            // Update info box
+            const serverName = guildConfig.serverName || 'this Discord server';
+            const inviteUrl = guildConfig.inviteUrl;
+            
+            document.querySelector('.info-box p').innerHTML = 
+                `Submit a watch party request for <strong>${serverName}</strong>. Moderators will review and approve your event.`;
+            
+            if (inviteUrl) {
+                document.querySelector('.discord-link').href = inviteUrl;
+                document.querySelector('.discord-link').style.display = 'block';
+            } else {
+                document.querySelector('.discord-link').style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading guild config:', error);
+        // Continue anyway - use defaults
+    }
 }
 
 // Handle login

@@ -668,6 +668,78 @@ export const data = new SlashCommandBuilder()
           .setName('auto-ban-list')
           .setDescription('List users who have exceeded the auto-ban threshold')
       )
+  )
+  // ========== EVENT REQUESTS GROUP ==========
+  .addSubcommandGroup(group =>
+    group
+      .setName('event-requests')
+      .setDescription('Configure event request system for watch parties')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('view')
+          .setDescription('View current event request configuration')
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('toggle')
+          .setDescription('Enable or disable event requests on this server')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable event requests')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('moderation-channel')
+          .setDescription('Set the channel where event requests will be sent for approval')
+          .addChannelOption(option =>
+            option
+              .setName('channel')
+              .setDescription('Text channel for moderation of event requests')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('server-name')
+          .setDescription('Set the display name for your server on the event request form')
+          .addStringOption(option =>
+            option
+              .setName('name')
+              .setDescription('Server display name (shown on the website)')
+              .setRequired(true)
+              .setMaxLength(100)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('invite-url')
+          .setDescription('Set the Discord invite link shown on the event request form')
+          .addStringOption(option =>
+            option
+              .setName('url')
+              .setDescription('Discord invite URL (or leave empty to hide)')
+              .setRequired(false)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('website-url')
+          .setDescription('Set the website URL where event requests can be submitted')
+          .addStringOption(option =>
+            option
+              .setName('url')
+              .setDescription('Website URL (e.g., https://shudderdrivein.com)')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('get-link')
+          .setDescription('Get the event request submission link for this server')
+      )
   );
 
 export async function execute(interaction) {
@@ -2273,6 +2345,180 @@ export async function execute(interaction) {
         inline: false,
       });
     }
+    
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  
+  // ========== EVENT REQUESTS GROUP ==========
+  } else if (group === 'event-requests' && subcommand === 'view') {
+    const config = await loadGuildConfig(guildId);
+    const eventConfig = config.eventRequests || {};
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x4EC5ED)
+      .setTitle('🎬 Event Request Configuration')
+      .addFields(
+        {
+          name: 'Status',
+          value: eventConfig.enabled ? '✅ Enabled' : '❌ Disabled',
+          inline: true
+        },
+        {
+          name: 'Server Name',
+          value: eventConfig.serverName || 'Not set',
+          inline: true
+        },
+        {
+          name: 'Moderation Channel',
+          value: eventConfig.moderationChannel ? `<#${eventConfig.moderationChannel}>` : 'Not set',
+          inline: true
+        },
+        {
+          name: 'Website URL',
+          value: eventConfig.websiteUrl || 'Not set',
+          inline: false
+        },
+        {
+          name: 'Invite URL',
+          value: eventConfig.inviteUrl || 'Not shown on form',
+          inline: false
+        }
+      );
+    
+    if (eventConfig.enabled && eventConfig.websiteUrl) {
+      embed.addFields({
+        name: '🔗 Event Request Link',
+        value: `${eventConfig.websiteUrl}?guild=${guildId}`,
+        inline: false
+      });
+    }
+    
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    
+  } else if (group === 'event-requests' && subcommand === 'toggle') {
+    const enabled = interaction.options.getBoolean('enabled');
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    
+    config.eventRequests.enabled = enabled;
+    await saveGuildConfig(guildId, config);
+    
+    await interaction.reply({
+      content: `✅ Event requests ${enabled ? 'enabled' : 'disabled'}.${enabled && !config.eventRequests.moderationChannel ? '\n\n⚠️ Remember to set a moderation channel with `/eggshen-config event-requests moderation-channel`' : ''}`,
+      ephemeral: true
+    });
+    
+  } else if (group === 'event-requests' && subcommand === 'moderation-channel') {
+    const channel = interaction.options.getChannel('channel');
+    
+    if (!channel.isTextBased()) {
+      await interaction.reply({
+        content: '❌ Please select a text channel.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    const config = await loadGuildConfig(guildId);
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    
+    config.eventRequests.moderationChannel = channel.id;
+    await saveGuildConfig(guildId, config);
+    
+    await interaction.reply({
+      content: `✅ Event request moderation channel set to ${channel}.`,
+      ephemeral: true
+    });
+    
+  } else if (group === 'event-requests' && subcommand === 'server-name') {
+    const name = interaction.options.getString('name');
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    
+    config.eventRequests.serverName = name;
+    await saveGuildConfig(guildId, config);
+    
+    await interaction.reply({
+      content: `✅ Server display name set to **${name}** for event request form.`,
+      ephemeral: true
+    });
+    
+  } else if (group === 'event-requests' && subcommand === 'invite-url') {
+    const url = interaction.options.getString('url');
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    
+    config.eventRequests.inviteUrl = url || null;
+    await saveGuildConfig(guildId, config);
+    
+    await interaction.reply({
+      content: url 
+        ? `✅ Discord invite URL set to: ${url}` 
+        : '✅ Discord invite URL cleared (will not be shown on form).',
+      ephemeral: true
+    });
+    
+  } else if (group === 'event-requests' && subcommand === 'website-url') {
+    const url = interaction.options.getString('url');
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    
+    config.eventRequests.websiteUrl = url;
+    await saveGuildConfig(guildId, config);
+    
+    const fullUrl = `${url}?guild=${guildId}`;
+    
+    await interaction.reply({
+      content: `✅ Website URL set to: ${url}\n\n🔗 **Event request link:** ${fullUrl}`,
+      ephemeral: true
+    });
+    
+  } else if (group === 'event-requests' && subcommand === 'get-link') {
+    const config = await loadGuildConfig(guildId);
+    const eventConfig = config.eventRequests || {};
+    
+    if (!eventConfig.enabled) {
+      await interaction.reply({
+        content: '❌ Event requests are disabled. Enable them with `/eggshen-config event-requests toggle enabled:true`',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    if (!eventConfig.websiteUrl) {
+      await interaction.reply({
+        content: '❌ No website URL configured. Set it with `/eggshen-config event-requests website-url`',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    const fullUrl = `${eventConfig.websiteUrl}?guild=${guildId}`;
+    const serverName = eventConfig.serverName || interaction.guild.name;
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x4EC5ED)
+      .setTitle('🎬 Event Request Link')
+      .setDescription(`Share this link with your community to allow members to submit watch party requests for **${serverName}**:`)
+      .addFields({
+        name: '🔗 Link',
+        value: fullUrl,
+        inline: false
+      })
+      .setFooter({ text: 'Requests will be sent to the moderation channel for approval' });
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
