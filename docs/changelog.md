@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Moderators have flexibility to adjust requests
     - Clearer terminology and streamlined form UX
     - Accommodates different community preferences
-  - **Documentation:** See [Event Requests Setup](../features/event-requests.md) for complete configuration guide
+  - **Documentation:** See [Event Requests Setup](/features/event-requests) for complete configuration guide
 
 - **Comprehensive Help Commands** (2026-07-04)
   - **Updated `/eggshen-help`** - Complete command list covering all bot features

@@ -77,8 +77,8 @@ ALLOWED_ORIGINS=https://yourdomain.com
 For local testing, use:
 ```env
 OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/discord/callback
-FORM_URL=http://localhost:8080
-ALLOWED_ORIGINS=http://localhost:8080
+FORM_URL=http://localhost:PORT
+ALLOWED_ORIGINS=http://localhost:PORT
 ```
 :::
 
@@ -327,8 +327,8 @@ npx http-server public -p 8080
 ```env
 # .env
 OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/discord/callback
-FORM_URL=http://localhost:8080
-ALLOWED_ORIGINS=http://localhost:8080
+FORM_URL=http://localhost:PORT
+ALLOWED_ORIGINS=http://localhost:PORT
 ```
 
 Don't forget to add `http://localhost:3000/api/auth/discord/callback` to Discord Developer Portal!
@@ -343,13 +343,13 @@ Don't forget to add `http://localhost:3000/api/auth/discord/callback` to Discord
 /eggshen-config event-requests toggle enabled:true
 /eggshen-config event-requests moderation-channel channel:#test-events
 /eggshen-config event-requests server-name name:"Test Server"
-/eggshen-config event-requests website-url url:http://localhost:8080
+/eggshen-config event-requests website-url url:http://localhost:PORT
 
 # Check configuration
 /eggshen-config event-requests view
 ```
 
-3. Open http://localhost:8080 in browser and test the full flow!
+3. Open `http://localhost:PORT` in browser and test the full flow!
 
 ## Troubleshooting
 
