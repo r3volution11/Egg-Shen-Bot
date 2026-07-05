@@ -5,11 +5,11 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## Unreleased
 
 ### Added
 
-## [2.2.0] - 2026-07-05
+## 2.2.0 - 2026-07-05
 
 ### Added
 - **Event Request Channel Whitelisting**
@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - No UI changes needed - just configure and it works
   - **Documentation:** Configuration commands documented in `/eggshen-config event-requests` section
 
-## [2.1.0] - 2026-07-05
+## 2.1.0 - 2026-07-05
 
 ### Added
 - **Event Request Voice Channel Opt-In & Granular Approval**
@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Accommodates different community preferences
   - **Documentation:** See [Event Requests Setup](/features/event-requests) for complete configuration guide
 
-## [2.0.0] - 2026-07-04
+## 2.0.0 - 2026-07-04
 
 ### Added
 - **Comprehensive Help Commands**
@@ -983,7 +983,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Fix:** Now uses fixed MATCHUP_SPACING (140px) for consistent positioning, proper canvas height calculation, all matchups positioned at precise intervals
   - **Benefit:** Clean, properly spaced brackets with no overlapping text and all TBD rectangles visible
 
-## [1.0.0] - 2026-06-21
+## 1.0.0 - 2026-06-21
 
 ### Added
 - **Production-ready release** 🎉
@@ -1062,7 +1062,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Pre-1.0 Development Releases
 
-## [0.4.0] - 2026-06-21
+## 0.4.0 - 2026-06-21
 
 ### Added
 - Complete VitePress documentation site with GitHub Pages deployment
@@ -1089,7 +1089,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README now includes documentation badge and link
 - README simplified with documentation site as primary reference
 
-## [0.3.0] - 2026-06-19
+## 0.3.0 - 2026-06-19
 
 ### Changed
 - **[BREAKING]** Watch history saves are now PUBLIC instead of ephemeral
@@ -1116,7 +1116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Only users with proper permissions see "Log to Watch History" button functionality
   - Prevents unauthorized users from logging watch history
 
-## [0.2.0] - 2026-06-15
+## 0.2.0 - 2026-06-15
 
 ### Added
 - Comprehensive rate limiting system (7 layers):
@@ -1165,7 +1165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configuration requires Administrator or Manage Server permissions
   - Moderation commands require Moderate Members or Administrator permissions
 
-## [0.1.0] - 2026-06-01
+## 0.1.0 - 2026-06-01
 
 ### Added
 - Initial release of Egg Shen Bot
@@ -1313,7 +1313,7 @@ Follow semantic versioning:
 Use format: `YYYY-MM-DD`
 
 ```markdown
-## [1.3.0] - 2026-06-21
+## 1.3.0 - 2026-06-21
 ```
 
 ### 7. Update Unreleased Section
