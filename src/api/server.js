@@ -215,8 +215,14 @@ export function createApiServer(client) {
         return res.status(404).json({ error: 'Guild not found' });
       }
       
+      // Get guild config to check allowed channels
+      const guildConfig = loadGuildConfig(guildId);
+      const eventRequestConfig = guildConfig.eventRequests || {};
+      const allowedTextChannels = eventRequestConfig.allowedTextChannels || [];
+      const allowedVoiceChannels = eventRequestConfig.allowedVoiceChannels || [];
+      
       // Get text, voice, and stage channels
-      const channels = guild.channels.cache
+      const allChannels = guild.channels.cache
         .filter(channel => 
           channel.type === 0 ||  // Text channel
           channel.type === 2 ||  // Voice channel
@@ -227,7 +233,17 @@ export function createApiServer(client) {
           name: channel.name,
           type: channel.type === 0 ? 'text' : 
                 channel.type === 13 ? 'stage' : 'voice'
-        }))
+        }));
+      
+      // Filter channels based on allowed lists (empty array = all channels allowed)
+      const channels = allChannels
+        .filter(channel => {
+          if (channel.type === 'text') {
+            return allowedTextChannels.length === 0 || allowedTextChannels.includes(channel.id);
+          } else {
+            return allowedVoiceChannels.length === 0 || allowedVoiceChannels.includes(channel.id);
+          }
+        })
         .sort((a, b) => {
           // Sort by type (text first, then voice, then stage), then by name
           if (a.type !== b.type) {
@@ -260,6 +276,10 @@ export function createApiServer(client) {
         submitterDiscordId
       } = req.body;
       
+      // Get guild config for event requests
+      const guildConfig = loadGuildConfig(guildId);
+      const eventRequestConfig = guildConfig.eventRequests || {};
+      
       // Validate required fields
       if (!guildId || !title || !channelId || !startTime || !submitterUsername) {
         return res.status(400).json({ 
@@ -272,10 +292,6 @@ export function createApiServer(client) {
       if (!guild) {
         return res.status(404).json({ error: 'Guild not found' });
       }
-      
-      // Get guild config for event requests
-      const guildConfig = loadGuildConfig(guildId);
-      const eventRequestConfig = guildConfig.eventRequests || {};
       
       if (!eventRequestConfig.enabled) {
         return res.status(403).json({ error: 'Event requests are not enabled for this server' });
@@ -292,12 +308,21 @@ export function createApiServer(client) {
         return res.status(500).json({ error: 'Moderation channel not found or invalid' });
       }
       
-      // Get channel names for display
-      const textChannel = guild.channels.cache.get(channelId);
-      const textChannelName = textChannel?.name || 'Unknown Channel';
+      // Get channel names for display (if provided by user)
+      let textChannel = null;
+      let textChannelName = null;
+      let voiceChannel = null;
+      let voiceChannelName = null;
       
-      const voiceChannel = voiceChannelId ? guild.channels.cache.get(voiceChannelId) : null;
-      const voiceChannelName = voiceChannel?.name || null;
+      if (channelId) {
+        textChannel = guild.channels.cache.get(channelId);
+        textChannelName = textChannel?.name || 'Unknown Channel';
+      }
+      
+      if (voiceChannelId) {
+        voiceChannel = guild.channels.cache.get(voiceChannelId);
+        voiceChannelName = voiceChannel?.name || null;
+      }
       
       // Create embed for mod channel
       const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
@@ -313,7 +338,7 @@ export function createApiServer(client) {
             inline: false
           },
           {
-            name: '� Coordination Channel',
+            name: '📍 Location (Text Channel)',
             value: `<#${channelId}> (${textChannelName})`,
             inline: true
           }
@@ -324,12 +349,6 @@ export function createApiServer(client) {
         embed.addFields({
           name: '🔊 Voice Channel',
           value: `<#${voiceChannelId}> (${voiceChannelName})`,
-          inline: true
-        });
-      } else {
-        embed.addFields({
-          name: '📍 Event Type',
-          value: 'External (no voice channel)',
           inline: true
         });
       }

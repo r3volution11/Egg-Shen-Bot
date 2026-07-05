@@ -748,6 +748,28 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand(subcommand =>
         subcommand
+          .setName('set-allowed-text-channels')
+          .setDescription('Set which text channels users can select (empty = all channels allowed)')
+          .addStringOption(option =>
+            option
+              .setName('channel-ids')
+              .setDescription('Comma-separated channel IDs, or "all" to allow all channels')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('set-allowed-voice-channels')
+          .setDescription('Set which voice/stage channels users can select (empty = all allowed)')
+          .addStringOption(option =>
+            option
+              .setName('channel-ids')
+              .setDescription('Comma-separated channel IDs, or "all" to allow all channels')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
           .setName('get-link')
           .setDescription('Get the event request submission link for this server')
       )
@@ -2397,6 +2419,20 @@ export async function execute(interaction) {
           name: 'Allow Voice Requests',
           value: eventConfig.allowVoiceRequests !== false ? '✅ Yes' : '❌ No',
           inline: true
+        },
+        {
+          name: 'Allowed Text Channels',
+          value: eventConfig.allowedTextChannels && eventConfig.allowedTextChannels.length > 0 
+            ? eventConfig.allowedTextChannels.map(id => `<#${id}>`).join(', ')
+            : 'All text channels',
+          inline: false
+        },
+        {
+          name: 'Allowed Voice Channels',
+          value: eventConfig.allowedVoiceChannels && eventConfig.allowedVoiceChannels.length > 0
+            ? eventConfig.allowedVoiceChannels.map(id => `<#${id}>`).join(', ')
+            : 'All voice/stage channels',
+          inline: false
         }
       );
     
@@ -2524,6 +2560,56 @@ export async function execute(interaction) {
         : '❌ Voice/stage channel requests are now disabled. Events will be text-only.',
       ephemeral: true
     });
+    
+  } else if (group === 'event-requests' && subcommand === 'set-allowed-text-channels') {
+    const channelIds = interaction.options.getString('channel-ids').trim();
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    
+    if (channelIds.toLowerCase() === 'all') {
+      config.eventRequests.allowedTextChannels = [];
+      await saveGuildConfig(guildId, config);
+      await interaction.reply({
+        content: '✅ All text channels are now available for event requests.',
+        ephemeral: true
+      });
+    } else {
+      const ids = channelIds.split(',').map(id => id.trim()).filter(id => id);
+      config.eventRequests.allowedTextChannels = ids;
+      await saveGuildConfig(guildId, config);
+      await interaction.reply({
+        content: `✅ ${ids.length} text channel(s) set as allowed for event requests.\\n\\nChannels: ${ids.map(id => `<#${id}>`).join(', ')}`,
+        ephemeral: true
+      });
+    }
+    
+  } else if (group === 'event-requests' && subcommand === 'set-allowed-voice-channels') {
+    const channelIds = interaction.options.getString('channel-ids').trim();
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    
+    if (channelIds.toLowerCase() === 'all') {
+      config.eventRequests.allowedVoiceChannels = [];
+      await saveGuildConfig(guildId, config);
+      await interaction.reply({
+        content: '✅ All voice/stage channels are now available for event requests.',
+        ephemeral: true
+      });
+    } else {
+      const ids = channelIds.split(',').map(id => id.trim()).filter(id => id);
+      config.eventRequests.allowedVoiceChannels = ids;
+      await saveGuildConfig(guildId, config);
+      await interaction.reply({
+        content: `✅ ${ids.length} voice/stage channel(s) set as allowed for event requests.\\n\\nChannels: ${ids.map(id => `<#${id}>`).join(', ')}`,
+        ephemeral: true
+      });
+    }
     
   } else if (group === 'event-requests' && subcommand === 'get-link') {
     const config = await loadGuildConfig(guildId);

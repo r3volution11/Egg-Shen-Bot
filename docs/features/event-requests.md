@@ -206,6 +206,47 @@ Control whether users can request voice/stage channels for events. When disabled
 
 Shows your form URL and reminds you to configure the GUILD_ID in your web form deployment.
 
+#### Optional: Whitelist Allowed Channels
+
+By default, users can select from **all text channels** and **all voice/stage channels** in your server. You can restrict this to specific channels:
+
+**Whitelist text channels:**
+```
+/eggshen-config event-requests set-allowed-text-channels channel-ids:"123456,789012,345678"
+```
+
+**Whitelist voice channels:**
+```
+/eggshen-config event-requests set-allowed-voice-channels channel-ids:"111222,333444"
+```
+
+**Allow all channels (reset to default):**
+```
+/eggshen-config event-requests set-allowed-text-channels channel-ids:"all"
+/eggshen-config event-requests set-allowed-voice-channels channel-ids:"all"
+```
+
+::: tip When to Use Channel Whitelisting
+**Good use cases:**
+- Limit events to dedicated watch party channels (#movie-night, #tv-night)
+- Exclude announcement or admin-only channels
+- Simplify dropdown for servers with 50+ channels
+- Prevent accidental selection of inappropriate channels
+
+**How to get Channel IDs:**
+1. Enable Developer Mode in Discord Settings → Advanced
+2. Right-click any channel → Copy Channel ID
+3. Paste IDs comma-separated (no spaces)
+:::
+
+::: warning Independent Controls
+Text and voice whitelists are **independent**:
+- You can limit text channels while allowing all voice channels
+- Or vice versa
+- Or limit both
+- Empty list (default) = all channels of that type allowed
+:::
+
 ## User Experience
 
 ### Submitting a Request

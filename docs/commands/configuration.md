@@ -602,6 +602,78 @@ Control whether users can request voice/stage channels for events.
 - **Voice requested:** ✅ Approve Both | 💬 Text Only | ❌ Deny
 - **Text-only request:** ✅ Approve & Create Event | ❌ Deny
 
+#### Whitelist Allowed Text Channels
+
+```
+/eggshen-config event-requests set-allowed-text-channels channel-ids:"123,456,789"
+/eggshen-config event-requests set-allowed-text-channels channel-ids:"all"
+```
+
+Control which text channels appear in the event request form dropdown.
+
+**Channel IDs Parameter:**
+- **Comma-separated list**: `"1234567890,9876543210,1111222233"` - Only these channels
+- **"all" keyword**: `"all"` - Allow all text channels (default)
+- **Empty string**: `""` - Also allows all channels
+
+**How It Works:**
+- Users only see whitelisted channels in the "Location" dropdown
+- Empty list (default) = all channels available
+- Populated list = only those specific channel IDs appear
+
+**Use Cases:**
+- Limit to dedicated watch party channels: `"123,456"`
+- Exclude admin/announcement channels
+- Simplify selection for users with many channels
+- Reset to all channels: `"all"`
+
+**Example:**
+```
+/eggshen-config event-requests set-allowed-text-channels channel-ids:"1234567890,9876543210"
+```
+
+::: tip Getting Channel IDs
+Right-click a channel in Discord → Copy Channel ID (requires Developer Mode enabled in Discord Settings)
+:::
+
+#### Whitelist Allowed Voice Channels
+
+```
+/eggshen-config event-requests set-allowed-voice-channels channel-ids:"123,456,789"
+/eggshen-config event-requests set-allowed-voice-channels channel-ids:"all"
+```
+
+Control which voice/stage channels appear in the event request form dropdown.
+
+**Channel IDs Parameter:**
+- **Comma-separated list**: `"1234567890,9876543210"` - Only these channels
+- **"all" keyword**: `"all"` - Allow all voice/stage channels (default)
+- **Empty string**: `""` - Also allows all channels
+
+**How It Works:**
+- Users only see whitelisted channels in the "Voice Channel" dropdown
+- Empty list (default) = all voice/stage channels available
+- Populated list = only those specific channel IDs appear
+
+**Use Cases:**
+- Limit to dedicated watch party voice channels
+- Exclude private or admin voice channels
+- Simplify selection when server has many voice channels
+- Reset to all channels: `"all"`
+
+**Example:**
+```
+/eggshen-config event-requests set-allowed-voice-channels channel-ids:"1234567890"
+```
+
+::: warning Independent Controls
+Text and voice channel whitelists are **independent**. You can:
+- Allow all text channels but limit voice channels
+- Allow all voice channels but limit text channels  
+- Limit both to specific channels
+- Allow all of both (default)
+:::
+
 #### Get Configuration Summary
 
 ```
