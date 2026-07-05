@@ -2385,11 +2385,18 @@ export async function execute(interaction) {
       );
     
     if (eventConfig.enabled && eventConfig.websiteUrl) {
-      embed.addFields({
-        name: '🔗 Event Request Link',
-        value: `${eventConfig.websiteUrl}?guild=${guildId}`,
-        inline: false
-      });
+      embed.addFields(
+        {
+          name: '🔗 Form URL',
+          value: eventConfig.websiteUrl,
+          inline: false
+        },
+        {
+          name: '⚙️ Required Configuration',
+          value: `Set \`GUILD_ID\` in \`public/app.js\` to: \`'${guildId}'\``,
+          inline: false
+        }
+      );
     }
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -2479,10 +2486,8 @@ export async function execute(interaction) {
     config.eventRequests.websiteUrl = url;
     await saveGuildConfig(guildId, config);
     
-    const fullUrl = `${url}?guild=${guildId}`;
-    
     await interaction.reply({
-      content: `✅ Website URL set to: ${url}\n\n🔗 **Event request link:** ${fullUrl}`,
+      content: `✅ Website URL set to: ${url}\n\n⚠️ **Important:** Update \`GUILD_ID\` in your \`public/app.js\` file to: \`'${guildId}'\``,
       ephemeral: true
     });
     
@@ -2506,18 +2511,24 @@ export async function execute(interaction) {
       return;
     }
     
-    const fullUrl = `${eventConfig.websiteUrl}?guild=${guildId}`;
     const serverName = eventConfig.serverName || interaction.guild.name;
     
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
-      .setTitle('🎬 Event Request Link')
-      .setDescription(`Share this link with your community to allow members to submit watch party requests for **${serverName}**:`)
-      .addFields({
-        name: '🔗 Link',
-        value: fullUrl,
-        inline: false
-      })
+      .setTitle('🎬 Event Request Form')
+      .setDescription(`Your event request form is configured for **${serverName}**:`)
+      .addFields(
+        {
+          name: '🔗 Form URL',
+          value: eventConfig.websiteUrl,
+          inline: false
+        },
+        {
+          name: '⚙️ Configuration Required',
+          value: `Before users can access the form, you must set the \`GUILD_ID\` in \`public/app.js\` to:\n\`\`\`\nconst GUILD_ID = '${guildId}';\n\`\`\``,
+          inline: false
+        }
+      )
       .setFooter({ text: 'Requests will be sent to the moderation channel for approval' });
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
