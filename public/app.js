@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Check session
     await checkSession();
     
+    // Load guild config first
+    await loadGuildConfig();
+    
     // Load channels
     if (currentUser) {
         await loadChannels();
@@ -153,12 +156,27 @@ async function loadGuildConfig() {
                 inviteLinkElement.style.display = 'none';
             }
             
-            // Show/hide voice channel option based on config
-            const voiceCheckboxContainer = document.getElementById('use-voice-channel').parentElement.parentElement;
-            if (guildConfig.allowVoiceRequests === false) {
-                voiceCheckboxContainer.style.display = 'none';
+            // Show/hide channel selectors based on config
+            const locationChannelGroup = document.getElementById('location-channel-group');
+            const voiceCheckboxGroup = document.getElementById('voice-checkbox-group');
+            const voiceChannelGroup = document.getElementById('voice-channel-group');
+            const channelSelect = document.getElementById('channel');
+            
+            if (guildConfig.allowUserChannelSelection === false) {
+                // Hide all channel selectors - moderators will assign during approval
+                locationChannelGroup.style.display = 'none';
+                voiceCheckboxGroup.style.display = 'none';
+                voiceChannelGroup.style.display = 'none';
+                channelSelect.required = false;
+                
+                // Update info text to explain the flow
+                document.getElementById('info-text').innerHTML = 
+                    `Submit a watch party request for <strong>${serverName}</strong>. <strong>Moderators will select the channels</strong> when approving your event.`;
             } else {
-                voiceCheckboxContainer.style.display = 'block';
+                // Show channel selectors
+                locationChannelGroup.style.display = 'block';
+                channelSelect.required = true;
+                voiceCheckboxGroup.style.display = guildConfig.allowVoiceRequests !== false ? 'block' : 'none';
             }
         } else {
             // Config not found or disabled - show generic message

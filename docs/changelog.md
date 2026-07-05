@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Event Request Channel Whitelisting** (2026-07-05)
+  - **Control Which Channels Appear in Form:** Admins can specify exactly which text and voice channels users can select from
+  - **New Commands:**
+    - `/eggshen-config event-requests set-allowed-text-channels channel-ids:"123,456,789"` - Whitelist specific text channels
+    - `/eggshen-config event-requests set-allowed-voice-channels channel-ids:"123,456"` - Whitelist specific voice/stage channels
+    - Use `channel-ids:"all"` to allow all channels (default behavior)
+  - **How It Works:**
+    - Empty lists (default) = all channels available in dropdowns
+    - Populated lists = only those specific channel IDs appear in dropdowns
+    - Form automatically filters based on server configuration
+  - **Use Cases:**
+    - Limit events to dedicated watch party channels
+    - Exclude announcement or admin-only channels
+    - Simplify channel selection for users
+    - Prevent accidental selection of inappropriate channels
+  - **Benefits:**
+    - Granular control over channel selection
+    - Reduces user confusion with large channel lists
+    - Protects certain channels from event requests
+    - No UI changes needed - just configure and it works
+  - **Documentation:** Configuration commands documented in `/eggshen-config event-requests` section
+
 - **Event Request Voice Channel Opt-In & Granular Approval** (2026-07-05)
   - **Clearer Labels:** "Location" instead of "Coordination Channel" (text channel is always required)
   - **Voice Channel Opt-In:** Checkbox to optionally include voice/stage channel for events

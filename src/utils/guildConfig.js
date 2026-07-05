@@ -109,6 +109,8 @@ const defaultConfig = {
     inviteUrl: null, // Optional Discord invite link shown on form
     websiteUrl: null, // URL where event request form is hosted
     allowVoiceRequests: true, // Allow users to request voice/stage channels for events
+    allowedTextChannels: [], // Array of channel IDs users can select for text location (empty = all text channels)
+    allowedVoiceChannels: [], // Array of channel IDs users can select for voice (empty = all voice/stage channels)
   },
 };
 
