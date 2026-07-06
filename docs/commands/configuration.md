@@ -602,6 +602,33 @@ Control whether users can request voice/stage channels for events.
 - **Voice requested:** ✅ Approve Both | 💬 Text Only | ❌ Deny
 - **Text-only request:** ✅ Approve & Create Event | ❌ Deny
 
+#### Allow User Channel Selection (Simple vs Advanced Mode)
+
+```
+/eggshen-config event-requests allow-user-channel-selection allow:false
+/eggshen-config event-requests allow-user-channel-selection allow:true
+```
+
+Control whether users select channels in the event request form.
+
+**Simple Mode (default - `allow:false`):**
+- Users submit basic event details only: title, description, start/end time
+- Form hides Location and Voice Channel selectors
+- Message to users: "Moderators will select the channels when approving your event"
+- Moderators assign channels during approval process
+- **Best for:** New communities, servers with dedicated event coordinators, reducing decision fatigue
+
+**Advanced Mode (`allow:true`):**
+- Users select specific text/voice channels from whitelists (see below)
+- Form shows Location field (required) and optional Voice Channel checkbox
+- Users have full control over channel selection
+- Form filters channels based on allowed lists configured by admins
+- **Best for:** Experienced communities, power users, community-driven events
+
+::: warning Default Behavior
+Event requests default to **Simple Mode**. Users submit event ideas and moderators handle channel logistics during approval. Enable Advanced Mode only when users should control channel selection.
+:::
+
 #### Whitelist Allowed Text Channels
 
 ```
