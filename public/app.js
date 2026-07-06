@@ -100,12 +100,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     const endDateInput = document.getElementById('end-date');
     const endTimeInput = document.getElementById('end-time');
     
+    // Round time to nearest 5-minute increment
+    function roundToFiveMinutes(timeString) {
+        if (!timeString) return timeString;
+        
+        const [hours, minutes] = timeString.split(':').map(Number);
+        const roundedMinutes = Math.round(minutes / 5) * 5;
+        
+        const date = new Date();
+        date.setHours(hours);
+        date.setMinutes(roundedMinutes);
+        
+        const finalHours = String(date.getHours()).padStart(2, '0');
+        const finalMinutes = String(date.getMinutes()).padStart(2, '0');
+        return `${finalHours}:${finalMinutes}`;
+    }
+    
     // When start date/time changes, update end date/time to match (with 10 min buffer)
     function updateEndDateTime() {
         const startDate = startDateInput.value;
-        const startTime = startTimeInput.value;
+        let startTime = startTimeInput.value;
         
         if (startDate && startTime) {
+            // Round start time to 5-minute increment
+            startTime = roundToFiveMinutes(startTime);
+            startTimeInput.value = startTime;
+            
             // Set end date to match start date
             endDateInput.value = startDate;
             
@@ -129,11 +149,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const startDate = startDateInput.value;
         const startTime = startTimeInput.value;
         const endDate = endDateInput.value;
-        const endTime = endTimeInput.value;
+        let endTime = endTimeInput.value;
         
         if (!startDate || !startTime || !endDate || !endTime) {
             return true; // Skip validation if fields are empty
         }
+        
+        // Round end time to 5-minute increment
+        endTime = roundToFiveMinutes(endTime);
+        endTimeInput.value = endTime;
         
         const startDateTime = new Date(`${startDate}T${startTime}`);
         const endDateTime = new Date(`${endDate}T${endTime}`);
@@ -153,8 +177,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     startDateInput.addEventListener('change', updateEndDateTime);
     startTimeInput.addEventListener('change', updateEndDateTime);
+    startTimeInput.addEventListener('blur', () => {
+        if (startTimeInput.value) {
+            startTimeInput.value = roundToFiveMinutes(startTimeInput.value);
+        }
+    });
     endDateInput.addEventListener('change', validateEndDateTime);
     endTimeInput.addEventListener('change', validateEndDateTime);
+    endTimeInput.addEventListener('blur', () => {
+        if (endTimeInput.value) {
+            endTimeInput.value = roundToFiveMinutes(endTimeInput.value);
+        }
+    });
 });
 
 // Check if user is logged in
