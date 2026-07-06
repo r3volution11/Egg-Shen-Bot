@@ -89,10 +89,70 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     
+    // Date/Time validation and auto-update
+    const startDateInput = document.getElementById('start-date');
+    const startTimeInput = document.getElementById('start-time');
+    const endDateInput = document.getElementById('end-date');
+    const endTimeInput = document.getElementById('end-time');
+    
     // Set min date to today
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('start-date').min = today;
-    document.getElementById('end-date').min = today;
+    startDateInput.min = today;
+    endDateInput.min = today;
+    
+    // When start date/time changes, update end date/time to match
+    function updateEndDateTime() {
+        const startDate = startDateInput.value;
+        const startTime = startTimeInput.value;
+        
+        if (startDate && startTime) {
+            // Update end date/time to match start
+            endDateInput.value = startDate;
+            endTimeInput.value = startTime;
+            
+            // Update min constraint on end date
+            endDateInput.min = startDate;
+        }
+    }
+    
+    startDateInput.addEventListener('change', updateEndDateTime);
+    startTimeInput.addEventListener('change', updateEndDateTime);
+    
+    // Validate end date/time is not before start and has 10 minute minimum
+    function validateEndDateTime() {
+        const startDate = startDateInput.value;
+        const startTime = startTimeInput.value;
+        const endDate = endDateInput.value;
+        const endTime = endTimeInput.value;
+        
+        if (!startDate || !startTime || !endDate || !endTime) {
+            return; // Skip validation if any field is empty
+        }
+        
+        const startDateTime = new Date(`${startDate}T${startTime}`);
+        const endDateTime = new Date(`${endDate}T${endTime}`);
+        
+        // Check if end is before start
+        if (endDateTime < startDateTime) {
+            endDateInput.value = startDate;
+            endTimeInput.value = startTime;
+            showMessage('⚠️ End time cannot be before start time. Updated to match start time.', 'error', false);
+            return;
+        }
+        
+        // Check if difference is less than 10 minutes
+        const diffMinutes = (endDateTime - startDateTime) / (1000 * 60);
+        if (diffMinutes < 10) {
+            // Add 10 minutes to start time
+            const minEndDateTime = new Date(startDateTime.getTime() + 10 * 60 * 1000);
+            endDateInput.value = minEndDateTime.toISOString().split('T')[0];
+            endTimeInput.value = minEndDateTime.toTimeString().substring(0, 5);
+            showMessage('⚠️ End time must be at least 10 minutes after start time. Updated to minimum duration.', 'error', false);
+        }
+    }
+    
+    endDateInput.addEventListener('change', validateEndDateTime);
+    endTimeInput.addEventListener('change', validateEndDateTime);
 });
 
 // Check if user is logged in
@@ -347,6 +407,27 @@ async function handleSubmit(e) {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Request';
         return;
+    }
+    
+    // Validate end time if provided
+    if (formData.endTime) {
+        const startDateTime = new Date(formData.startTime);
+        const endDateTime = new Date(formData.endTime);
+        
+        if (endDateTime <= startDateTime) {
+            showMessage('End time must be after start time.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Request';
+            return;
+        }
+        
+        const diffMinutes = (endDateTime - startDateTime) / (1000 * 60);
+        if (diffMinutes < 10) {
+            showMessage('End time must be at least 10 minutes after start time.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Request';
+            return;
+        }
     }
     
     try {
