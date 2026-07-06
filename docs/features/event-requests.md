@@ -17,10 +17,16 @@ The Event Request System provides:
 
 1. **User visits your event request form** at your configured website
 2. **User logs in with Discord** (OAuth authentication)
-3. **User submits event details** (title, description, channel, time)
+3. **User submits event details:**
+   - **Simple Mode (default):** Title, description, time only. Moderators assign channels during approval.
+   - **Advanced Mode (opt-in):** Full control including channel selection from admin-configured whitelists.
 4. **Request appears in your moderation channel** with Approve/Deny buttons
 5. **Moderator clicks a button** to approve or deny
 6. **If approved, Discord Scheduled Event is created automatically**
+
+::: tip Default Behavior
+By default, event requests use **Simple Mode**: users submit event ideas and moderators handle channel logistics. This reduces decision fatigue and simplifies the user experience. Enable **Advanced Mode** with `/eggshen-config event-requests allow-user-channel-selection allow:true` to let users select channels.
+:::
 
 ## Deployment Model
 
@@ -223,9 +229,45 @@ Control whether users can request voice/stage channels for events. When disabled
 
 Shows your form URL and reminds you to configure the GUILD_ID in your web form deployment.
 
+#### Optional: Choose Simple or Advanced Mode
+
+**Simple Mode (default):**
+```
+/eggshen-config event-requests allow-user-channel-selection allow:false
+```
+
+Users submit basic event details only (title, description, time). The form hides channel selectors and shows: **"Moderators will select the channels when approving your event."** Moderators assign channels during approval.
+
+**Best for:**
+- New communities still establishing channel structure
+- Servers with dedicated event coordinators
+- Reducing decision fatigue for casual users
+- Simplifying the submission process
+
+**Advanced Mode (opt-in):**
+```
+/eggshen-config event-requests allow-user-channel-selection allow:true
+```
+
+Users select specific text/voice channels from admin-configured whitelists (see below). Form shows Location field (required) and optional Voice Channel checkbox.
+
+**Best for:**
+- Experienced communities with established channels
+- Power users who understand channel structure
+- Community-driven events where users know best location
+- Servers where moderators prefer not to assign channels
+
+::: tip Recommended Default
+Keep **Simple Mode** enabled by default. It provides the best experience for most users by removing the complexity of channel selection. Only switch to **Advanced Mode** if your community specifically requests more control.
+:::
+
 #### Optional: Whitelist Allowed Channels
 
-By default, users can select from **all text channels** and **all voice/stage channels** in your server. You can restrict this to specific channels:
+::: info Advanced Mode Only
+Channel whitelisting only applies when **Advanced Mode** is enabled. In Simple Mode, moderators assign channels during approval, so whitelisting is not needed.
+:::
+
+By default (in Advanced Mode), users can select from **all text channels** and **all voice/stage channels** in your server. You can restrict this to specific channels:
 
 **Whitelist text channels:**
 ```

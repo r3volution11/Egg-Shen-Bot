@@ -5,6 +5,35 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.3.0 - 2026-07-05
+
+### Added
+- **Event Request Simple vs Advanced Mode**
+  - **Simple Mode (Default):** Users submit basic event details only (title, description, time). Moderators assign channels during approval.
+    - Form shows: Title, Description, Start/End Time, Frequency
+    - Form hides: Location, Voice Channel selectors
+    - User experience: "Submit event idea, moderators handle logistics"
+    - Moderator responsibility: Choose appropriate channels when approving
+  - **Advanced Mode (Opt-In):** Users select specific channels from whitelists during form submission.
+    - Form shows: All fields including Location and Voice Channel selectors
+    - Requires channel whitelisting to be configured (see v2.2.0)
+    - User experience: "Full control over event setup"
+  - **New Command:**
+    - `/eggshen-config event-requests allow-user-channel-selection allow:<true/false>` - Toggle between simple and advanced mode
+    - Default: `false` (simple mode)
+  - **How It Works:**
+    - **Simple mode:** Form submission doesn't include channelId/voiceChannelId. Embed shows "Moderator will assign during approval" placeholder. Moderators select channels when approving.
+    - **Advanced mode:** Form shows channel selectors filtered by allowed lists. Users must select location channel. Embed shows user's channel selections.
+  - **Use Cases:**
+    - **Simple mode:** New communities, servers with dedicated event coordinators, reducing user decision fatigue
+    - **Advanced mode:** Power users, servers with established channel structures, community-driven events
+  - **Benefits:**
+    - Simplifies event requests by default
+    - Reduces barrier to entry for casual users
+    - Gives moderators control over channel assignments
+    - Optional advanced mode for experienced communities
+  - **Documentation:** Configuration commands documented in `/eggshen-config event-requests` section
+
 ## 2.2.0 - 2026-07-05
 
 ### Added
