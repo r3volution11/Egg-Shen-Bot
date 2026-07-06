@@ -2,6 +2,7 @@ import { getMovieDetails, getTVShowDetails, getUnifiedMovieWatchProviders, getUn
 import { getOMDBData } from '../services/omdbService.js';
 import { getMovieRating, getShowRating } from '../services/traktService.js';
 import { getLetterboxdRating } from '../services/letterboxdService.js';
+import { MessageFlags } from 'discord.js';
 import {
   getIMDbUrl,
   getLetterboxdUrl,
@@ -170,7 +171,7 @@ export async function handleSelectInteraction(interaction) {
     if (interaction.user.id !== expectedUserId) {
       await interaction.reply({
         content: '❌ Only the user who initiated this selection can choose a title.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -359,7 +360,7 @@ export async function handleSelectInteraction(interaction) {
       if (seasonNum > showDetails.number_of_seasons) {
         await interaction.followUp({
           content: `**${showDetails.name}** only has ${showDetails.number_of_seasons} season${showDetails.number_of_seasons === 1 ? '' : 's'}. Season ${seasonNum} doesn't exist.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -370,7 +371,7 @@ export async function handleSelectInteraction(interaction) {
       if (!seasonData || !seasonData.episodes || seasonData.episodes.length === 0) {
         await interaction.followUp({
           content: `No episodes found for **${showDetails.name}** Season ${seasonNum}.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -382,7 +383,7 @@ export async function handleSelectInteraction(interaction) {
       if (episodeCount > 25) {
         await interaction.followUp({
           content: `**${showDetails.name}** Season ${seasonNum} has ${episodeCount} episodes, which exceeds Discord's 25 field limit. Pagination support coming soon! For now, try searching individual episodes with \`/episode\`.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -465,7 +466,7 @@ export async function handleSelectInteraction(interaction) {
       console.error('Episode list selection error:', error);
       await interaction.followUp({
         content: 'An error occurred while fetching the episode list. Please try again.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
     return;
@@ -528,7 +529,7 @@ export async function handleSelectInteraction(interaction) {
       if (interaction.user.id !== userId) {
         await interaction.followUp({
           content: '❌ Only the person who ran the command can make this selection.',
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -596,7 +597,7 @@ export async function handleSelectInteraction(interaction) {
       console.error('Watched selection error:', error);
       await interaction.followUp({
         content: 'An error occurred while adding to watch history.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
     return;

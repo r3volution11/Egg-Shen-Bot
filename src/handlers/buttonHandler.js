@@ -2,7 +2,7 @@
  * Handle button interactions with comprehensive error handling
  */
 import * as logger from '../utils/logger.js';
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests } from '../api/server.js';
 
@@ -188,7 +188,7 @@ export async function handleButtonInteraction(interaction) {
           !interaction.member.permissions.has('Administrator')) {
         await interaction.reply({
           content: '❌ Only moderators and administrators can approve/deny event requests.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         
         const duration = Date.now() - startTime;
@@ -200,7 +200,7 @@ export async function handleButtonInteraction(interaction) {
       if (!global.eventRequests || !global.eventRequests.has(requestId)) {
         await interaction.reply({
           content: '❌ This event request has expired or was already processed.',
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         
         const duration = Date.now() - startTime;
@@ -247,7 +247,7 @@ export async function handleButtonInteraction(interaction) {
         await interaction.reply({
           content: `📍 **Select Channels for Event**\n**${requestData.title}**\n\nChoose the text channel where this event will take place, and optionally a voice channel.`,
           components: [textRow, voiceRow, buttonRow],
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         
         const duration = Date.now() - startTime;
@@ -256,7 +256,7 @@ export async function handleButtonInteraction(interaction) {
       }
       
       try {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         
         if (isDenial) {
           // Handle denial
@@ -367,7 +367,7 @@ export async function handleButtonInteraction(interaction) {
         await interaction.update({
           content: '❌ Only moderators and administrators can approve event requests.',
           components: [],
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -377,7 +377,7 @@ export async function handleButtonInteraction(interaction) {
         await interaction.update({
           content: '❌ This event request has expired or was already processed.',
           components: [],
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -390,7 +390,7 @@ export async function handleButtonInteraction(interaction) {
         await interaction.update({
           content: '❌ Please select a text channel before creating the event.',
           components: interaction.message.components,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -491,7 +491,7 @@ export async function handleButtonInteraction(interaction) {
       await interaction.update({
         content: '❌ Event approval cancelled.',
         components: [],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -517,7 +517,7 @@ export async function handleButtonInteraction(interaction) {
     try {
       const errorMessage = {
         content: '❌ An error occurred while processing your vote. Please try again or contact a tournament admin.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       };
       
       if (interaction.deferred) {
@@ -556,7 +556,7 @@ async function handleStartGroupVoting(interaction) {
   if (!tournament) {
     await interaction.reply({
       content: '❌ No tournament found.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -612,7 +612,7 @@ async function handleStartGroupVoting(interaction) {
   if (components.length === 0) {
     await interaction.reply({
       content: '❌ No groups are currently open for voting.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -621,7 +621,7 @@ async function handleStartGroupVoting(interaction) {
   await interaction.reply({
     embeds: [embed],
     components: components,
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -644,7 +644,7 @@ async function handleGroupVote(interaction) {
   if (!tournament) {
     await interaction.followUp({
       content: '❌ No tournament found.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -654,7 +654,7 @@ async function handleGroupVote(interaction) {
   if (!group || !group.votingOpen) {
     await interaction.followUp({
       content: `❌ Group ${groupId} is not open for voting.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -663,7 +663,7 @@ async function handleGroupVote(interaction) {
   if (group.votingDeadline && Date.now() > group.votingDeadline) {
     await interaction.followUp({
       content: '❌ Voting for this group has ended.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -681,7 +681,7 @@ async function handleGroupVote(interaction) {
     if (newVotes.length >= 2) {
       await interaction.followUp({
         content: '❌ You can only vote for 2 titles per group. Deselect one first.',
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
@@ -699,7 +699,7 @@ async function handleGroupVote(interaction) {
   if (!result.success) {
     await interaction.followUp({
       content: `❌ ${result.error}`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -830,7 +830,7 @@ async function handleKnockoutVote(interaction) {
   if (!result.success) {
     await interaction.reply({
       content: `❌ ${result.error}`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -850,7 +850,7 @@ async function handleKnockoutVote(interaction) {
   if (currentRoundMatchups.length > 5) {
     await interaction.reply({
       content: `❌ **Too many matchups open** (${currentRoundMatchups.length})\\n\\nAsk an admin to close some matchups and reopen by region.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -983,7 +983,7 @@ async function handleStartKnockoutVoting(interaction) {
   if (!tournament || tournament.status !== 'knockout') {
     await interaction.reply({
       content: '❌ No active knockout tournament found.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -998,7 +998,7 @@ async function handleStartKnockoutVoting(interaction) {
   if (votingMatchups.length === 0) {
     await interaction.reply({
       content: '❌ No voting matchups found for this round.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1007,7 +1007,7 @@ async function handleStartKnockoutVoting(interaction) {
   if (votingMatchups.length > 5) {
     await interaction.reply({
       content: `❌ **Too many matchups open** (${votingMatchups.length})\\n\\nDiscord limits voting dashboards to 5 matchups at a time.\\nAsk an admin to close some matchups and reopen by region instead.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1066,7 +1066,7 @@ async function handleStartKnockoutVoting(interaction) {
   const dashboardMessage = await interaction.reply({
     embeds: [embed],
     components: components,
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
     fetchReply: true
   });
   
@@ -1119,7 +1119,7 @@ async function handleOpenMatchupButton(interaction) {
   if (!tournament || tournament.status !== 'knockout') {
     await interaction.followUp({
       content: '❌ Tournament not in knockout phase.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1130,7 +1130,7 @@ async function handleOpenMatchupButton(interaction) {
   if (!matchup) {
     await interaction.followUp({
       content: '❌ Matchup not found.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1138,7 +1138,7 @@ async function handleOpenMatchupButton(interaction) {
   if (matchup.status === 'voting') {
     await interaction.followUp({
       content: '⚠️ This matchup is already open for voting.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1146,7 +1146,7 @@ async function handleOpenMatchupButton(interaction) {
   if (matchup.status === 'closed') {
     await interaction.followUp({
       content: '❌ This matchup has already been closed.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1253,7 +1253,7 @@ async function handleOpenMatchupButton(interaction) {
   // Send confirmation to button clicker
   await interaction.followUp({
     content: `✅ Opened matchup ${regionalLabel} for voting!`,
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -1273,7 +1273,7 @@ async function handleCloseMatchupButton(interaction) {
   if (!tournament || tournament.status !== 'knockout') {
     await interaction.followUp({
       content: '❌ Tournament not in knockout phase.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1284,7 +1284,7 @@ async function handleCloseMatchupButton(interaction) {
   if (!matchup) {
     await interaction.followUp({
       content: '❌ Matchup not found.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1292,7 +1292,7 @@ async function handleCloseMatchupButton(interaction) {
   if (matchup.status !== 'voting') {
     await interaction.followUp({
       content: '⚠️ This matchup is not currently open for voting.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1329,7 +1329,7 @@ async function handleCloseMatchupButton(interaction) {
   if (!result.success) {
     await interaction.followUp({
       content: `❌ Failed to close matchup: ${result.error}`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1376,7 +1376,7 @@ async function handleCloseMatchupButton(interaction) {
   // Send confirmation to button clicker
   await interaction.followUp({
     content: `✅ Closed matchup ${regionalLabel}!`,
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -1397,7 +1397,7 @@ async function handleOpenRegionButton(interaction) {
   if (!tournament || tournament.status !== 'knockout') {
     await interaction.followUp({
       content: '❌ Tournament not in knockout phase.',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1412,7 +1412,7 @@ async function handleOpenRegionButton(interaction) {
   if (currentRoundMatchups.length === 0) {
     await interaction.followUp({
       content: `❌ No matchups ready for ${tournament.phase.replace(/_/g, ' ')}.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1428,7 +1428,7 @@ async function handleOpenRegionButton(interaction) {
   if (regionMatchups.length === 0) {
     await interaction.followUp({
       content: `❌ No matchups found in Region ${regionNum}.`,
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -1549,7 +1549,7 @@ async function handleOpenRegionButton(interaction) {
   // Send confirmation to button clicker
   await interaction.followUp({
     content: `✅ Opened Region ${regionNum} (${regionName}) for voting!`,
-    ephemeral: true
+    flags: MessageFlags.Ephemeral
   });
 }
 
@@ -1814,7 +1814,7 @@ export async function handleWatchHistoryButton(interaction) {
     if (interaction.user.id !== starterUserId && !isModerator) {
       await interaction.reply({
         content: '❌ Only the person who started the timer or server administrators/moderators can log it to watch history.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }

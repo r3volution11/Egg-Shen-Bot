@@ -107,6 +107,7 @@ export function createApiServer(client) {
   }
   
   // Middleware
+  app.set('trust proxy', true); // Trust Nginx proxy for X-Forwarded-For headers
   app.use(cors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'https://shudderdrivein.com'],
     credentials: true
