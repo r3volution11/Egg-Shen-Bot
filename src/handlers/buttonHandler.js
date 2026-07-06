@@ -210,31 +210,45 @@ export async function handleButtonInteraction(interaction) {
       
       const requestData = global.eventRequests.get(requestId);
       
-      // If approving and no channels provided by user, show channel selection modal
+      // If approving and no channels provided by user, show channel selection interface
       if (!isDenial && !requestData.channelId) {
-        const modal = new ModalBuilder()
-          .setCustomId(`event_channels_${requestId}_${approvalType}`)
-          .setTitle('Select Event Channels');
+        const { ChannelSelectMenuBuilder, ChannelType, ButtonBuilder, ButtonStyle } = await import('discord.js');
         
-        const textChannelInput = new TextInputBuilder()
-          .setCustomId('textChannel')
-          .setLabel('Text Channel (ID or name)')
-          .setPlaceholder('Enter channel ID or name (e.g., 1234567890 or general)')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
+        // Create channel select menus
+        const textChannelSelect = new ChannelSelectMenuBuilder()
+          .setCustomId(`select_text_channel_${requestId}`)
+          .setPlaceholder('Select text channel for event')
+          .addChannelTypes(ChannelType.GuildText)
+          .setMinValues(1)
+          .setMaxValues(1);
         
-        const voiceChannelInput = new TextInputBuilder()
-          .setCustomId('voiceChannel')
-          .setLabel('Voice Channel (ID or name) - Optional')
-          .setPlaceholder('Leave blank for text-only event')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(false);
+        const voiceChannelSelect = new ChannelSelectMenuBuilder()
+          .setCustomId(`select_voice_channel_${requestId}`)
+          .setPlaceholder('Select voice channel (optional)')
+          .addChannelTypes(ChannelType.GuildVoice)
+          .setMinValues(0)
+          .setMaxValues(1);
         
-        const textRow = new ActionRowBuilder().addComponents(textChannelInput);
-        const voiceRow = new ActionRowBuilder().addComponents(voiceChannelInput);
+        const confirmButton = new ButtonBuilder()
+          .setCustomId(`confirm_event_channels_${requestId}_${approvalType}`)
+          .setLabel('Create Event')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('✅');
         
-        modal.addComponents(textRow, voiceRow);
-        await interaction.showModal(modal);
+        const cancelButton = new ButtonBuilder()
+          .setCustomId(`cancel_event_channels_${requestId}`)
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary);
+        
+        const textRow = new ActionRowBuilder().addComponents(textChannelSelect);
+        const voiceRow = new ActionRowBuilder().addComponents(voiceChannelSelect);
+        const buttonRow = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
+        
+        await interaction.reply({
+          content: `📍 **Select Channels for Event**\n**${requestData.title}**\n\nChoose the text channel where this event will take place, and optionally a voice channel.`,
+          components: [textRow, voiceRow, buttonRow],
+          ephemeral: true
+        });
         
         const duration = Date.now() - startTime;
         logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
@@ -259,6 +273,9 @@ export async function handleButtonInteraction(interaction) {
           });
           
           global.eventRequests.delete(requestId);
+          if (global.eventChannelSelections) {
+            global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
+          }
           await saveEventRequests();
           
           await interaction.editReply({
@@ -312,6 +329,9 @@ export async function handleButtonInteraction(interaction) {
           });
           
           global.eventRequests.delete(requestId);
+          if (global.eventChannelSelections) {
+            global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
+          }
           await saveEventRequests();
           
           const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
@@ -332,6 +352,147 @@ export async function handleButtonInteraction(interaction) {
         logger.logButton(interaction.customId, interaction.user, interaction.guild, false, error);
       }
       
+      return;
+    }
+    
+    // Handle confirm event channels button
+    if (interaction.customId.startsWith('confirm_event_channels_')) {
+      const customIdParts = interaction.customId.replace('confirm_event_channels_', '').split('_');
+      const approvalType = customIdParts.pop(); // Get last element (approvalType)
+      const requestId = customIdParts.join('_'); // Rejoin the rest
+      
+      // Check if user has moderation permissions
+      if (!interaction.member.permissions.has('ManageEvents') && 
+          !interaction.member.permissions.has('Administrator')) {
+        await interaction.update({
+          content: '❌ Only moderators and administrators can approve event requests.',
+          components: [],
+          ephemeral: true
+        });
+        return;
+      }
+      
+      // Get stored request data
+      if (!global.eventRequests || !global.eventRequests.has(requestId)) {
+        await interaction.update({
+          content: '❌ This event request has expired or was already processed.',
+          components: [],
+          ephemeral: true
+        });
+        return;
+      }
+      
+      // Get selected channels from global storage
+      const selectionKey = `${interaction.guildId}_${requestId}`;
+      const selections = global.eventChannelSelections?.get(selectionKey);
+      
+      if (!selections || !selections.textChannelId) {
+        await interaction.update({
+          content: '❌ Please select a text channel before creating the event.',
+          components: interaction.message.components,
+          ephemeral: true
+        });
+        return;
+      }
+      
+      const textChannelId = selections.textChannelId;
+      const voiceChannelId = selections.voiceChannelId || null;
+      
+      const requestData = global.eventRequests.get(requestId);
+      
+      try {
+        await interaction.deferUpdate();
+        
+        const { EmbedBuilder } = await import('discord.js');
+        const guild = interaction.guild;
+        
+        // Get channel objects
+        const textChannel = guild.channels.cache.get(textChannelId);
+        const voiceChannel = voiceChannelId ? guild.channels.cache.get(voiceChannelId) : null;
+        
+        // Create Discord scheduled event
+        const eventConfig = {
+          name: requestData.title,
+          description: requestData.description || undefined,
+          scheduledStartTime: requestData.startTime,
+          scheduledEndTime: requestData.endTime || undefined,
+          privacyLevel: 2
+        };
+        
+        if (voiceChannel) {
+          // Voice channel event
+          eventConfig.channel = voiceChannel.id;
+          eventConfig.entityType = 2;
+          
+          const channelMention = `<#${textChannel.id}>`;
+          eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') + 
+            `💬 Coordination: ${channelMention}`;
+        } else {
+          // External event (text-only)
+          const channelMention = `<#${textChannel.id}>`;
+          eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') + 
+            `📍 Location: ${channelMention}`;
+          eventConfig.entityType = 3;
+          eventConfig.entityMetadata = { location: 'Discord Server' };
+        }
+        
+        const scheduledEvent = await guild.scheduledEvents.create(eventConfig);
+        
+        // Update the original approval message
+        const originalMessage = await interaction.channel.messages.fetch(interaction.message.reference?.messageId).catch(() => null);
+        if (originalMessage) {
+          const originalEmbed = originalMessage.embeds[0];
+          const approvedEmbed = new EmbedBuilder(originalEmbed)
+            .setColor(0x00FF00)
+            .setTitle(`✅ Event Request Approved`)
+            .setFooter({ text: `Approved by ${interaction.user.tag} • ${originalEmbed.footer?.text || ''}` });
+          
+          await originalMessage.edit({
+            embeds: [approvedEmbed],
+            components: []
+          }).catch(() => {});
+        }
+        
+        // Clean up stored data
+        global.eventRequests.delete(requestId);
+        if (global.eventChannelSelections) {
+          global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
+        }
+        await saveEventRequests();
+        
+        const eventTypeText = voiceChannel ? 'voice channel event' : 'text-only event';
+        const channelInfo = voiceChannel 
+          ? `📍 Text: <#${textChannel.id}>\n🔊 Voice: <#${voiceChannel.id}>`
+          : `📍 Location: <#${textChannel.id}>`;
+        
+        await interaction.editReply({
+          content: `✅ Event created successfully as ${eventTypeText}!\n**${requestData.title}**\n\n${channelInfo}\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`,
+          components: []
+        });
+        
+        const duration = Date.now() - startTime;
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+        
+      } catch (error) {
+        console.error('[EventRequest] Error creating event:', error);
+        await interaction.editReply({
+          content: `❌ Failed to create event: ${error.message}`,
+          components: []
+        });
+        
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, false, error);
+      }
+      
+      return;
+    }
+    
+    // Handle cancel event channels button
+    if (interaction.customId.startsWith('cancel_event_channels_')) {
+      await interaction.update({
+        content: '❌ Event approval cancelled.',
+        components: [],
+        ephemeral: true
+      });
       return;
     }
     

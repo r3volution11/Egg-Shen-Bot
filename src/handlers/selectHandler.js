@@ -56,9 +56,48 @@ export async function handleSelectInteraction(interaction) {
   ];
   
   const isHandled = handledIds.includes(interaction.customId) || 
-                    interaction.customId.startsWith('select_bracket_title_');
+                    interaction.customId.startsWith('select_bracket_title_') ||
+                    interaction.customId.startsWith('select_text_channel_') ||
+                    interaction.customId.startsWith('select_voice_channel_');
   
   if (!isHandled) return;
+  
+  // Handle event channel selections
+  if (interaction.customId.startsWith('select_text_channel_') || 
+      interaction.customId.startsWith('select_voice_channel_')) {
+    const isTextChannel = interaction.customId.startsWith('select_text_channel_');
+    const requestId = interaction.customId.replace(isTextChannel ? 'select_text_channel_' : 'select_voice_channel_', '');
+    
+    // Store selection in global Map
+    if (!global.eventChannelSelections) {
+      global.eventChannelSelections = new Map();
+    }
+    
+    const key = `${interaction.guildId}_${requestId}`;
+    let selections = global.eventChannelSelections.get(key) || {};
+    
+    if (isTextChannel) {
+      selections.textChannelId = interaction.values[0];
+    } else {
+      selections.voiceChannelId = interaction.values.length > 0 ? interaction.values[0] : null;
+    }
+    
+    global.eventChannelSelections.set(key, selections);
+    
+    // Update message to show selections
+    const textChannel = selections.textChannelId ? `<#${selections.textChannelId}>` : '*Not selected*';
+    const voiceChannel = selections.voiceChannelId ? `<#${selections.voiceChannelId}>` : '*None (text-only event)*';
+    
+    const requestData = global.eventRequests?.get(requestId);
+    const title = requestData?.title || 'Event';
+    
+    await interaction.update({
+      content: `📍 **Select Channels for Event**\n**${title}**\n\n**Text Channel:** ${textChannel}\n**Voice Channel:** ${voiceChannel}\n\nClick "Create Event" when ready.`,
+      components: interaction.message.components
+    });
+    
+    return;
+  }
   
   // For bracket selections, don't defer if it's the wrong user (we'll handle that separately)
   const isBracketSelection = interaction.customId.startsWith('select_bracket_title_');
