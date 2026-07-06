@@ -31,9 +31,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load guild configuration
     await loadGuildConfig();
     
-    // Check for auth success callback
+    // Check for URL parameters
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('auth') === 'success') {
+    
+    // Handle authentication errors
+    if (urlParams.get('error') === 'not_member') {
+        const serverName = urlParams.get('serverName') || 'this server';
+        const inviteUrl = urlParams.get('inviteUrl');
+        
+        let errorMessage = `❌ You must be a member of ${serverName} to submit event requests.`;
+        if (inviteUrl) {
+            errorMessage += ` <a href="${inviteUrl}" target="_blank" style="color: #fff; text-decoration: underline;">Click here to join the server</a>.`;
+        }
+        
+        showMessage(errorMessage, 'error', true);
+        
+        // Clean URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+    }
+    // Check for auth success callback
+    else if (urlParams.get('auth') === 'success') {
         // Clean URL after successful auth
         const newUrl = window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
@@ -343,6 +361,14 @@ async function handleSubmit(e) {
         const data = await response.json();
         
         if (!response.ok) {
+            // Handle membership error with invite link
+            if (data.error === 'not_member') {
+                let errorMessage = data.message || 'You must be a member of this server to submit event requests.';
+                if (data.inviteUrl) {
+                    errorMessage += ` <a href="${data.inviteUrl}" target="_blank" style="color: #fff; text-decoration: underline;">Click here to join ${data.serverName || 'the server'}</a>.`;
+                }
+                throw new Error(errorMessage);
+            }
             throw new Error(data.error || 'Failed to submit request');
         }
         
@@ -358,9 +384,9 @@ async function handleSubmit(e) {
         
         // Handle rate limit
         if (error.message.includes('Too many')) {
-            showMessage('⏱️ Please wait 5 minutes before submitting another request.', 'error');
+            showMessage('⏱️ Please wait 5 minutes before submitting another request.', 'error', true);
         } else {
-            showMessage(`❌ ${error.message}`, 'error');
+            showMessage(`❌ ${error.message}`, 'error', true);
         }
     } finally {
         submitBtn.disabled = false;
@@ -382,9 +408,15 @@ function combineDateTimeToISO(dateId, timeId) {
 }
 
 // Show message
-function showMessage(text, type = 'info') {
+function showMessage(text, type = 'info', allowHtml = false) {
     const messageDiv = document.getElementById('form-message');
-    messageDiv.textContent = text;
+    
+    if (allowHtml) {
+        messageDiv.innerHTML = text;
+    } else {
+        messageDiv.textContent = text;
+    }
+    
     messageDiv.className = `message ${type}`;
     messageDiv.style.display = 'block';
     
