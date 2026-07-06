@@ -5,30 +5,24 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 2.5.0 - 2026-07-05
+## 2.4.1 - 2026-07-05
 
-### Added
-- **Event Request Form Date/Time Smart Validation**
-  - **Auto-Update End Time:** When users set start date/time, the end date/time automatically updates to match for easier adjustment
-  - **Real-Time Validation:**
-    - End date/time cannot be before start date/time
-    - End time must be at least 10 minutes after start time
-    - Automatic correction with friendly warning messages
-  - **User Experience Improvements:**
-    - Users set start time once, end time matches automatically
-    - Simply adjust end time forward instead of setting from scratch
-    - Clear error messages when validation fails: "End time must be at least 10 minutes after start time"
-    - Dynamic min date constraint on end date field based on start date
-  - **Implementation:**
-    - Event listeners on start date/time fields trigger end date/time updates
-    - Event listeners on end date/time fields validate against start values
-    - Form submission double-checks validation before sending to API
-    - Prevents impossible time ranges from being submitted
+### Improved
+- **Event Request Form Date/Time UX**
+  - **Auto-Update End Time:** When start date/time is set, end date/time automatically updates to match start time + 10 minutes
+    - Reduces manual input for users
+    - Ensures minimum 10-minute event duration by default
+    - Users can still manually increase end time as needed
+  - **Smart Validation:** End date/time cannot be earlier than start date/time
+    - Auto-corrects if user tries to set end time before start time
+    - Minimum 10-minute gap enforced between start and end times
+    - Real-time validation prevents invalid submissions
+  - **Dynamic Constraints:** End date minimum automatically updates when start date changes
   - **Benefits:**
-    - Reduces user effort when creating events
-    - Prevents validation errors at submission time
-    - Ensures all events have realistic durations
-    - Clearer user feedback with warning messages
+    - Faster form completion - less typing required
+    - Prevents common user errors (end before start)
+    - Smarter defaults reduce cognitive load
+    - Still allows full manual control when needed
 
 ## 2.4.0 - 2026-07-05
 
