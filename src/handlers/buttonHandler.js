@@ -162,7 +162,7 @@ export async function handleButtonInteraction(interaction) {
     // Handle event request approval/denial
     if (interaction.customId.startsWith('approve_event_') || interaction.customId.startsWith('deny_event_')) {
       // Import at the top of the function since we're inside an async function
-      const { EmbedBuilder } = await import('discord.js');
+      const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
       
       const isDenial = interaction.customId.startsWith('deny_event_');
       let requestId;
@@ -210,6 +210,37 @@ export async function handleButtonInteraction(interaction) {
       
       const requestData = global.eventRequests.get(requestId);
       
+      // If approving and no channels provided by user, show channel selection modal
+      if (!isDenial && !requestData.channelId) {
+        const modal = new ModalBuilder()
+          .setCustomId(`event_channels_${requestId}_${approvalType}`)
+          .setTitle('Select Event Channels');
+        
+        const textChannelInput = new TextInputBuilder()
+          .setCustomId('textChannel')
+          .setLabel('Text Channel (ID or name)')
+          .setPlaceholder('Enter channel ID or name (e.g., 1234567890 or general)')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+        
+        const voiceChannelInput = new TextInputBuilder()
+          .setCustomId('voiceChannel')
+          .setLabel('Voice Channel (ID or name) - Optional')
+          .setPlaceholder('Leave blank for text-only event')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false);
+        
+        const textRow = new ActionRowBuilder().addComponents(textChannelInput);
+        const voiceRow = new ActionRowBuilder().addComponents(voiceChannelInput);
+        
+        modal.addComponents(textRow, voiceRow);
+        await interaction.showModal(modal);
+        
+        const duration = Date.now() - startTime;
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+        return;
+      }
+      
       try {
         await interaction.deferReply({ ephemeral: true });
         
@@ -253,12 +284,12 @@ export async function handleButtonInteraction(interaction) {
             
             const textChannel = guild.channels.cache.get(requestData.channelId);
             const channelMention = textChannel ? `<#${textChannel.id}>` : 'the server';
-            eventConfig.description = (requestData.description ? requestData.description + '\\n\\n' : '') + 
+            eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') + 
               `💬 Coordination: ${channelMention}`;
           } else {
             const textChannel = guild.channels.cache.get(requestData.channelId);
             const channelMention = textChannel ? `<#${textChannel.id}>` : 'the server';
-            eventConfig.description = (requestData.description ? requestData.description + '\\n\\n' : '') + 
+            eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') + 
               `📍 Location: ${channelMention}`;
             eventConfig.entityType = 3;
             eventConfig.entityMetadata = { location: 'Discord Server' };
@@ -285,7 +316,7 @@ export async function handleButtonInteraction(interaction) {
           
           const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
           await interaction.editReply({
-            content: `✅ Event created successfully as ${eventTypeText}!\\n**${requestData.title}**\\n\\nEvent ID: ${scheduledEvent.id}\\nEvent URL: ${scheduledEvent.url}`
+            content: `✅ Event created successfully as ${eventTypeText}!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`
           });
         }
         
