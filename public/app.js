@@ -129,6 +129,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateTimeOptions(startTimeSelect);
     populateTimeOptions(endTimeSelect);
     
+    // Set default start time to 6:00 PM and end time to 6:15 PM
+    startTimeSelect.value = '18:00';
+    endTimeSelect.value = '18:15';
+    
     // Date/Time validation and auto-update handlers
     const startDateInput = document.getElementById('start-date');
     const endDateInput = document.getElementById('end-date');
