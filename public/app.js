@@ -94,38 +94,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('start-date').min = today;
     document.getElementById('end-date').min = today;
     
+    // Populate time select dropdowns with 5-minute increments
+    const startTimeSelect = document.getElementById('start-time');
+    const endTimeSelect = document.getElementById('end-time');
+    
+    function populateTimeOptions(selectElement) {
+        // Keep the default "Select time..." option
+        const defaultOption = selectElement.querySelector('option[value=""]');
+        selectElement.innerHTML = '';
+        if (defaultOption) {
+            selectElement.appendChild(defaultOption);
+        }
+        
+        // Generate time options in 5-minute increments
+        for (let hour = 0; hour < 24; hour++) {
+            for (let minute = 0; minute < 60; minute += 5) {
+                const hourStr = String(hour).padStart(2, '0');
+                const minuteStr = String(minute).padStart(2, '0');
+                const timeValue = `${hourStr}:${minuteStr}`;
+                
+                // Format for display (12-hour with AM/PM)
+                const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                const ampm = hour < 12 ? 'AM' : 'PM';
+                const displayTime = `${hour12}:${minuteStr} ${ampm}`;
+                
+                const option = document.createElement('option');
+                option.value = timeValue;
+                option.textContent = displayTime;
+                selectElement.appendChild(option);
+            }
+        }
+    }
+    
+    populateTimeOptions(startTimeSelect);
+    populateTimeOptions(endTimeSelect);
+    
     // Date/Time validation and auto-update handlers
     const startDateInput = document.getElementById('start-date');
-    const startTimeInput = document.getElementById('start-time');
     const endDateInput = document.getElementById('end-date');
-    const endTimeInput = document.getElementById('end-time');
-    
-    // Round time to nearest 5-minute increment
-    function roundToFiveMinutes(timeString) {
-        if (!timeString) return timeString;
-        
-        const [hours, minutes] = timeString.split(':').map(Number);
-        const roundedMinutes = Math.round(minutes / 5) * 5;
-        
-        const date = new Date();
-        date.setHours(hours);
-        date.setMinutes(roundedMinutes);
-        
-        const finalHours = String(date.getHours()).padStart(2, '0');
-        const finalMinutes = String(date.getMinutes()).padStart(2, '0');
-        return `${finalHours}:${finalMinutes}`;
-    }
     
     // When start date/time changes, update end date/time to match (with 10 min buffer)
     function updateEndDateTime() {
         const startDate = startDateInput.value;
-        let startTime = startTimeInput.value;
+        const startTime = startTimeSelect.value;
         
         if (startDate && startTime) {
-            // Round start time to 5-minute increment
-            startTime = roundToFiveMinutes(startTime);
-            startTimeInput.value = startTime;
-            
             // Set end date to match start date
             endDateInput.value = startDate;
             
@@ -137,7 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const endHours = String(startDateTime.getHours()).padStart(2, '0');
             const endMinutes = String(startDateTime.getMinutes()).padStart(2, '0');
-            endTimeInput.value = `${endHours}:${endMinutes}`;
+            endTimeSelect.value = `${endHours}:${endMinutes}`;
             
             // Update end date min constraint
             endDateInput.min = startDate;
@@ -147,17 +160,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Validate end date/time is not before start date/time
     function validateEndDateTime() {
         const startDate = startDateInput.value;
-        const startTime = startTimeInput.value;
+        const startTime = startTimeSelect.value;
         const endDate = endDateInput.value;
-        let endTime = endTimeInput.value;
+        const endTime = endTimeSelect.value;
         
         if (!startDate || !startTime || !endDate || !endTime) {
             return true; // Skip validation if fields are empty
         }
-        
-        // Round end time to 5-minute increment
-        endTime = roundToFiveMinutes(endTime);
-        endTimeInput.value = endTime;
         
         const startDateTime = new Date(`${startDate}T${startTime}`);
         const endDateTime = new Date(`${endDate}T${endTime}`);
@@ -168,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             endDateInput.value = startDate;
             const endHours = String(minEndDateTime.getHours()).padStart(2, '0');
             const endMinutes = String(minEndDateTime.getMinutes()).padStart(2, '0');
-            endTimeInput.value = `${endHours}:${endMinutes}`;
+            endTimeSelect.value = `${endHours}:${endMinutes}`;
             return false;
         }
         
@@ -176,19 +185,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     startDateInput.addEventListener('change', updateEndDateTime);
-    startTimeInput.addEventListener('change', updateEndDateTime);
-    startTimeInput.addEventListener('blur', () => {
-        if (startTimeInput.value) {
-            startTimeInput.value = roundToFiveMinutes(startTimeInput.value);
-        }
-    });
+    startTimeSelect.addEventListener('change', updateEndDateTime);
     endDateInput.addEventListener('change', validateEndDateTime);
-    endTimeInput.addEventListener('change', validateEndDateTime);
-    endTimeInput.addEventListener('blur', () => {
-        if (endTimeInput.value) {
-            endTimeInput.value = roundToFiveMinutes(endTimeInput.value);
-        }
-    });
+    endTimeSelect.addEventListener('change', validateEndDateTime);
 });
 
 // Check if user is logged in
