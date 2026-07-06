@@ -106,9 +106,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             selectElement.appendChild(defaultOption);
         }
         
-        // Generate time options in 5-minute increments
+        // Generate time options in 15-minute increments
         for (let hour = 0; hour < 24; hour++) {
-            for (let minute = 0; minute < 60; minute += 5) {
+            for (let minute = 0; minute < 60; minute += 15) {
                 const hourStr = String(hour).padStart(2, '0');
                 const minuteStr = String(minute).padStart(2, '0');
                 const timeValue = `${hourStr}:${minuteStr}`;
@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const startDateInput = document.getElementById('start-date');
     const endDateInput = document.getElementById('end-date');
     
-    // When start date/time changes, update end date/time to match (with 10 min buffer)
+    // When start date/time changes, update end date/time to match (with 15 min buffer)
     function updateEndDateTime() {
         const startDate = startDateInput.value;
         const startTime = startTimeSelect.value;
@@ -142,11 +142,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Set end date to match start date
             endDateInput.value = startDate;
             
-            // Set end time to start time + 10 minutes
+            // Set end time to start time + 15 minutes
             const [hours, minutes] = startTime.split(':').map(Number);
             const startDateTime = new Date();
             startDateTime.setHours(hours, minutes);
-            startDateTime.setMinutes(startDateTime.getMinutes() + 10);
+            startDateTime.setMinutes(startDateTime.getMinutes() + 15);
             
             const endHours = String(startDateTime.getHours()).padStart(2, '0');
             const endMinutes = String(startDateTime.getMinutes()).padStart(2, '0');
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const startDateTime = new Date(`${startDate}T${startTime}`);
         const endDateTime = new Date(`${endDate}T${endTime}`);
-        const minEndDateTime = new Date(startDateTime.getTime() + 10 * 60 * 1000); // +10 minutes
+        const minEndDateTime = new Date(startDateTime.getTime() + 15 * 60 * 1000); // +15 minutes
         
         if (endDateTime < minEndDateTime) {
             // Auto-correct to minimum allowed time
@@ -444,14 +444,14 @@ async function handleSubmit(e) {
         return;
     }
     
-    // Validate end time is at least 10 minutes after start time
+    // Validate end time is at least 15 minutes after start time
     if (formData.endTime) {
         const startDateTime = new Date(formData.startTime);
         const endDateTime = new Date(formData.endTime);
-        const minEndDateTime = new Date(startDateTime.getTime() + 10 * 60 * 1000); // +10 minutes
+        const minEndDateTime = new Date(startDateTime.getTime() + 15 * 60 * 1000); // +15 minutes
         
         if (endDateTime < minEndDateTime) {
-            showMessage('End time must be at least 10 minutes after start time.', 'error');
+            showMessage('End time must be at least 15 minutes after start time.', 'error', true);
             submitBtn.disabled = false;
             submitBtn.textContent = 'Submit Request';
             return;
