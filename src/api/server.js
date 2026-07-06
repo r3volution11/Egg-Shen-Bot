@@ -3,6 +3,78 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import { loadGuildConfig } from '../utils/guildConfig.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Path to persist event requests
+const EVENT_REQUESTS_FILE = path.join(__dirname, '../../pending_event_requests.json');
+
+/**
+ * Save event requests to disk
+ */
+async function saveEventRequests() {
+  try {
+    if (!global.eventRequests) {
+      global.eventRequests = new Map();
+    }
+    const requestsData = Object.fromEntries(global.eventRequests);
+    await fs.writeFile(EVENT_REQUESTS_FILE, JSON.stringify(requestsData, null, 2), 'utf8');
+  } catch (error) {
+    console.error('[EventRequests] Error saving requests:', error);
+  }
+}
+
+/**
+ * Load event requests from disk on bot startup
+ */
+async function loadEventRequests() {
+  try {
+    const data = await fs.readFile(EVENT_REQUESTS_FILE, 'utf8');
+    const requestsData = JSON.parse(data);
+    
+    if (!global.eventRequests) {
+      global.eventRequests = new Map();
+    }
+    
+    let loadedCount = 0;
+    let expiredCount = 0;
+    const now = Date.now();
+    
+    for (const [requestId, request] of Object.entries(requestsData)) {
+      // Parse requestId to get timestamp (format: timestamp_randomstring)
+      const timestamp = parseInt(requestId.split('_')[0]);
+      const age = now - timestamp;
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      
+      // Skip requests older than 7 days
+      if (age > sevenDays) {
+        expiredCount++;
+        continue;
+      }
+      
+      global.eventRequests.set(requestId, request);
+      loadedCount++;
+    }
+    
+    console.log(`✓ Restored ${loadedCount} pending event request(s) from previous session`);
+    if (expiredCount > 0) {
+      console.log(`  Cleaned up ${expiredCount} expired request(s)`);
+      // Save again to remove expired requests from file
+      await saveEventRequests();
+    }
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      // File doesn't exist yet, that's fine
+      console.log('ℹ️ No pending event requests to restore');
+      return;
+    }
+    console.error('[EventRequests] Error loading requests:', error);
+  }
+}
 
 /**
  * Create and configure Express API server for event requests
@@ -533,9 +605,13 @@ export function createApiServer(client) {
         channelMessageId: moderationChannelId
       });
       
+      // Save to disk
+      await saveEventRequests();
+      
       // Clean up old requests after 7 days
-      setTimeout(() => {
+      setTimeout(async () => {
         global.eventRequests.delete(requestId);
+        await saveEventRequests();
       }, 7 * 24 * 60 * 60 * 1000);
       
       res.json({ 
@@ -563,7 +639,10 @@ export function createApiServer(client) {
  * @param {Client} client - Discord.js client instance
  * @param {number} port - Port to listen on
  */
-export function startApiServer(client, port = 3000) {
+export async function startApiServer(client, port = 3000) {
+  // Load pending event requests from disk
+  await loadEventRequests();
+  
   const app = createApiServer(client);
   
   const server = app.listen(port, () => {
@@ -572,3 +651,6 @@ export function startApiServer(client, port = 3000) {
   
   return server;
 }
+
+// Export persistence functions for manual use if needed
+export { loadEventRequests, saveEventRequests };

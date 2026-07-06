@@ -4,6 +4,7 @@
 import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
+import { saveEventRequests } from '../api/server.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -1617,6 +1618,7 @@ export async function handleWatchHistoryButton(interaction) {
       
       // Clean up stored data
       global.eventRequests.delete(requestId);
+      await saveEventRequests();
       
       const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
       await interaction.editReply({
@@ -1675,6 +1677,7 @@ export async function handleWatchHistoryButton(interaction) {
       
       // Clean up stored data
       global.eventRequests.delete(requestId);
+      await saveEventRequests();
       
       await interaction.editReply({
         content: `Event request denied.`
