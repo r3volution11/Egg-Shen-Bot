@@ -64,6 +64,7 @@ export function createApiServer(client) {
           serverName: eventRequestConfig.serverName || 'Discord Server',
           inviteUrl: eventRequestConfig.inviteUrl || null,
           websiteUrl: eventRequestConfig.websiteUrl || null,
+          allowUserChannelSelection: eventRequestConfig.allowUserChannelSelection === true,
           allowVoiceRequests: eventRequestConfig.allowVoiceRequests !== false
         }
       });
@@ -280,10 +281,17 @@ export function createApiServer(client) {
       const guildConfig = await loadGuildConfig(guildId);
       const eventRequestConfig = guildConfig.eventRequests || {};
       
-      // Validate required fields
-      if (!guildId || !title || !channelId || !startTime || !submitterUsername) {
+      // Validate required fields (channelId is optional if users can't select channels)
+      if (!guildId || !title || !startTime || !submitterUsername) {
         return res.status(400).json({ 
-          error: 'Missing required fields: guildId, title, channelId, startTime, submitterUsername' 
+          error: 'Missing required fields: guildId, title, startTime, submitterUsername' 
+        });
+      }
+      
+      // If user channel selection is enabled, channelId is required
+      if (eventRequestConfig.allowUserChannelSelection === true && !channelId) {
+        return res.status(400).json({ 
+          error: 'Missing required field: channelId (user must select location channel)' 
         });
       }
       
@@ -336,20 +344,31 @@ export function createApiServer(client) {
             name: '📝 Description',
             value: description || 'No description provided',
             inline: false
-          },
-          {
-            name: '📍 Location (Text Channel)',
-            value: `<#${channelId}> (${textChannelName})`,
-            inline: true
           }
         );
       
-      // Add voice channel if specified
-      if (voiceChannelId && voiceChannel) {
+      // Add channel information based on what was provided
+      if (channelId) {
+        // User selected channels
         embed.addFields({
-          name: '🔊 Voice Channel',
-          value: `<#${voiceChannelId}> (${voiceChannelName})`,
+          name: '📍 Location (Text Channel)',
+          value: `<#${channelId}> (${textChannelName})`,
           inline: true
+        });
+        
+        if (voiceChannelId && voiceChannel) {
+          embed.addFields({
+            name: '🔊 Voice Channel',
+            value: `<#${voiceChannelId}> (${voiceChannelName})`,
+            inline: true
+          });
+        }
+      } else {
+        // Moderator will assign channels
+        embed.addFields({
+          name: '🎯 Channels',
+          value: '⚠️ **Moderator will assign during approval**',
+          inline: false
         });
       }
       

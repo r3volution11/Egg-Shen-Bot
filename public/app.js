@@ -45,8 +45,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load guild config first
     await loadGuildConfig();
     
-    // Load channels
-    if (currentUser) {
+    // Load channels only if user can select them
+    if (currentUser && guildConfig && guildConfig.allowUserChannelSelection === true) {
         await loadChannels();
     }
     
@@ -167,12 +167,24 @@ async function loadGuildConfig() {
                 inviteLinkElement.style.display = 'none';
             }
             
-            // Show/hide voice channel option based on config
+            // Show/hide channel selectors based on config
+            const channelSelect = document.getElementById('channel');
             const voiceCheckboxContainer = document.getElementById('use-voice-channel').parentElement.parentElement;
-            if (guildConfig.allowVoiceRequests === false) {
+            
+            if (guildConfig.allowUserChannelSelection === false) {
+                // Hide all channel selectors - moderators will assign during approval
+                channelSelect.parentElement.style.display = 'none';
                 voiceCheckboxContainer.style.display = 'none';
+                channelSelect.required = false;
+                
+                // Update info text to explain the flow
+                document.getElementById('info-text').innerHTML = 
+                    `Submit a watch party request for <strong>${serverName}</strong>. <strong>Moderators will select the channels</strong> when approving your event.`;
             } else {
-                voiceCheckboxContainer.style.display = 'block';
+                // Show channel selectors
+                channelSelect.parentElement.style.display = 'block';
+                channelSelect.required = true;
+                voiceCheckboxContainer.style.display = guildConfig.allowVoiceRequests !== false ? 'block' : 'none';
             }
         } else {
             // Config not found - show generic message
@@ -286,13 +298,13 @@ async function handleSubmit(e) {
     submitBtn.textContent = 'Submitting...';
     
     // Gather form data
-    const useVoice = document.getElementById('use-voice-channel').checked;
+    const useVoice = guildConfig.allowUserChannelSelection && document.getElementById('use-voice-channel').checked;
     const voiceChannelValue = useVoice ? document.getElementById('voice-channel').value : null;
     const formData = {
         guildId: GUILD_ID,
         title: document.getElementById('title').value.trim(),
         description: document.getElementById('description').value.trim() || null,
-        channelId: document.getElementById('channel').value,
+        channelId: guildConfig.allowUserChannelSelection ? document.getElementById('channel').value : null,
         voiceChannelId: voiceChannelValue || null,
         startTime: combineDateTimeToISO('start-date', 'start-time'),
         endTime: combineDateTimeToISO('end-date', 'end-time'),
@@ -304,8 +316,16 @@ async function handleSubmit(e) {
     };
     
     // Validate
-    if (!formData.title || !formData.channelId || !formData.startTime) {
+    if (!formData.title || !formData.startTime) {
         showMessage('Please fill in all required fields.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Request';
+        return;
+    }
+    
+    // Only require channelId if user selects channels
+    if (guildConfig.allowUserChannelSelection && !formData.channelId) {
+        showMessage('Please select a location channel.', 'error');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Request';
         return;
