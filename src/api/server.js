@@ -12,6 +12,28 @@ import { loadGuildConfig } from '../utils/guildConfig.js';
 export function createApiServer(client) {
   const app = express();
   
+  /**
+   * Check if a Discord user is a member of a specific guild
+   * @param {string} guildId - Guild ID to check
+   * @param {string} userId - Discord user ID
+   * @returns {Promise<{isMember: boolean, guild: Guild|null}>}
+   */
+  async function checkGuildMembership(guildId, userId) {
+    try {
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) {
+        return { isMember: false, guild: null };
+      }
+      
+      // Try to fetch the member from the guild
+      const member = await guild.members.fetch(userId).catch(() => null);
+      return { isMember: !!member, guild };
+    } catch (error) {
+      console.error('[Guild Membership] Error checking membership:', error);
+      return { isMember: false, guild: null };
+    }
+  }
+  
   // Middleware
   app.use(cors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'https://shudderdrivein.com'],
@@ -142,12 +164,36 @@ export function createApiServer(client) {
         return res.status(500).send('Failed to fetch user information');
       }
       
+      // Check if user is a member of the guild
+      const { isMember, guild } = await checkGuildMembership(guildId, userData.id);
+      
+      if (!isMember) {
+        console.log(`[OAuth] User ${userData.username} (${userData.id}) is not a member of guild ${guildId}`);
+        
+        // Load guild config to get invite URL
+        const guildConfig = await loadGuildConfig(guildId);
+        const inviteUrl = guildConfig.eventRequests?.inviteUrl;
+        const serverName = guildConfig.eventRequests?.serverName || (guild?.name || 'this server');
+        
+        const formUrl = process.env.FORM_URL || 'http://localhost:8080';
+        
+        // Redirect with error parameters
+        const errorParams = new URLSearchParams({
+          error: 'not_member',
+          serverName,
+          ...(inviteUrl && { inviteUrl })
+        });
+        
+        return res.redirect(`${formUrl}?${errorParams.toString()}`);
+      }
+      
       // Create a session token
       const sessionToken = Buffer.from(JSON.stringify({
         userId: userData.id,
         username: userData.username,
         discriminator: userData.discriminator,
         avatar: userData.avatar,
+        guildId,
         timestamp: Date.now()
       })).toString('base64');
       
@@ -282,9 +328,24 @@ export function createApiServer(client) {
       const eventRequestConfig = guildConfig.eventRequests || {};
       
       // Validate required fields (channelId is optional if users can't select channels)
-      if (!guildId || !title || !startTime || !submitterUsername) {
+      if (!guildId || !title || !startTime || !submitterUsername || !submitterDiscordId) {
         return res.status(400).json({ 
-          error: 'Missing required fields: guildId, title, startTime, submitterUsername' 
+          error: 'Missing required fields: guildId, title, startTime, submitterUsername, submitterDiscordId' 
+        });
+      }
+      
+      // Revalidate guild membership at submission time
+      const { isMember } = await checkGuildMembership(guildId, submitterDiscordId);
+      
+      if (!isMember) {
+        const serverName = eventRequestConfig.serverName || 'this server';
+        const inviteUrl = eventRequestConfig.inviteUrl;
+        
+        return res.status(403).json({ 
+          error: 'not_member',
+          message: `You must be a member of ${serverName} to submit event requests.`,
+          serverName,
+          inviteUrl: inviteUrl || null
         });
       }
       

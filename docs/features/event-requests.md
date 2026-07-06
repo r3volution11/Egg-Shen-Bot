@@ -17,12 +17,21 @@ The Event Request System provides:
 
 1. **User visits your event request form** at your configured website
 2. **User logs in with Discord** (OAuth authentication)
-3. **User submits event details:**
+3. **System validates guild membership:**
+   - Checks if user is a member of the target server
+   - Non-members see error with invite link (if configured)
+   - Only server members can proceed
+4. **User submits event details:**
    - **Simple Mode (default):** Title, description, time only. Moderators assign channels during approval.
    - **Advanced Mode (opt-in):** Full control including channel selection from admin-configured whitelists.
-4. **Request appears in your moderation channel** with Approve/Deny buttons
-5. **Moderator clicks a button** to approve or deny
-6. **If approved, Discord Scheduled Event is created automatically**
+5. **System revalidates membership at submission** (prevents edge case of leaving server after login)
+6. **Request appears in your moderation channel** with Approve/Deny buttons
+7. **Moderator clicks a button** to approve or deny
+8. **If approved, Discord Scheduled Event is created automatically**
+
+::: tip Security: Guild Membership Required
+The bot validates that users are **actual members of your Discord server** both when they log in and when they submit the form. Non-members see a friendly error message with an invite link to join. This prevents spam from users outside your community.
+:::
 
 ::: tip Default Behavior
 By default, event requests use **Simple Mode**: users submit event ideas and moderators handle channel logistics. This reduces decision fatigue and simplifies the user experience. Enable **Advanced Mode** with `/eggshen-config event-requests allow-user-channel-selection allow:true` to let users select channels.

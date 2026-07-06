@@ -5,6 +5,34 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.4.0 - 2026-07-05
+
+### Added
+- **Event Request Guild Membership Validation**
+  - **Double Security Check:** Validates user is a server member both at login and form submission
+  - **OAuth Validation:** When users log in via Discord, system checks if they're a member of the target server
+    - Non-members are redirected with friendly error message
+    - Shows server name and invite link (if configured)
+    - Prevents unauthorized form access immediately
+  - **Submission Validation:** Revalidates membership when form is submitted
+    - Handles edge case: user logs in successfully but leaves server before submitting
+    - Returns 403 error with invite link
+    - Frontend displays error with clickable invite link
+  - **User Experience:**
+    - Clear error messages: "You must be a member of [Server Name] to submit event requests"
+    - Automatic invite link display when configured by admins
+    - HTML-formatted error messages with clickable links
+  - **Security Benefits:**
+    - Prevents spam from non-members
+    - Ensures only community members can request events
+    - Double-check architecture prevents circumvention
+  - **Implementation:**
+    - New helper function: `checkGuildMembership(guildId, userId)` uses Discord.js member fetch
+    - OAuth callback checks membership before creating session
+    - Form submission endpoint revalidates before accepting request
+    - Session tokens now include guildId for validation
+    - Frontend handles `not_member` error with invite links
+
 ## 2.3.0 - 2026-07-05
 
 ### Added
