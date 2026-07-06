@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Collection, EmbedBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, Collection, EmbedBuilder, MessageFlags } from 'discord.js';
 import { config } from './config.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -188,7 +188,7 @@ client.on('interactionCreate', async (interaction) => {
       if (rateCheck.limited) {
         await interaction.reply({
           content: `⏱️ ${rateCheck.message}`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
@@ -237,7 +237,7 @@ client.on('interactionCreate', async (interaction) => {
         error
       );
       
-      const errorMessage = { content: 'There was an error executing this command!', ephemeral: true };
+      const errorMessage = { content: 'There was an error executing this command!', flags: MessageFlags.Ephemeral };
       
       try {
         if (interaction.replied || interaction.deferred) {
@@ -277,7 +277,7 @@ client.on('interactionCreate', async (interaction) => {
       if (interaction.user.id !== userId) {
         await interaction.reply({
           content: '❌ Only the person who opened this form can submit it.',
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
