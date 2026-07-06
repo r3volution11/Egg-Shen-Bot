@@ -748,6 +748,17 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand(subcommand =>
         subcommand
+          .setName('allow-user-channel-selection')
+          .setDescription('Allow users to select channels in form (default: moderators choose during approval)')
+          .addBooleanOption(option =>
+            option
+              .setName('allow')
+              .setDescription('Allow user channel selection?')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
           .setName('set-allowed-text-channels')
           .setDescription('Set which text channels users can select (empty = all channels allowed)')
           .addStringOption(option =>
@@ -2421,6 +2432,11 @@ export async function execute(interaction) {
           inline: true
         },
         {
+          name: 'User Channel Selection',
+          value: eventConfig.allowUserChannelSelection === true ? '✅ Enabled (users pick channels)' : '❌ Disabled (mods assign)',
+          inline: true
+        },
+        {
           name: 'Allowed Text Channels',
           value: eventConfig.allowedTextChannels && eventConfig.allowedTextChannels.length > 0 
             ? eventConfig.allowedTextChannels.map(id => `<#${id}>`).join(', ')
@@ -2558,6 +2574,24 @@ export async function execute(interaction) {
       content: allow 
         ? '✅ Users can now request voice/stage channels for events.' 
         : '❌ Voice/stage channel requests are now disabled. Events will be text-only.',
+      ephemeral: true
+    });
+    
+  } else if (group === 'event-requests' && subcommand === 'allow-user-channel-selection') {
+    const allow = interaction.options.getBoolean('allow');
+    const config = await loadGuildConfig(guildId);
+    
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    
+    config.eventRequests.allowUserChannelSelection = allow;
+    await saveGuildConfig(guildId, config);
+    
+    await interaction.reply({
+      content: allow 
+        ? '✅ Users can now select channels in the event request form.\n\n**Form will show:** Location field and optional voice channel checkbox' 
+        : '❌ Channel selection disabled. Users submit basic event details only.\n\n**Moderators will:** Assign channels when approving the event',
       ephemeral: true
     });
     
