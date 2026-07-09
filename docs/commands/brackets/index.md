@@ -48,7 +48,7 @@ A: Only server administrators and moderators can create, manage, and advance tou
 A: After group stage, the top 2 from each group advance automatically. Then the system calculates how many third-place finishers are needed to reach the next power of 2 (4, 8, 16, or 32). For example: 8 groups = 16 direct + 0 wildcards = 16 total; 12 groups = 24 direct + 8 wildcards = 32 total.
 
 **Q: What happens if there's a tie?**  
-A: The bot automatically creates a short tiebreaker voting round (default 1 hour, configurable). Members vote again between the tied options. If the tiebreaker also ties, random selection is used as a final fallback.
+A: The bot automatically creates a short tiebreaker voting round (default 1 hour, configurable). A voting embed is posted with a button for each tied option — members click a button to cast their vote and can change it any time before the deadline. Live vote counts update in the embed as votes come in. When the deadline passes, the scheduler automatically tallies votes and resolves the tie (random fallback if nobody voted). Admins can also end a tiebreaker early with `/bracket resolve-tiebreaker` — leave the `winner` blank to resolve by current votes, or specify a number to manually override.
 
 **Q: Can users change their votes?**  
 A: Yes! Users can change their votes anytime before the group or matchup is closed.

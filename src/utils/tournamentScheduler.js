@@ -102,15 +102,172 @@ async function checkVotingDeadlines() {
       if (tournament.status === 'group_stage') {
         await checkGroupDeadlines(guildId, tournament, now);
       }
-      
+
       // Check knockout voting deadlines
       if (tournament.status === 'knockout') {
         await checkKnockoutDeadlines(guildId, tournament, now);
+      }
+
+      // Check tiebreaker deadlines (applies to both group and knockout stages)
+      if (tournament.tiebreakers?.some(t => t.status === 'active')) {
+        await checkTiebreakerDeadlines(guildId, tournament, now);
       }
     }
   } catch (error) {
     console.error('[TournamentScheduler] Error checking deadlines:', error);
     logger.error(logger.LogCategory.SCHEDULER, 'Error checking voting deadlines', {
+      error: error.message,
+      stack: error.stack
+    });
+  }
+}
+
+/**
+ * Check tiebreaker deadlines and auto-resolve if expired
+ */
+async function checkTiebreakerDeadlines(guildId, tournament, now) {
+  try {
+    const guild = await client.guilds.fetch(guildId).catch(() => null);
+    if (!guild) return;
+
+    for (const tiebreaker of tournament.tiebreakers) {
+      if (tiebreaker.status !== 'active') continue;
+      if (now <= tiebreaker.deadline) continue;
+
+      await autoResolveTiebreaker(guild, tiebreaker);
+    }
+  } catch (error) {
+    console.error(`[TournamentScheduler] Error checking tiebreaker deadlines for guild ${guildId}:`, error);
+    logger.error(logger.LogCategory.SCHEDULER, 'Error checking tiebreaker deadlines', {
+      guildId,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Auto-resolve a tiebreaker by tallying votes (random if still tied)
+ */
+async function autoResolveTiebreaker(guild, tiebreaker) {
+  try {
+    console.log(`[TournamentScheduler] Auto-resolving tiebreaker ${tiebreaker.id} for guild ${guild.id}`);
+    logger.info(logger.LogCategory.SCHEDULER, `Auto-resolving tiebreaker ${tiebreaker.id}`, {
+      guildId: guild.id,
+      tiebreakerId: tiebreaker.id,
+      position: tiebreaker.position,
+      groupId: tiebreaker.groupId,
+      totalVotes: Object.keys(tiebreaker.votes || {}).length
+    });
+
+    // Tally votes and pick winner
+    const closeResult = bracketManager.closeTiebreaker(guild.id, tiebreaker.id);
+    if (!closeResult.success) {
+      console.error(`[TournamentScheduler] Failed to close tiebreaker ${tiebreaker.id}:`, closeResult.error);
+      logger.error(logger.LogCategory.SCHEDULER, `Failed to close tiebreaker ${tiebreaker.id}`, {
+        guildId: guild.id,
+        error: closeResult.error
+      });
+      return;
+    }
+
+    // Finalize group or knockout matchup
+    let finalizeResult;
+    if (tiebreaker.position === 'knockout') {
+      finalizeResult = bracketManager.finalizeKnockoutMatchupAfterTiebreaker(guild.id, tiebreaker.id);
+    } else {
+      finalizeResult = bracketManager.finalizeGroupAfterTiebreaker(guild.id, tiebreaker.id);
+    }
+
+    if (!finalizeResult.success) {
+      console.error(`[TournamentScheduler] Failed to finalize after tiebreaker ${tiebreaker.id}:`, finalizeResult.error);
+      logger.error(logger.LogCategory.SCHEDULER, `Failed to finalize after tiebreaker ${tiebreaker.id}`, {
+        guildId: guild.id,
+        error: finalizeResult.error
+      });
+      return;
+    }
+
+    const winner = closeResult.winner;
+    const voteCounts = closeResult.voteCounts || {};
+    const wasRandom = Object.values(voteCounts).every(v => v === 0);
+
+    // Update the voting embed to show it's closed
+    if (tiebreaker.messageChannelId && tiebreaker.messageId) {
+      try {
+        const channel = await guild.channels.fetch(tiebreaker.messageChannelId).catch(() => null);
+        if (channel) {
+          const msg = await channel.messages.fetch(tiebreaker.messageId).catch(() => null);
+          if (msg) {
+            const isKnockout = tiebreaker.position === 'knockout';
+            const contextLabel = isKnockout
+              ? 'Knockout Matchup'
+              : `Group ${tiebreaker.groupId} — ${tiebreaker.position} place`;
+
+            const optionsText = tiebreaker.tiedOptions.map((opt, i) => {
+              const votes = voteCounts[i] || 0;
+              return `**${i + 1}.** ${opt.title} — ${votes} vote${votes !== 1 ? 's' : ''}${winner.title === opt.title ? ' 🏆' : ''}`;
+            }).join('\n');
+
+            const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+
+            const closedEmbed = new EmbedBuilder()
+              .setColor(0x808080)
+              .setTitle(`🔒 Tiebreaker Closed: ${contextLabel}`)
+              .setDescription(`**Winner: ${winner.title}**${wasRandom ? ' *(random — no votes cast)*' : ''}\n\n${optionsText}`)
+              .setFooter({ text: `Tiebreaker ID: ${tiebreaker.id}` })
+              .setTimestamp();
+
+            const disabledButtons = msg.components.flatMap(row =>
+              row.components.map(btn =>
+                ButtonBuilder.from(btn).setDisabled(true)
+              )
+            );
+            const disabledRows = [];
+            for (let i = 0; i < disabledButtons.length; i += 5) {
+              disabledRows.push(new ActionRowBuilder().addComponents(disabledButtons.slice(i, i + 5)));
+            }
+
+            await msg.edit({ embeds: [closedEmbed], components: disabledRows });
+          }
+        }
+      } catch (err) {
+        console.error('[TournamentScheduler] Error updating tiebreaker message:', err);
+      }
+    }
+
+    // Post result notification
+    const channelId = tiebreaker.messageChannelId;
+    if (channelId) {
+      try {
+        const channel = await guild.channels.fetch(channelId).catch(() => null);
+        if (channel) {
+          const { EmbedBuilder } = await import('discord.js');
+          const isKnockout = tiebreaker.position === 'knockout';
+          const contextLabel = isKnockout
+            ? 'Knockout Matchup'
+            : `Group ${tiebreaker.groupId} — ${tiebreaker.position} place`;
+
+          const embed = new EmbedBuilder()
+            .setColor(0x00FF00)
+            .setTitle(`✅ Tiebreaker Resolved: ${contextLabel}`)
+            .setDescription(
+              `**Winner: ${winner.title}**\n` +
+              (wasRandom ? '*No votes were cast — winner selected randomly.*' : `Resolved by vote tally.`)
+            )
+            .setTimestamp();
+
+          await channel.send({ embeds: [embed] });
+        }
+      } catch (err) {
+        console.error('[TournamentScheduler] Error posting tiebreaker result:', err);
+      }
+    }
+
+  } catch (error) {
+    console.error(`[TournamentScheduler] Error auto-resolving tiebreaker ${tiebreaker.id}:`, error);
+    logger.error(logger.LogCategory.SCHEDULER, `Error auto-resolving tiebreaker`, {
+      guildId: guild.id,
+      tiebreakerId: tiebreaker.id,
       error: error.message,
       stack: error.stack
     });

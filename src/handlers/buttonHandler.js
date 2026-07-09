@@ -495,7 +495,23 @@ export async function handleButtonInteraction(interaction) {
       });
       return;
     }
-    
+
+    // Handle tiebreaker voting buttons
+    if (interaction.customId.startsWith('tiebreaker_vote_')) {
+      await handleTiebreakerVote(interaction);
+
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+
+      if (duration > 2000) {
+        logger.logPerformance('Button: tiebreaker_vote', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+
     // Unknown button type
     console.warn(`[ButtonHandler] Unknown button interaction: ${interaction.customId}`);
     logger.warning(logger.LogCategory.BUTTON, 'Unknown button interaction', {
@@ -1858,4 +1874,99 @@ export async function handleWatchHistoryButton(interaction) {
     
     await interaction.showModal(modal);
   }
+}
+
+/**
+ * Handle tiebreaker vote button clicks
+ * Button ID format: tiebreaker_vote_{tiebreakerId}_{optionIndex}
+ */
+async function handleTiebreakerVote(interaction) {
+  await interaction.deferUpdate();
+
+  // Parse: ['tiebreaker', 'vote', tiebreakerId, optionIndex]
+  // Note: tiebreakerId is a hex string with no underscores
+  const parts = interaction.customId.split('_');
+  const optionIndex = parseInt(parts[parts.length - 1]);
+  const tiebreakerId = parts.slice(2, parts.length - 1).join('_');
+
+  const bracketManager = await import('../utils/bracketManager.js');
+
+  const tournament = bracketManager.loadTournament(interaction.guild.id);
+  if (!tournament) {
+    await interaction.followUp({ content: '❌ No tournament found.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const tiebreaker = tournament.tiebreakers?.find(t => t.id === tiebreakerId);
+  if (!tiebreaker || tiebreaker.status !== 'active') {
+    await interaction.followUp({ content: '❌ This tiebreaker is no longer active.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (Date.now() > tiebreaker.deadline) {
+    await interaction.followUp({ content: '❌ Tiebreaker voting has expired.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  // Record the vote
+  const result = bracketManager.voteInTiebreaker(interaction.guild.id, tiebreakerId, interaction.user.id, optionIndex);
+  if (!result.success) {
+    await interaction.followUp({ content: `❌ ${result.error}`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const updatedTiebreaker = result.tiebreaker;
+  const selectedOption = updatedTiebreaker.tiedOptions[optionIndex];
+
+  // Rebuild vote counts for the embed
+  const voteCounts = {};
+  updatedTiebreaker.tiedOptions.forEach((_, i) => { voteCounts[i] = 0; });
+  Object.values(updatedTiebreaker.votes).forEach(idx => {
+    voteCounts[idx] = (voteCounts[idx] || 0) + 1;
+  });
+  const totalVotes = Object.values(voteCounts).reduce((a, b) => a + b, 0);
+
+  const optionsText = updatedTiebreaker.tiedOptions.map((opt, i) => {
+    const votes = voteCounts[i] || 0;
+    const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 10) : 0;
+    const bar = '█'.repeat(pct) + '░'.repeat(10 - pct);
+    return `**${i + 1}.** ${opt.title}\n${bar} ${votes} vote${votes !== 1 ? 's' : ''}`;
+  }).join('\n\n');
+
+  const isKnockout = updatedTiebreaker.position === 'knockout';
+  const contextLabel = isKnockout
+    ? 'Knockout Matchup'
+    : `Group ${updatedTiebreaker.groupId} — ${updatedTiebreaker.position} place`;
+  const deadline = `<t:${Math.floor(updatedTiebreaker.deadline / 1000)}:R>`;
+
+  const embed = new EmbedBuilder()
+    .setColor(0xFFAA00)
+    .setTitle(`🔀 Tiebreaker: ${contextLabel}`)
+    .setDescription(`Click a button below to cast your vote!\n\n${optionsText}`)
+    .addFields(
+      { name: '⏰ Closes', value: deadline, inline: true },
+      { name: '🗳️ Total Votes', value: `${totalVotes}`, inline: true }
+    )
+    .setFooter({ text: `Tiebreaker ID: ${updatedTiebreaker.id}` });
+
+  // Rebuild buttons (all Primary — no per-user coloring on a public message)
+  const buttons = updatedTiebreaker.tiedOptions.map((opt, i) =>
+    new ButtonBuilder()
+      .setCustomId(`tiebreaker_vote_${tiebreakerId}_${i}`)
+      .setLabel(opt.title.length > 80 ? opt.title.substring(0, 77) + '...' : opt.title)
+      .setStyle(ButtonStyle.Primary)
+  );
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+  }
+
+  // Update the public voting message with refreshed counts
+  await interaction.editReply({ embeds: [embed], components: rows });
+
+  // Private confirmation
+  await interaction.followUp({
+    content: `✅ Your vote for **${selectedOption.title}** has been recorded! You can change it anytime before voting closes.`,
+    flags: MessageFlags.Ephemeral
+  });
 }

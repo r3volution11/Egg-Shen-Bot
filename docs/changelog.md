@@ -5,6 +5,26 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Tiebreaker Button Voting** (2026-07-08)
+  - When a group or knockout tiebreaker is created, the bot now posts a dedicated voting embed with clickable buttons for each tied option
+  - Members click a button to cast their tiebreaker vote — no command needed
+  - Live vote counts update in real time (progress bars show current standings)
+  - Users receive a private ephemeral confirmation after voting and can change their vote any time before the deadline
+  - Tiebreaker ID is always visible in the embed footer for admin reference
+
+### Improved
+- **`/bracket resolve-tiebreaker`** — `winner` parameter is now optional
+  - **With `winner`:** Admin manually picks the winning option (unchanged behavior)
+  - **Without `winner`:** Tallies the current tiebreaker votes and resolves immediately — useful for ending voting early once a clear majority exists
+  - On resolution, the voting embed is automatically disabled and stamped with the result and vote breakdown
+- **Tiebreaker auto-resolution** — The tournament scheduler now checks tiebreaker deadlines every minute. When a tiebreaker expires it is automatically resolved by vote count (random fallback if no votes were cast), the embed is updated to show the winner, and a results notification is posted
+
+### Fixed
+- **Multiple simultaneous group ties** — Fixed a bug where closing multiple groups at once (e.g., `/bracket close-groups groups:A,B,C,D`) could silently discard `groupResults` for earlier groups when later groups also had ties. All group results are now preserved correctly regardless of how many tiebreakers are created in a single call
+
 ## 2.4.1 - 2026-07-05
 
 ### Improved
