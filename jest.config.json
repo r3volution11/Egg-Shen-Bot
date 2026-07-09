@@ -6,7 +6,8 @@
   ],
   "collectCoverageFrom": [
     "src/utils/bracketManager.js",
-    "src/commands/bracket.js"
+    "src/commands/bracket.js",
+    "src/services/*.js"
   ],
   "coverageDirectory": "coverage",
   "verbose": true
