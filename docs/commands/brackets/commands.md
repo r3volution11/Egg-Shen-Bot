@@ -21,7 +21,7 @@ This page provides detailed documentation for all tournament bracket commands. C
 | `open-groups` | Admin/Mod | Open specific groups for button-based voting | Group Stage |
 | `close-groups` | Admin/Mod | Close specific groups and calculate results | Group Stage |
 | `advance-knockout` | Admin/Mod | Generate knockout bracket from group results | Transition |
-| `resolve-tiebreaker` | Admin/Mod | Manually resolve a tiebreaker vote | Any |
+| `resolve-tiebreaker` | Admin/Mod | Resolve a tiebreaker — tally votes or manually override | Any |
 | `open-matchup` | Admin/Mod | Open specific matchup(s) for voting | Knockout |
 | `close-matchup` | Admin/Mod | Close specific matchup(s) and advance winner(s) | Knockout |
 | `extend-voting` | Admin/Mod | Extend or change voting deadline | Any |
@@ -34,7 +34,7 @@ This page provides detailed documentation for all tournament bracket commands. C
 **Key Changes:**
 - 🆕 **Smart Commands**: `/bracket open` and `/bracket close` auto-detect tournament phase
 - 🔄 **Unified Management**: `/bracket manage-titles` replaces `add-title` and `remove-title`
-- ⚖️ **Tiebreaker Resolution**: New `/bracket resolve-tiebreaker` command for manual tie resolution
+- ⚖️ **Tiebreaker Voting & Resolution**: Ties are now resolved by member button-voting, with `/bracket resolve-tiebreaker` available to tally votes early or manually override the winner
 - ❌ **Removed**: `open-knockout`, `close-knockout`, `open-quarters`, `close-quarters`, `open-semis`, `close-semis`, `open-finals`, `close-finals`, `regenerate`
 
 **Visual Examples:**
