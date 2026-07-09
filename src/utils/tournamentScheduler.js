@@ -287,6 +287,8 @@ async function checkGroupDeadlines(guildId, tournament, now) {
     const groupsToClose = [];
     
     for (const [groupId, group] of Object.entries(tournament.groups)) {
+      // Skip groups that are already closed or waiting on a tiebreaker
+      if (group.status === 'tiebreaker' || group.status === 'closed') continue;
       if (!group.votingOpen || !group.votingDeadline || !group.votingStarted) continue;
       
       const warningKey = `${guildId}_group_${groupId}`;
@@ -503,7 +505,7 @@ async function autoCloseGroup(guild, tournament, groupId, group) {
     }
     
     // Post results notification
-    await postGroupResults(guild, tournament, groupId, result.groups[groupId]);
+    await postGroupResults(guild, tournament, groupId, result.tournament.groups[groupId]);
     
   } catch (error) {
     console.error(`[TournamentScheduler] Error auto-closing group ${groupId}:`, error);

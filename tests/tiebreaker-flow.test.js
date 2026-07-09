@@ -114,11 +114,9 @@ describe('Group voting — basic (no tie)', () => {
 describe('Tie detection — tiebreaker is created', () => {
   test('1st-place tie creates a tiebreaker', () => {
     setupGroupTournament();
-    // Ring(0) and Halloween(1) each get 2 votes — 1st-place tie
-    bracketManager.voteGroupStage(GUILD_ID, 'user-1', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-3', 'A', [1]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-4', 'A', [1]);
+    // Both users vote for Ring AND Halloween — each gets 2 votes, 1st-place tie
+    bracketManager.voteGroupStage(GUILD_ID, 'user-1', 'A', [0, 1]);
+    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0, 1]);
     // Counts: Ring=2, Halloween=2, Psycho=0, Nosferatu=0 → 1st-place tie
 
     const result = bracketManager.closeGroupVoting(GUILD_ID, ['A']);
@@ -161,6 +159,53 @@ describe('Tie detection — tiebreaker is created', () => {
     expect(t.tiebreakers).toHaveLength(1);
     expect(t.tiebreakers[0].status).toBe('active');
     expect(t.tiebreakers[0].votes).toEqual({});
+  });
+});
+
+describe('Partial vote handling', () => {
+  test('partial votes (1/2) are discarded before results are calculated', () => {
+    setupGroupTournament();
+    // user-1 completes both votes: Ring(0) + Psycho(2)
+    castGroupVote('user-1', 'A', 0, 2);
+    // user-2 only picks 1 title (partial vote — should be discarded)
+    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0]);
+
+    const result = bracketManager.closeGroupVoting(GUILD_ID, ['A']);
+    expect(result.success).toBe(true);
+    // user-2's partial vote must be listed as discarded
+    expect(result.partialVotersDiscarded).toHaveLength(1);
+    expect(result.partialVotersDiscarded[0].userId).toBe('user-2');
+    expect(result.partialVotersDiscarded[0].groupId).toBe('A');
+  });
+
+  test('partial votes do not count toward tie detection', () => {
+    setupGroupTournament();
+    // user-1 full vote: Ring(0) + Psycho(2)
+    castGroupVote('user-1', 'A', 0, 2);
+    // user-2 partial vote for Halloween(1) only — would create a false tie if counted
+    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [1]);
+
+    const result = bracketManager.closeGroupVoting(GUILD_ID, ['A']);
+    // After discarding user-2, only user-1 remains: Ring=1, Psycho=1, Halloween=0
+    // No tie — clear winner path (Ring and Psycho tied for 1st is still handled)
+    expect(result.success).toBe(true);
+    expect(result.partialVotersDiscarded).toHaveLength(1);
+    // Halloween should have 0 votes (partial was discarded)
+    const t = bracketManager.loadTournament(GUILD_ID);
+    const halloween = t.groups['A'].movies[1];
+    expect(halloween.votes).toHaveLength(0);
+  });
+
+  test('complete votes are never discarded', () => {
+    setupGroupTournament();
+    // Ring(0) gets 3 votes — clear 1st place winner, no tie
+    castGroupVote('user-1', 'A', 0, 1); // Ring + Halloween
+    castGroupVote('user-2', 'A', 0, 2); // Ring + Psycho
+    castGroupVote('user-3', 'A', 0, 3); // Ring + Nosferatu
+
+    const result = bracketManager.closeGroupVoting(GUILD_ID, ['A']);
+    expect(result.partialVotersDiscarded).toHaveLength(0);
+    expect(result.tournament.groupResults['A'].first.title).toBe('Ring');
   });
 });
 
@@ -302,11 +347,9 @@ describe('storeTiebreakerMessage', () => {
 describe('finalizeGroupAfterTiebreaker — group results updated', () => {
   test('1st-place tiebreaker: group results fully populated', () => {
     setupGroupTournament();
-    // Ring(0) and Halloween(1) genuinely tied for 1st (2 votes each)
-    bracketManager.voteGroupStage(GUILD_ID, 'user-1', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-3', 'A', [1]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-4', 'A', [1]);
+    // Both users vote for Ring AND Halloween — each gets 2 votes, 1st-place tie
+    bracketManager.voteGroupStage(GUILD_ID, 'user-1', 'A', [0, 1]);
+    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0, 1]);
 
     const closeResult = bracketManager.closeGroupVoting(GUILD_ID, ['A']);
     const tbId = closeResult.tiebreakersCreated[0].tiebreaker.id;
@@ -374,10 +417,8 @@ describe('finalizeGroupAfterTiebreaker — group results updated', () => {
 describe('manuallyResolveTiebreaker — admin override', () => {
   test('admin picks winner by index', () => {
     setupGroupTournament();
-    bracketManager.voteGroupStage(GUILD_ID, 'user-1', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-3', 'A', [1]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-4', 'A', [1]);
+    bracketManager.voteGroupStage(GUILD_ID, 'user-1', 'A', [0, 1]);
+    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0, 1]);
 
     const closeResult = bracketManager.closeGroupVoting(GUILD_ID, ['A']);
     const tb = closeResult.tiebreakersCreated[0].tiebreaker;
@@ -392,10 +433,8 @@ describe('manuallyResolveTiebreaker — admin override', () => {
 
   test('manual resolve ignores existing votes', () => {
     setupGroupTournament();
-    bracketManager.voteGroupStage(GUILD_ID, 'user-1', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-3', 'A', [1]);
-    bracketManager.voteGroupStage(GUILD_ID, 'user-4', 'A', [1]);
+    bracketManager.voteGroupStage(GUILD_ID, 'user-1', 'A', [0, 1]);
+    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0, 1]);
 
     const closeResult = bracketManager.closeGroupVoting(GUILD_ID, ['A']);
     const tb = closeResult.tiebreakersCreated[0].tiebreaker;
@@ -428,11 +467,10 @@ describe('Full end-to-end: tie → vote → finalize → knockout ready', () => 
   test('all 4 groups: 2 with ties resolved by voting, 2 clear winners → bracket generates', () => {
     setupGroupTournament();
 
-    // Group A: Ring(0) and Halloween(1) genuinely tied for 1st (2 votes each)
-    bracketManager.voteGroupStage(GUILD_ID, 'u1', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'u2', 'A', [0]);
-    bracketManager.voteGroupStage(GUILD_ID, 'u3', 'A', [1]);
-    bracketManager.voteGroupStage(GUILD_ID, 'u4', 'A', [1]);
+    // Group A: Ring(0) and Halloween(1) genuinely tied for 1st
+    // Both users vote for BOTH tied titles — full 2-vote entries
+    bracketManager.voteGroupStage(GUILD_ID, 'u1', 'A', [0, 1]);
+    bracketManager.voteGroupStage(GUILD_ID, 'u2', 'A', [0, 1]);
 
     // Group B: Scream(0) clear 1st (4v); The Witch(1) and Don't Look Now(2) tied 2nd (2v each)
     castGroupVote('u1', 'B', 0, 1); castGroupVote('u2', 'B', 0, 1);
