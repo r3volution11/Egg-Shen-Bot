@@ -100,7 +100,7 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
 
 **Purpose:** AI image generation and semantic search  
 **Features Enabled:**
-- **AI Image Generation** - `/image`, `/versus-image`, `/bracket image` commands
+- **AI Image Generation** - `/image` command (freeform, from a message, or versus battle between two titles)
 - **Semantic Search** - Smart re-ranking of search results based on semantic similarity  
 **Pricing:** Pay-per-use
 - Image generation (gpt-image-2 model): $0.04 per image

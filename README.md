@@ -65,7 +65,7 @@ Customize permissions, toggle rating services, set region preferences, and confi
 - **[Tournament Brackets](https://r3volution11.github.io/Egg-Shen-Bot/commands/brackets/)** - Complete bracket system guide with setup, knockout, and tips
 - **[Watch Party](https://r3volution11.github.io/Egg-Shen-Bot/commands/watch-party)** - `/timer`, `/watched`
 - **[Social Commands](https://r3volution11.github.io/Egg-Shen-Bot/commands/social)** - `/potion`, `/survey`, `/soundtrack`
-- **[AI Images](https://r3volution11.github.io/Egg-Shen-Bot/commands/ai-images)** - `/image`, `/versus-image`
+- **[AI Images](https://r3volution11.github.io/Egg-Shen-Bot/commands/ai-images)** - `/image`
 - **[Configuration](https://r3volution11.github.io/Egg-Shen-Bot/commands/configuration)** - `/eggshen-config`
 - **[Moderation](https://r3volution11.github.io/Egg-Shen-Bot/commands/moderation)** - `/eggshen-restart`, `/eggshen-stats`
 

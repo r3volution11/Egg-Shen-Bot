@@ -318,7 +318,7 @@ export async function handleSelectInteraction(interaction) {
       }
       
       if (addResult.titleCount < 4) {
-        embed.setFooter({ text: `Add ${4 - addResult.titleCount} more title(s) to Group ${group} with /bracket add-title` });
+        embed.setFooter({ text: `Add ${4 - addResult.titleCount} more title(s) to Group ${group} with /bracket manage-titles action:add` });
       } else {
         embed.setFooter({ text: `Group ${group} is complete! Add more groups or use /bracket open-groups to start voting.` });
       }

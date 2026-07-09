@@ -1,6 +1,6 @@
 # AI Image Generation
 
-Egg Shen can generate AI-powered images using OpenAI's latest image generation API. The bot provides three commands for creating images, with built-in rate limiting to control costs.
+Egg Shen can generate AI-powered images using OpenAI's latest image generation API. One command handles freeform prompts, generating from a Discord message, and "versus" battle images comparing two titles — with built-in rate limiting to control costs.
 
 ## Overview
 
@@ -13,109 +13,68 @@ Egg Shen can generate AI-powered images using OpenAI's latest image generation A
 - **Whitelist:** Contributors/premium users can have unlimited access
 
 **Available Commands:**
-- **`/image`** - Generate images from text prompts or Discord messages
-- **`/versus-image`** - Generate AI "versus" battle images comparing two titles
-- **`/bracket image`** - Generate versus images (alternative to /versus-image)
+- **`/image`** - Generate images from text prompts, Discord messages, a two-title versus battle, or an active tournament matchup
+- **`/potion`** - Generate mystical potion images (see [Social Commands](./social))
 
 ---
 
-## `/versus-image` Command
-
-Create AI-generated "versus" battle images comparing any two titles.
-
-### Usage
-
-```
-/versus-image title1:"The Thing 1982" title2:"Alien 1979"
-/versus-image title1:"Breaking Bad" title2:"The Wire" prompt:"dramatic neon lighting"
-/versus-image title1:"Elden Ring" title2:"Dark Souls"
-```
-
-### Parameters
-
-- **`title1`** (required) - First title (movie, TV show, game, book, board game)
-- **`title2`** (required) - Second title to compare against
-- **`prompt`** (optional) - Additional style or setting details
-
-### Features
-
-- **Smart Search** - Validates both titles exist before generating
-- **Cross-Type Support** - Compare movies vs games, TV vs books, etc.
-- **Auto-Disambiguation** - Selects first match if multiple results found
-- **Wide Format** - 1792x1024 split-screen composition
-- **Rate Limited** - Same limits as `/image` (5-min cooldown, daily limits)
-
-## `/versus-image` Command
-
-Create AI-generated "versus" battle images comparing any two titles.
-
-### Usage
-
-```
-/versus-image title1:"The Thing 1982" title2:"Alien 1979"
-/versus-image title1:"Breaking Bad" title2:"The Wire" prompt:"dramatic neon lighting"
-/versus-image title1:"Elden Ring" title2:"Dark Souls"
-```
-
-### Parameters
-
-- **`title1`** (required) - First title (movie, TV show, game, book, board game)
-- **`title2`** (required) - Second title to compare against
-- **`prompt`** (optional) - Additional style or setting details
-
-### Features
-
-- **Smart Search** - Validates both titles exist before generating
-- **Cross-Type Support** - Compare movies vs games, TV vs books, etc.
-- **Auto-Disambiguation** - Selects first match if multiple results found
-- **Wide Format** - 1792x1024 split-screen composition
-- **Rate Limited** - Same limits as `/image` (5-min cooldown, daily limits)
-
 ## `/image` Command
 
-Generate AI images from text prompts or Discord messages.
+Generate AI images in one of four modes, depending on which options you provide.
 
-### Usage
+### Mode 1: Freeform Text Prompt
 
-#### Generate from Text Prompt
 ```
 /image prompt:A dragon flying over a medieval castle at sunset
 ```
 
-#### Generate from a User's Message
+### Mode 2: From a Discord Message
+
 ```
 /image message:username
-```
-Finds the most recent message (last 100) from the specified user and generates an image based on that text.
-
-#### Generate from Message ID
-```
 /image message:1234567890123456789
 ```
-Uses a specific message's text as the prompt.
+
+Finds the most recent message (last 100) from the specified user, or a specific message by ID, and generates an image based on that text.
+
+### Mode 3: Versus Battle Between Two Titles
+
+```
+/image title1:"The Thing 1982" title2:"Alien 1979"
+/image title1:"Breaking Bad" title2:"The Wire" prompt:"dramatic neon lighting"
+/image title1:"Elden Ring" title2:"Dark Souls"
+```
+
+Searches TMDB, RAWG, BoardGameGeek, and Google Books to validate both titles exist (movie, TV show, video game, board game, or book), then generates a split-screen "versus" composition. Works across types — e.g. a movie vs. a video game.
+
+### Mode 4: From an Active Tournament Matchup
+
+```
+/image matchup:"The Thing vs Alien"
+```
+
+If your server has an active [tournament bracket](../brackets/), generates a versus image directly from one of its matchups instead of searching from scratch. Running `/image` with no options at all lists the active tournament's current matchups, if any.
 
 ### Options
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `prompt` | String | No* | Describe the image you want to generate |
-| `message` | String | No* | Username or message ID to generate from |
+| `prompt` | String | No | Describe the image (Mode 1), or add extra style detail alongside `title1`/`title2` or `matchup` |
+| `message` | String | No | Username or message ID to generate from (Mode 2) |
+| `title1` | String | No* | First title for a versus battle (Mode 3) — provide with `title2` |
+| `title2` | String | No* | Second title for a versus battle (Mode 3) — provide with `title1` |
+| `matchup` | String | No | Tournament matchup to visualize (Mode 4) |
 
-*One of `prompt` or `message` is required, but not both.
+*Provide exactly one of: `title1` + `title2` together, `matchup`, `message`, or `prompt` alone. Mixing modes (e.g. `title1` with `message`) returns an error asking you to pick one.
 
-### Examples
+### Features
 
-**Text prompt:**
-```
-/image prompt:Cyberpunk city street at night with neon signs and rain
-```
-
-**From user's message:**
-```
-User: "I love the idea of a painting that you can walk into"
-You: /image message:User
-```
-The bot will find User's message and generate an image based on their description.
+- **Smart Search** (versus/matchup modes) - Validates titles exist before generating, across TMDB, RAWG, BoardGameGeek, and Google Books
+- **Cross-Type Support** - Compare movies vs games, TV vs books, etc.
+- **Auto-Disambiguation** - Selects the first match and tells you if multiple results were found
+- **Content-Safe Prompts** - Uses "inspired by themes" language to comply with OpenAI's content policy, rather than requesting direct replicas
+- **Rich Context** - Uses title metadata (overviews, release dates) to build better versus prompts
+- **Format** - Square (1024x1024) for freeform/message mode; wide split-screen (1792x1024) for versus/matchup mode
 
 ### Rate Limiting
 
@@ -131,86 +90,10 @@ Admins and moderators can bypass the cooldown (but not daily limits) by default.
 - **"Please wait X minutes"** - You're in cooldown period
 - **"Daily limit reached"** - You've generated your maximum images today (resets at midnight)
 - **"Server has reached daily limit"** - Server has hit its daily cap
-- **"Please provide either prompt or message"** - Missing required option
+- **"Please provide both title1 and title2"** - Only one of the two versus-mode titles was given
+- **"Please choose only one of..."** - More than one mode's options were provided at once
 - **"Could not find message"** - Username/message ID not found
-
----
-
-## `/bracket image` Command
-
-Generate AI "versus" images for tournament matchups or any title comparisons.
-
-### Usage
-
-#### Basic Versus Image
-```
-/bracket image title1:Spider-Man title2:Batman
-```
-
-#### With Custom Prompt Details
-```
-/bracket image title1:Alien title2:The Thing prompt:set in space with stars
-```
-
-### Features
-
-- **Smart Search:** Validates titles through TMDB, RAWG, BoardGameGeek, and Google Books APIs
-- **Cross-Type Matchups:** Compare movies vs TV shows, games vs movies, etc.
-- **Rich Context:** Uses metadata (overviews, release dates) to create better prompts
-- **Strict Layout:** Always shows Title 1 on left, "VS" in center, Title 2 on right
-- **Content-Safe:** Prompts use "inspired by themes" to comply with OpenAI policies
-
-### Options
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `title1` | String | No* | First title (movie, TV show, game, book, etc.) |
-| `title2` | String | No* | Second title to compare against |
-| `matchup` | String | No* | Choose from active tournament matchups |
-| `prompt` | String | No | Additional details for image generation |
-
-*Either provide `title1` + `title2` or select a `matchup` from your active tournament.
-
-### Examples
-
-**Movie vs Movie:**
-```
-/bracket image title1:The Matrix title2:Inception
-```
-
-**Game vs Movie:**
-```
-/bracket image title1:Halo title2:Star Wars
-```
-
-**With Custom Details:**
-```
-/bracket image title1:Godzilla title2:King Kong prompt:fighting in Tokyo at sunset
-```
-
-**From Tournament:**
-```
-/bracket image matchup:Match 1: The Thing vs Alien
-```
-
-### How It Works
-
-1. **Search Phase:** Bot searches all APIs to validate both titles exist
-2. **Disambiguation:** If multiple matches found, shows selection menu (like `/movie`)
-3. **Prompt Building:** Creates detailed prompt with:
-   - Content type (movie poster, game cover, etc.)
-   - Title overviews/descriptions
-   - Strict left-right layout instructions
-   - Your custom prompt details (if provided)
-4. **Generation:** Sends to OpenAI (takes 2-3 minutes)
-5. **Result:** Posts wide format (1792x1024) image with embed
-
-### Rate Limiting
-
-Same limits as `/image` command:
-- 5-minute cooldown between generations
-- 10 images per user per day
-- 50 images per server per day
+- **"Could not find: [title]"** - A versus/matchup title didn't match anything in the search APIs
 
 ---
 
@@ -275,13 +158,13 @@ Shows:
 Completely enable or disable AI image generation on your server.
 
 **When disabled:**
-- All AI image commands (`/image`, `/versus-image`, `/bracket image`) will show error messages
+- The `/image` command will show an error message
 - No images can be generated regardless of permissions or rate limits
 - Useful for servers that don't want AI features at all
 
 **Options:**
 - `enabled:true` - Enable AI image generation (default)
-- `enabled:false` - Completely disable all AI image commands
+- `enabled:false` - Completely disable `/image`
 
 💡 **Note:** This is separate from rate limiting. You can disable the feature entirely OR keep it enabled with rate limits.
 
@@ -291,7 +174,7 @@ Completely enable or disable AI image generation on your server.
 /eggshen-config ai-images set-permissions level:admins
 ```
 
-Control who can use AI image generation commands.
+Control who can use `/image`.
 
 **Permission Levels:**
 - `everyone` (default) - All server members can generate images
@@ -310,7 +193,7 @@ Control who can use AI image generation commands.
 /eggshen-config ai-images set-permissions level:admins
 ```
 
-💡 **Combined with rate limiting:** Permission levels determine WHO can use the commands, rate limits control HOW MUCH they can use them.
+💡 **Combined with rate limiting:** Permission levels determine WHO can use the command, rate limits control HOW MUCH they can use it.
 
 ### Toggle Rate Limiting
 
@@ -513,7 +396,7 @@ For `/image message:` usage:
 ### Image Quality Issues
 - Be more specific in prompts
 - Add style details (cinematic, photorealistic, etc.)
-- For `/bracket image`, add custom `prompt:` parameter
+- For versus/matchup mode, add a custom `prompt:` parameter
 - Examples: "dramatic lighting", "high contrast", "4K quality"
 
 ---
@@ -524,9 +407,9 @@ For `/image message:` usage:
 
 - **Provider:** OpenAI
 - **Model:** `gpt-image-2` (latest image generation model)
-- **Format:** 
-  - `/image`: 1024x1024 (square)
-  - `/bracket image`: 1792x1024 (wide)
+- **Format:**
+  - Freeform/message mode: 1024x1024 (square)
+  - Versus/matchup mode: 1792x1024 (wide)
 - **Quality:** Medium (balance of quality and speed)
 - **Generation Time:** 2-3 minutes average
 - **Response Format:** Handles both URL and base64 responses automatically
@@ -534,7 +417,7 @@ For `/image message:` usage:
 ### Content Policy Compliance
 
 Prompts are designed to comply with OpenAI's content policy:
-- Uses "inspired by themes" language for `/bracket image`
+- Uses "inspired by themes" language for versus/matchup mode
 - Avoids direct replication requests
 - Creates "original artwork" not copies
 - References concepts, not specific copyrighted works
@@ -556,7 +439,7 @@ Prompts are designed to comply with OpenAI's content policy:
 
 Each generation logs:
 - Guild ID and User ID
-- Command name (image vs bracket-image)
+- Mode (image, versus-image, bracket-image)
 - Metadata (titles, prompts, types)
 - Cost ($0.04 per image)
 - Timestamp
@@ -571,6 +454,6 @@ User Today: 3, Guild Today: 12, Guild Cost Today: $0.48
 
 ## See Also
 
-- [Tournament Brackets](./brackets/) - Full tournament system including AI images
+- [Tournament Brackets](./brackets/) - Full tournament system including matchup-aware AI images
 - [Configuration Guide](configuration.md) - All bot configuration options
 - [Rate Limiting](../features/rate-limiting.md) - General rate limiting system

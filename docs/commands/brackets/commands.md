@@ -15,18 +15,22 @@ This page provides detailed documentation for all tournament bracket commands. C
 | `help` | Everyone | View tournament guide and command overview | Any |
 | `create` | Admin/Mod | Create a new tournament | Setup |
 | `manage-titles` | Admin/Mod | Add or remove titles from groups | Setup |
+| `resize` | Admin/Mod | Change the number of groups before voting begins | Setup |
+| `edit-name` | Admin/Mod | Rename the tournament | Any |
 | `announce` | Admin/Mod | Announce the tournament to the channel | Setup |
 | `open` | Admin/Mod | Smart: Opens next round (auto-detects phase) | Any |
 | `close` | Admin/Mod | Smart: Closes current round (auto-detects phase) | Any |
 | `open-groups` | Admin/Mod | Open specific groups for button-based voting | Group Stage |
 | `close-groups` | Admin/Mod | Close specific groups and calculate results | Group Stage |
 | `advance-knockout` | Admin/Mod | Generate knockout bracket from group results | Transition |
+| `regenerate` | Admin/Mod | Rebuild the knockout bracket from group results (fixes bracket structure issues) | Knockout |
 | `resolve-tiebreaker` | Admin/Mod | Resolve a tiebreaker — tally votes or manually override | Any |
 | `open-matchup` | Admin/Mod | Open specific matchup(s) for voting | Knockout |
 | `close-matchup` | Admin/Mod | Close specific matchup(s) and advance winner(s) | Knockout |
 | `extend-voting` | Admin/Mod | Extend or change voting deadline | Any |
 | `my-votes` | Everyone | View your voting history and available votes | Any |
 | `status` | Everyone | View tournament status with live voter counts and leaders | Any |
+| `list-groups` | Everyone | List all groups and their titles | Any |
 | `view` | Everyone | View visual bracket (knockout phase only) | Knockout |
 | `export` | Everyone | Export tournament results (JSON or Markdown) | Any |
 | `cancel` | Admin/Mod | Cancel the tournament | Any |
@@ -35,7 +39,8 @@ This page provides detailed documentation for all tournament bracket commands. C
 - 🆕 **Smart Commands**: `/bracket open` and `/bracket close` auto-detect tournament phase
 - 🔄 **Unified Management**: `/bracket manage-titles` replaces `add-title` and `remove-title`
 - ⚖️ **Tiebreaker Voting & Resolution**: Ties are now resolved by member button-voting, with `/bracket resolve-tiebreaker` available to tally votes early or manually override the winner
-- ❌ **Removed**: `open-knockout`, `close-knockout`, `open-quarters`, `close-quarters`, `open-semis`, `close-semis`, `open-finals`, `close-finals`, `regenerate`
+- 🎨 **AI Images Moved**: Matchup image generation now lives in the standalone [`/image`](../ai-images) command (`/image matchup:"Title A vs Title B"`), alongside its freeform, message, and versus-search modes
+- ❌ **Removed**: `open-knockout`, `close-knockout`, `open-quarters`, `close-quarters`, `open-semis`, `close-semis`, `open-finals`, `close-finals`, `open-region` — all superseded by the smart `open`/`close`/`open-matchup` commands
 
 **Visual Examples:**
 
@@ -167,6 +172,28 @@ Add or remove titles from tournament groups. This unified command replaces the o
 - **Removing:** Positions are numbered 1-4 based on display order
 - **Removing:** Shifts remaining titles up in position
 - Cannot manage titles after group voting begins
+
+---
+
+### `/bracket resize`
+
+Change the number of groups before voting begins.
+
+**Who Can Use:** Admin/Mod only
+
+**Parameters:**
+- `groups` (required, integer): New number of groups (4-12)
+
+**Example Usage:**
+```
+/bracket resize groups:10
+/bracket resize groups:9
+```
+
+**Notes:**
+- Only available during the setup phase, before group voting begins
+- Contracting (reducing group count) fails if any group that would be removed still has titles in it — move or remove those titles first
+- Expanding (increasing group count) adds new empty groups ready for titles
 
 ---
 
@@ -421,10 +448,31 @@ Generate the knockout bracket from group results and automatically start voting.
   - 24 titles: Round of 16 (with byes or wildcards)
   - 32 titles: Full Round of 32 bracket
 - Seeding uses serpentine pattern for fairness
-- **Voting starts immediately** - No need for separate `/bracket open-knockout` command
+- **Voting starts immediately** - no separate command needed to open the first round
 - Once knockout begins, cannot edit tournament
 - Use `/bracket view` to see the bracket visualization
 - Voting will auto-close when deadline is reached
+
+---
+
+### `/bracket regenerate`
+
+Rebuild the knockout bracket from group results. Use this to fix bracket structure issues without redoing group voting.
+
+**Who Can Use:** Admin/Mod only
+
+**Parameters:** None
+
+**Example Usage:**
+```
+/bracket regenerate
+```
+
+**Notes:**
+- Rebuilds the entire knockout bracket from the group stage's closed results — seeding, wildcards, and matchups are all recalculated from scratch
+- Useful if the bracket structure looks wrong after `/bracket advance-knockout`, or after manually correcting group results
+- Any in-progress knockout voting is discarded and replaced by the freshly regenerated bracket
+- All groups must still be closed for this to succeed (same requirement as `/bracket advance-knockout`)
 
 ---
 
@@ -446,10 +494,6 @@ Matchups in the knockout bracket are identified by regional labels:
 - Finals: "Finals" (no region)
 
 ---
-
-### `/bracket open-knockout`
-
-Open all matchups in the current round for voting.
 
 ## Knockout Commands
 
@@ -715,6 +759,26 @@ Completed: 6 matchups
 
 ---
 
+### `/bracket list-groups`
+
+List all groups and the titles in each one.
+
+**Who Can Use:** Everyone
+
+**Parameters:** None
+
+**Example Usage:**
+```
+/bracket list-groups
+```
+
+**Notes:**
+- Shows every group's titles, in the order they were added
+- Marks each group as voting-open or closed
+- Useful during setup to see which groups still need titles before voting can begin
+
+---
+
 ### `/bracket view`
 
 View visual bracket representation (knockout phase only).
@@ -735,36 +799,6 @@ View visual bracket representation (knockout phase only).
 - Indicates open/closed/pending matchups
 - Updates as tournament progresses
 - Large brackets may be truncated - use `/bracket status` for full details
-
----
-
-### `/bracket image`
-
-Generate an AI-powered versus image for any matchup.
-
-**Who Can Use:** Everyone
-
-**Parameters:**
-- `title1` (optional, string): First title
-- `title2` (optional, string): Second title
-- `matchup` (optional, string): Or choose from active tournament matchups (regional label)
-- `prompt` (optional, string): Additional details for image generation
-
-**Example Usage:**
-```
-/bracket image title1:"The Thing" title2:"Alien"
-/bracket image matchup:"1A" prompt:"in space"
-/bracket image matchup:"Finals" prompt:"epic battle"
-/bracket image title1:"Hereditary" title2:"The Witch" prompt:"dark forest setting"
-```
-
-**Notes:**
-- Uses OpenAI DALL-E 3 for image generation
-- Provide either `title1`+`title2` OR `matchup` (not both)
-- Optional prompt adds creative direction
-- Images are ephemeral and not saved
-- Rate limits apply (tracks per-user and per-server usage)
-- Generated images are 1024x1024 PNG format
 
 ---
 
@@ -1171,7 +1205,7 @@ Understanding what the system cannot do helps set proper expectations:
 ### During Knockout
 1. **Create suspense** - Use `/bracket open-matchup` for spotlight matches
 2. **Use regions strategically** - Open left/right brackets separately
-3. **Generate hype images** - Use `/bracket image` for key matchups
+3. **Generate hype images** - Use `/image matchup:"Title A vs Title B"` for key matchups
 4. **Post updates** - Share bracket progress with community
 
 ### Best Practices

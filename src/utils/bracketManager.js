@@ -301,7 +301,7 @@ export function resizeTournament(guildId, newGroupCount) {
       let errorMsg = `❌ Cannot contract to ${newGroupCount} groups. The following groups have titles that would be removed:\n\n${groupList}\n\n`;
       errorMsg += `**Options:**\n`;
       errorMsg += `1️⃣ Move ${totalTitlesToRemove} title${totalTitlesToRemove !== 1 ? 's' : ''} from ${groupsWithTitles.map(g => `Group ${g.id}`).join(' and ')} to groups ${keepRange.split('').join(', ')}\n`;
-      errorMsg += `2️⃣ Remove the titles using \`/bracket remove-title\`\n`;
+      errorMsg += `2️⃣ Remove the titles using \`/bracket manage-titles action:remove\`\n`;
       
       // Calculate minimum groups needed to keep all current titles
       const allGroupsWithTitles = Object.keys(tournament.groups).filter(

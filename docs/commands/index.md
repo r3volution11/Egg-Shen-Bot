@@ -293,31 +293,20 @@ Log and view server watch party history.
 
 ## AI Image Generation Commands
 
-### `/versus-image`
-Generate AI "versus" battle images comparing two titles.
-
-**Options:**
-- `title1` - First title (movie, TV, game, book, board game)
-- `title2` - Second title to compare against  
-- `prompt` - Additional style details (optional)
-
-**Features:**
-- Smart search validation
-- Cross-type comparisons
-- Wide format (1792x1024)
-
 ### `/image`
-Generate AI images using OpenAI's image generation API.
+Generate AI images: freeform, from a Discord message, or a "versus" battle between two titles — all in one command.
 
 **Options:**
-- `prompt` - Describe the image to generate
+- `prompt` - Describe the image to generate (or add extra style detail alongside `title1`/`title2` or `matchup`)
 - `message` - Username or message ID to generate from
+- `title1` / `title2` - Two titles for a versus battle image (movie, TV, game, board game, book) — provide both together
+- `matchup` - Generate from an active tournament matchup instead of searching (e.g., `"The Thing vs Alien"`)
 
 **Features:**
-- Text-to-image generation
-- Generate from Discord messages
-- Square format (1024x1024)
-- 10-30 second generation time
+- Text-to-image generation, generate-from-message, and versus-battle modes
+- Smart search validation across TMDB, RAWG, BGG, and Google Books for versus mode
+- Cross-type comparisons (movies vs games, etc.)
+- Square format (1024x1024) for freeform/message mode; wide format (1792x1024) for versus mode
 - Rate limited (5-min cooldown, 10/day per user, 50/day per server)
 - Whitelisting for unlimited users
 - Cost: $0.04 per image
@@ -326,39 +315,12 @@ Generate AI images using OpenAI's image generation API.
 ```
 /image prompt:A dragon flying over a medieval castle at sunset
 /image message:username
-/image message:1234567890123456789
+/image title1:Godzilla title2:King Kong
+/image title1:Alien title2:The Thing prompt:in deep space
+/image matchup:"The Thing vs Alien"
 ```
 
 [Learn more →](/commands/ai-images)
-
----
-
-### `/bracket image`
-Generate AI "versus" matchup images.
-
-**Options:**
-- `title1` - First title (validated through APIs)
-- `title2` - Second title (validated through APIs)
-- `matchup` - Tournament matchup to visualize
-- `prompt` - Additional details for generation
-
-**Features:**
-- Smart search validation (TMDB, RAWG, BGG, Google Books)
-- Cross-type support (movies vs games, etc.)
-- Strict left-right layout (Title 1 | VS | Title 2)
-- Wide format (1792x1024)
-- Rich context from metadata
-- Rate limited (same as `/image`)
-- Cost: $0.04 per image
-
-**Examples:**
-```
-/bracket image title1:Godzilla title2:King Kong
-/bracket image title1:Alien title2:The Thing prompt:in deep space
-/bracket image matchup:The Thing vs Alien
-```
-
-[Learn more →](/commands/ai-images#bracket-image-command)
 
 ---
 
@@ -407,7 +369,7 @@ Display comprehensive bot help with complete command list.
 - Games & Entertainment: game, boardgame, book, soundtrack
 - Random & Discovery: random with filters
 - Tournaments & Polls: bracket, survey
-- AI Image Generation: image, versus-image, potion
+- AI Image Generation: image, potion
 - Watch Party Tools: timer, watchparty, stats
 - Admin commands shown conditionally for moderators
 - Links to full documentation at eggshenbot.com
