@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Removed a hardcoded production domain from the default CORS allow-list and from several example/config files, replacing them with generic placeholders — no behavior change for deployments that already set `ALLOWED_ORIGINS` (which production deployments should always do)
+- `delete-guild-commands.js` now requires `GUILD_ID` to be set rather than silently falling back to a hardcoded guild ID
+
+## 2.5.0 - 2026-07-09
+
 ### Added
 - **Tiebreaker Button Voting** (2026-07-08)
   - When a group or knockout tiebreaker is created, the bot now posts a dedicated voting embed with clickable buttons for each tied option
@@ -24,6 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Multiple simultaneous group ties** — Fixed a bug where closing multiple groups at once (e.g., `/bracket close-groups groups:A,B,C,D`) could silently discard `groupResults` for earlier groups when later groups also had ties. All group results are now preserved correctly regardless of how many tiebreakers are created in a single call
+- **Scheduler loop re-processing already-tied groups** — The tournament scheduler could repeatedly re-detect the same tie and create a new tiebreaker roughly every minute for a group already awaiting one, instead of waiting for it to resolve. Left unattended this created dozens of duplicate tiebreakers and Discord messages for the same tie
+- **`result.tournament.groups` typo in auto-close** — The scheduler read the wrong property when posting results after an automatic group close, causing it to crash instead of announcing the result
+- **`votingOpen` not reset after tiebreaker resolution** — Finalizing a group via tiebreaker marked it `closed` but left `votingOpen: true`, leaving a stale flag around (a separate deadline check prevented it from being exploitable, but it's now fully consistent with the normal close path)
+- **`deploy-commands.js` hanging instead of exiting** — the script never called `process.exit()`, so it could hang indefinitely after finishing its one-shot command deploy instead of returning control to the shell/process manager that invoked it
+
+### Testing
+- Added Jest unit tests for the entire service layer (`src/services/*.js`), previously untested
+- Added command-layer tests for `/bracket close-groups` and `/bracket resolve-tiebreaker`, covering the tiebreaker finalization bug above
+- Added a Playwright end-to-end suite for the Event Request web form (`tests/e2e/`)
 
 ## 2.4.1 - 2026-07-05
 
