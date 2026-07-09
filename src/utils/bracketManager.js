@@ -714,12 +714,27 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
   if (!tournament) {
     return { success: false, error: 'No tournament found' };
   }
-  
+
   const tiebreakersCreated = [];
-  
+  const partialVotersDiscarded = []; // { groupId, userId, votedFor (count) }
+
   groupIds.forEach(groupId => {
     const group = tournament.groups[groupId];
     if (!group) return;
+
+    // Strip partial votes (user selected 1 of 2 allowed) before computing results
+    const groupVotes = tournament.votes || {};
+    for (const [userId, userVotes] of Object.entries(groupVotes)) {
+      const picks = userVotes[groupId];
+      if (picks && picks.length === 1) {
+        // Remove this user's 1-vote from the movie votes array
+        group.movies.forEach(movie => {
+          movie.votes = movie.votes.filter(id => id !== userId);
+        });
+        delete userVotes[groupId];
+        partialVotersDiscarded.push({ groupId, userId, votedFor: 1 });
+      }
+    }
     
     // Calculate vote counts - preserve all movie data including posterUrl
     const results = group.movies.map(movie => ({
@@ -851,7 +866,7 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
   });
   
   return saveTournament(guildId, tournament)
-    ? { success: true, tournament, tiebreakersCreated }
+    ? { success: true, tournament, tiebreakersCreated, partialVotersDiscarded }
     : { success: false, error: 'Failed to save' };
 }
 

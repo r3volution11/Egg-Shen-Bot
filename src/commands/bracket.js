@@ -1527,12 +1527,26 @@ async function handleCloseGroups(interaction) {
   }
   
   const result = bracketManager.closeGroupVoting(interaction.guildId, groupIds, tiebreakerDurationMs);
-  
+
   if (!result.success) {
     await interaction.editReply(`❌ ${result.error}`);
     return;
   }
-  
+
+  // Build partial-vote warning if any users had incomplete votes that were discarded
+  let partialVoteWarning = '';
+  if (result.partialVotersDiscarded?.length > 0) {
+    const byGroup = {};
+    for (const { groupId, userId } of result.partialVotersDiscarded) {
+      if (!byGroup[groupId]) byGroup[groupId] = [];
+      byGroup[groupId].push(`<@${userId}>`);
+    }
+    const lines = Object.entries(byGroup)
+      .map(([gid, users]) => `Group ${gid}: ${users.join(', ')}`)
+      .join('\n');
+    partialVoteWarning = `\n\n⚠️ **Partial votes discarded (1/2 selections):**\n${lines}\nThese users started voting but didn't select their second title. Their votes were removed to ensure fair results.`;
+  }
+
   // Check if tiebreakers were created
   if (result.tiebreakersCreated && result.tiebreakersCreated.length > 0) {
     const tiebreakerInfo = result.tiebreakersCreated.map(tb => {
@@ -1545,7 +1559,7 @@ async function handleCloseGroups(interaction) {
     const summaryEmbed = new EmbedBuilder()
       .setColor(0xFFAA00)
       .setTitle('🔀 Tiebreaker Voting Started')
-      .setDescription(`Some groups have ties! Tiebreaker voting is now open.\n\n${tiebreakerInfo}`)
+      .setDescription(`Some groups have ties! Tiebreaker voting is now open.\n\n${tiebreakerInfo}${partialVoteWarning}`)
       .addFields({ name: '⏰ Time Remaining', value: tiebreakerDuration, inline: false })
       .setFooter({ text: 'See below to cast your vote!' });
 
@@ -1565,7 +1579,7 @@ async function handleCloseGroups(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0xFF9900)
     .setTitle(`🏁 Group ${groupIds.join(', ')} Results`)
-    .setDescription('Voting closed! Here are the results:');
+    .setDescription(`Voting closed! Here are the results:${partialVoteWarning}`);
   
   groupIds.forEach(groupId => {
     const groupResult = result.tournament.groupResults[groupId];
