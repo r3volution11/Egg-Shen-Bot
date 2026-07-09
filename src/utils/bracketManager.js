@@ -1103,6 +1103,7 @@ export function finalizeGroupAfterTiebreaker(guildId, tiebreakerId) {
 
   tournament.groupResults[tiebreaker.groupId] = groupResults;
   group.status = 'closed';
+  group.votingOpen = false;
   group.votingClosed = Date.now();
 
   return saveTournament(guildId, tournament)
