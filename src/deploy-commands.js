@@ -68,7 +68,9 @@ const rest = new REST().setToken(config.discord.token);
       );
       console.log(`✓ Successfully deployed ${data.length} commands globally`);
     }
+    process.exit(0);
   } catch (error) {
     console.error('Error deploying commands:', error);
+    process.exit(1);
   }
 })();

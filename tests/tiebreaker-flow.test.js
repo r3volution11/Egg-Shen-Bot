@@ -371,6 +371,7 @@ describe('finalizeGroupAfterTiebreaker — group results updated', () => {
     expect(gr.second).toBeDefined();
     expect(gr.second.title).toBe('Halloween');
     expect(t.groups['A'].status).toBe('closed');
+    expect(t.groups['A'].votingOpen).toBe(false);
   });
 
   test('2nd-place tiebreaker: 1st place preserved, 2nd assigned from tiebreaker', () => {
@@ -396,6 +397,7 @@ describe('finalizeGroupAfterTiebreaker — group results updated', () => {
     expect(gr.first.title).toBe('Ring'); // unchanged
     expect(gr.second).toBeDefined();
     expect(t.groups['A'].status).toBe('closed');
+    expect(t.groups['A'].votingOpen).toBe(false);
   });
 
   test('cannot finalize before tiebreaker is closed', () => {
@@ -411,6 +413,29 @@ describe('finalizeGroupAfterTiebreaker — group results updated', () => {
     // Attempt finalize WITHOUT closing tiebreaker first
     const fr = bracketManager.finalizeGroupAfterTiebreaker(GUILD_ID, tbId);
     expect(fr.success).toBe(false);
+  });
+
+  test('regression: finalized group rejects further votes (votingOpen must be false, not just status)', () => {
+    // Guards against a real bug where finalizeGroupAfterTiebreaker set status='closed'
+    // but left votingOpen=true, leaving voteGroupStage's votingOpen check as dead code
+    // for tiebreaker-resolved groups (production incident: groups sat in this state
+    // for hours before it was caught).
+    setupGroupTournament();
+    bracketManager.voteGroupStage(GUILD_ID, 'user-1', 'A', [0, 1]);
+    bracketManager.voteGroupStage(GUILD_ID, 'user-2', 'A', [0, 1]);
+
+    const closeResult = bracketManager.closeGroupVoting(GUILD_ID, ['A']);
+    const tbId = closeResult.tiebreakersCreated[0].tiebreaker.id;
+    bracketManager.voteInTiebreaker(GUILD_ID, tbId, 'tb-voter-1', 0);
+    bracketManager.closeTiebreaker(GUILD_ID, tbId);
+    bracketManager.finalizeGroupAfterTiebreaker(GUILD_ID, tbId);
+
+    const t = bracketManager.loadTournament(GUILD_ID);
+    expect(t.groups['A'].votingOpen).toBe(false);
+
+    const voteResult = bracketManager.voteGroupStage(GUILD_ID, 'late-voter', 'A', [0]);
+    expect(voteResult.success).toBe(false);
+    expect(voteResult.error).toMatch(/not open for voting/);
   });
 });
 
