@@ -2,6 +2,11 @@
 
 Automated testing for the bracket/tournament system to catch bugs before human testing.
 
+> This doc covers the bracket/tournament Jest suite specifically. Service-layer unit
+> tests live in `tests/services/` (same `npm test` run). Browser end-to-end tests for
+> the Event Request web form live in `tests/e2e/` (Playwright) — see
+> [`tests/e2e/README.md`](../e2e/README.md).
+
 ## Quick Start
 
 ### 1. Install Testing Dependencies

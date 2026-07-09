@@ -5,7 +5,7 @@ The Event Request System allows Discord server members to submit watch party eve
 ## Architecture
 
 - **Bot API Server**: Runs on the bot (port 3000 by default) - handles OAuth, event submissions, and approval
-- **Web Form**: Separate web server (e.g., shudderdrivein.com or localhost:8080) - serves the HTML form
+- **Web Form**: Separate web server (e.g., yourdomain.com or localhost:8080) - serves the HTML form
 - **Discord Bot**: Handles button interactions for approve/deny
 
 ## Prerequisites
@@ -25,7 +25,7 @@ The Event Request System allows Discord server members to submit watch party eve
    API_PORT=3000
    OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/discord/callback
    FORM_URL=http://localhost:8080
-   ALLOWED_ORIGINS=http://localhost:8080,https://shudderdrivein.com
+   ALLOWED_ORIGINS=http://localhost:8080,https://yourdomain.com
    ```
 
 ## Configuration
@@ -86,30 +86,30 @@ Replace `YOUR_GUILD_ID` with your test server's ID (from `/eggshen-config event-
 
 ## Production Deployment
 
-### For shudderdrivein.com or similar:
+### For yourdomain.com or similar:
 
 1. **Update Environment Variables**:
    ```env
    API_PORT=3000
    OAUTH_REDIRECT_URI=https://yourdomain.com/api/auth/discord/callback
-   FORM_URL=https://shudderdrivein.com
-   ALLOWED_ORIGINS=https://shudderdrivein.com
+   FORM_URL=https://yourdomain.com
+   ALLOWED_ORIGINS=https://yourdomain.com
    ```
 
 2. **Update Discord Developer Portal**:
    - Add production redirect URI: `https://yourdomain.com/api/auth/discord/callback`
 
 3. **Deploy Web Form**:
-   - Upload `/public` folder contents to your web server (shudderdrivein.com)
+   - Upload `/public` folder contents to your web server (yourdomain.com)
    - Ensure HTTPS is enabled
 
 4. **Configure Servers**:
    ```
-   /eggshen-config event-requests website-url url:https://shudderdrivein.com
+   /eggshen-config event-requests website-url url:https://yourdomain.com
    ```
 
 5. **Share the Link**:
-   Each Discord server gets a unique link: `https://shudderdrivein.com?guild=GUILD_ID`
+   Each Discord server gets a unique link: `https://yourdomain.com?guild=GUILD_ID`
 
 ## Multiple Servers
 
@@ -123,7 +123,7 @@ The system supports multiple Discord servers! Each server has its own configurat
       "moderationChannel": "CHANNEL_ID",
       "serverName": "Server 1",
       "inviteUrl": "https://discord.gg/server1",
-      "websiteUrl": "https://shudderdrivein.com"
+      "websiteUrl": "https://yourdomain.com"
     }
   },
   "GUILD_ID_2": {

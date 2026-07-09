@@ -731,7 +731,7 @@ export const data = new SlashCommandBuilder()
           .addStringOption(option =>
             option
               .setName('url')
-              .setDescription('Website URL (e.g., https://shudderdrivein.com)')
+              .setDescription('Website URL (e.g., https://yourdomain.com)')
               .setRequired(true)
           )
       )

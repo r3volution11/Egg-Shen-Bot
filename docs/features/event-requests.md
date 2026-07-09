@@ -43,7 +43,7 @@ By default, event requests use **Simple Mode**: users submit event ideas and mod
 Each event request form deployment is dedicated to **one specific Discord server**. If you host the bot for multiple servers, each server should deploy its own instance of the web form on their own domain.
 
 **Example:**
-- shudderdrivein.com → Shudder Discord Server
+- moviefans.example.com → Movie Fans Discord Server
 - yourdomain.com → Your Discord Server
 :::
 

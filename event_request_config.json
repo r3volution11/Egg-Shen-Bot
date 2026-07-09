@@ -1,9 +1,9 @@
 {
-  "1515874601534754887": {
+  "YOUR_GUILD_ID_HERE": {
     "eventRequests": {
       "enabled": true,
-      "moderationChannel": "1515874601534754890",
-      "serverName": "Egg Shen Test Server",
+      "moderationChannel": "YOUR_MODERATION_CHANNEL_ID_HERE",
+      "serverName": "Your Discord Server",
       "inviteUrl": null,
       "websiteUrl": "http://localhost:8080"
     }

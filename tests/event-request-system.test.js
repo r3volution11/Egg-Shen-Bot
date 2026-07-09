@@ -21,7 +21,7 @@ describe('Event Request System', () => {
     };
 
     mockGuild = {
-      id: '1515874601534754887',
+      id: '900000000000000099',
       name: 'Test Server',
       channels: {
         cache: new Map([
@@ -49,7 +49,7 @@ describe('Event Request System', () => {
     mockClient = {
       user: { tag: 'TestBot#1234' },
       guilds: {
-        cache: new Map([['1515874601534754887', mockGuild]])
+        cache: new Map([['900000000000000099', mockGuild]])
       },
       channels: {
         fetch: jest.fn().mockResolvedValue(mockChannel)
@@ -89,7 +89,7 @@ describe('Event Request System', () => {
 
       const request = await import('supertest');
       const response = await request.default(app)
-        .get('/api/guild-config/1515874601534754887');
+        .get('/api/guild-config/900000000000000099');
       
       expect(response.status).toBe(200);
       expect(response.body.config).toHaveProperty('serverName', 'Test Server');
@@ -108,7 +108,7 @@ describe('Event Request System', () => {
 
       const request = await import('supertest');
       const response = await request.default(app)
-        .get('/api/guild-config/1515874601534754887');
+        .get('/api/guild-config/900000000000000099');
       
       expect(response.status).toBe(404);
       expect(response.body).toHaveProperty('error');
@@ -119,7 +119,7 @@ describe('Event Request System', () => {
     test('should return voice and stage channels', async () => {
       const request = await import('supertest');
       const response = await request.default(app)
-        .get('/api/channels/1515874601534754887');
+        .get('/api/channels/900000000000000099');
       
       expect(response.status).toBe(200);
       expect(response.body.channels).toBeInstanceOf(Array);
@@ -147,7 +147,7 @@ describe('Event Request System', () => {
       const response = await request.default(app)
         .post('/api/event-request')
         .send({
-          guildId: '1515874601534754887',
+          guildId: '900000000000000099',
           title: 'Friday Night Movie',
           description: 'Watch The Thing together',
           channelId: 'voice123',
@@ -167,7 +167,7 @@ describe('Event Request System', () => {
       const response = await request.default(app)
         .post('/api/event-request')
         .send({
-          guildId: '1515874601534754887',
+          guildId: '900000000000000099',
           title: 'Friday Night Movie'
           // Missing channelId, startTime, submitterUsername
         });
@@ -189,7 +189,7 @@ describe('Event Request System', () => {
       const response = await request.default(app)
         .post('/api/event-request')
         .send({
-          guildId: '1515874601534754887',
+          guildId: '900000000000000099',
           title: 'Friday Night Movie',
           channelId: 'voice123',
           startTime: new Date(Date.now() + 86400000).toISOString(),
@@ -205,7 +205,7 @@ describe('Event Request System', () => {
     test('should redirect to Discord authorization', async () => {
       const request = await import('supertest');
       const response = await request.default(app)
-        .get('/api/auth/discord?guildId=1515874601534754887');
+        .get('/api/auth/discord?guildId=900000000000000099');
       
       expect(response.status).toBe(302);
       expect(response.headers.location).toContain('discord.com/api/oauth2/authorize');
@@ -252,7 +252,7 @@ describe('Event Request System', () => {
       const response1 = await request.default(app)
         .post('/api/event-request')
         .send({
-          guildId: '1515874601534754887',
+          guildId: '900000000000000099',
           title: 'Event 1',
           channelId: 'voice123',
           startTime: new Date(Date.now() + 86400000).toISOString(),
@@ -265,7 +265,7 @@ describe('Event Request System', () => {
       const response2 = await request.default(app)
         .post('/api/event-request')
         .send({
-          guildId: '1515874601534754887',
+          guildId: '900000000000000099',
           title: 'Event 2',
           channelId: 'voice123',
           startTime: new Date(Date.now() + 86400000).toISOString(),
@@ -304,7 +304,7 @@ describe('Event Request Configuration Commands', () => {
     };
 
     mockInteraction = {
-      guildId: '1515874601534754887',
+      guildId: '900000000000000099',
       member: {
         permissions: {
           has: jest.fn(() => true) // Mock as admin
@@ -391,7 +391,7 @@ describe('Event Request Button Handlers', () => {
     };
 
     mockGuild = {
-      id: '1515874601534754887',
+      id: '900000000000000099',
       name: 'Test Server',
       scheduledEvents: {
         create: jest.fn().mockResolvedValue({
@@ -421,7 +421,7 @@ describe('Event Request Button Handlers', () => {
 
     // Mock event request data
     global.eventRequests.set('123', {
-      guildId: '1515874601534754887',
+      guildId: '900000000000000099',
       title: 'Friday Movie Night',
       description: 'Watch The Thing',
       channelId: 'voice123',

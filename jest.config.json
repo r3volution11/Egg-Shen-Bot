@@ -4,6 +4,10 @@
   "testMatch": [
     "**/tests/**/*.test.js"
   ],
+  "testPathIgnorePatterns": [
+    "/node_modules/",
+    "<rootDir>/tests/e2e/"
+  ],
   "collectCoverageFrom": [
     "src/utils/bracketManager.js",
     "src/commands/bracket.js",
