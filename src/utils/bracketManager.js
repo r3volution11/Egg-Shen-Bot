@@ -755,8 +755,10 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
       const result = createTiebreaker(guildId, groupId, '1st', firstPlace, tiebreakerDurationMs);
       if (result.success) {
         tiebreakersCreated.push({ groupId, position: '1st', tiebreaker: result.tiebreaker });
-        // Update with fresh tournament that has the tiebreaker
-        tournament = result.tournament;
+        // Append tiebreaker to in-memory tournament (avoid reloading from disk)
+        if (!tournament.tiebreakers) tournament.tiebreakers = [];
+        const existing = tournament.tiebreakers.findIndex(t => t.id === result.tiebreaker.id);
+        if (existing === -1) tournament.tiebreakers.push(result.tiebreaker);
         const currentGroup = tournament.groups[groupId];
         currentGroup.status = 'tiebreaker'; // Mark group as waiting for tiebreaker
         // Store partial results (all positions TBD after tiebreaker)
@@ -794,8 +796,10 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
       const result = createTiebreaker(guildId, groupId, '2nd', secondPlace, tiebreakerDurationMs);
       if (result.success) {
         tiebreakersCreated.push({ groupId, position: '2nd', tiebreaker: result.tiebreaker });
-        // Update with fresh tournament that has the tiebreaker
-        tournament = result.tournament;
+        // Append tiebreaker to in-memory tournament (avoid reloading from disk)
+        if (!tournament.tiebreakers) tournament.tiebreakers = [];
+        const existing = tournament.tiebreakers.findIndex(t => t.id === result.tiebreaker.id);
+        if (existing === -1) tournament.tiebreakers.push(result.tiebreaker);
         const currentGroup = tournament.groups[groupId];
         currentGroup.status = 'tiebreaker';
         // Store partial results
@@ -886,6 +890,27 @@ export function createTiebreaker(guildId, groupId, position, tiedOptions, durati
   return saveTournament(guildId, tournament)
     ? { success: true, tiebreaker, tournament }
     : { success: false, error: 'Failed to save tiebreaker' };
+}
+
+/**
+ * Store the Discord message reference for a tiebreaker voting embed
+ * @param {string} guildId
+ * @param {string} tiebreakerId
+ * @param {string} channelId
+ * @param {string} messageId
+ * @returns {boolean}
+ */
+export function storeTiebreakerMessage(guildId, tiebreakerId, channelId, messageId) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) return false;
+
+  const tiebreaker = tournament.tiebreakers?.find(t => t.id === tiebreakerId);
+  if (!tiebreaker) return false;
+
+  tiebreaker.messageChannelId = channelId;
+  tiebreaker.messageId = messageId;
+
+  return saveTournament(guildId, tournament);
 }
 
 /**

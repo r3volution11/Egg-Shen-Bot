@@ -579,34 +579,36 @@ Close matchup(s) and advance winner(s) with text input or interactive buttons. A
 
 ### `/bracket resolve-tiebreaker`
 
-**🆕 New Command** - Manually resolve a tiebreaker vote by selecting the winner (Admin/Mod override).
+Resolve an active tiebreaker — either by tallying the current votes (default) or by manually picking a winner (Admin/Mod override).
 
 **Who Can Use:** Admin/Mod/Tournament Creator only
 
 **Parameters:**
-- `tiebreaker-id` (required, string): ID of the tiebreaker to resolve
-- `winner` (required, integer): Which option should win (1 for first option, 2 for second, etc.)
-  - Use 1-based indexing (1 = first option, 2 = second option, etc.)
-  - Maximum depends on how many options are tied (usually 2-4)
+- `tiebreaker-id` (required, string): ID of the tiebreaker to resolve — shown in the tiebreaker voting embed footer
+- `winner` (optional, integer): Manually pick the winner (1 = first option, 2 = second, etc.)
+  - **Leave blank** to close voting now and resolve by current vote tallies
+  - **Set a number** to override votes and force a specific winner
+  - Maximum depends on how many options are tied (usually 2)
 
 **Example Usage:**
 ```
-/bracket resolve-tiebreaker tiebreaker-id:"tb_abc123" winner:1
-/bracket resolve-tiebreaker tiebreaker-id:"tb_xyz789" winner:2
+# Close voting early — winner decided by current votes
+/bracket resolve-tiebreaker tiebreaker-id:"abc123"
+
+# Admin manually picks option 1 as the winner
+/bracket resolve-tiebreaker tiebreaker-id:"abc123" winner:1
+
+# Admin manually picks option 2 as the winner
+/bracket resolve-tiebreaker tiebreaker-id:"abc123" winner:2
 ```
 
 **Notes:**
-- Overrides the tiebreaker vote with manual selection
-- Applies immediately - winner is advanced to appropriate position
-- Shows who resolved it (for transparency)
-- Useful when:
-  - Tiebreaker vote itself ends in a tie
-  - Community voting isn't resolving the tie
-  - Quick resolution is needed for tournament progression
-  - Technical issues with tiebreaker voting
-- Cannot be undone - winner is locked in
-- Tournament creator, Admins, and Moderators can use this command
-- Tiebreaker ID can be found in the tiebreaker voting message or `/bracket status`
+- Without `winner`: counts current tiebreaker votes; if still tied, random selection is used as final fallback
+- With `winner`: overrides all votes — admin's choice wins regardless of the vote count
+- The tiebreaker voting embed is automatically disabled and updated with the result
+- Vote breakdown is shown when resolving by tally
+- Tiebreakers also auto-resolve when their deadline expires (no action needed if you're happy to wait)
+- Cannot be undone — winner is locked in
 
 ---
 

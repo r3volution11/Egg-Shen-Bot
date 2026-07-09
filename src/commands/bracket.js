@@ -76,6 +76,62 @@ function formatTimeRemaining(deadline) {
 }
 
 /**
+ * Build a tiebreaker voting embed showing current vote counts
+ * @param {object} tiebreaker
+ * @returns {EmbedBuilder}
+ */
+function buildTiebreakerVotingEmbed(tiebreaker) {
+  const voteCounts = {};
+  tiebreaker.tiedOptions.forEach((_, i) => { voteCounts[i] = 0; });
+  Object.values(tiebreaker.votes || {}).forEach(idx => {
+    voteCounts[idx] = (voteCounts[idx] || 0) + 1;
+  });
+  const totalVotes = Object.values(voteCounts).reduce((a, b) => a + b, 0);
+
+  const optionsText = tiebreaker.tiedOptions.map((opt, i) => {
+    const votes = voteCounts[i] || 0;
+    const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 10) : 0;
+    const bar = '█'.repeat(pct) + '░'.repeat(10 - pct);
+    return `**${i + 1}.** ${opt.title}\n${bar} ${votes} vote${votes !== 1 ? 's' : ''}`;
+  }).join('\n\n');
+
+  const isKnockout = tiebreaker.position === 'knockout';
+  const contextLabel = isKnockout
+    ? 'Knockout Matchup'
+    : `Group ${tiebreaker.groupId} — ${tiebreaker.position} place`;
+  const deadline = `<t:${Math.floor(tiebreaker.deadline / 1000)}:R>`;
+
+  return new EmbedBuilder()
+    .setColor(0xFFAA00)
+    .setTitle(`🔀 Tiebreaker: ${contextLabel}`)
+    .setDescription(`Click a button below to cast your vote!\n\n${optionsText}`)
+    .addFields(
+      { name: '⏰ Closes', value: deadline, inline: true },
+      { name: '🗳️ Total Votes', value: `${totalVotes}`, inline: true }
+    )
+    .setFooter({ text: `Tiebreaker ID: ${tiebreaker.id}` });
+}
+
+/**
+ * Build action row buttons for a tiebreaker vote
+ * @param {object} tiebreaker
+ * @returns {ActionRowBuilder[]}
+ */
+function buildTiebreakerButtons(tiebreaker) {
+  const buttons = tiebreaker.tiedOptions.map((opt, i) =>
+    new ButtonBuilder()
+      .setCustomId(`tiebreaker_vote_${tiebreaker.id}_${i}`)
+      .setLabel(opt.title.length > 80 ? opt.title.substring(0, 77) + '...' : opt.title)
+      .setStyle(ButtonStyle.Primary)
+  );
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+  }
+  return rows;
+}
+
+/**
  * Get regional label for a matchup (e.g., "1A", "2C", "3B", "4A")
  * March Madness style: 4 regions numbered 1-4
  * @param {number} position - Matchup position (0-based)
@@ -306,8 +362,8 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption(option =>
         option
           .setName('winner')
-          .setDescription('Which option should win (1 for first option, 2 for second, etc.)')
-          .setRequired(true)
+          .setDescription('Pick a winner manually (1-4). Leave blank to resolve by current vote tallies.')
+          .setRequired(false)
           .setMinValue(1)
           .setMaxValue(4)
       )
@@ -1483,21 +1539,26 @@ async function handleCloseGroups(interaction) {
       const optionNames = tb.tiebreaker.tiedOptions.map(o => o.title).join(' vs ');
       return `**Group ${tb.groupId}** - ${tb.position} place tie: ${optionNames}`;
     }).join('\n');
-    
+
     const tiebreakerDuration = formatTimeRemaining(Date.now() + tiebreakerDurationMs);
-    
-    const embed = new EmbedBuilder()
+
+    const summaryEmbed = new EmbedBuilder()
       .setColor(0xFFAA00)
       .setTitle('🔀 Tiebreaker Voting Started')
       .setDescription(`Some groups have ties! Tiebreaker voting is now open.\n\n${tiebreakerInfo}`)
-      .addFields({
-        name: '⏰ Time Remaining',
-        value: tiebreakerDuration,
-        inline: false
-      })
-      .setFooter({ text: 'Vote in the tiebreaker to help decide the winners!' });
-    
-    await interaction.editReply({ embeds: [embed] });
+      .addFields({ name: '⏰ Time Remaining', value: tiebreakerDuration, inline: false })
+      .setFooter({ text: 'See below to cast your vote!' });
+
+    await interaction.editReply({ embeds: [summaryEmbed] });
+
+    // Post individual voting embeds with buttons for each tiebreaker
+    for (const tb of result.tiebreakersCreated) {
+      const tiebreaker = tb.tiebreaker;
+      const votingEmbed = buildTiebreakerVotingEmbed(tiebreaker);
+      const buttons = buildTiebreakerButtons(tiebreaker);
+      const msg = await interaction.followUp({ embeds: [votingEmbed], components: buttons });
+      bracketManager.storeTiebreakerMessage(interaction.guildId, tiebreaker.id, interaction.channelId, msg.id);
+    }
     return;
   }
   
@@ -1623,58 +1684,90 @@ async function handleAdvanceKnockout(interaction) {
 
 async function handleResolveTiebreaker(interaction) {
   await interaction.deferReply();
-  
+
   const tiebreakerId = interaction.options.getString('tiebreaker-id');
-  const winnerOption = interaction.options.getInteger('winner');
-  
-  // Convert 1-based user input to 0-based index
-  const winnerIndex = winnerOption - 1;
-  
-  // Manually resolve the tiebreaker
-  const resolveResult = bracketManager.manuallyResolveTiebreaker(interaction.guildId, tiebreakerId, winnerIndex);
-  
+  const winnerOption = interaction.options.getInteger('winner'); // null if not provided
+
+  let resolveResult;
+  let resolutionMethod;
+
+  if (winnerOption !== null) {
+    // Manual override: admin picked a winner
+    const winnerIndex = winnerOption - 1;
+    resolveResult = bracketManager.manuallyResolveTiebreaker(interaction.guildId, tiebreakerId, winnerIndex);
+    resolutionMethod = 'Manual (Admin Override)';
+  } else {
+    // Close by vote tally — picks highest-voted option, random if still tied
+    resolveResult = bracketManager.closeTiebreaker(interaction.guildId, tiebreakerId);
+    resolutionMethod = resolveResult.tiebreaker?.manuallyResolved ? 'Random (no votes cast)' : 'Vote Tally';
+  }
+
   if (!resolveResult.success) {
     await interaction.editReply(`❌ ${resolveResult.error}`);
     return;
   }
-  
+
   const tiebreaker = resolveResult.tiebreaker;
   const winner = resolveResult.winner;
-  
-  // Determine if this is a group or knockout tiebreaker and finalize accordingly
+
+  // Finalize the associated group or knockout matchup
   let finalizeResult;
-  
   if (tiebreaker.position === 'knockout') {
-    // Knockout tiebreaker
     finalizeResult = bracketManager.finalizeKnockoutMatchupAfterTiebreaker(interaction.guildId, tiebreakerId);
   } else {
-    // Group tiebreaker
     finalizeResult = bracketManager.finalizeGroupAfterTiebreaker(interaction.guildId, tiebreakerId);
   }
-  
+
   if (!finalizeResult.success) {
     await interaction.editReply(`✅ Tiebreaker resolved, but failed to finalize: ${finalizeResult.error}`);
     return;
   }
-  
+
+  // Disable buttons on the voting embed if we have a message reference
+  if (tiebreaker.messageChannelId && tiebreaker.messageId) {
+    try {
+      const channel = await interaction.client.channels.fetch(tiebreaker.messageChannelId);
+      const msg = await channel.messages.fetch(tiebreaker.messageId);
+      const closedEmbed = buildTiebreakerVotingEmbed(tiebreaker)
+        .setColor(0x808080)
+        .setTitle(`🔒 Tiebreaker Closed: ${tiebreaker.position === 'knockout' ? 'Knockout Matchup' : `Group ${tiebreaker.groupId} — ${tiebreaker.position} place`}`)
+        .setDescription(`**Winner: ${winner.title}**\n\nResolution: ${resolutionMethod}`);
+      const disabledRows = buildTiebreakerButtons(tiebreaker).map(row => {
+        const newRow = new ActionRowBuilder();
+        row.components.forEach(btn => newRow.addComponents(ButtonBuilder.from(btn).setDisabled(true)));
+        return newRow;
+      });
+      await msg.edit({ embeds: [closedEmbed], components: disabledRows });
+    } catch (_) { /* message may have been deleted — that's fine */ }
+  }
+
+  // Build vote summary if resolved by tally
+  let voteDetails = '';
+  if (winnerOption === null && tiebreaker.voteCounts) {
+    voteDetails = tiebreaker.tiedOptions.map((opt, i) => {
+      const votes = tiebreaker.voteCounts[i] || 0;
+      return `${opt.title}: ${votes} vote${votes !== 1 ? 's' : ''}`;
+    }).join('\n');
+  }
+
+  const contextLabel = tiebreaker.position === 'knockout'
+    ? 'knockout matchup'
+    : `Group ${tiebreaker.groupId} ${tiebreaker.position} place`;
+
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle('✅ Tiebreaker Resolved (Manual)')
-    .setDescription(`Admin manually resolved tiebreaker for ${tiebreaker.position === 'knockout' ? 'knockout matchup' : `Group ${tiebreaker.groupId} ${tiebreaker.position} place`}`)
+    .setTitle('✅ Tiebreaker Resolved')
+    .setDescription(`Resolved tiebreaker for ${contextLabel}`)
     .addFields(
-      {
-        name: '🏆 Winner',
-        value: winner.title,
-        inline: false
-      },
-      {
-        name: '⚖️ Resolution Method',
-        value: 'Manual (Admin Override)',
-        inline: true
-      }
+      { name: '🏆 Winner', value: winner.title, inline: false },
+      { name: '⚖️ Resolution Method', value: resolutionMethod, inline: true }
     )
     .setTimestamp();
-  
+
+  if (voteDetails) {
+    embed.addFields({ name: '📊 Vote Breakdown', value: voteDetails, inline: false });
+  }
+
   await interaction.editReply({ embeds: [embed] });
 }
 
@@ -3326,21 +3419,26 @@ async function handleCloseMatchup(interaction) {
       const optionNames = tb.tiebreaker.tiedOptions.map(o => o.title).join(' vs ');
       return `**Matchup ${tb.label}** - ${optionNames}`;
     }).join('\n');
-    
+
     const tiebreakerDuration = formatTimeRemaining(Date.now() + tiebreakerDurationMs);
-    
-    const embed = new EmbedBuilder()
+
+    const summaryEmbed = new EmbedBuilder()
       .setColor(0xFFAA00)
       .setTitle('🔀 Tiebreaker Voting Started')
       .setDescription(`Some matchups ended in ties! Tiebreaker voting is now open.\n\n${tiebreakerInfo}`)
-      .addFields({
-        name: '⏰ Time Remaining',
-        value: tiebreakerDuration,
-        inline: false
-      })
-      .setFooter({ text: `Vote in the tiebreaker to help decide the winners! • Tiebreaker ID: ${tiebreakersCreated[0].tiebreaker.id}` });
-    
-    await interaction.editReply({ embeds: [embed] });
+      .addFields({ name: '⏰ Time Remaining', value: tiebreakerDuration, inline: false })
+      .setFooter({ text: 'See below to cast your vote!' });
+
+    await interaction.editReply({ embeds: [summaryEmbed] });
+
+    // Post individual voting embeds with buttons for each tiebreaker
+    for (const tb of tiebreakersCreated) {
+      const tiebreaker = tb.tiebreaker;
+      const votingEmbed = buildTiebreakerVotingEmbed(tiebreaker);
+      const buttons = buildTiebreakerButtons(tiebreaker);
+      const msg = await interaction.followUp({ embeds: [votingEmbed], components: buttons });
+      bracketManager.storeTiebreakerMessage(interaction.guildId, tiebreaker.id, interaction.channelId, msg.id);
+    }
     return;
   }
   
