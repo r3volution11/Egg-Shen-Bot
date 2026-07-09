@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import { loadGuildConfig } from '../utils/guildConfig.js';
 import fs from 'fs/promises';
@@ -109,7 +109,7 @@ export function createApiServer(client) {
   // Middleware
   app.set('trust proxy', true); // Trust Nginx proxy for X-Forwarded-For headers
   app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'https://shudderdrivein.com'],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
     credentials: true
   }));
   app.use(express.json());
@@ -627,6 +627,21 @@ export function createApiServer(client) {
     }
   });
   
+  // Test-only: lets the e2e harness reset the event-request rate limiter for
+  // the calling IP without waiting out the real 5-minute window. Inert in
+  // production. See tests/e2e/README.md.
+  //
+  // The limiter's default keyGenerator stores IPv6 requests under a
+  // subnet-masked key (via express-rate-limit's own ipKeyGenerator helper),
+  // not the raw IP — resetKey(req.ip) would silently no-op for IPv6 callers
+  // (e.g. localhost/::1) without this same transform applied first.
+  if (process.env.NODE_ENV !== 'production') {
+    app.post('/api/__test__/reset-rate-limit', async (req, res) => {
+      await eventRequestLimiter.resetKey(ipKeyGenerator(req.ip));
+      res.sendStatus(204);
+    });
+  }
+
   // 404 handler
   app.use((req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });

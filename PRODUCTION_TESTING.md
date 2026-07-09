@@ -1,26 +1,30 @@
 # Testing Event Requests on Production Server
 
-This guide walks through testing the event request system on your production server (172.239.155.166) using your test Discord server.
+This guide walks through testing the event request system on your production server (YOUR_SERVER_IP) using your test Discord server.
+
+> For fast local iteration on the form/API contract before doing a full production
+> OAuth walkthrough like this one, see the automated Playwright suite in
+> [`tests/e2e/README.md`](tests/e2e/README.md) — no server or real Discord app needed.
 
 ## Overview
 
 You want to:
 1. ✅ Push code to production server
 2. ✅ Test event requests with your test Discord server first
-3. ✅ Once working, enable for other servers (like Shudder)
+3. ✅ Once working, enable for other servers (like your production servers)
 
 ## Prerequisites
 
 - [ ] Code changes committed and pushed to GitHub
 - [ ] Discord Client Secret from Developer Portal
-- [ ] Access to production server (172.239.155.166)
+- [ ] Access to production server (YOUR_SERVER_IP)
 
 ## Step 1: Update Discord Developer Portal
 
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
 2. Select your bot application
 3. Navigate to **OAuth2 → Redirects**
-4. Add: `http://172.239.155.166:3000/api/auth/discord/callback`
+4. Add: `http://YOUR_SERVER_IP:3000/api/auth/discord/callback`
 5. Click **Save Changes**
 
 ::: warning Important
@@ -32,7 +36,7 @@ Keep your existing `http://localhost:3000/api/auth/discord/callback` for local d
 SSH into your production server:
 
 ```bash
-ssh root@172.239.155.166
+ssh root@YOUR_SERVER_IP
 cd /opt/discord-bot
 ```
 
@@ -44,9 +48,9 @@ DISCORD_CLIENT_SECRET=your_client_secret_here
 
 # Event Request API Configuration
 API_PORT=3000
-OAUTH_REDIRECT_URI=http://172.239.155.166:3000/api/auth/discord/callback
-FORM_URL=http://172.239.155.166:8080
-ALLOWED_ORIGINS=http://172.239.155.166:8080,https://shudderdrivein.com
+OAUTH_REDIRECT_URI=http://YOUR_SERVER_IP:3000/api/auth/discord/callback
+FORM_URL=http://YOUR_SERVER_IP:8080
+ALLOWED_ORIGINS=http://YOUR_SERVER_IP:8080,https://yourdomain.com
 ```
 
 ::: tip Use Template
@@ -115,14 +119,14 @@ In your test Discord server, run these commands:
 ```
 /eggshen-config event-requests toggle enabled:true
 /eggshen-config event-requests moderation-channel channel:#event-requests
-/eggshen-config event-requests server-name name:"Egg Shen Test Server"
-/eggshen-config event-requests website-url url:http://172.239.155.166:8080
+/eggshen-config event-requests server-name name:"Your Test Server"
+/eggshen-config event-requests website-url url:http://YOUR_SERVER_IP:8080
 /eggshen-config event-requests get-link
 ```
 
 The last command will give you a link like:
 ```
-http://172.239.155.166:8080?guild=1515874601534754887
+http://YOUR_SERVER_IP:8080?guild=YOUR_GUILD_ID_HERE
 ```
 
 ## Step 6: Test the Event Request Flow
@@ -198,7 +202,7 @@ pm2 logs egg-shen-bot --lines 50
 
 Check `ALLOWED_ORIGINS` in `.env` includes your server IP:
 ```env
-ALLOWED_ORIGINS=http://172.239.155.166:8080,https://shudderdrivein.com
+ALLOWED_ORIGINS=http://YOUR_SERVER_IP:8080,https://yourdomain.com
 ```
 
 Restart after changing: `pm2 restart egg-shen-bot`
@@ -207,34 +211,34 @@ Restart after changing: `pm2 restart egg-shen-bot`
 
 Once testing is successful, you can add other servers:
 
-### For shudderdrivein.com
+### For yourdomain.com
 
 1. **Set up proper domain:**
-   - Point shudderdrivein.com to your server
+   - Point yourdomain.com to your server
    - Set up nginx/Apache to serve `/public`
    - Enable HTTPS with Let's Encrypt
 
 2. **Update `.env`:**
    ```env
-   OAUTH_REDIRECT_URI=https://shudderdrivein.com/api/auth/discord/callback
-   FORM_URL=https://shudderdrivein.com
-   ALLOWED_ORIGINS=https://shudderdrivein.com
+   OAUTH_REDIRECT_URI=https://yourdomain.com/api/auth/discord/callback
+   FORM_URL=https://yourdomain.com
+   ALLOWED_ORIGINS=https://yourdomain.com
    ```
 
 3. **Update Discord Developer Portal:**
-   - Add: `https://shudderdrivein.com/api/auth/discord/callback`
+   - Add: `https://yourdomain.com/api/auth/discord/callback`
 
-4. **Configure the Shudder Discord server:**
+4. **Configure a production Discord server:**
    ```
    /eggshen-config event-requests toggle enabled:true
    /eggshen-config event-requests moderation-channel channel:#their-mod-channel
-   /eggshen-config event-requests server-name name:"Shudder Discord"
-   /eggshen-config event-requests website-url url:https://shudderdrivein.com
-   /eggshen-config event-requests invite-url url:https://discord.gg/shudder
+   /eggshen-config event-requests server-name name:"Your Production Server"
+   /eggshen-config event-requests website-url url:https://yourdomain.com
+   /eggshen-config event-requests invite-url url:https://discord.gg/your-invite-code
    /eggshen-config event-requests get-link
    ```
 
-5. **Share the link** with the Shudder community
+5. **Share the link** with that server's community
 
 ## Security Notes
 
@@ -265,7 +269,7 @@ pm2 startup
 ## Quick Reference
 
 ### Production Server Info
-- **IP:** 172.239.155.166
+- **IP:** YOUR_SERVER_IP
 - **User:** root
 - **Bot Path:** /opt/discord-bot
 - **PM2 Process:** egg-shen-bot
@@ -277,7 +281,7 @@ pm2 startup
 ### Important Commands
 ```bash
 # Connect to server
-ssh root@172.239.155.166
+ssh root@YOUR_SERVER_IP
 
 # Check bot status
 pm2 status
@@ -294,9 +298,9 @@ cd /opt/discord-bot/public && python3 -m http.server 8080 &
 ```
 
 ### Test Server Details
-- **Guild ID:** 1515874601534754887
-- **Name:** "Egg Shen Young Bot Tours in Little China, San Francisco"
-- **Form URL:** http://172.239.155.166:8080?guild=1515874601534754887
+- **Guild ID:** YOUR_GUILD_ID_HERE
+- **Name:** "Your Discord Server"
+- **Form URL:** http://YOUR_SERVER_IP:8080?guild=YOUR_GUILD_ID_HERE
 
 ## Support
 

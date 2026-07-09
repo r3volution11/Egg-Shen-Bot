@@ -19,6 +19,14 @@ guild_tournaments/
 # Active timers (runtime state)
 active_timers.json
 
+# Pending event requests (runtime state)
+pending_event_requests.json
+
+# Playwright e2e output
+/test-results/
+/playwright-report/
+/blob-report/
+
 # Dependencies
 node_modules/
 

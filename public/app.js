@@ -14,7 +14,10 @@ const API_BASE_URL = window.location.hostname === 'localhost'
 // 
 // Example: const GUILD_ID = '1234567890123456789';
 // ===================================================================
-const GUILD_ID = 'YOUR_GUILD_ID_HERE'; // ⚠️ CHANGE THIS!
+// e2eGuildId query param lets the Playwright e2e suite (tests/e2e/) exercise
+// this page against fixture guilds without editing this file. Has no effect
+// on a real deployment unless the param is explicitly present in the URL.
+const GUILD_ID = new URLSearchParams(window.location.search).get('e2eGuildId') || 'YOUR_GUILD_ID_HERE'; // ⚠️ CHANGE THIS!
 
 // Validate configuration
 if (!GUILD_ID || GUILD_ID === 'YOUR_GUILD_ID_HERE') {

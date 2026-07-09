@@ -9,8 +9,12 @@ const rest = new REST().setToken(config.discord.token);
 
 (async () => {
   try {
-    const guildId = process.env.GUILD_ID || '1515874601534754887'; // Your test server ID
-    
+    const guildId = process.env.GUILD_ID;
+    if (!guildId) {
+      console.error('❌ GUILD_ID is not set. Set it in .env or pass it as an environment variable before running this script.');
+      process.exit(1);
+    }
+
     console.log(`Deleting all guild-specific commands from server: ${guildId}`);
     
     // Delete all guild commands
