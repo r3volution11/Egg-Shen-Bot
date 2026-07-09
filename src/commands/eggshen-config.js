@@ -1706,7 +1706,7 @@ export async function execute(interaction) {
     await saveGuildConfig(guildId, config);
 
     await interaction.reply({
-      content: `✅ AI image generation **${enabled ? 'enabled' : 'disabled'}** on this server.${!enabled ? '\n\n🚫 The `/image`, `/versus-image`, and `/bracket image` commands will no longer work until re-enabled.' : '\n\n✨ Users can now generate AI images (subject to rate limits and permissions).'}`,
+      content: `✅ AI image generation **${enabled ? 'enabled' : 'disabled'}** on this server.${!enabled ? '\n\n🚫 The `/image` command will no longer work until re-enabled.' : '\n\n✨ Users can now generate AI images (subject to rate limits and permissions).'}`,
       ephemeral: true,
     });
 
@@ -1733,7 +1733,7 @@ export async function execute(interaction) {
 
     await interaction.reply({
       content: `✅ AI image generation permissions set to: **${levelLabels[level]}**\n\n` +
-        `Only users with the specified permissions can now use \`/image\`, \`/versus-image\`, and \`/bracket image\` commands.`,
+        `Only users with the specified permissions can now use the \`/image\` command.`,
       ephemeral: true,
     });
 

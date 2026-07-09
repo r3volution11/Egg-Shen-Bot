@@ -39,7 +39,7 @@ A: You don't! Just specify the max number of titles when creating (`/bracket cre
 A: Movies, TV shows, video games, board games, or books. Each tournament must be a single type (can't mix movies and TV shows in the same tournament).
 
 **Q: How does the search integration work?**  
-A: When adding entries with `/bracket add-title`, the bot searches TMDB (movies/TV), RAWG (video games), BoardGameGeek (board games), or Google Books. If it finds a single match, it's added automatically. If multiple matches are found, you'll see a selection menu (just like `/movie` or `/tv`) where you can choose the exact title you want.
+A: When adding entries with `/bracket manage-titles action:"Add Title"`, the bot searches TMDB (movies/TV), RAWG (video games), BoardGameGeek (board games), or Google Books. If it finds a single match, it's added automatically. If multiple matches are found, you'll see a selection menu (just like `/movie` or `/tv`) where you can choose the exact title you want.
 
 **Q: Who can create and manage tournaments?**  
 A: Only server administrators and moderators can create, manage, and advance tournaments. All members can vote.

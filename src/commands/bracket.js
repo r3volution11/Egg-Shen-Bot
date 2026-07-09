@@ -1,16 +1,12 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
-import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
+import { searchMovies, searchTVShows } from '../services/tmdbService.js';
 import { searchGames } from '../services/rawgService.js';
 import { searchBoardGames } from '../services/bggService.js';
 import { searchBooks } from '../services/googleBooksService.js';
 import { hybridSearch } from '../services/aiService.js';
-import { createSearchResults } from '../utils/embedBuilder.js';
-import { loadGuildConfig, isTrueAdmin, isModerator } from '../utils/guildConfig.js';
-import { config } from '../config.js';
-import { canGenerateImage, recordImageGeneration } from '../utils/aiImageTracker.js';
-import { isAdmin } from '../utils/guildConfig.js';
+import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -289,6 +285,30 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('resize')
+      .setDescription('Change the number of groups before voting begins (Admin/Mod only)')
+      .addIntegerOption(option =>
+        option
+          .setName('groups')
+          .setDescription('New number of groups (4-12)')
+          .setRequired(true)
+          .setMinValue(4)
+          .setMaxValue(12)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('edit-name')
+      .setDescription('Rename the tournament (Admin/Mod only)')
+      .addStringOption(option =>
+        option
+          .setName('name')
+          .setDescription('New tournament name')
+          .setRequired(true)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('announce')
       .setDescription('Announce the tournament to the channel (Admin/Mod only)')
       .addStringOption(option =>
@@ -348,6 +368,11 @@ export const data = new SlashCommandBuilder()
           .setDescription('How long voting stays open (e.g., "24h", "3d", "45m") - Default: 24h')
           .setRequired(false)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('regenerate')
+      .setDescription('Rebuild the knockout bracket from group results (Admin/Mod only, fixes bracket structure issues)')
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -466,6 +491,11 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('list-groups')
+      .setDescription('List all groups and their titles')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('view')
       .setDescription('View visual bracket (knockout phase only)')
   )
@@ -500,7 +530,7 @@ export async function execute(interaction) {
   console.log('[/bracket] Subcommand received:', subcommand);
   
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'manage-titles', 'announce', 'open', 'close', 'open-groups', 'close-groups', 'advance-knockout', 'resolve-tiebreaker', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
+  const requiresAdmin = ['create', 'manage-titles', 'resize', 'edit-name', 'announce', 'open', 'close', 'open-groups', 'close-groups', 'advance-knockout', 'regenerate', 'resolve-tiebreaker', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -525,6 +555,12 @@ export async function execute(interaction) {
       case 'manage-titles':
         await handleManageTitles(interaction);
         break;
+      case 'resize':
+        await handleResize(interaction);
+        break;
+      case 'edit-name':
+        await handleEditName(interaction);
+        break;
       case 'announce':
         await handleAnnounce(interaction);
         break;
@@ -543,6 +579,9 @@ export async function execute(interaction) {
       case 'advance-knockout':
         await handleAdvanceKnockout(interaction);
         break;
+      case 'regenerate':
+        await handleRegenerate(interaction);
+        break;
       case 'resolve-tiebreaker':
         await handleResolveTiebreaker(interaction);
         break;
@@ -558,6 +597,9 @@ export async function execute(interaction) {
       case 'status':
         await handleStatus(interaction);
         break;
+      case 'list-groups':
+        await handleListGroups(interaction);
+        break;
       case 'view':
         await handleView(interaction);
         break;
@@ -566,9 +608,6 @@ export async function execute(interaction) {
         break;
       case 'export':
         await handleExport(interaction);
-        break;
-      case 'resolve-tiebreaker':
-        await handleResolveTiebreaker(interaction);
         break;
       case 'cancel':
         await handleCancel(interaction);
@@ -1064,12 +1103,12 @@ async function handleRemoveTitle(interaction) {
     embed.addFields({
       name: '⚠️ Group Empty',
       value: `Group ${group} now has no titles. Choose an option:\n\n` +
-             `1️⃣ Add 4 titles to Group ${group} with \`/bracket add-title\`\n` +
+             `1️⃣ Add 4 titles to Group ${group} with \`/bracket manage-titles action:add\`\n` +
              `2️⃣ Resize tournament to ${suggestedGroupCount} groups with \`/bracket resize groups:${suggestedGroupCount}\``,
       inline: false
     });
   } else if (result.titleCount < 4) {
-    embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group} with /bracket add-title` });
+    embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group} with /bracket manage-titles action:add` });
   }
   
   await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -1212,7 +1251,7 @@ async function handleAnnounce(interaction) {
       value: '🗳️ Group Stage Voting - Vote for your top 2 in each group!',
       inline: false
     });
-    embed.setFooter({ text: 'Use /bracket vote-group to cast your votes' });
+    embed.setFooter({ text: 'Click the buttons on the group voting message to cast your votes' });
   } else if (tournament.status === 'knockout') {
     embed.addFields({
       name: 'Status',
@@ -1350,59 +1389,6 @@ function getTypeLabel(type) {
  * Search for a title across ALL APIs (universal search)
  * Returns: { status: 'found'|'multiple'|'none', entry: {...}, results: [], count: number }
  */
-async function searchForTitleUniversal(title) {
-  try {
-    const allResults = [];
-    
-    // Search movies
-    const movies = await searchMovies(title);
-    if (movies && movies.length > 0) {
-      movies.forEach(m => allResults.push({ ...m, searchType: 'movie' }));
-    }
-    
-    // Search TV shows
-    const tvShows = await searchTVShows(title);
-    if (tvShows && tvShows.length > 0) {
-      tvShows.forEach(tv => allResults.push({ ...tv, searchType: 'tv' }));
-    }
-    
-    // Search video games
-    const games = await searchGames(title);
-    if (games && games.length > 0) {
-      games.forEach(g => allResults.push({ ...g, searchType: 'game' }));
-    }
-    
-    // Search board games
-    const boardGames = await searchBoardGames(title);
-    if (boardGames && boardGames.length > 0) {
-      boardGames.forEach(bg => allResults.push({ ...bg, searchType: 'boardgame' }));
-    }
-    
-    // Search books
-    const books = await searchBooks(title);
-    if (books && books.length > 0) {
-      books.forEach(b => allResults.push({ ...b, searchType: 'book' }));
-    }
-    
-    if (allResults.length === 0) {
-      return { status: 'none', entry: null, results: [], count: 0 };
-    }
-    
-    if (allResults.length > 1) {
-      return { status: 'multiple', entry: null, results: allResults, count: allResults.length };
-    }
-    
-    // Exactly one result - build entry object
-    const result = allResults[0];
-    const entry = buildEntryFromResult(result, result.searchType);
-    
-    return { status: 'found', entry, results: allResults, count: 1 };
-  } catch (error) {
-    console.error(`[Bracket Image] Error searching for "${title}":`, error);
-    return { status: 'none', entry: null, results: [], count: 0 };
-  }
-}
-
 async function handleOpenGroups(interaction) {
   await interaction.deferReply();
   
@@ -1643,7 +1629,7 @@ async function handleAdvanceKnockout(interaction) {
   
   if (!openResult.success) {
     // If opening voting fails, still show bracket was created
-    await interaction.editReply(`✅ Knockout bracket created, but failed to open voting: ${openResult.error}\n\nUse \`/bracket open-knockout\` to manually open voting.`);
+    await interaction.editReply(`✅ Knockout bracket created, but failed to open voting: ${openResult.error}\n\nUse \`/bracket open\` to manually open voting.`);
     return;
   }
   
@@ -1785,7 +1771,6 @@ async function handleResolveTiebreaker(interaction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
-/* DISABLED DUE TO DISCORD 25 SUBCOMMAND LIMIT
 async function handleRegenerate(interaction) {
   await interaction.deferReply({ ephemeral: true });
   
@@ -1820,7 +1805,6 @@ async function handleRegenerate(interaction) {
   
   await interaction.editReply({ embeds: [embed] });
 }
-*/
 
 /**
  * Smart open - auto-detects tournament phase and opens next appropriate round
@@ -2290,457 +2274,6 @@ async function handleView(interaction) {
   }
 }
 
-async function handleImage(interaction) {
-  // Defer with ephemeral to hide command from other users
-  await interaction.deferReply({ ephemeral: true });
-  
-  // Check permissions and feature enabled
-  const userIsTrueAdmin = await isTrueAdmin(interaction.member);
-  const userIsMod = await isModerator(interaction.member) || userIsTrueAdmin;
-  const rateCheck = canGenerateImage(interaction.guildId, interaction.user.id, userIsTrueAdmin, userIsMod);
-  
-  if (!rateCheck.allowed) {
-    return await interaction.editReply(`❌ ${rateCheck.reason}`);
-  }
-  
-  const title1 = interaction.options.getString('title1');
-  const title2 = interaction.options.getString('title2');
-  const customPrompt = interaction.options.getString('prompt');
-  const matchupInput = interaction.options.getString('matchup');
-  
-  // Check if OpenAI is configured first
-  if (!config.apis.openai?.apiKey) {
-    await interaction.editReply('❌ OpenAI API is not configured. AI image generation requires an OpenAI API key.');
-    return;
-  }
-  
-  let firstTitle, secondTitle, firstEntry, secondEntry, context = null;
-  
-  // OPTION 1: User provided title1 and title2 (freeform generation with search)
-  if (title1 && title2) {
-    // Search for both titles across all APIs
-    const [result1, result2] = await Promise.all([
-      searchForTitleUniversal(title1),
-      searchForTitleUniversal(title2)
-    ]);
-    
-    // Check if either title wasn't found
-    if (result1.status === 'none' || result2.status === 'none') {
-      const notFound = [];
-      if (result1.status === 'none') notFound.push(`**${title1}**`);
-      if (result2.status === 'none') notFound.push(`**${title2}**`);
-      
-      await interaction.editReply({
-        content: `❌ Could not find: ${notFound.join(', ')}\n\n` +
-          `Please check spelling or try different search terms. The bot searches movies, TV shows, video games, board games, and books.`,
-      });
-      return;
-    }
-    
-    // Handle multiple matches - take first result but inform user
-    let disambiguationNote = '';
-    
-    if (result1.status === 'multiple') {
-      firstEntry = buildEntryFromResult(result1.results[0], result1.results[0].searchType);
-      const typeLabel = getTypeLabel(firstEntry.type);
-      const yearStr = firstEntry.year ? ` (${firstEntry.year})` : '';
-      disambiguationNote += `\n📌 Multiple matches for "${title1}" - using: **${firstEntry.title}${yearStr}** (${typeLabel})`;
-      disambiguationNote += `\n   _Be more specific next time: \`title1:"${firstEntry.title} ${firstEntry.year}"\`_`;
-    } else {
-      firstEntry = result1.entry;
-    }
-    
-    if (result2.status === 'multiple') {
-      secondEntry = buildEntryFromResult(result2.results[0], result2.results[0].searchType);
-      const typeLabel = getTypeLabel(secondEntry.type);
-      const yearStr = secondEntry.year ? ` (${secondEntry.year})` : '';
-      disambiguationNote += `\n📌 Multiple matches for "${title2}" - using: **${secondEntry.title}${yearStr}** (${typeLabel})`;
-      disambiguationNote += `\n   _Be more specific next time: \`title2:"${secondEntry.title} ${secondEntry.year}"\`_`;
-    } else {
-      secondEntry = result2.entry;
-    }
-    
-    firstTitle = firstEntry.title;
-    secondTitle = secondEntry.title;
-    
-    const type1Label = getTypeLabel(firstEntry.type);
-    const type2Label = getTypeLabel(secondEntry.type);
-    const year1 = firstEntry.year ? ` (${firstEntry.year})` : '';
-    const year2 = secondEntry.year ? ` (${secondEntry.year})` : '';
-    
-    context = `${type1Label}${year1} vs ${type2Label}${year2}`;
-    
-    // Show disambiguation note if needed
-    if (disambiguationNote) {
-      await interaction.editReply({
-        content: `🔍 **Search Results:**${disambiguationNote}\n\n_Generating image in 2-3 minutes..._`,
-      });
-      // Wait a moment so user can read the message
-      await new Promise(resolve => setTimeout(resolve, 3000));
-    }
-    
-  // OPTION 2: User provided a matchup from tournament
-  } else if (matchupInput) {
-    const tournament = bracketManager.loadTournament(interaction.guildId);
-    
-    if (!tournament) {
-      await interaction.editReply('❌ No active tournament found. To generate a custom image, use: `/bracket image title1:"Movie A" title2:"Movie B"`');
-      return;
-    }
-    
-    if (!tournament.knockoutBracket || tournament.knockoutBracket.length === 0) {
-      await interaction.editReply('❌ No tournament matchups found. To generate a custom image, use: `/bracket image title1:"Movie A" title2:"Movie B"`');
-      return;
-    }
-    
-    // Find the matchup based on user input
-    const matchup = tournament.knockoutBracket.find(m => {
-      if (!m.movie1 || !m.movie2) return false;
-      const matchupStr = `${m.movie1.title} vs ${m.movie2.title}`.toLowerCase();
-      const reverseStr = `${m.movie2.title} vs ${m.movie1.title}`.toLowerCase();
-      const input = matchupInput.toLowerCase();
-      return matchupStr.includes(input) || reverseStr.includes(input) || 
-             input.includes(m.movie1.title.toLowerCase()) && input.includes(m.movie2.title.toLowerCase());
-    });
-    
-    if (!matchup) {
-      await interaction.editReply(`❌ Could not find matchup: "${matchupInput}". Use \`/bracket image\` without parameters to see available matchups, or use: \`/bracket image title1:"Movie A" title2:"Movie B"\``);
-      return;
-    }
-    
-    firstTitle = matchup.movie1.title;
-    secondTitle = matchup.movie2.title;
-    context = `Tournament: ${matchup.round.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
-    
-  // OPTION 3: No parameters - show help
-  } else {
-    const tournament = bracketManager.loadTournament(interaction.guildId);
-    
-    let helpMessage = '🎨 **AI Image Generation**\n\n';
-    
-    // If there's an active tournament with matchups, show them
-    if (tournament && tournament.knockoutBracket && tournament.knockoutBracket.length > 0) {
-      const matchupList = tournament.knockoutBracket
-        .filter(m => m.movie1 && m.movie2)
-        .map((m, idx) => `${idx + 1}. **${m.movie1.title}** vs **${m.movie2.title}** (${m.round.replace(/_/g, ' ')})`)
-        .join('\n');
-      
-      helpMessage += `**Tournament Matchups:**\n${matchupList}\n\n💡 Generate an image:\n\`/bracket image matchup:"Movie A vs Movie B"\`\n\n`;
-    }
-    
-    helpMessage += '**Create custom matchups with smart search:**\n\`/bracket image title1:"The Thing" title2:"Alien"\`\n\n';
-    helpMessage += '✨ **Features:**\n';
-    helpMessage += '• Searches movies, TV shows, video games, board games, and books\n';
-    helpMessage += '• Validates titles exist before generating\n';
-    helpMessage += '• Shows selection menu if multiple matches found\n';
-    helpMessage += '• Works with cross-type comparisons (e.g., book vs movie)\n';
-    helpMessage += '• Generates in 2-3 minutes ($0.04 per image)\n\n';
-    helpMessage += '_No tournament needed - works anytime!_';
-    
-    await interaction.editReply({ content: helpMessage });
-    return;
-  }
-  
-  // Generate the AI image
-  try {
-    // Create a dramatic prompt with type-specific context
-    // Use "inspired by" language to comply with OpenAI content policy
-    let promptBase = 'Original poster artwork inspired by';
-    let promptDetails = '';
-    
-    // Add type-specific context if we have metadata
-    if (firstEntry && secondEntry) {
-      if (firstEntry.type === 'movie' && secondEntry.type === 'movie') {
-        promptBase = 'Original movie poster artwork inspired by the themes of';
-      } else if (firstEntry.type === 'tv' && secondEntry.type === 'tv') {
-        promptBase = 'Original TV show poster artwork inspired by the themes of';
-      } else if (firstEntry.type === 'game' && secondEntry.type === 'game') {
-        promptBase = 'Original video game cover artwork inspired by the themes of';
-      } else {
-        // Cross-type matchup
-        const type1 = getTypeLabel(firstEntry.type).toLowerCase();
-        const type2 = getTypeLabel(secondEntry.type).toLowerCase();
-        promptBase = `Original artwork inspired by the themes of a ${type1} and a ${type2}`;
-      }
-      
-      // Add descriptive details if available (helps guide the AI without copying)
-      if (firstEntry.metadata?.overview) {
-        promptDetails += ` Concept for first side: ${firstEntry.metadata.overview.substring(0, 100)}.`;
-      }
-      if (secondEntry.metadata?.overview) {
-        promptDetails += ` Concept for second side: ${secondEntry.metadata.overview.substring(0, 100)}.`;
-      }
-    } else {
-      promptBase = 'Original poster artwork inspired by';
-    }
-    
-    const prompt = `${promptBase} "${firstTitle}" and "${secondTitle}". IMPORTANT: Create a versus battle composition with strict left-right layout. LEFT HALF: "${firstTitle}" theme and imagery. CENTER: Bold "VS" text divider. RIGHT HALF: "${secondTitle}" theme and imagery. Split-screen battle poster with dramatic lighting, cinematic style, high contrast. Professional design, 4K quality. Do not replicate existing poster art - create something new inspired by these titles.${promptDetails}${customPrompt ? ` Additional details: ${customPrompt}` : ''}`;
-    
-    // Log request details for debugging
-    console.log(`[/bracket image] User: ${interaction.user.username} (${interaction.user.id})`);
-    console.log(`[/bracket image] Guild: ${interaction.guildId}`);
-    console.log(`[/bracket image] Title 1: "${firstTitle}" (${firstEntry?.type || 'unknown'})`);
-    console.log(`[/bracket image] Title 2: "${secondTitle}" (${secondEntry?.type || 'unknown'})`);
-    console.log(`[/bracket image] Custom prompt: ${customPrompt || 'none'}`);
-    console.log(`[/bracket image] Generated prompt: ${prompt.substring(0, 300)}...`);
-    
-    await interaction.editReply(`🎨 Generating AI image for **${firstTitle}** vs **${secondTitle}**...\n\n_This may take 2-3 minutes..._`);
-    
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.apis.openai.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-image-2', // OpenAI's latest image model (formerly dall-e-3)
-        prompt: prompt,
-        n: 1,
-        size: '1792x1024', // Wide format for vs layout
-        quality: 'medium', // Options: 'low', 'medium', 'high', or 'auto'
-      }),
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      console.error(`[/bracket image] OpenAI API Error:`, error);
-      throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log('[/bracket image] OpenAI Response:', JSON.stringify(data, null, 2));
-    
-    // Check for different response formats
-    let imageBuffer;
-    if (data.data && data.data[0]) {
-      if (data.data[0].url) {
-        console.log('[/bracket image] Found URL, downloading...');
-        const imageUrl = data.data[0].url;
-        const imageResponse = await fetch(imageUrl);
-        if (!imageResponse.ok) {
-          throw new Error('Failed to download generated image');
-        }
-        imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-      } else if (data.data[0].b64_json) {
-        console.log('[/bracket image] Received base64 data, converting to buffer...');
-        imageBuffer = Buffer.from(data.data[0].b64_json, 'base64');
-      } else {
-        console.error('[/bracket image] Unknown format:', data);
-        throw new Error('Invalid response from OpenAI - unexpected format');
-      }
-    } else {
-      console.error('[/bracket image] Missing data array:', data);
-      throw new Error('Invalid response from OpenAI - missing data');
-    }
-    
-    // Record the image generation
-    recordImageGeneration(interaction.guildId, interaction.user.id, 'bracket-image', {
-      title1: firstTitle,
-      title2: secondTitle,
-      customPrompt: customPrompt || null,
-      type1: firstEntry?.type || null,
-      type2: secondEntry?.type || null,
-    });
-    
-    // Create embed with the generated image
-    const embed = new EmbedBuilder()
-      .setColor(0xFEE75C)
-      .setTitle(`🎨 ${firstTitle} vs ${secondTitle}`)
-      .setImage('attachment://bracket-vs.png')
-      .setFooter({ text: interaction.user.username })
-      .setTimestamp();
-    
-    const attachment = new AttachmentBuilder(imageBuffer, { name: 'bracket-vs.png' });
-    
-    // Send the image publicly to the channel
-    await interaction.channel.send({
-      embeds: [embed],
-      files: [attachment]
-    });
-    
-    // Update the ephemeral reply to confirm
-    await interaction.editReply('✅ Image generated and posted to the channel!');
-    
-  } catch (error) {
-    console.error('[/bracket image] Error generating AI image:', error);
-    await interaction.editReply(`❌ Failed to generate AI image: ${error.message}`);
-  }
-}
-
-async function handleOpenKnockout(interaction) {
-  await interaction.deferReply();
-  
-  const durationStr = interaction.options.getString('duration') || '24h';
-  
-  // Parse and validate duration
-  const durationMs = parseDuration(durationStr);
-  if (!durationMs) {
-    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
-    return;
-  }
-  
-  if (!isValidDuration(durationMs)) {
-    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
-    return;
-  }
-  
-  const deadline = Date.now() + durationMs;
-  
-  const tournament = bracketManager.loadTournament(interaction.guildId);
-  
-  if (!tournament || tournament.status !== 'knockout') {
-    await interaction.editReply('❌ No knockout bracket found. Use `/bracket advance-knockout` first.');
-    return;
-  }
-  
-  // Get matchups for current round
-  const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
-    m.round === tournament.phase && m.movie1 && m.movie2
-  );
-  
-  if (currentRoundMatchups.length === 0) {
-    await interaction.editReply(`❌ No matchups ready for ${tournament.phase.replace(/_/g, ' ')}. Winners need to be advanced first.`);
-    return;
-  }
-  
-  // Discord has a 5 ActionRow limit - if there are more than 5 matchups, use regional opening
-  if (currentRoundMatchups.length > 5) {
-    const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    const matchupsPerRegion = Math.ceil(currentRoundMatchups.length / 4);
-    await interaction.editReply(
-      `❌ **${roundName} has ${currentRoundMatchups.length} matchups** - too many for one voting session.\n\n` +
-      `This round will be split into 4 regions with ~${matchupsPerRegion} matchup${matchupsPerRegion !== 1 ? 's' : ''} each.\n` +
-      `Use \`/bracket open-matchup\` with no parameters to select which region to open.\n\n` +
-      `💡 **March Madness style:** Open regions one at a time to manage voting flow!`
-    );
-    return;
-  }
-  
-  // Open matchups for voting
-  const result = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline);
-  
-  if (!result.success) {
-    await interaction.editReply(`❌ ${result.error}`);
-    return;
-  }
-  
-  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  const timeRemaining = formatTimeRemaining(deadline);
-  
-  // Create embeds for each matchup
-  const embeds = [];
-  const components = [];
-  
-  // Send main summary message with Start Voting button
-  const mainEmbed = new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle(`📊 ${roundName} - ${currentRoundMatchups.length} Matchups Opened!`)
-    .setDescription(
-      `**Opened matchups:** ${currentRoundMatchups.map(m => getRegionalLabel(m.position, tournament.phase)).join(', ')}\n\n` +
-      `**📝 How to Vote:**\n` +
-      `🔹 Click the "Start Voting" button below\n` +
-      `🔹 You'll get your own personal voting dashboard\n` +
-      `🔹 Your choices are saved instantly\n` +
-      `🔹 Only you can see your selections\n\n` +
-      `⏰ **Voting closes in:** ${timeRemaining}\n` +
-      `💡 **Tip:** You can change your votes anytime!`
-    )
-    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
-  
-  const startVotingButton = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`start_knockout_voting_${tournament.phase}`)
-      .setLabel('🗳️ Start Voting')
-      .setStyle(ButtonStyle.Success)
-  );
-  
-  await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
-  
-  // Users vote via personal dashboard - no individual matchup cards needed
-  // Prevents channel flooding with one card per matchup
-}
-
-async function handleCloseKnockout(interaction) {
-  await interaction.deferReply();
-  
-  const tournament = bracketManager.loadTournament(interaction.guildId);
-  
-  if (!tournament || tournament.status !== 'knockout') {
-    await interaction.editReply('❌ No active knockout bracket found.');
-    return;
-  }
-  
-  // Get voting matchups for current round
-  const votingMatchups = tournament.knockoutBracket.filter(m => 
-    m.round === tournament.phase && m.status === 'voting'
-  );
-  
-  if (votingMatchups.length === 0) {
-    await interaction.editReply(`❌ No voting matchups found for ${tournament.phase.replace(/_/g, ' ')}.`);
-    return;
-  }
-  
-  // Close all matchups and advance winners
-  const results = [];
-  for (const matchup of votingMatchups) {
-    const result = bracketManager.closeKnockoutMatchup(interaction.guildId, matchup.id);
-    if (result.success) {
-      results.push({
-        matchup,
-        winner: result.winner,
-        votes1: matchup.votes.movie1.length,
-        votes2: matchup.votes.movie2.length
-      });
-    }
-  }
-  
-  // Check if round is complete
-  const currentRound = tournament.phase;
-  const updatedTournament = bracketManager.loadTournament(interaction.guildId);
-  
-  const roundName = currentRound.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  
-  // Create results embed
-  const embed = new EmbedBuilder()
-    .setColor(0xFF9900)
-    .setTitle(`🏁 ${roundName} Complete!`)
-    .setThumbnail(interaction.client.user.displayAvatarURL())
-    .setDescription(`**${results.length} matchup${results.length !== 1 ? 's' : ''}** closed. Here are the winners:\n`);
-  
-  results.forEach((r) => {
-    const loser = r.winner.title === r.matchup.movie1.title ? r.matchup.movie2 : r.matchup.movie1;
-    const regionalLabel = getRegionalLabel(r.matchup.position, currentRound);
-    embed.addFields({
-      name: `Matchup ${regionalLabel}`,
-      value: `**${r.winner.title}** (${r.votes1} vs ${r.votes2}) defeats ${loser.title}`,
-      inline: false
-    });
-  });
-  
-  // Check if tournament is complete
-  if (currentRound === 'finals') {
-    const champion = results[0]?.winner;
-    embed.setColor(0xFFD700);
-    embed.setTitle('🏆 Tournament Complete!');
-    embed.setDescription(`**${champion?.title}** is the champion!\n\nCongratulations! 🎉`);
-    embed.setFooter({ text: 'Tournament has ended. Use /bracket view to see the final bracket.' });
-  } else {
-    // Advance to next round
-    const nextRound = updatedTournament.phase;
-    const nextRoundName = nextRound.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    
-    // Suggest the appropriate round-specific command
-    let nextCommand = '/bracket open-knockout';
-    if (nextRound === 'quarterfinals') nextCommand = '/bracket open-quarters';
-    else if (nextRound === 'semifinals') nextCommand = '/bracket open-semis';
-    else if (nextRound === 'finals') nextCommand = '/bracket open-finals';
-    
-    embed.setFooter({ text: `Winners have advanced to ${nextRoundName}. Run ${nextCommand} to start voting!` });
-  }
-  
-  await interaction.editReply({ embeds: [embed] });
-}
-
 /**
  * Open all matchups in a specific region
  */
@@ -2891,118 +2424,6 @@ async function showRegionSelector(interaction, tournament, durationMs) {
   );
   
   await interaction.editReply({ embeds: [embed], components: [row1, row2] });
-}
-
-async function handleOpenRegion(interaction) {
-  await interaction.deferReply();
-  
-  const region = interaction.options.getInteger('region');
-  const durationStr = interaction.options.getString('duration') || '24h';
-  
-  // Parse and validate duration
-  const durationMs = parseDuration(durationStr);
-  if (!durationMs) {
-    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
-    return;
-  }
-  
-  if (!isValidDuration(durationMs)) {
-    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
-    return;
-  }
-  
-  const tournament = bracketManager.loadTournament(interaction.guildId);
-  
-  if (!tournament || tournament.status !== 'knockout') {
-    await interaction.editReply('❌ No knockout bracket found. Use `/bracket advance-knockout` first.');
-    return;
-  }
-  
-  // If no region specified, show interactive selector
-  if (region === null || region === undefined) {
-    return await showRegionSelector(interaction, tournament, durationMs);
-  }
-  
-  const deadline = Date.now() + durationMs;
-  
-  // Get all matchups in current round
-  const currentRoundMatchups = tournament.knockoutBracket.filter(m => 
-    m.round === tournament.phase && m.movie1 && m.movie2
-  );
-  
-  if (currentRoundMatchups.length === 0) {
-    await interaction.editReply(`❌ No matchups ready for ${tournament.phase.replace(/_/g, ' ')}.`);
-    return;
-  }
-  
-  // Filter by region (region 1 = left side, region 2 = right side)
-  const midpoint = currentRoundMatchups.length / 2;
-  const regionMatchups = currentRoundMatchups.filter(m => {
-    if (region === 1) {
-      return m.position < midpoint; // Left side
-    } else {
-      return m.position >= midpoint; // Right side
-    }
-  });
-  
-  if (regionMatchups.length === 0) {
-    await interaction.editReply(`❌ No matchups found in Region ${region}.`);
-    return;
-  }
-  
-  // Open all matchups in this region
-  for (const matchup of regionMatchups) {
-    matchup.status = 'voting';
-    matchup.votingOpened = Date.now();
-    matchup.votingStarted = Date.now(); // For smart warning timing
-    matchup.votingDeadline = deadline;
-    
-    // Reset votes (clears previous votes if reopening)
-    matchup.votes = { movie1: [], movie2: [] };
-    
-    // Clear previous results if reopening
-    delete matchup.winner;
-    delete matchup.votingClosed;
-    delete matchup.votes1Count;
-    delete matchup.votes2Count;
-    
-    // Remove from knockout results if it was previously closed
-    if (tournament.knockoutResults && tournament.knockoutResults[matchup.id]) {
-      delete tournament.knockoutResults[matchup.id];
-    }
-  }
-  
-  bracketManager.saveTournament(interaction.guildId, tournament);
-  
-  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  const timeRemaining = formatTimeRemaining(deadline);
-  const regionName = region === 1 ? 'Left Side' : 'Right Side';
-  
-  // Send main summary message with Start Voting button
-  const mainEmbed = new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle(`📊 ${roundName} - Region ${region} - ${regionMatchups.length} Matchups Opened!`)
-    .setDescription(
-      `**Opened matchups:** ${regionMatchups.map(m => getRegionalLabel(m.position, tournament.phase)).join(', ')}\n\n` +
-      `**📝 How to Vote:**\n` +
-      `🔹 Click the "Start Voting" button below\n` +
-      `🔹 You'll get your own personal voting dashboard\n` +
-      `🔹 Your choices are saved instantly\n` +
-      `🔹 Only you can see your selections\n\n` +
-      `⏰ **Voting closes in:** ${timeRemaining}\n` +
-      `💡 **Tip:** You can change your votes anytime!`
-    )
-    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
-  
-  const startVotingButton = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`start_knockout_voting_${tournament.phase}`)
-      .setLabel('🗳️ Start Voting')
-      .setStyle(ButtonStyle.Success)
-  );
-  
-  // Users vote via personal dashboard - no individual matchup cards needed
-  await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
 }
 
 /**
@@ -3686,7 +3107,7 @@ async function handleMyVotes(interaction) {
     
     embed.addFields({ 
       name: `🗳️ Groups Available (${status.availableGroupVotes.length})`, 
-      value: availText + '\\n\\nUse `/bracket vote-group` to vote', 
+      value: availText + '\\n\\nClick the buttons on the group voting message to vote',
       inline: false 
     });
   }

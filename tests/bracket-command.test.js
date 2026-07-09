@@ -294,3 +294,151 @@ describe('/bracket resolve-tiebreaker', () => {
     expect(editArg.components[0].components[0].data.disabled).toBe(true);
   });
 });
+
+// The four subcommands below (resize, edit-name, list-groups, regenerate) were
+// re-enabled after being silently disabled since Discord's 25-subcommand limit
+// was hit — they were never actually legacy, just unwired. These tests cover
+// their reinstatement as registered subcommands (permission gating + basic
+// success/error paths), not just the underlying bracketManager functions
+// (which is what already-passing tests/bracketManager.test.js covers).
+
+describe('/bracket resize', () => {
+  test('non-admin, non-mod is rejected', async () => {
+    setupGroupTournament();
+    const interaction = createMockInteraction({
+      subcommand: 'resize',
+      integers: { groups: 5 },
+      isAdmin: false,
+      isMod: false,
+    });
+
+    await execute(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('administrators and moderators') })
+    );
+  });
+
+  test('resizes the tournament during setup phase', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Resize Test Cup', 'admin-1', 36);
+    bracketManager.resizeTournament(GUILD_ID, 4);
+
+    const interaction = createMockInteraction({ subcommand: 'resize', integers: { groups: 6 } });
+    await execute(interaction);
+
+    const t = bracketManager.loadTournament(GUILD_ID);
+    expect(t.groupCount).toBe(6);
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ embeds: expect.arrayContaining([expect.anything()]) })
+    );
+  });
+
+  test('rejects resizing after group voting has opened', async () => {
+    setupGroupTournament(); // opens group voting, moving the tournament out of 'setup'
+
+    const interaction = createMockInteraction({ subcommand: 'resize', integers: { groups: 6 } });
+    await execute(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('setup phase') })
+    );
+    const t = bracketManager.loadTournament(GUILD_ID);
+    expect(t.groupCount).toBe(4); // unchanged
+  });
+});
+
+describe('/bracket edit-name', () => {
+  test('non-admin, non-mod is rejected', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Original Name', 'admin-1', 36);
+
+    const interaction = createMockInteraction({
+      subcommand: 'edit-name',
+      strings: { name: 'New Name' },
+      isAdmin: false,
+      isMod: false,
+    });
+    await execute(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('administrators and moderators') })
+    );
+    expect(bracketManager.loadTournament(GUILD_ID).name).toBe('Original Name');
+  });
+
+  test('renames the tournament', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Original Name', 'admin-1', 36);
+
+    const interaction = createMockInteraction({ subcommand: 'edit-name', strings: { name: 'Spooky Season Cup' } });
+    await execute(interaction);
+
+    expect(bracketManager.loadTournament(GUILD_ID).name).toBe('Spooky Season Cup');
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ embeds: expect.arrayContaining([expect.anything()]) })
+    );
+  });
+
+  test('errors when no tournament exists', async () => {
+    const interaction = createMockInteraction({ subcommand: 'edit-name', strings: { name: 'New Name' } });
+    await execute(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('No tournament found') })
+    );
+  });
+});
+
+describe('/bracket list-groups', () => {
+  test('is usable by non-admins (read-only, not permission-gated)', async () => {
+    setupGroupTournament();
+
+    const interaction = createMockInteraction({ subcommand: 'list-groups', isAdmin: false, isMod: false });
+    await execute(interaction);
+
+    expect(interaction.reply).not.toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('administrators and moderators') })
+    );
+    expect(interaction.editReply).toHaveBeenCalled();
+  });
+
+  test('lists each group and its titles', async () => {
+    setupGroupTournament();
+
+    const interaction = createMockInteraction({ subcommand: 'list-groups' });
+    await execute(interaction);
+
+    const embedArg = interaction.editReply.mock.calls.at(-1)[0];
+    const fieldNames = embedArg.embeds[0].data.fields.map((f) => f.name);
+    expect(fieldNames.some((n) => n.includes('Group A'))).toBe(true);
+    const groupAField = embedArg.embeds[0].data.fields.find((f) => f.name.includes('Group A'));
+    expect(groupAField.value).toContain('Ring');
+  });
+
+  test('errors when no tournament exists', async () => {
+    const interaction = createMockInteraction({ subcommand: 'list-groups' });
+    await execute(interaction);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.stringContaining('No active tournament found'));
+  });
+});
+
+describe('/bracket regenerate', () => {
+  test('non-admin, non-mod is rejected', async () => {
+    const interaction = createMockInteraction({ subcommand: 'regenerate', isAdmin: false, isMod: false });
+    await execute(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('administrators and moderators') })
+    );
+  });
+
+  test('errors when not all groups are closed yet', async () => {
+    setupGroupTournament();
+    // Advance the tournament status to knockout artificially isn't realistic here;
+    // regenerateKnockoutBracket itself guards on tournament.status !== 'knockout'
+    // first, so with an in-progress group stage this surfaces that same guard.
+    const interaction = createMockInteraction({ subcommand: 'regenerate' });
+    await execute(interaction);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.stringContaining('❌'));
+  });
+});

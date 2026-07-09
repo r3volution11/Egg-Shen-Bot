@@ -51,8 +51,7 @@ export async function execute(interaction) {
       {
         name: '🎨 AI Image Generation',
         value:
-          '**🎨 /image** - Generate AI images (Stable Diffusion)\n' +
-          '**⚔️ /versus-image** - Generate matchup comparison images\n' +
+          '**🎨 /image** - Generate AI images: freeform, from a message, or a versus battle between two titles\n' +
           '**🧪 /potion** - Generate mystical potion images',
         inline: false,
       },

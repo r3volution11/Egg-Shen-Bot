@@ -131,12 +131,12 @@ Type `/book query:Clive Barker Books of Blood` to find:
 Host comprehensive tournaments for your community! **[View Full Tournament Guide →](/commands/brackets/)**
 
 **Example Tournament Flow:**
-1. **Create**: `/bracket create name:The Shudder Discord Gore Cup groups:8`
-2. **Add Titles**: `/bracket add-title group:A type:movie title:The Thing` (do this 32 times across 8 groups)
+1. **Create**: `/bracket create name:"The Movie Cup" max-titles:36`
+2. **Add Titles**: `/bracket manage-titles action:"Add Title" group:A type:movie title:"The Thing"` (repeat for each title across all groups)
 3. **Announce**: `/bracket announce` - Publicly announce the tournament with full details
-4. **Group Voting**: `/bracket open-groups` - Let everyone vote on their favorites
+4. **Group Voting**: `/bracket open-groups groups:"A,B,C,D"` - Let everyone vote on their favorites
 5. **Advance**: `/bracket advance-knockout duration:"24h"` - Generate bracket and start voting
-6. **Next Rounds**: After first round closes, use `/bracket open-knockout` for next round
+6. **Next Rounds**: After a round closes, use `/bracket open` to smart-open the next one
 7. **Champion**: Winner is crowned automatically!
 
 **Tournament Features:**
