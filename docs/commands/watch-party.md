@@ -136,6 +136,22 @@ Shows the current timer status for the channel:
 - Who started the timer
 - Auto-stop status
 
+### Pause and Resume Timer
+
+```
+/timer pause
+/timer resume
+```
+
+Pause a timer if something comes up — a break, a technical issue, anything that interrupts the watch party — without losing your elapsed time or restarting from scratch.
+
+- **`/timer pause`** freezes the elapsed and remaining time and cancels the pending auto-stop. `/timer status` will show "Timer Paused" with the elapsed/remaining time held at exactly where they were when you paused.
+- **`/timer resume`** picks up right where you left off — the remaining time (if a duration was set) continues counting down from the same point, and auto-stop is rescheduled accordingly. Time spent paused never counts against the timer's duration.
+- A paused timer survives a bot restart — it stays paused and won't auto-stop or start counting down on its own until you `/timer resume` it.
+- `/timer stop` still works normally on a paused timer.
+- `/timer adjust` requires resuming first — you can't change the duration while paused.
+- Only available to the timer starter, server administrators, or moderators (same permissions as `/timer stop`).
+
 ### Stop Timer
 
 ```
