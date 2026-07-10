@@ -262,8 +262,9 @@ client.on('interactionCreate', async (interaction) => {
     await handleButtonInteraction(interaction);
   }
   
-  // Handle select menu interactions
-  else if (interaction.isStringSelectMenu()) {
+  // Handle select menu interactions (string selects like search results, and
+  // channel selects like the event-approval text/voice channel pickers)
+  else if (interaction.isStringSelectMenu() || interaction.isChannelSelectMenu()) {
     const { handleSelectInteraction } = await import('./handlers/selectHandler.js');
     await handleSelectInteraction(interaction);
   }
