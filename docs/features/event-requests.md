@@ -345,15 +345,30 @@ When a request is submitted:
 1. **Request appears in moderation channel** with all details
 2. **Shows location (text channel) and voice channel (if requested)**
 3. **Approval buttons vary based on request:**
-   - **Text-only request**: ✅ Approve or ❌ Deny
-   - **Request with voice**: ✅ Approve Both, 💬 Text Only, or ❌ Deny
+   - **Text-only request**: ✅ Approve, ✏️ Edit, or ❌ Deny
+   - **Request with voice**: ✅ Approve Both, 💬 Text Only, ✏️ Edit, or ❌ Deny
 4. **Choose approval type:**
    - **Approve Both** → Creates voice channel event with text channel coordination
    - **Text Only** → Creates text-only event (removes voice channel from request)
-   - **Deny** → Removes the request without creating an event
+   - **Edit** → Opens a form to correct the title or description before approving (see below)
+   - **Deny** → Opens a form for an optional reason, then removes the request without creating an event
+
+### Editing a Request Before Approval
+
+If a submitter's title is wrong or the description needs more detail, click **✏️ Edit** before approving. This opens a form pre-filled with the current title and description — update either field and submit to update the request. The moderation-channel message updates immediately to reflect the change, and any subsequent approval uses the edited title/description.
+
+Editing does not touch the requested start/end time. If the time also needs correcting, approve the request first, then use the **Event URL** included in the approval confirmation to open Discord's own event editor and adjust the schedule there — Discord's editor handles timezones correctly for every viewer, which a text-only edit form cannot.
+
+### Denying with a Reason
+
+Clicking **❌ Deny** opens a form with an optional reason field. Whatever you enter (or leave blank) is:
+- Shown on the moderation-channel embed, so other moderators can see why without asking
+- Sent as a direct message to the person who submitted the request, so they're not left wondering what happened
+
+If the bot can't DM the submitter (for example, they have server DMs disabled), the denial still completes — you'll just see a note that the notification couldn't be delivered.
 
 ::: tip Moderator Permissions
-Only members with **Manage Events** permission or Administrator/Moderator roles can approve/deny requests.
+Only members with **Manage Events** permission or Administrator/Moderator roles can approve/deny/edit requests.
 :::
 
 ## Rate Limiting

@@ -5,6 +5,12 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.8.0 - 2026-07-10
+
+### Added
+- **Edit event requests before approval.** A new ✏️ Edit button on the moderation-channel embed opens a form pre-filled with the submitter's title and description, letting a moderator correct either before creating the event. The moderation embed updates immediately, and the eventually-created event uses the edited values. Schedule (start/end time) editing was intentionally left out — Discord's own event editor (linked from the approval confirmation) already has a real, timezone-aware date/time picker, so there's no need to rebuild that in a text form
+- **Deny with a reason.** Clicking ❌ Deny now opens a form for an optional reason. Whatever's entered is shown on the moderation embed for other moderators and sent as a DM to the person who submitted the request, so they're not left wondering what happened. A closed-DMs submitter doesn't block the denial — it completes either way, with a note if the notification couldn't be delivered
+
 ## 2.7.2 - 2026-07-10
 
 ### Fixed
