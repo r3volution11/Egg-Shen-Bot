@@ -5,7 +5,7 @@ description: Host watch parties with smart timers that auto-detect movie and TV 
 
 # Watch Party Commands
 
-**Host synchronized watch parties with smart timers** that automatically detect movie and TV show titles from Discord events, calculate runtime from TMDB, and track what your community watches together.
+**Host synchronized watch parties (or game nights) with smart timers** that automatically detect movie, TV show, and board game titles — whether typed manually or pulled from a Discord event — calculate a runtime/playtime automatically, and track what your community watches together.
 
 ## Quick FAQ
 
@@ -15,11 +15,17 @@ A: When you run `/timer start` in a channel, the bot checks your server's Discor
 **Q: Does it work with any Discord event?**  
 A: Yes, but the event must be scheduled for the specific channel where you run `/timer start`. The bot reads the event title to detect what you're watching.
 
+**Q: Does runtime detection also work if I type the label myself?**  
+A: Yes. `/timer start label:Juno` searches the same way an auto-detected label does — no duration needed, the bot looks it up either way.
+
 **Q: What if there are multiple matches?**  
 A: The bot shows a selection menu so you can choose the correct title.
 
+**Q: Does this work for board games, not just movies and TV?**  
+A: Yes — the bot searches movies, TV shows, and board games (using BoardGameGeek's listed playing time) whenever it's trying to auto-detect a duration.
+
 **Q: Can timers auto-stop?**  
-A: Yes! Either set a manual duration (1-600 minutes) or let the bot detect runtime from TMDB (adds 10-min buffer).
+A: Yes! Either set a manual duration (1-600 minutes) or let the bot detect runtime automatically (adds a 10-min buffer).
 
 **Q: Who can stop a timer?**  
 A: The person who started it or anyone with moderation permissions.
@@ -87,8 +93,8 @@ Start simple stopwatch timers for watch parties.
 **Features:**
 - **Discord Event Auto-Detection:** Bot checks server's scheduled events - if one is linked to the current channel, automatically uses event title as timer label
 - **Auto-stop:** Set duration to automatically stop timer when time expires
-- **Runtime auto-detection:** When label is auto-detected from Discord events, bot searches TMDB and adds 10-minute buffer
-- **Smart selection:** If multiple TMDB matches found, shows selection menu to pick correct title
+- **Runtime auto-detection:** Whenever a label is set and no duration is given — whether typed manually or auto-detected from a Discord event — the bot searches movies, TV shows, and board games and adds a 10-minute buffer to whatever it finds
+- **Smart selection:** If multiple matches are found across movies, TV shows, and board games, shows a selection menu to pick the correct title (capped at 8 results per type, so the menu never exceeds Discord's 25-option limit)
 - **Automatic watch history logging:** When timer completes (manual or auto-stop), automatically logs to server watch history if title found on TMDB
 - **Runs continuously:** Without duration, runs until manually stopped
 - 5-second countdown before starting (with visual/text animation)
@@ -114,7 +120,7 @@ Start simple stopwatch timers for watch parties.
 8. Bot auto-detects 178 min runtime + 10 min buffer = 188 minutes
 9. Timer starts with auto-stop at 188 minutes
 
-**Tip:** This works for any Discord event linked to a channel - the bot will always check for events when you run `/timer start` without a label!
+**Tip:** This works for any Discord event linked to a channel - the bot will always check for events when you run `/timer start` without a label! Typing a label yourself (`/timer start label:The Fellowship of the Ring`) gets the same title search and auto-duration treatment, without needing a Discord event at all.
 
 ### Check Timer Status
 
