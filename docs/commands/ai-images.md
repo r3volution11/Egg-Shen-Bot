@@ -53,7 +53,7 @@ Searches TMDB, RAWG, BoardGameGeek, and Google Books to validate both titles exi
 /image matchup:"The Thing vs Alien"
 ```
 
-If your server has an active [tournament bracket](../brackets/), generates a versus image directly from one of its matchups instead of searching from scratch. Running `/image` with no options at all lists the active tournament's current matchups, if any.
+If your server has an active [tournament bracket](./brackets/), generates a versus image directly from one of its matchups instead of searching from scratch. Running `/image` with no options at all lists the active tournament's current matchups, if any.
 
 ### Options
 
