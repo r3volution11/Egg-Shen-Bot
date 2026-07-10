@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
-import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop } from '../utils/timerManager.js';
+import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
@@ -222,6 +222,16 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('stop')
       .setDescription('🛑 Stop the active timer in this channel')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('pause')
+      .setDescription('⏸️ Pause the active timer in this channel')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('resume')
+      .setDescription('▶️ Resume a paused timer in this channel')
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -492,6 +502,108 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
+  } else if (subcommand === 'pause') {
+    const timer = getTimerStatus(channelId);
+
+    if (!timer) {
+      return await interaction.reply({
+        content: '❌ No active timer in this channel. Use `/timer start` to begin one.',
+        ephemeral: true,
+      });
+    }
+
+    if (timer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
+      return await interaction.reply({
+        content: '❌ Only the person who started the timer or server administrators/moderators can pause it.',
+        ephemeral: true,
+      });
+    }
+
+    if (timer.paused) {
+      return await interaction.reply({
+        content: '❌ This timer is already paused. Use `/timer resume` to continue it.',
+        ephemeral: true,
+      });
+    }
+
+    const result = pauseTimer(channelId);
+
+    const fields = [
+      {
+        name: 'Elapsed Time',
+        value: result.elapsedFormatted,
+        inline: true,
+      },
+    ];
+
+    if (result.hadDuration) {
+      fields.push({
+        name: 'Time Remaining',
+        value: result.remainingFormatted,
+        inline: true,
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0xFFA500)
+      .setTitle('⏸️ Timer Paused')
+      .setDescription(timer.label ? `**${timer.label}**` : 'Timer paused')
+      .addFields(fields)
+      .setFooter({ text: 'Use /timer resume to continue' })
+      .setTimestamp();
+
+    await interaction.reply({ embeds: [embed] });
+  } else if (subcommand === 'resume') {
+    const timer = getTimerStatus(channelId);
+
+    if (!timer) {
+      return await interaction.reply({
+        content: '❌ No active timer in this channel. Use `/timer start` to begin one.',
+        ephemeral: true,
+      });
+    }
+
+    if (timer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
+      return await interaction.reply({
+        content: '❌ Only the person who started the timer or server administrators/moderators can resume it.',
+        ephemeral: true,
+      });
+    }
+
+    if (!timer.paused) {
+      return await interaction.reply({
+        content: '❌ This timer is not paused.',
+        ephemeral: true,
+      });
+    }
+
+    const result = resumeTimer(channelId, interaction.client);
+
+    const fields = [
+      {
+        name: 'Elapsed Time',
+        value: result.elapsedFormatted,
+        inline: true,
+      },
+    ];
+
+    if (result.hadDuration) {
+      fields.push({
+        name: 'Time Remaining',
+        value: result.remainingFormatted,
+        inline: true,
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle('▶️ Timer Resumed')
+      .setDescription(timer.label ? `**${timer.label}**` : 'Timer resumed')
+      .addFields(fields)
+      .setFooter({ text: result.hadDuration ? 'Auto-stop is back on track' : 'Use /timer stop to end the timer' })
+      .setTimestamp();
+
+    await interaction.reply({ embeds: [embed] });
   } else if (subcommand === 'status' || subcommand === 'check') {
     const timer = getTimerStatus(channelId);
 
@@ -513,7 +625,7 @@ export async function execute(interaction) {
       if (timer.duration) {
         fields.push({
           name: 'Remaining Time',
-          value: timer.isExpired ? 'Expired (stopping...)' : timer.remainingFormatted,
+          value: timer.paused ? timer.remainingFormatted : (timer.isExpired ? 'Expired (stopping...)' : timer.remainingFormatted),
           inline: true,
         });
         fields.push({
@@ -524,11 +636,11 @@ export async function execute(interaction) {
       }
 
       const embed = new EmbedBuilder()
-        .setColor(timer.isExpired ? 0xFF0000 : 0x5865F2)
-        .setTitle(timer.isExpired ? '⏰ Timer Expired' : '⏱️ Timer Status')
+        .setColor(timer.paused ? 0xFFA500 : (timer.isExpired ? 0xFF0000 : 0x5865F2))
+        .setTitle(timer.paused ? '⏸️ Timer Paused' : (timer.isExpired ? '⏰ Timer Expired' : '⏱️ Timer Status'))
         .setDescription(timer.label ? `**${timer.label}**` : 'Active timer')
         .addFields(fields)
-        .setFooter({ text: timer.duration ? 'Auto-stop enabled' : 'Use /timer stop to end the timer' })
+        .setFooter({ text: timer.paused ? 'Use /timer resume to continue' : (timer.duration ? 'Auto-stop enabled' : 'Use /timer stop to end the timer') })
         .setTimestamp(timer.startTime);
 
       await interaction.reply({ embeds: [embed] });
@@ -747,6 +859,13 @@ export async function execute(interaction) {
     if (timer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
       return await interaction.reply({
         content: '❌ Only the person who started the timer or server administrators/moderators can adjust it.',
+        ephemeral: true,
+      });
+    }
+
+    if (timer.paused) {
+      return await interaction.reply({
+        content: '❌ This timer is paused. Use `/timer resume` first, then adjust the duration.',
         ephemeral: true,
       });
     }
