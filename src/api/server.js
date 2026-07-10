@@ -602,6 +602,11 @@ export function createApiServer(client) {
               .setStyle(ButtonStyle.Primary)
               .setEmoji('💬'),
             new ButtonBuilder()
+              .setCustomId(`edit_event_${requestId}`)
+              .setLabel('Edit')
+              .setStyle(ButtonStyle.Secondary)
+              .setEmoji('✏️'),
+            new ButtonBuilder()
               .setCustomId(`deny_event_${requestId}`)
               .setLabel('Deny')
               .setStyle(ButtonStyle.Danger)
@@ -616,6 +621,11 @@ export function createApiServer(client) {
               .setLabel('Approve & Create Event')
               .setStyle(ButtonStyle.Success)
               .setEmoji('✅'),
+            new ButtonBuilder()
+              .setCustomId(`edit_event_${requestId}`)
+              .setLabel('Edit')
+              .setStyle(ButtonStyle.Secondary)
+              .setEmoji('✏️'),
             new ButtonBuilder()
               .setCustomId(`deny_event_${requestId}`)
               .setLabel('Deny')

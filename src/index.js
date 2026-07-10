@@ -400,6 +400,126 @@ client.on('interactionCreate', async (interaction) => {
           content: 'An error occurred while adding to watch history.',
         });
       }
+    } else if (interaction.customId.startsWith('edit_event_modal_')) {
+      const requestId = interaction.customId.replace('edit_event_modal_', '');
+
+      if (!interaction.member.permissions.has('ManageEvents') &&
+          !interaction.member.permissions.has('Administrator')) {
+        await interaction.reply({
+          content: '❌ Only moderators and administrators can edit event requests.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (!global.eventRequests || !global.eventRequests.has(requestId)) {
+        await interaction.reply({
+          content: '❌ This event request has expired or was already processed.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const requestData = global.eventRequests.get(requestId);
+      requestData.title = interaction.fields.getTextInputValue('title');
+      requestData.description = interaction.fields.getTextInputValue('description') || null;
+
+      const { saveEventRequests } = await import('./api/server.js');
+      await saveEventRequests();
+
+      const originalEmbed = interaction.message?.embeds[0];
+      if (originalEmbed) {
+        const updatedEmbed = new EmbedBuilder(originalEmbed)
+          .setTitle('🎬 New Event Request')
+          .setDescription(`**${requestData.title}**`);
+
+        const descriptionFieldIndex = updatedEmbed.data.fields?.findIndex(f => f.name === '📝 Description');
+        if (descriptionFieldIndex !== undefined && descriptionFieldIndex !== -1) {
+          updatedEmbed.data.fields[descriptionFieldIndex].value = requestData.description || 'No description provided';
+        }
+
+        await interaction.message.edit({ embeds: [updatedEmbed] }).catch(() => {});
+      }
+
+      await interaction.reply({
+        content: `✅ Updated the request's title/description.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    } else if (interaction.customId.startsWith('deny_event_modal_')) {
+      const requestId = interaction.customId.replace('deny_event_modal_', '');
+
+      if (!interaction.member.permissions.has('ManageEvents') &&
+          !interaction.member.permissions.has('Administrator')) {
+        await interaction.reply({
+          content: '❌ Only moderators and administrators can approve/deny event requests.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (!global.eventRequests || !global.eventRequests.has(requestId)) {
+        await interaction.reply({
+          content: '❌ This event request has expired or was already processed.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const requestData = global.eventRequests.get(requestId);
+      const reason = interaction.fields.getTextInputValue('reason') || null;
+
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+      const { saveEventRequests, saveEventChannelSelections } = await import('./api/server.js');
+
+      const originalEmbed = interaction.message?.embeds[0];
+      if (originalEmbed) {
+        const deniedEmbed = new EmbedBuilder(originalEmbed)
+          .setColor(0xFF0000)
+          .setTitle('❌ Event Request Denied')
+          .setFooter({ text: `Denied by ${interaction.user.tag} • ${originalEmbed.footer?.text || ''}` });
+
+        if (reason) {
+          deniedEmbed.addFields({ name: '📄 Reason', value: reason, inline: false });
+        }
+
+        await interaction.message.edit({
+          embeds: [deniedEmbed],
+          components: [],
+        }).catch(() => {});
+      }
+
+      global.eventRequests.delete(requestId);
+      if (global.eventChannelSelections) {
+        global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
+        await saveEventChannelSelections();
+      }
+      await saveEventRequests();
+
+      let dmSucceeded = false;
+      try {
+        const submitter = await interaction.client.users.fetch(requestData.submitterDiscordId);
+        const dmEmbed = new EmbedBuilder()
+          .setColor(0xFF0000)
+          .setTitle('❌ Your Event Request Was Denied')
+          .setDescription(`**${requestData.title}**`)
+          .setTimestamp();
+
+        if (reason) {
+          dmEmbed.addFields({ name: 'Reason', value: reason, inline: false });
+        }
+
+        await submitter.send({ embeds: [dmEmbed] });
+        dmSucceeded = true;
+      } catch (dmError) {
+        console.error('[EventRequest] Failed to DM submitter about denial:', dmError.message);
+      }
+
+      await interaction.editReply({
+        content: dmSucceeded
+          ? '✅ Request denied and the user was notified.'
+          : '✅ Request denied. (Could not DM the user — they may have DMs disabled.)',
+      });
     }
   }
 });
