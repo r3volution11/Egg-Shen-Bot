@@ -1,4 +1,5 @@
 import { getMovieDetails, getTVShowDetails, getUnifiedMovieWatchProviders, getUnifiedTVWatchProviders } from '../services/tmdbService.js';
+import { getBoardGameDetails } from '../services/bggService.js';
 import { getOMDBData } from '../services/omdbService.js';
 import { getMovieRating, getShowRating } from '../services/traktService.js';
 import { getLetterboxdRating } from '../services/letterboxdService.js';
@@ -132,23 +133,27 @@ export async function handleSelectInteraction(interaction) {
       console.log(`[Timer] User selected skip, starting timer without duration`);
     } else {
       // User selected a specific title
-      const type = parts[1]; // 'movie' or 'tv'
-      const tmdbId = parseInt(parts[2]);
-      
-      console.log(`[Timer] User selected ${type} with ID ${tmdbId}`);
-      
+      const type = parts[1]; // 'movie', 'tv', or 'boardgame'
+      const sourceId = parseInt(parts[2]);
+
+      console.log(`[Timer] User selected ${type} with ID ${sourceId}`);
+
       try {
         let runtime = null;
         if (type === 'movie') {
-          const details = await getMovieDetails(tmdbId);
+          const details = await getMovieDetails(sourceId);
           runtime = details?.runtime;
           console.log(`[Timer] Movie runtime: ${runtime} minutes`);
-        } else {
-          const details = await getTVShowDetails(tmdbId);
+        } else if (type === 'tv') {
+          const details = await getTVShowDetails(sourceId);
           runtime = details?.episode_run_time?.[0];
           console.log(`[Timer] TV episode runtime: ${runtime} minutes`);
+        } else {
+          const details = await getBoardGameDetails(sourceId);
+          runtime = details?.playingTime ? parseInt(details.playingTime, 10) : null;
+          console.log(`[Timer] Board game playing time: ${runtime} minutes`);
         }
-        
+
         if (runtime && runtime > 0) {
           duration = runtime + 10;
           console.log(`[Timer] ✅ Auto-detected duration: ${runtime}min + 10min buffer = ${duration}min`);
