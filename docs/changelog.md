@@ -5,6 +5,14 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.9.0 - 2026-07-10
+
+### Fixed
+- **`/timer start label:<text>` didn't trigger runtime auto-detection.** The search-and-confirm flow (movie/TV lookup, the "Confirm Title" selection menu, auto-filling duration from runtime) only ran when the label was auto-detected from a Discord scheduled event — a manually-typed label skipped it entirely and the timer just started with no duration. It now runs the same way regardless of whether the label was typed or auto-detected
+
+### Added
+- **Board games now participate in `/timer` runtime auto-detection**, alongside movies and TV shows. BoardGameGeek's listed playing time is used the same way TMDB's runtime/episode length already was (+ a 10-minute buffer). Each source is capped at 8 results (down from 10) so the combined selection menu never exceeds Discord's 25-option limit even with three sources contributing
+
 ## 2.8.0 - 2026-07-10
 
 ### Added

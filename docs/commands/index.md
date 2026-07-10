@@ -247,8 +247,8 @@ Start, stop, or check channel-specific timers.
 
 **Features:**
 - **Auto-stop timers:** Set duration (1-600 min) for automatic stop
-- **Runtime auto-detection:** Detects runtime from TMDB with 10-min buffer
-- **Smart selection:** Shows menu when multiple TMDB matches found
+- **Runtime auto-detection:** Searches movies, TV shows, and board games and adds a 10-min buffer — works whether the label was typed manually or auto-detected
+- **Smart selection:** Shows menu when multiple matches are found
 - Auto-detects Discord scheduled events
 - Optional custom labels
 - One timer per channel
