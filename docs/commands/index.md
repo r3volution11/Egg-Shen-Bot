@@ -241,6 +241,8 @@ Start, stop, or check channel-specific timers.
 
 **Subcommands:**
 - `/timer start` - Start a timer in the current channel
+- `/timer pause` - Pause the active timer, freezing elapsed/remaining time
+- `/timer resume` - Resume a paused timer
 - `/timer stop` - Stop the active timer
 - `/timer status` - Check timer status
 - `/timer remind` - Announce timer is starting (with event auto-detection)
