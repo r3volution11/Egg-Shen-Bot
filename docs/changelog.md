@@ -5,6 +5,12 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.7.1 - 2026-07-10
+
+### Fixed
+- **Event request approval could fail with "Please select a text channel before creating the event" even when a channel was clearly selected in the UI.** The moderator's channel selection (`global.eventChannelSelections`) was kept only in memory with no disk persistence, unlike the underlying event request itself. If the bot restarted between selecting a channel and clicking "Create Event" — a redeploy, a PM2 restart, a crash — the selection silently vanished while the request survived, and the resulting error message pointed at the wrong cause. Channel selections are now persisted to disk and restored on startup, the same way pending event requests already are, and the error message now explains what actually happened when a selection genuinely can't be found
+- A cancelled channel-selection flow (`Cancel` button) now also cleans up its in-memory/on-disk selection state, instead of leaving it around indefinitely
+
 ## 2.7.0 - 2026-07-09
 
 ### Fixed

@@ -12,6 +12,8 @@ const __dirname = path.dirname(__filename);
 
 // Path to persist event requests
 const EVENT_REQUESTS_FILE = path.join(__dirname, '../../pending_event_requests.json');
+// Path to persist in-progress channel selections (approve flow, step before event creation)
+const EVENT_CHANNEL_SELECTIONS_FILE = path.join(__dirname, '../../pending_event_channel_selections.json');
 
 /**
  * Save event requests to disk
@@ -73,6 +75,48 @@ async function loadEventRequests() {
       return;
     }
     console.error('[EventRequests] Error loading requests:', error);
+  }
+}
+
+/**
+ * Save in-progress event-approval channel selections to disk.
+ * Without this, a bot restart between selecting a channel and clicking
+ * "Create Event" silently wipes the selection while the underlying event
+ * request (which IS persisted) survives — producing a misleading
+ * "please select a text channel" error even though one was clearly chosen.
+ */
+async function saveEventChannelSelections() {
+  try {
+    if (!global.eventChannelSelections) {
+      global.eventChannelSelections = new Map();
+    }
+    const selectionsData = Object.fromEntries(global.eventChannelSelections);
+    await fs.writeFile(EVENT_CHANNEL_SELECTIONS_FILE, JSON.stringify(selectionsData, null, 2), 'utf8');
+  } catch (error) {
+    console.error('[EventRequests] Error saving channel selections:', error);
+  }
+}
+
+/**
+ * Load in-progress event-approval channel selections from disk on bot startup.
+ */
+async function loadEventChannelSelections() {
+  if (!global.eventChannelSelections) {
+    global.eventChannelSelections = new Map();
+  }
+
+  try {
+    const data = await fs.readFile(EVENT_CHANNEL_SELECTIONS_FILE, 'utf8');
+    const selectionsData = JSON.parse(data);
+
+    for (const [key, selection] of Object.entries(selectionsData)) {
+      global.eventChannelSelections.set(key, selection);
+    }
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return;
+    }
+    console.error('[EventRequests] Error loading channel selections:', error);
   }
 }
 
@@ -658,6 +702,7 @@ export function createApiServer(client) {
 export async function startApiServer(client, port = 3000) {
   // Load pending event requests from disk
   await loadEventRequests();
+  await loadEventChannelSelections();
   
   const app = createApiServer(client);
   
@@ -669,4 +714,4 @@ export async function startApiServer(client, port = 3000) {
 }
 
 // Export persistence functions for manual use if needed
-export { loadEventRequests, saveEventRequests };
+export { loadEventRequests, saveEventRequests, saveEventChannelSelections, loadEventChannelSelections };
