@@ -19,7 +19,7 @@ import { config } from '../config.js';
 
 export const data = new SlashCommandBuilder()
   .setName('random')
-  .setDescription('Get a random movie, TV show, or episode')
+  .setDescription('Get a random movie, TV show, episode, game, board game, or book')
   .addSubcommand(subcommand =>
     subcommand
       .setName('movie')
@@ -514,8 +514,23 @@ export async function execute(interaction) {
       if (minRating) filters.minRating = parseFloat(minRating);
       
       // Get random game
-      const game = await discoverRandomGame(filters);
-      
+      let game;
+      try {
+        game = await discoverRandomGame(filters);
+      } catch (discoverError) {
+        await interaction.editReply({
+          content: 'No games found matching your filters. Try adjusting them.',
+        });
+        return;
+      }
+
+      if (!game) {
+        await interaction.editReply({
+          content: 'No games found matching your filters. Try adjusting them.',
+        });
+        return;
+      }
+
       // Track the random game search
       await trackSearch(
         interaction.guildId,
@@ -550,8 +565,23 @@ export async function execute(interaction) {
       if (minRating) filters.minRating = parseFloat(minRating);
       
       // Get random board game
-      const boardGame = await getRandomBoardGame(filters);
-      
+      let boardGame;
+      try {
+        boardGame = await getRandomBoardGame(filters);
+      } catch (discoverError) {
+        await interaction.editReply({
+          content: 'No board games found matching your filters. Try adjusting them.',
+        });
+        return;
+      }
+
+      if (!boardGame) {
+        await interaction.editReply({
+          content: 'No board games found matching your filters. Try adjusting them.',
+        });
+        return;
+      }
+
       // Track the random board game search
       await trackSearch(
         interaction.guildId,

@@ -380,9 +380,8 @@ Display comprehensive bot help with complete command list.
 /eggshen-help
 ```
 
-**Pro Tip:** Many complex commands have their own help subcommands:
+**Pro Tip:** Some complex commands have their own help subcommands:
 - `/bracket help` - Tournament system guide
-- `/timer help` - Timer features and usage
 - Use these for detailed, context-specific guidance!
 
 ---

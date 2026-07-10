@@ -31,8 +31,8 @@ const guildDailyUsage = new Map();
  * @param {boolean} isMod - Whether user is moderator
  * @returns {Object} { allowed: boolean, reason?: string, retryAfter?: number, userUsage?: number, guildUsage?: number, whitelisted?: boolean }
  */
-export function canGenerateImage(guildId, userId, isAdmin = false, isMod = false) {
-  const config = loadGuildConfig(guildId);
+export async function canGenerateImage(guildId, userId, isAdmin = false, isMod = false) {
+  const config = await loadGuildConfig(guildId);
   const aiConfig = config.aiImages || {
     enabled: true,
     permissions: 'everyone', // 'everyone', 'moderators', 'admins'
@@ -157,8 +157,8 @@ export function canGenerateImage(guildId, userId, isAdmin = false, isMod = false
  * @param {string} commandName - Command name (image or bracket-image)
  * @param {Object} metadata - Additional metadata (titles, prompt, etc.)
  */
-export function recordImageGeneration(guildId, userId, commandName, metadata = {}) {
-  const config = loadGuildConfig(guildId);
+export async function recordImageGeneration(guildId, userId, commandName, metadata = {}) {
+  const config = await loadGuildConfig(guildId);
   const limits = config.rateLimits?.aiImages || {};
   const costPerImage = limits.costPerImage || 0.04;
 
@@ -208,8 +208,8 @@ export function recordImageGeneration(guildId, userId, commandName, metadata = {
  * @param {string} guildId - Guild ID
  * @returns {Object} Usage statistics
  */
-export function getGuildImageStats(guildId) {
-  const config = loadGuildConfig(guildId);
+export async function getGuildImageStats(guildId) {
+  const config = await loadGuildConfig(guildId);
   const limits = config.rateLimits?.aiImages || {
     perUserDailyLimit: 10,
     perGuildDailyLimit: 50,
@@ -241,8 +241,8 @@ export function getGuildImageStats(guildId) {
  * @param {string} userId - User ID
  * @returns {Object} Usage statistics
  */
-export function getUserImageStats(guildId, userId) {
-  const config = loadGuildConfig(guildId);
+export async function getUserImageStats(guildId, userId) {
+  const config = await loadGuildConfig(guildId);
   const limits = config.rateLimits?.aiImages || {
     perUserDailyLimit: 10,
     perUserCooldown: 300,
