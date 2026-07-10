@@ -11,7 +11,7 @@ export async function execute(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle('🧙 Egg Shen Bot - Complete Command List')
-    .setDescription('Your mystical guide to movies, TV shows, games, music, books, and more!\n\n💡 **Tip:** Many commands have detailed help - try `/bracket help`, `/timer help`, etc.')
+    .setDescription('Your mystical guide to movies, TV shows, games, music, books, and more!\n\n💡 **Tip:** Some commands have detailed help - try `/bracket help`.')
     .addFields(
       {
         name: '🎬 Movies & TV Shows',
@@ -36,8 +36,8 @@ export async function execute(interaction) {
       {
         name: '🎲 Random & Discovery',
         value:
-          '**🎲 /random** - Get random movie, TV, episode, or game\n' +
-          '**🔀 Filters:** genre, year, rating, platform, etc.',
+          '**🎲 /random** - Get random movie, TV, episode, game, board game, or book\n' +
+          '**🔀 Filters:** genre, decade, rating, platform, etc.',
         inline: false,
       },
       {
@@ -52,14 +52,14 @@ export async function execute(interaction) {
         name: '🎨 AI Image Generation',
         value:
           '**🎨 /image** - Generate AI images: freeform, from a message, or a versus battle between two titles\n' +
-          '**🧪 /potion** - Generate mystical potion images',
+          '**🧪 /potion** - Give someone a mystical potion with a flavorful response',
         inline: false,
       },
       {
         name: '⏱️ Watch Party Tools',
         value:
           '**⏱️ /timer** - Start, stop, or check channel timers\n' +
-          '**🎉 /watchparty** - Schedule watch party events\n' +
+          '**🎉 /watchparty** - Announce that a scheduled watch party is starting\n' +
           '**📊 /stats** - View server or personal statistics',
         inline: false,
       },
