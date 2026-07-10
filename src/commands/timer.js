@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, But
 import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
+import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
 
 /**
  * Auto-detect event title from scheduled events
@@ -300,24 +301,22 @@ export async function execute(interaction) {
     const theme = interaction.options.getString('theme') || 'modern';
     const userId = interaction.user.id;
     const username = interaction.user.username;
-    let autoDetectedLabel = false;
 
     // Auto-detect event title if no manual label provided
     if (!label) {
       const config = await loadGuildConfig(interaction.guildId);
       const watchPartyChannels = config.watchPartyChannels || [];
-      
+
       console.log(`[Timer] No manual label provided. Checking for auto-detection...`);
       console.log(`[Timer] Configured watch party channels:`, watchPartyChannels);
       console.log(`[Timer] Current channel ID: ${channelId}`);
-      
+
       // Check if this channel is configured for watch party auto-detection
       if (watchPartyChannels.includes(channelId)) {
         console.log(`[Timer] ✅ Channel is configured for auto-detection. Fetching events...`);
         const autoDetectedTitle = await getEventTitleForChannel(interaction.guild, channelId);
         if (autoDetectedTitle) {
           label = autoDetectedTitle;
-          autoDetectedLabel = true;
           console.log(`[Timer] ✅ Auto-detected event title: "${label}"`);
         } else {
           console.log(`[Timer] ❌ No matching event found for auto-detection`);
@@ -330,34 +329,40 @@ export async function execute(interaction) {
     }
 
     // Auto-detect runtime if duration not provided and we have a label
-    if (!duration && label && autoDetectedLabel) {
-      console.log(`[Timer] Auto-detected label, attempting to detect runtime for: "${label}"`);
+    // (runs for both manually-typed and auto-detected labels)
+    if (!duration && label) {
+      console.log(`[Timer] Attempting to detect runtime for: "${label}"`);
       try {
-        // Search for the movie/TV show
-        const [movieResults, tvResults] = await Promise.all([
+        // Search for the movie/TV show/board game
+        const [movieResults, tvResults, boardGameResults] = await Promise.all([
           searchMovies(label).catch(() => []),
           searchTVShows(label).catch(() => []),
+          searchBoardGames(label).catch(() => []),
         ]);
 
         const allResults = [
-          ...(movieResults || []).slice(0, 10).map(r => ({ ...r, type: 'movie' })),
-          ...(tvResults || []).slice(0, 10).map(r => ({ ...r, type: 'tv' })),
+          ...(movieResults || []).slice(0, 8).map(r => ({ ...r, type: 'movie' })),
+          ...(tvResults || []).slice(0, 8).map(r => ({ ...r, type: 'tv' })),
+          ...(boardGameResults || []).slice(0, 8).map(r => ({ ...r, type: 'boardgame' })),
         ];
 
         if (allResults.length === 0) {
-          console.log(`[Timer] No TMDB results found for "${label}", continuing without duration`);
+          console.log(`[Timer] No results found for "${label}", continuing without duration`);
         } else if (allResults.length === 1) {
           // Only one result, use it automatically
           const result = allResults[0];
           console.log(`[Timer] Found single ${result.type} match: ${result.title || result.name}`);
-          
+
           let runtime = null;
           if (result.type === 'movie') {
             const details = await getMovieDetails(result.id);
             runtime = details?.runtime;
-          } else {
+          } else if (result.type === 'tv') {
             const details = await getTVShowDetails(result.id);
             runtime = details?.episode_run_time?.[0];
+          } else {
+            const details = await getBoardGameDetails(result.id);
+            runtime = details?.playingTime ? parseInt(details.playingTime, 10) : null;
           }
 
           if (runtime && runtime > 0) {
@@ -366,7 +371,7 @@ export async function execute(interaction) {
           }
         } else {
           // Multiple results - show selection menu
-          console.log(`[Timer] Found ${allResults.length} TMDB results, showing selection menu`);
+          console.log(`[Timer] Found ${allResults.length} results, showing selection menu`);
           
           const options = allResults.map((result) => {
             const title = result.title || result.name;
@@ -399,7 +404,7 @@ export async function execute(interaction) {
             .setColor(0x0099FF)
             .setTitle(`🎬 Confirm Title for "${label}"`)
             .setDescription(
-              `Found ${allResults.length} possible matches on TMDB.\n\n` +
+              `Found ${allResults.length} possible matches.\n\n` +
               `**Select the correct title** to auto-detect runtime and add a 10-minute buffer.\n\n` +
               `Or choose "Skip" to start the timer without a duration (continuous until stopped).`
             )
