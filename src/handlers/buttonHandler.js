@@ -4,7 +4,7 @@
 import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
-import { saveEventRequests } from '../api/server.js';
+import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -275,9 +275,10 @@ export async function handleButtonInteraction(interaction) {
           global.eventRequests.delete(requestId);
           if (global.eventChannelSelections) {
             global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
+            await saveEventChannelSelections();
           }
           await saveEventRequests();
-          
+
           await interaction.editReply({
             content: `Event request denied.`
           });
@@ -331,9 +332,10 @@ export async function handleButtonInteraction(interaction) {
           global.eventRequests.delete(requestId);
           if (global.eventChannelSelections) {
             global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
+            await saveEventChannelSelections();
           }
           await saveEventRequests();
-          
+
           const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
           await interaction.editReply({
             content: `✅ Event created successfully as ${eventTypeText}!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`
@@ -385,10 +387,10 @@ export async function handleButtonInteraction(interaction) {
       // Get selected channels from global storage
       const selectionKey = `${interaction.guildId}_${requestId}`;
       const selections = global.eventChannelSelections?.get(selectionKey);
-      
+
       if (!selections || !selections.textChannelId) {
         await interaction.update({
-          content: '❌ Please select a text channel before creating the event.',
+          content: '❌ Your channel selection wasn\'t found (the bot may have restarted since you selected it). Please reselect the text channel below and try again.',
           components: interaction.message.components,
           flags: MessageFlags.Ephemeral
         });
@@ -457,6 +459,7 @@ export async function handleButtonInteraction(interaction) {
         global.eventRequests.delete(requestId);
         if (global.eventChannelSelections) {
           global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
+          await saveEventChannelSelections();
         }
         await saveEventRequests();
         
@@ -488,6 +491,12 @@ export async function handleButtonInteraction(interaction) {
     
     // Handle cancel event channels button
     if (interaction.customId.startsWith('cancel_event_channels_')) {
+      const requestId = interaction.customId.replace('cancel_event_channels_', '');
+      if (global.eventChannelSelections) {
+        global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
+        await saveEventChannelSelections();
+      }
+
       await interaction.update({
         content: '❌ Event approval cancelled.',
         components: [],

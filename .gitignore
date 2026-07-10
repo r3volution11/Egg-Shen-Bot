@@ -21,6 +21,7 @@ active_timers.json
 
 # Pending event requests (runtime state)
 pending_event_requests.json
+pending_event_channel_selections.json
 
 # Playwright e2e output
 /test-results/

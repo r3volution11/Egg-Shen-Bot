@@ -14,6 +14,7 @@ import {
 import { createDetailedEmbed } from '../utils/embedBuilder.js';
 import { getEnabledServices, getEmojis, getStatsConfig, loadGuildConfig } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
+import { saveEventChannelSelections } from '../api/server.js';
 
 /**
  * Parse season/episode notation (s3e11, 3x11, etc.)
@@ -84,7 +85,8 @@ export async function handleSelectInteraction(interaction) {
     }
     
     global.eventChannelSelections.set(key, selections);
-    
+    await saveEventChannelSelections();
+
     // Update message to show selections
     const textChannel = selections.textChannelId ? `<#${selections.textChannelId}>` : '*Not selected*';
     const voiceChannel = selections.voiceChannelId ? `<#${selections.voiceChannelId}>` : '*None (text-only event)*';
