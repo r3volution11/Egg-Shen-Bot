@@ -144,6 +144,9 @@ export const data = new SlashCommandBuilder()
                 { name: 'Movie Command', value: 'movie' },
                 { name: 'TV Command', value: 'tv' },
                 { name: 'Episode Command', value: 'episode' },
+                { name: 'Game Command', value: 'game' },
+                { name: 'Board Game Command', value: 'boardgame' },
+                { name: 'Book Command', value: 'book' },
                 { name: 'Survey Command', value: 'survey' },
                 { name: 'Soundtrack Command', value: 'soundtrack' },
                 { name: 'Bracket Command', value: 'bracket' }
@@ -893,12 +896,12 @@ export async function execute(interaction) {
       })
       .addFields({
         name: 'Streaming Region',
-        value: `🌍 **${regionDisplay}** (use \`/eggshen-config region code:<XX>\` to change)`,
+        value: `🌍 **${regionDisplay}** (use \`/eggshen-config settings region code:<XX>\` to change)`,
         inline: false,
       })
       .addFields({
         name: 'Max Search Results',
-        value: `🔢 **${maxResultsDisplay}** results (use \`/eggshen-config max-results count:<1-50>\` to change)`,
+        value: `🔢 **${maxResultsDisplay}** results (use \`/eggshen-config settings max-results count:<1-50>\` to change)`,
         inline: false,
       })
       .addFields({
@@ -1196,7 +1199,7 @@ export async function execute(interaction) {
     
     if (!config.watchPartyChannels || config.watchPartyChannels.length === 0) {
       await interaction.reply({
-        content: '📋 No watch party channels configured.\n\nUse `/eggshen-config watch-party-add channel:<channel>` to add one.',
+        content: '📋 No watch party channels configured.\n\nUse `/eggshen-config watch-party add channel:<channel>` to add one.',
         ephemeral: true,
       });
       return;
@@ -1215,7 +1218,7 @@ export async function execute(interaction) {
         value: channelList,
         inline: false,
       })
-      .setFooter({ text: 'Use /eggshen-config watch-party-add or watch-party-remove to manage channels' });
+      .setFooter({ text: 'Use /eggshen-config watch-party add or watch-party remove to manage channels' });
     
     await interaction.reply({ embeds: [embed], ephemeral: true });
   } else if (group === 'rate-limit' && subcommand === 'toggle') {
@@ -1412,31 +1415,31 @@ export async function execute(interaction) {
       .setDescription(description)
       .addFields({
         name: 'Master Switches',
-        value: '**Rate limiting:** `/eggshen-config rate-limit-toggle`\n' +
-               '**Moderation:** `/eggshen-config moderation-toggle`',
+        value: '**Rate limiting:** `/eggshen-config rate-limit toggle`\n' +
+               '**Moderation:** `/eggshen-config moderation toggle`',
         inline: false,
       })
       .addFields({
         name: 'Per-User Limits',
-        value: '**Set global limit:** `/eggshen-config rate-limit-global`\n' +
-               '**Set command limit:** `/eggshen-config rate-limit-command`\n' +
-               '**Toggle moderator bypass:** `/eggshen-config rate-limit-bypass`\n' +
-               '**Clear user limits:** `/eggshen-config rate-limit-clear`',
+        value: '**Set global limit:** `/eggshen-config rate-limit global`\n' +
+               '**Set command limit:** `/eggshen-config rate-limit command`\n' +
+               '**Toggle moderator bypass:** `/eggshen-config rate-limit bypass`\n' +
+               '**Clear user limits:** `/eggshen-config rate-limit clear`',
         inline: false,
       })
       .addFields({
         name: 'Anti-Flood Protection',
-        value: '**Server-wide limiting:** `/eggshen-config rate-limit-guild-wide`\n' +
-               '**Pattern detection:** `/eggshen-config pattern-detection`\n' +
-               '**View suspicious activity:** `/eggshen-config suspicious-activity`\n' +
-               '**View abuse log:** `/eggshen-config abuse-log`',
+        value: '**Server-wide limiting:** `/eggshen-config rate-limit guild-wide`\n' +
+               '**Pattern detection:** `/eggshen-config rate-limit pattern-detection`\n' +
+               '**View suspicious activity:** `/eggshen-config rate-limit suspicious-activity`\n' +
+               '**View abuse log:** `/eggshen-config rate-limit abuse-log`',
         inline: false,
       })
       .addFields({
         name: 'Moderation Tools',
-        value: '**User cooldowns:** `/eggshen-config user-cooldown / user-cooldown-remove / user-cooldown-list`\n' +
-               '**Whitelist:** `/eggshen-config whitelist-toggle / whitelist-add-role / whitelist-add-user / whitelist-list`\n' +
-               '**Auto-ban:** `/eggshen-config auto-ban-toggle / auto-ban-threshold / auto-ban-list`',
+        value: '**User cooldowns:** `/eggshen-config moderation user-cooldown / user-cooldown-remove / user-cooldown-list`\n' +
+               '**Whitelist:** `/eggshen-config moderation whitelist-toggle / whitelist-add-role / whitelist-add-user / whitelist-list`\n' +
+               '**Auto-ban:** `/eggshen-config moderation auto-ban-toggle / auto-ban-threshold / auto-ban-list`',
         inline: false,
       })
       .setFooter({ text: 'Rate limits and moderation tools prevent abuse and channel flooding' });
@@ -1517,7 +1520,7 @@ export async function execute(interaction) {
     const statusText = enabled ? 'enabled' : 'disabled';
     const emoji = enabled ? '✅' : '❌';
     const description = enabled
-      ? `\n\nThe bot will now monitor for suspicious patterns like:\n• Multiple accounts running identical commands\n• Coordinated burst attacks from new accounts\n\nFlags when ${config.rateLimits.patternDetection.minUsers}+ users show suspicious behavior.\n\nUse \`/eggshen-config suspicious-activity\` to view detected patterns.`
+      ? `\n\nThe bot will now monitor for suspicious patterns like:\n• Multiple accounts running identical commands\n• Coordinated burst attacks from new accounts\n\nFlags when ${config.rateLimits.patternDetection.minUsers}+ users show suspicious behavior.\n\nUse \`/eggshen-config rate-limit suspicious-activity\` to view detected patterns.`
       : '\n\nPattern detection is now disabled.';
     
     await interaction.reply({
@@ -1641,8 +1644,8 @@ export async function execute(interaction) {
       costPerImage: 0.04,
     };
 
-    const guildStats = getGuildImageStats(guildId);
-    const userStats = getUserImageStats(guildId, interaction.user.id);
+    const guildStats = await getGuildImageStats(guildId);
+    const userStats = await getUserImageStats(guildId, interaction.user.id);
     
     const permissionsLabel = {
       everyone: 'Everyone',
@@ -2025,7 +2028,7 @@ export async function execute(interaction) {
     const config = await loadGuildConfig(guildId);
     if (!config.moderation?.enabled) {
       await interaction.reply({
-        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation-toggle enabled:true`',
+        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation toggle enabled:true`',
         ephemeral: true,
       });
       return;
@@ -2075,7 +2078,7 @@ export async function execute(interaction) {
       .setColor(0xFFA500)
       .setTitle('🛑 Active User Cooldowns')
       .setDescription(`${cooldowns.length} user${cooldowns.length !== 1 ? 's' : ''} currently under cooldown:`)
-      .setFooter({ text: 'Use /eggshen-config user-cooldown-remove to lift a cooldown' });
+      .setFooter({ text: 'Use /eggshen-config moderation user-cooldown-remove to lift a cooldown' });
     
     for (const cooldown of cooldowns) {
       const expiryTimestamp = Math.floor(cooldown.expiresAt / 1000);
@@ -2104,7 +2107,7 @@ export async function execute(interaction) {
     
     if (!config.moderation.enabled) {
       await interaction.reply({
-        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation-toggle enabled:true`',
+        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation toggle enabled:true`',
         ephemeral: true,
       });
       return;
@@ -2116,7 +2119,7 @@ export async function execute(interaction) {
     const statusText = enabled ? 'enabled' : 'disabled';
     const emoji = enabled ? '🔒' : '✅';
     const description = enabled
-      ? '\n\n⚠️ **Only whitelisted users and roles can now use bot commands!**\n\nAdd allowed roles/users:\n• `/eggshen-config whitelist-add-role`\n• `/eggshen-config whitelist-add-user`\n\nAdministrators and moderators are always allowed.'
+      ? '\n\n⚠️ **Only whitelisted users and roles can now use bot commands!**\n\nAdd allowed roles/users:\n• `/eggshen-config moderation whitelist-add-role`\n• `/eggshen-config moderation whitelist-add-user`\n\nAdministrators and moderators are always allowed.'
       : '\n\nAll users can now use bot commands (subject to rate limits).';
     
     await interaction.reply({
@@ -2130,7 +2133,7 @@ export async function execute(interaction) {
     const config = await loadGuildConfig(guildId);
     if (!config.moderation?.enabled) {
       await interaction.reply({
-        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation-toggle enabled:true`',
+        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation toggle enabled:true`',
         ephemeral: true,
       });
       return;
@@ -2162,7 +2165,7 @@ export async function execute(interaction) {
     const config = await loadGuildConfig(guildId);
     if (!config.moderation?.enabled) {
       await interaction.reply({
-        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation-toggle enabled:true`',
+        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation toggle enabled:true`',
         ephemeral: true,
       });
       return;
@@ -2252,7 +2255,7 @@ export async function execute(interaction) {
         (config.moderation.whitelist.allowedRoles.length === 0 && 
          config.moderation.whitelist.allowedUsers.length === 0)) {
       await interaction.reply({
-        content: '❌ No roles or users in the whitelist.\n\nAdd them with:\n• `/eggshen-config whitelist-add-role`\n• `/eggshen-config whitelist-add-user`',
+        content: '❌ No roles or users in the whitelist.\n\nAdd them with:\n• `/eggshen-config moderation whitelist-add-role`\n• `/eggshen-config moderation whitelist-add-user`',
         ephemeral: true,
       });
       return;
@@ -2302,7 +2305,7 @@ export async function execute(interaction) {
     
     if (!config.moderation.enabled) {
       await interaction.reply({
-        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation-toggle enabled:true`',
+        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation toggle enabled:true`',
         ephemeral: true,
       });
       return;
@@ -2314,7 +2317,7 @@ export async function execute(interaction) {
     const statusText = enabled ? 'enabled' : 'disabled';
     const emoji = enabled ? '✅' : '❌';
     const description = enabled
-      ? `\n\nThe bot will now warn users when they exceed ${config.moderation.autoBan.violationCount} rate limit violations within ${config.moderation.autoBan.windowHours} hours.\n\nConfigure threshold: \`/eggshen-config auto-ban-threshold\``
+      ? `\n\nThe bot will now warn users when they exceed ${config.moderation.autoBan.violationCount} rate limit violations within ${config.moderation.autoBan.windowHours} hours.\n\nConfigure threshold: \`/eggshen-config moderation auto-ban-threshold\``
       : '\n\nAuto-ban warnings are now disabled.';
     
     await interaction.reply({
@@ -2329,7 +2332,7 @@ export async function execute(interaction) {
     const config = await loadGuildConfig(guildId);
     if (!config.moderation?.enabled) {
       await interaction.reply({
-        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation-toggle enabled:true`',
+        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation toggle enabled:true`',
         ephemeral: true,
       });
       return;
@@ -2357,7 +2360,7 @@ export async function execute(interaction) {
     const config = await loadGuildConfig(guildId);
     if (!config.moderation?.enabled) {
       await interaction.reply({
-        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation-toggle enabled:true`',
+        content: '❌ Moderation features are disabled. Enable them with `/eggshen-config moderation toggle enabled:true`',
         ephemeral: true,
       });
       return;

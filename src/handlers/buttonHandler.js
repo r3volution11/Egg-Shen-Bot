@@ -512,6 +512,22 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
 
+    // Handle "Log to Watch History" button from timer stop
+    if (interaction.customId.startsWith('log_watched_')) {
+      await handleWatchHistoryButton(interaction);
+
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+
+      if (duration > 2000) {
+        logger.logPerformance('Button: log_watched', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+
     // Unknown button type
     console.warn(`[ButtonHandler] Unknown button interaction: ${interaction.customId}`);
     logger.warning(logger.LogCategory.BUTTON, 'Unknown button interaction', {

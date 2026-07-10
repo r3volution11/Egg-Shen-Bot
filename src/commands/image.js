@@ -49,7 +49,7 @@ export async function execute(interaction) {
   // Check permissions and feature enabled
   const userIsTrueAdmin = await isTrueAdmin(interaction.member);
   const userIsMod = await isModerator(interaction.member) || userIsTrueAdmin;
-  const rateCheck = canGenerateImage(interaction.guildId, interaction.user.id, userIsTrueAdmin, userIsMod);
+  const rateCheck = await canGenerateImage(interaction.guildId, interaction.user.id, userIsTrueAdmin, userIsMod);
 
   if (!rateCheck.allowed) {
     return await interaction.editReply(`❌ ${rateCheck.reason}`);
@@ -92,7 +92,7 @@ export async function execute(interaction) {
     } else if (matchupInput) {
       await generateVersusFromMatchup(interaction, matchupInput, prompt);
     } else if (messageInput) {
-      await generateFromMessage(interaction, messageInput);
+      await generateFromMessage(interaction, messageInput, prompt);
     } else {
       await generateFromPrompt(interaction, prompt);
     }
@@ -279,7 +279,7 @@ async function generateAndPostImage(interaction, prompt, { size, embedTitle, fil
     throw new Error('Invalid response from OpenAI - missing data');
   }
 
-  recordImageGeneration(interaction.guildId, interaction.user.id, recordType, recordMeta);
+  await recordImageGeneration(interaction.guildId, interaction.user.id, recordType, recordMeta);
 
   const embed = new EmbedBuilder()
     .setColor(0xFEE75C)
@@ -403,11 +403,16 @@ async function generateVersusFromMatchup(interaction, matchupInput, customPrompt
   });
 }
 
-async function generateFromMessage(interaction, messageInput) {
+async function generateFromMessage(interaction, messageInput, customPrompt) {
   let targetMessage = null;
 
   if (/^\d{17,19}$/.test(messageInput)) {
-    targetMessage = await interaction.channel.messages.fetch(messageInput);
+    try {
+      targetMessage = await interaction.channel.messages.fetch(messageInput);
+    } catch (fetchError) {
+      await interaction.editReply(`❌ Could not find a message with ID "${messageInput}" in this channel.`);
+      return;
+    }
   } else {
     const messages = await interaction.channel.messages.fetch({ limit: 100 });
     const username = messageInput.toLowerCase();
@@ -429,10 +434,11 @@ async function generateFromMessage(interaction, messageInput) {
     return;
   }
 
-  const finalPrompt = targetMessage.content;
+  const messagePrompt = targetMessage.content;
+  const finalPrompt = customPrompt ? `${messagePrompt} Additional details: ${customPrompt}` : messagePrompt;
 
   await interaction.editReply(
-    `🎨 Generating image from **${targetMessage.author.username}**'s message...\n\n_Message: "${finalPrompt.substring(0, 200)}${finalPrompt.length > 200 ? '...' : ''}"_\n\n_This may take 2-3 minutes..._`
+    `🎨 Generating image from **${targetMessage.author.username}**'s message...\n\n_Message: "${messagePrompt.substring(0, 200)}${messagePrompt.length > 200 ? '...' : ''}"_\n\n_This may take 2-3 minutes..._`
   );
 
   await generateAndPostImage(interaction, finalPrompt, {

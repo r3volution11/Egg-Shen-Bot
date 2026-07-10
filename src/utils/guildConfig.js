@@ -144,8 +144,13 @@ export async function loadGuildConfig(guildId) {
     const data = await fs.readFile(configPath, 'utf8');
     return JSON.parse(data);
   } catch (error) {
-    // If config doesn't exist, return default
-    return { ...defaultConfig };
+    // If config doesn't exist, return default. Must be a deep clone —
+    // a shallow `{ ...defaultConfig }` shares nested objects (commandPermissions,
+    // services, rateLimits, etc.) by reference across every guild that hasn't
+    // saved a config yet, so the first update*()/toggle*() call for ANY
+    // not-yet-configured guild would mutate defaultConfig itself and silently
+    // change the "default" for every other guild for the life of the process.
+    return structuredClone(defaultConfig);
   }
 }
 
@@ -296,15 +301,17 @@ export async function getCommandPermissions(guildId) {
  */
 export async function updateCommandPermission(guildId, setting, enabled) {
   const config = await loadGuildConfig(guildId);
-  
-  if (setting === 'enabled') {
-    config.commandPermissions.enabled = enabled;
-  } else if (setting === 'movie' || setting === 'tv' || setting === 'episode' || setting === 'game' || setting === 'boardgame' || setting === 'book' || setting === 'survey') {
-    config.commandPermissions[setting] = enabled;
-  } else {
+
+  // Any key already present in commandPermissions (movie, tv, episode, game,
+  // boardgame, book, survey, soundtrack, bracket, enabled, ...) is a valid
+  // toggle. Checking against the config's own keys instead of a hardcoded
+  // list keeps this in sync automatically as command types are added to
+  // defaultConfig.commandPermissions.
+  if (!Object.prototype.hasOwnProperty.call(config.commandPermissions, setting)) {
     return false;
   }
-  
+
+  config.commandPermissions[setting] = enabled;
   await saveGuildConfig(guildId, config);
   return true;
 }
@@ -326,12 +333,13 @@ export async function canUseCommand(guildId, member, commandName) {
     return false;
   }
   
-  // Check specific command permission
-  if (commandName === 'movie' || commandName === 'tv' || commandName === 'episode' || commandName === 'survey') {
+  // Check specific command permission, for any command type that has a
+  // configurable toggle (see defaultConfig.commandPermissions above).
+  if (Object.prototype.hasOwnProperty.call(config.commandPermissions, commandName)) {
     return config.commandPermissions[commandName] === true;
   }
-  
+
   // Admin-only commands (eggshen-config, eggshen-stats) are handled by isAdmin check above
-  // Other commands (eggshen-help) are always allowed
+  // Commands with no configurable toggle (eggshen-help) are always allowed
   return true;
 }
