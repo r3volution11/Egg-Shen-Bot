@@ -11,7 +11,7 @@ import {
   getUserVote,
   VOTE_EMOJIS,
 } from '../utils/pollManager.js';
-import { loadGuildConfig, canUseCommand } from '../utils/guildConfig.js';
+import { canUseCommand } from '../utils/guildConfig.js';
 
 export const data = new SlashCommandBuilder()
   .setName('survey')
@@ -157,10 +157,7 @@ export const data = new SlashCommandBuilder()
 /**
  * Create a poll embed
  */
-function createPollEmbed(poll, showResults = false) {
-  const guildConfig = loadGuildConfig(poll.guildId);
-  const emojis = guildConfig?.emojis || {};
-  
+export function createPollEmbed(poll, showResults = false) {
   const { totalVotes, results } = getPollResults(poll);
   
   const embed = new EmbedBuilder()

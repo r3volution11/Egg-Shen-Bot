@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
 import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop } from '../utils/timerManager.js';
-import { loadGuildConfig } from '../utils/guildConfig.js';
+import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
 
 /**
@@ -421,6 +421,15 @@ export async function execute(interaction) {
     // Check if timer already exists and start countdown
     await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme);
   } else if (subcommand === 'stop') {
+    const activeTimer = getTimerStatus(channelId);
+
+    if (activeTimer && activeTimer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
+      return await interaction.reply({
+        content: '❌ Only the person who started the timer or server administrators/moderators can stop it.',
+        ephemeral: true,
+      });
+    }
+
     const result = stopTimer(channelId);
 
     if (result) {
@@ -535,7 +544,10 @@ export async function execute(interaction) {
       const event = await getEventForChannel(interaction.guild, interaction.channel.id);
       
       if (!event) {
-        return await interaction.editReply({
+        // editReply() can't make an already-public deferred reply ephemeral, so
+        // delete the public placeholder and send the error as a followUp instead.
+        await interaction.deleteReply();
+        return await interaction.followUp({
           content: '❌ No scheduled event found for this channel!\n\nMake sure you have a Discord scheduled event set up for this channel (or with this channel mentioned in the location).',
           ephemeral: true
         });
@@ -702,14 +714,17 @@ export async function execute(interaction) {
       console.error('[Timer Remind] Error executing remind command:', error);
       
       if (interaction.deferred) {
-        await interaction.editReply({ 
+        // editReply() can't make an already-public deferred reply ephemeral, so
+        // delete the public placeholder and send the error as a followUp instead.
+        await interaction.deleteReply().catch(() => {});
+        await interaction.followUp({
           content: '❌ An error occurred while creating the timer reminder.',
-          ephemeral: true 
+          ephemeral: true
         });
       } else {
-        await interaction.reply({ 
+        await interaction.reply({
           content: '❌ An error occurred while creating the timer reminder.',
-          ephemeral: true 
+          ephemeral: true
         });
       }
     }
@@ -723,7 +738,14 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-    
+
+    if (timer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
+      return await interaction.reply({
+        content: '❌ Only the person who started the timer or server administrators/moderators can adjust it.',
+        ephemeral: true,
+      });
+    }
+
     const result = adjustTimerDuration(channelId, newDuration, interaction.client);
     
     if (!result || result.error) {
@@ -771,7 +793,14 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-    
+
+    if (timer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
+      return await interaction.reply({
+        content: '❌ Only the person who started the timer or server administrators/moderators can change its auto-stop settings.',
+        ephemeral: true,
+      });
+    }
+
     if (action === 'disable') {
       // Disable auto-stop
       if (!timer.duration && !timer.endTime) {
