@@ -5,6 +5,14 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.10.0 - 2026-07-10
+
+### Added
+- **`/timer pause` and `/timer resume`.** Pause a timer if something comes up — a break, a technical issue — without losing elapsed time or restarting from scratch. Pausing freezes elapsed/remaining time and cancels the pending auto-stop; resuming picks up exactly where it left off, and time spent paused never counts against the timer's set duration. A paused timer survives a bot restart and stays paused until explicitly resumed. `/timer adjust` now requires resuming first if the timer is currently paused
+
+### Developer
+- Deduplicated the auto-stop scheduling/notification logic in `timerManager.js`, which was previously copy-pasted across `startTimer`, `restoreTimerTimeouts`, and `adjustTimerDuration`, into shared helpers — fixed a latent inconsistency along the way where a timer that expired while the bot was offline was auto-logged to watch history without its starter's user ID (all other auto-stop paths already passed it correctly)
+
 ## 2.9.0 - 2026-07-10
 
 ### Fixed
