@@ -5,6 +5,11 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.7.2 - 2026-07-10
+
+### Fixed
+- **Selecting a channel while approving an event request always resulted in "This interaction failed."** The text/voice channel pickers in that flow use discord.js's `ChannelSelectMenuBuilder`, a different component type from the `StringSelectMenuBuilder` used everywhere else in the bot. The main interaction dispatcher only checked `interaction.isStringSelectMenu()` before routing to the select-menu handler, so a channel-select interaction matched no branch at all and was silently dropped — Discord then showed its generic failure message after a few seconds with nothing logged, since the handler never ran. The dispatcher now also checks `interaction.isChannelSelectMenu()`
+
 ## 2.7.1 - 2026-07-10
 
 ### Fixed
