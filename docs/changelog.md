@@ -5,11 +5,26 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## 2.6.0 - 2026-07-09
+
+### Added
+- **`/bracket resize`**, **`/bracket edit-name`**, **`/bracket list-groups`**, **`/bracket regenerate`** — re-enabled after being silently disabled due to Discord's 25-subcommand limit. These were never removed features; the docs described them as live the whole time. `/bracket` now sits at 22/25 subcommands
 
 ### Changed
+- **AI image generation consolidated into one command.** `/image`, `/versus-image`, and `/bracket image` overlapped significantly (`/bracket image`'s title-search mode was a near-duplicate of `/versus-image`). All three are now just `/image`, with four modes: freeform prompt, generate from a Discord message, a `title1`/`title2` versus battle (with smart search across movies/TV/games/board games/books), and a tournament-`matchup`-aware versus battle. `/versus-image` no longer exists as a separate command
 - Removed a hardcoded production domain from the default CORS allow-list and from several example/config files, replacing them with generic placeholders — no behavior change for deployments that already set `ALLOWED_ORIGINS` (which production deployments should always do)
 - `delete-guild-commands.js` now requires `GUILD_ID` to be set rather than silently falling back to a hardcoded guild ID
+
+### Removed
+- **`/bracket open-knockout`, `/bracket close-knockout`, `/bracket open-region`** — these were dead code left over from before the v2.0.0 smart-command consolidation: verified line-for-line duplicates of `/bracket open`/`/bracket close`/`/bracket open-matchup`, and already listed as removed in this changelog. `open-region` additionally still had stale 2-region math from before the bracket moved to 4 regions
+
+### Fixed
+- **`resolve-tiebreaker` was a duplicate, unreachable case** in `/bracket`'s command dispatch (dead code, no behavior impact, but confusing)
+- **8 in-bot messages referenced removed/renamed commands** (`/bracket add-title`, `/bracket vote-group`, `/bracket open-knockout`, `/bracket remove-title`) left over from before the v2.0.0 smart-command consolidation — all updated to the current command names, or to describe button-based voting where no command exists anymore
+
+### Developer
+- `src/commands/bracket.js` reduced from 3,879 to 3,258 lines; removed several imports that were only used by the deleted code
+- 21 new command-layer tests covering the four re-enabled subcommands
 
 ## 2.5.0 - 2026-07-09
 
