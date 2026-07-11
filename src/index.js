@@ -427,24 +427,102 @@ client.on('interactionCreate', async (interaction) => {
       const { saveEventRequests } = await import('./api/server.js');
       await saveEventRequests();
 
-      const originalEmbed = interaction.message?.embeds[0];
-      if (originalEmbed) {
-        const updatedEmbed = new EmbedBuilder(originalEmbed)
+      // Reflect the edited title/description on the moderation-channel
+      // embed. When a channel is already known this gets immediately
+      // overwritten by the "Approved" embed below; when it isn't, this is
+      // what stays visible while the channel picker is shown.
+      const originalEmbedForEdit = interaction.message?.embeds[0];
+      let editedEmbed = null;
+      if (originalEmbedForEdit) {
+        editedEmbed = new EmbedBuilder(originalEmbedForEdit)
           .setTitle('🎬 New Event Request')
           .setDescription(`**${requestData.title}**`);
 
-        const descriptionFieldIndex = updatedEmbed.data.fields?.findIndex(f => f.name === '📝 Description');
+        const descriptionFieldIndex = editedEmbed.data.fields?.findIndex(f => f.name === '📝 Description');
         if (descriptionFieldIndex !== undefined && descriptionFieldIndex !== -1) {
-          updatedEmbed.data.fields[descriptionFieldIndex].value = requestData.description || 'No description provided';
+          editedEmbed.data.fields[descriptionFieldIndex].value = requestData.description || 'No description provided';
         }
 
-        await interaction.message.edit({ embeds: [updatedEmbed] }).catch(() => {});
+        await interaction.message.edit({ embeds: [editedEmbed] }).catch(() => {});
       }
 
-      await interaction.reply({
-        content: `✅ Updated the request's title/description.`,
-        flags: MessageFlags.Ephemeral,
-      });
+      // Saving an edit immediately approves the request — no separate
+      // Approve click needed. If a channel isn't known yet, show the same
+      // channel-picker the Approve button uses instead of creating the
+      // event outright.
+      if (!requestData.channelId) {
+        const { ChannelSelectMenuBuilder, ChannelType, ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
+
+        const textChannelSelect = new ChannelSelectMenuBuilder()
+          .setCustomId(`select_text_channel_${requestId}`)
+          .setPlaceholder('Select text channel for event')
+          .addChannelTypes(ChannelType.GuildText)
+          .setMinValues(1)
+          .setMaxValues(1);
+
+        const voiceChannelSelect = new ChannelSelectMenuBuilder()
+          .setCustomId(`select_voice_channel_${requestId}`)
+          .setPlaceholder('Select voice channel (optional)')
+          .addChannelTypes(ChannelType.GuildVoice)
+          .setMinValues(0)
+          .setMaxValues(1);
+
+        const confirmButton = new ButtonBuilder()
+          .setCustomId(`confirm_event_channels_${requestId}_full`)
+          .setLabel('Create Event')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('✅');
+
+        const cancelButton = new ButtonBuilder()
+          .setCustomId(`cancel_event_channels_${requestId}`)
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary);
+
+        const textRow = new ActionRowBuilder().addComponents(textChannelSelect);
+        const voiceRow = new ActionRowBuilder().addComponents(voiceChannelSelect);
+        const buttonRow = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
+
+        await interaction.reply({
+          content: `✅ Updated the request's title/description.\n\n📍 **Select Channels for Event**\n**${requestData.title}**\n\nChoose the text channel where this event will take place, and optionally a voice channel.`,
+          components: [textRow, voiceRow, buttonRow],
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+      const { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState } = await import('./utils/eventRequestApproval.js');
+
+      try {
+        const approvalType = requestData.voiceChannelId ? 'both' : 'full';
+        const { scheduledEvent, useVoiceChannel } = await createScheduledEventFromRequest({
+          guild: interaction.guild,
+          requestId,
+          requestData,
+          approvalType,
+        });
+
+        if (editedEmbed) {
+          const approvedEmbed = buildApprovedEmbed(editedEmbed, {
+            approvedByTag: interaction.user.tag,
+            approvalType,
+          });
+          await interaction.message.edit({ embeds: [approvedEmbed], components: [] }).catch(() => {});
+        }
+
+        await cleanupEventRequestState({ guildId: interaction.guildId, requestId });
+
+        const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
+        await interaction.editReply({
+          content: `✅ Updated and approved as ${eventTypeText}!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`,
+        });
+      } catch (error) {
+        console.error('[EventRequest] Error auto-approving edited request:', error);
+        await interaction.editReply({
+          content: `❌ Saved the edit, but failed to create the event: ${error.message}`,
+        });
+      }
     } else if (interaction.customId.startsWith('deny_event_modal_')) {
       const requestId = interaction.customId.replace('deny_event_modal_', '');
 

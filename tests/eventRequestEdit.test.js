@@ -10,6 +10,13 @@
  * independently exported — mirroring the existing watched_modal_ pattern,
  * which has the same limitation.
  *
+ * Saving the edit now also immediately approves the request (creating the
+ * real Discord scheduled event) instead of just updating the stored
+ * title/description and leaving it pending — see tests/eventRequestApproval.
+ * test.js for coverage of the shared createScheduledEventFromRequest/
+ * buildApprovedEmbed/cleanupEventRequestState logic that drives that,
+ * reused from the same code path the Approve buttons use.
+ *
  * Run with: npx jest tests/eventRequestEdit.test.js --verbose
  */
 
