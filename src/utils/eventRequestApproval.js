@@ -6,6 +6,7 @@
  */
 import { EmbedBuilder } from 'discord.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
+import { loadGuildConfig } from './guildConfig.js';
 
 /**
  * @param {object} params
@@ -72,4 +73,60 @@ export async function cleanupEventRequestState({ guildId, requestId }) {
     await saveEventChannelSelections();
   }
   await saveEventRequests();
+}
+
+/**
+ * Posts a fresh message to the moderation channel announcing an approval or
+ * denial, in addition to editing the original request's embed in place — a
+ * silent in-place edit is easy to miss if you weren't already looking at
+ * that specific (possibly old) message, so other moderators wouldn't
+ * reliably see who acted on a request or why. This shows up as new channel
+ * activity instead. Controlled per-guild by eventRequests.announceDecisions
+ * (default true) via /eggshen-config event-requests announce-decisions.
+ * @param {import('discord.js').TextBasedChannel} channel
+ * @param {object} params
+ * @param {string} params.guildId
+ * @param {'approved'|'denied'} params.outcome
+ * @param {string} params.title
+ * @param {string} params.actorTag
+ * @param {string} [params.reason] - denial reason, if any
+ * @param {import('discord.js').GuildScheduledEvent} [params.scheduledEvent] - required for 'approved'
+ */
+export async function postApprovalAnnouncement(channel, { guildId, outcome, title, actorTag, reason, scheduledEvent }) {
+  if (!channel) return;
+
+  try {
+    const config = await loadGuildConfig(guildId);
+    if (config.eventRequests?.announceDecisions === false) {
+      return;
+    }
+  } catch (error) {
+    console.error('[EventRequest] Failed to load guild config for announcement check:', error.message);
+    // Fail open: still announce if the config lookup itself breaks, rather
+    // than silently going quiet on a config error.
+  }
+
+  try {
+    if (outcome === 'approved') {
+      await channel.send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x00FF00)
+            .setDescription(`✅ **${title}** was approved by ${actorTag} — [event created](${scheduledEvent.url})`)
+            .setTimestamp(),
+        ],
+      });
+    } else {
+      await channel.send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xFF0000)
+            .setDescription(`❌ **${title}** was denied by ${actorTag}${reason ? `\nReason: ${reason}` : ''}`)
+            .setTimestamp(),
+        ],
+      });
+    }
+  } catch (error) {
+    console.error('[EventRequest] Failed to post approval/denial announcement:', error.message);
+  }
 }

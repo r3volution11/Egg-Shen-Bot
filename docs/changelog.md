@@ -5,6 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.13.0 - 2026-07-10
+
+### Added
+- **Approving or denying an event request now posts a new announcement message** to the moderation channel, in addition to updating the original request's embed in place. Silently editing an old message was easy for other moderators to miss — the new message shows who approved/denied it, a link to the created event (if approved), and the reason (if denied), so the whole team can see what happened without noticing an old message changed. Applies to every approval path: the Approve buttons, picking a channel after Approve, and saving an edit
+- New `/eggshen-config event-requests announce-decisions enabled:<true/false>` setting to turn the above off if you'd rather only the original request message update, with no separate announcement (on by default)
+
+### Developer
+- Consolidated a third, previously-untouched copy of the event-creation logic (the "pick a channel, then create" flow) to use the same shared `eventRequestApproval.js` module the other two approval paths already use, rather than adding a third inline duplicate
+
 ## 2.12.0 - 2026-07-10
 
 ### Changed

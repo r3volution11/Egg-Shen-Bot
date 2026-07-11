@@ -492,7 +492,7 @@ client.on('interactionCreate', async (interaction) => {
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState } = await import('./utils/eventRequestApproval.js');
+      const { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } = await import('./utils/eventRequestApproval.js');
 
       try {
         const approvalType = requestData.voiceChannelId ? 'both' : 'full';
@@ -512,6 +512,13 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         await cleanupEventRequestState({ guildId: interaction.guildId, requestId });
+        await postApprovalAnnouncement(interaction.channel, {
+          guildId: interaction.guildId,
+          outcome: 'approved',
+          title: requestData.title,
+          actorTag: interaction.user.tag,
+          scheduledEvent,
+        });
 
         const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
         await interaction.editReply({
@@ -549,6 +556,7 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const { saveEventRequests, saveEventChannelSelections } = await import('./api/server.js');
+      const { postApprovalAnnouncement } = await import('./utils/eventRequestApproval.js');
 
       const originalEmbed = interaction.message?.embeds[0];
       if (originalEmbed) {
@@ -573,6 +581,14 @@ client.on('interactionCreate', async (interaction) => {
         await saveEventChannelSelections();
       }
       await saveEventRequests();
+
+      await postApprovalAnnouncement(interaction.channel, {
+        guildId: interaction.guildId,
+        outcome: 'denied',
+        title: requestData.title,
+        actorTag: interaction.user.tag,
+        reason,
+      });
 
       let dmSucceeded = false;
       try {

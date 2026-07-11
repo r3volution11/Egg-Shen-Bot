@@ -5,7 +5,7 @@ import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
-import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState } from '../utils/eventRequestApproval.js';
+import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } from '../utils/eventRequestApproval.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -363,6 +363,13 @@ export async function handleButtonInteraction(interaction) {
         });
 
         await cleanupEventRequestState({ guildId: interaction.guildId, requestId });
+        await postApprovalAnnouncement(interaction.channel, {
+          guildId: interaction.guildId,
+          outcome: 'approved',
+          title: requestData.title,
+          actorTag: interaction.user.tag,
+          scheduledEvent,
+        });
 
         const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
         await interaction.editReply({
@@ -386,8 +393,12 @@ export async function handleButtonInteraction(interaction) {
     
     // Handle confirm event channels button
     if (interaction.customId.startsWith('confirm_event_channels_')) {
+      // The trailing segment (originally the pre-selection approvalType from
+      // the approve button) must still be popped off to correctly recover
+      // requestId, but the real voice-vs-text decision is made below from
+      // what the moderator actually picked in the channel select menus.
       const customIdParts = interaction.customId.replace('confirm_event_channels_', '').split('_');
-      const approvalType = customIdParts.pop(); // Get last element (approvalType)
+      customIdParts.pop();
       const requestId = customIdParts.join('_'); // Rejoin the rest
       
       // Check if user has moderation permissions
@@ -428,88 +439,67 @@ export async function handleButtonInteraction(interaction) {
       const voiceChannelId = selections.voiceChannelId || null;
       
       const requestData = global.eventRequests.get(requestId);
-      
+
+      // requestData.channelId/voiceChannelId aren't set yet at this point
+      // (that's exactly why the channel-selection step ran) — apply the
+      // moderator's picks before handing off to the shared approval logic,
+      // which reads channel info from requestData.
+      requestData.channelId = textChannelId;
+      requestData.voiceChannelId = voiceChannelId;
+      const approvalTypeForSelection = voiceChannelId ? 'both' : 'text';
+
       try {
         await interaction.deferUpdate();
-        
-        const { EmbedBuilder } = await import('discord.js');
+
         const guild = interaction.guild;
-        
-        // Get channel objects
-        const textChannel = guild.channels.cache.get(textChannelId);
-        const voiceChannel = voiceChannelId ? guild.channels.cache.get(voiceChannelId) : null;
-        
-        // Create Discord scheduled event
-        const eventConfig = {
-          name: requestData.title,
-          description: requestData.description || undefined,
-          scheduledStartTime: requestData.startTime,
-          scheduledEndTime: requestData.endTime || undefined,
-          privacyLevel: 2
-        };
-        
-        if (voiceChannel) {
-          // Voice channel event
-          eventConfig.channel = voiceChannel.id;
-          eventConfig.entityType = 2;
-          
-          const channelMention = `<#${textChannel.id}>`;
-          eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') + 
-            `💬 Coordination: ${channelMention}`;
-        } else {
-          // External event (text-only)
-          const channelMention = `<#${textChannel.id}>`;
-          eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') + 
-            `📍 Location: ${channelMention}`;
-          eventConfig.entityType = 3;
-          eventConfig.entityMetadata = { location: 'Discord Server' };
-        }
-        
-        const scheduledEvent = await guild.scheduledEvents.create(eventConfig);
-        
+        const { scheduledEvent, useVoiceChannel } = await createScheduledEventFromRequest({
+          guild, requestId, requestData, approvalType: approvalTypeForSelection,
+        });
+
         // Update the original approval message
         const originalMessage = await interaction.channel.messages.fetch(interaction.message.reference?.messageId).catch(() => null);
         if (originalMessage) {
           const originalEmbed = originalMessage.embeds[0];
-          const approvedEmbed = new EmbedBuilder(originalEmbed)
-            .setColor(0x00FF00)
-            .setTitle(`✅ Event Request Approved`)
-            .setFooter({ text: `Approved by ${interaction.user.tag} • ${originalEmbed.footer?.text || ''}` });
-          
+          const approvedEmbed = buildApprovedEmbed(originalEmbed, {
+            approvedByTag: interaction.user.tag,
+            approvalType: approvalTypeForSelection,
+          });
+
           await originalMessage.edit({
             embeds: [approvedEmbed],
             components: []
           }).catch(() => {});
         }
-        
-        // Clean up stored data
-        global.eventRequests.delete(requestId);
-        if (global.eventChannelSelections) {
-          global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
-          await saveEventChannelSelections();
-        }
-        await saveEventRequests();
-        
-        const eventTypeText = voiceChannel ? 'voice channel event' : 'text-only event';
-        const channelInfo = voiceChannel 
-          ? `📍 Text: <#${textChannel.id}>\n🔊 Voice: <#${voiceChannel.id}>`
-          : `📍 Location: <#${textChannel.id}>`;
-        
+
+        await cleanupEventRequestState({ guildId: interaction.guildId, requestId });
+        await postApprovalAnnouncement(interaction.channel, {
+          guildId: interaction.guildId,
+          outcome: 'approved',
+          title: requestData.title,
+          actorTag: interaction.user.tag,
+          scheduledEvent,
+        });
+
+        const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
+        const channelInfo = useVoiceChannel
+          ? `📍 Text: <#${textChannelId}>\n🔊 Voice: <#${voiceChannelId}>`
+          : `📍 Location: <#${textChannelId}>`;
+
         await interaction.editReply({
           content: `✅ Event created successfully as ${eventTypeText}!\n**${requestData.title}**\n\n${channelInfo}\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`,
           components: []
         });
-        
+
         const duration = Date.now() - startTime;
         logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
-        
+
       } catch (error) {
         console.error('[EventRequest] Error creating event:', error);
         await interaction.editReply({
           content: `❌ Failed to create event: ${error.message}`,
           components: []
         });
-        
+
         logger.logButton(interaction.customId, interaction.user, interaction.guild, false, error);
       }
       

@@ -608,6 +608,25 @@ Control whether users can request voice/stage channels for events.
 - **Voice requested:** ✅ Approve Both | 💬 Text Only | ❌ Deny
 - **Text-only request:** ✅ Approve & Create Event | ❌ Deny
 
+#### Announce Approve/Deny Decisions
+
+```
+/eggshen-config event-requests announce-decisions enabled:true
+/eggshen-config event-requests announce-decisions enabled:false
+```
+
+Control whether approving or denying a request posts a new message to the moderation channel announcing the outcome, in addition to updating the original request's embed in place.
+
+**When enabled (default):**
+- A fresh message is posted announcing who approved/denied the request
+- Approved: includes a link to the newly created event
+- Denied: includes the reason, if one was given
+- Shows up as new channel activity, so the whole moderation team sees it — not just whoever clicked
+
+**When disabled:**
+- Only the original request message updates (title, color, buttons)
+- No separate announcement is posted
+
 #### Allow User Channel Selection (Simple vs Advanced Mode)
 
 ```
