@@ -4,14 +4,21 @@ import {
   getPoll,
   getActivePolls,
   getClosedPolls,
-  closePoll,
   deletePoll,
   canManagePoll,
   getPollResults,
   getUserVote,
+  createPollEmbed,
+  closePollAndAnnounce,
   VOTE_EMOJIS,
 } from '../utils/pollManager.js';
 import { canUseCommand } from '../utils/guildConfig.js';
+
+// Re-exported for backward compatibility — tests and any other callers
+// import createPollEmbed from here; the implementation now lives in
+// pollManager.js so both the command and the reaction handlers/scheduler
+// in src/index.js and pollScheduler.js can share it.
+export { createPollEmbed };
 
 export const data = new SlashCommandBuilder()
   .setName('survey')
@@ -103,6 +110,14 @@ export const data = new SlashCommandBuilder()
           .setDescription('Allow users to vote for multiple options')
           .setRequired(false)
       )
+      .addIntegerOption(option =>
+        option
+          .setName('duration')
+          .setDescription('Auto-close voting after this many minutes (omit for no auto-close)')
+          .setRequired(false)
+          .setMinValue(1)
+          .setMaxValue(20160) // 14 days
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -155,56 +170,6 @@ export const data = new SlashCommandBuilder()
   );
 
 /**
- * Create a poll embed
- */
-export function createPollEmbed(poll, showResults = false) {
-  const { totalVotes, results } = getPollResults(poll);
-  
-  const embed = new EmbedBuilder()
-    .setTitle(`📊 ${poll.question}`)
-    .setColor(poll.status === 'active' ? 0x5865F2 : 0x99AAB5)
-    .setFooter({
-      text: `Survey ID: ${poll.pollId} • ${poll.status === 'active' ? 'React to vote!' : 'Survey closed'} • Total votes: ${totalVotes}${poll.allowMultipleVotes ? ' • Multiple votes allowed' : ''}`,
-    })
-    .setTimestamp(new Date(poll.createdAt));
-  
-  // Build options display
-  const optionsText = results.map(option => {
-    const bar = createProgressBar(option.percentage, 20);
-    const voteText = `${option.voteCount} vote${option.voteCount !== 1 ? 's' : ''}`;
-    
-    if (showResults) {
-      return `${option.emoji} **${option.text}**\n${bar} ${option.percentage}% (${voteText})`;
-    } else {
-      return `${option.emoji} ${option.text}`;
-    }
-  }).join('\n\n');
-  
-  embed.setDescription(optionsText);
-  
-  // Add status info
-  if (poll.status === 'closed') {
-    const closedDate = new Date(poll.closedAt);
-    embed.addFields({
-      name: 'Closed',
-      value: `<t:${Math.floor(closedDate.getTime() / 1000)}:R>`,
-      inline: true,
-    });
-  }
-  
-  return embed;
-}
-
-/**
- * Create a progress bar for vote percentage
- */
-function createProgressBar(percentage, length = 20) {
-  const filled = Math.round((percentage / 100) * length);
-  const empty = length - filled;
-  return '█'.repeat(filled) + '░'.repeat(empty);
-}
-
-/**
  * Execute the survey command
  */
 export async function execute(interaction) {
@@ -248,7 +213,8 @@ async function handleCreate(interaction) {
   
   const question = interaction.options.getString('question');
   const allowMultiple = interaction.options.getBoolean('multiple') || false;
-  
+  const duration = interaction.options.getInteger('duration') || null;
+
   // Collect all provided options
   const options = [];
   for (let i = 1; i <= 10; i++) {
@@ -292,21 +258,25 @@ async function handleCreate(interaction) {
       interaction.user.id,
       question,
       options,
-      allowMultiple
+      allowMultiple,
+      duration
     );
-    
+
     // Update message with full poll
     const pollEmbed = createPollEmbed(poll, false);
     await interaction.editReply({ embeds: [pollEmbed] });
-    
+
     // Add reaction emojis
     for (let i = 0; i < options.length; i++) {
       await message.react(VOTE_EMOJIS[i]);
     }
-    
+
     // Send confirmation to creator
+    const autoCloseNote = duration
+      ? `\n**Auto-closes:** <t:${Math.floor(new Date(poll.expiresAt).getTime() / 1000)}:R>`
+      : '';
     await interaction.followUp({
-      content: `✅ Survey created! Users can vote by reacting to the message.\n\n**Survey ID:** \`${poll.pollId}\`\n**Manage:** Use \`/survey close ${poll.pollId}\` to close or \`/survey delete ${poll.pollId}\` to delete.`,
+      content: `✅ Survey created! Users can vote by reacting to the message.\n\n**Survey ID:** \`${poll.pollId}\`${autoCloseNote}\n**Manage:** Use \`/survey close ${poll.pollId}\` to close or \`/survey delete ${poll.pollId}\` to delete.`,
       ephemeral: true,
     });
     
@@ -357,10 +327,13 @@ async function handleList(interaction) {
     const { totalVotes } = getPollResults(poll);
     const createdDate = new Date(poll.createdAt);
     const statusEmoji = poll.status === 'active' ? '🟢' : '🔴';
-    
+    const expiryLine = poll.status === 'active' && poll.expiresAt
+      ? `\n**Auto-closes:** <t:${Math.floor(new Date(poll.expiresAt).getTime() / 1000)}:R>`
+      : '';
+
     embed.addFields({
       name: `${statusEmoji} ${poll.question}`,
-      value: `**ID:** \`${poll.pollId}\`\n**Votes:** ${totalVotes}\n**Created:** <t:${Math.floor(createdDate.getTime() / 1000)}:R>\n**Channel:** <#${poll.channelId}>`,
+      value: `**ID:** \`${poll.pollId}\`\n**Votes:** ${totalVotes}\n**Created:** <t:${Math.floor(createdDate.getTime() / 1000)}:R>\n**Channel:** <#${poll.channelId}>${expiryLine}`,
       inline: false,
     });
   }
@@ -447,40 +420,19 @@ async function handleClose(interaction) {
     return;
   }
   
-  try {
-    // Fetch the message before persisting anything — if the survey message
-    // was deleted, fail here with the poll still open rather than marking
-    // it closed and only then discovering there's nothing to update.
-    const channel = await interaction.client.channels.fetch(poll.channelId);
-    const message = await channel.messages.fetch(poll.messageId);
+  const result = await closePollAndAnnounce(interaction.client, interaction.guildId, pollId, interaction.user.id);
 
-    // Close the poll
-    closePoll(interaction.guildId, pollId, interaction.user.id);
-
-    const updatedPoll = getPoll(interaction.guildId, pollId);
-    const pollEmbed = createPollEmbed(updatedPoll, true);
-
-    await message.edit({ embeds: [pollEmbed] });
-    
-    // Remove all reactions
-    await message.reactions.removeAll().catch(console.error);
-    
-    await interaction.editReply({
-      content: `✅ Survey "${poll.question}" has been closed.`,
-    });
-    
-    // Post results in the channel
-    const resultsEmbed = createPollEmbed(updatedPoll, true);
-    resultsEmbed.setTitle(`🏁 Survey Closed: ${poll.question}`);
-    
-    await channel.send({ embeds: [resultsEmbed] });
-    
-  } catch (error) {
-    console.error('Error closing survey:', error);
+  if (!result.success) {
+    console.error('Error closing survey:', result.error);
     await interaction.editReply({
       content: '❌ Failed to close survey. Please try again.',
     });
+    return;
   }
+
+  await interaction.editReply({
+    content: `✅ Survey "${poll.question}" has been closed.`,
+  });
 }
 
 /**

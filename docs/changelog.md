@@ -5,6 +5,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.15.0 - 2026-07-11
+
+### Added
+- **Survey messages now update live as votes come in**, showing current vote counts and percentages without anyone needing to run `/survey results`. Applies whether a vote is added or changed
+- **`/survey create` now takes an optional `duration` (in minutes, up to 14 days)** to auto-close voting after a set time. When it expires, the survey closes and posts results automatically — the exact same close flow `/survey close` already uses — with no need for a moderator to close it manually. Surveys created without a duration keep working exactly as before (open until manually closed). The embed shows a "Voting Ends" countdown for any survey with a duration set
+
+### Developer
+- Moved `createPollEmbed` from `survey.js` into `pollManager.js` so it can be shared by the command, the reaction handlers, and the new auto-expiry scheduler without duplicating rendering logic (still re-exported from `survey.js` for backward compatibility)
+- Extracted the close-poll-and-post-results flow (previously inline in `/survey close`) into a shared `closePollAndAnnounce()` in `pollManager.js`, used by both `/survey close` and the new `pollScheduler.js`, so a survey closes identically whether a moderator closes it or it expires on its own
+- Added `src/utils/pollScheduler.js`, a 1-minute interval sweep for expired surveys, following the same init/shutdown pattern as the existing `tournamentScheduler.js`
+
 ## 2.14.1 - 2026-07-11
 
 ### Fixed
