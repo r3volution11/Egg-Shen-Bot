@@ -5,6 +5,12 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.14.0 - 2026-07-11
+
+### Added
+- **`/movie` and `/tv` now find titles TMDB stores under an original or foreign name**, even when the query is the far more recognizable title it was actually distributed/reissued under. For example, the 1978 film *Day of the Woman* — TMDB's title of record — is what's actually known and distributed as *I Spit on Your Grave*; searching for that name previously buried or missed the correct result entirely. Search now checks TMDB's alternate-title (AKA) data when the top keyword result doesn't look like a good match for the query, and promotes the correct result if one of its AKAs matches. Also applies to `/soundtrack` and adding a title to a `/bracket`
+- **Result screens now show an "Also Known As" field** when the primary TMDB title differs from a well-known alternate title, so it's clear you found the right movie/show even if the on-screen title looks unfamiliar
+
 ## 2.13.0 - 2026-07-10
 
 ### Added

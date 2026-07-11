@@ -94,6 +94,98 @@ describe('generateEmbedding', () => {
   });
 });
 
+describe('promoteAlternativeTitleMatch', () => {
+  test('returns results unchanged when the top result already loosely matches the query', async () => {
+    const altTitlesFn = jest.fn();
+    const results = [{ id: 1, title: 'I Spit on Your Grave' }, { id: 2, title: 'Something Else' }];
+
+    const result = await aiService.promoteAlternativeTitleMatch('I Spit On Your Grave', results, altTitlesFn, 'movie');
+
+    expect(result).toBe(results);
+    expect(altTitlesFn).not.toHaveBeenCalled(); // fast path — no AKA lookups needed
+  });
+
+  test('promotes a buried result whose AKA matches the query to the front', async () => {
+    // Mirrors the real "I Spit on Your Grave" (1978) case: TMDB's own
+    // /search/movie buries the 1978 film (title of record "Day of the
+    // Woman") below other, unrelated results for this query — but its AKA
+    // list has the query as a reissue title.
+    const results = [
+      { id: 43947, title: 'I Spit on Your Grave' }, // an unrelated 2010 remake, ranked first by TMDB
+      { id: 2, title: 'Unrelated Movie' },
+      { id: 25239, title: 'Day of the Woman' }, // the actual 1978 film the user means, buried
+    ];
+    const altTitlesFn = jest.fn(async (id) => {
+      if (id === 25239) return ['I Spit on Your Grave', 'The Housatonic Revenge'];
+      return [];
+    });
+
+    // The top result's title "I Spit on Your Grave" DOES loosely match the
+    // query, which would normally hit the fast path — so use a query that
+    // only the buried result's AKA satisfies, to force the AKA-check branch.
+    const result = await aiService.promoteAlternativeTitleMatch('Housatonic Revenge', results, altTitlesFn, 'movie');
+
+    expect(result[0].id).toBe(25239);
+    expect(result).toHaveLength(3);
+  });
+
+  test('checks TV results against the "name" field, not "title"', async () => {
+    const results = [{ id: 1, name: 'Original Name' }];
+    const altTitlesFn = jest.fn().mockResolvedValue(['Known As This']);
+
+    const result = await aiService.promoteAlternativeTitleMatch('Known As This', results, altTitlesFn, 'tv');
+
+    expect(altTitlesFn).toHaveBeenCalledWith(1);
+    expect(result[0].id).toBe(1);
+  });
+
+  test('leaves order unchanged when no AKA matches anything', async () => {
+    const results = [{ id: 1, title: 'A' }, { id: 2, title: 'B' }];
+    const altTitlesFn = jest.fn().mockResolvedValue(['Some Other Title']);
+
+    const result = await aiService.promoteAlternativeTitleMatch('completely unrelated query', results, altTitlesFn, 'movie');
+
+    expect(result.map(r => r.id)).toEqual([1, 2]);
+  });
+
+  test('only checks the top 10 candidates, not the full result set', async () => {
+    const results = Array.from({ length: 15 }, (_, i) => ({ id: i, title: `Movie ${i}` }));
+    const altTitlesFn = jest.fn().mockResolvedValue([]);
+
+    await aiService.promoteAlternativeTitleMatch('nonmatching query', results, altTitlesFn, 'movie');
+
+    expect(altTitlesFn).toHaveBeenCalledTimes(10);
+  });
+
+  test('returns results unchanged (no throw) when altTitlesFn is not provided', async () => {
+    const results = [{ id: 1, title: 'A' }];
+    const result = await aiService.promoteAlternativeTitleMatch('query', results, null, 'movie');
+    expect(result).toBe(results);
+  });
+
+  test('returns [] unchanged for an empty result set', async () => {
+    const altTitlesFn = jest.fn();
+    const result = await aiService.promoteAlternativeTitleMatch('query', [], altTitlesFn, 'movie');
+    expect(result).toEqual([]);
+    expect(altTitlesFn).not.toHaveBeenCalled();
+  });
+
+  test('a failing altTitlesFn call for one candidate does not break the others', async () => {
+    const results = [
+      { id: 1, title: 'Unrelated' },
+      { id: 2, title: 'Also Unrelated' },
+    ];
+    const altTitlesFn = jest.fn(async (id) => {
+      if (id === 1) throw new Error('TMDB down');
+      return ['The Real Title'];
+    });
+
+    const result = await aiService.promoteAlternativeTitleMatch('The Real Title', results, altTitlesFn, 'movie');
+
+    expect(result[0].id).toBe(2);
+  });
+});
+
 describe('reRankResults', () => {
   test('returns original results unchanged when OpenAI unavailable, no embedding calls made', async () => {
     mockConfig.apis.openai.apiKey = null;
@@ -196,5 +288,31 @@ describe('hybridSearch', () => {
 
     expect(result).toEqual([]);
     expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  test('promotes an AKA match to the top, applied after semantic re-ranking', async () => {
+    mockConfig.apis.openai.apiKey = null; // isolate AKA behavior from re-ranking
+    const keywordResults = [
+      { id: 1, title: 'Unrelated Movie' },
+      { id: 25239, title: 'Day of the Woman' },
+    ];
+    const keywordSearchFn = jest.fn().mockResolvedValue(keywordResults);
+    const altTitlesFn = jest.fn(async (id) =>
+      id === 25239 ? ['I Spit on Your Grave'] : []
+    );
+
+    const result = await aiService.hybridSearch('I Spit On Your Grave', keywordSearchFn, 'movie', altTitlesFn);
+
+    expect(result[0].id).toBe(25239);
+  });
+
+  test('skips AKA lookups entirely when altTitlesFn is not provided (default behavior unchanged)', async () => {
+    mockConfig.apis.openai.apiKey = null;
+    const keywordResults = [{ id: 1, title: 'A' }];
+    const keywordSearchFn = jest.fn().mockResolvedValue(keywordResults);
+
+    const result = await aiService.hybridSearch('the thing', keywordSearchFn, 'movie');
+
+    expect(result).toBe(keywordResults);
   });
 });

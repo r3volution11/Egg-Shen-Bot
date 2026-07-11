@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { searchMovies } from '../services/tmdbService.js';
+import { searchMovies, getMovieAlternativeTitles } from '../services/tmdbService.js';
 import { hybridSearch } from '../services/aiService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
@@ -36,7 +36,7 @@ export async function execute(interaction) {
   
   try {
     // Use hybrid search (keyword + semantic) if OpenAI available, otherwise keyword only
-    const results = await hybridSearch(query, searchMovies, 'movie');
+    const results = await hybridSearch(query, searchMovies, 'movie', getMovieAlternativeTitles);
     
     if (!results || results.length === 0) {
       await interaction.editReply({
@@ -63,11 +63,13 @@ export async function execute(interaction) {
       const { trackSearch } = await import('../utils/statsTracker.js');
       const { getUnifiedMovieWatchProviders } = await import('../services/tmdbService.js');
       
+      const { getMovieAlternativeTitlesDetailed, pickKnownAsTitle } = await import('../services/tmdbService.js');
+
       const movieId = results[0].id;
       const tmdb = await getMovieDetails(movieId);
       const imdbId = tmdb.external_ids?.imdb_id;
-      
-      const [omdb, trakt, letterboxd, enabledServices, guildEmojis, statsConfig, guildConfig] = await Promise.all([
+
+      const [omdb, trakt, letterboxd, enabledServices, guildEmojis, statsConfig, guildConfig, alternativeTitles] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getMovieRating(imdbId) : null,
         imdbId ? getLetterboxdRating(imdbId) : null,
@@ -75,7 +77,9 @@ export async function execute(interaction) {
         getEmojis(interaction.guildId),
         getStatsConfig(interaction.guildId),
         loadGuildConfig(interaction.guildId),
+        getMovieAlternativeTitlesDetailed(movieId),
       ]);
+      const knownAs = pickKnownAsTitle(tmdb.title, alternativeTitles);
       
       // Get unified watch providers (TMDB + Watchmode)
       const watchProviders = await getUnifiedMovieWatchProviders(movieId, imdbId, guildConfig.region || 'US');
@@ -100,7 +104,7 @@ export async function execute(interaction) {
         ).catch(err => console.error('Stats tracking error:', err));
       }
       
-      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd, urls }, 'movie', enabledServices, guildEmojis, watchProviders);
+      const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd, urls, knownAs }, 'movie', enabledServices, guildEmojis, watchProviders);
       await interaction.editReply(response);
       return;
     }

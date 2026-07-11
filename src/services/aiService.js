@@ -93,6 +93,75 @@ export function createSearchableText(item, type = 'movie') {
 }
 
 /**
+ * Normalize a title for loose comparison: lowercase, strip punctuation/extra
+ * whitespace. Used to decide whether a search's top result already matches
+ * the user's query well enough that an AKA lookup isn't worth the extra
+ * TMDB requests.
+ */
+function normalizeTitle(str) {
+  return (str || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function titlesLooselyMatch(a, b) {
+  const normA = normalizeTitle(a);
+  const normB = normalizeTitle(b);
+  if (!normA || !normB) return false;
+  return normA.includes(normB) || normB.includes(normA);
+}
+
+/**
+ * Some movies/TV shows are far better known by an alternate/reissue title
+ * than the primary title TMDB has on file (e.g. "Day of the Woman" (1978)
+ * is TMDB's title of record for what was actually distributed, and is
+ * still widely known, as "I Spit on Your Grave"). TMDB's own /search
+ * ranking doesn't account for this, so a query matching only an AKA can
+ * come back buried or missing entirely from the top of the results.
+ *
+ * If the top keyword result doesn't already loosely match the query, this
+ * checks the alternative titles of the next several candidates and — if
+ * one of their AKAs matches the query — promotes that result to the front.
+ * Bounded to a handful of extra requests, and only runs when the fast path
+ * (top result already looks right) fails.
+ *
+ * @param {string} query - User's search query
+ * @param {Array} results - Keyword search results (already ordered)
+ * @param {Function} altTitlesFn - async (id) => string[] of AKA titles
+ * @param {string} type - 'movie' or 'tv', selects the title field to compare
+ * @returns {Promise<Array>} results, possibly with one entry promoted to the front
+ */
+export async function promoteAlternativeTitleMatch(query, results, altTitlesFn, type = 'movie') {
+  if (!results || results.length === 0 || !altTitlesFn) {
+    return results;
+  }
+
+  const titleField = type === 'movie' ? 'title' : 'name';
+  const topTitle = results[0]?.[titleField];
+
+  if (titlesLooselyMatch(query, topTitle)) {
+    return results; // Fast path: top result already looks right, skip AKA lookups.
+  }
+
+  const candidates = results.slice(0, 10);
+  const akaLists = await Promise.all(
+    candidates.map(item => altTitlesFn(item.id).catch(() => []))
+  );
+
+  const matchIndex = akaLists.findIndex(akas => akas.some(aka => titlesLooselyMatch(query, aka)));
+
+  if (matchIndex <= 0) {
+    return results; // No AKA match, or the match was already in front.
+  }
+
+  const promoted = [...results];
+  const [match] = promoted.splice(matchIndex, 1);
+  promoted.unshift(match);
+  return promoted;
+}
+
+/**
  * Re-rank search results using semantic similarity
  * @param {string} query - User's search query
  * @param {Array} results - Array of search results from TMDB
@@ -288,18 +357,24 @@ export async function discoverAndRank(query, type = 'movie') {
  * @param {string} query - User's search query
  * @param {Function} keywordSearchFn - Function that performs keyword search
  * @param {string} type - Type of media ('movie' or 'tv')
+ * @param {Function} [altTitlesFn] - Optional async (id) => string[] of AKA titles,
+ *   used to promote a result whose alternate/reissue title matches the query
+ *   but whose primary TMDB title doesn't (see promoteAlternativeTitleMatch)
  * @returns {Promise<Array>} Search results (re-ranked if OpenAI available)
  */
-export async function hybridSearch(query, keywordSearchFn, type = 'movie') {
+export async function hybridSearch(query, keywordSearchFn, type = 'movie', altTitlesFn = null) {
   // First, do the keyword search
   const keywordResults = await keywordSearchFn(query);
 
   // If we have keyword results, re-rank them if OpenAI is available
   if (keywordResults && keywordResults.length > 0) {
-    if (!isOpenAIAvailable()) {
-      return keywordResults;
-    }
-    return await reRankResults(query, keywordResults, type);
+    const ranked = isOpenAIAvailable()
+      ? await reRankResults(query, keywordResults, type)
+      : keywordResults;
+
+    // AKA match is a stronger, literal signal than semantic similarity —
+    // apply it last so it wins regardless of how re-ranking ordered things.
+    return await promoteAlternativeTitleMatch(query, ranked, altTitlesFn, type);
   }
 
   // No keyword results - check if this is a descriptive query that could benefit from semantic search

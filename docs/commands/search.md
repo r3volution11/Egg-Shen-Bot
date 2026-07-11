@@ -47,6 +47,7 @@ Search for movies and view detailed information.
 - Cast and crew information
 - Genre and content ratings
 - Streaming availability via JustWatch
+- Also-known-as (AKA) title matching, so movies better known under a reissue/US title still turn up and display correctly
 
 **Example:**
 ```
@@ -221,6 +222,15 @@ Include the year to distinguish remakes or similar titles:
 /movie query:Total Recall 1990
 /movie query:Total Recall 2012
 ```
+
+### Alternate Titles (AKAs)
+
+Some movies and shows are stored in TMDB under an original or foreign title, even though they're actually known and distributed under a different one — for example, the 1978 film *Day of the Woman* is TMDB's title of record for what's far better known as *I Spit on Your Grave*. `/movie` and `/tv` (and `/soundtrack` and `/bracket` add-title) check TMDB's alternate-title (AKA) data when a query doesn't cleanly match the top result, so titles like these are still found:
+```
+/movie query:I Spit On Your Grave
+→ Finds "Day of the Woman (1978)"
+```
+When a result like this is found, its result screen also shows an **Also Known As** field with the more familiar title, so it's clear you found the right one even though the title on-screen looks unfamiliar.
 
 ### Special Characters
 The search handles special characters and punctuation automatically:
