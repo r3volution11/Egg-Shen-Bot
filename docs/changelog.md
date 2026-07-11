@@ -5,6 +5,14 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.12.0 - 2026-07-10
+
+### Changed
+- **Saving an edited event request now immediately approves it**, instead of just updating the title/description and leaving it pending for a separate Approve click. If a text channel is already known, the event is created right away (using a voice channel too if one was requested); if not, saving shows the same channel-selection step Approve already uses, so the moderator picks a channel and the event is created from there. To review an edit without approving, deny the request and ask the submitter to resubmit instead
+
+### Developer
+- Extracted the event-creation logic (`guild.scheduledEvents.create()` + approved-embed building + request cleanup) that previously lived only inside the Approve button handler into a shared `src/utils/eventRequestApproval.js` module, so the edit-save auto-approve path could reuse it instead of duplicating it a third time
+
 ## 2.11.0 - 2026-07-10
 
 ### Added

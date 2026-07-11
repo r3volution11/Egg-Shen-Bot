@@ -350,14 +350,20 @@ When a request is submitted:
 4. **Choose approval type:**
    - **Approve Both** → Creates voice channel event with text channel coordination
    - **Text Only** → Creates text-only event (removes voice channel from request)
-   - **Edit** → Opens a form to correct the title or description before approving (see below)
+   - **Edit** → Opens a form to correct the title or description — saving it immediately approves the request too (see below)
    - **Deny** → Opens a form for an optional reason, then removes the request without creating an event
 
-### Editing a Request Before Approval
+### Editing a Request (Immediately Approves It)
 
-If a submitter's title is wrong or the description needs more detail, click **✏️ Edit** before approving. This opens a form pre-filled with the current title and description — update either field and submit to update the request. The moderation-channel message updates immediately to reflect the change, and any subsequent approval uses the edited title/description.
+If a submitter's title is wrong or the description needs more detail, click **✏️ Edit**. This opens a form pre-filled with the current title and description — update either field and submit.
 
-Editing does not touch the requested start/end time. If the time also needs correcting, approve the request first, then use the **Event URL** included in the approval confirmation to open Discord's own event editor and adjust the schedule there — Discord's editor handles timezones correctly for every viewer, which a text-only edit form cannot.
+Saving the edit both updates the request **and approves it in the same step** — there's no separate Approve click needed afterward:
+- If the request already has a text channel (the submitter picked one, or advanced mode isn't in use), saving creates the event right away, using a voice channel too if one was requested.
+- If no channel is set yet, saving shows the same channel-selection step Approve normally shows — pick a channel there and the event is created from your edited title/description.
+
+If you want to review the edit before it goes live, or need to change something Edit doesn't cover, deny the request instead and ask the submitter to resubmit — editing is meant for quick corrections a moderator is comfortable approving outright, not a staging step.
+
+Editing does not touch the requested start/end time. If the time also needs correcting, edit and approve first, then use the **Event URL** included in the confirmation to open Discord's own event editor and adjust the schedule there — Discord's editor handles timezones correctly for every viewer, which a text-only edit form cannot.
 
 ### Denying with a Reason
 

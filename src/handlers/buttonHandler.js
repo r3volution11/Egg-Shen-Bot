@@ -5,6 +5,7 @@ import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
+import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState } from '../utils/eventRequestApproval.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -346,55 +347,22 @@ export async function handleButtonInteraction(interaction) {
         // the deny_event_modal_ submission path in index.js instead.)
         const guild = interaction.guild;
 
-        const eventConfig = {
-          name: requestData.title,
-          description: requestData.description || undefined,
-          scheduledStartTime: requestData.startTime,
-          scheduledEndTime: requestData.endTime || undefined,
-          privacyLevel: 2
-        };
-
-        const useVoiceChannel = (approvalType === 'both' || approvalType === 'full') && requestData.voiceChannelId;
-
-        if (useVoiceChannel) {
-          eventConfig.channel = requestData.voiceChannelId;
-          eventConfig.entityType = 2;
-
-          const textChannel = guild.channels.cache.get(requestData.channelId);
-          const channelMention = textChannel ? `<#${textChannel.id}>` : 'the server';
-          eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') +
-            `💬 Coordination: ${channelMention}`;
-        } else {
-          const textChannel = guild.channels.cache.get(requestData.channelId);
-          const channelMention = textChannel ? `<#${textChannel.id}>` : 'the server';
-          eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') +
-            `📍 Location: ${channelMention}`;
-          eventConfig.entityType = 3;
-          eventConfig.entityMetadata = { location: 'Discord Server' };
-        }
-
-        const scheduledEvent = await guild.scheduledEvents.create(eventConfig);
+        const { scheduledEvent, useVoiceChannel } = await createScheduledEventFromRequest({
+          guild, requestId, requestData, approvalType,
+        });
 
         const originalEmbed = interaction.message.embeds[0];
-        const approvalLabel = approvalType === 'text' ? ' (Text Channel Only)' :
-                             approvalType === 'both' ? ' (Both Channels)' : '';
-
-        const approvedEmbed = new EmbedBuilder(originalEmbed)
-          .setColor(0x00FF00)
-          .setTitle(`✅ Event Request Approved${approvalLabel}`)
-          .setFooter({ text: `Approved by ${interaction.user.tag} • ${originalEmbed.footer?.text || ''}` });
+        const approvedEmbed = buildApprovedEmbed(originalEmbed, {
+          approvedByTag: interaction.user.tag,
+          approvalType,
+        });
 
         await interaction.message.edit({
           embeds: [approvedEmbed],
           components: []
         });
 
-        global.eventRequests.delete(requestId);
-        if (global.eventChannelSelections) {
-          global.eventChannelSelections.delete(`${interaction.guildId}_${requestId}`);
-          await saveEventChannelSelections();
-        }
-        await saveEventRequests();
+        await cleanupEventRequestState({ guildId: interaction.guildId, requestId });
 
         const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
         await interaction.editReply({
@@ -403,13 +371,13 @@ export async function handleButtonInteraction(interaction) {
 
         const duration = Date.now() - startTime;
         logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
-        
+
       } catch (error) {
         console.error('[EventRequest] Error processing event request:', error);
         await interaction.editReply({
           content: `❌ Failed to process event request: ${error.message}`
         });
-        
+
         logger.logButton(interaction.customId, interaction.user, interaction.guild, false, error);
       }
       
