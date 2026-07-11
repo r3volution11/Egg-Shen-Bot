@@ -751,6 +751,17 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand(subcommand =>
         subcommand
+          .setName('announce-decisions')
+          .setDescription('Post a new message in the moderation channel when a request is approved/denied')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Post an announcement message on approve/deny?')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
           .setName('allow-user-channel-selection')
           .setDescription('Allow users to select channels in form (default: moderators choose during approval)')
           .addBooleanOption(option =>
@@ -2435,6 +2446,11 @@ export async function execute(interaction) {
           inline: true
         },
         {
+          name: 'Announce Approve/Deny',
+          value: eventConfig.announceDecisions !== false ? '✅ Yes' : '❌ No',
+          inline: true
+        },
+        {
           name: 'User Channel Selection',
           value: eventConfig.allowUserChannelSelection === true ? '✅ Enabled (users pick channels)' : '❌ Disabled (mods assign)',
           inline: true
@@ -2580,6 +2596,24 @@ export async function execute(interaction) {
       ephemeral: true
     });
     
+  } else if (group === 'event-requests' && subcommand === 'announce-decisions') {
+    const enabled = interaction.options.getBoolean('enabled');
+    const config = await loadGuildConfig(guildId);
+
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+
+    config.eventRequests.announceDecisions = enabled;
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: enabled
+        ? '✅ Approving/denying a request will now also post an announcement message to the moderation channel.'
+        : '❌ Approving/denying a request will only update the original request message — no separate announcement will be posted.',
+      ephemeral: true
+    });
+
   } else if (group === 'event-requests' && subcommand === 'allow-user-channel-selection') {
     const allow = interaction.options.getBoolean('allow');
     const config = await loadGuildConfig(guildId);

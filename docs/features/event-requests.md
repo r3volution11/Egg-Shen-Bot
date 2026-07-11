@@ -373,6 +373,19 @@ Clicking **❌ Deny** opens a form with an optional reason field. Whatever you e
 
 If the bot can't DM the submitter (for example, they have server DMs disabled), the denial still completes — you'll just see a note that the notification couldn't be delivered.
 
+### Everyone Sees What Happened
+
+Approving or denying a request updates the original request's message in place (title, color, and buttons change to reflect the outcome) — but a silent edit to an old message is easy to miss if you weren't already looking right at it. On top of that, the bot posts a **new message** to the moderation channel announcing the outcome:
+- **Approved:** who approved it and a link to the newly created event
+- **Denied:** who denied it, and the reason if one was given
+
+This applies to every way a request gets approved — the Approve buttons, picking a channel after Approve, and saving an edit — so the whole moderation team can see what happened and why without having to notice an old message changed.
+
+This is on by default. To turn it off (only the original request message updates, no separate announcement):
+```
+/eggshen-config event-requests announce-decisions enabled:false
+```
+
 ::: tip Moderator Permissions
 Only members with **Manage Events** permission or Administrator/Moderator roles can approve/deny/edit requests.
 :::
