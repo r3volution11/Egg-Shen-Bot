@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
+import { EmbedBuilder } from 'discord.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -64,10 +65,11 @@ function saveGuildPolls(guildId, polls) {
 
 /**
  * Create a new poll
+ * @param {number|null} expiresInMinutes - Optional auto-close duration in minutes from now
  */
-export function createPoll(guildId, channelId, messageId, creatorId, question, options, allowMultipleVotes = false) {
+export function createPoll(guildId, channelId, messageId, creatorId, question, options, allowMultipleVotes = false, expiresInMinutes = null) {
   const polls = loadGuildPolls(guildId);
-  
+
   const poll = {
     pollId: generatePollId(),
     guildId,
@@ -84,14 +86,45 @@ export function createPoll(guildId, channelId, messageId, creatorId, question, o
     allowMultipleVotes,
     status: 'active',
     createdAt: new Date().toISOString(),
+    expiresAt: expiresInMinutes ? new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString() : null,
     closedAt: null,
     closedBy: null,
   };
-  
+
   polls.push(poll);
   saveGuildPolls(guildId, polls);
-  
+
   return poll;
+}
+
+/**
+ * Get all active polls across all guilds whose expiresAt has passed.
+ * Used by pollScheduler.js to auto-close expired surveys.
+ * @returns {Array<{guildId: string, poll: object}>}
+ */
+export function getExpiredActivePolls() {
+  const expired = [];
+  const now = Date.now();
+
+  if (!existsSync(POLLS_DIR)) {
+    return expired;
+  }
+
+  const files = readdirSync(POLLS_DIR).filter(f => f.endsWith('.json'));
+  for (const file of files) {
+    const guildId = file.replace('.json', '');
+    const polls = loadGuildPolls(guildId);
+
+    for (const poll of polls) {
+      if (poll.status !== 'active') continue;
+      if (!poll.expiresAt) continue;
+      if (new Date(poll.expiresAt).getTime() > now) continue;
+
+      expired.push({ guildId, poll });
+    }
+  }
+
+  return expired;
 }
 
 /**
@@ -278,4 +311,112 @@ export function getPollResults(poll) {
 export function getUserVote(poll, userId) {
   const votedOptions = poll.options.filter(opt => opt.votes.includes(userId));
   return votedOptions.map(opt => opt.id);
+}
+
+/**
+ * Create a progress bar for vote percentage
+ */
+function createProgressBar(percentage, length = 20) {
+  const filled = Math.round((percentage / 100) * length);
+  const empty = length - filled;
+  return '█'.repeat(filled) + '░'.repeat(empty);
+}
+
+/**
+ * Create a poll embed. Shared by /survey create, the live-updating reaction
+ * handlers, /survey close, and the auto-expiry scheduler, so every code
+ * path that renders a poll looks the same.
+ */
+export function createPollEmbed(poll, showResults = false) {
+  const { totalVotes, results } = getPollResults(poll);
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📊 ${poll.question}`)
+    .setColor(poll.status === 'active' ? 0x5865F2 : 0x99AAB5)
+    .setFooter({
+      text: `Survey ID: ${poll.pollId} • ${poll.status === 'active' ? 'React to vote!' : 'Survey closed'} • Total votes: ${totalVotes}${poll.allowMultipleVotes ? ' • Multiple votes allowed' : ''}`,
+    })
+    .setTimestamp(new Date(poll.createdAt));
+
+  // Build options display
+  const optionsText = results.map(option => {
+    const bar = createProgressBar(option.percentage, 20);
+    const voteText = `${option.voteCount} vote${option.voteCount !== 1 ? 's' : ''}`;
+
+    if (showResults) {
+      return `${option.emoji} **${option.text}**\n${bar} ${option.percentage}% (${voteText})`;
+    } else {
+      return `${option.emoji} ${option.text}`;
+    }
+  }).join('\n\n');
+
+  embed.setDescription(optionsText);
+
+  // Add status info
+  if (poll.status === 'closed') {
+    const closedDate = new Date(poll.closedAt);
+    embed.addFields({
+      name: 'Closed',
+      value: `<t:${Math.floor(closedDate.getTime() / 1000)}:R>`,
+      inline: true,
+    });
+  } else if (poll.expiresAt) {
+    embed.addFields({
+      name: 'Voting Ends',
+      value: `<t:${Math.floor(new Date(poll.expiresAt).getTime() / 1000)}:R>`,
+      inline: true,
+    });
+  }
+
+  return embed;
+}
+
+/**
+ * Close a poll, update its Discord message to a closed/results state, and
+ * post a results announcement to the channel — the full "voting has ended"
+ * flow. Shared by /survey close and pollScheduler.js's auto-expiry, so both
+ * code paths behave identically instead of drifting.
+ *
+ * @param {import('discord.js').Client} client
+ * @param {string} guildId
+ * @param {string} pollId
+ * @param {string} closedBy - User ID credited with closing the poll (the
+ *   bot's own client.user.id for an auto-expiry close)
+ * @returns {Promise<{success: boolean, poll?: object, error?: string}>}
+ */
+export async function closePollAndAnnounce(client, guildId, pollId, closedBy) {
+  const poll = getPoll(guildId, pollId);
+
+  if (!poll) {
+    return { success: false, error: 'Poll not found' };
+  }
+
+  if (poll.status === 'closed') {
+    return { success: false, error: 'Poll already closed' };
+  }
+
+  try {
+    // Fetch the message before persisting anything — if it was deleted,
+    // fail here with the poll still open rather than marking it closed and
+    // only then discovering there's nothing to update.
+    const channel = await client.channels.fetch(poll.channelId);
+    const message = await channel.messages.fetch(poll.messageId);
+
+    closePoll(guildId, pollId, closedBy);
+
+    const updatedPoll = getPoll(guildId, pollId);
+    const pollEmbed = createPollEmbed(updatedPoll, true);
+
+    await message.edit({ embeds: [pollEmbed] });
+    await message.reactions.removeAll().catch(console.error);
+
+    const resultsEmbed = createPollEmbed(updatedPoll, true);
+    resultsEmbed.setTitle(`🏁 Survey Closed: ${poll.question}`);
+    await channel.send({ embeds: [resultsEmbed] });
+
+    return { success: true, poll: updatedPoll };
+  } catch (error) {
+    console.error(`Error closing poll ${pollId}:`, error);
+    return { success: false, error: error.message };
+  }
 }

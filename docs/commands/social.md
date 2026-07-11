@@ -24,16 +24,19 @@ A: Yes! Remove your reaction and add a new one. In multiple-vote mode, you can r
 **Q: Are survey results stored permanently?**  
 A: Yes, all surveys are stored in JSON files per-server and persist even if the bot restarts.
 
+**Q: Can a survey close itself automatically?**  
+A: Yes! Set `duration:[minutes]` when creating it (`/survey create ... duration:120` for 2 hours). Without it, a survey stays open until someone runs `/survey close`.
+
 ---
 
 ## Survey Commands
 
-Create interactive polls and surveys with up to 10 options, live vote tracking, and comprehensive management.
+Create interactive polls and surveys with up to 10 options, live vote tracking, optional auto-close, and comprehensive management.
 
 ### Create a Survey
 
 ```
-/survey create question:[question] option1:[text] option2:[text] ... option10:[optional] multiple:[optional]
+/survey create question:[question] option1:[text] option2:[text] ... option10:[optional] multiple:[optional] duration:[optional]
 ```
 
 **Parameters:**
@@ -42,6 +45,7 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 - `option2` (required) - Second option (max 100 characters)
 - `option3`-`option10` (optional) - Additional options (max 100 characters each)
 - `multiple` (optional) - Allow users to vote for multiple options (default: false)
+- `duration` (optional) - Auto-close voting after this many minutes, from 1 minute up to 14 days (20160 minutes). Omit for a survey that stays open until manually closed with `/survey close`
 
 **Features:**
 - Up to 10 options per survey
@@ -49,7 +53,8 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 - Single-vote mode (default): Users can only vote for one option
 - Multiple-vote mode: Users can vote for several options
 - Automatic reaction setup by the bot
-- Beautiful embed display with vote counts
+- The survey message updates live as votes come in — no need to run `/survey results` to see current standings
+- Optional auto-close after a set duration, closing and posting results automatically without anyone needing to run `/survey close`
 
 **Examples:**
 ```
@@ -58,14 +63,17 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 /survey create question:"Which genres do you like?" option1:"Sci-Fi" option2:"Fantasy" option3:"Drama" option4:"Thriller" multiple:true
 
 /survey create question:"Best 80s movie?" option1:"The Breakfast Club" option2:"Back to the Future" option3:"Blade Runner" option4:"Die Hard" option5:"E.T."
+
+/survey create question:"Movie night pick?" option1:"The Thing" option2:"Alien" duration:120
 ```
 
 **How It Works:**
 1. Bot posts an embed with your question and all options
 2. Bot automatically adds number emoji reactions (1️⃣, 2️⃣, etc.)
 3. Users vote by clicking the emoji reactions
-4. Votes are recorded as they come in, but the survey message itself doesn't update live — use `/survey results` any time to see current standings
-5. Anyone can view live results with `/survey results`
+4. The survey message updates live with current vote counts and percentages as votes come in
+5. If a `duration` was set, the embed shows when voting ends and the bot automatically closes the survey and posts results at that time — otherwise, use `/survey close` when you're ready to end it
+6. Anyone can view live results any time with `/survey results`
 
 ---
 
@@ -161,6 +169,8 @@ Your Vote(s): 1️⃣ Horror
 ```
 /survey close poll_id:a1b2c3d4e5f6g7h8
 ```
+
+**Note:** If the survey was created with a `duration`, all of this happens automatically once voting ends — you don't need to run `/survey close` yourself unless you want to end it early.
 
 ---
 

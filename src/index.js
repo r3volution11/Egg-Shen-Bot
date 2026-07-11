@@ -161,7 +161,11 @@ client.once('clientReady', async () => {
   // Initialize tournament voting scheduler
   const { initialize: initTournamentScheduler } = await import('./utils/tournamentScheduler.js');
   initTournamentScheduler(client);
-  
+
+  // Initialize survey auto-expiry scheduler
+  const { initialize: initPollScheduler } = await import('./utils/pollScheduler.js');
+  initPollScheduler(client);
+
   // Start API server for event requests
   const { startApiServer } = await import('./api/server.js');
   const apiPort = process.env.API_PORT || 3000;
@@ -645,33 +649,33 @@ client.on('messageReactionAdd', async (reaction, user) => {
       await reaction.message.fetch();
     }
     
-    const { getPollByMessageId, addVote, removeVote, getPollResults, VOTE_EMOJIS } = await import('./utils/pollManager.js');
-    
+    const { getPollByMessageId, addVote, createPollEmbed, VOTE_EMOJIS } = await import('./utils/pollManager.js');
+
     // Check if this message is a poll
     const poll = getPollByMessageId(reaction.message.guildId, reaction.message.id);
-    
+
     if (!poll) return;
-    
+
     // Check if poll is still active
     if (poll.status !== 'active') {
       // Remove reaction from closed poll
       await reaction.users.remove(user.id);
       return;
     }
-    
+
     // Check if the emoji is valid for this poll
     const emojiIndex = VOTE_EMOJIS.indexOf(reaction.emoji.name);
-    
+
     if (emojiIndex === -1 || emojiIndex >= poll.options.length) {
       // Invalid emoji for this poll
       await reaction.users.remove(user.id);
       return;
     }
-    
+
     // Add the vote
     try {
       const updatedPoll = addVote(reaction.message.guildId, poll.pollId, emojiIndex, user.id);
-      
+
       // If multiple votes are not allowed, remove user's reactions from other options
       if (!poll.allowMultipleVotes) {
         for (let i = 0; i < poll.options.length; i++) {
@@ -683,12 +687,17 @@ client.on('messageReactionAdd', async (reaction, user) => {
           }
         }
       }
-      
+
+      // Reflect the new vote counts on the survey message itself.
+      await reaction.message.edit({ embeds: [createPollEmbed(updatedPoll, true)] }).catch(error => {
+        console.error('Error updating poll message after vote:', error.message);
+      });
+
     } catch (error) {
       console.error('Error adding vote:', error);
       await reaction.users.remove(user.id);
     }
-    
+
   } catch (error) {
     console.error('Error handling reaction add:', error);
   }
@@ -710,27 +719,36 @@ client.on('messageReactionRemove', async (reaction, user) => {
       await reaction.message.fetch();
     }
     
-    const { getPollByMessageId, removeVote, VOTE_EMOJIS } = await import('./utils/pollManager.js');
-    
+    const { getPollByMessageId, removeVote, createPollEmbed, VOTE_EMOJIS } = await import('./utils/pollManager.js');
+
     // Check if this message is a poll
     const poll = getPollByMessageId(reaction.message.guildId, reaction.message.id);
-    
+
     if (!poll) return;
-    
+
+    // A closed poll's reactions were already stripped via removeAll() when
+    // it closed — nothing to reflect on the message here.
+    if (poll.status !== 'active') return;
+
     // Check if the emoji is valid for this poll
     const emojiIndex = VOTE_EMOJIS.indexOf(reaction.emoji.name);
-    
+
     if (emojiIndex === -1 || emojiIndex >= poll.options.length) {
       return;
     }
-    
+
     // Remove the vote
     try {
-      removeVote(reaction.message.guildId, poll.pollId, emojiIndex, user.id);
+      const updatedPoll = removeVote(reaction.message.guildId, poll.pollId, emojiIndex, user.id);
+
+      // Reflect the new vote counts on the survey message itself.
+      await reaction.message.edit({ embeds: [createPollEmbed(updatedPoll, true)] }).catch(error => {
+        console.error('Error updating poll message after vote removal:', error.message);
+      });
     } catch (error) {
       console.error('Error removing vote:', error);
     }
-    
+
   } catch (error) {
     console.error('Error handling reaction remove:', error);
   }
@@ -752,7 +770,11 @@ async function gracefulShutdown(signal) {
   // Stop tournament scheduler
   const { shutdown: shutdownScheduler } = await import('./utils/tournamentScheduler.js');
   shutdownScheduler();
-  
+
+  // Stop poll scheduler
+  const { shutdown: shutdownPollScheduler } = await import('./utils/pollScheduler.js');
+  shutdownPollScheduler();
+
   // Destroy Discord client
   client.destroy();
   
