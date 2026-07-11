@@ -111,7 +111,7 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 ```
 
 **Parameters:**
-- `poll_id` (required) - The survey ID (use `/survey list` to find it)
+- `poll_id` (required) - The survey to view — start typing the question and Discord will suggest matching surveys (active and closed) with their live vote counts
 
 **Features:**
 - Detailed results with progress bars
@@ -151,7 +151,7 @@ Your Vote(s): 1️⃣ Horror
 ```
 
 **Parameters:**
-- `poll_id` (required) - The survey ID to close
+- `poll_id` (required) - The survey to close — autocomplete only suggests surveys you're actually allowed to close (your own, or any if you're an admin/mod)
 
 **Permissions:**
 - Survey creator
@@ -181,7 +181,7 @@ Your Vote(s): 1️⃣ Horror
 ```
 
 **Parameters:**
-- `poll_id` (required) - The survey ID to permanently delete
+- `poll_id` (required) - The survey to delete — autocomplete only suggests surveys you're actually allowed to delete (your own, or any if you're an admin/mod)
 
 **Permissions:**
 - Survey creator

@@ -142,8 +142,9 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('poll_id')
-          .setDescription('The survey ID (use /survey list to find it)')
+          .setDescription('The survey to view')
           .setRequired(true)
+          .setAutocomplete(true)
       )
   )
   .addSubcommand(subcommand =>
@@ -153,8 +154,9 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('poll_id')
-          .setDescription('The survey ID to close')
+          .setDescription('The survey to close')
           .setRequired(true)
+          .setAutocomplete(true)
       )
   )
   .addSubcommand(subcommand =>
@@ -164,8 +166,9 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('poll_id')
-          .setDescription('The survey ID to delete')
+          .setDescription('The survey to delete')
           .setRequired(true)
+          .setAutocomplete(true)
       )
   );
 
@@ -203,6 +206,43 @@ export async function execute(interaction) {
       await handleDelete(interaction);
       break;
   }
+}
+
+/**
+ * Autocomplete for the poll_id option on /survey results, close, and delete.
+ * - results: any survey, active or closed (read-only, no permission needed)
+ * - close/delete: only surveys the invoking user can actually manage
+ *   (creator, admin, or mod), so a suggestion never leads to a permission
+ *   error after picking it
+ */
+export async function autocomplete(interaction) {
+  const subcommand = interaction.options.getSubcommand();
+  const focusedValue = interaction.options.getFocused().toLowerCase();
+
+  let polls = subcommand === 'results'
+    ? [...getActivePolls(interaction.guildId), ...getClosedPolls(interaction.guildId)]
+    : getActivePolls(interaction.guildId);
+
+  if (subcommand === 'close' || subcommand === 'delete') {
+    polls = polls.filter(poll => canManagePoll(poll, interaction.member));
+  }
+
+  polls.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const matches = polls
+    .filter(poll => poll.question.toLowerCase().includes(focusedValue))
+    .slice(0, 25)
+    .map(poll => {
+      const { totalVotes } = getPollResults(poll);
+      const statusEmoji = poll.status === 'active' ? '🟢' : '🔴';
+      const label = `${statusEmoji} ${poll.question} (${totalVotes} vote${totalVotes !== 1 ? 's' : ''})`;
+      return {
+        name: label.length > 100 ? `${label.slice(0, 97)}...` : label,
+        value: poll.pollId,
+      };
+    });
+
+  await interaction.respond(matches);
 }
 
 /**

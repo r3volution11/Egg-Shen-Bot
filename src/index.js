@@ -174,6 +174,21 @@ client.once('clientReady', async () => {
 
 // Event: Interaction (slash commands)
 client.on('interactionCreate', async (interaction) => {
+  // Handle autocomplete requests (fires on every keystroke in an
+  // autocomplete-enabled option) — no rate limiting or command logging,
+  // just a fast read-only lookup that must respond within Discord's 3s window
+  if (interaction.isAutocomplete()) {
+    const command = client.commands.get(interaction.commandName);
+    if (!command?.autocomplete) return;
+
+    try {
+      await command.autocomplete(interaction);
+    } catch (error) {
+      console.error(`Error handling autocomplete for ${interaction.commandName}:`, error);
+    }
+    return;
+  }
+
   // Handle slash commands
   if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
