@@ -10,6 +10,7 @@ import {
   getUserVote,
   createPollEmbed,
   closePollAndAnnounce,
+  buildSurveyButtons,
   VOTE_EMOJIS,
 } from '../utils/pollManager.js';
 import { canUseCommand } from '../utils/guildConfig.js';
@@ -302,21 +303,16 @@ async function handleCreate(interaction) {
       duration
     );
 
-    // Update message with full poll
+    // Update message with full poll and its voting buttons
     const pollEmbed = createPollEmbed(poll, false);
-    await interaction.editReply({ embeds: [pollEmbed] });
-
-    // Add reaction emojis
-    for (let i = 0; i < options.length; i++) {
-      await message.react(VOTE_EMOJIS[i]);
-    }
+    await interaction.editReply({ embeds: [pollEmbed], components: buildSurveyButtons(poll) });
 
     // Send confirmation to creator
     const autoCloseNote = duration
       ? `\n**Auto-closes:** <t:${Math.floor(new Date(poll.expiresAt).getTime() / 1000)}:R>`
       : '';
     await interaction.followUp({
-      content: `✅ Survey created! Users can vote by reacting to the message.\n\n**Survey ID:** \`${poll.pollId}\`${autoCloseNote}\n**Manage:** Use \`/survey close ${poll.pollId}\` to close or \`/survey delete ${poll.pollId}\` to delete.`,
+      content: `✅ Survey created! Users can vote by clicking a button below the message.\n\n**Survey ID:** \`${poll.pollId}\`${autoCloseNote}\n**Manage:** Use \`/survey close ${poll.pollId}\` to close or \`/survey delete ${poll.pollId}\` to delete.`,
       ephemeral: true,
     });
     
