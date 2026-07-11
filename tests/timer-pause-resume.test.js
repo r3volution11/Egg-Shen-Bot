@@ -212,7 +212,11 @@ describe('/timer resume', () => {
   test('auto-stop still fires at approximately the right wall-clock time after a pause/resume cycle', async () => {
     jest.useFakeTimers({ now: 1_000_000 });
     const client = makeClient();
-    startTimer('channel-1', 'starter-user', 'starter-user', 'Test Movie', 10, client); // 10 min duration
+    // No label: keeps the auto-stop callback on the lightweight
+    // "manual-log button" path instead of autoLogTimerToWatchHistory's real
+    // (unmocked) TMDB search chain, which can still be in flight when this
+    // test's own synchronous assertions run under heavier parallel load.
+    startTimer('channel-1', 'starter-user', 'starter-user', '', 10, client); // 10 min duration
 
     // Run for 2 minutes, then pause for 5 minutes (should not count against the 10min budget).
     jest.setSystemTime(1_000_000 + 2 * 60 * 1000);
