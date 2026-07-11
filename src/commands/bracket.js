@@ -6,7 +6,7 @@ import { searchGames } from '../services/rawgService.js';
 import { searchBoardGames } from '../services/bggService.js';
 import { searchBooks } from '../services/googleBooksService.js';
 import { hybridSearch } from '../services/aiService.js';
-import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
+import { loadGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -528,7 +528,17 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
   console.log('[/bracket] Subcommand received:', subcommand);
-  
+
+  // Check if the /bracket command is enabled at all for this server
+  const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'bracket');
+  if (!hasPermission) {
+    await interaction.reply({
+      content: '❌ The `/bracket` command is currently disabled for regular users. Contact a server administrator for more information.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   // Check admin/mod permissions for management commands
   const requiresAdmin = ['create', 'manage-titles', 'resize', 'edit-name', 'announce', 'open', 'close', 'open-groups', 'close-groups', 'advance-knockout', 'regenerate', 'resolve-tiebreaker', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {

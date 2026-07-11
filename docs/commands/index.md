@@ -363,10 +363,12 @@ Find similar content recommendations.
 ---
 
 ### `/eggshen-help`
-Display comprehensive bot help with complete command list.
+Display comprehensive bot help with complete command list — tailored to what's actually enabled on the server it's run in.
 
 **Features:**
 - Overview of all bot commands organized by category
+- **Guild-aware:** only shows commands your server has enabled. If an admin disables `/game` via `/eggshen-config commands toggle`, it disappears from your help list too — no more listing commands that will just reply "disabled" if you try them
+- A category only disappears entirely if every command in it is disabled; otherwise it stays with just the remaining enabled commands
 - Movies & TV Shows: movie, tv, episode, episode-list, similar, watched
 - Games & Entertainment: game, boardgame, book, soundtrack
 - Random & Discovery: random with filters

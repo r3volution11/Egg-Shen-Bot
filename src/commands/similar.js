@@ -2,7 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { searchMovies, searchTVShows, getSimilarMovies, getSimilarTV, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
 import { searchGames } from '../services/rawgService.js';
 import { searchBoardGames } from '../services/bggService.js';
-import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { loadGuildConfig } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
 import { config } from '../config.js';
 

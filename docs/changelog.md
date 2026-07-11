@@ -5,6 +5,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.11.0 - 2026-07-10
+
+### Added
+- **`/eggshen-help` is now guild-aware.** It only lists commands actually enabled on the server it's run in — if `/game` is disabled via `/eggshen-config commands toggle`, it no longer appears in the help list, and if AI image generation is disabled for the server, `/image` disappears from the "AI Image Generation" category (while `/potion` stays, since it isn't affected by that setting). A category is only omitted entirely once every command in it is disabled; otherwise it stays with just the remaining enabled commands
+
+### Fixed
+- **`/eggshen-config`'s "Bracket Command" toggle did nothing.** `commandPermissions.bracket` existed in the config and was toggleable through `/eggshen-config commands toggle`, but `/bracket` never actually checked it — disabling it for regular users had zero effect. `/bracket` now respects the toggle like every other gated command, including its read-only subcommands (not just the admin/moderator-only management ones)
+- Removed an unused, misleading import in `similar.js` (`canUseCommand`, imported but never called — `/similar` has never had a corresponding toggle to check)
+- `docs/commands/configuration.md`'s list of `/eggshen-config commands toggle` settings was missing `game`, `boardgame`, `book`, `soundtrack`, `survey`, and `bracket` — only `movie`/`tv`/`episode` were documented even though all nine have worked (or now work, for `bracket`) since earlier changes this release cycle
+
 ## 2.10.0 - 2026-07-10
 
 ### Added
