@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
-import { searchMovies, searchTVShows } from '../services/tmdbService.js';
+import { searchMovies, searchTVShows, getMovieAlternativeTitles, getTVAlternativeTitles } from '../services/tmdbService.js';
 import { searchGames } from '../services/rawgService.js';
 import { searchBoardGames } from '../services/bggService.js';
 import { searchBooks } from '../services/googleBooksService.js';
@@ -901,10 +901,10 @@ async function handleAddTitle(interaction) {
   try {
     switch (type) {
       case 'movie':
-        results = await hybridSearch(title, searchMovies, 'movie');
+        results = await hybridSearch(title, searchMovies, 'movie', getMovieAlternativeTitles);
         break;
       case 'tv':
-        results = await hybridSearch(title, searchTVShows, 'tv');
+        results = await hybridSearch(title, searchTVShows, 'tv', getTVAlternativeTitles);
         break;
       case 'game':
         results = await searchGames(title);

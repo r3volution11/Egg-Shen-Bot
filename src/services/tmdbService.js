@@ -39,6 +39,79 @@ export async function searchTVShows(query) {
 }
 
 /**
+ * Get alternative/AKA titles for a movie, with region/type metadata intact
+ * (e.g. reissue titles like "I Spit on Your Grave" for a film TMDB's
+ * primary title still lists as "Day of the Woman"). Returns [] on failure —
+ * this is a supplementary lookup, not a critical path.
+ */
+export async function getMovieAlternativeTitlesDetailed(movieId) {
+  try {
+    const response = await tmdbApi.get(`/movie/${movieId}/alternative_titles`);
+    return response.data.titles || [];
+  } catch (error) {
+    console.error('TMDB movie alternative titles error:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Get alternative/AKA titles for a TV show, with region/type metadata
+ * intact. See getMovieAlternativeTitlesDetailed.
+ */
+export async function getTVAlternativeTitlesDetailed(tvId) {
+  try {
+    const response = await tmdbApi.get(`/tv/${tvId}/alternative_titles`);
+    return response.data.results || [];
+  } catch (error) {
+    console.error('TMDB TV alternative titles error:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Get alternative/AKA titles for a movie as a flat, deduped array of title
+ * strings. Used for query matching, where region/type don't matter — see
+ * getMovieAlternativeTitlesDetailed for the full metadata.
+ */
+export async function getMovieAlternativeTitles(movieId) {
+  const titles = await getMovieAlternativeTitlesDetailed(movieId);
+  return [...new Set(titles.map(t => t.title))];
+}
+
+/**
+ * Get alternative/AKA titles for a TV show as a flat, deduped array of
+ * title strings. See getMovieAlternativeTitles.
+ */
+export async function getTVAlternativeTitles(tvId) {
+  const titles = await getTVAlternativeTitlesDetailed(tvId);
+  return [...new Set(titles.map(t => t.title))];
+}
+
+/**
+ * Pick the single best "also known as" title to show alongside a media
+ * item's primary title, or null if there's no good candidate. Prioritizes
+ * US-region titles (this bot's primary audience), then any non-region-
+ * specific title, skipping ones identical to the primary title.
+ * @param {string} primaryTitle - The title already being displayed
+ * @param {Array<{iso_3166_1: string, title: string, type?: string}>} alternativeTitles
+ * @returns {string|null}
+ */
+export function pickKnownAsTitle(primaryTitle, alternativeTitles) {
+  if (!alternativeTitles || alternativeTitles.length === 0) {
+    return null;
+  }
+
+  const normalizedPrimary = (primaryTitle || '').trim().toLowerCase();
+  const isDifferent = (t) => t.title && t.title.trim().toLowerCase() !== normalizedPrimary;
+
+  const usTitle = alternativeTitles.find(t => t.iso_3166_1 === 'US' && isDifferent(t));
+  if (usTitle) return usTitle.title;
+
+  const anyTitle = alternativeTitles.find(isDifferent);
+  return anyTitle ? anyTitle.title : null;
+}
+
+/**
  * Get detailed movie information including external IDs
  */
 export async function getMovieDetails(movieId) {

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { searchMovies, searchTVShows } from '../services/tmdbService.js';
+import { searchMovies, searchTVShows, getMovieAlternativeTitles, getTVAlternativeTitles } from '../services/tmdbService.js';
 import { hybridSearch } from '../services/aiService.js';
 import { createSoundtrackSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
@@ -37,8 +37,8 @@ export async function execute(interaction) {
   try {
     // Search both movies and TV shows
     const [movieResults, tvResults] = await Promise.all([
-      hybridSearch(query, searchMovies, 'movie'),
-      hybridSearch(query, searchTVShows, 'tv'),
+      hybridSearch(query, searchMovies, 'movie', getMovieAlternativeTitles),
+      hybridSearch(query, searchTVShows, 'tv', getTVAlternativeTitles),
     ]);
     
     // Combine results, prioritizing exact matches

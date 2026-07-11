@@ -64,6 +64,126 @@ describe('searchMovies / searchTVShows', () => {
   });
 });
 
+describe('getMovieAlternativeTitles / getTVAlternativeTitles', () => {
+  test('getMovieAlternativeTitles returns a deduped array of titles from the "titles" key', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        titles: [
+          { iso_3166_1: 'US', title: 'I Spit on Your Grave', type: 'reissue title' },
+          { iso_3166_1: 'DE', title: 'Blood Angel', type: 'video title' },
+          { iso_3166_1: 'GB', title: 'I Spit on Your Grave', type: 'reissue title' }, // dupe
+        ],
+      },
+    });
+
+    const result = await tmdbService.getMovieAlternativeTitles(25239);
+
+    expect(result).toEqual(['I Spit on Your Grave', 'Blood Angel']);
+  });
+
+  test('getMovieAlternativeTitles returns [] (not throw) on request failure', async () => {
+    mockGet.mockRejectedValueOnce(new Error('network down'));
+    const result = await tmdbService.getMovieAlternativeTitles(25239);
+    expect(result).toEqual([]);
+  });
+
+  test('getTVAlternativeTitles returns a deduped array of titles from the "results" key', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: {
+        results: [
+          { iso_3166_1: 'FR', title: 'Le Bureau' },
+          { iso_3166_1: 'DE', title: 'Das Büro' },
+        ],
+      },
+    });
+
+    const result = await tmdbService.getTVAlternativeTitles(1399);
+
+    expect(result).toEqual(['Le Bureau', 'Das Büro']);
+  });
+
+  test('getTVAlternativeTitles returns [] (not throw) on request failure', async () => {
+    mockGet.mockRejectedValueOnce(new Error('network down'));
+    const result = await tmdbService.getTVAlternativeTitles(1399);
+    expect(result).toEqual([]);
+  });
+
+  test('getMovieAlternativeTitlesDetailed returns the raw title objects (region/type intact)', async () => {
+    const titles = [{ iso_3166_1: 'US', title: 'I Spit on Your Grave', type: 'reissue title' }];
+    mockGet.mockResolvedValueOnce({ data: { titles } });
+
+    const result = await tmdbService.getMovieAlternativeTitlesDetailed(25239);
+
+    expect(result).toEqual(titles);
+  });
+
+  test('getMovieAlternativeTitlesDetailed returns [] (not throw) on request failure', async () => {
+    mockGet.mockRejectedValueOnce(new Error('network down'));
+    const result = await tmdbService.getMovieAlternativeTitlesDetailed(25239);
+    expect(result).toEqual([]);
+  });
+
+  test('getTVAlternativeTitlesDetailed returns the raw title objects from the "results" key', async () => {
+    const results = [{ iso_3166_1: 'FR', title: 'Le Bureau' }];
+    mockGet.mockResolvedValueOnce({ data: { results } });
+
+    const result = await tmdbService.getTVAlternativeTitlesDetailed(1399);
+
+    expect(result).toEqual(results);
+  });
+
+  test('getTVAlternativeTitlesDetailed returns [] (not throw) on request failure', async () => {
+    mockGet.mockRejectedValueOnce(new Error('network down'));
+    const result = await tmdbService.getTVAlternativeTitlesDetailed(1399);
+    expect(result).toEqual([]);
+  });
+});
+
+describe('pickKnownAsTitle', () => {
+  test('prefers a US-region title over other regions', () => {
+    const alternativeTitles = [
+      { iso_3166_1: 'DE', title: 'Blood Angel' },
+      { iso_3166_1: 'US', title: 'I Spit on Your Grave' },
+    ];
+
+    const result = tmdbService.pickKnownAsTitle('Day of the Woman', alternativeTitles);
+
+    expect(result).toBe('I Spit on Your Grave');
+  });
+
+  test('falls back to any non-matching title when no US title exists', () => {
+    const alternativeTitles = [{ iso_3166_1: 'FR', title: "J'irai cracher sur vos tombes" }];
+
+    const result = tmdbService.pickKnownAsTitle('Day of the Woman', alternativeTitles);
+
+    expect(result).toBe("J'irai cracher sur vos tombes");
+  });
+
+  test('returns null when the only candidates match the primary title (case-insensitive)', () => {
+    const alternativeTitles = [{ iso_3166_1: 'US', title: 'day of the woman' }];
+
+    const result = tmdbService.pickKnownAsTitle('Day of the Woman', alternativeTitles);
+
+    expect(result).toBeNull();
+  });
+
+  test('returns null for an empty or missing alternative titles list', () => {
+    expect(tmdbService.pickKnownAsTitle('Day of the Woman', [])).toBeNull();
+    expect(tmdbService.pickKnownAsTitle('Day of the Woman', null)).toBeNull();
+  });
+
+  test('skips a US title that happens to equal the primary title, falling back to another', () => {
+    const alternativeTitles = [
+      { iso_3166_1: 'US', title: 'Day of the Woman' }, // same as primary, skip
+      { iso_3166_1: 'GB', title: 'I Spit on Your Grave' },
+    ];
+
+    const result = tmdbService.pickKnownAsTitle('Day of the Woman', alternativeTitles);
+
+    expect(result).toBe('I Spit on Your Grave');
+  });
+});
+
 describe('getMovieDetails / getTVShowDetails', () => {
   test('getMovieDetails merges details + external_ids', async () => {
     mockGet

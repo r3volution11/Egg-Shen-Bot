@@ -141,19 +141,31 @@ export async function createDetailedEmbed(data, type, enabledServices = null, gu
     trakt,
     letterboxd,
     urls,
+    knownAs,
   } = data;
-  
+
   const title = type === 'movie' ? tmdb.title : tmdb.name;
-  const year = type === 'movie' 
-    ? tmdb.release_date?.split('-')[0] 
+  const year = type === 'movie'
+    ? tmdb.release_date?.split('-')[0]
     : tmdb.first_air_date?.split('-')[0];
-  
+
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle(`${title}${year ? ` (${year})` : ''}`)
     .setURL(urls.imdb || 'https://imdb.com')
     .setThumbnail(getPosterUrl(tmdb.poster_path) || null);
-  
+
+  // Surface a well-known alternate/reissue title when TMDB's title of
+  // record differs from how the title is actually known (e.g. "Day of the
+  // Woman" (1978), better known as "I Spit on Your Grave").
+  if (knownAs) {
+    embed.addFields({
+      name: 'Also Known As',
+      value: knownAs,
+      inline: false,
+    });
+  }
+
   // Add description/synopsis
   if (tmdb.overview) {
     embed.setDescription(tmdb.overview);
