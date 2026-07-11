@@ -128,17 +128,19 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 ```
 📊 What should we watch tonight?
 
-1️⃣ **Horror**
+🏆 1️⃣ **Horror**
 ████████████████░░░░ 80.0% (8 votes)
 
-2️⃣ **Comedy**
-████░░░░░░░░░░░░░░░░ 20.0% (2 votes)
+2️⃣ Comedy
+▓▓▓▓░░░░░░░░░░░░░░░░ 20.0% (2 votes)
 
-3️⃣ **Action**
+3️⃣ Action
 ░░░░░░░░░░░░░░░░░░░░ 0.0% (0 votes)
 
 Your Vote(s): 1️⃣ Horror
 ```
+
+The leader gets a 🏆 and a solid bar; everyone else gets a dimmer bar so the front-runner stands out at a glance. If the top spots are tied, no option is crowned.
 
 ---
 

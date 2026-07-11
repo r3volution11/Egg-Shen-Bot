@@ -366,12 +366,15 @@ export function getUserVote(poll, userId) {
 }
 
 /**
- * Create a progress bar for vote percentage
+ * Create a progress bar for vote percentage. The leader gets a solid fill
+ * (█); everyone else gets a dimmer shade (▓) so the bar itself visually
+ * reads as "behind" even though Discord embed text can't be colored.
  */
-function createProgressBar(percentage, length = 20) {
+function createProgressBar(percentage, length = 20, isLeader = false) {
   const filled = Math.round((percentage / 100) * length);
   const empty = length - filled;
-  return '█'.repeat(filled) + '░'.repeat(empty);
+  const fillChar = isLeader ? '█' : '▓';
+  return fillChar.repeat(filled) + '░'.repeat(empty);
 }
 
 /**
@@ -413,13 +416,21 @@ export function createPollEmbed(poll, showResults = false) {
     })
     .setTimestamp(new Date(poll.createdAt));
 
+  // A sole leader gets a crown + bold treatment so it stands out from the
+  // pack — skipped entirely when there are no votes yet, or when the top
+  // spot is tied (no single option is actually "ahead").
+  const isSoleLeader = totalVotes > 0 && results[0].voteCount > (results[1]?.voteCount ?? -1);
+
   // Build options display
-  const optionsText = results.map(option => {
-    const bar = createProgressBar(option.percentage, 20);
+  const optionsText = results.map((option, index) => {
+    const isLeader = showResults && isSoleLeader && index === 0;
+    const bar = createProgressBar(option.percentage, 20, isLeader);
     const voteText = `${option.voteCount} vote${option.voteCount !== 1 ? 's' : ''}`;
+    const crown = isLeader ? '🏆 ' : '';
+    const name = isLeader ? `**${option.text}**` : option.text;
 
     if (showResults) {
-      return `${option.emoji} **${option.text}**\n${bar} ${option.percentage}% (${voteText})`;
+      return `${crown}${option.emoji} ${name}\n${bar} ${option.percentage}% (${voteText})`;
     } else {
       return `${option.emoji} ${option.text}`;
     }

@@ -24,6 +24,7 @@ import {
   castSingleVote,
   toggleVote,
   buildSurveyButtons,
+  addVote,
 } from '../src/utils/pollManager.js';
 
 const POLLS_DIR = path.join(process.cwd(), 'guild_polls');
@@ -248,6 +249,66 @@ describe('createPollEmbed — Voting Ends field', () => {
 
     expect(embed.data.fields.find(f => f.name === 'Closed')).toBeDefined();
     expect(embed.data.fields.find(f => f.name === 'Voting Ends')).toBeUndefined();
+  });
+});
+
+describe('createPollEmbed — leader crown and bar shading', () => {
+  test('crowns and bolds the sole leader, and gives it a solid-fill bar', () => {
+    const poll = createPoll(GUILD_A, 'chan-1', 'msg-1', 'user-1', 'Q?', ['A', 'B', 'C']);
+    addVote(GUILD_A, poll.pollId, 0, 'voter-1');
+    addVote(GUILD_A, poll.pollId, 0, 'voter-2');
+    addVote(GUILD_A, poll.pollId, 1, 'voter-3');
+
+    const embed = createPollEmbed(getPoll(GUILD_A, poll.pollId), true);
+
+    expect(embed.data.description).toContain('🏆');
+    expect(embed.data.description).toContain('**A**');
+    // Leader's bar uses the solid block, not the dim shade
+    const leaderLine = embed.data.description.split('\n\n').find(block => block.includes('🏆'));
+    expect(leaderLine).toMatch(/█+░*/);
+    expect(leaderLine).not.toContain('▓');
+  });
+
+  test('gives non-leader options a dim-shaded bar instead of solid fill', () => {
+    const poll = createPoll(GUILD_A, 'chan-1', 'msg-1', 'user-1', 'Q?', ['A', 'B']);
+    addVote(GUILD_A, poll.pollId, 0, 'voter-1');
+    addVote(GUILD_A, poll.pollId, 0, 'voter-2');
+    addVote(GUILD_A, poll.pollId, 1, 'voter-3');
+
+    const embed = createPollEmbed(getPoll(GUILD_A, poll.pollId), true);
+
+    const runnerUpLine = embed.data.description.split('\n\n').find(block => block.includes('B') && !block.includes('🏆'));
+    expect(runnerUpLine).toContain('▓');
+    expect(runnerUpLine).not.toMatch(/█/);
+  });
+
+  test('does not crown anyone when tied for first place', () => {
+    const poll = createPoll(GUILD_A, 'chan-1', 'msg-1', 'user-1', 'Q?', ['A', 'B']);
+    addVote(GUILD_A, poll.pollId, 0, 'voter-1');
+    addVote(GUILD_A, poll.pollId, 1, 'voter-2');
+
+    const embed = createPollEmbed(getPoll(GUILD_A, poll.pollId), true);
+
+    expect(embed.data.description).not.toContain('🏆');
+    expect(embed.data.description).not.toMatch(/\*\*A\*\*|\*\*B\*\*/);
+  });
+
+  test('does not crown anyone when there are no votes yet', () => {
+    const poll = createPoll(GUILD_A, 'chan-1', 'msg-1', 'user-1', 'Q?', ['A', 'B']);
+
+    const embed = createPollEmbed(poll, true);
+
+    expect(embed.data.description).not.toContain('🏆');
+  });
+
+  test('never shows the crown or bold styling when showResults is false, regardless of votes', () => {
+    const poll = createPoll(GUILD_A, 'chan-1', 'msg-1', 'user-1', 'Q?', ['A', 'B']);
+    addVote(GUILD_A, poll.pollId, 0, 'voter-1');
+
+    const embed = createPollEmbed(getPoll(GUILD_A, poll.pollId), false);
+
+    expect(embed.data.description).not.toContain('🏆');
+    expect(embed.data.description).not.toContain('**');
   });
 });
 

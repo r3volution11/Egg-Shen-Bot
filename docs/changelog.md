@@ -5,6 +5,11 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.15.2 - 2026-07-11
+
+### Changed
+- **Survey results now visually highlight the leading option.** A sole leader gets a 🏆 crown, bold text, and a solid progress bar, while every other option uses a dimmer shaded bar (`▓` instead of `█`) — since Discord embed text can't be colored, this gives the leader real visual weight using only text/Unicode. No crown is shown when the top spots are tied or before any votes are cast
+
 ## 2.15.1 - 2026-07-11
 
 ### Changed
