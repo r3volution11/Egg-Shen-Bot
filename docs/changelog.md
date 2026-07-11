@@ -5,6 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.14.1 - 2026-07-11
+
+### Fixed
+- **`/survey` votes could silently fail to register.** The bot was missing the `GuildMessages` gateway intent and message/reaction partials it needs to resolve a reaction on a survey message it hasn't personally sent or fetched during the current run — in practice, this meant reacting to any survey created before the bot's last restart (or any survey message that aged out of its short-lived cache) did nothing at all, with no error shown to the voter. The bot now requests `GuildMessages` and registers the required partials, with the message cache capped at 50 entries (rather than accepting the default, larger per-channel cache) since message content itself is never read
+- **Closing a survey no longer marks it closed before confirming the original message still exists.** If the survey message had been deleted, `/survey close` used to close the poll in storage first and only then fail trying to update a message that was gone — leaving the poll permanently closed with a misleading "failed, please try again" error and no results ever posted. The message is now fetched first, before anything is persisted
+
+### Developer
+- Added `tests/discord-client-config.test.js` asserting the bot's gateway intents, partials, and message-cache cap directly against a real discord.js `Client`, to catch a regression if this config drifts back to the broken state
+
 ## 2.14.0 - 2026-07-11
 
 ### Added

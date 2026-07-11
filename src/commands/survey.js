@@ -448,16 +448,18 @@ async function handleClose(interaction) {
   }
   
   try {
-    // Close the poll
-    closePoll(interaction.guildId, pollId, interaction.user.id);
-    
-    // Update the original message
+    // Fetch the message before persisting anything — if the survey message
+    // was deleted, fail here with the poll still open rather than marking
+    // it closed and only then discovering there's nothing to update.
     const channel = await interaction.client.channels.fetch(poll.channelId);
     const message = await channel.messages.fetch(poll.messageId);
-    
+
+    // Close the poll
+    closePoll(interaction.guildId, pollId, interaction.user.id);
+
     const updatedPoll = getPoll(interaction.guildId, pollId);
     const pollEmbed = createPollEmbed(updatedPoll, true);
-    
+
     await message.edit({ embeds: [pollEmbed] });
     
     // Remove all reactions

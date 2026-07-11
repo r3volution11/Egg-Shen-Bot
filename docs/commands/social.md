@@ -28,7 +28,7 @@ A: Yes, all surveys are stored in JSON files per-server and persist even if the 
 
 ## Survey Commands
 
-Create interactive polls and surveys with up to 10 options, real-time vote tracking, and comprehensive management.
+Create interactive polls and surveys with up to 10 options, live vote tracking, and comprehensive management.
 
 ### Create a Survey
 
@@ -45,7 +45,7 @@ Create interactive polls and surveys with up to 10 options, real-time vote track
 
 **Features:**
 - Up to 10 options per survey
-- Real-time vote tracking via emoji reactions (1️⃣-🔟)
+- Vote tracking via emoji reactions (1️⃣-🔟)
 - Single-vote mode (default): Users can only vote for one option
 - Multiple-vote mode: Users can vote for several options
 - Automatic reaction setup by the bot
@@ -64,7 +64,7 @@ Create interactive polls and surveys with up to 10 options, real-time vote track
 1. Bot posts an embed with your question and all options
 2. Bot automatically adds number emoji reactions (1️⃣, 2️⃣, etc.)
 3. Users vote by clicking the emoji reactions
-4. Votes are tracked in real-time
+4. Votes are recorded as they come in, but the survey message itself doesn't update live — use `/survey results` any time to see current standings
 5. Anyone can view live results with `/survey results`
 
 ---
