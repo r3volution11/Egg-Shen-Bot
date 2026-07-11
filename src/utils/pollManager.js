@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes } from 'crypto';
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -89,6 +89,10 @@ export function createPoll(guildId, channelId, messageId, creatorId, question, o
     expiresAt: expiresInMinutes ? new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString() : null,
     closedAt: null,
     closedBy: null,
+    // Polls created before this field existed have no votingMethod — treat
+    // that as 'reactions' (their original, only mechanism). New polls are
+    // always 'buttons'; there's no way to switch an in-flight poll's method.
+    votingMethod: 'buttons',
   };
 
   polls.push(poll);
@@ -226,6 +230,54 @@ export function removeVote(guildId, pollId, optionId, userId) {
 }
 
 /**
+ * Cast a button vote for a single-select poll — overwrites the user's
+ * previous vote entirely (equivalent to addVote, but named for clarity at
+ * the button-handler call site, and always enforces single-select
+ * regardless of poll.allowMultipleVotes since toggleVote is the multi-select
+ * counterpart).
+ */
+export function castSingleVote(guildId, pollId, optionId, userId) {
+  return addVote(guildId, pollId, optionId, userId);
+}
+
+/**
+ * Toggle a single option on/off for a user in a multi-select poll —
+ * clicking an already-selected option removes just that vote, leaving
+ * other selected options untouched (unlike addVote's single-select
+ * overwrite, which clears every other option first).
+ */
+export function toggleVote(guildId, pollId, optionId, userId) {
+  const polls = loadGuildPolls(guildId);
+  const poll = polls.find(p => p.pollId === pollId);
+
+  if (!poll) {
+    throw new Error('Poll not found');
+  }
+
+  if (poll.status !== 'active') {
+    throw new Error('Poll is not active');
+  }
+
+  const option = poll.options.find(o => o.id === optionId);
+
+  if (!option) {
+    throw new Error('Invalid option');
+  }
+
+  const voteIndex = option.votes.indexOf(userId);
+  const wasSelected = voteIndex !== -1;
+
+  if (wasSelected) {
+    option.votes.splice(voteIndex, 1);
+  } else {
+    option.votes.push(userId);
+  }
+
+  saveGuildPolls(guildId, polls);
+  return { poll, selected: !wasSelected };
+}
+
+/**
  * Close a poll
  */
 export function closePoll(guildId, pollId, closedBy) {
@@ -323,18 +375,41 @@ function createProgressBar(percentage, length = 20) {
 }
 
 /**
- * Create a poll embed. Shared by /survey create, the live-updating reaction
- * handlers, /survey close, and the auto-expiry scheduler, so every code
- * path that renders a poll looks the same.
+ * Build the voting button rows for a poll (up to 10 options = 2 rows of 5,
+ * well within Discord's 5-buttons-per-row / 5-rows-per-message limits).
+ * Only meaningful for poll.votingMethod === 'buttons' — reaction-based
+ * polls (created before buttons existed) never call this.
+ */
+export function buildSurveyButtons(poll) {
+  const buttons = poll.options.map(option =>
+    new ButtonBuilder()
+      .setCustomId(`survey_vote_${poll.pollId}_${option.id}`)
+      .setLabel(option.text.length > 80 ? `${option.text.slice(0, 77)}...` : option.text)
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+  }
+  return rows;
+}
+
+/**
+ * Create a poll embed. Shared by /survey create, the live-updating vote
+ * handlers (buttons and legacy reactions), /survey close, and the
+ * auto-expiry scheduler, so every code path that renders a poll looks the
+ * same.
  */
 export function createPollEmbed(poll, showResults = false) {
   const { totalVotes, results } = getPollResults(poll);
+  const voteInstruction = poll.votingMethod === 'reactions' ? 'React to vote!' : 'Click a button to vote!';
 
   const embed = new EmbedBuilder()
     .setTitle(`📊 ${poll.question}`)
     .setColor(poll.status === 'active' ? 0x5865F2 : 0x99AAB5)
     .setFooter({
-      text: `Survey ID: ${poll.pollId} • ${poll.status === 'active' ? 'React to vote!' : 'Survey closed'} • Total votes: ${totalVotes}${poll.allowMultipleVotes ? ' • Multiple votes allowed' : ''}`,
+      text: `Survey ID: ${poll.pollId} • ${poll.status === 'active' ? voteInstruction : 'Survey closed'} • Total votes: ${totalVotes}${poll.allowMultipleVotes ? ' • Multiple votes allowed' : ''}`,
     })
     .setTimestamp(new Date(poll.createdAt));
 
@@ -407,8 +482,20 @@ export async function closePollAndAnnounce(client, guildId, pollId, closedBy) {
     const updatedPoll = getPoll(guildId, pollId);
     const pollEmbed = createPollEmbed(updatedPoll, true);
 
-    await message.edit({ embeds: [pollEmbed] });
-    await message.reactions.removeAll().catch(console.error);
+    if (updatedPoll.votingMethod === 'reactions') {
+      await message.edit({ embeds: [pollEmbed] });
+      await message.reactions.removeAll().catch(console.error);
+    } else {
+      // Disable rather than remove the buttons, so the closed poll still
+      // shows what the options/labels were, matching the tiebreaker
+      // voting UI's closed-state convention elsewhere in this bot.
+      const disabledRows = buildSurveyButtons(updatedPoll).map(row => {
+        const newRow = new ActionRowBuilder();
+        row.components.forEach(btn => newRow.addComponents(ButtonBuilder.from(btn).setDisabled(true)));
+        return newRow;
+      });
+      await message.edit({ embeds: [pollEmbed], components: disabledRows });
+    }
 
     const resultsEmbed = createPollEmbed(updatedPoll, true);
     resultsEmbed.setTitle(`🏁 Survey Closed: ${poll.question}`);

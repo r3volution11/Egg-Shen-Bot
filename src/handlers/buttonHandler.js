@@ -538,6 +538,22 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
 
+    // Handle survey voting buttons
+    if (interaction.customId.startsWith('survey_vote_')) {
+      await handleSurveyVote(interaction);
+
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+
+      if (duration > 2000) {
+        logger.logPerformance('Button: survey_vote', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+
     // Handle "Log to Watch History" button from timer stop
     if (interaction.customId.startsWith('log_watched_')) {
       await handleWatchHistoryButton(interaction);
@@ -2011,4 +2027,64 @@ async function handleTiebreakerVote(interaction) {
     content: `✅ Your vote for **${selectedOption.title}** has been recorded! You can change it anytime before voting closes.`,
     flags: MessageFlags.Ephemeral
   });
+}
+
+/**
+ * Handle a /survey vote button click. Mirrors handleTiebreakerVote's shape
+ * (deferUpdate -> validate -> record -> rebuild embed+buttons -> editReply
+ * -> ephemeral confirmation), since a survey is the same kind of single
+ * public voting message. Single-select polls overwrite the user's vote
+ * (castSingleVote); multi-select polls (allowMultipleVotes) toggle just the
+ * clicked option on/off, leaving other selections untouched.
+ */
+async function handleSurveyVote(interaction) {
+  await interaction.deferUpdate();
+
+  // Parse: ['survey', 'vote', pollId, optionId]
+  // Note: pollId is a hex string with no underscores
+  const parts = interaction.customId.split('_');
+  const optionId = parseInt(parts[parts.length - 1]);
+  const pollId = parts.slice(2, parts.length - 1).join('_');
+
+  const pollManager = await import('../utils/pollManager.js');
+
+  const poll = pollManager.getPoll(interaction.guild.id, pollId);
+  if (!poll) {
+    await interaction.followUp({ content: '❌ This survey no longer exists.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (poll.status !== 'active') {
+    await interaction.followUp({ content: '❌ This survey is no longer active.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  let updatedPoll;
+  let confirmationText;
+
+  try {
+    if (poll.allowMultipleVotes) {
+      const result = pollManager.toggleVote(interaction.guild.id, pollId, optionId, interaction.user.id);
+      updatedPoll = result.poll;
+      const selectedOption = updatedPoll.options.find(o => o.id === optionId);
+      confirmationText = result.selected
+        ? `✅ Added your vote for **${selectedOption.text}**.`
+        : `↩️ Removed your vote for **${selectedOption.text}**.`;
+    } else {
+      updatedPoll = pollManager.castSingleVote(interaction.guild.id, pollId, optionId, interaction.user.id);
+      const selectedOption = updatedPoll.options.find(o => o.id === optionId);
+      confirmationText = `✅ Your vote for **${selectedOption.text}** has been recorded! You can change it anytime before voting closes.`;
+    }
+  } catch (error) {
+    await interaction.followUp({ content: `❌ ${error.message}`, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  // Refresh the public survey message with the new vote counts
+  const pollEmbed = pollManager.createPollEmbed(updatedPoll, true);
+  const buttons = pollManager.buildSurveyButtons(updatedPoll);
+  await interaction.editReply({ embeds: [pollEmbed], components: buttons });
+
+  // Private confirmation to the clicker
+  await interaction.followUp({ content: confirmationText, flags: MessageFlags.Ephemeral });
 }

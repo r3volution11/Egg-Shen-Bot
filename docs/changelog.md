@@ -5,6 +5,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.15.1 - 2026-07-11
+
+### Changed
+- **New surveys now use buttons to vote instead of emoji reactions.** With reactions, the number badge under each option always showed one more than the real vote count, since Discord counts the bot's own setup reaction alongside everyone else's — the embed's own "Total votes" text was always correct, but the badge looked wrong at a glance. Buttons don't have this artifact: clicking one records your vote, updates the survey message live, and sends you a private confirmation. Surveys already in progress when this ships keep working exactly as before (reactions); only newly created surveys get buttons
+
+### Developer
+- Added `poll.votingMethod` (`'buttons'` for every poll going forward; absent/`'reactions'` on anything created before this change) so the reaction handlers, `closePollAndAnnounce`, and the embed footer text all know which UI a given poll uses
+- Added `castSingleVote`/`toggleVote` to `pollManager.js` (single-select overwrite vs. multi-select toggle-on/off) and `buildSurveyButtons` (chunks up to 10 options into 2 rows of 5, matching Discord's per-row button limit)
+- Added a `survey_vote_` branch to `src/handlers/buttonHandler.js`'s dispatcher and a `handleSurveyVote` function, mirroring the existing tiebreaker-voting button pattern (`handleTiebreakerVote`) already used elsewhere in this bot
+- `closePollAndAnnounce` now disables buttons (rather than calling `reactions.removeAll()`) when closing a button-based poll, keeping the same "closed but still shows what the options were" convention tiebreaker voting already uses
+
 ## 2.15.0 - 2026-07-11
 
 ### Added

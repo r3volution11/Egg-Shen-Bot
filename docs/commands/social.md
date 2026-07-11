@@ -16,10 +16,10 @@ A: Yes! Use `/eggshen-config commands toggle setting:Survey Command enabled:fals
 A: The person who created the survey, server administrators, and moderators can close or delete surveys.
 
 **Q: How do users vote in surveys?**  
-A: By reacting with the number emoji (1️⃣, 2️⃣, 3️⃣, etc.) corresponding to their choice.
+A: By clicking the button under their choice.
 
 **Q: Can users change their vote?**  
-A: Yes! Remove your reaction and add a new one. In multiple-vote mode, you can react to multiple options.
+A: Yes! Click a different button to switch your vote. In multiple-vote mode, clicking a button toggles that option on or off without affecting your other selections.
 
 **Q: Are survey results stored permanently?**  
 A: Yes, all surveys are stored in JSON files per-server and persist even if the bot restarts.
@@ -49,10 +49,9 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 
 **Features:**
 - Up to 10 options per survey
-- Vote tracking via emoji reactions (1️⃣-🔟)
-- Single-vote mode (default): Users can only vote for one option
-- Multiple-vote mode: Users can vote for several options
-- Automatic reaction setup by the bot
+- Vote by clicking a button under the option — no reactions to add or copy
+- Single-vote mode (default): Clicking a different button switches your vote
+- Multiple-vote mode: Clicking a button toggles that option on/off, other selections stay as-is
 - The survey message updates live as votes come in — no need to run `/survey results` to see current standings
 - Optional auto-close after a set duration, closing and posting results automatically without anyone needing to run `/survey close`
 
@@ -68,12 +67,11 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 ```
 
 **How It Works:**
-1. Bot posts an embed with your question and all options
-2. Bot automatically adds number emoji reactions (1️⃣, 2️⃣, etc.)
-3. Users vote by clicking the emoji reactions
-4. The survey message updates live with current vote counts and percentages as votes come in
-5. If a `duration` was set, the embed shows when voting ends and the bot automatically closes the survey and posts results at that time — otherwise, use `/survey close` when you're ready to end it
-6. Anyone can view live results any time with `/survey results`
+1. Bot posts an embed with your question and a button under each option
+2. Users vote by clicking a button
+3. The survey message updates live with current vote counts and percentages as votes come in, and you'll get a private confirmation of your own vote
+4. If a `duration` was set, the embed shows when voting ends and the bot automatically closes the survey and posts results at that time — otherwise, use `/survey close` when you're ready to end it
+5. Anyone can view live results any time with `/survey results`
 
 ---
 
@@ -160,7 +158,7 @@ Your Vote(s): 1️⃣ Horror
 
 **Features:**
 - Ends voting immediately
-- Removes all reaction emojis from the survey
+- Disables the voting buttons on the survey message (they stay visible, just grayed out)
 - Updates the original message to show final results
 - Posts final results as a new message in the channel
 - Closed surveys can still be viewed with `/survey results`
