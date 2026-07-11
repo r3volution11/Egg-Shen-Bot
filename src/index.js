@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Collection, EmbedBuilder, MessageFlags } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, Options, Collection, EmbedBuilder, MessageFlags } from 'discord.js';
 import { config } from './config.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -21,8 +21,19 @@ logger.logSystem('Bot starting up', {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMessageReactions,
   ],
+  // GuildMessages is only needed so reaction events resolve messages the bot
+  // hasn't personally sent/fetched this session (e.g. survey/poll messages
+  // from before a restart) — the bot doesn't read message content, so cap
+  // the message cache instead of accepting discord.js's 200-per-channel
+  // default, keeping memory bounded as the bot sees more channel traffic.
+  partials: [Partials.Message, Partials.Reaction],
+  makeCache: Options.cacheWithLimits({
+    ...Options.DefaultMakeCacheSettings,
+    MessageManager: 50,
+  }),
 });
 
 // Collection to store commands
