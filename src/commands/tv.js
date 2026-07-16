@@ -3,6 +3,7 @@ import { searchTVShows, getTVAlternativeTitles } from '../services/tmdbService.j
 import { hybridSearch } from '../services/aiService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { deliverResult } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
   .setName('tv')
@@ -12,6 +13,12 @@ export const data = new SlashCommandBuilder()
       .setName('query')
       .setDescription('TV show title to search for (optionally include episode name)')
       .setRequired(true)
+  )
+  .addBooleanOption(option =>
+    option
+      .setName('private')
+      .setDescription('Only show the result to you instead of the whole channel (default: false)')
+      .setRequired(false)
   );
 
 export async function execute(interaction) {
@@ -28,7 +35,8 @@ export async function execute(interaction) {
   }
 
   const query = interaction.options.getString('query');
-  
+  const isPrivate = interaction.options.getBoolean('private') || false;
+
   if (!interaction.replied && !interaction.deferred) {
     await interaction.deferReply({ ephemeral: true });
   }
@@ -105,17 +113,18 @@ export async function execute(interaction) {
       }
       
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd: null, urls, knownAs }, 'tv', enabledServices, guildEmojis, watchProviders);
-      await interaction.editReply(response);
+      await deliverResult(interaction, response, isPrivate);
       return;
     }
-    
+
     // Load guild config to get maxSearchResults
     const guildConfig = await loadGuildConfig(interaction.guildId);
     const maxResults = guildConfig.maxSearchResults || 20;
     const limitedResults = results.slice(0, maxResults);
 
-    // Create the selection interface (ephemeral for privacy)
-    const response = await createSearchResults(limitedResults, 'tv', query);
+    // The picker itself always stays ephemeral — the private flag travels
+    // with the selection so the eventual result can still be public.
+    const response = await createSearchResults(limitedResults, 'tv', query, isPrivate);
     await interaction.editReply(response);
     
   } catch (error) {

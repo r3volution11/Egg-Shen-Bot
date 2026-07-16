@@ -273,7 +273,7 @@ Start, stop, or check channel-specific timers.
 Log and view server watch party history.
 
 **Subcommands:**
-- `/watched add` - Manually log a watch party
+- `/watched add` - Manually log a watch party (options: `title`, `notes`, `private` — keep the confirmation to yourself instead of posting it to the channel, default: false)
 - `/watched history` - View server watch history
 
 **Features:**
@@ -303,6 +303,7 @@ Generate AI images: freeform, from a Discord message, or a "versus" battle betwe
 - `message` - Username or message ID to generate from
 - `title1` / `title2` - Two titles for a versus battle image (movie, TV, game, board game, book) — provide both together
 - `matchup` - Generate from an active tournament matchup instead of searching (e.g., `"The Thing vs Alien"`)
+- `private` - Only show the generated image to you instead of the whole channel (default: false)
 
 **Features:**
 - Text-to-image generation, generate-from-message, and versus-battle modes
@@ -395,6 +396,7 @@ Search for movie and TV show soundtracks with iTunes and Spotify integration.
 
 **Options:**
 - `query` (required) - Movie or TV show title to find soundtrack for
+- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
 
 **Features:**
 - TMDB title verification for accurate matching

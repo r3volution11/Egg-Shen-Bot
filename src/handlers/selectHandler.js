@@ -16,6 +16,7 @@ import { createDetailedEmbed } from '../utils/embedBuilder.js';
 import { getEnabledServices, getEmojis, getStatsConfig, loadGuildConfig } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
 import { saveEventChannelSelections } from '../api/server.js';
+import { deliverResult, decodePrivateFlag } from '../utils/interactionResponse.js';
 
 /**
  * Parse season/episode notation (s3e11, 3x11, etc.)
@@ -352,7 +353,7 @@ export async function handleSelectInteraction(interaction) {
   
   // Handle episode-list selection
   if (interaction.customId === 'select_episode_list_show') {
-    const value = interaction.values[0];
+    const { value, isPrivate } = decodePrivateFlag(interaction.values[0]);
     const [, showId, seasonNumber] = value.split('_');
     
     try {
@@ -467,8 +468,8 @@ export async function handleSelectInteraction(interaction) {
         );
       }
       embed.setFooter({ text: footerText });
-      
-      await interaction.editReply({ embeds: [embed], components: [] });
+
+      await deliverResult(interaction, { embeds: [embed], components: [] }, isPrivate);
     } catch (error) {
       console.error('Episode list selection error:', error);
       await interaction.followUp({
@@ -501,24 +502,23 @@ export async function handleSelectInteraction(interaction) {
   
   // Handle soundtrack selection
   if (interaction.customId === 'select_soundtrack') {
-    const value = interaction.values[0];
+    const { value, isPrivate } = decodePrivateFlag(interaction.values[0]);
     const [, type, tmdbId] = value.split('_');
-    
+
     const { getMovieDetails, getTVShowDetails } = await import('../services/tmdbService.js');
-    
+
     // Get title details
-    const details = type === 'movie' 
+    const details = type === 'movie'
       ? await getMovieDetails(parseInt(tmdbId))
       : await getTVShowDetails(parseInt(tmdbId));
-    
+
     const result = {
       ...details,
       type: type,
     };
-    
-    // Import and call the soundtrack display function with deleteEphemeral=true
+
     const { searchAndDisplaySoundtrack } = await import('../commands/soundtrack.js');
-    await searchAndDisplaySoundtrack(interaction, result, true);
+    await searchAndDisplaySoundtrack(interaction, result, isPrivate);
     return;
   }
   
@@ -530,7 +530,7 @@ export async function handleSelectInteraction(interaction) {
     try {
       // Decode the stored data
       const dataStr = Buffer.from(encodedData, 'base64').toString('utf-8');
-      const { notes, userId, username } = JSON.parse(dataStr);
+      const { notes, userId, username, isPrivate = false } = JSON.parse(dataStr);
       
       // Only allow the person who initiated to select
       if (interaction.user.id !== userId) {
@@ -596,10 +596,9 @@ export async function handleSelectInteraction(interaction) {
       
       embed.setFooter({ text: `Saved by ${username}` });
       embed.setTimestamp();
-      
-      await interaction.message.delete().catch(() => {});
-      await interaction.channel.send({ embeds: [embed] });
-      
+
+      await deliverResult(interaction, { embeds: [embed] }, isPrivate);
+
     } catch (error) {
       console.error('Watched selection error:', error);
       await interaction.followUp({
@@ -611,7 +610,7 @@ export async function handleSelectInteraction(interaction) {
   }
   
   try {
-    const value = interaction.values[0];
+    const { value, isPrivate } = decodePrivateFlag(interaction.values[0]);
     const guildId = interaction.guildId;
     
     // Fetch guild configuration for service toggles, emojis, stats, and region
@@ -688,13 +687,12 @@ export async function handleSelectInteraction(interaction) {
       
       if (!episode) {
         const showDetails = await getTVShowDetails(showId);
-        const searchType = parsedSeasonEpisode 
+        const searchType = parsedSeasonEpisode
           ? `S${parsedSeasonEpisode.season}E${parsedSeasonEpisode.episode}`
           : `"${episodeName}"`;
-        await interaction.message.delete().catch(() => {});
-        await interaction.channel.send({
+        await deliverResult(interaction, {
           content: `Couldn't find episode ${searchType} in **${showDetails.name}**. The episode might not be in TMDB's database, or try a different search term.`,
-        });
+        }, isPrivate);
         return;
       }
       
@@ -732,9 +730,7 @@ export async function handleSelectInteraction(interaction) {
       }
       
       const response = await createEpisodeEmbed({ episode, omdb, trakt, urls }, enabledServices, guildEmojis);
-      // Delete ephemeral menu and send public result
-      await interaction.message.delete().catch(() => {});
-      await interaction.channel.send(response);
+      await deliverResult(interaction, response, isPrivate);
       return;
     }
     
@@ -781,10 +777,8 @@ export async function handleSelectInteraction(interaction) {
       }
       
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd, urls }, 'movie', enabledServices, guildEmojis, watchProviders);
-      // Delete ephemeral menu and send public result
-      await interaction.message.delete().catch(() => {});
-      await interaction.channel.send(response);
-      
+      await deliverResult(interaction, response, isPrivate);
+
     } else if (type === 'tv') {
       tmdb = await getTVShowDetails(id);
       
@@ -821,10 +815,8 @@ export async function handleSelectInteraction(interaction) {
       }
       
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, urls }, 'tv', enabledServices, guildEmojis, watchProviders);
-      // Delete ephemeral menu and send public result
-      await interaction.message.delete().catch(() => {});
-      await interaction.channel.send(response);
-      
+      await deliverResult(interaction, response, isPrivate);
+
     } else if (type === 'game') {
       const { getGameDetails } = await import('../services/rawgService.js');
       const { createGameDetailedEmbed } = await import('../utils/embedBuilder.js');
@@ -845,10 +837,8 @@ export async function handleSelectInteraction(interaction) {
       }
       
       const response = await createGameDetailedEmbed(game);
-      // Delete ephemeral menu and send public result
-      await interaction.message.delete().catch(() => {});
-      await interaction.channel.send(response);
-      
+      await deliverResult(interaction, response, isPrivate);
+
     } else if (type === 'boardgame') {
       const { getBoardGameDetails } = await import('../services/bggService.js');
       const { createBoardGameDetailedEmbed } = await import('../utils/embedBuilder.js');
@@ -868,10 +858,8 @@ export async function handleSelectInteraction(interaction) {
       }
       
       const response = await createBoardGameDetailedEmbed(boardGame);
-      // Delete ephemeral menu and send public result
-      await interaction.message.delete().catch(() => {});
-      await interaction.channel.send(response);
-      
+      await deliverResult(interaction, response, isPrivate);
+
     } else if (type === 'book') {
       const { getBookDetails } = await import('../services/googleBooksService.js');
       const { createBookDetailedEmbed } = await import('../utils/embedBuilder.js');
@@ -892,11 +880,9 @@ export async function handleSelectInteraction(interaction) {
       }
       
       const response = await createBookDetailedEmbed(book);
-      // Delete ephemeral menu and send public result
-      await interaction.message.delete().catch(() => {});
-      await interaction.channel.send(response);
+      await deliverResult(interaction, response, isPrivate);
     }
-    
+
   } catch (error) {
     console.error('Select interaction error:', error);
     await interaction.editReply({

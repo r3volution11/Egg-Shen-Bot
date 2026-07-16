@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder } from 'discord.js';
 import { searchTVShows, getSeasonDetails, getTVShowDetails } from '../services/tmdbService.js';
 import { loadGuildConfig } from '../utils/guildConfig.js';
+import { deliverResult, encodePrivateFlag } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
   .setName('episode-list')
@@ -17,6 +18,12 @@ export const data = new SlashCommandBuilder()
       .setDescription('The season number')
       .setRequired(true)
       .setMinValue(1)
+  )
+  .addBooleanOption(option =>
+    option
+      .setName('private')
+      .setDescription('Only show the result to you instead of the whole channel (default: false)')
+      .setRequired(false)
   );
 
 export async function execute(interaction) {
@@ -24,6 +31,7 @@ export async function execute(interaction) {
 
   const seriesQuery = interaction.options.getString('series');
   const seasonNumber = interaction.options.getInteger('season');
+  const isPrivate = interaction.options.getBoolean('private') || false;
 
   try {
     // Search for the TV show
@@ -53,7 +61,7 @@ export async function execute(interaction) {
         return {
           label: `${title}${yearStr}`.substring(0, 100),
           description: overview.substring(0, 100),
-          value: `episode-list_${result.id}_${seasonNumber}`,
+          value: encodePrivateFlag(`episode-list_${result.id}_${seasonNumber}`, isPrivate),
         };
       });
       
@@ -187,7 +195,7 @@ export async function execute(interaction) {
     }
     embed.setFooter({ text: footerText });
 
-    await interaction.editReply({ embeds: [embed] });
+    await deliverResult(interaction, { embeds: [embed] }, isPrivate);
 
   } catch (error) {
     console.error('Episode list error:', error);

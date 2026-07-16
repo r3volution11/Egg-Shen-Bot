@@ -5,6 +5,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.16.0 - 2026-07-15
+
+### Changed
+- **Search results are now visible to the whole channel by default.** `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`, `/soundtrack`, `/watched add`, and `/image` all used to defer their reply as private (ephemeral) and never made it public again — even the final answer, not just the "which one did you mean" picker. Since these are shared lookup commands meant for the whole channel to see, results now post publicly by default. Add `private:true` to any of these commands to keep a result to yourself, exactly like before
+
+### Developer
+- Added `src/utils/interactionResponse.js` (`deliverResult`, `encodePrivateFlag`/`decodePrivateFlag`) as the single shared mechanism for "post this result publicly, unless the user asked to keep it private" — used by every affected command's single-result path and by `selectHandler.js`'s picker-selection branches, so the same logic doesn't get duplicated (and drift) across 10+ call sites
+- The multi-result picker step always stays ephemeral regardless of the `private` flag (no channel clutter while narrowing down results) — the flag is encoded into the picker's select-menu option values so it survives to the later selection interaction, which decides the final result's visibility
+- Fixed `/episode-list`'s picker-selection path, which — unlike the equivalent flow in `/movie`, `/tv`, `/game`, etc. — never posted publicly at all, even before this change
+
 ## 2.15.2 - 2026-07-11
 
 ### Changed

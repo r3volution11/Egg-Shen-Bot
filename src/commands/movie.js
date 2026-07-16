@@ -3,6 +3,7 @@ import { searchMovies, getMovieAlternativeTitles } from '../services/tmdbService
 import { hybridSearch } from '../services/aiService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { deliverResult, encodePrivateFlag } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
   .setName('movie')
@@ -12,6 +13,12 @@ export const data = new SlashCommandBuilder()
       .setName('query')
       .setDescription('Movie title to search for')
       .setRequired(true)
+  )
+  .addBooleanOption(option =>
+    option
+      .setName('private')
+      .setDescription('Only show the result to you instead of the whole channel (default: false)')
+      .setRequired(false)
   );
 
 export async function execute(interaction) {
@@ -28,12 +35,15 @@ export async function execute(interaction) {
   }
 
   const query = interaction.options.getString('query');
-  
-  // Safely defer reply if not already acknowledged
+  const isPrivate = interaction.options.getBoolean('private') || false;
+
+  // Always defer ephemeral — a multi-result picker shouldn't clutter the
+  // channel while narrowing down results. The final answer is posted
+  // publicly (via deliverResult) unless the user asked to keep it private.
   if (!interaction.replied && !interaction.deferred) {
     await interaction.deferReply({ ephemeral: true });
   }
-  
+
   try {
     // Use hybrid search (keyword + semantic) if OpenAI available, otherwise keyword only
     const results = await hybridSearch(query, searchMovies, 'movie', getMovieAlternativeTitles);
@@ -105,17 +115,19 @@ export async function execute(interaction) {
       }
       
       const response = await createDetailedEmbed({ tmdb, omdb, trakt, letterboxd, urls, knownAs }, 'movie', enabledServices, guildEmojis, watchProviders);
-      await interaction.editReply(response);
+      await deliverResult(interaction, response, isPrivate);
       return;
     }
-    
+
     // Load guild config to get maxSearchResults
     const guildConfig = await loadGuildConfig(interaction.guildId);
     const maxResults = guildConfig.maxSearchResults || 20;
     const limitedResults = results.slice(0, maxResults);
 
-    // Create the selection interface (ephemeral for privacy)
-    const response = await createSearchResults(limitedResults, 'movie', query);
+    // The picker itself always stays ephemeral (no channel clutter while
+    // narrowing down results) — the private flag travels with the
+    // selection so the eventual result can still be posted publicly.
+    const response = await createSearchResults(limitedResults, 'movie', query, isPrivate);
     await interaction.editReply(response);
     
   } catch (error) {

@@ -64,6 +64,7 @@ If your server has an active [tournament bracket](./brackets/), generates a vers
 | `title1` | String | No* | First title for a versus battle (Mode 3) — provide with `title2` |
 | `title2` | String | No* | Second title for a versus battle (Mode 3) — provide with `title1` |
 | `matchup` | String | No | Tournament matchup to visualize (Mode 4) |
+| `private` | Boolean | No | Only show the generated image to you instead of the whole channel (default: false) |
 
 *Provide exactly one of: `title1` + `title2` together, `matchup`, `message`, or `prompt` alone. Mixing modes (e.g. `title1` with `message`) returns an error asking you to pick one.
 

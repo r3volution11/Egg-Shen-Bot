@@ -3,6 +3,7 @@ import { searchMovies, searchTVShows, getMovieAlternativeTitles, getTVAlternativ
 import { hybridSearch } from '../services/aiService.js';
 import { createSoundtrackSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { deliverResult } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
   .setName('soundtrack')
@@ -12,6 +13,12 @@ export const data = new SlashCommandBuilder()
       .setName('query')
       .setDescription('Movie or TV show title to find soundtrack for')
       .setRequired(true)
+  )
+  .addBooleanOption(option =>
+    option
+      .setName('private')
+      .setDescription('Only show the result to you instead of the whole channel (default: false)')
+      .setRequired(false)
   );
 
 export async function execute(interaction) {
@@ -28,7 +35,8 @@ export async function execute(interaction) {
   }
 
   const query = interaction.options.getString('query');
-  
+  const isPrivate = interaction.options.getBoolean('private') || false;
+
   // Safely defer reply if not already acknowledged
   if (!interaction.replied && !interaction.deferred) {
     await interaction.deferReply({ ephemeral: true });
@@ -63,13 +71,14 @@ export async function execute(interaction) {
     
     // If only one result, search for its soundtrack directly
     if (limitedResults.length === 1) {
-      await searchAndDisplaySoundtrack(interaction, limitedResults[0], false);
+      await searchAndDisplaySoundtrack(interaction, limitedResults[0], isPrivate);
       return;
     }
-    
-    // Create selection menu for multiple results
-    const embed = createSoundtrackSearchResults(limitedResults, query);
-    
+
+    // The picker itself always stays ephemeral — the private flag travels
+    // with the selection so the eventual result can still be public.
+    const embed = createSoundtrackSearchResults(limitedResults, query, isPrivate);
+
     await interaction.editReply(embed);
     
   } catch (error) {
@@ -84,9 +93,9 @@ export async function execute(interaction) {
  * Search for and display soundtrack for a specific title
  * @param {Object} interaction - Discord interaction
  * @param {Object} result - Title details
- * @param {boolean} deleteEphemeral - Whether to delete ephemeral message and send publicly
+ * @param {boolean} isPrivate - Whether the result should stay private instead of posting publicly
  */
-async function searchAndDisplaySoundtrack(interaction, result, deleteEphemeral = false) {
+async function searchAndDisplaySoundtrack(interaction, result, isPrivate = false) {
   const { EmbedBuilder } = await import('discord.js');
   const { searchSoundtrack: searchITunes } = await import('../services/itunesService.js');
   const { searchSoundtrack: searchSpotify, isConfigured: isSpotifyConfigured } = await import('../services/spotifyService.js');
@@ -124,17 +133,10 @@ async function searchAndDisplaySoundtrack(interaction, result, deleteEphemeral =
   // Check if we found any results
   if ((!itunesResults || itunesResults.length === 0) && !spotifyResult) {
     const servicesText = isSpotifyConfigured() ? 'iTunes or Spotify' : 'iTunes';
-    
-    if (deleteEphemeral && interaction.message) {
-      await interaction.message.delete().catch(() => {});
-      await interaction.channel.send({
-        content: `🎵 No soundtracks found for **${title}** on ${servicesText}.\n\nThis could mean:\n• The soundtrack isn't available on these services yet\n• Try searching with a different variation of the title\n• The soundtrack might be available on other platforms`,
-      });
-    } else {
-      await interaction.editReply({
-        content: `🎵 No soundtracks found for **${title}** on ${servicesText}.\n\nThis could mean:\n• The soundtrack isn't available on these services yet\n• Try searching with a different variation of the title\n• The soundtrack might be available on other platforms`,
-      });
-    }
+
+    await deliverResult(interaction, {
+      content: `🎵 No soundtracks found for **${title}** on ${servicesText}.\n\nThis could mean:\n• The soundtrack isn't available on these services yet\n• Try searching with a different variation of the title\n• The soundtrack might be available on other platforms`,
+    }, isPrivate);
     return;
   }
   
@@ -209,13 +211,7 @@ async function searchAndDisplaySoundtrack(interaction, result, deleteEphemeral =
     });
   }
   
-  // If called from single result or selection, delete ephemeral and send publicly
-  if (deleteEphemeral && interaction.message) {
-    await interaction.message.delete().catch(() => {});
-    await interaction.channel.send({ embeds: [embed] });
-  } else {
-    await interaction.editReply({ embeds: [embed], components: [] });
-  }
+  await deliverResult(interaction, { embeds: [embed], components: [] }, isPrivate);
 }
 
 /**

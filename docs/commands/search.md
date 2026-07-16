@@ -25,6 +25,16 @@ A: Check TMDB.org to see if it exists. The bot searches their database.
 
 Search for movies, TV shows, episodes, games, board games, and books across multiple databases.
 
+## Results Are Shared With the Channel
+
+Search results post publicly to the channel by default — the whole point of a shared bot is that everyone can see what was found, not just the person who ran the command. If you're searching for yourself and don't want to clutter the channel (or you're just curious about something without announcing it), add `private:true` to keep the result visible only to you:
+```
+/movie query:The Thing private:true
+```
+This works on every search command in this page: `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`, and `/soundtrack`, as well as `/watched add` and `/image`.
+
+If a search finds multiple matches, the "which one did you mean" picker always stays private while you narrow it down — only the final result's visibility depends on `private`.
+
 ## Movie Search
 
 Search for movies and view detailed information.
@@ -35,6 +45,7 @@ Search for movies and view detailed information.
 
 **Parameters:**
 - `query` (required) - Movie title to search for
+- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
 
 **Features:**
 - TMDB integration for comprehensive movie data
@@ -64,6 +75,7 @@ Search for TV shows and view series information.
 
 **Parameters:**
 - `query` (required) - TV show title to search for (optionally include episode name)
+- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
 
 **Features:**
 - Complete series information
@@ -90,6 +102,7 @@ Search for specific episodes of TV shows.
 **Parameters:**
 - `show` (required) - Name of the TV show
 - `episode` (required) - Episode title or number (e.g., "Sandkings", "s3e11", "3x11")
+- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
 
 **Features:**
 - Episode-specific information
@@ -115,6 +128,7 @@ View a list of all episodes in a season.
 **Parameters:**
 - `series` (required) - Name of the TV show
 - `season` (required) - Season number (integer)
+- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
 
 **Features:**
 - Complete season overview
@@ -137,6 +151,7 @@ Search for video games and view detailed information.
 
 **Parameters:**
 - `query` (required) - Game title to search for
+- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
 
 **Features:**
 - RAWG database integration
@@ -162,6 +177,7 @@ Search for board games and view detailed information.
 
 **Parameters:**
 - `query` (required) - Board game title to search for
+- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
 
 **Features:**
 - BoardGameGeek database integration
@@ -185,6 +201,7 @@ Search for books and view detailed information.
 
 **Parameters:**
 - `query` (required) - Book title or author to search for
+- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
 
 **Features:**
 - Google Books database integration
