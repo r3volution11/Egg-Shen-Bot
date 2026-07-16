@@ -7,6 +7,7 @@ import { config } from '../config.js';
 import { canGenerateImage, recordImageGeneration } from '../utils/aiImageTracker.js';
 import { isTrueAdmin, isModerator } from '../utils/guildConfig.js';
 import * as bracketManager from '../utils/bracketManager.js';
+import { deliverResult } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
   .setName('image')
@@ -40,11 +41,20 @@ export const data = new SlashCommandBuilder()
       .setName('matchup')
       .setDescription('Generate from an active tournament matchup instead of searching (e.g., "1A")')
       .setRequired(false)
+  )
+  .addBooleanOption(option =>
+    option
+      .setName('private')
+      .setDescription('Only show the generated image to you instead of the whole channel (default: false)')
+      .setRequired(false)
   );
 
 export async function execute(interaction) {
-  // Defer with ephemeral to hide the command from other users
+  // Always defer ephemeral — progress updates ("Generating...") shouldn't
+  // clutter the channel. The final image is posted publicly via
+  // deliverResult unless the user asked to keep it private.
   await interaction.deferReply({ ephemeral: true });
+  const isPrivate = interaction.options.getBoolean('private') || false;
 
   // Check permissions and feature enabled
   const userIsTrueAdmin = await isTrueAdmin(interaction.member);
@@ -88,13 +98,13 @@ export async function execute(interaction) {
 
   try {
     if (hasVersusTitles) {
-      await generateVersusFromSearch(interaction, title1, title2, prompt);
+      await generateVersusFromSearch(interaction, title1, title2, prompt, isPrivate);
     } else if (matchupInput) {
-      await generateVersusFromMatchup(interaction, matchupInput, prompt);
+      await generateVersusFromMatchup(interaction, matchupInput, prompt, isPrivate);
     } else if (messageInput) {
-      await generateFromMessage(interaction, messageInput, prompt);
+      await generateFromMessage(interaction, messageInput, prompt, isPrivate);
     } else {
-      await generateFromPrompt(interaction, prompt);
+      await generateFromPrompt(interaction, prompt, isPrivate);
     }
   } catch (error) {
     console.error('[/image] Error generating AI image:', error);
@@ -238,7 +248,7 @@ function buildVersusPrompt(firstTitle, secondTitle, firstEntry, secondEntry, cus
   );
 }
 
-async function generateAndPostImage(interaction, prompt, { size, embedTitle, filename, recordType, recordMeta }) {
+async function generateAndPostImage(interaction, prompt, { size, embedTitle, filename, recordType, recordMeta, isPrivate = false }) {
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: {
@@ -290,11 +300,10 @@ async function generateAndPostImage(interaction, prompt, { size, embedTitle, fil
 
   const attachment = new AttachmentBuilder(imageBuffer, { name: filename });
 
-  await interaction.channel.send({ embeds: [embed], files: [attachment] });
-  await interaction.editReply('✅ Image generated and posted to the channel!');
+  await deliverResult(interaction, { embeds: [embed], files: [attachment] }, isPrivate);
 }
 
-async function generateVersusFromSearch(interaction, title1, title2, customPrompt) {
+async function generateVersusFromSearch(interaction, title1, title2, customPrompt, isPrivate = false) {
   const [result1, result2] = await Promise.all([searchForTitleUniversal(title1), searchForTitleUniversal(title2)]);
 
   if (result1.status === 'none' || result2.status === 'none') {
@@ -351,10 +360,11 @@ async function generateVersusFromSearch(interaction, title1, title2, customPromp
     filename: 'versus.png',
     recordType: 'versus-image',
     recordMeta: { title1: firstTitle, title2: secondTitle, customPrompt: customPrompt || null, type1: firstEntry.type, type2: secondEntry.type },
+    isPrivate,
   });
 }
 
-async function generateVersusFromMatchup(interaction, matchupInput, customPrompt) {
+async function generateVersusFromMatchup(interaction, matchupInput, customPrompt, isPrivate = false) {
   const tournament = bracketManager.loadTournament(interaction.guildId);
 
   if (!tournament) {
@@ -400,10 +410,11 @@ async function generateVersusFromMatchup(interaction, matchupInput, customPrompt
     filename: 'bracket-vs.png',
     recordType: 'bracket-image',
     recordMeta: { title1: firstTitle, title2: secondTitle, customPrompt: customPrompt || null, matchup: matchupInput },
+    isPrivate,
   });
 }
 
-async function generateFromMessage(interaction, messageInput, customPrompt) {
+async function generateFromMessage(interaction, messageInput, customPrompt, isPrivate = false) {
   let targetMessage = null;
 
   if (/^\d{17,19}$/.test(messageInput)) {
@@ -447,10 +458,11 @@ async function generateFromMessage(interaction, messageInput, customPrompt) {
     filename: 'ai-image.png',
     recordType: 'image',
     recordMeta: { prompt: finalPrompt.substring(0, 200), messageSource: messageInput },
+    isPrivate,
   });
 }
 
-async function generateFromPrompt(interaction, prompt) {
+async function generateFromPrompt(interaction, prompt, isPrivate = false) {
   await interaction.editReply(`🎨 Generating image...\n\n_Prompt: "${prompt.substring(0, 200)}${prompt.length > 200 ? '...' : ''}"_\n\n_This may take 2-3 minutes..._`);
 
   await generateAndPostImage(interaction, prompt, {
@@ -459,5 +471,6 @@ async function generateFromPrompt(interaction, prompt) {
     filename: 'ai-image.png',
     recordType: 'image',
     recordMeta: { prompt: prompt.substring(0, 200), messageSource: null },
+    isPrivate,
   });
 }

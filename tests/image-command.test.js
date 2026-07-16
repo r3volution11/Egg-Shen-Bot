@@ -89,9 +89,13 @@ function makeInteraction({ prompt = null, message = null } = {}) {
         if (name === 'message') return message;
         return null;
       },
+      getBoolean: () => false,
     },
-    deferReply: jest.fn().mockResolvedValue(undefined),
+    deferred: false,
+    replied: false,
+    deferReply: jest.fn().mockImplementation(function () { this.deferred = true; return Promise.resolve(); }),
     editReply: jest.fn().mockResolvedValue(undefined),
+    deleteReply: jest.fn().mockResolvedValue(undefined),
   };
 }
 

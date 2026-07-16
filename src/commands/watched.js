@@ -4,6 +4,7 @@ import { createSearchResults } from '../utils/embedBuilder.js';
 import { saveWatchHistory, getWatchHistory } from '../utils/watchHistoryManager.js';
 import { trackSearch } from '../utils/statsTracker.js';
 import { loadGuildConfig } from '../utils/guildConfig.js';
+import { deliverResult } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
   .setName('watched')
@@ -22,6 +23,12 @@ export const data = new SlashCommandBuilder()
         option
           .setName('notes')
           .setDescription('Optional notes about the watch party')
+          .setRequired(false)
+      )
+      .addBooleanOption(option =>
+        option
+          .setName('private')
+          .setDescription('Only show the confirmation to you instead of the whole channel (default: false)')
           .setRequired(false)
       )
   )
@@ -56,6 +63,7 @@ export async function execute(interaction) {
   if (subcommand === 'add') {
     const title = interaction.options.getString('title');
     const notes = interaction.options.getString('notes');
+    const isPrivate = interaction.options.getBoolean('private') || false;
 
     await interaction.deferReply({ ephemeral: true });
 
@@ -127,13 +135,13 @@ export async function execute(interaction) {
           yearStr
         );
 
-        await interaction.editReply({ embeds: [embed] });
+        await deliverResult(interaction, { embeds: [embed] }, isPrivate);
         return;
       }
 
       // Multiple results - show selection menu
-      // Store the notes in the custom ID for later
-      const selectionData = JSON.stringify({ notes, userId: interaction.user.id, username: interaction.user.username });
+      // Store the notes and private flag in the custom ID for later
+      const selectionData = JSON.stringify({ notes, userId: interaction.user.id, username: interaction.user.username, isPrivate });
       
       // Load guild config to get maxSearchResults
       const guildConfig = await loadGuildConfig(interaction.guildId);

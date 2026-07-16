@@ -1,6 +1,7 @@
 import { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } from 'discord.js';
 import { getPosterUrl } from '../services/tmdbService.js';
 import { config } from '../config.js';
+import { encodePrivateFlag } from './interactionResponse.js';
 
 /**
  * Format runtime in minutes to human-readable format
@@ -24,18 +25,21 @@ function formatRuntime(minutes) {
 
 /**
  * Create a search results message with a select menu
+ * @param {boolean} isPrivate - Whether the final selected result should stay
+ *   private (encoded into each option's value so selectHandler.js knows
+ *   what the original command asked for)
  */
-export async function createSearchResults(results, type, query) {
+export async function createSearchResults(results, type, query, isPrivate = false) {
   const options = results.map((result, index) => {
     const title = result.title || result.name;
     const year = result.release_date || result.first_air_date;
     const yearStr = year ? ` (${year.split('-')[0]})` : '';
     const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
-    
+
     return {
       label: `${title}${yearStr}`.substring(0, 100),
       description: overview.substring(0, 100),
-      value: `${type}_${result.id}`,
+      value: encodePrivateFlag(`${type}_${result.id}`, isPrivate),
     };
   });
   
@@ -60,18 +64,19 @@ export async function createSearchResults(results, type, query) {
 
 /**
  * Create episode search results with show selection
+ * @param {boolean} isPrivate - Whether the final episode result should stay private
  */
-export async function createEpisodeSearchResults(results, showQuery, episodeQuery) {
+export async function createEpisodeSearchResults(results, showQuery, episodeQuery, isPrivate = false) {
   const options = results.map((result, index) => {
     const title = result.name;
     const year = result.first_air_date;
     const yearStr = year ? ` (${year.split('-')[0]})` : '';
     const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
-    
+
     return {
       label: `${title}${yearStr}`.substring(0, 100),
       description: overview.substring(0, 100),
-      value: `episode_${result.id}_${episodeQuery}`,
+      value: encodePrivateFlag(`episode_${result.id}_${episodeQuery}`, isPrivate),
     };
   });
   
@@ -96,19 +101,20 @@ export async function createEpisodeSearchResults(results, showQuery, episodeQuer
 
 /**
  * Create soundtrack search results with movie/TV selection
+ * @param {boolean} isPrivate - Whether the final selected result should stay private
  */
-export function createSoundtrackSearchResults(results, query) {
+export function createSoundtrackSearchResults(results, query, isPrivate = false) {
   const options = results.map((result, index) => {
     const title = result.title || result.name;
     const year = result.release_date || result.first_air_date;
     const yearStr = year ? ` (${year.split('-')[0]})` : '';
     const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
     const mediaType = result.type === 'movie' ? '🎬 Movie' : '📺 TV Show';
-    
+
     return {
       label: `${mediaType}: ${title}${yearStr}`.substring(0, 100),
       description: overview.substring(0, 100),
-      value: `soundtrack_${result.type}_${result.id}`,
+      value: encodePrivateFlag(`soundtrack_${result.type}_${result.id}`, isPrivate),
     };
   });
   
@@ -444,18 +450,19 @@ function buildStreamingText(watchProviders) {
 
 /**
  * Create a game search results message with a select menu
+ * @param {boolean} isPrivate - Whether the final selected result should stay private
  */
-export async function createGameSearchResults(results, query) {
+export async function createGameSearchResults(results, query, isPrivate = false) {
   const options = results.map((result) => {
     const title = result.name;
     const year = result.released;
     const yearStr = year ? ` (${year.split('-')[0]})` : '';
     const platforms = result.platforms?.slice(0, 2).map(p => p.platform.name).join(', ') || 'Multiple platforms';
-    
+
     return {
       label: `${title}${yearStr}`.substring(0, 100),
       description: platforms.substring(0, 100),
-      value: `game_${result.id}`,
+      value: encodePrivateFlag(`game_${result.id}`, isPrivate),
     };
   });
   
@@ -597,17 +604,18 @@ export async function createGameDetailedEmbed(game) {
 
 /**
  * Create a board game search results message with a select menu
+ * @param {boolean} isPrivate - Whether the final selected result should stay private
  */
-export async function createBoardGameSearchResults(results, query) {
+export async function createBoardGameSearchResults(results, query, isPrivate = false) {
   const options = results.map((result) => {
     const title = result.name;
     const year = result.yearPublished;
     const yearStr = year ? ` (${year})` : '';
-    
+
     return {
       label: `${title}${yearStr}`.substring(0, 100),
       description: 'Board Game'.substring(0, 100),
-      value: `boardgame_${result.id}`,
+      value: encodePrivateFlag(`boardgame_${result.id}`, isPrivate),
     };
   });
   
@@ -756,18 +764,19 @@ export async function createBoardGameDetailedEmbed(game) {
 
 /**
  * Create a book search results message with a select menu
+ * @param {boolean} isPrivate - Whether the final selected result should stay private
  */
-export async function createBookSearchResults(results, query) {
+export async function createBookSearchResults(results, query, isPrivate = false) {
   const options = results.map((result) => {
     const title = result.title;
     const authors = result.authors.length > 0 ? result.authors.join(', ') : 'Unknown Author';
     const year = result.publishedDate ? result.publishedDate.split('-')[0] : '';
     const yearStr = year ? ` (${year})` : '';
-    
+
     return {
       label: `${title}${yearStr}`.substring(0, 100),
       description: `by ${authors}`.substring(0, 100),
-      value: `book_${result.id}`,
+      value: encodePrivateFlag(`book_${result.id}`, isPrivate),
     };
   });
   

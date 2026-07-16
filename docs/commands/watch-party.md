@@ -245,12 +245,13 @@ The button lets you log a different title if auto-detection picked the wrong res
 **Parameters:**
 - `title` (required) - Movie or TV show title to search for
 - `notes` (optional) - Additional notes about the viewing
+- `private` (optional) - Only show the confirmation to you instead of the whole channel (default: false)
 
 **Features:**
 - Search integration for accurate titles
 - Selection menu if multiple matches found
 - Immediate save to server history
-- Public announcement in channel
+- Public announcement in channel (unless `private:true`)
 
 **Example:**
 ```
