@@ -126,6 +126,7 @@ Start simple stopwatch timers for watch parties.
 
 ```
 /timer status
+/timer check
 ```
 
 Shows the current timer status for the channel:
@@ -135,6 +136,16 @@ Shows the current timer status for the channel:
 - What's being watched
 - Who started the timer
 - Auto-stop status
+
+**Parameters:**
+- `public` (optional) - Show this to everyone in the channel instead of just you (default: false)
+
+By default, checking the timer only shows the result to you — most people check just to glance at their own progress, and showing it to everyone every time would flood the channel. Add `public:true` to announce the current status to the whole channel instead:
+```
+/timer status public:true
+```
+
+`/timer check` is an alias for `/timer status` and works exactly the same way, including the `public` option.
 
 ### Pause and Resume Timer
 
