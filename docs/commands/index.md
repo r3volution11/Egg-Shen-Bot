@@ -244,7 +244,7 @@ Start, stop, or check channel-specific timers.
 - `/timer pause` - Pause the active timer, freezing elapsed/remaining time
 - `/timer resume` - Resume a paused timer
 - `/timer stop` - Stop the active timer
-- `/timer status` - Check timer status
+- `/timer status` (alias: `/timer check`) - Check timer status; private to you by default, `public:true` to announce it to the channel
 - `/timer remind` - Announce timer is starting (with event auto-detection)
 
 **Features:**

@@ -5,6 +5,11 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.16.1 - 2026-07-16
+
+### Changed
+- **`/timer status` and `/timer check` now default to private**, only visible to whoever ran the command. Most people check the timer just to glance at their own progress, and showing that to the whole channel every time flooded it with messages nobody else needed to see. Add `public:true` to announce the current status to the whole channel instead — the opposite default from the search commands, chosen deliberately for this specific command's actual usage pattern
+
 ## 2.16.0 - 2026-07-15
 
 ### Changed

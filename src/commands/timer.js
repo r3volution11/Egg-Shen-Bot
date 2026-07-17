@@ -237,11 +237,23 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('status')
       .setDescription('ℹ️ Check the current timer status in this channel')
+      .addBooleanOption(option =>
+        option
+          .setName('public')
+          .setDescription('Show this to everyone in the channel instead of just you (default: false)')
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
       .setName('check')
       .setDescription('ℹ️ Check the current timer status in this channel (alias for status)')
+      .addBooleanOption(option =>
+        option
+          .setName('public')
+          .setDescription('Show this to everyone in the channel instead of just you (default: false)')
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -605,6 +617,9 @@ export async function execute(interaction) {
 
     await interaction.reply({ embeds: [embed] });
   } else if (subcommand === 'status' || subcommand === 'check') {
+    // Most people check the timer just to glance at their own progress, so
+    // default to private — pass public:true to announce it to the channel.
+    const isPublic = interaction.options.getBoolean('public') || false;
     const timer = getTimerStatus(channelId);
 
     if (timer) {
@@ -643,7 +658,7 @@ export async function execute(interaction) {
         .setFooter({ text: timer.paused ? 'Use /timer resume to continue' : (timer.duration ? 'Auto-stop enabled' : 'Use /timer stop to end the timer') })
         .setTimestamp(timer.startTime);
 
-      await interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed], ephemeral: !isPublic });
     } else {
       await interaction.reply({
         content: '❌ No active timer in this channel. Use `/timer start` to begin one.',
