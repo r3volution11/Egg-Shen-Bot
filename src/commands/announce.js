@@ -22,6 +22,12 @@ export const data = new SlashCommandBuilder()
   )
   .addStringOption(option =>
     option
+      .setName('time')
+      .setDescription('Start time to include in the announcement (e.g. "8:00 PM EST")')
+      .setRequired(true)
+  )
+  .addStringOption(option =>
+    option
       .setName('episodes1')
       .setDescription('Episode(s) for title1 if it\'s a TV show (e.g. "S3E9-E12", "Season 3 Episode 9")')
       .setRequired(false)
@@ -37,12 +43,6 @@ export const data = new SlashCommandBuilder()
       .setName('episodes2')
       .setDescription('Episode(s) for title2 if it\'s a TV show')
       .setRequired(false)
-  )
-  .addStringOption(option =>
-    option
-      .setName('time')
-      .setDescription('Start time to include in the announcement (e.g. "8:00 PM EST")')
-      .setRequired(true)
   )
   .addStringOption(option =>
     option
