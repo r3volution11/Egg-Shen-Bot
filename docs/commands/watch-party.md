@@ -37,6 +37,46 @@ A: Yes! When a timer with a title/label completes, it automatically logs to serv
 
 Host synchronized watch parties with timers and track what your community watches.
 
+## Announcements
+
+Generate the initial "hey, we're watching this tonight" announcement — typically posted an hour or two before the watch party, well before `/timer remind`'s final-notice ping.
+
+### Generate an Announcement
+
+```
+/announce title1:<title> episodes1:[optional] title2:[optional] episodes2:[optional] time:<time> host:[optional] tone:[optional] custom-tone:[optional]
+```
+
+**Parameters:**
+- `title1` (required) - First movie or TV show title
+- `episodes1` (optional) - Episode(s) for `title1` if it's a TV show — flexible notation: `S3E9-E12`, `S3E9-12`, `Season 3 Episode 9`, `S03E09-E12`, etc.
+- `title2` / `episodes2` (optional) - A second title, for back-to-back watch parties (e.g. two episodes then a movie)
+- `time` (required) - Start time to include in the announcement, used exactly as typed (e.g. `"8:00 PM EST"`)
+- `host` (optional) - Who's hosting — a persona name (like a horror-host character) or a literal `@mention`, your choice
+- `tone` (optional) - One of `Funny`, `Scary`, `Dramatic`, `Wholesome`, `Mysterious`
+- `custom-tone` (optional) - Describe your own tone/style instead (e.g. `"like a noir detective"`) — overrides `tone` if both are given
+
+**Features:**
+- Looks up each title on TMDB for the real plot/premise, so the AI writes something specific to the movie or show rather than generic filler
+- Automatically includes real streaming availability ("Available to stream on...")
+- Reply is private (only visible to you) and formatted as a copy-paste-ready code block — **the bot never posts the announcement anywhere itself**, you post it manually wherever you'd like (e.g. an announcements channel)
+- If OpenAI is unavailable, falls back to a plain, clearly-labeled non-AI template instead of failing outright
+- Admin/Moderator only
+
+**Example:**
+```
+/announce title1:"Tales From the Crypt" episodes1:"S3E9-E12" title2:"Hellraiser" time:"8:00 PM EST" host:"Cryptkeeper" tone:Scary
+```
+
+**How It Works:**
+1. Run `/announce` with your title(s), start time, and optional host/tone
+2. Bot looks up each title's plot and streaming availability, then asks AI to write short promotional flavor text in your chosen tone
+3. You get back a private, copy-paste-ready announcement
+4. Post it yourself wherever you'd like (e.g. your server's announcements channel) — the bot doesn't post it for you
+5. Later, run `/timer remind` closer to start time, then `/timer start` when you begin
+
+**Tip:** Since nothing is posted automatically, you can generate a few variations (different tones, or run it again) before picking your favorite to post.
+
 ## Timer Reminders
 
 Announce that you're about to start the timer right before beginning the watch party.
