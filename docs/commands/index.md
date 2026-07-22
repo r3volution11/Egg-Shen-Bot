@@ -293,6 +293,33 @@ Log and view server watch party history.
 
 ---
 
+### `/announce`
+Generate AI-written watch party announcement text for you to copy and post yourself (Admin/Moderator only).
+
+**Options:**
+- `title1` (required) - First movie or TV show title
+- `episodes1` (optional) - Episode(s) for `title1` if it's a TV show (e.g. `"S3E9-E12"`, `"Season 3 Episode 9"`)
+- `title2` / `episodes2` (optional) - A second title, for back-to-back watch parties
+- `time` (required) - Start time to include in the announcement (e.g. `"8:00 PM EST"`)
+- `host` (optional) - Who's hosting — a name, persona, or `@mention`
+- `tone` (optional) - `Funny`, `Scary`, `Dramatic`, `Wholesome`, or `Mysterious`
+- `custom-tone` (optional) - Free-text tone/style instead of the preset list — overrides `tone`
+
+**Features:**
+- Looks up the real plot/premise from TMDB so the AI writes about the actual movie/show, not generic filler
+- Includes real streaming availability ("Available to stream on...") automatically
+- Reply is private (only visible to you) and formatted as a copy-paste-ready code block — the bot never posts the announcement anywhere itself
+- Falls back to a plain (non-AI) template if OpenAI is unavailable, so the command still returns something useful
+
+**Example:**
+```
+/announce title1:"Tales From the Crypt" episodes1:"S3E9-E12" title2:"Hellraiser" time:"8:00 PM EST" host:"Cryptkeeper" tone:Scary
+```
+
+[Learn more →](/commands/watch-party#announce)
+
+---
+
 ## AI Image Generation Commands
 
 ### `/image`

@@ -316,3 +316,111 @@ describe('hybridSearch', () => {
     expect(result).toBe(keywordResults);
   });
 });
+
+describe('generateAnnouncementText', () => {
+  const baseParams = {
+    segments: [{ title: 'Hellraiser', type: 'movie', overview: 'A puzzle box summons demons.', episodes: null }],
+    tone: 'scary',
+    customTone: null,
+    timeText: '8:00 PM EST',
+    host: null,
+  };
+
+  test('returns null immediately when OpenAI is not configured, no request made', async () => {
+    mockConfig.apis.openai.apiKey = null;
+
+    const result = await aiService.generateAnnouncementText(baseParams);
+
+    expect(result).toBeNull();
+    expect(mockPost).not.toHaveBeenCalled();
+  });
+
+  test('returns the generated text on success', async () => {
+    mockPost.mockResolvedValueOnce({
+      data: { choices: [{ message: { content: '  A chilling tale awaits...  ' } }] },
+    });
+
+    const result = await aiService.generateAnnouncementText(baseParams);
+
+    expect(result).toBe('A chilling tale awaits...'); // trimmed
+    expect(mockPost).toHaveBeenCalledWith('/chat/completions', expect.objectContaining({
+      model: 'gpt-4o-mini',
+    }));
+  });
+
+  test('returns null (not throw) on API error', async () => {
+    mockPost.mockRejectedValueOnce(new Error('rate limited'));
+
+    const result = await aiService.generateAnnouncementText(baseParams);
+
+    expect(result).toBeNull();
+  });
+
+  test('returns null when the response has no choices', async () => {
+    mockPost.mockResolvedValueOnce({ data: { choices: [] } });
+
+    const result = await aiService.generateAnnouncementText(baseParams);
+
+    expect(result).toBeNull();
+  });
+
+  test('prompt includes the preset tone when no customTone is given', async () => {
+    mockPost.mockResolvedValueOnce({ data: { choices: [{ message: { content: 'text' } }] } });
+
+    await aiService.generateAnnouncementText({ ...baseParams, tone: 'funny', customTone: null });
+
+    const requestBody = mockPost.mock.calls[0][1];
+    const userMessage = requestBody.messages.find(m => m.role === 'user').content;
+    expect(userMessage).toContain('funny');
+  });
+
+  test('customTone overrides the preset tone in the prompt when both are given', async () => {
+    mockPost.mockResolvedValueOnce({ data: { choices: [{ message: { content: 'text' } }] } });
+
+    await aiService.generateAnnouncementText({ ...baseParams, tone: 'funny', customTone: 'like a noir detective' });
+
+    const requestBody = mockPost.mock.calls[0][1];
+    const userMessage = requestBody.messages.find(m => m.role === 'user').content;
+    expect(userMessage).toContain('like a noir detective');
+    expect(userMessage).not.toContain('a funny tone');
+  });
+
+  test('prompt includes both titles when two segments are given', async () => {
+    mockPost.mockResolvedValueOnce({ data: { choices: [{ message: { content: 'text' } }] } });
+
+    await aiService.generateAnnouncementText({
+      ...baseParams,
+      segments: [
+        { title: 'Tales from the Crypt', type: 'tv', overview: 'A horror anthology.', episodes: 'S3E9-E12' },
+        { title: 'Hellraiser', type: 'movie', overview: 'A puzzle box summons demons.', episodes: null },
+      ],
+    });
+
+    const requestBody = mockPost.mock.calls[0][1];
+    const userMessage = requestBody.messages.find(m => m.role === 'user').content;
+    expect(userMessage).toContain('Tales from the Crypt');
+    expect(userMessage).toContain('S3E9-E12');
+    expect(userMessage).toContain('Hellraiser');
+    expect(userMessage).toContain('Both titles');
+  });
+
+  test('prompt mentions the host when given', async () => {
+    mockPost.mockResolvedValueOnce({ data: { choices: [{ message: { content: 'text' } }] } });
+
+    await aiService.generateAnnouncementText({ ...baseParams, host: 'Cryptkeeper' });
+
+    const requestBody = mockPost.mock.calls[0][1];
+    const userMessage = requestBody.messages.find(m => m.role === 'user').content;
+    expect(userMessage).toContain('Cryptkeeper');
+  });
+
+  test('prompt explicitly instructs the model not to include time/channel/streaming details', async () => {
+    mockPost.mockResolvedValueOnce({ data: { choices: [{ message: { content: 'text' } }] } });
+
+    await aiService.generateAnnouncementText(baseParams);
+
+    const requestBody = mockPost.mock.calls[0][1];
+    const userMessage = requestBody.messages.find(m => m.role === 'user').content;
+    expect(userMessage).toMatch(/do not include the start time/i);
+  });
+});

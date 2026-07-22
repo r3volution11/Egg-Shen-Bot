@@ -385,7 +385,7 @@ function buildRatingsText(data, enabledServices = null, guildEmojis = null) {
  * @param {Array} providers - Array of provider objects with provider_name
  * @returns {Array} Normalized unique provider names
  */
-function normalizeProviders(providers) {
+export function normalizeProviders(providers) {
   const nameMap = {
     'Peacock Premium': 'Peacock',
     'Peacock Premium Plus': 'Peacock',

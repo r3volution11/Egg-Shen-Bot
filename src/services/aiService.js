@@ -389,3 +389,72 @@ export async function hybridSearch(query, keywordSearchFn, type = 'movie', altTi
   // No results and can't do semantic search
   return [];
 }
+
+// Chat-completions model for free-form text generation (e.g. announcement
+// flavor text) — separate from config.apis.openai.model, which is the
+// embedding model used for semantic search and stays untouched by this.
+const CHAT_MODEL = 'gpt-4o-mini';
+
+/**
+ * Generate short, in-character watch-party announcement flavor text via a
+ * chat-completion call. The model is asked to write ONLY the promotional
+ * hook — factual scheduling details (time, host) are assembled separately
+ * by the caller so they're never at the mercy of AI phrasing.
+ *
+ * @param {Object} params
+ * @param {Array<{title: string, type: 'movie'|'tv', overview: string, episodes: string|null}>} params.segments
+ *   Up to two titles being watched. `episodes` is free-text like "S3E9-E12" (if given), used as flavor context only.
+ * @param {string|null} params.tone - One of the preset tone names (e.g. 'scary'), or null if customTone is used instead
+ * @param {string|null} params.customTone - Free-text tone override; takes precedence over `tone` when both are given
+ * @param {string} params.timeText - The watch party's start time, used verbatim (e.g. "8:00 PM EST")
+ * @param {string|null} params.host - Optional host name/mention to weave in
+ * @returns {Promise<string|null>} Generated flavor text, or null if OpenAI is unavailable or the call fails
+ */
+export async function generateAnnouncementText({ segments, tone, customTone, timeText, host }) {
+  if (!isOpenAIAvailable()) {
+    return null;
+  }
+
+  const toneInstruction = customTone
+    ? `Write in this specific tone/style: ${customTone}.`
+    : `Write in a ${tone || 'fun, welcoming'} tone.`;
+
+  const segmentDescriptions = segments.map((segment, index) => {
+    const label = segment.type === 'tv' && segment.episodes
+      ? `${segment.title} (${segment.episodes})`
+      : segment.title;
+    const overview = segment.overview ? ` Plot: ${segment.overview.substring(0, 400)}` : '';
+    return `${index + 1}. ${label}${overview}`;
+  }).join('\n');
+
+  const prompt = [
+    'You are writing a short, exciting Discord announcement for an upcoming watch party.',
+    toneInstruction,
+    'Reference the real plot/premise of the title(s) below so the announcement feels specific, not generic.',
+    segments.length > 1 ? 'Both titles are being watched back-to-back in the same watch party — mention both.' : '',
+    host ? `The watch party is hosted by ${host} — you may reference them if it fits the tone.` : '',
+    '',
+    'Titles:',
+    segmentDescriptions,
+    '',
+    'Write ONLY the promotional flavor text (1-3 short paragraphs). Do NOT include the start time, a channel name, or streaming availability — those are added separately after your text. Do not use headers or a title, just the announcement body itself.',
+  ].filter(Boolean).join('\n');
+
+  try {
+    const response = await openaiApi.post('/chat/completions', {
+      model: CHAT_MODEL,
+      messages: [
+        { role: 'system', content: 'You write punchy, in-character promotional announcements for Discord watch party communities.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 400,
+      temperature: 0.9,
+    });
+
+    const text = response.data.choices?.[0]?.message?.content?.trim();
+    return text || null;
+  } catch (error) {
+    console.error('Announcement text generation error:', error.response?.data || error.message);
+    return null;
+  }
+}

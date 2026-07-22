@@ -5,6 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.17.0 - 2026-07-21
+
+### Added
+- **New `/announce` command generates AI-written watch party announcement text** for moderators/admins to copy and post themselves. Takes one or two titles (movies or TV episode ranges, with flexible notation like `S3E9-E12`, `Season 3 Episode 9`, etc.), a start time, and an optional host and tone (`Funny`/`Scary`/`Dramatic`/`Wholesome`/`Mysterious`, or a free-text `custom-tone`). Looks up each title's real plot and streaming availability from TMDB so the generated flavor text is actually about the movie/show, not generic filler. The reply is private and formatted as a copy-paste-ready code block — the bot never posts the announcement anywhere on its own, and nothing about it is configurable or persisted; it's a one-shot text generator
+
+### Developer
+- Added `generateAnnouncementText()` to `src/services/aiService.js` — the bot's first chat-completion call (`gpt-4o-mini`), separate from the existing embedding-only OpenAI usage
+- Exported `normalizeProviders` from `embedBuilder.js` so `/announce` can reuse the same streaming-provider-name cleanup `/movie`/`/tv` already use, instead of duplicating it
+
 ## 2.16.1 - 2026-07-16
 
 ### Changed
