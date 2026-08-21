@@ -93,11 +93,11 @@ export const data = new SlashCommandBuilder()
       .addSubcommand(subcommand =>
         subcommand
           .setName('max-timer-duration')
-          .setDescription('Set the default safety cap for timer auto-stop duration')
+          .setDescription('Set the fallback auto-stop duration for timers with no duration set or detected')
           .addIntegerOption(option =>
             option
               .setName('minutes')
-              .setDescription('Max duration in minutes (e.g. 360 for 6 hours)')
+              .setDescription('Fallback duration in minutes (e.g. 360 for 6 hours)')
               .setRequired(false)
               .setMinValue(1)
               .setMaxValue(1440)
@@ -105,7 +105,26 @@ export const data = new SlashCommandBuilder()
           .addBooleanOption(option =>
             option
               .setName('unlimited')
-              .setDescription('Disable the cap entirely for this server')
+              .setDescription('Let timers with no duration run forever instead of using the fallback')
+              .setRequired(false)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('timer-ceiling')
+          .setDescription('Optionally cap explicit/detected timer durations too (off by default)')
+          .addIntegerOption(option =>
+            option
+              .setName('minutes')
+              .setDescription('Ceiling in minutes applied to explicit/detected durations')
+              .setRequired(false)
+              .setMinValue(1)
+              .setMaxValue(1440)
+          )
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Turn the ceiling on or off (off by default — timers can be any duration)')
               .setRequired(false)
           )
       )
@@ -887,9 +906,12 @@ export async function execute(interaction) {
 
     const regionDisplay = config.region || 'US';
     const maxResultsDisplay = config.maxSearchResults || 20;
-    const timerCapDisplay = config.maxTimerDurationUnlimited
-      ? 'Unlimited (no safety cap)'
+    const timerFallbackDisplay = config.maxTimerDurationUnlimited
+      ? 'Unlimited (no-duration timers run forever)'
       : `${config.maxTimerDurationMinutes || 360} minutes`;
+    const timerCeilingDisplay = config.timerCeilingEnabled && config.timerCeilingMinutes
+      ? `${config.timerCeilingMinutes} minutes`
+      : 'Off (no maximum)';
 
     // Rate limiting display
     const rateLimitEnabled = config.rateLimits?.enabled ?? true;
@@ -938,8 +960,13 @@ export async function execute(interaction) {
         inline: false,
       })
       .addFields({
-        name: 'Max Timer Duration',
-        value: `⏱️ **${timerCapDisplay}** (use \`/eggshen-config settings max-timer-duration minutes:<n>\` or \`unlimited:true\` to change)`,
+        name: 'Timer Fallback Duration',
+        value: `⏱️ **${timerFallbackDisplay}** — used only when no duration was given and none was auto-detected (use \`/eggshen-config settings max-timer-duration minutes:<n>\` or \`unlimited:true\` to change)`,
+        inline: false,
+      })
+      .addFields({
+        name: 'Timer Ceiling (explicit/detected durations)',
+        value: `⏱️ **${timerCeilingDisplay}** (use \`/eggshen-config settings timer-ceiling minutes:<n> enabled:true\` to change)`,
         inline: false,
       })
       .addFields({
@@ -1210,8 +1237,38 @@ export async function execute(interaction) {
 
     const effectiveUnlimited = config.maxTimerDurationUnlimited === true;
     const summary = effectiveUnlimited
-      ? 'Timers on this server can now run for any duration — no safety cap.'
-      : `Timers on this server are now capped at **${config.maxTimerDurationMinutes} minutes** by default (this applies to \`/timer start\`, \`/timer adjust\`, and extending a timer from its expiry warning).`;
+      ? 'Timers with no duration set (and nothing auto-detected) will now run forever, like `/timer autostop disable` — same as before this setting existed.'
+      : `Timers with no duration set (and nothing auto-detected) will now default to **${config.maxTimerDurationMinutes} minutes** before auto-stopping, with a warning about an hour before. This does **not** affect timers where a duration was typed manually or auto-detected from a movie/TV runtime — those always run for their real length unless this server also enables \`/eggshen-config settings timer-ceiling\`.`;
+
+    await interaction.reply({
+      content: `✅ ${summary}`,
+      ephemeral: true,
+    });
+  } else if (group === 'settings' && subcommand === 'timer-ceiling') {
+    const minutes = interaction.options.getInteger('minutes');
+    const enabled = interaction.options.getBoolean('enabled');
+
+    if (minutes === null && enabled === null) {
+      await interaction.reply({
+        content: '❌ Provide `minutes`, `enabled`, or both.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const config = await loadGuildConfig(guildId);
+    if (enabled !== null) {
+      config.timerCeilingEnabled = enabled;
+    }
+    if (minutes !== null) {
+      config.timerCeilingMinutes = minutes;
+    }
+    await saveGuildConfig(guildId, config);
+
+    const effectiveEnabled = config.timerCeilingEnabled === true && !!config.timerCeilingMinutes;
+    const summary = effectiveEnabled
+      ? `Timers on this server are now capped at **${config.timerCeilingMinutes} minutes**, even if a user typed a longer duration or the bot auto-detected a longer runtime.`
+      : 'Timers on this server can now be started at any duration — no ceiling is enforced on explicit or auto-detected durations.';
 
     await interaction.reply({
       content: `✅ ${summary}`,

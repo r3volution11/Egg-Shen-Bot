@@ -117,10 +117,11 @@ export async function handleSelectInteraction(interaction) {
     const value = interaction.values[0];
     const parts = value.split('_');
     const theme = parts[parts.length - 1]; // Last part is always theme (modern/classic)
-    
+
     const channelId = interaction.channelId;
     const userId = interaction.user.id;
     const username = interaction.user.username;
+    const guildConfig = await loadGuildConfig(interaction.guildId);
     
     // Get the label from the embed title
     const embedTitle = interaction.message.embeds[0]?.title || '';
@@ -166,7 +167,7 @@ export async function handleSelectInteraction(interaction) {
     
     // Now start the timer countdown (post publicly, not ephemeral)
     const { startTimerCountdown } = await import('../commands/timer.js');
-    await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, true);
+    await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, true);
     return;
   }
   

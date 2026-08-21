@@ -77,6 +77,14 @@ async function checkTimerExpirations() {
         continue;
       }
 
+      if (!timer.isFallbackDuration) {
+        // A real, informed duration (typed manually or auto-detected from a
+        // movie/TV runtime) — never warn about these, no matter how long
+        // they run. The warning only exists for timers that got a duration
+        // by default because nobody said anything at all.
+        continue;
+      }
+
       const remainingMs = timer.endTime - now;
 
       // Stale/expired — clean up and let handleAutoStopFired (timerManager)
@@ -135,8 +143,8 @@ async function sendExpiryWarning(channelId, timer, remainingMs) {
       .setTitle('⏰ Timer Ending Soon')
       .setDescription(
         `${timer.label ? `**${timer.label}**\n\n` : ''}` +
-        `This timer will automatically stop in **${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}**.\n\n` +
-        `<@${timer.userId}> — need more time? Use the button below to extend it.`
+        `No duration was set for this timer, so it will automatically stop in **${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}** (the server default).\n\n` +
+        `<@${timer.userId}> — still watching? Use the button below to extend it.`
       )
       .setTimestamp();
 

@@ -250,8 +250,9 @@ Start, stop, or check channel-specific timers.
 - `/timer remind` - Announce timer is starting (with event auto-detection)
 
 **Features:**
-- **Auto-stop timers:** Set duration (1-1440 min) for automatic stop, subject to the server's configured max duration (default 6 hours, configurable/removable by admins and mods)
-- **Expiry warning:** ~1 hour before a timer auto-stops, the bot posts a channel warning with a button to extend it
+- **Auto-stop timers:** Set duration (1-1440 min); by default a real duration always runs for its full length, with an optional per-server ceiling admins/mods can turn on
+- **No-duration fallback:** If a timer starts with no duration at all (nothing typed, nothing detected), it defaults to 6 hours (configurable) instead of running forever
+- **Expiry warning:** ~1 hour before a no-duration-fallback timer auto-stops, the bot posts a channel warning with a button to extend it (never fires for timers with a real duration)
 - **Runtime auto-detection:** Searches movies, TV shows, and board games and adds a 10-min buffer — works whether the label was typed manually or auto-detected
 - **Smart selection:** Shows menu when multiple matches are found
 - Auto-detects Discord scheduled events

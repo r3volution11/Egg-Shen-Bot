@@ -52,6 +52,19 @@ jest.unstable_mockModule('../src/api/server.js', () => ({
   saveEventChannelSelections: jest.fn().mockResolvedValue(undefined),
 }));
 
+// loadGuildConfig does real fs I/O; under fake timers that I/O can stall
+// indefinitely, so it's mocked here to return the default config synchronously
+// (matches the pattern in tests/timer-duration-detection.test.js). Other
+// exports are stubbed since selectHandler.js imports them too, even though
+// this test's timer_select_runtime path doesn't exercise them.
+jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  loadGuildConfig: jest.fn().mockResolvedValue({}),
+  isAdmin: jest.fn().mockReturnValue(false),
+  getEnabledServices: jest.fn().mockResolvedValue({}),
+  getEmojis: jest.fn().mockResolvedValue({}),
+  getStatsConfig: jest.fn().mockResolvedValue({}),
+}));
+
 let handleSelectInteraction;
 let getTimerStatus, clearAllTimers;
 
@@ -130,7 +143,7 @@ describe('timer_select_runtime — board game selection', () => {
     expect(status.label).toBe('Catan');
   });
 
-  test('a board game with no playingTime data starts the timer with no duration', async () => {
+  test('a board game with no playingTime data falls back to the server default duration', async () => {
     mockGetBoardGameDetails.mockResolvedValue({ playingTime: null });
 
     const interaction = makeSelectInteraction({ value: 'timer_boardgame_999_modern' });
@@ -138,7 +151,8 @@ describe('timer_select_runtime — board game selection', () => {
 
     const status = getTimerStatus('channel-1');
     expect(status).not.toBeNull();
-    expect(status.duration).toBeUndefined();
+    expect(status.duration).toBe(360);
+    expect(status.isFallbackDuration).toBe(true);
   });
 
   test('movie/tv selections still work unaffected by the boardgame branch', async () => {
@@ -152,5 +166,19 @@ describe('timer_select_runtime — board game selection', () => {
 
     const status = getTimerStatus('channel-1');
     expect(status.duration).toBe(106);
+    expect(status.isFallbackDuration).toBeFalsy();
+  });
+
+  test('choosing "Skip" falls back to the server default duration', async () => {
+    const interaction = makeSelectInteraction({ value: 'timer_skip_modern' });
+    await runSelection(interaction);
+
+    expect(mockGetMovieDetails).not.toHaveBeenCalled();
+    expect(mockGetTVShowDetails).not.toHaveBeenCalled();
+    expect(mockGetBoardGameDetails).not.toHaveBeenCalled();
+
+    const status = getTimerStatus('channel-1');
+    expect(status.duration).toBe(360);
+    expect(status.isFallbackDuration).toBe(true);
   });
 });

@@ -452,14 +452,17 @@ export async function execute(interaction) {
     }
 
     if (noRuntimeFound && !duration) {
+      const capNote = guildConfig?.maxTimerDurationUnlimited === true
+        ? 'this timer will run until manually stopped (`/timer stop`), unless you set a duration.'
+        : `this timer will auto-stop after ${guildConfig?.maxTimerDurationMinutes || 360} minutes (the server default) with a warning about an hour before, unless you set a duration.`;
       await interaction.followUp({
-        content: `⚠️ Couldn't find a runtime for "${label}" — this timer will run until manually stopped (\`/timer stop\`), unless you set a duration.`,
+        content: `⚠️ Couldn't find a runtime for "${label}" — ${capNote}`,
         ephemeral: true,
       });
     }
 
     // Check if timer already exists and start countdown
-    await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme);
+    await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig);
   } else if (subcommand === 'stop') {
     const activeTimer = getTimerStatus(channelId);
 
@@ -1078,9 +1081,10 @@ export async function execute(interaction) {
  * @param {string} label - Timer label
  * @param {number} duration - Duration in minutes (optional)
  * @param {string} theme - Timer theme (modern/classic)
+ * @param {object} guildConfig - Guild config, used to resolve the fallback duration cap when none was detected
  * @param {boolean} fromSelection - Deprecated parameter (always posts publicly now)
  */
-export async function startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, fromSelection = false) {
+export async function startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, fromSelection = false) {
   // Check if timer already exists
   const existingTimer = getTimerStatus(channelId);
   if (existingTimer) {
@@ -1109,6 +1113,23 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
 
     await interaction.editReply({ embeds: [embed] });
     return;
+  }
+
+  // No real duration was detected or provided (no label, search found
+  // nothing, or the user chose "Skip" from the selection menu) — rather than
+  // running forever unnoticed, fall back to the server's configured safety
+  // cap so the timer actually has an end, and flag it as a fallback so
+  // timerScheduler.js knows to warn before it silently expires. A duration
+  // that WAS detected/provided (even if later clamped down to the cap) is a
+  // real, informed value and never gets flagged this way.
+  //
+  // If the server has disabled the cap entirely (unlimited:true), there's no
+  // fallback value to apply — the timer just runs with no duration, same as
+  // /timer autostop disable, and isFallbackDuration stays false since there's
+  // no endTime for the scheduler to warn against anyway.
+  const isFallbackDuration = !duration && guildConfig?.maxTimerDurationUnlimited !== true;
+  if (isFallbackDuration) {
+    duration = guildConfig?.maxTimerDurationMinutes || 360;
   }
 
   // If coming from selection menu, dismiss the ephemeral message and post publicly
@@ -1147,7 +1168,7 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         await message.edit(msg);
       }
       
-      startTimer(channelId, userId, username, label, duration, interaction.client);
+      startTimer(channelId, userId, username, label, duration, interaction.client, isFallbackDuration);
       return;
       
     } else {
@@ -1186,7 +1207,7 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         .setFooter({ text: '⏱️ Timer started!' });
       await message.edit({ embeds: [countdownEmbed] });
       
-      startTimer(channelId, userId, username, label, duration, interaction.client);
+      startTimer(channelId, userId, username, label, duration, interaction.client, isFallbackDuration);
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       

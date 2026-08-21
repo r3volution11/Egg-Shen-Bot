@@ -181,9 +181,14 @@ export async function restoreTimerTimeouts(client) {
  * @param {string} label - Optional label/description for the timer
  * @param {number} durationMinutes - Optional duration in minutes
  * @param {object} client - Discord client for auto-stop functionality
+ * @param {boolean} isFallbackDuration - True when durationMinutes wasn't a real
+ *   detected/manual value but the server's safety-cap default applied because
+ *   nothing else was available (no label, no search match, user skipped
+ *   selection, etc). Lets timerScheduler.js warn only on these timers, not on
+ *   a normal movie/episode timer that just happens to run long.
  * @returns {boolean} - True if started, false if timer already exists
  */
-export function startTimer(channelId, userId, username, label = '', durationMinutes = null, client = null) {
+export function startTimer(channelId, userId, username, label = '', durationMinutes = null, client = null, isFallbackDuration = false) {
   // Check if timer already exists for this channel
   if (activeTimers.has(channelId)) {
     return false;
@@ -201,6 +206,7 @@ export function startTimer(channelId, userId, username, label = '', durationMinu
   if (durationMinutes && durationMinutes > 0) {
     timerData.duration = durationMinutes;
     timerData.endTime = startTime + (durationMinutes * 60 * 1000);
+    timerData.isFallbackDuration = isFallbackDuration;
 
     // Set up auto-stop if client is provided
     if (client) {
@@ -420,20 +426,28 @@ export function clearAllTimers() {
 }
 
 /**
- * Clamp a requested timer duration to a guild's configured safety cap.
- * Pure function — every call site (start, adjust, extend) uses this so the
- * `unlimited` check only needs to live in one place.
+ * Clamp a requested timer duration to a guild's OPTIONAL ceiling.
+ * Applies to real (explicit or auto-detected) durations — start, adjust,
+ * autostop enable, and extend all use this. Off by default: a server must
+ * explicitly opt in via timerCeilingEnabled, otherwise any requested
+ * duration is used as-is with no maximum. This is separate from the
+ * no-signal fallback duration (see startTimerCountdown in timer.js), which
+ * only applies when there's no real duration to clamp in the first place.
  * @param {number} durationMinutes - Requested duration in minutes
- * @param {object} guildConfig - Guild config with maxTimerDurationMinutes/maxTimerDurationUnlimited
- * @returns {number} - The duration, clamped to the guild's cap if applicable
+ * @param {object} guildConfig - Guild config with timerCeilingMinutes/timerCeilingEnabled
+ * @returns {number} - The duration, clamped to the guild's ceiling if one is enabled
  */
 export function clampTimerDuration(durationMinutes, guildConfig) {
-  if (guildConfig?.maxTimerDurationUnlimited === true) {
+  if (guildConfig?.timerCeilingEnabled !== true) {
     return durationMinutes;
   }
 
-  const cap = guildConfig?.maxTimerDurationMinutes || 360;
-  return durationMinutes > cap ? cap : durationMinutes;
+  const ceiling = guildConfig?.timerCeilingMinutes;
+  if (!ceiling || ceiling <= 0) {
+    return durationMinutes;
+  }
+
+  return durationMinutes > ceiling ? ceiling : durationMinutes;
 }
 
 /**
@@ -473,9 +487,13 @@ export function adjustTimerDuration(channelId, newDurationMinutes, client) {
   const newEndTime = timer.startTime + (newDurationMinutes * 60 * 1000);
   const remainingMs = newEndTime - Date.now();
 
-  // Update timer data
+  // Update timer data. Any explicit adjust/extend (whether via /timer adjust,
+  // /timer autostop enable, or the expiry-warning's extend modal) means the
+  // user has now made a real, informed choice about the duration — so this
+  // is no longer a silent fallback, even if it started as one.
   timer.duration = newDurationMinutes;
   timer.endTime = newEndTime;
+  timer.isFallbackDuration = false;
 
   // Set up new auto-stop timeout
   if (client) {

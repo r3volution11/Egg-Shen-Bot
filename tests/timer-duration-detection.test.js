@@ -170,7 +170,7 @@ describe('single-result auto-duration', () => {
     expect(status.duration).toBe(100);
   });
 
-  test('a board game with no playingTime data falls through gracefully with no duration', async () => {
+  test('a board game with no playingTime data falls back to the server default duration', async () => {
     mockSearchBoardGames.mockResolvedValue([{ id: 999, name: 'Obscure Game' }]);
     mockGetBoardGameDetails.mockResolvedValue({ playingTime: null });
 
@@ -178,18 +178,20 @@ describe('single-result auto-duration', () => {
     await runExecute(interaction);
 
     const status = getTimerStatus('channel-1');
-    expect(status.duration).toBeUndefined();
+    expect(status.duration).toBe(360);
+    expect(status.isFallbackDuration).toBe(true);
   });
 });
 
 describe('zero results', () => {
-  test('no matches anywhere still starts the timer with no duration and no error', async () => {
+  test('no matches anywhere still starts the timer, falling back to the server default duration', async () => {
     const interaction = makeInteraction({ label: 'asdfghjkl' });
     await runExecute(interaction);
 
     const status = getTimerStatus('channel-1');
     expect(status).not.toBeNull();
-    expect(status.duration).toBeUndefined();
+    expect(status.duration).toBe(360);
+    expect(status.isFallbackDuration).toBe(true);
   });
 
   test('warns the user explicitly instead of silently starting a durationless timer', async () => {
@@ -209,6 +211,29 @@ describe('zero results', () => {
     await runExecute(interaction);
 
     expect(interaction.followUp).not.toHaveBeenCalled();
+  });
+
+  test('a manually-provided duration is never flagged as a fallback, even with no search matches', async () => {
+    const interaction = makeInteraction({ label: 'asdfghjkl', duration: 45 });
+    await runExecute(interaction);
+
+    const status = getTimerStatus('channel-1');
+    expect(status.duration).toBe(45);
+    expect(status.isFallbackDuration).toBeFalsy();
+  });
+});
+
+describe('real durations are never flagged as a fallback', () => {
+  test('a single movie match with a detected runtime is not flagged, even if that runtime is long', async () => {
+    mockSearchMovies.mockResolvedValue([{ id: 1, title: 'Epic', release_date: '2020-01-01' }]);
+    mockGetMovieDetails.mockResolvedValue({ runtime: 480 }); // 8 hours
+
+    const interaction = makeInteraction({ label: 'Epic' });
+    await runExecute(interaction);
+
+    const status = getTimerStatus('channel-1');
+    expect(status.duration).toBe(490); // 480 + 10min buffer, unclamped by default
+    expect(status.isFallbackDuration).toBeFalsy();
   });
 });
 

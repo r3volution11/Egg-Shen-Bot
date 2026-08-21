@@ -98,10 +98,10 @@ Set maximum number of search results to display (1-50).
 /eggshen-config settings max-timer-duration minutes:<1-1440> unlimited:<true/false>
 ```
 
-Set the default safety cap for how long a `/timer` can run before it auto-stops. Applies to `/timer start`, `/timer adjust`, `/timer autostop enable`, and extending a timer from its expiry warning (see [Watch Party → Expiry Warning & Extending](/commands/watch-party#expiry-warning-extending)).
+Set the **fallback** duration used only when a `/timer start` has no real duration at all — no `duration` was typed, no label matched anything, or "Skip" was chosen from the title-selection menu. This does **not** affect timers with a real duration (typed manually, adjusted, or auto-detected from a movie/TV runtime) — those always run for their full length regardless of this setting. See [Watch Party → Timer Durations & the Expiry Warning](/commands/watch-party#timer-durations-the-expiry-warning).
 
-- `minutes` (optional) — the cap in minutes (default 360, i.e. 6 hours). A duration request over this is automatically reduced to the cap.
-- `unlimited` (optional) — when `true`, disables the cap entirely for this server (no timer is ever auto-clamped), useful for servers that regularly run overnight or marathon watch parties. When `false` (or omitted), the `minutes` cap applies normally.
+- `minutes` (optional) — the fallback duration in minutes (default 360, i.e. 6 hours), used when no real duration exists.
+- `unlimited` (optional) — when `true`, a timer with no real duration just runs forever instead of using the fallback (same as `/timer autostop disable`). When `false` (or omitted), the `minutes` fallback applies normally.
 
 At least one of `minutes` or `unlimited` must be provided; both can be set together.
 
@@ -110,6 +110,27 @@ At least one of `minutes` or `unlimited` must be provided; both can be set toget
 /eggshen-config settings max-timer-duration minutes:480
 /eggshen-config settings max-timer-duration unlimited:true
 /eggshen-config settings max-timer-duration minutes:360 unlimited:false
+```
+
+---
+
+#### Timer Ceiling
+
+```
+/eggshen-config settings timer-ceiling minutes:<1-1440> enabled:<true/false>
+```
+
+Optionally cap **real** timer durations too — a duration that was explicitly typed, set via `/timer adjust`, or auto-detected from a movie/TV runtime. **Off by default**: timers can be started at any duration unless a server turns this on. This is separate from [Max Timer Duration](#max-timer-duration) above, which only affects timers with no real duration at all.
+
+- `minutes` (optional) — the ceiling in minutes. A duration request over this is reduced to the ceiling, with the response noting it.
+- `enabled` (optional) — when `true`, the ceiling is enforced. When `false` (or omitted while off), timers can be any duration.
+
+At least one of `minutes` or `enabled` must be provided; both can be set together.
+
+**Examples:**
+```
+/eggshen-config settings timer-ceiling minutes:600 enabled:true
+/eggshen-config settings timer-ceiling enabled:false
 ```
 
 ---

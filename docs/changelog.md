@@ -5,6 +5,19 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.17.2 - 2026-08-20
+
+### Changed
+- **Timers no longer have a default duration cap.** In v2.17.1, `/eggshen-config settings max-timer-duration` clamped *every* timer duration — explicit, auto-detected, or otherwise — down to 6 hours by default. That wasn't the intent: a deliberately long timer (an explicit `duration:500`, or an auto-detected 8-hour concert film) should run for its real length. Timers with a real duration now always run exactly as long as requested, with no maximum, unless a server explicitly opts into one
+- **`max-timer-duration` now only controls the *fallback* duration** used when a timer has no real duration at all — no `duration` typed, no label matched anything, or "Skip" was chosen from the title-selection menu. That fallback still defaults to 6 hours and is still server-configurable (`minutes:<n>` / `unlimited:true`), and the expiry warning + "Extend Timer" button still only ever fires for these fallback-duration timers, never for a timer with a real duration
+- **New `/eggshen-config settings timer-ceiling`** lets a server optionally cap real (explicit/detected) durations too, for those who want the old always-clamp behavior back. Off by default — `enabled:true minutes:<n>` turns it on
+
+### Developer
+- `timerManager.js`'s `clampTimerDuration` reworked: previously always clamped using `maxTimerDurationMinutes`/`maxTimerDurationUnlimited`; now only clamps when `guildConfig.timerCeilingEnabled` is true, against `timerCeilingMinutes`. `maxTimerDurationMinutes`/`maxTimerDurationUnlimited` keep their names but now mean "fallback duration" / "no fallback" rather than "cap" / "no cap"
+- `startTimer()` gained an `isFallbackDuration` flag, set whenever `startTimerCountdown()` (in `timer.js`) had to substitute the server's fallback duration because no real duration existed. Threaded through `adjustTimerDuration()` too — clearing the flag on any explicit adjust/extend, since that's now a real, informed value
+- `timerScheduler.js`'s expiry-warning sweep now skips any timer where `isFallbackDuration` isn't true, so a long real duration never triggers the warning
+- `selectHandler.js`'s `timer_select_runtime` handler now loads guild config and passes it into `startTimerCountdown()`, so the "Skip" and no-runtime-found paths get the same fallback-duration treatment as `/timer start`'s own zero-results case
+
 ## 2.17.1 - 2026-08-20
 
 ### Added

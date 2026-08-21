@@ -24,8 +24,10 @@ const defaultConfig = {
   },
   region: 'US', // Default region for streaming availability (ISO 3166-1 country code)
   maxSearchResults: 20, // Maximum number of search results to display in selection menus (1-50)
-  maxTimerDurationMinutes: 360, // Default safety cap for timer auto-stop duration (6 hours). Applies to /timer start, /timer adjust, and warning-triggered extends.
-  maxTimerDurationUnlimited: false, // When true, no cap is enforced regardless of maxTimerDurationMinutes
+  maxTimerDurationMinutes: 360, // Fallback auto-stop duration (6 hours) for timers with NO real duration — no manual duration given and nothing auto-detected. An explicit or auto-detected duration is never affected by this value.
+  maxTimerDurationUnlimited: false, // When true, a timer with no real duration just runs forever (like /timer autostop disable) instead of getting the fallback above
+  timerCeilingMinutes: null, // Optional hard ceiling applied to explicit/detected timer durations too (start, adjust, autostop enable, extend). Off by default — see timerCeilingEnabled.
+  timerCeilingEnabled: false, // When true, timerCeilingMinutes is enforced on explicit/detected durations. Off by default: timers can be started at any duration unless a server opts into this.
   stats: {
     enabled: true,
     trackMovies: true,
