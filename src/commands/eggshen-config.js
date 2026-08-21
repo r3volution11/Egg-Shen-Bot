@@ -90,6 +90,25 @@ export const data = new SlashCommandBuilder()
               .setMaxValue(50)
           )
       )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('max-timer-duration')
+          .setDescription('Set the default safety cap for timer auto-stop duration')
+          .addIntegerOption(option =>
+            option
+              .setName('minutes')
+              .setDescription('Max duration in minutes (e.g. 360 for 6 hours)')
+              .setRequired(false)
+              .setMinValue(1)
+              .setMaxValue(1440)
+          )
+          .addBooleanOption(option =>
+            option
+              .setName('unlimited')
+              .setDescription('Disable the cap entirely for this server')
+              .setRequired(false)
+          )
+      )
   )
   // ========== STATS GROUP ==========
   .addSubcommandGroup(group =>
@@ -868,6 +887,9 @@ export async function execute(interaction) {
 
     const regionDisplay = config.region || 'US';
     const maxResultsDisplay = config.maxSearchResults || 20;
+    const timerCapDisplay = config.maxTimerDurationUnlimited
+      ? 'Unlimited (no safety cap)'
+      : `${config.maxTimerDurationMinutes || 360} minutes`;
 
     // Rate limiting display
     const rateLimitEnabled = config.rateLimits?.enabled ?? true;
@@ -913,6 +935,11 @@ export async function execute(interaction) {
       .addFields({
         name: 'Max Search Results',
         value: `🔢 **${maxResultsDisplay}** results (use \`/eggshen-config settings max-results count:<1-50>\` to change)`,
+        inline: false,
+      })
+      .addFields({
+        name: 'Max Timer Duration',
+        value: `⏱️ **${timerCapDisplay}** (use \`/eggshen-config settings max-timer-duration minutes:<n>\` or \`unlimited:true\` to change)`,
         inline: false,
       })
       .addFields({
@@ -1158,6 +1185,36 @@ export async function execute(interaction) {
 
     await interaction.reply({
       content: `✅ Maximum search results set to **${count}**.\n\nSearch commands will now display up to ${count} results in selection menus.`,
+      ephemeral: true,
+    });
+  } else if (group === 'settings' && subcommand === 'max-timer-duration') {
+    const minutes = interaction.options.getInteger('minutes');
+    const unlimited = interaction.options.getBoolean('unlimited');
+
+    if (minutes === null && unlimited === null) {
+      await interaction.reply({
+        content: '❌ Provide `minutes`, `unlimited`, or both.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const config = await loadGuildConfig(guildId);
+    if (unlimited !== null) {
+      config.maxTimerDurationUnlimited = unlimited;
+    }
+    if (minutes !== null) {
+      config.maxTimerDurationMinutes = minutes;
+    }
+    await saveGuildConfig(guildId, config);
+
+    const effectiveUnlimited = config.maxTimerDurationUnlimited === true;
+    const summary = effectiveUnlimited
+      ? 'Timers on this server can now run for any duration — no safety cap.'
+      : `Timers on this server are now capped at **${config.maxTimerDurationMinutes} minutes** by default (this applies to \`/timer start\`, \`/timer adjust\`, and extending a timer from its expiry warning).`;
+
+    await interaction.reply({
+      content: `✅ ${summary}`,
       ephemeral: true,
     });
   } else if (group === 'watch-party' && subcommand === 'add') {

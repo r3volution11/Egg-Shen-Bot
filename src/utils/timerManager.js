@@ -420,6 +420,23 @@ export function clearAllTimers() {
 }
 
 /**
+ * Clamp a requested timer duration to a guild's configured safety cap.
+ * Pure function — every call site (start, adjust, extend) uses this so the
+ * `unlimited` check only needs to live in one place.
+ * @param {number} durationMinutes - Requested duration in minutes
+ * @param {object} guildConfig - Guild config with maxTimerDurationMinutes/maxTimerDurationUnlimited
+ * @returns {number} - The duration, clamped to the guild's cap if applicable
+ */
+export function clampTimerDuration(durationMinutes, guildConfig) {
+  if (guildConfig?.maxTimerDurationUnlimited === true) {
+    return durationMinutes;
+  }
+
+  const cap = guildConfig?.maxTimerDurationMinutes || 360;
+  return durationMinutes > cap ? cap : durationMinutes;
+}
+
+/**
  * Adjust the duration of an active timer
  * Calculates elapsed time and reschedules auto-stop based on new total duration
  * @param {string} channelId - Discord channel ID

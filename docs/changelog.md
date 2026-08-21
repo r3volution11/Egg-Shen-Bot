@@ -5,6 +5,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.17.1 - 2026-08-20
+
+### Added
+- **Timers now have a default 6-hour (360 min) safety cap**, configurable per server. Previously a timer with no duration set (or a very long one) could keep running indefinitely if nobody noticed — this is what happened when a timer started on a Saturday was still running the following Tuesday. Applies to `/timer start`, `/timer adjust`, and `/timer autostop enable`; a requested duration over the cap is automatically reduced, with the reply noting it was capped
+- **A warning now posts in-channel ~1 hour before a timer with a duration is about to auto-stop**, mentioning whoever started it, with an "Extend Timer" button. Clicking it opens a short form to add more minutes — handy for watch parties that run long
+- **New `/eggshen-config settings max-timer-duration`** lets administrators/moderators raise, lower, or fully disable the cap for their server (`minutes:<1-1440>` and/or `unlimited:true`) — useful for servers that regularly run overnight or marathon sessions
+- **`/timer start`'s runtime auto-detection now tells you explicitly when it finds nothing**, instead of silently starting a durationless timer with no indication anything was searched — this silent case was the actual root cause of the stuck-timer incident above
+
+### Developer
+- Added `clampTimerDuration(durationMinutes, guildConfig)` to `timerManager.js` — a single pure function used by every duration-setting call site (`start`, `adjust`, `autostop enable`, and the new extend-modal handler) so the `unlimited` override only needs to be checked in one place
+- Added `src/utils/timerScheduler.js`, a 1-minute interval sweep for timers approaching their auto-stop time, following the same init/shutdown pattern as `tournamentScheduler.js`/`pollScheduler.js`, with its own `sentWarnings` Map (keyed by channel, cleared on extend) to avoid re-warning every tick
+- Added a `timer_extend_` button branch to `buttonHandler.js` (opens a modal for additional minutes) and a `timer_extend_modal_` branch to `index.js`'s modal-submission dispatcher — same starter-or-admin/mod permission check already used by `/timer stop`/`/timer adjust`
+- Raised `/timer start`/`/timer adjust`/`/timer autostop`'s Discord-side option max from 600 to 1440 minutes — the real enforcement now happens server-side via `clampTimerDuration` against the guild's configured cap, so a server can configure any cap up to 24h (or go unlimited) without a schema change
+
 ## 2.17.0 - 2026-07-21
 
 ### Added

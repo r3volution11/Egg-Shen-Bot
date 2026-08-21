@@ -166,6 +166,10 @@ client.once('clientReady', async () => {
   const { initialize: initPollScheduler } = await import('./utils/pollScheduler.js');
   initPollScheduler(client);
 
+  // Initialize timer expiry-warning scheduler
+  const { initialize: initTimerScheduler } = await import('./utils/timerScheduler.js');
+  initTimerScheduler(client);
+
   // Start API server for event requests
   const { startApiServer } = await import('./api/server.js');
   const apiPort = process.env.API_PORT || 3000;
@@ -644,6 +648,63 @@ client.on('interactionCreate', async (interaction) => {
           ? '✅ Request denied and the user was notified.'
           : '✅ Request denied. (Could not DM the user — they may have DMs disabled.)',
       });
+    } else if (interaction.customId.startsWith('timer_extend_modal_')) {
+      const channelId = interaction.customId.replace('timer_extend_modal_', '');
+
+      const timer = getTimerStatus(channelId);
+      if (!timer) {
+        await interaction.reply({
+          content: '❌ This timer is no longer active.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const { isAdmin, loadGuildConfig } = await import('./utils/guildConfig.js');
+      if (timer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
+        await interaction.reply({
+          content: '❌ Only the person who started the timer or server administrators/moderators can extend it.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const rawMinutes = interaction.fields.getTextInputValue('minutes');
+      const additionalMinutes = parseInt(rawMinutes, 10);
+
+      if (!Number.isInteger(additionalMinutes) || additionalMinutes <= 0) {
+        await interaction.reply({
+          content: '❌ Please enter a positive whole number of minutes.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const { adjustTimerDuration, clampTimerDuration } = await import('./utils/timerManager.js');
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+      const requestedTotal = (timer.duration || 0) + additionalMinutes;
+      const newTotal = clampTimerDuration(requestedTotal, guildConfig);
+      const wasClamped = newTotal !== requestedTotal;
+
+      const result = adjustTimerDuration(channelId, newTotal, interaction.client);
+
+      if (!result || result.error) {
+        await interaction.reply({
+          content: `❌ ${result?.message || 'Failed to extend the timer.'}`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const { clearWarning } = await import('./utils/timerScheduler.js');
+      clearWarning(channelId);
+
+      await interaction.reply({
+        content: wasClamped
+          ? `✅ Timer extended, but capped at this server's ${newTotal}-minute max (${result.remainingFormatted} remaining). Use \`/eggshen-config settings max-timer-duration\` to change the cap.`
+          : `✅ Timer extended by ${additionalMinutes} minutes — new total: ${newTotal} minutes (${result.remainingFormatted} remaining).`,
+        flags: MessageFlags.Ephemeral,
+      });
     }
   }
 });
@@ -789,6 +850,10 @@ async function gracefulShutdown(signal) {
   // Stop poll scheduler
   const { shutdown: shutdownPollScheduler } = await import('./utils/pollScheduler.js');
   shutdownPollScheduler();
+
+  // Stop timer expiry-warning scheduler
+  const { shutdown: shutdownTimerScheduler } = await import('./utils/timerScheduler.js');
+  shutdownTimerScheduler();
 
   // Destroy Discord client
   client.destroy();

@@ -92,6 +92,28 @@ Set maximum number of search results to display (1-50).
 
 ---
 
+#### Max Timer Duration
+
+```
+/eggshen-config settings max-timer-duration minutes:<1-1440> unlimited:<true/false>
+```
+
+Set the default safety cap for how long a `/timer` can run before it auto-stops. Applies to `/timer start`, `/timer adjust`, `/timer autostop enable`, and extending a timer from its expiry warning (see [Watch Party → Expiry Warning & Extending](/commands/watch-party#expiry-warning-extending)).
+
+- `minutes` (optional) — the cap in minutes (default 360, i.e. 6 hours). A duration request over this is automatically reduced to the cap.
+- `unlimited` (optional) — when `true`, disables the cap entirely for this server (no timer is ever auto-clamped), useful for servers that regularly run overnight or marathon watch parties. When `false` (or omitted), the `minutes` cap applies normally.
+
+At least one of `minutes` or `unlimited` must be provided; both can be set together.
+
+**Examples:**
+```
+/eggshen-config settings max-timer-duration minutes:480
+/eggshen-config settings max-timer-duration unlimited:true
+/eggshen-config settings max-timer-duration minutes:360 unlimited:false
+```
+
+---
+
 ### Stats Group
 
 Statistics tracking configuration.

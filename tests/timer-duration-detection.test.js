@@ -39,6 +39,14 @@ jest.unstable_mockModule('../src/services/bggService.js', () => ({
   getBoardGameDetails: mockGetBoardGameDetails,
 }));
 
+// loadGuildConfig does real fs I/O; under fake timers that I/O can stall
+// indefinitely (its callbacks/microtasks never get a real-clock tick to
+// resolve on), so it's mocked here to return the default config synchronously.
+jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  loadGuildConfig: jest.fn().mockResolvedValue({}),
+  isAdmin: jest.fn().mockReturnValue(false),
+}));
+
 let execute;
 let startTimer, getTimerStatus, clearAllTimers;
 
@@ -81,6 +89,7 @@ function makeInteraction({ label = null, duration = null, theme = null } = {}) {
     },
     deferReply: jest.fn().mockResolvedValue(undefined),
     editReply: jest.fn().mockResolvedValue(undefined),
+    followUp: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -181,6 +190,25 @@ describe('zero results', () => {
     const status = getTimerStatus('channel-1');
     expect(status).not.toBeNull();
     expect(status.duration).toBeUndefined();
+  });
+
+  test('warns the user explicitly instead of silently starting a durationless timer', async () => {
+    const interaction = makeInteraction({ label: 'asdfghjkl' });
+    await runExecute(interaction);
+
+    expect(interaction.followUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("Couldn't find a runtime for \"asdfghjkl\""),
+        ephemeral: true,
+      })
+    );
+  });
+
+  test('does not warn when a manual duration was provided alongside a label with no matches', async () => {
+    const interaction = makeInteraction({ label: 'asdfghjkl', duration: 45 });
+    await runExecute(interaction);
+
+    expect(interaction.followUp).not.toHaveBeenCalled();
   });
 });
 

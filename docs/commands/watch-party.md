@@ -125,7 +125,7 @@ Start simple stopwatch timers for watch parties.
 
 **Parameters:**
 - `label` (optional) - Label for what you're watching (e.g., "Movie night", "The Matrix")
-- `duration` (optional) - Duration in minutes (1-600) for auto-stop timer
+- `duration` (optional) - Duration in minutes (1-1440) for auto-stop timer — capped at the server's configured maximum (default 6 hours, see [Expiry Warning & Extending](#expiry-warning-extending) below)
 - `theme` (optional) - Timer countdown theme (default: modern)
   - `modern` - Colorful animated countdown (default)
   - `classic` - Sequential text countdown like the original bot
@@ -135,6 +135,7 @@ Start simple stopwatch timers for watch parties.
 - **Auto-stop:** Set duration to automatically stop timer when time expires
 - **Runtime auto-detection:** Whenever a label is set and no duration is given — whether typed manually or auto-detected from a Discord event — the bot searches movies, TV shows, and board games and adds a 10-minute buffer to whatever it finds
 - **Smart selection:** If multiple matches are found across movies, TV shows, and board games, shows a selection menu to pick the correct title (capped at 8 results per type, so the menu never exceeds Discord's 25-option limit)
+- **No match found:** If runtime auto-detection finds nothing at all, the bot now tells you directly (rather than silently starting a timer with no duration) — the timer still starts, but you'll see a warning so it doesn't run forever unnoticed
 - **Automatic watch history logging:** When timer completes (manual or auto-stop), automatically logs to server watch history if title found on TMDB
 - **Runs continuously:** Without duration, runs until manually stopped
 - 5-second countdown before starting (with visual/text animation)
@@ -214,6 +215,42 @@ Stops the current timer in the channel. Only available to:
 - Server administrators
 - Users with Manage Guild permission
 - Users with Moderate Members permission
+
+### Adjust Timer Duration
+
+```
+/timer adjust duration:<minutes>
+```
+
+Changes the total duration of the active timer (elapsed time is preserved — this sets a new *total*, not an amount to add). Same permissions as `/timer stop`. Subject to the server's configured max timer duration (see below) — if the requested total is over the cap, it's automatically reduced to the cap and the response tells you so.
+
+### Enable or Disable Auto-Stop
+
+```
+/timer autostop autostop:<enable|disable> duration:[required if enabling]
+```
+
+- **`autostop:disable`** — removes auto-stop entirely from a running timer, so it never stops on its own. Use this for overnight sessions or marathons where you don't want any cap.
+- **`autostop:enable`** — turns auto-stop back on for a timer that doesn't currently have a duration; requires a `duration`. Also subject to the server's max timer duration cap.
+
+Same permissions as `/timer stop`.
+
+### Expiry Warning & Extending
+
+To prevent a timer being accidentally left running for hours or days after everyone's finished watching, every timer with a duration is subject to a **default 6-hour (360 minute) safety cap**. This applies to `/timer start`, `/timer adjust`, and `/timer autostop enable` — if a requested duration is over the cap, it's silently reduced and the confirmation message notes it.
+
+**About an hour before a timer is due to auto-stop**, the bot posts a warning in the channel, mentioning whoever started the timer, with an **Extend Timer** button. Clicking it opens a small form to enter how many additional minutes to add — useful if the watch party is running long and nobody's noticed the clock yet.
+
+This is a *default*, not a hard limit — server administrators and moderators can raise or remove it entirely:
+
+```
+/eggshen-config settings max-timer-duration minutes:<1-1440>
+/eggshen-config settings max-timer-duration unlimited:true
+```
+
+See [Configuration](/commands/configuration#max-timer-duration) for details. Extensions from the warning button are still subject to whatever cap is currently configured (or uncapped, if `unlimited:true` is set) — a very long extension request is reduced to the cap rather than rejected outright.
+
+`/timer autostop disable` remains the way to start a timer with **no expiry at all** from the outset — the cap and warning system only applies to timers that have a duration set.
 
 ## Watch History
 

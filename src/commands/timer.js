@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
-import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer } from '../utils/timerManager.js';
+import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
@@ -205,7 +205,7 @@ export const data = new SlashCommandBuilder()
           .setDescription('Optional duration in minutes (e.g., 120 for 2 hours)')
           .setRequired(false)
           .setMinValue(1)
-          .setMaxValue(600) // 10 hours max
+          .setMaxValue(1440) // 24 hours max (real cap enforced server-side via clampTimerDuration)
       )
       .addStringOption(option =>
         option
@@ -283,7 +283,7 @@ export const data = new SlashCommandBuilder()
           .setDescription('New total duration in minutes (e.g., 140 for 2h 20m)')
           .setRequired(true)
           .setMinValue(1)
-          .setMaxValue(600) // 10 hours max
+          .setMaxValue(1440) // 24 hours max (real cap enforced server-side via clampTimerDuration)
       )
   )
   .addSubcommand(subcommand =>
@@ -306,7 +306,7 @@ export const data = new SlashCommandBuilder()
           .setDescription('Duration in minutes (required when enabling, e.g., 140 for 2h 20m)')
           .setRequired(false)
           .setMinValue(1)
-          .setMaxValue(600) // 10 hours max
+          .setMaxValue(1440) // 24 hours max (real cap enforced server-side via clampTimerDuration)
       )
   );
 
@@ -323,11 +323,12 @@ export async function execute(interaction) {
     const theme = interaction.options.getString('theme') || 'modern';
     const userId = interaction.user.id;
     const username = interaction.user.username;
+    const guildConfig = await loadGuildConfig(interaction.guildId);
+    let noRuntimeFound = false;
 
     // Auto-detect event title if no manual label provided
     if (!label) {
-      const config = await loadGuildConfig(interaction.guildId);
-      const watchPartyChannels = config.watchPartyChannels || [];
+      const watchPartyChannels = guildConfig.watchPartyChannels || [];
 
       console.log(`[Timer] No manual label provided. Checking for auto-detection...`);
       console.log(`[Timer] Configured watch party channels:`, watchPartyChannels);
@@ -370,6 +371,7 @@ export async function execute(interaction) {
 
         if (allResults.length === 0) {
           console.log(`[Timer] No results found for "${label}", continuing without duration`);
+          noRuntimeFound = true;
         } else if (allResults.length === 1) {
           // Only one result, use it automatically
           const result = allResults[0];
@@ -443,6 +445,17 @@ export async function execute(interaction) {
       } catch (error) {
         console.error('[Timer] Error detecting runtime:', error);
       }
+    }
+
+    if (duration) {
+      duration = clampTimerDuration(duration, guildConfig);
+    }
+
+    if (noRuntimeFound && !duration) {
+      await interaction.followUp({
+        content: `⚠️ Couldn't find a runtime for "${label}" — this timer will run until manually stopped (\`/timer stop\`), unless you set a duration.`,
+        ephemeral: true,
+      });
     }
 
     // Check if timer already exists and start countdown
@@ -861,9 +874,9 @@ export async function execute(interaction) {
       }
     }
   } else if (subcommand === 'adjust') {
-    const newDuration = interaction.options.getInteger('duration');
+    const requestedDuration = interaction.options.getInteger('duration');
     const timer = getTimerStatus(channelId);
-    
+
     if (!timer) {
       return await interaction.reply({
         content: '❌ No active timer in this channel. Use `/timer start` to begin one.',
@@ -885,8 +898,12 @@ export async function execute(interaction) {
       });
     }
 
+    const guildConfig = await loadGuildConfig(interaction.guildId);
+    const newDuration = clampTimerDuration(requestedDuration, guildConfig);
+    const wasClamped = newDuration !== requestedDuration;
+
     const result = adjustTimerDuration(channelId, newDuration, interaction.client);
-    
+
     if (!result || result.error) {
       const errorMsg = result?.message || 'Failed to adjust timer duration.';
       return await interaction.reply({
@@ -894,7 +911,7 @@ export async function execute(interaction) {
         ephemeral: true,
       });
     }
-    
+
     const embed = new EmbedBuilder()
       .setColor(0x00FF00)
       .setTitle('⚙️ Timer Duration Adjusted')
@@ -916,11 +933,15 @@ export async function execute(interaction) {
           inline: true,
         }
       )
-      .setFooter({ text: 'Timer will auto-stop when the new duration is reached' })
+      .setFooter({
+        text: wasClamped
+          ? `Capped at this server's ${newDuration}-minute max (use /eggshen-config settings max-timer-duration to change)`
+          : 'Timer will auto-stop when the new duration is reached',
+      })
       .setTimestamp();
-    
+
     await interaction.reply({ embeds: [embed] });
-    
+
   } else if (subcommand === 'autostop') {
     const action = interaction.options.getString('autostop');
     const duration = interaction.options.getInteger('duration');
@@ -992,16 +1013,20 @@ export async function execute(interaction) {
           ephemeral: true,
         });
       }
-      
+
       if (timer.duration && timer.endTime) {
         return await interaction.reply({
           content: '❌ This timer already has auto-stop enabled. Use `/timer adjust duration:[minutes]` to change the duration.',
           ephemeral: true,
         });
       }
-      
-      const result = adjustTimerDuration(channelId, duration, interaction.client);
-      
+
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+      const clampedDuration = clampTimerDuration(duration, guildConfig);
+      const wasClamped = clampedDuration !== duration;
+
+      const result = adjustTimerDuration(channelId, clampedDuration, interaction.client);
+
       if (!result || result.error) {
         const errorMsg = result?.message || 'Failed to enable auto-stop for this timer.';
         return await interaction.reply({
@@ -1009,7 +1034,7 @@ export async function execute(interaction) {
           ephemeral: true,
         });
       }
-      
+
       const embed = new EmbedBuilder()
         .setColor(0x00FF00)
         .setTitle('✅ Auto-Stop Enabled')
@@ -1017,7 +1042,7 @@ export async function execute(interaction) {
         .addFields(
           {
             name: 'Total Duration',
-            value: `${duration} minutes (${formatRuntime(duration)})`,
+            value: `${clampedDuration} minutes (${formatRuntime(clampedDuration)})`,
             inline: true,
           },
           {
@@ -1031,9 +1056,13 @@ export async function execute(interaction) {
             inline: true,
           }
         )
-        .setFooter({ text: 'Timer will automatically stop when duration is reached' })
+        .setFooter({
+          text: wasClamped
+            ? `Capped at this server's ${clampedDuration}-minute max (use /eggshen-config settings max-timer-duration to change)`
+            : 'Timer will automatically stop when duration is reached',
+        })
         .setTimestamp();
-      
+
       await interaction.reply({ embeds: [embed] });
     }
   }

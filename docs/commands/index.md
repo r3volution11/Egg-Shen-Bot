@@ -244,11 +244,14 @@ Start, stop, or check channel-specific timers.
 - `/timer pause` - Pause the active timer, freezing elapsed/remaining time
 - `/timer resume` - Resume a paused timer
 - `/timer stop` - Stop the active timer
+- `/timer adjust` - Change the active timer's total duration
+- `/timer autostop` - Enable or disable auto-stop for the active timer
 - `/timer status` (alias: `/timer check`) - Check timer status; private to you by default, `public:true` to announce it to the channel
 - `/timer remind` - Announce timer is starting (with event auto-detection)
 
 **Features:**
-- **Auto-stop timers:** Set duration (1-600 min) for automatic stop
+- **Auto-stop timers:** Set duration (1-1440 min) for automatic stop, subject to the server's configured max duration (default 6 hours, configurable/removable by admins and mods)
+- **Expiry warning:** ~1 hour before a timer auto-stops, the bot posts a channel warning with a button to extend it
 - **Runtime auto-detection:** Searches movies, TV shows, and board games and adds a 10-min buffer — works whether the label was typed manually or auto-detected
 - **Smart selection:** Shows menu when multiple matches are found
 - Auto-detects Discord scheduled events

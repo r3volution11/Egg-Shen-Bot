@@ -6,6 +6,8 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlag
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } from '../utils/eventRequestApproval.js';
+import { getTimerStatus } from '../utils/timerManager.js';
+import { isAdmin } from '../utils/guildConfig.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -563,6 +565,22 @@ export async function handleButtonInteraction(interaction) {
 
       if (duration > 2000) {
         logger.logPerformance('Button: log_watched', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+
+    // Handle "Extend Timer" button from the expiry warning
+    if (interaction.customId.startsWith('timer_extend_')) {
+      await handleTimerExtendButton(interaction);
+
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+
+      if (duration > 2000) {
+        logger.logPerformance('Button: timer_extend', duration, {
           userId: interaction.user.id,
           guildId: interaction.guild?.id
         });
@@ -1932,6 +1950,46 @@ export async function handleWatchHistoryButton(interaction) {
     
     await interaction.showModal(modal);
   }
+}
+
+// Handle "Extend Timer" button from the expiry warning — opens a modal to
+// collect how many additional minutes to add.
+async function handleTimerExtendButton(interaction) {
+  const channelId = interaction.customId.slice('timer_extend_'.length);
+
+  const timer = getTimerStatus(channelId);
+  if (!timer) {
+    await interaction.reply({
+      content: '❌ This timer is no longer active.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  if (timer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
+    await interaction.reply({
+      content: '❌ Only the person who started the timer or server administrators/moderators can extend it.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
+
+  const modal = new ModalBuilder()
+    .setCustomId(`timer_extend_modal_${channelId}`)
+    .setTitle('Extend Timer');
+
+  const minutesInput = new TextInputBuilder()
+    .setCustomId('minutes')
+    .setLabel('Additional minutes')
+    .setPlaceholder('e.g. 60')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(minutesInput));
+
+  await interaction.showModal(modal);
 }
 
 /**

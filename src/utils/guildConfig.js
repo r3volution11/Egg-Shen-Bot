@@ -24,6 +24,8 @@ const defaultConfig = {
   },
   region: 'US', // Default region for streaming availability (ISO 3166-1 country code)
   maxSearchResults: 20, // Maximum number of search results to display in selection menus (1-50)
+  maxTimerDurationMinutes: 360, // Default safety cap for timer auto-stop duration (6 hours). Applies to /timer start, /timer adjust, and warning-triggered extends.
+  maxTimerDurationUnlimited: false, // When true, no cap is enforced regardless of maxTimerDurationMinutes
   stats: {
     enabled: true,
     trackMovies: true,
