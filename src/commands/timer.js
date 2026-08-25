@@ -652,8 +652,12 @@ export async function execute(interaction) {
         }
       ];
 
-      // Add remaining time if duration is set
-      if (timer.duration) {
+      // Add remaining time if a real duration is set — a fallback duration
+      // (nothing typed, nothing detected) is an internal auto-stop safety
+      // net only, not something the user set or the bot determined, so it's
+      // not shown here even though it's still tracked for auto-stop/warning.
+      const hasDisplayableDuration = timer.duration && !timer.isFallbackDuration;
+      if (hasDisplayableDuration) {
         fields.push({
           name: 'Remaining Time',
           value: timer.paused ? timer.remainingFormatted : (timer.isExpired ? 'Expired (stopping...)' : timer.remainingFormatted),
@@ -671,7 +675,7 @@ export async function execute(interaction) {
         .setTitle(timer.paused ? '⏸️ Timer Paused' : (timer.isExpired ? '⏰ Timer Expired' : '⏱️ Timer Status'))
         .setDescription(timer.label ? `**${timer.label}**` : 'Active timer')
         .addFields(fields)
-        .setFooter({ text: timer.paused ? 'Use /timer resume to continue' : (timer.duration ? 'Auto-stop enabled' : 'Use /timer stop to end the timer') })
+        .setFooter({ text: timer.paused ? 'Use /timer resume to continue' : (hasDisplayableDuration ? 'Auto-stop enabled' : 'Use /timer stop to end the timer') })
         .setTimestamp(timer.startTime);
 
       await interaction.reply({ embeds: [embed], ephemeral: !isPublic });
@@ -1217,7 +1221,10 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         inline: true,
       }];
 
-      if (duration) {
+      // A fallback duration (nothing typed, nothing detected) is an internal
+      // auto-stop safety net only — not shown as if it were a real, known
+      // duration. It still auto-stops and warns; it's just not displayed.
+      if (duration && !isFallbackDuration) {
         timerFields.push({
           name: 'Duration',
           value: `${duration} minutes (auto-stop enabled)`,
@@ -1230,7 +1237,7 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         .setTitle('⏱️ Timer Started 🟩')
         .setDescription(label ? `**${label}**` : 'Timer is now running')
         .addFields(timerFields)
-        .setFooter({ text: duration ? 'Timer will auto-stop when complete' : 'Use /timer stop to end the timer' })
+        .setFooter({ text: (duration && !isFallbackDuration) ? 'Timer will auto-stop when complete' : 'Use /timer stop to end the timer' })
         .setTimestamp();
 
       await message.edit({ embeds: [embed] });

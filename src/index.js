@@ -130,8 +130,10 @@ client.once('clientReady', async () => {
             }
           ];
 
-          // Add remaining time if duration is set
-          if (currentStatus.duration && currentStatus.remainingFormatted) {
+          // Add remaining time if a real (non-fallback) duration is set —
+          // matches /timer status's own display rule.
+          const hasDisplayableDuration = currentStatus.duration && !currentStatus.isFallbackDuration && currentStatus.remainingFormatted;
+          if (hasDisplayableDuration) {
             embedFields.push({
               name: 'Remaining Time',
               value: currentStatus.remainingFormatted,
@@ -144,7 +146,7 @@ client.once('clientReady', async () => {
             .setTitle('🔄 Bot Restarted')
             .setDescription('The bot has been restarted and your timer has been restored.')
             .addFields(embedFields)
-            .setFooter({ text: currentStatus.duration ? 'Auto-stop enabled' : 'Use /timer stop to end the timer' })
+            .setFooter({ text: hasDisplayableDuration ? 'Auto-stop enabled' : 'Use /timer stop to end the timer' })
             .setTimestamp();
           
           await channel.send({ embeds: [embed] });

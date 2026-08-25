@@ -238,7 +238,7 @@ Same permissions as `/timer stop`.
 
 **By default, a timer runs for exactly whatever duration you gave it — no cap, no maximum.** A manually-typed `duration:500` or an auto-detected 8-hour concert film runs for its full length; nothing shortens it unless this server has explicitly opted into a [timer ceiling](/commands/configuration#timer-ceiling) (off by default).
 
-The one exception is when **nobody said anything at all** — no `duration` was typed, no label was given (or the label matched nothing), or you chose "Skip" from the title-selection menu. In that specific case, rather than the timer running forever unnoticed, it falls back to a **default 6-hour (360 minute) duration**, so it still auto-stops eventually. This fallback duration is itself server-configurable:
+The one exception is when **nobody said anything at all** — no `duration` was typed, no label was given (or the label matched nothing), or you chose "Skip" from the title-selection menu. In that specific case, rather than the timer running forever unnoticed, it falls back to a **default 6-hour (360 minute) duration**, so it still auto-stops eventually. This fallback duration is invisible in `/timer status` and the start confirmation — no "Duration" or "Remaining Time" field is shown, since it isn't something you set or the bot determined, just a safety net running quietly in the background. It's server-configurable:
 
 ```
 /eggshen-config settings max-timer-duration minutes:<1-1440>

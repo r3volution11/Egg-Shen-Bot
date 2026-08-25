@@ -5,6 +5,11 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.17.3 - 2026-08-24
+
+### Fixed
+- **A timer with no set/detected duration no longer shows a fake-looking "Total Duration" in `/timer status` or the start confirmation.** Since v2.17.2, a timer with nothing typed and nothing auto-detected got a real internal 6-hour fallback duration (so it could still auto-stop and warn) — but that number was also being displayed as if it were a genuine detected or user-set duration, which it wasn't. The fallback still auto-stops and still warns an hour before, exactly as before; it's just invisible in `/timer status`/the start embed now, matching how a truly durationless timer used to look. A real duration (typed manually, auto-detected from a movie/TV/board game runtime, or set via `/timer adjust`) still displays normally
+
 ## 2.17.2 - 2026-08-20
 
 ### Changed
