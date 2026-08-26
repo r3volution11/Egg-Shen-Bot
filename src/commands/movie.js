@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { searchMovies, getMovieAlternativeTitles } from '../services/tmdbService.js';
-import { hybridSearch } from '../services/aiService.js';
+import { hybridSearch, pickLandslideWinner } from '../services/aiService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 import { deliverResult, encodePrivateFlag } from '../utils/interactionResponse.js';
@@ -55,8 +55,11 @@ export async function execute(interaction) {
       return;
     }
     
-    // If only one result, display it directly
-    if (results.length === 1) {
+    // If only one result, or the top result is a decisive semantic-search
+    // landslide over the runner-up, display it directly without a picker.
+    const landslideWinner = results.length > 1 ? pickLandslideWinner(results) : null;
+    if (results.length === 1 || landslideWinner) {
+      const chosen = landslideWinner || results[0];
       const { getMovieDetails } = await import('../services/tmdbService.js');
       const { getOMDBData } = await import('../services/omdbService.js');
       const { getMovieRating } = await import('../services/traktService.js');
@@ -72,10 +75,10 @@ export async function execute(interaction) {
       const { loadGuildConfig, getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
       const { trackSearch } = await import('../utils/statsTracker.js');
       const { getUnifiedMovieWatchProviders } = await import('../services/tmdbService.js');
-      
+
       const { getMovieAlternativeTitlesDetailed, pickKnownAsTitle } = await import('../services/tmdbService.js');
 
-      const movieId = results[0].id;
+      const movieId = chosen.id;
       const tmdb = await getMovieDetails(movieId);
       const imdbId = tmdb.external_ids?.imdb_id;
 

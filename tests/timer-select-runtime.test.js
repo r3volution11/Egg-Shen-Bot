@@ -27,6 +27,7 @@ jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
   getMovieDetails: mockGetMovieDetails,
   getTVShowDetails: mockGetTVShowDetails,
   getSeasonDetails: jest.fn(),
+  sumEpisodeRuntimes: jest.fn(),
   getEpisodeDetails: jest.fn(),
   searchEpisodeByName: jest.fn(),
   getPosterUrl: jest.fn(),
@@ -39,6 +40,8 @@ jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
   getTVWatchProviders: jest.fn(),
   getUnifiedMovieWatchProviders: jest.fn(),
   getUnifiedTVWatchProviders: jest.fn(),
+  getMovieAlternativeTitles: jest.fn().mockResolvedValue([]),
+  getTVAlternativeTitles: jest.fn().mockResolvedValue([]),
 }));
 
 jest.unstable_mockModule('../src/services/bggService.js', () => ({

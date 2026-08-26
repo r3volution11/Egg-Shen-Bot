@@ -35,6 +35,12 @@ This works on every search command in this page: `/movie`, `/tv`, `/episode`, `/
 
 If a search finds multiple matches, the "which one did you mean" picker always stays private while you narrow it down — only the final result's visibility depends on `private`.
 
+## Smarter Auto-Selection
+
+`/movie`, `/tv`, and `/episode` use AI-powered semantic ranking to sort search results by how well they actually match your query, not just keyword overlap. When one result is a **decisive, clear-cut match** — far ahead of anything else found — the bot skips the "which one did you mean" picker entirely and shows that result directly. This only happens for genuinely unambiguous searches; if two or more results are close contenders (e.g. a movie and its same-named remake), the picker still shows so you can pick the right one.
+
+When the picker *does* show, the first few results are cross-checked against IMDb's release year in addition to TMDB's. If the two disagree — which happens sometimes for festival releases, regional release dates, or other TMDB/IMDb quirks — both years are shown, e.g. `It (1990 (IMDb: 1991))`, so you're not left guessing which year is "the" release year you remember.
+
 ## Movie Search
 
 Search for movies and view detailed information.

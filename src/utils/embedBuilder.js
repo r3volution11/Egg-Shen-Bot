@@ -1,7 +1,62 @@
 import { ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } from 'discord.js';
-import { getPosterUrl } from '../services/tmdbService.js';
+import { getPosterUrl, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
+import { getOMDBData } from '../services/omdbService.js';
 import { config } from '../config.js';
 import { encodePrivateFlag } from './interactionResponse.js';
+
+/**
+ * Cross-reference IMDb's year (via OMDB) against TMDB's year for the top few
+ * picker candidates, so the picker can show both when they disagree (e.g.
+ * theatrical vs. festival release, or a remake sharing a TMDB release date
+ * quirk with the original). Capped at `crossCheckCount` regardless of how
+ * many total results there are — each check costs 2 extra API calls (a TMDB
+ * details fetch to get the IMDb ID, then the OMDB call itself), so this is
+ * deliberately bounded rather than run against every row. Only ever called
+ * on the picker-rendering path, never on the landslide auto-select fast
+ * path, since that path never builds picker rows at all.
+ * @param {Array} results - Ranked results about to be rendered as a picker
+ * @param {string} type - 'movie' or 'tv'
+ * @param {number} crossCheckCount - How many top candidates to check
+ * @returns {Promise<Array>} Same results, with `imdbYear` attached to
+ *   whichever of the top candidates it could be resolved for
+ */
+async function attachImdbYearCrossCheck(results, type, crossCheckCount = 5) {
+  const toCheck = results.slice(0, crossCheckCount);
+  const rest = results.slice(crossCheckCount);
+
+  const checked = await Promise.all(toCheck.map(async (result) => {
+    try {
+      const details = type === 'movie'
+        ? await getMovieDetails(result.id)
+        : await getTVShowDetails(result.id);
+      const imdbId = details?.external_ids?.imdb_id;
+      if (!imdbId) return result;
+
+      const omdb = await getOMDBData(imdbId);
+      const imdbYear = omdb?.Year ? omdb.Year.slice(0, 4) : null;
+      return imdbYear ? { ...result, imdbYear } : result;
+    } catch {
+      // Graceful degradation — this candidate just keeps its TMDB-only year.
+      return result;
+    }
+  }));
+
+  return [...checked, ...rest];
+}
+
+/**
+ * Build a picker option label, showing both years when OMDB's cross-checked
+ * IMDb year disagrees with TMDB's — e.g. "It (1990) (IMDb: 1991)". Falls
+ * back to today's single-year label when they match or no cross-check ran
+ * for this candidate.
+ */
+function formatYearLabel(title, tmdbYear, imdbYear) {
+  if (!tmdbYear) return title;
+  if (imdbYear && imdbYear !== tmdbYear) {
+    return `${title} (${tmdbYear} (IMDb: ${imdbYear}))`;
+  }
+  return `${title} (${tmdbYear})`;
+}
 
 /**
  * Format runtime in minutes to human-readable format
@@ -30,14 +85,15 @@ function formatRuntime(minutes) {
  *   what the original command asked for)
  */
 export async function createSearchResults(results, type, query, isPrivate = false) {
-  const options = results.map((result, index) => {
+  const crossChecked = await attachImdbYearCrossCheck(results, type);
+
+  const options = crossChecked.map((result) => {
     const title = result.title || result.name;
-    const year = result.release_date || result.first_air_date;
-    const yearStr = year ? ` (${year.split('-')[0]})` : '';
+    const tmdbYear = (result.release_date || result.first_air_date)?.split('-')[0] || null;
     const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
 
     return {
-      label: `${title}${yearStr}`.substring(0, 100),
+      label: formatYearLabel(title, tmdbYear, result.imdbYear).substring(0, 100),
       description: overview.substring(0, 100),
       value: encodePrivateFlag(`${type}_${result.id}`, isPrivate),
     };
@@ -67,14 +123,15 @@ export async function createSearchResults(results, type, query, isPrivate = fals
  * @param {boolean} isPrivate - Whether the final episode result should stay private
  */
 export async function createEpisodeSearchResults(results, showQuery, episodeQuery, isPrivate = false) {
-  const options = results.map((result, index) => {
+  const crossChecked = await attachImdbYearCrossCheck(results, 'tv');
+
+  const options = crossChecked.map((result) => {
     const title = result.name;
-    const year = result.first_air_date;
-    const yearStr = year ? ` (${year.split('-')[0]})` : '';
+    const tmdbYear = result.first_air_date?.split('-')[0] || null;
     const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
 
     return {
-      label: `${title}${yearStr}`.substring(0, 100),
+      label: formatYearLabel(title, tmdbYear, result.imdbYear).substring(0, 100),
       description: overview.substring(0, 100),
       value: encodePrivateFlag(`episode_${result.id}_${episodeQuery}`, isPrivate),
     };

@@ -116,55 +116,102 @@ export async function handleSelectInteraction(interaction) {
   if (interaction.customId === 'timer_select_runtime') {
     const value = interaction.values[0];
     const parts = value.split('_');
-    const theme = parts[parts.length - 1]; // Last part is always theme (modern/classic)
+    // Range-picker values carry extra trailing segments
+    // (timer_tv_<id>_<theme>_range_<season>_<epStart>_<epEnd>), so "theme"
+    // can't reliably be read as the last segment the way the non-range
+    // shape allows — check for the 'range' marker at its fixed position first.
+    const isRange = parts[4] === 'range';
+    const theme = isRange ? parts[3] : parts[parts.length - 1];
 
     const channelId = interaction.channelId;
     const userId = interaction.user.id;
     const username = interaction.user.username;
     const guildConfig = await loadGuildConfig(interaction.guildId);
-    
-    // Get the label from the embed title
-    const embedTitle = interaction.message.embeds[0]?.title || '';
-    const labelMatch = embedTitle.match(/Confirm Title for "(.+)"/);
-    const label = labelMatch ? labelMatch[1] : '';
-    
-    let duration = null;
-    
-    // Check if user selected skip
-    if (parts[1] === 'skip') {
-      console.log(`[Timer] User selected skip, starting timer without duration`);
-    } else {
-      // User selected a specific title
-      const type = parts[1]; // 'movie', 'tv', or 'boardgame'
-      const sourceId = parseInt(parts[2]);
 
-      console.log(`[Timer] User selected ${type} with ID ${sourceId}`);
+    let duration = null;
+    let label = '';
+    let episodeRangeBreakdown = null;
+
+    if (isRange) {
+      // Range picker: label comes from the embed title's show-name portion,
+      // not needed for detail lookups (those use the season/episode numbers
+      // encoded directly in the value).
+      const embedTitle = interaction.message.embeds[0]?.title || '';
+      const labelMatch = embedTitle.match(/Confirm Show for "(.+?)" \(S\d+/);
+      label = labelMatch ? labelMatch[1] : '';
+
+      const sourceId = parseInt(parts[2], 10);
+      const season = parseInt(parts[5], 10);
+      const episodeStart = parseInt(parts[6], 10);
+      const episodeEnd = parseInt(parts[7], 10);
+
+      console.log(`[Timer] User selected show ${sourceId} for range S${season} E${episodeStart}-E${episodeEnd}`);
 
       try {
-        let runtime = null;
-        if (type === 'movie') {
-          const details = await getMovieDetails(sourceId);
-          runtime = details?.runtime;
-          console.log(`[Timer] Movie runtime: ${runtime} minutes`);
-        } else if (type === 'tv') {
-          const details = await getTVShowDetails(sourceId);
-          runtime = details?.episode_run_time?.[0];
-          console.log(`[Timer] TV episode runtime: ${runtime} minutes`);
-        } else {
-          const details = await getBoardGameDetails(sourceId);
-          runtime = details?.playingTime ? parseInt(details.playingTime, 10) : null;
-          console.log(`[Timer] Board game playing time: ${runtime} minutes`);
-        }
-
-        if (runtime && runtime > 0) {
-          duration = runtime + 10;
-          console.log(`[Timer] ✅ Auto-detected duration: ${runtime}min + 10min buffer = ${duration}min`);
+        const { resolveEpisodeRangeDuration } = await import('../commands/timer.js');
+        const result = await resolveEpisodeRangeDuration(sourceId, { season, episodeStart, episodeEnd, showName: label });
+        if (result) {
+          duration = result.duration;
+          episodeRangeBreakdown = result.breakdown;
         }
       } catch (error) {
-        console.error('[Timer] Error fetching runtime:', error);
+        console.error('[Timer] Error resolving episode range runtime:', error);
+      }
+    } else {
+      // Get the label from the embed title
+      const embedTitle = interaction.message.embeds[0]?.title || '';
+      const labelMatch = embedTitle.match(/Confirm Title for "(.+)"/);
+      label = labelMatch ? labelMatch[1] : '';
+
+      // Check if user selected skip
+      if (parts[1] === 'skip') {
+        console.log(`[Timer] User selected skip, starting timer without duration`);
+      } else {
+        // User selected a specific title
+        const type = parts[1]; // 'movie', 'tv', or 'boardgame'
+        const sourceId = parseInt(parts[2]);
+
+        console.log(`[Timer] User selected ${type} with ID ${sourceId}`);
+
+        try {
+          let runtime = null;
+          if (type === 'movie') {
+            const details = await getMovieDetails(sourceId);
+            runtime = details?.runtime;
+            console.log(`[Timer] Movie runtime: ${runtime} minutes`);
+          } else if (type === 'tv') {
+            const details = await getTVShowDetails(sourceId);
+            runtime = details?.episode_run_time?.[0];
+            console.log(`[Timer] TV episode runtime: ${runtime} minutes`);
+          } else {
+            const details = await getBoardGameDetails(sourceId);
+            runtime = details?.playingTime ? parseInt(details.playingTime, 10) : null;
+            console.log(`[Timer] Board game playing time: ${runtime} minutes`);
+          }
+
+          if (runtime && runtime > 0) {
+            duration = runtime + 10;
+            console.log(`[Timer] ✅ Auto-detected duration: ${runtime}min + 10min buffer = ${duration}min`);
+          }
+        } catch (error) {
+          console.error('[Timer] Error fetching runtime:', error);
+        }
       }
     }
-    
+
+    if (duration) {
+      const { clampTimerDuration } = await import('../utils/timerManager.js');
+      duration = clampTimerDuration(duration, guildConfig);
+    }
+
+    if (episodeRangeBreakdown && episodeRangeBreakdown.episodeCount > 1) {
+      const { buildEpisodeRangeBreakdownMessage } = await import('../commands/timer.js');
+      await interaction.followUp({
+        content: buildEpisodeRangeBreakdownMessage(episodeRangeBreakdown),
+        ephemeral: true,
+      });
+    }
+
     // Now start the timer countdown (post publicly, not ephemeral)
     const { startTimerCountdown } = await import('../commands/timer.js');
     await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, true);

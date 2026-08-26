@@ -5,6 +5,23 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.18.0 - 2026-08-25
+
+### Added
+- **`/movie`, `/tv`, and `/episode` now skip the "which one did you mean" picker when a search result is a decisive, clear-cut match**, using the AI semantic-ranking score the bot already computed internally but never acted on. Ambiguous or close results (e.g. a movie and its same-named remake) still show the picker as before — this only kicks in when one result is unmistakably the best match
+- **The picker now cross-checks IMDb's release year against TMDB's for the first few results**, showing both when they disagree (e.g. `It (1990 (IMDb: 1991))`) — addresses the "the year doesn't match what I remember from IMDb" confusion, without adding the cost of checking every row (capped at the top 5 candidates)
+- **`/episode`'s show-name lookup now uses the same AI-powered ranking `/movie` and `/tv` already had** (previously a plain keyword search with no semantic ranking or alternate-title matching at all)
+- **`/timer start` now understands multi-episode watch parties.** A label like "Tales from the Crypt - S5: E5 - E8" is recognized as one watch party spanning episodes 5 through 8 of season 5 — the bot resolves the show, sums each episode's actual runtime, adds the usual 10-minute buffer, and shows a full breakdown (not just a final number) so you can sanity-check it before the timer starts. Supports `S5E5-E8`, `S5: E5 - E8`, `S05E05-E08`, `Season 5 Episode 5-8`, `Season 5, Episodes 5-8`, and single-episode notation (`S3E1`, `3x11`)
+- **`/timer start`'s general movie/TV auto-detection also gets the decisive-match auto-selection** described above — a clear single-type winner (with nothing competitive in the other search types) starts the timer directly instead of always showing a picker for 2+ combined results
+
+### Developer
+- Added `pickLandslideWinner(results)` to `aiService.js` — reads the `semanticScore` `hybridSearch`'s re-ranking already attaches to every result but that nothing previously consumed. Requires both a high absolute score and a clear lead over the runner-up (launch constants, logged on every decision for future tuning from real usage)
+- Added `src/utils/episodeRangeParser.js` (`parseEpisodeRange`) — a new, self-contained parser that scans a free-text label for embedded season/episode-range notation and returns both the structured range and the show name with the notation stripped out. Distinct from `episode.js`'s existing `parseSeasonEpisode` (anchored, single-episode-only, built for a dedicated episode field)
+- Added `sumEpisodeRuntimes()` to `tmdbService.js`, consuming `getSeasonDetails()`'s existing one-call-per-season episode list. Falls back to the show's average episode runtime for any episode TMDB lacks a specific runtime for, flagging it `estimated` rather than silently undercounting
+- Added `attachImdbYearCrossCheck()` to `embedBuilder.js`, called from the picker-rendering path only (never on the auto-select fast path, which renders no picker rows)
+- `/timer start`'s general auto-detection now runs its movie/TV sub-searches through `hybridSearch()` (previously plain `searchMovies`/`searchTVShows`) and checks each type independently for a landslide winner — never comparing a movie's semantic score to a TV show's, sidestepping a cross-type ranking-comparison problem
+- The `timer_select_runtime` picker's option-value encoding gained an optional `_range_<season>_<epStart>_<epEnd>` suffix for range-picker selections, extending (not replacing) the existing `timer_<type>_<id>_<theme>` shape — mirrors the `timer_extend_<channelId>` precedent of embedding round-trip state directly in the customId/value string
+
 ## 2.17.3 - 2026-08-24
 
 ### Fixed

@@ -1,8 +1,10 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
 import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
-import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } from '../services/tmdbService.js';
+import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
+import { hybridSearch, pickLandslideWinner } from '../services/aiService.js';
+import { parseEpisodeRange } from '../utils/episodeRangeParser.js';
 
 /**
  * Auto-detect event title from scheduled events
@@ -186,6 +188,63 @@ function formatRuntime(minutes) {
   return `${hours}h ${mins}m`;
 }
 
+/**
+ * Resolve a multi-episode watch-party duration for a known show: fetch the
+ * season, sum episode runtimes across the requested range, and add the
+ * standard 10-minute buffer. Returns null when the season/range can't be
+ * resolved (caller should treat this the same as "no runtime found").
+ * @param {number} showId - TMDB TV show ID
+ * @param {{season: number, episodeStart: number, episodeEnd: number, showName: string}} episodeRange
+ * @returns {Promise<{duration: number, breakdown: {showName: string, season: number, episodeCount: number, episodes: Array, totalRuntime: number, duration: number}}|null>}
+ */
+export async function resolveEpisodeRangeDuration(showId, episodeRange) {
+  const [seasonDetails, showDetails] = await Promise.all([
+    getSeasonDetails(showId, episodeRange.season),
+    getTVShowDetails(showId).catch(() => null),
+  ]);
+
+  if (!seasonDetails) return null;
+
+  const fallbackRuntime = showDetails?.episode_run_time?.[0] || null;
+  const summed = sumEpisodeRuntimes(seasonDetails, episodeRange.episodeStart, episodeRange.episodeEnd, fallbackRuntime);
+  if (!summed) return null;
+
+  const duration = summed.totalRuntime + 10;
+  console.log(`[Timer] ✅ Auto-detected episode-range duration: ${summed.episodeCount} episodes = ${summed.totalRuntime}min + 10min buffer = ${duration}min`);
+
+  return {
+    duration,
+    breakdown: {
+      showName: showDetails?.name || episodeRange.showName,
+      season: episodeRange.season,
+      episodeCount: summed.episodeCount,
+      episodes: summed.breakdown,
+      totalRuntime: summed.totalRuntime,
+      duration,
+    },
+  };
+}
+
+/**
+ * Build the ephemeral breakdown message shown when a timer's duration came
+ * from summing a multi-episode range, so the user can sanity-check the
+ * total rather than just seeing an opaque final number.
+ */
+export function buildEpisodeRangeBreakdownMessage(breakdown) {
+  const episodeLines = breakdown.episodes
+    .map(ep => `  E${ep.episodeNumber}: ${ep.runtime != null ? `${ep.estimated ? '~' : ''}${ep.runtime} min${ep.estimated ? ' (estimated)' : ''}` : 'unknown'}`)
+    .join('\n');
+
+  const avgRuntime = Math.round(breakdown.totalRuntime / breakdown.episodeCount);
+
+  return (
+    `📺 **${breakdown.showName}** — Season ${breakdown.season}, Episodes ${breakdown.episodes[0].episodeNumber}-${breakdown.episodes[breakdown.episodes.length - 1].episodeNumber} (${breakdown.episodeCount} episodes)\n` +
+    `${episodeLines}\n` +
+    `${'─'.repeat(14)}\n` +
+    `${breakdown.episodeCount} episodes, ~${avgRuntime} min each = ${breakdown.totalRuntime} min + 10 min buffer = ${breakdown.duration} min`
+  );
+}
+
 export const data = new SlashCommandBuilder()
   .setName('timer')
   .setDescription('Start, stop, or check a timer in this channel')
@@ -325,6 +384,7 @@ export async function execute(interaction) {
     const username = interaction.user.username;
     const guildConfig = await loadGuildConfig(interaction.guildId);
     let noRuntimeFound = false;
+    let episodeRangeBreakdown = null; // set when duration came from summing a multi-episode range
 
     // Auto-detect event title if no manual label provided
     if (!label) {
@@ -351,17 +411,120 @@ export async function execute(interaction) {
       console.log(`[Timer] Manual label provided: "${label}"`);
     }
 
+    // Episode-range detection: a label like "Tales from the Crypt - S5: E5 -
+    // E8" means a single watch party spanning multiple episodes. Detected
+    // BEFORE the general movie/TV/boardgame search below, since searching
+    // for the raw, unparsed label (range notation and all) would rarely
+    // match well against the show name alone.
+    const episodeRange = !duration && label ? parseEpisodeRange(label) : null;
+
+    if (episodeRange) {
+      console.log(`[Timer] Detected episode range in "${label}": S${episodeRange.season} E${episodeRange.episodeStart}-E${episodeRange.episodeEnd} (show: "${episodeRange.showName}")`);
+      try {
+        const showResults = await hybridSearch(episodeRange.showName, searchTVShows, 'tv', getTVAlternativeTitles);
+        const landslideShow = showResults.length > 1 ? pickLandslideWinner(showResults) : null;
+
+        if (!showResults || showResults.length === 0) {
+          console.log(`[Timer] No show found for "${episodeRange.showName}", continuing without duration`);
+          noRuntimeFound = true;
+        } else if (showResults.length === 1 || landslideShow) {
+          const show = landslideShow || showResults[0];
+          const result = await resolveEpisodeRangeDuration(show.id, episodeRange);
+          if (result) {
+            duration = result.duration;
+            episodeRangeBreakdown = result.breakdown;
+          } else {
+            noRuntimeFound = true;
+          }
+        } else {
+          // Multiple shows matched the name (e.g. same-titled show across
+          // different years) - show a picker carrying the range through.
+          console.log(`[Timer] Found ${showResults.length} shows matching "${episodeRange.showName}", showing selection menu`);
+
+          const options = showResults.slice(0, 24).map((result) => {
+            const title = result.name;
+            const year = result.first_air_date;
+            const yearStr = year ? ` (${year.split('-')[0]})` : '';
+            const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
+
+            return {
+              label: `${title}${yearStr}`.substring(0, 100),
+              description: overview.substring(0, 100),
+              value: `timer_tv_${result.id}_${theme}_range_${episodeRange.season}_${episodeRange.episodeStart}_${episodeRange.episodeEnd}`,
+            };
+          });
+
+          options.push({
+            label: '⏭️ Skip - Start Timer Without Duration',
+            description: 'Timer will run continuously until manually stopped',
+            value: `timer_skip_${theme}`,
+          });
+
+          const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('timer_select_runtime')
+            .setPlaceholder('Select the correct show')
+            .addOptions(options);
+
+          const row = new ActionRowBuilder().addComponents(selectMenu);
+
+          const embed = new EmbedBuilder()
+            .setColor(0x0099FF)
+            .setTitle(`🎬 Confirm Show for "${episodeRange.showName}" (S${episodeRange.season} E${episodeRange.episodeStart}-E${episodeRange.episodeEnd})`)
+            .setDescription(
+              `Found ${showResults.length} possible matches.\n\n` +
+              `**Select the correct show** to sum episodes ${episodeRange.episodeStart}-${episodeRange.episodeEnd} and add a 10-minute buffer.\n\n` +
+              `Or choose "Skip" to start the timer without a duration (continuous until stopped).`
+            )
+            .setFooter({ text: 'Select from the menu below' });
+
+          await interaction.editReply({ embeds: [embed], components: [row] });
+          return;
+        }
+      } catch (error) {
+        console.error('[Timer] Error detecting episode range runtime:', error);
+      }
+    }
+
     // Auto-detect runtime if duration not provided and we have a label
-    // (runs for both manually-typed and auto-detected labels)
-    if (!duration && label) {
+    // (runs for both manually-typed and auto-detected labels). Skipped when
+    // an episode range was already detected above (whether it resolved a
+    // duration or not) — the range branch already searched TV shows for
+    // this label, so falling through to search the raw range-containing
+    // string here would rarely help and just adds latency.
+    if (!duration && label && !episodeRange) {
       console.log(`[Timer] Attempting to detect runtime for: "${label}"`);
       try {
-        // Search for the movie/TV show/board game
+        // Search for the movie/TV show/board game. Movie/TV searches go
+        // through hybridSearch for semantic ranking (enabling the landslide
+        // check below); board games have no embedding support, so they stay
+        // on a plain keyword search.
         const [movieResults, tvResults, boardGameResults] = await Promise.all([
-          searchMovies(label).catch(() => []),
-          searchTVShows(label).catch(() => []),
+          hybridSearch(label, searchMovies, 'movie', getMovieAlternativeTitles).catch(() => []),
+          hybridSearch(label, searchTVShows, 'tv', getTVAlternativeTitles).catch(() => []),
           searchBoardGames(label).catch(() => []),
         ]);
+
+        // Check each type independently for a landslide winner — never
+        // comparing a movie's semantic score against a TV show's, since
+        // they were ranked against different candidate pools. If exactly
+        // one type has a landslide winner and the other types have no
+        // results at all, auto-select it without merging/showing a picker.
+        const movieLandslide = movieResults.length > 1 ? pickLandslideWinner(movieResults) : (movieResults.length === 1 ? movieResults[0] : null);
+        const tvLandslide = tvResults.length > 1 ? pickLandslideWinner(tvResults) : (tvResults.length === 1 ? tvResults[0] : null);
+        const otherTypesEmpty = {
+          movie: tvResults.length === 0 && (boardGameResults || []).length === 0,
+          tv: movieResults.length === 0 && (boardGameResults || []).length === 0,
+        };
+
+        let soloWinner = null;
+        let soloWinnerType = null;
+        if (movieLandslide && otherTypesEmpty.movie) {
+          soloWinner = movieLandslide;
+          soloWinnerType = 'movie';
+        } else if (tvLandslide && otherTypesEmpty.tv) {
+          soloWinner = tvLandslide;
+          soloWinnerType = 'tv';
+        }
 
         const allResults = [
           ...(movieResults || []).slice(0, 8).map(r => ({ ...r, type: 'movie' })),
@@ -372,9 +535,10 @@ export async function execute(interaction) {
         if (allResults.length === 0) {
           console.log(`[Timer] No results found for "${label}", continuing without duration`);
           noRuntimeFound = true;
-        } else if (allResults.length === 1) {
-          // Only one result, use it automatically
-          const result = allResults[0];
+        } else if (allResults.length === 1 || soloWinner) {
+          // Either only one result overall, or one type produced a decisive
+          // landslide winner with nothing competitive in the other types.
+          const result = soloWinner ? { ...soloWinner, type: soloWinnerType } : allResults[0];
           console.log(`[Timer] Found single ${result.type} match: ${result.title || result.name}`);
 
           let runtime = null;
@@ -396,13 +560,13 @@ export async function execute(interaction) {
         } else {
           // Multiple results - show selection menu
           console.log(`[Timer] Found ${allResults.length} results, showing selection menu`);
-          
+
           const options = allResults.map((result) => {
             const title = result.title || result.name;
             const year = result.release_date || result.first_air_date;
             const yearStr = year ? ` (${year.split('-')[0]})` : '';
             const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
-            
+
             return {
               label: `${title}${yearStr}`.substring(0, 100),
               description: overview.substring(0, 100),
@@ -438,7 +602,7 @@ export async function execute(interaction) {
             embeds: [embed],
             components: [row],
           });
-          
+
           // Return early - timer will start after user selects
           return;
         }
@@ -449,6 +613,13 @@ export async function execute(interaction) {
 
     if (duration) {
       duration = clampTimerDuration(duration, guildConfig);
+    }
+
+    if (episodeRangeBreakdown && episodeRangeBreakdown.episodeCount > 1) {
+      await interaction.followUp({
+        content: buildEpisodeRangeBreakdownMessage(episodeRangeBreakdown),
+        ephemeral: true,
+      });
     }
 
     if (noRuntimeFound && !duration) {

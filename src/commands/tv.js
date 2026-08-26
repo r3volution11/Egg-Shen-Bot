@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { searchTVShows, getTVAlternativeTitles } from '../services/tmdbService.js';
-import { hybridSearch } from '../services/aiService.js';
+import { hybridSearch, pickLandslideWinner } from '../services/aiService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 import { deliverResult } from '../utils/interactionResponse.js';
@@ -56,8 +56,11 @@ export async function execute(interaction) {
       return;
     }
     
-    // If only one result, display it directly
-    if (results.length === 1) {
+    // If only one result, or the top result is a decisive semantic-search
+    // landslide over the runner-up, display it directly without a picker.
+    const landslideWinner = results.length > 1 ? pickLandslideWinner(results) : null;
+    if (results.length === 1 || landslideWinner) {
+      const chosen = landslideWinner || results[0];
       const { getTVShowDetails } = await import('../services/tmdbService.js');
       const { getOMDBData } = await import('../services/omdbService.js');
       const { getShowRating } = await import('../services/traktService.js');
@@ -71,10 +74,10 @@ export async function execute(interaction) {
       const { loadGuildConfig, getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
       const { trackSearch } = await import('../utils/statsTracker.js');
       const { getUnifiedTVWatchProviders } = await import('../services/tmdbService.js');
-      
+
       const { getTVAlternativeTitlesDetailed, pickKnownAsTitle } = await import('../services/tmdbService.js');
 
-      const showId = results[0].id;
+      const showId = chosen.id;
       const tmdb = await getTVShowDetails(showId);
       const imdbId = tmdb.external_ids?.imdb_id;
 

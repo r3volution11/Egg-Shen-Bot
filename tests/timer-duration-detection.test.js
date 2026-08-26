@@ -32,6 +32,10 @@ jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
   searchTVShows: mockSearchTVShows,
   getMovieDetails: mockGetMovieDetails,
   getTVShowDetails: mockGetTVShowDetails,
+  getMovieAlternativeTitles: jest.fn().mockResolvedValue([]),
+  getTVAlternativeTitles: jest.fn().mockResolvedValue([]),
+  getSeasonDetails: jest.fn(),
+  sumEpisodeRuntimes: jest.fn(),
 }));
 
 jest.unstable_mockModule('../src/services/bggService.js', () => ({

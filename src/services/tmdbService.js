@@ -168,6 +168,44 @@ export async function getSeasonDetails(tvId, seasonNumber) {
 }
 
 /**
+ * Sum episode runtimes across a range within one season, for multi-episode
+ * watch-party timers (e.g. "S5 E5-E8"). TMDB's per-episode runtime is
+ * sometimes missing — rather than silently undercounting or aborting the
+ * whole calculation, a missing episode's runtime falls back to the show's
+ * average episode_run_time and is flagged `estimated` for transparent
+ * display, rather than being hidden inside the total.
+ * @param {object} seasonDetails - Result of getSeasonDetails()
+ * @param {number} episodeStart - First episode number in the range (inclusive)
+ * @param {number} episodeEnd - Last episode number in the range (inclusive)
+ * @param {number|null} fallbackPerEpisodeRuntime - Show's average episode
+ *   runtime, used for episodes with no runtime data of their own
+ * @returns {{episodeCount: number, breakdown: Array<{episodeNumber: number, runtime: number|null, estimated: boolean}>, totalRuntime: number}|null}
+ *   null if no episodes in the season fall within the requested range
+ */
+export function sumEpisodeRuntimes(seasonDetails, episodeStart, episodeEnd, fallbackPerEpisodeRuntime = null) {
+  const episodes = (seasonDetails?.episodes || []).filter(
+    ep => ep.episode_number >= episodeStart && ep.episode_number <= episodeEnd
+  );
+
+  if (episodes.length === 0) return null;
+
+  const breakdown = episodes
+    .sort((a, b) => a.episode_number - b.episode_number)
+    .map(ep => {
+      const hasRealRuntime = typeof ep.runtime === 'number' && ep.runtime > 0;
+      return {
+        episodeNumber: ep.episode_number,
+        runtime: hasRealRuntime ? ep.runtime : fallbackPerEpisodeRuntime,
+        estimated: !hasRealRuntime,
+      };
+    });
+
+  const totalRuntime = breakdown.reduce((sum, ep) => sum + (ep.runtime || 0), 0);
+
+  return { episodeCount: episodes.length, breakdown, totalRuntime };
+}
+
+/**
  * Get episode details for a specific TV show episode
  */
 export async function getEpisodeDetails(tvId, seasonNumber, episodeNumber) {

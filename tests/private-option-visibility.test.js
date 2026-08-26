@@ -29,6 +29,7 @@ jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
 
 jest.unstable_mockModule('../src/services/aiService.js', () => ({
   hybridSearch: jest.fn(async (query, searchFn) => searchFn(query)),
+  pickLandslideWinner: jest.fn().mockReturnValue(null),
 }));
 
 jest.unstable_mockModule('../src/services/omdbService.js', () => ({

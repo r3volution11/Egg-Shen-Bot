@@ -390,6 +390,48 @@ export async function hybridSearch(query, keywordSearchFn, type = 'movie', altTi
   return [];
 }
 
+// Minimum semantic score the top result must clear, and minimum lead it
+// must have over the runner-up, before we're willing to auto-select it
+// instead of showing a picker. Both are required together: a floor alone
+// would auto-pick between two close, both-plausible candidates (e.g. two
+// versions of the same show), and a gap alone could auto-pick a weak top
+// match just because everything else scored even worse. These are launch
+// constants, not proven — see the console.log below, which exists
+// specifically so real query data can inform retuning them later.
+const LANDSLIDE_SCORE_FLOOR = 0.80;
+const LANDSLIDE_SCORE_GAP = 0.15;
+
+/**
+ * Decide whether a ranked results list has a "landslide" winner — a top
+ * result decisively ahead of everything else — that's safe to auto-select
+ * instead of showing the user a picker. Returns null (meaning: show the
+ * picker, same as today) whenever results are too few, too close, or
+ * missing semanticScore entirely (e.g. OpenAI unavailable, or re-ranking
+ * fell back to unscored results) — this always degrades safely to today's
+ * existing picker behavior.
+ * @param {Array} results - Ranked results, as returned by hybridSearch()
+ * @returns {Object|null} The winning result, or null if no landslide
+ */
+export function pickLandslideWinner(results) {
+  if (!results || results.length < 2) return null;
+
+  const [top, second] = results;
+  if (typeof top.semanticScore !== 'number' || typeof second.semanticScore !== 'number') {
+    return null;
+  }
+
+  const gap = top.semanticScore - second.semanticScore;
+  const isLandslide = top.semanticScore >= LANDSLIDE_SCORE_FLOOR && gap >= LANDSLIDE_SCORE_GAP;
+
+  console.log(
+    `[LandslideCheck] top="${top.title || top.name}" score=${top.semanticScore.toFixed(3)} ` +
+    `second="${second.title || second.name}" score=${second.semanticScore.toFixed(3)} ` +
+    `gap=${gap.toFixed(3)} landslide=${isLandslide}`
+  );
+
+  return isLandslide ? top : null;
+}
+
 // Chat-completions model for free-form text generation (e.g. announcement
 // flavor text) — separate from config.apis.openai.model, which is the
 // embedding model used for semantic search and stays untouched by this.

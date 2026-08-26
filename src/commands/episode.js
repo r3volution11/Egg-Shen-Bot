@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { searchTVShows } from '../services/tmdbService.js';
+import { searchTVShows, getTVAlternativeTitles } from '../services/tmdbService.js';
+import { hybridSearch, pickLandslideWinner } from '../services/aiService.js';
 import { createEpisodeSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 import { deliverResult } from '../utils/interactionResponse.js';
@@ -70,17 +71,20 @@ export async function execute(interaction) {
   
   try {
     // First, search for the TV show
-    const showResults = await searchTVShows(showQuery);
-    
+    const showResults = await hybridSearch(showQuery, searchTVShows, 'tv', getTVAlternativeTitles);
+
     if (!showResults || showResults.length === 0) {
       await interaction.editReply({
         content: `No TV shows found matching "${showQuery}". Try a different search term.`,
       });
       return;
     }
-    
-    // If only one show result, search for the episode directly
-    if (showResults.length === 1) {
+
+    // If only one show result, or the top result is a decisive semantic
+    // landslide over the runner-up, search for the episode directly.
+    const landslideWinner = showResults.length > 1 ? pickLandslideWinner(showResults) : null;
+    if (showResults.length === 1 || landslideWinner) {
+      const chosenShow = landslideWinner || showResults[0];
       const { searchEpisodeByName, getEpisodeDetails, getTVShowDetails } = await import('../services/tmdbService.js');
       const { getOMDBData } = await import('../services/omdbService.js');
       const { getEpisodeRating } = await import('../services/traktService.js');
@@ -93,7 +97,7 @@ export async function execute(interaction) {
       const { getEnabledServices, getEmojis, getStatsConfig } = await import('../utils/guildConfig.js');
       const { trackSearch } = await import('../utils/statsTracker.js');
       
-      const showId = showResults[0].id;
+      const showId = chosenShow.id;
       
       // Check if episode query is in season/episode notation (s3e11)
       const parsedSeasonEpisode = parseSeasonEpisode(episodeQuery);

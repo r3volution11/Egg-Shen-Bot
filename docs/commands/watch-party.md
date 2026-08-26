@@ -134,7 +134,9 @@ Start simple stopwatch timers for watch parties.
 - **Discord Event Auto-Detection:** Bot checks server's scheduled events - if one is linked to the current channel, automatically uses event title as timer label
 - **Auto-stop:** Set duration to automatically stop timer when time expires
 - **Runtime auto-detection:** Whenever a label is set and no duration is given — whether typed manually or auto-detected from a Discord event — the bot searches movies, TV shows, and board games and adds a 10-minute buffer to whatever it finds. A found runtime is used as-is, no matter how long it is
-- **Smart selection:** If multiple matches are found across movies, TV shows, and board games, shows a selection menu to pick the correct title (capped at 8 results per type, so the menu never exceeds Discord's 25-option limit)
+- **Multi-episode watch parties:** A label like "Tales from the Crypt - S5: E5 - E8" (four episodes in one watch party) is understood automatically — see [Multi-Episode Watch Parties](#multi-episode-watch-parties) below
+- **Decisive auto-selection:** When a movie/TV search turns up a clear, decisive best match, the bot skips the confirmation menu and starts the timer directly — same landslide-detection behavior used by [`/movie` and `/tv`](/commands/search#smarter-auto-selection)
+- **Smart selection:** If multiple matches are found across movies, TV shows, and board games (and none is a clear winner), shows a selection menu to pick the correct title (capped at 8 results per type, so the menu never exceeds Discord's 25-option limit)
 - **No match found:** If nothing is typed and nothing is auto-detected at all, the bot tells you directly and falls back to a default duration (6 hours, server-configurable) rather than running forever unnoticed — see below
 - **Automatic watch history logging:** When timer completes (manual or auto-stop), automatically logs to server watch history if title found on TMDB
 - 5-second countdown before starting (with visual/text animation)
@@ -161,6 +163,33 @@ Start simple stopwatch timers for watch parties.
 9. Timer starts with auto-stop at 188 minutes
 
 **Tip:** This works for any Discord event linked to a channel - the bot will always check for events when you run `/timer start` without a label! Typing a label yourself (`/timer start label:The Fellowship of the Ring`) gets the same title search and auto-duration treatment, without needing a Discord event at all.
+
+### Multi-Episode Watch Parties
+
+A label that includes a season/episode range — like an event or channel name of "Tales from the Crypt - S5: E5 - E8" — is understood as a single watch party spanning multiple episodes, not a single-episode lookup. The bot:
+
+1. Recognizes the range notation and separates it from the show name
+2. Searches for the show (using the same decisive auto-selection and AI-powered ranking as `/tv`)
+3. Looks up every episode in the range and adds up their individual runtimes
+4. Adds the standard 10-minute buffer to the total
+
+Rather than just showing a final number, you'll see a breakdown so you can sanity-check it before the timer starts:
+
+```
+📺 Tales from the Crypt — Season 5, Episodes 5-8 (4 episodes)
+  E5: 22 min
+  E6: 22 min
+  E7: 21 min
+  E8: 23 min
+──────────────
+4 episodes, ~22 min each = 88 min + 10 min buffer = 98 min
+```
+
+If TMDB doesn't have a specific runtime for one of the episodes, the show's average episode length is used for that one instead, and it's marked `(estimated)` in the breakdown so it's clear which numbers are exact and which are a best guess.
+
+**Supported formats:** `S5E5-E8`, `S5: E5 - E8`, `S05E05-E08`, `Season 5 Episode 5-8`, `Season 5, Episodes 5-8`, and single-episode notation (`S3E1`, `3x11`) all work — a single episode with no range just gets the normal single-episode treatment.
+
+**If the show name matches multiple shows** (e.g. a same-titled reboot), you'll get a selection menu just like the regular multi-match picker — pick the right one and the range calculation continues from there.
 
 ### Check Timer Status
 
