@@ -230,7 +230,7 @@ Pause a timer if something comes up — a break, a technical issue, anything tha
 - A paused timer survives a bot restart — it stays paused and won't auto-stop or start counting down on its own until you `/timer resume` it.
 - `/timer stop` still works normally on a paused timer.
 - `/timer adjust` requires resuming first — you can't change the duration while paused.
-- Only available to the timer starter, server administrators, or moderators (same permissions as `/timer stop`).
+- By default, only the timer starter, server administrators, or moderators can pause/resume it — same permissions as `/timer stop`. Servers can open this up to everyone (see below).
 
 ### Stop Timer
 
@@ -238,11 +238,21 @@ Pause a timer if something comes up — a break, a technical issue, anything tha
 /timer stop
 ```
 
-Stops the current timer in the channel. Only available to:
+Stops the current timer in the channel. By default, only available to:
 - User who started the timer
 - Server administrators
 - Users with Manage Guild permission
 - Users with Moderate Members permission
+
+### Who Can Pause, Resume, or Stop a Timer
+
+By default, pausing, resuming, and stopping a timer is restricted to whoever started it plus server administrators/moderators. Some servers — especially larger, more casual ones — prefer to let **any member** step in and pause or stop a timer, since the person who started it isn't always still around when something comes up. Admins/mods can enable this:
+
+```
+/eggshen-config settings timer-control anyone-can-pause-stop:true
+```
+
+This only affects `/timer pause`, `/timer resume`, and `/timer stop` — `/timer adjust` and `/timer autostop` (which change the timer's duration or auto-stop configuration, not just start/stop it) always stay restricted to the starter or an admin/mod, regardless of this setting.
 
 ### Adjust Timer Duration
 

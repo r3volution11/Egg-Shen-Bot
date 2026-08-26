@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
-import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration } from '../utils/timerManager.js';
+import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
@@ -637,11 +637,14 @@ export async function execute(interaction) {
   } else if (subcommand === 'stop') {
     const activeTimer = getTimerStatus(channelId);
 
-    if (activeTimer && activeTimer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
-      return await interaction.reply({
-        content: '❌ Only the person who started the timer or server administrators/moderators can stop it.',
-        ephemeral: true,
-      });
+    if (activeTimer) {
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+      if (!canControlTimerPauseStop(activeTimer, interaction.user.id, interaction.member, guildConfig)) {
+        return await interaction.reply({
+          content: '❌ Only the person who started the timer or server administrators/moderators can stop it.',
+          ephemeral: true,
+        });
+      }
     }
 
     const result = stopTimer(channelId);
@@ -711,7 +714,8 @@ export async function execute(interaction) {
       });
     }
 
-    if (timer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
+    const guildConfig = await loadGuildConfig(interaction.guildId);
+    if (!canControlTimerPauseStop(timer, interaction.user.id, interaction.member, guildConfig)) {
       return await interaction.reply({
         content: '❌ Only the person who started the timer or server administrators/moderators can pause it.',
         ephemeral: true,
@@ -762,7 +766,8 @@ export async function execute(interaction) {
       });
     }
 
-    if (timer.userId !== interaction.user.id && !isAdmin(interaction.member)) {
+    const guildConfig = await loadGuildConfig(interaction.guildId);
+    if (!canControlTimerPauseStop(timer, interaction.user.id, interaction.member, guildConfig)) {
       return await interaction.reply({
         content: '❌ Only the person who started the timer or server administrators/moderators can resume it.',
         ephemeral: true,

@@ -5,6 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.18.1 - 2026-08-25
+
+### Added
+- **New `/eggshen-config settings timer-control` setting lets a server allow any member to pause, resume, or stop a timer**, instead of only the timer's starter plus admins/mods (still the default). Useful for servers where the person who started a watch party timer isn't always around to react — pausing for a break or stopping when something goes wrong shouldn't have to wait on one specific person. `/timer adjust` and `/timer autostop` are unaffected by this setting and always stay restricted to the starter or an admin/mod, since changing a timer's duration or auto-stop configuration is a more consequential action than just pausing/stopping it
+
+### Developer
+- Added `canControlTimerPauseStop(timer, userId, member, guildConfig)` to `timerManager.js` — a single shared permission check now used by `/timer stop`/`pause`/`resume`, replacing three (of five) previously-duplicated inline `isAdmin`-or-starter checks in `timer.js`. `adjust`/`autostop` keep their existing inline checks unchanged, deliberately not routed through the new helper
+- Added `allowAnyonePauseStopTimer: false` to `guildConfig.js`'s `defaultConfig`
+
 ## 2.18.0 - 2026-08-25
 
 ### Added

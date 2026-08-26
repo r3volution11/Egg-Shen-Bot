@@ -13,12 +13,16 @@ import fs from 'fs';
 import path from 'path';
 import { execute } from '../src/commands/timer.js';
 import { startTimer, clearAllTimers } from '../src/utils/timerManager.js';
+import { saveGuildConfig } from '../src/utils/guildConfig.js';
 
 const TIMERS_FILE = path.join(process.cwd(), 'active_timers.json');
+const TEST_GUILD_ID = 'timer-permissions-test-guild';
+const TEST_GUILD_CONFIG_FILE = path.join(process.cwd(), 'guild_configs', `${TEST_GUILD_ID}.json`);
 
 function cleanup() {
   clearAllTimers();
   if (fs.existsSync(TIMERS_FILE)) fs.unlinkSync(TIMERS_FILE);
+  if (fs.existsSync(TEST_GUILD_CONFIG_FILE)) fs.unlinkSync(TEST_GUILD_CONFIG_FILE);
 }
 
 beforeEach(cleanup);
@@ -32,9 +36,10 @@ function makeMember({ isAdmin = false } = {}) {
   };
 }
 
-function makeInteraction({ subcommand, userId, isAdmin = false, options = {} }) {
+function makeInteraction({ subcommand, userId, isAdmin = false, options = {}, guildId = null }) {
   return {
     channelId: 'channel-1',
+    guildId,
     options: {
       getSubcommand: () => subcommand,
       getInteger: (name) => options[name] ?? null,
@@ -147,6 +152,91 @@ describe('/timer autostop', () => {
     await execute(interaction);
 
     expect(interaction.reply).not.toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('Only the person who started the timer') })
+    );
+  });
+});
+
+describe('allowAnyonePauseStopTimer server setting', () => {
+  test('default (flag off): a non-starter, non-admin is still rejected on stop/pause/resume', async () => {
+    startTimer('channel-1', 'starter-user', 'starter-user', '', 60);
+    const interaction = makeInteraction({ subcommand: 'stop', userId: 'random-user', guildId: TEST_GUILD_ID });
+
+    await execute(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('Only the person who started the timer') })
+    );
+  });
+
+  test('flag on: a non-starter, non-admin can stop the timer', async () => {
+    await saveGuildConfig(TEST_GUILD_ID, { allowAnyonePauseStopTimer: true });
+    startTimer('channel-1', 'starter-user', 'starter-user', '', 60);
+    const interaction = makeInteraction({ subcommand: 'stop', userId: 'random-user', guildId: TEST_GUILD_ID });
+
+    await execute(interaction);
+
+    expect(interaction.reply).not.toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('Only the person who started the timer') })
+    );
+  });
+
+  test('flag on: a non-starter, non-admin can pause the timer', async () => {
+    await saveGuildConfig(TEST_GUILD_ID, { allowAnyonePauseStopTimer: true });
+    startTimer('channel-1', 'starter-user', 'starter-user', '', 60);
+    const interaction = makeInteraction({ subcommand: 'pause', userId: 'random-user', guildId: TEST_GUILD_ID });
+
+    await execute(interaction);
+
+    expect(interaction.reply).not.toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('Only the person who started the timer') })
+    );
+  });
+
+  test('flag on: a non-starter, non-admin can resume a paused timer', async () => {
+    await saveGuildConfig(TEST_GUILD_ID, { allowAnyonePauseStopTimer: true });
+    startTimer('channel-1', 'starter-user', 'starter-user', '', 60);
+    // Pause it first (as the starter) so there's something to resume.
+    await execute(makeInteraction({ subcommand: 'pause', userId: 'starter-user', guildId: TEST_GUILD_ID }));
+
+    const interaction = makeInteraction({ subcommand: 'resume', userId: 'random-user', guildId: TEST_GUILD_ID });
+    await execute(interaction);
+
+    expect(interaction.reply).not.toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('Only the person who started the timer') })
+    );
+  });
+
+  test('flag on: adjust is NOT affected — a non-starter, non-admin is still rejected', async () => {
+    await saveGuildConfig(TEST_GUILD_ID, { allowAnyonePauseStopTimer: true });
+    startTimer('channel-1', 'starter-user', 'starter-user', '', 60);
+    const interaction = makeInteraction({
+      subcommand: 'adjust',
+      userId: 'random-user',
+      guildId: TEST_GUILD_ID,
+      options: { duration: 90 },
+    });
+
+    await execute(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('Only the person who started the timer') })
+    );
+  });
+
+  test('flag on: autostop is NOT affected — a non-starter, non-admin is still rejected', async () => {
+    await saveGuildConfig(TEST_GUILD_ID, { allowAnyonePauseStopTimer: true });
+    startTimer('channel-1', 'starter-user', 'starter-user', '', 60);
+    const interaction = makeInteraction({
+      subcommand: 'autostop',
+      userId: 'random-user',
+      guildId: TEST_GUILD_ID,
+      options: { autostop: 'disable' },
+    });
+
+    await execute(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringContaining('Only the person who started the timer') })
     );
   });

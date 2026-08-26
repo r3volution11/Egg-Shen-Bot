@@ -7,6 +7,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { isAdmin } from './guildConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -448,6 +449,24 @@ export function clampTimerDuration(durationMinutes, guildConfig) {
   }
 
   return durationMinutes > ceiling ? ceiling : durationMinutes;
+}
+
+/**
+ * Can this user pause/resume/stop this timer? True for the timer's starter
+ * or an admin/mod always; true for anyone else only when this server has
+ * opted into allowAnyonePauseStopTimer. Does NOT apply to /timer adjust,
+ * /timer autostop, or the expiry-warning extend button — those change
+ * duration/auto-stop configuration and stay starter-or-admin only
+ * regardless of this flag.
+ * @param {object} timer - Timer data (as returned by getTimerStatus/activeTimers)
+ * @param {string} userId - Discord user ID of the user attempting the action
+ * @param {object} member - Discord GuildMember of the user attempting the action (for isAdmin)
+ * @param {object} guildConfig - Guild config with allowAnyonePauseStopTimer
+ * @returns {boolean}
+ */
+export function canControlTimerPauseStop(timer, userId, member, guildConfig) {
+  if (timer.userId === userId || isAdmin(member)) return true;
+  return guildConfig?.allowAnyonePauseStopTimer === true;
 }
 
 /**

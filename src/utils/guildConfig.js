@@ -28,6 +28,7 @@ const defaultConfig = {
   maxTimerDurationUnlimited: false, // When true, a timer with no real duration just runs forever (like /timer autostop disable) instead of getting the fallback above
   timerCeilingMinutes: null, // Optional hard ceiling applied to explicit/detected timer durations too (start, adjust, autostop enable, extend). Off by default — see timerCeilingEnabled.
   timerCeilingEnabled: false, // When true, timerCeilingMinutes is enforced on explicit/detected durations. Off by default: timers can be started at any duration unless a server opts into this.
+  allowAnyonePauseStopTimer: false, // When true, any member (not just the timer's starter or an admin/mod) can pause/resume/stop a timer. adjust/autostop and the expiry-warning extend button remain starter-or-admin-only regardless of this flag.
   stats: {
     enabled: true,
     trackMovies: true,

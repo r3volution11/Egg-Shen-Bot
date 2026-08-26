@@ -135,6 +135,23 @@ At least one of `minutes` or `enabled` must be provided; both can be set togethe
 
 ---
 
+#### Timer Control
+
+```
+/eggshen-config settings timer-control anyone-can-pause-stop:<true/false>
+```
+
+Choose whether **any** member can pause, resume, or stop a timer in this server, instead of only the person who started it plus administrators/moderators (the default). Useful for servers where the timer starter isn't always available to react. This does **not** extend to `/timer adjust` or `/timer autostop` — those always require the starter or an admin/mod, regardless of this setting, since they change the timer's configuration rather than just starting/stopping it.
+
+- `anyone-can-pause-stop` (required) — `true` to let any member pause/resume/stop timers, `false` to restrict it to the starter/admins/mods (the default).
+
+**Example:**
+```
+/eggshen-config settings timer-control anyone-can-pause-stop:true
+```
+
+---
+
 ### Stats Group
 
 Statistics tracking configuration.

@@ -128,6 +128,17 @@ export const data = new SlashCommandBuilder()
               .setRequired(false)
           )
       )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('timer-control')
+          .setDescription('Choose who can pause/resume/stop timers in this server')
+          .addBooleanOption(option =>
+            option
+              .setName('anyone-can-pause-stop')
+              .setDescription('Allow any member to pause/resume/stop a timer, not just the starter or admins/mods')
+              .setRequired(true)
+          )
+      )
   )
   // ========== STATS GROUP ==========
   .addSubcommandGroup(group =>
@@ -912,6 +923,9 @@ export async function execute(interaction) {
     const timerCeilingDisplay = config.timerCeilingEnabled && config.timerCeilingMinutes
       ? `${config.timerCeilingMinutes} minutes`
       : 'Off (no maximum)';
+    const timerControlDisplay = config.allowAnyonePauseStopTimer
+      ? 'Anyone can pause/resume/stop'
+      : 'Starter or admin/mod only';
 
     // Rate limiting display
     const rateLimitEnabled = config.rateLimits?.enabled ?? true;
@@ -967,6 +981,11 @@ export async function execute(interaction) {
       .addFields({
         name: 'Timer Ceiling (explicit/detected durations)',
         value: `⏱️ **${timerCeilingDisplay}** (use \`/eggshen-config settings timer-ceiling minutes:<n> enabled:true\` to change)`,
+        inline: false,
+      })
+      .addFields({
+        name: 'Timer Pause/Stop Control',
+        value: `⏸️ **${timerControlDisplay}** (use \`/eggshen-config settings timer-control anyone-can-pause-stop:true\` to change)`,
         inline: false,
       })
       .addFields({
@@ -1269,6 +1288,21 @@ export async function execute(interaction) {
     const summary = effectiveEnabled
       ? `Timers on this server are now capped at **${config.timerCeilingMinutes} minutes**, even if a user typed a longer duration or the bot auto-detected a longer runtime.`
       : 'Timers on this server can now be started at any duration — no ceiling is enforced on explicit or auto-detected durations.';
+
+    await interaction.reply({
+      content: `✅ ${summary}`,
+      ephemeral: true,
+    });
+  } else if (group === 'settings' && subcommand === 'timer-control') {
+    const anyoneCanPauseStop = interaction.options.getBoolean('anyone-can-pause-stop');
+
+    const config = await loadGuildConfig(guildId);
+    config.allowAnyonePauseStopTimer = anyoneCanPauseStop;
+    await saveGuildConfig(guildId, config);
+
+    const summary = anyoneCanPauseStop
+      ? 'Any member can now pause, resume, or stop a timer in this server — not just the person who started it or an admin/mod. Adjusting duration or auto-stop settings still requires the starter or an admin/mod.'
+      : 'Only the timer\'s starter or server administrators/moderators can pause, resume, or stop a timer (back to the default).';
 
     await interaction.reply({
       content: `✅ ${summary}`,
