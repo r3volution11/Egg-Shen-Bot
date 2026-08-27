@@ -258,6 +258,18 @@ export const data = new SlashCommandBuilder()
           .setDescription('Optional label for the timer (e.g., "Movie night", "Break time")')
           .setRequired(false)
       )
+      .addStringOption(option =>
+        option
+          .setName('movie')
+          .setDescription('Movie title to look up and time automatically (alternative to label)')
+          .setRequired(false)
+      )
+      .addStringOption(option =>
+        option
+          .setName('tv')
+          .setDescription('TV show title to look up (optionally with episodes, e.g. "S5E5-E8") — alternative to label')
+          .setRequired(false)
+      )
       .addIntegerOption(option =>
         option
           .setName('duration')
@@ -378,6 +390,8 @@ export async function execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     
     let label = interaction.options.getString('label') || '';
+    const movieOption = interaction.options.getString('movie') || '';
+    const tvOption = interaction.options.getString('tv') || '';
     let duration = interaction.options.getInteger('duration'); // Duration in minutes
     const theme = interaction.options.getString('theme') || 'modern';
     const userId = interaction.user.id;
@@ -386,8 +400,22 @@ export async function execute(interaction) {
     let noRuntimeFound = false;
     let episodeRangeBreakdown = null; // set when duration came from summing a multi-episode range
 
-    // Auto-detect event title if no manual label provided
-    if (!label) {
+    // At most one of label/movie/tv may be given — each is a different way
+    // of saying "here's what's playing," so more than one is an ambiguous
+    // request rather than something to silently prioritize.
+    const providedOptionCount = [label, movieOption, tvOption].filter(Boolean).length;
+    if (providedOptionCount > 1) {
+      await interaction.editReply({
+        content: '❌ Use only one of `label`, `movie`, or `tv` — not more than one.',
+      });
+      return;
+    }
+
+    const explicitType = movieOption ? 'movie' : (tvOption ? 'tv' : null);
+
+    // Auto-detect event title if no manual label provided (skipped entirely
+    // when movie/tv was given explicitly — there's no ambiguity to resolve).
+    if (!label && !explicitType) {
       const watchPartyChannels = guildConfig.watchPartyChannels || [];
 
       console.log(`[Timer] No manual label provided. Checking for auto-detection...`);
@@ -411,12 +439,175 @@ export async function execute(interaction) {
       console.log(`[Timer] Manual label provided: "${label}"`);
     }
 
+    // Explicit movie:/tv: option: the user told us the type up front, so
+    // there's no ambiguity to resolve — skip straight to a single-type
+    // search instead of the movie+TV+boardgame merge below. This also makes
+    // the landslide auto-select more reliable, since it no longer needs the
+    // "other types came back empty" gate the merged search relies on.
+    if (explicitType && !duration) {
+      const query = explicitType === 'movie' ? movieOption : tvOption;
+
+      if (explicitType === 'tv') {
+        const explicitRange = parseEpisodeRange(query);
+        if (explicitRange) {
+          console.log(`[Timer] Detected episode range in tv option "${query}": S${explicitRange.season} E${explicitRange.episodeStart}-E${explicitRange.episodeEnd} (show: "${explicitRange.showName}")`);
+          try {
+            const showResults = await hybridSearch(explicitRange.showName, searchTVShows, 'tv', getTVAlternativeTitles);
+            const landslideShow = showResults.length > 1 ? pickLandslideWinner(showResults) : null;
+
+            if (!showResults || showResults.length === 0) {
+              console.log(`[Timer] No show found for "${explicitRange.showName}", continuing without duration`);
+              label = explicitRange.showName;
+              noRuntimeFound = true;
+            } else if (showResults.length === 1 || landslideShow) {
+              const show = landslideShow || showResults[0];
+              label = show.name;
+              const result = await resolveEpisodeRangeDuration(show.id, explicitRange);
+              if (result) {
+                duration = result.duration;
+                episodeRangeBreakdown = result.breakdown;
+              } else {
+                noRuntimeFound = true;
+              }
+            } else {
+              console.log(`[Timer] Found ${showResults.length} shows matching "${explicitRange.showName}", showing selection menu`);
+
+              const options = showResults.slice(0, 24).map((result) => {
+                const title = result.name;
+                const year = result.first_air_date;
+                const yearStr = year ? ` (${year.split('-')[0]})` : '';
+                const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
+
+                return {
+                  label: `${title}${yearStr}`.substring(0, 100),
+                  description: overview.substring(0, 100),
+                  value: `timer_tv_${result.id}_${theme}_range_${explicitRange.season}_${explicitRange.episodeStart}_${explicitRange.episodeEnd}`,
+                };
+              });
+
+              options.push({
+                label: '⏭️ Skip - Start Timer Without Duration',
+                description: 'Timer will run continuously until manually stopped',
+                value: `timer_skip_${theme}`,
+              });
+
+              const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('timer_select_runtime')
+                .setPlaceholder('Select the correct show')
+                .addOptions(options);
+
+              const row = new ActionRowBuilder().addComponents(selectMenu);
+
+              const embed = new EmbedBuilder()
+                .setColor(0x0099FF)
+                .setTitle(`🎬 Confirm Show for "${explicitRange.showName}" (S${explicitRange.season} E${explicitRange.episodeStart}-E${explicitRange.episodeEnd})`)
+                .setDescription(
+                  `Found ${showResults.length} possible matches.\n\n` +
+                  `**Select the correct show** to sum episodes ${explicitRange.episodeStart}-${explicitRange.episodeEnd} and add a 10-minute buffer.\n\n` +
+                  `Or choose "Skip" to start the timer without a duration (continuous until stopped).`
+                )
+                .setFooter({ text: 'Select from the menu below' });
+
+              await interaction.editReply({ embeds: [embed], components: [row] });
+              return;
+            }
+          } catch (error) {
+            console.error('[Timer] Error detecting episode range runtime:', error);
+          }
+
+          // Range notation was found and handled above (resolved, picker
+          // shown and returned, or failed gracefully with label/noRuntimeFound
+          // set) — the `!label` guard below skips the plain search as a result.
+        }
+      }
+
+      // Plain single-type search — runs for movie:, or for tv: when the
+      // value didn't match episode-range notation (a plain show name).
+      if (!label && !duration && !noRuntimeFound) {
+        const searchFn = explicitType === 'movie' ? searchMovies : searchTVShows;
+        const altTitlesFn = explicitType === 'movie' ? getMovieAlternativeTitles : getTVAlternativeTitles;
+
+        try {
+          const results = await hybridSearch(query, searchFn, explicitType, altTitlesFn);
+          const landslideWinner = results.length > 1 ? pickLandslideWinner(results) : null;
+
+          if (!results || results.length === 0) {
+            console.log(`[Timer] No ${explicitType} found for "${query}", continuing without duration`);
+            label = query;
+            noRuntimeFound = true;
+          } else if (results.length === 1 || landslideWinner) {
+            const result = landslideWinner || results[0];
+            label = result.title || result.name;
+            console.log(`[Timer] Found single ${explicitType} match: ${label}`);
+
+            let runtime = null;
+            if (explicitType === 'movie') {
+              const details = await getMovieDetails(result.id);
+              runtime = details?.runtime;
+            } else {
+              const details = await getTVShowDetails(result.id);
+              runtime = details?.episode_run_time?.[0];
+            }
+
+            if (runtime && runtime > 0) {
+              duration = runtime + 10;
+              console.log(`[Timer] ✅ Auto-detected duration: ${runtime}min + 10min buffer = ${duration}min`);
+            }
+          } else {
+            console.log(`[Timer] Found ${results.length} ${explicitType} results, showing selection menu`);
+
+            const options = results.slice(0, 24).map((result) => {
+              const title = result.title || result.name;
+              const year = result.release_date || result.first_air_date;
+              const yearStr = year ? ` (${year.split('-')[0]})` : '';
+              const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
+
+              return {
+                label: `${title}${yearStr}`.substring(0, 100),
+                description: overview.substring(0, 100),
+                value: `timer_${explicitType}_${result.id}_${theme}`,
+              };
+            });
+
+            options.push({
+              label: '⏭️ Skip - Start Timer Without Duration',
+              description: 'Timer will run continuously until manually stopped',
+              value: `timer_skip_${theme}`,
+            });
+
+            const selectMenu = new StringSelectMenuBuilder()
+              .setCustomId('timer_select_runtime')
+              .setPlaceholder(`Select the correct ${explicitType === 'movie' ? 'movie' : 'show'}`)
+              .addOptions(options);
+
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+
+            const embed = new EmbedBuilder()
+              .setColor(0x0099FF)
+              .setTitle(`🎬 Confirm Title for "${query}"`)
+              .setDescription(
+                `Found ${results.length} possible matches.\n\n` +
+                `**Select the correct title** to auto-detect runtime and add a 10-minute buffer.\n\n` +
+                `Or choose "Skip" to start the timer without a duration (continuous until stopped).`
+              )
+              .setFooter({ text: 'Select from the menu below' });
+
+            await interaction.editReply({ embeds: [embed], components: [row] });
+            return;
+          }
+        } catch (error) {
+          console.error(`[Timer] Error detecting ${explicitType} runtime:`, error);
+          label = query;
+        }
+      }
+    }
+
     // Episode-range detection: a label like "Tales from the Crypt - S5: E5 -
     // E8" means a single watch party spanning multiple episodes. Detected
     // BEFORE the general movie/TV/boardgame search below, since searching
     // for the raw, unparsed label (range notation and all) would rarely
     // match well against the show name alone.
-    const episodeRange = !duration && label ? parseEpisodeRange(label) : null;
+    const episodeRange = !duration && label && !explicitType ? parseEpisodeRange(label) : null;
 
     if (episodeRange) {
       console.log(`[Timer] Detected episode range in "${label}": S${episodeRange.season} E${episodeRange.episodeStart}-E${episodeRange.episodeEnd} (show: "${episodeRange.showName}")`);

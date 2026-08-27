@@ -120,15 +120,19 @@ Start simple stopwatch timers for watch parties.
 ### Start a Timer
 
 ```
-/timer start label:[optional] duration:[optional] theme:[optional]
+/timer start label:[optional] movie:[optional] tv:[optional] duration:[optional] theme:[optional]
 ```
 
 **Parameters:**
-- `label` (optional) - Label for what you're watching (e.g., "Movie night", "The Matrix")
+- `label` (optional) - Label for what you're watching (e.g., "Movie night", "The Matrix"). Also triggers a movie/TV/board-game runtime lookup — see below
+- `movie` (optional) - Movie title to look up and time automatically. An alternative to `label` for when you specifically mean a movie — skips the ambiguous merged search and goes straight to a movie-only lookup
+- `tv` (optional) - TV show title to look up, optionally with an episode or episode range (e.g. `"The Office"` or `"Tales from the Crypt S5E5-E8"`) — an alternative to `label` for TV specifically
 - `duration` (optional) - Duration in minutes (1-1440) for auto-stop timer — used exactly as given by default (see [Timer Durations & the Expiry Warning](#timer-durations-the-expiry-warning) below for the one case where the bot picks a duration for you)
 - `theme` (optional) - Timer countdown theme (default: modern)
   - `modern` - Colorful animated countdown (default)
   - `classic` - Sequential text countdown like the original bot
+
+Use only **one** of `label`, `movie`, or `tv` — providing more than one is rejected with an error, since each is a different way of saying what's playing. `label` still works exactly as it always has (including auto-detecting from a channel's linked event, and searching movies/TV/board games together) — `movie`/`tv` exist for when you already know the type and want to skip the ambiguity, e.g. if a movie and a TV show happen to share a name.
 
 **Features:**
 - **Discord Event Auto-Detection:** Bot checks server's scheduled events - if one is linked to the current channel, automatically uses event title as timer label
@@ -147,6 +151,9 @@ Start simple stopwatch timers for watch parties.
 ```
 /timer start label:The Lord of the Rings duration:190
 /timer start label:Movie Night theme:classic
+/timer start movie:The Thing
+/timer start tv:The Office
+/timer start tv:"Tales from the Crypt S5E5-E8"
 /timer start duration:30
 /timer start
 ```

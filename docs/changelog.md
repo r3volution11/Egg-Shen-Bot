@@ -5,6 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.18.2 - 2026-08-27
+
+### Added
+- **`/timer start` gained `movie` and `tv` options** as an alternative to `label` — an explicit way to say "this is a movie" or "this is a TV show" instead of typing free text into `label` and letting the bot search movies, TV, and board games all at once. This skips the ambiguous merged search entirely (useful when a movie and a TV show happen to share a name) and makes the decisive-match auto-selection more reliable, since a single-type search doesn't need to wait on the other types coming back empty first. `tv` also accepts episode-range notation (e.g. `tv:"Tales from the Crypt S5E5-E8"`), resolved exactly the same way typing that into `label` already works. Only one of `label`/`movie`/`tv` may be used at a time — providing more than one is rejected with a clear error. `label` itself is completely unchanged
+
+### Developer
+- New explicit-type branch in `timer.js`'s `start` handler, inserted before the existing channel-auto-detect/episode-range/general-search blocks and gated to run only when `movie`/`tv` was provided (those blocks are otherwise untouched, since they only ever fire when `label` is set — which stays empty when `movie`/`tv` is used instead)
+- Reuses `hybridSearch`, `pickLandslideWinner`, `parseEpisodeRange`, and `resolveEpisodeRangeDuration` as-is; the resulting picker option values (`timer_movie_<id>_<theme>`, `timer_tv_<id>_<theme>`, and the range-suffixed shape) match what `selectHandler.js`'s existing `timer_select_runtime` dispatch already understands, so no handler changes were needed
+
 ## 2.18.1 - 2026-08-25
 
 ### Added
