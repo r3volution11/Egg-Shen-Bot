@@ -215,6 +215,23 @@ header h1 {
     color: var(--primary-color);
 }
 
+/* Event image crop */
+#image-crop-container {
+    margin-top: 12px;
+}
+
+#image-crop-wrapper {
+    max-height: 50vh;
+    background: var(--input-bg);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+#image-crop-target {
+    display: block;
+    max-width: 100%;
+}
+
 /* Event image upload status */
 .image-upload-status {
     margin-top: 8px;

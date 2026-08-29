@@ -29,6 +29,7 @@ if (!GUILD_ID || GUILD_ID === 'YOUR_GUILD_ID_HERE') {
 let currentUser = null;
 let guildConfig = null;
 let uploadedImageToken = null;
+let cropper = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -99,37 +100,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const imageFileInput = document.getElementById('event-image-file');
     const imageUrlInput = document.getElementById('event-image-url');
     const imageUploadStatus = document.getElementById('image-upload-status');
+    const imageCropContainer = document.getElementById('image-crop-container');
+    const imageCropTarget = document.getElementById('image-crop-target');
 
-    imageUrlInput.addEventListener('input', () => {
-        if (imageUrlInput.value.trim()) {
-            imageFileInput.value = '';
-            imageFileInput.disabled = true;
-            uploadedImageToken = null;
-            imageUploadStatus.style.display = 'none';
-        } else {
-            imageFileInput.disabled = false;
-        }
-    });
-
-    imageFileInput.addEventListener('change', async () => {
-        uploadedImageToken = null;
-
-        if (!imageFileInput.files.length) {
-            imageUploadStatus.style.display = 'none';
-            imageUrlInput.disabled = false;
-            return;
-        }
-
-        imageUrlInput.value = '';
-        imageUrlInput.disabled = true;
-
+    // Uploads a given image blob (the cropped output, not necessarily the
+    // raw selected file) and records the returned token. Shared by the
+    // initial auto-crop-and-upload on file select and every subsequent
+    // re-crop-and-re-upload.
+    async function uploadImageBlob(blob) {
         imageUploadStatus.style.display = 'block';
         imageUploadStatus.className = 'image-upload-status';
         imageUploadStatus.textContent = 'Uploading image...';
 
         try {
             const fileData = new FormData();
-            fileData.append('image', imageFileInput.files[0]);
+            fileData.append('image', blob, 'event-image.jpg');
 
             const response = await fetch(`${API_BASE_URL}/event-request/upload-image`, {
                 method: 'POST',
@@ -163,9 +148,73 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('Error uploading image:', error);
             imageUploadStatus.className = 'image-upload-status error';
             imageUploadStatus.textContent = `❌ ${error.message}`;
-            imageFileInput.value = '';
-            imageUrlInput.disabled = false;
         }
+    }
+
+    function uploadCurrentCrop() {
+        if (!cropper) return;
+        cropper.getCroppedCanvas({ width: 1280, height: 720 }).toBlob(blob => {
+            if (blob) uploadImageBlob(blob);
+        }, 'image/jpeg', 0.9);
+    }
+
+    let cropUploadDebounceTimer = null;
+    function scheduleUploadCurrentCrop() {
+        clearTimeout(cropUploadDebounceTimer);
+        cropUploadDebounceTimer = setTimeout(uploadCurrentCrop, 800);
+    }
+
+    function resetImageCropState() {
+        cropper?.destroy();
+        cropper = null;
+        imageCropContainer.style.display = 'none';
+    }
+
+    imageUrlInput.addEventListener('input', () => {
+        if (imageUrlInput.value.trim()) {
+            imageFileInput.value = '';
+            imageFileInput.disabled = true;
+            uploadedImageToken = null;
+            imageUploadStatus.style.display = 'none';
+            resetImageCropState();
+        } else {
+            imageFileInput.disabled = false;
+        }
+    });
+
+    imageFileInput.addEventListener('change', () => {
+        uploadedImageToken = null;
+        resetImageCropState();
+
+        if (!imageFileInput.files.length) {
+            imageUploadStatus.style.display = 'none';
+            imageUrlInput.disabled = false;
+            return;
+        }
+
+        imageUrlInput.value = '';
+        imageUrlInput.disabled = true;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            imageCropContainer.style.display = 'block';
+            imageCropTarget.src = reader.result;
+            cropper = new Cropper(imageCropTarget, {
+                aspectRatio: 16 / 9,
+                viewMode: 1,
+                autoCropArea: 1,
+                ready() {
+                    // Upload the initial auto-crop right away so a user who
+                    // never touches the crop box still gets a working
+                    // upload — cropping is optional, not mandatory.
+                    uploadCurrentCrop();
+                },
+                cropend() {
+                    scheduleUploadCurrentCrop();
+                },
+            });
+        };
+        reader.readAsDataURL(imageFileInput.files[0]);
     });
 
     // Set min date to today
@@ -571,11 +620,14 @@ async function handleSubmit(e) {
         document.getElementById('event-form').reset();
 
         // Reset image state — form.reset() clears the input values but not
-        // our JS-tracked token or the disabled/status side effects.
+        // our JS-tracked token or the disabled/status/cropper side effects.
         uploadedImageToken = null;
+        cropper?.destroy();
+        cropper = null;
         document.getElementById('event-image-file').disabled = false;
         document.getElementById('event-image-url').disabled = false;
         document.getElementById('image-upload-status').style.display = 'none';
+        document.getElementById('image-crop-container').style.display = 'none';
         
         // Scroll to message
         document.getElementById('form-message').scrollIntoView({ behavior: 'smooth' });

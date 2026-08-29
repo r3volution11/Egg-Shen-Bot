@@ -494,6 +494,9 @@ client.on('interactionCreate', async (interaction) => {
           editedEmbed.data.fields[descriptionFieldIndex].value = requestData.description || 'No description provided';
         }
 
+        const { applyImageStatusToEmbed } = await import('./utils/eventImageStore.js');
+        applyImageStatusToEmbed(editedEmbed, requestData);
+
         await interaction.message.edit({ embeds: [editedEmbed] }).catch(() => {});
       }
 

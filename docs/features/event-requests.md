@@ -86,6 +86,10 @@ API_PORT=3000
 OAUTH_REDIRECT_URI=https://yourdomain.com/api/auth/discord/callback
 FORM_URL=https://yourdomain.com
 ALLOWED_ORIGINS=https://yourdomain.com
+
+# Powers the moderator "Crop Image" link button — see Moderator section below
+EVENT_CROP_LINK_SECRET=your_generated_secret_here
+PUBLIC_BOT_URL=https://yourdomain.com
 ```
 
 ::: tip Local Testing
@@ -349,6 +353,8 @@ Text and voice whitelists are **independent**:
 
 ::: tip Event Image
 Uploading a file happens immediately when you pick it, before you submit the rest of the form — this surfaces upload problems (wrong file type, too large) right away instead of at final submission. PNG, JPEG, GIF, and WebP are supported, up to 8MB. If you'd rather not upload a file, paste a direct image URL instead. Providing neither is fine too — moderators can always add or change the image when they approve your request (see below).
+
+When you select a file, a crop tool appears automatically, pre-framed to match Discord's event cover shape — you can submit right away or drag to adjust the framing first. This only applies to uploaded files, not pasted URLs.
 :::
 
 ::: tip Channel Selection
@@ -385,6 +391,17 @@ Saving the edit both updates the request **and approves it in the same step** �
 If you want to review the edit before it goes live, or need to change something Edit doesn't cover, deny the request instead and ask the submitter to resubmit — editing is meant for quick corrections a moderator is comfortable approving outright, not a staging step.
 
 Editing does not touch the requested start/end time. If the time also needs correcting, edit and approve first, then use the **Event URL** included in the confirmation to open Discord's own event editor and adjust the schedule there — Discord's editor handles timezones correctly for every viewer, which a text-only edit form cannot.
+
+### Cropping or Replacing the Image
+
+Every event request in the moderation channel shows a **🖼️ Crop Image** link button alongside Approve/Edit/Deny (if `PUBLIC_BOT_URL` and `EVENT_CROP_LINK_SECRET` are configured — see [setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md)). Clicking it opens a small page — no login needed, the link itself is what authorizes you — where you can:
+- Adjust the framing of whatever image the submitter already provided
+- Upload a completely different image and crop that instead
+- Add an image to a request that didn't have one at all
+
+The link is tied to that one request and works for about 30 minutes; clicking Edit again on the request generates a fresh one if it's expired. Once you save a crop, it becomes the image used when the request is approved — this is a separate, more visual alternative to typing a plain URL into the Edit modal's **Image URL** field, which still works too for a quick direct swap.
+
+The moderation-channel embed shows a **🖼️ Image** field (`✅ Uploaded`, `🔗 Linked (URL)`, or `❌ None`) so you can see at a glance whether a request has an image before deciding whether to crop, override, or leave it as-is.
 
 ### Denying with a Reason
 
@@ -600,6 +617,9 @@ The bot exposes these endpoints for the event request system:
 | `/api/channels/:guildId` | GET | List voice/stage channels |
 | `/api/event-request/upload-image` | POST | Upload an event image ahead of submission (returns a token) |
 | `/api/event-request` | POST | Submit event request |
+| `/crop/:requestId` | GET | Moderator crop page (signed-token gated) |
+| `/crop/:requestId/current-image` | GET | The request's currently-attached image, for pre-loading the cropper |
+| `/crop/:requestId/save` | POST | Save a moderator's cropped image (single-use signed token) |
 
 ## Best Practices
 

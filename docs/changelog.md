@@ -5,6 +5,24 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.20.0 - 2026-08-29
+
+### Fixed
+- **Uploaded event images now actually attach to the created Discord event.** The previous release's image-upload feature worked correctly in every isolated test, but nginx's default 1MB request body limit was silently rejecting real-sized image uploads before they ever reached the bot — confirmed and fixed on the production deployment (nginx's `client_max_body_size` raised to 10MB for the API route), with the requirement documented so other deployments don't hit the same silent failure. The upload form now also shows a clear message instead of a confusing raw error if a proxy rejects an upload before the bot's own response can come back
+
+### Added
+- **Uploaded event images can now be cropped.** Selecting a file on the web form shows an in-browser crop tool, pre-framed to Discord's 16:9 event-cover shape — submit right away or drag to adjust first. Applies to uploaded files only (pasted image URLs submit as before)
+- **Moderators can crop or replace an event's image directly from Discord.** Each request in the moderation channel now has a "🖼️ Crop Image" link button — no login needed, the link itself (signed, single-use, expires in ~30 minutes) is what authorizes access. Opens a small page to adjust the submitter's image or upload and crop a different one, including adding an image to a request that didn't have one
+- The moderation-channel embed now shows an **🖼️ Image** status field (`✅ Uploaded` / `🔗 Linked (URL)` / `❌ None`) so moderators can see at a glance whether a request has an image before approving
+- The web form's Event Title field now hints at including the release year in parentheses (e.g. "Tragedy Girls (2017)"), which helps the bot's title-matching correctly identify the exact movie, show, or game later on
+
+### Developer
+- New `src/utils/cropLinkToken.js` — dependency-free HMAC-SHA256 signed tokens (via Node's built-in `crypto`, using `crypto.timingSafeEqual` for comparison) scoping the moderator crop page to one request, with in-memory single-use tracking
+- Three new routes in `server.js`: `GET /crop/:requestId` (the crop page), `GET /crop/:requestId/current-image` (streams the existing image for pre-loading), `POST /crop/:requestId/save` (saves the cropped result) — gated by the signed token rather than the public per-IP rate limiter, and served from a newly-added but narrowly-scoped `/crop-assets` static mount (`public/crop/`) rather than exposing all of `public/` from the bot's own origin
+- New required env vars for this feature: `EVENT_CROP_LINK_SECRET` (signing key) and `PUBLIC_BOT_URL` (the bot API's own externally-reachable origin, distinct from the separately-hosted form's `FORM_URL`) — both optional; the "Crop Image" button is simply omitted if unset
+- Fixed two latent gotchas in `eventImageStore.js`'s overwrite path while building the crop-save route: replacing an image under a different file extension no longer leaves the old file orphaned on disk (`deleteImage()` before `saveUploadedImage()`), and `recordEventDate()` is now re-called after an overwrite so a freshly-cropped image doesn't lose its retention-sweep eligibility
+- Cropper.js v1 (CDN, no new dependency) powers both the submission-form and moderator crop UIs; the submission form uploads on the initial auto-crop and again (debounced ~800ms) on further adjustment, refactored into a shared `uploadImageBlob()` helper in `app.js`
+
 ## 2.19.0 - 2026-08-28
 
 ### Added

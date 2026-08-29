@@ -6,6 +6,7 @@
     <title>Request a Watch Party Event</title>
     <meta name="description" content="Submit a watch party event request for Discord">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1/dist/cropper.min.css">
 </head>
 <body>
     <div class="container">
@@ -37,9 +38,9 @@
         <form id="event-form" style="display:none;">
             <div class="form-group">
                 <label for="title">Event Title *</label>
-                <input type="text" id="title" name="title" required 
-                       placeholder="e.g., Friday Night Frights: The Thing">
-                <small>The name of your watch party event</small>
+                <input type="text" id="title" name="title" required
+                       placeholder="e.g., Tragedy Girls (2017)">
+                <small>The name of your watch party event — including the release year in parentheses (e.g., "(2017)") helps the bot correctly identify the exact movie, show, or game</small>
             </div>
 
             <div class="form-group">
@@ -53,6 +54,12 @@
                 <label for="event-image-file">Event Image</label>
                 <input type="file" id="event-image-file" name="eventImageFile" accept="image/png,image/jpeg,image/gif,image/webp">
                 <small>Optional: Upload a cover image for the event (PNG, JPEG, GIF, or WebP, max 8MB)</small>
+                <div id="image-crop-container" style="display:none;">
+                    <div id="image-crop-wrapper">
+                        <img id="image-crop-target" alt="Selected event image">
+                    </div>
+                    <small>Drag to reposition, or resize the corners to adjust framing</small>
+                </div>
                 <div id="image-upload-status" class="image-upload-status" style="display:none;"></div>
             </div>
 
@@ -146,6 +153,7 @@
         </footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1/dist/cropper.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

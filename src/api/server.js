@@ -4,7 +4,15 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
 import { loadGuildConfig } from '../utils/guildConfig.js';
-import { saveUploadedImage, renameImageKey } from '../utils/eventImageStore.js';
+import {
+  saveUploadedImage,
+  renameImageKey,
+  getImagePath,
+  deleteImage,
+  recordEventDate,
+  applyImageStatusToEmbed,
+} from '../utils/eventImageStore.js';
+import { signCropToken, verifyCropToken, consumeCropToken } from '../utils/cropLinkToken.js';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -485,6 +493,144 @@ export function createApiServer(client) {
     });
   });
 
+  // Serve the moderator crop page's own JS/CSS from a scoped subfolder —
+  // deliberately NOT a blanket express.static('public') mount, since that
+  // would newly expose index.html/app.js/style.css from the bot's own
+  // origin as a side effect (today those are only reachable via each
+  // operator's separately-hosted deployment). Scoping to public/crop/ avoids
+  // that question entirely.
+  app.use('/crop-assets', express.static(path.join(__dirname, '../../public/crop')));
+
+  const EXTENSION_MIMETYPES = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+  };
+
+  // Moderator crop page — reached via the "Crop Image" link button on the
+  // moderation-channel message, gated by a signed single-use token instead
+  // of a login (a moderator is clicking a link from a Discord message, not
+  // authenticating). GET requests use verifyCropToken (not consumeCropToken)
+  // so reloading the page doesn't burn the token — only a successful save does.
+  app.get('/crop/:requestId', (req, res) => {
+    const { requestId } = req.params;
+    const { token } = req.query;
+
+    const result = verifyCropToken(token, requestId);
+    if (!result.valid) {
+      return res.status(403).type('text/plain').send('This crop link is invalid or has expired. Ask a moderator to open Edit on the request again for a fresh link.');
+    }
+
+    if (!global.eventRequests || !global.eventRequests.has(requestId)) {
+      return res.status(404).type('text/plain').send('This event request no longer exists (it may have already been approved or denied).');
+    }
+
+    res.sendFile(path.join(__dirname, '../../public/crop/crop.html'));
+  });
+
+  // Streams the request's currently-attached uploaded image (if any) so the
+  // crop page can pre-load it into the cropper. Token-gated the same way as
+  // the page itself; does not consume the token.
+  app.get('/crop/:requestId/current-image', async (req, res) => {
+    const { requestId } = req.params;
+    const { token } = req.query;
+
+    const result = verifyCropToken(token, requestId);
+    if (!result.valid) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+
+    try {
+      const filePath = await getImagePath(requestId);
+      if (!filePath) {
+        return res.status(404).json({ error: 'No image uploaded for this request yet' });
+      }
+
+      const ext = path.extname(filePath).toLowerCase();
+      res.type(EXTENSION_MIMETYPES[ext] || 'application/octet-stream');
+      res.sendFile(filePath);
+    } catch (error) {
+      console.error('[EventRequests] Error serving current crop image:', error);
+      res.status(500).json({ error: 'Failed to load current image' });
+    }
+  });
+
+  // Saves a moderator's cropped image, replacing whatever image (if any)
+  // the request had before. Not behind imageUploadLimiter — a valid
+  // single-use token is a much stronger, more specific control than a
+  // per-IP rate limit meant for anonymous public submitters.
+  app.post('/crop/:requestId/save', (req, res) => {
+    const { requestId } = req.params;
+
+    upload.single('image')(req, res, async (err) => {
+      if (err) {
+        const message = err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE'
+          ? 'Image is too large (8MB max).'
+          : err.message || 'Failed to upload image.';
+        return res.status(400).json({ error: message });
+      }
+
+      try {
+        const token = req.body.token;
+        const result = consumeCropToken(token, requestId);
+        if (!result.valid) {
+          return res.status(403).json({ error: 'This crop link is invalid, expired, or has already been used.' });
+        }
+
+        if (!global.eventRequests || !global.eventRequests.has(requestId)) {
+          return res.status(404).json({ error: 'This event request no longer exists.' });
+        }
+
+        if (!req.file) {
+          return res.status(400).json({ error: 'No image file provided' });
+        }
+
+        const requestData = global.eventRequests.get(requestId);
+
+        // Delete before overwrite: saveUploadedImage only overwrites the
+        // manifest entry, not a prior file under a different extension
+        // (e.g. replacing a .jpg with a .png would otherwise leave the old
+        // .jpg orphaned on disk, invisible to the prune functions since
+        // they iterate the manifest, not the directory).
+        await deleteImage(requestId);
+        await saveUploadedImage(requestId, req.file.buffer, req.file.mimetype);
+
+        // saveUploadedImage always resets eventDate to null — re-record it
+        // immediately so the freshly-cropped image doesn't regress to
+        // "no event date" and become permanently un-prunable.
+        const eventDateMs = new Date(requestData.endTime || requestData.startTime).getTime();
+        await recordEventDate(requestId, eventDateMs);
+
+        requestData.hasUploadedImage = true;
+        requestData.imageUrl = null; // cropping only makes sense against a concrete file
+        await saveEventRequests();
+
+        // Refresh the moderation-channel embed's image-status field so it
+        // reflects the crop without a moderator needing to reload/guess.
+        try {
+          if (requestData.channelMessageId && requestData.messageId) {
+            const modChannel = await client.channels.fetch(requestData.channelMessageId).catch(() => null);
+            const modMessage = await modChannel?.messages.fetch(requestData.messageId).catch(() => null);
+            if (modMessage && modMessage.embeds[0]) {
+              const { EmbedBuilder } = await import('discord.js');
+              const refreshedEmbed = applyImageStatusToEmbed(new EmbedBuilder(modMessage.embeds[0]), requestData);
+              await modMessage.edit({ embeds: [refreshedEmbed] });
+            }
+          }
+        } catch (embedError) {
+          console.error('[EventRequests] Failed to refresh embed after crop save:', embedError.message);
+        }
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error('[EventRequests] Error saving cropped image:', error);
+        res.status(500).json({ error: 'Failed to save cropped image' });
+      }
+    });
+  });
+
   // Submit event request
   app.post('/api/event-request', eventRequestLimiter, async (req, res) => {
     try {
@@ -580,7 +726,9 @@ export function createApiServer(client) {
       
       // Create embed for mod channel
       const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
-      
+
+      const requestId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
       const embed = new EmbedBuilder()
         .setColor(0xFF6B6B)
         .setTitle('🎬 New Event Request')
@@ -647,13 +795,27 @@ export function createApiServer(client) {
           inline: false
         }
       );
-      
+
+      applyImageStatusToEmbed(embed, { hasUploadedImage: !!imageToken, imageUrl: effectiveImageUrl });
+
       embed.setFooter({ text: `Guild: ${guild.name}` });
       embed.setTimestamp();
-      
+
       // Create approval buttons
-      const requestId = `${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      
+      let cropImageButton = null;
+      if (process.env.PUBLIC_BOT_URL) {
+        try {
+          const cropUrl = `${process.env.PUBLIC_BOT_URL}/crop/${requestId}?token=${signCropToken(requestId)}`;
+          cropImageButton = new ButtonBuilder()
+            .setLabel('Crop Image')
+            .setStyle(ButtonStyle.Link)
+            .setEmoji('🖼️')
+            .setURL(cropUrl);
+        } catch (error) {
+          console.error('[EventRequests] Failed to build crop-image link (is EVENT_CROP_LINK_SECRET set?):', error.message);
+        }
+      }
+
       let buttons;
       if (voiceChannelId) {
         // If voice channel requested, offer granular approval options
@@ -678,7 +840,8 @@ export function createApiServer(client) {
               .setCustomId(`deny_event_${requestId}`)
               .setLabel('Deny')
               .setStyle(ButtonStyle.Danger)
-              .setEmoji('❌')
+              .setEmoji('❌'),
+            ...(cropImageButton ? [cropImageButton] : [])
           );
       } else {
         // Text-only request, simple approve/deny
@@ -698,10 +861,11 @@ export function createApiServer(client) {
               .setCustomId(`deny_event_${requestId}`)
               .setLabel('Deny')
               .setStyle(ButtonStyle.Danger)
-              .setEmoji('❌')
+              .setEmoji('❌'),
+            ...(cropImageButton ? [cropImageButton] : [])
           );
       }
-      
+
       // Send to moderation channel
       const message = await modChannel.send({ 
         embeds: [embed], 

@@ -217,3 +217,44 @@ export async function pruneOrphanedUploads(maxAgeMs = 8 * 24 * 60 * 60 * 1000) {
 
   return deletedCount;
 }
+
+const IMAGE_STATUS_FIELD_NAME = '🖼️ Image';
+
+/**
+ * Computes the current image-status text for a request — shown as a field
+ * on the moderation-channel embed so moderators have visibility into
+ * whether an image is attached before approving (text-only, not a visual
+ * thumbnail: Discord's embed thumbnail fetcher can't carry the crop-link's
+ * auth token, and adding an unauthenticated image route just for a preview
+ * isn't worth it when a status line already closes the real gap).
+ * @param {object} requestData - { hasUploadedImage, imageUrl }
+ * @returns {string}
+ */
+function computeImageStatusText(requestData) {
+  if (requestData.hasUploadedImage) return '✅ Uploaded';
+  if (requestData.imageUrl) return '🔗 Linked (URL)';
+  return '❌ None';
+}
+
+/**
+ * Adds or updates the image-status field on a moderation-channel embed, in
+ * place. Safe to call repeatedly on the same embed (find-and-replace by
+ * field name, mirroring the existing description-field refresh pattern in
+ * index.js's edit-modal handler) so re-applying after a crop/edit doesn't
+ * duplicate the field.
+ * @param {import('discord.js').EmbedBuilder} embed
+ * @param {object} requestData - { hasUploadedImage, imageUrl }
+ */
+export function applyImageStatusToEmbed(embed, requestData) {
+  const value = computeImageStatusText(requestData);
+  const fields = embed.data.fields || [];
+  const existingIndex = fields.findIndex(f => f.name === IMAGE_STATUS_FIELD_NAME);
+
+  if (existingIndex !== -1) {
+    fields[existingIndex].value = value;
+  } else {
+    embed.addFields({ name: IMAGE_STATUS_FIELD_NAME, value, inline: true });
+  }
+
+  return embed;
+}

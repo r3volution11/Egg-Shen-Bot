@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crop Event Image</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1/dist/cropper.min.css">
+    <link rel="stylesheet" href="/crop-assets/crop.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🖼️ Crop Event Image</h1>
+            <p class="subtitle">Adjust the framing, then save</p>
+        </header>
+
+        <div id="loading-message">Loading...</div>
+
+        <div id="crop-section" style="display:none;">
+            <div id="crop-wrapper">
+                <img id="crop-target" alt="Event image to crop">
+            </div>
+
+            <div class="form-group">
+                <label for="replace-file">Or upload a different image</label>
+                <input type="file" id="replace-file" accept="image/png,image/jpeg,image/gif,image/webp">
+            </div>
+
+            <button type="button" id="save-btn" class="btn btn-submit">Save Cropped Image</button>
+            <div id="result-message" class="message" style="display:none;"></div>
+        </div>
+
+        <div id="empty-state" style="display:none;">
+            <p>This request doesn't have an image yet.</p>
+            <div class="form-group" style="margin-top:16px;">
+                <label for="upload-file">Upload an image to crop</label>
+                <input type="file" id="upload-file" accept="image/png,image/jpeg,image/gif,image/webp">
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1/dist/cropper.min.js"></script>
+    <script src="/crop-assets/crop.js"></script>
+</body>
+</html>

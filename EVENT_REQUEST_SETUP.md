@@ -26,7 +26,10 @@ The Event Request System allows Discord server members to submit watch party eve
    OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/discord/callback
    FORM_URL=http://localhost:8080
    ALLOWED_ORIGINS=http://localhost:8080,https://yourdomain.com
+   EVENT_CROP_LINK_SECRET=your_generated_secret_here
+   PUBLIC_BOT_URL=http://localhost:3000
    ```
+   `EVENT_CROP_LINK_SECRET` and `PUBLIC_BOT_URL` power the moderator image-cropping feature — see [Moderator Image Cropping](#moderator-image-cropping) below.
 
 ## Configuration
 
@@ -49,6 +52,26 @@ Use `/eggshen-config event-requests` subcommands:
 ```
 
 This will give you a link like: `http://localhost:8080?guild=YOUR_GUILD_ID`
+
+## Moderator Image Cropping
+
+Submitters can attach a cover image to their event request (upload or a pasted URL), with an in-browser crop step so most images look right by default. Moderators can also crop or replace the image directly from a "Crop Image" link button on the request in Discord — no need to leave Discord and no login required, since the link is signed and tied to that one request.
+
+This link is generated using `PUBLIC_BOT_URL` (the bot API's own externally-reachable base URL — **not** the same as `FORM_URL`, which is where the separately-hosted form lives) and signed with `EVENT_CROP_LINK_SECRET`:
+
+```env
+EVENT_CROP_LINK_SECRET=your_generated_secret_here
+PUBLIC_BOT_URL=http://localhost:3000
+```
+
+Generate a secret once per deployment:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Keep it independent from `DISCORD_CLIENT_SECRET`/`DISCORD_TOKEN` so it can be rotated on its own. If `EVENT_CROP_LINK_SECRET` or `PUBLIC_BOT_URL` isn't set, the "Crop Image" button is simply omitted from moderation-channel messages — everything else about the event request system works normally.
+
+Each crop link is single-use (one successful save) and expires after 30 minutes; a moderator can always generate a fresh one by reopening the request's Edit modal.
 
 ## Local Testing
 
