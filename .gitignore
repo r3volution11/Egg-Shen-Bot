@@ -23,6 +23,9 @@ active_timers.json
 pending_event_requests.json
 pending_event_channel_selections.json
 
+# Event request images (user-uploaded, runtime state)
+event_request_images/
+
 # Playwright e2e output
 /test-results/
 /playwright-report/

@@ -172,6 +172,10 @@ client.once('clientReady', async () => {
   const { initialize: initTimerScheduler } = await import('./utils/timerScheduler.js');
   initTimerScheduler(client);
 
+  // Initialize event-request image cleanup scheduler
+  const { initialize: initEventImageCleanupScheduler } = await import('./utils/eventImageCleanupScheduler.js');
+  initEventImageCleanupScheduler();
+
   // Start API server for event requests
   const { startApiServer } = await import('./api/server.js');
   const apiPort = process.env.API_PORT || 3000;
@@ -460,6 +464,17 @@ client.on('interactionCreate', async (interaction) => {
       requestData.title = interaction.fields.getTextInputValue('title');
       requestData.description = interaction.fields.getTextInputValue('description') || null;
 
+      // A URL typed here always overrides whatever image source the request
+      // had (upload or user-submitted URL) — blank does NOT clear an
+      // existing image, since this field has no way to distinguish "left
+      // untouched" from "intentionally cleared" once it's already blank by
+      // default for upload-sourced requests.
+      const editedImageUrl = interaction.fields.getTextInputValue('imageUrl');
+      if (editedImageUrl) {
+        requestData.imageUrl = editedImageUrl;
+        requestData.hasUploadedImage = false; // an explicit URL always wins over any prior upload
+      }
+
       const { saveEventRequests } = await import('./api/server.js');
       await saveEventRequests();
 
@@ -528,7 +543,7 @@ client.on('interactionCreate', async (interaction) => {
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } = await import('./utils/eventRequestApproval.js');
+      const { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postEventCreatedNotice } = await import('./utils/eventRequestApproval.js');
 
       try {
         const approvalType = requestData.voiceChannelId ? 'both' : 'full';
@@ -555,6 +570,7 @@ client.on('interactionCreate', async (interaction) => {
           actorTag: interaction.user.tag,
           scheduledEvent,
         });
+        await postEventCreatedNotice(interaction.guild, scheduledEvent, requestData);
 
         const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
         await interaction.editReply({
@@ -856,6 +872,10 @@ async function gracefulShutdown(signal) {
   // Stop timer expiry-warning scheduler
   const { shutdown: shutdownTimerScheduler } = await import('./utils/timerScheduler.js');
   shutdownTimerScheduler();
+
+  // Stop event-request image cleanup scheduler
+  const { shutdown: shutdownEventImageCleanupScheduler } = await import('./utils/eventImageCleanupScheduler.js');
+  shutdownEventImageCleanupScheduler();
 
   // Destroy Discord client
   client.destroy();

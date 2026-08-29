@@ -2,7 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import multer from 'multer';
 import { loadGuildConfig } from '../utils/guildConfig.js';
+import { saveUploadedImage, renameImageKey } from '../utils/eventImageStore.js';
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -174,7 +177,29 @@ export function createApiServer(client) {
     max: 10,
     message: { error: 'Too many requests. Please try again later.' }
   });
-  
+
+  // Rate limiting for image uploads (5 per 5 minutes per IP — generous
+  // enough for retries after a rejected file, tight enough to bound abuse)
+  const imageUploadLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 5,
+    message: { error: 'Too many image uploads. Please wait a few minutes before trying again.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const ALLOWED_IMAGE_MIMETYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+  const upload = multer({
+    storage: multer.memoryStorage(), // buffer only — saveUploadedImage() writes it to disk itself
+    limits: { fileSize: 8 * 1024 * 1024, files: 1 }, // 8MB cap, single file
+    fileFilter: (req, file, cb) => {
+      if (!ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype)) {
+        return cb(new Error('Unsupported image type. Use PNG, JPEG, GIF, or WebP.'));
+      }
+      cb(null, true);
+    },
+  });
+
   // Health check endpoint
   app.get('/api/health', (req, res) => {
     res.json({ 
@@ -424,6 +449,42 @@ export function createApiServer(client) {
     }
   });
   
+  // Upload an event image ahead of submitting the actual request — the form
+  // doesn't have a real requestId yet at this point, so the upload is
+  // stored under a fresh random token, returned to the client, and later
+  // renamed to the real requestId once POST /api/event-request succeeds
+  // (see renameImageKey below). An image uploaded but never followed by a
+  // successful submission is cleaned up by eventImageStore's orphan sweep.
+  app.post('/api/event-request/upload-image', imageUploadLimiter, (req, res) => {
+    // multer's own errors (file too large, wrong type, etc) arrive via a
+    // callback rather than a thrown exception a normal try/catch would see,
+    // so they're handled explicitly here rather than via Express's generic
+    // error middleware, to keep the response shape consistent with the
+    // rest of this API (a JSON { error } body, not an HTML error page).
+    upload.single('image')(req, res, async (err) => {
+      if (err) {
+        const message = err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE'
+          ? 'Image is too large (8MB max).'
+          : err.message || 'Failed to upload image.';
+        return res.status(400).json({ error: message });
+      }
+
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No image file provided' });
+        }
+
+        const imageToken = crypto.randomBytes(16).toString('hex');
+        await saveUploadedImage(imageToken, req.file.buffer, req.file.mimetype);
+
+        res.json({ imageToken });
+      } catch (error) {
+        console.error('[API] Error uploading event image:', error);
+        res.status(500).json({ error: 'Failed to upload image' });
+      }
+    });
+  });
+
   // Submit event request
   app.post('/api/event-request', eventRequestLimiter, async (req, res) => {
     try {
@@ -437,19 +498,26 @@ export function createApiServer(client) {
         endTime,
         frequency,
         submitterUsername,
-        submitterDiscordId
+        submitterDiscordId,
+        imageToken,
+        imageUrl
       } = req.body;
-      
+
       // Get guild config for event requests
       const guildConfig = await loadGuildConfig(guildId);
       const eventRequestConfig = guildConfig.eventRequests || {};
-      
+
       // Validate required fields (channelId is optional if users can't select channels)
       if (!guildId || !title || !startTime || !submitterUsername || !submitterDiscordId) {
-        return res.status(400).json({ 
-          error: 'Missing required fields: guildId, title, startTime, submitterUsername, submitterDiscordId' 
+        return res.status(400).json({
+          error: 'Missing required fields: guildId, title, startTime, submitterUsername, submitterDiscordId'
         });
       }
+
+      // imageToken (uploaded file) and imageUrl (pasted link) are mutually
+      // exclusive image sources from the form — an uploaded file takes
+      // priority if somehow both were sent.
+      const effectiveImageUrl = imageToken ? null : (imageUrl || null);
       
       // Revalidate guild membership at submission time
       const { isMember } = await checkGuildMembership(guildId, submitterDiscordId);
@@ -657,12 +725,23 @@ export function createApiServer(client) {
         submitterUsername,
         submitterDiscordId,
         messageId: message.id,
-        channelMessageId: moderationChannelId
+        channelMessageId: moderationChannelId,
+        hasUploadedImage: !!imageToken,
+        imageUrl: effectiveImageUrl
       });
-      
+
+      // The image (if any) was uploaded under a placeholder token before
+      // this request existed — rename it to the real requestId now so
+      // later lookups (approval, retention) can find it by requestId alone.
+      if (imageToken) {
+        await renameImageKey(imageToken, requestId).catch(err => {
+          console.error('[EventRequests] Failed to rename uploaded image:', err);
+        });
+      }
+
       // Save to disk
       await saveEventRequests();
-      
+
       // Clean up old requests after 7 days
       setTimeout(async () => {
         global.eventRequests.delete(requestId);

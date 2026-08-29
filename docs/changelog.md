@@ -5,6 +5,22 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.19.0 - 2026-08-28
+
+### Added
+- **Event requests can now include a cover image.** On the web form, submitters can upload an image file (PNG, JPEG, GIF, or WebP, up to 8MB) or paste an image URL — uploading happens immediately on file selection, before the rest of the form is submitted, so problems surface right away. Whichever image is provided becomes the created Discord Scheduled Event's cover image
+- **Moderators can set or override the event image when approving a request.** The existing Edit-before-approve modal gained an optional Image URL field — entering a URL there always wins over whatever the submitter provided (upload or URL), letting moderators add an image to a request that had none, or replace one they don't like. Leaving it blank never clears an existing image; it's an override, not a "remove image" control
+- **New `/eggshen-config event-requests event-notice` setting posts a member-facing notice (title, start time, and a link to the event) to a channel of your choice whenever a watch-party event is created.** Off by default — Discord's own Scheduled Event creation already notifies interested members on its own — this is only for servers that want extra visibility in a specific channel. Independent of the existing `announce-decisions` setting, which always posts to the moderation channel for moderators
+- Uploaded event images are automatically deleted ~90 days after their linked event's date has passed (or sooner if the request is never approved), so storage doesn't grow unbounded
+
+### Developer
+- New `src/utils/eventImageStore.js` — local-disk image storage with a JSON manifest tracking each stored image's linked event date, following this codebase's existing flat-file persistence convention (no database). Images are uploaded under a client-generated placeholder token before a request exists, then renamed to the real request ID once submission succeeds
+- New `POST /api/event-request/upload-image` endpoint in `server.js`, backed by `multer` (new dependency) with in-memory buffering, an 8MB/1-file limit, and a PNG/JPEG/GIF/WebP mimetype allowlist; rate-limited to 5 uploads per 5 minutes per IP
+- `POST /api/event-request` gained optional `imageToken`/`imageUrl` fields, mutually exclusive (an uploaded file wins if both are somehow present)
+- New `resolveEventImageBuffer()` in `eventRequestApproval.js` resolves the final image (mod-set URL > uploaded file > user-submitted URL > none) into a `Buffer` before event creation — required because `scheduledEvents.create()`'s `image` option accepts a `Buffer`/base64 data URI, not a raw URL
+- New `src/utils/eventImageCleanupScheduler.js` — a daily (not per-minute, unlike the other schedulers) sweep pruning expired and orphaned uploaded images, wired into `index.js`'s existing scheduler init/shutdown lifecycle
+- New `postEventCreatedNotice()` in `eventRequestApproval.js`, called from all three event-creation call sites (the direct Approve button, the post-channel-selection confirm, and the Edit-modal auto-approve path), gated on the new `eventRequests.eventCreatedNotice.{enabled,channel}` guild config (fails closed on a config-load error, unlike the existing `postApprovalAnnouncement` which fails open)
+
 ## 2.18.2 - 2026-08-27
 
 ### Added

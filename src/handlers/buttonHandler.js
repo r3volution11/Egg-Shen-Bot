@@ -5,7 +5,7 @@ import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
-import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } from '../utils/eventRequestApproval.js';
+import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postEventCreatedNotice } from '../utils/eventRequestApproval.js';
 import { getTimerStatus } from '../utils/timerManager.js';
 import { isAdmin } from '../utils/guildConfig.js';
 
@@ -208,12 +208,25 @@ export async function handleButtonInteraction(interaction) {
         .setValue(requestData.description || '')
         .setRequired(false);
 
+      // Pre-filled with the submitter's own image URL, if they pasted one.
+      // Typing a URL here (new or edited) always takes over as the image
+      // that gets used, including replacing a user-uploaded file. Leaving
+      // it blank does NOT remove an existing upload/URL — there's no "clear
+      // the image" action here, only "optionally override it."
+      const imageUrlInput = new TextInputBuilder()
+        .setCustomId('imageUrl')
+        .setLabel('Image URL (optional — overrides upload too)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(requestData.imageUrl || '')
+        .setRequired(false);
+
       const modal = new ModalBuilder()
         .setCustomId(`edit_event_modal_${requestId}`)
         .setTitle('Edit Event Details')
         .addComponents(
           new ActionRowBuilder().addComponents(titleInput),
-          new ActionRowBuilder().addComponents(descriptionInput)
+          new ActionRowBuilder().addComponents(descriptionInput),
+          new ActionRowBuilder().addComponents(imageUrlInput)
         );
 
       await interaction.showModal(modal);
@@ -372,6 +385,7 @@ export async function handleButtonInteraction(interaction) {
           actorTag: interaction.user.tag,
           scheduledEvent,
         });
+        await postEventCreatedNotice(guild, scheduledEvent, requestData);
 
         const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
         await interaction.editReply({
@@ -389,10 +403,10 @@ export async function handleButtonInteraction(interaction) {
 
         logger.logButton(interaction.customId, interaction.user, interaction.guild, false, error);
       }
-      
+
       return;
     }
-    
+
     // Handle confirm event channels button
     if (interaction.customId.startsWith('confirm_event_channels_')) {
       // The trailing segment (originally the pre-selection approvalType from
@@ -481,6 +495,7 @@ export async function handleButtonInteraction(interaction) {
           actorTag: interaction.user.tag,
           scheduledEvent,
         });
+        await postEventCreatedNotice(guild, scheduledEvent, requestData);
 
         const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
         const channelInfo = useVoiceChannel

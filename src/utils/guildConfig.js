@@ -118,6 +118,10 @@ const defaultConfig = {
     allowedTextChannels: [], // Array of channel IDs users can select for text location (empty = all text channels)
     allowedVoiceChannels: [], // Array of channel IDs users can select for voice (empty = all voice/stage channels)
     announceDecisions: true, // Post a new message to the moderation channel when a request is approved/denied, in addition to editing the original request embed in place
+    eventCreatedNotice: {
+      enabled: false, // Off by default — Discord's own scheduled-event creation already notifies interested members on its own
+      channel: null, // Channel ID to post the member-facing "New Watch Party Scheduled" notice in
+    },
   },
 };
 

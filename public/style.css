@@ -215,6 +215,24 @@ header h1 {
     color: var(--primary-color);
 }
 
+/* Event image upload status */
+.image-upload-status {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.image-upload-status.success {
+    background: rgba(59, 165, 93, 0.2);
+    color: var(--success-color);
+}
+
+.image-upload-status.error {
+    background: rgba(237, 66, 69, 0.2);
+    color: var(--danger-color);
+}
+
 /* Footer */
 footer {
     margin-top: 40px;

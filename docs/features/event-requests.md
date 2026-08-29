@@ -230,6 +230,14 @@ Control whether users can request voice/stage channels for events. When disabled
 - Voice channels are reserved for specific purposes
 - Simplify the event request form
 
+### Configure the Member-Facing Event Notice
+
+```
+/eggshen-config event-requests event-notice enabled:true channel:#watch-parties
+```
+
+Off by default. See [Member-Facing Event Notice](#member-facing-event-notice) above for details.
+
 ### Get Configuration Summary
 
 ```
@@ -324,6 +332,7 @@ Text and voice whitelists are **independent**:
 3. **Fill out the form:**
    - Event title (required)
    - Description (optional)
+   - **Event image** (optional) - Upload an image file or paste an image URL (not both)
    - **Location** (required) - Text channel for the watch party
    - **Voice channel** (optional) - Check the box to add voice/stage channel
    - Start date and time (required)
@@ -331,6 +340,10 @@ Text and voice whitelists are **independent**:
    - Frequency (optional: Once, Weekly, Biweekly, Monthly)
 4. **Click "Submit Request"**
 5. **Wait for moderator approval**
+
+::: tip Event Image
+Uploading a file happens immediately when you pick it, before you submit the rest of the form — this surfaces upload problems (wrong file type, too large) right away instead of at final submission. PNG, JPEG, GIF, and WebP are supported, up to 8MB. If you'd rather not upload a file, paste a direct image URL instead. Providing neither is fine too — moderators can always add or change the image when they approve your request (see below).
+:::
 
 ::: tip Channel Selection
 **Location** is where the watch party chat happens (text channel, always required).
@@ -356,6 +369,8 @@ When a request is submitted:
 ### Editing a Request (Immediately Approves It)
 
 If a submitter's title is wrong or the description needs more detail, click **✏️ Edit**. This opens a form pre-filled with the current title and description — update either field and submit.
+
+The Edit form also includes an optional **Image URL** field. Use it to add an image to a request that didn't include one, or to replace whatever image the submitter provided (upload or URL) — an image URL entered here always wins over the submitter's. Leaving it blank doesn't clear an existing image; there's no separate "remove image" action, only "optionally override it."
 
 Saving the edit both updates the request **and approves it in the same step** — there's no separate Approve click needed afterward:
 - If the request already has a text channel (the submitter picked one, or advanced mode isn't in use), saving creates the event right away, using a voice channel too if one was requested.
@@ -390,12 +405,29 @@ This is on by default. To turn it off (only the original request message updates
 Only members with **Manage Events** permission or Administrator/Moderator roles can approve/deny/edit requests.
 :::
 
+### Member-Facing Event Notice
+
+The announcement above always posts to the **moderation channel**, for moderators. Separately, you can configure a notice for regular members in a channel of your choice, posted whenever an event is actually created:
+
+```
+/eggshen-config event-requests event-notice enabled:true channel:#watch-parties
+```
+
+The notice includes the event's title, start time, and a link to the Discord event. It's **off by default** — Discord's own Scheduled Event creation already notifies interested members on its own, so this is only useful if you want extra visibility in a specific channel.
+
+```
+/eggshen-config event-requests event-notice enabled:false
+```
+
+Turns it back off without losing the configured channel, so re-enabling later doesn't require picking the channel again.
+
 ## Rate Limiting
 
 Built-in protection against spam:
 
 - **1 request per 5 minutes** per user (by IP address)
 - **10 channel lookups per minute** per user
+- **5 image uploads per 5 minutes** per user (by IP address)
 - **Sessions expire after 24 hours**
 
 ## Security Features
@@ -406,6 +438,8 @@ Built-in protection against spam:
 - ✅ CORS protection
 - ✅ Rate limiting
 - ✅ Request expiration (7 days)
+- ✅ Uploaded images are validated by type (PNG/JPEG/GIF/WebP) and capped at 8MB
+- ✅ Uploaded images are automatically deleted ~90 days after their event's date has passed (or sooner if the request is never approved)
 
 ## Customizing for Your Server
 
@@ -574,6 +608,7 @@ The bot exposes these endpoints for the event request system:
 | `/api/auth/session` | GET | Check current session |
 | `/api/auth/logout` | POST | Logout user |
 | `/api/channels/:guildId` | GET | List voice/stage channels |
+| `/api/event-request/upload-image` | POST | Upload an event image ahead of submission (returns a token) |
 | `/api/event-request` | POST | Submit event request |
 
 ## Best Practices

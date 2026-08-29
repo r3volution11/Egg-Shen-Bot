@@ -88,6 +88,30 @@ describe('edit_event_ button', () => {
     expect(descriptionInput.data.value).toBe('Original description');
   });
 
+  test('the modal includes an optional Image URL field pre-filled with the current value', async () => {
+    seedRequest(requestId, { imageUrl: 'https://example.com/poster.png' });
+    const interaction = makeInteraction({ customId: `edit_event_${requestId}`, isModerator: true });
+
+    await handleButtonInteraction(interaction);
+
+    const modal = interaction.showModal.mock.calls[0][0];
+    const imageUrlInput = modal.components[2].components[0];
+    expect(imageUrlInput.data.custom_id).toBe('imageUrl');
+    expect(imageUrlInput.data.value).toBe('https://example.com/poster.png');
+    expect(imageUrlInput.data.required).toBeFalsy();
+  });
+
+  test('the Image URL field pre-fills empty when the request has no imageUrl yet', async () => {
+    seedRequest(requestId);
+    const interaction = makeInteraction({ customId: `edit_event_${requestId}`, isModerator: true });
+
+    await handleButtonInteraction(interaction);
+
+    const modal = interaction.showModal.mock.calls[0][0];
+    const imageUrlInput = modal.components[2].components[0];
+    expect(imageUrlInput.data.value).toBe('');
+  });
+
   test('a non-moderator is rejected without seeing a modal', async () => {
     seedRequest(requestId);
     const interaction = makeInteraction({ customId: `edit_event_${requestId}`, isModerator: false });
@@ -141,5 +165,62 @@ describe('editing mutates the stored request so both approval paths pick it up',
     const rereadRequestData = global.eventRequests.get(requestId);
     expect(rereadRequestData.title).toBe('Corrected Title');
     expect(rereadRequestData.description).toBe('Corrected description');
+  });
+});
+
+describe('imageUrl field submission logic (mirrors index.js edit_event_modal_ handling)', () => {
+  // index.js's modal-submission handler isn't independently exported (same
+  // limitation noted above for title/description), so this exercises the
+  // exact conditional it runs: `if (editedImageUrl) { requestData.imageUrl =
+  // editedImageUrl; requestData.hasUploadedImage = false; }` — a non-blank
+  // submission overrides, a blank one is left alone (no "clear" action).
+  function applyEditedImageUrl(requestData, editedImageUrl) {
+    if (editedImageUrl) {
+      requestData.imageUrl = editedImageUrl;
+      requestData.hasUploadedImage = false;
+    }
+  }
+
+  test('a non-blank Image URL overrides any prior imageUrl and clears hasUploadedImage', () => {
+    const requestId = '1234567890_abc123';
+    seedRequest(requestId, { imageUrl: 'https://example.com/old.png' });
+    const requestData = global.eventRequests.get(requestId);
+
+    applyEditedImageUrl(requestData, 'https://example.com/new.png');
+
+    expect(requestData.imageUrl).toBe('https://example.com/new.png');
+    expect(requestData.hasUploadedImage).toBe(false);
+  });
+
+  test('a non-blank Image URL overrides a prior uploaded image', () => {
+    const requestId = '1234567890_abc123';
+    seedRequest(requestId, { hasUploadedImage: true });
+    const requestData = global.eventRequests.get(requestId);
+
+    applyEditedImageUrl(requestData, 'https://example.com/override.png');
+
+    expect(requestData.imageUrl).toBe('https://example.com/override.png');
+    expect(requestData.hasUploadedImage).toBe(false);
+  });
+
+  test('submitting the field blank does not clear an existing uploaded image', () => {
+    const requestId = '1234567890_abc123';
+    seedRequest(requestId, { hasUploadedImage: true });
+    const requestData = global.eventRequests.get(requestId);
+
+    applyEditedImageUrl(requestData, '');
+
+    expect(requestData.hasUploadedImage).toBe(true);
+    expect(requestData.imageUrl).toBeUndefined();
+  });
+
+  test('submitting the field blank does not clear an existing imageUrl', () => {
+    const requestId = '1234567890_abc123';
+    seedRequest(requestId, { imageUrl: 'https://example.com/keep-me.png' });
+    const requestData = global.eventRequests.get(requestId);
+
+    applyEditedImageUrl(requestData, '');
+
+    expect(requestData.imageUrl).toBe('https://example.com/keep-me.png');
   });
 });

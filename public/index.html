@@ -50,6 +50,20 @@
             </div>
 
             <div class="form-group">
+                <label for="event-image-file">Event Image</label>
+                <input type="file" id="event-image-file" name="eventImageFile" accept="image/png,image/jpeg,image/gif,image/webp">
+                <small>Optional: Upload a cover image for the event (PNG, JPEG, GIF, or WebP, max 8MB)</small>
+                <div id="image-upload-status" class="image-upload-status" style="display:none;"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="event-image-url">Or Image URL</label>
+                <input type="url" id="event-image-url" name="eventImageUrl"
+                       placeholder="https://example.com/poster.jpg">
+                <small>Optional: Link to an image instead of uploading one (use one or the other, not both)</small>
+            </div>
+
+            <div class="form-group">
                 <label for="channel">Location *</label>
                 <select id="channel" name="channel" required>
                     <option value="">Loading channels...</option>

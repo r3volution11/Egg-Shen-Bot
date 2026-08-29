@@ -5,8 +5,73 @@
  * (index.js), which auto-approves once a channel is already known.
  */
 import { EmbedBuilder } from 'discord.js';
+import fs from 'fs/promises';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 import { loadGuildConfig } from './guildConfig.js';
+import { getImagePath, recordEventDate } from './eventImageStore.js';
+
+// Max bytes to accept for a fetched image URL — Discord's own scheduled
+// event image limit is much smaller than this, but capping the fetch
+// itself avoids downloading something huge just to have Discord reject it.
+const MAX_FETCHED_IMAGE_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Resolve the final image buffer (if any) for a scheduled event, per the
+ * priority order: an explicit imageUrl (mod override, or a user-submitted
+ * URL with no upload) wins if present; otherwise a user-uploaded file, if
+ * one exists for this request; otherwise no image. Never throws — a bad
+ * URL or a missing file just means no image, not a failed approval.
+ * @param {string} requestId
+ * @param {object} requestData - { imageUrl, hasUploadedImage, ... }
+ * @returns {Promise<Buffer|null>}
+ */
+export async function resolveEventImageBuffer(requestId, requestData) {
+  if (requestData.imageUrl) {
+    try {
+      const response = await fetch(requestData.imageUrl);
+      if (!response.ok) {
+        console.error(`[EventRequest] Image URL fetch failed (${response.status}): ${requestData.imageUrl}`);
+        return null;
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.startsWith('image/')) {
+        console.error(`[EventRequest] Image URL did not return an image (content-type: ${contentType}): ${requestData.imageUrl}`);
+        return null;
+      }
+
+      const contentLength = Number(response.headers.get('content-length') || 0);
+      if (contentLength > MAX_FETCHED_IMAGE_BYTES) {
+        console.error(`[EventRequest] Image URL too large (${contentLength} bytes): ${requestData.imageUrl}`);
+        return null;
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      if (arrayBuffer.byteLength > MAX_FETCHED_IMAGE_BYTES) {
+        console.error(`[EventRequest] Image URL too large after download: ${requestData.imageUrl}`);
+        return null;
+      }
+
+      return Buffer.from(arrayBuffer);
+    } catch (error) {
+      console.error(`[EventRequest] Error fetching image URL "${requestData.imageUrl}":`, error.message);
+      return null;
+    }
+  }
+
+  if (requestData.hasUploadedImage) {
+    try {
+      const filePath = await getImagePath(requestId);
+      if (!filePath) return null;
+      return await fs.readFile(filePath);
+    } catch (error) {
+      console.error(`[EventRequest] Error reading uploaded image for request ${requestId}:`, error.message);
+      return null;
+    }
+  }
+
+  return null;
+}
 
 /**
  * @param {object} params
@@ -44,7 +109,21 @@ export async function createScheduledEventFromRequest({ guild, requestId, reques
     eventConfig.entityMetadata = { location: 'Discord Server' };
   }
 
+  const imageBuffer = await resolveEventImageBuffer(requestId, requestData);
+  if (imageBuffer) {
+    eventConfig.image = imageBuffer;
+  }
+
   const scheduledEvent = await guild.scheduledEvents.create(eventConfig);
+
+  // Only an uploaded (locally-stored) image needs retention tracking — a
+  // URL-sourced image isn't stored on our disk at all, nothing to prune.
+  if (imageBuffer && requestData.hasUploadedImage && !requestData.imageUrl) {
+    const eventDateMs = new Date(requestData.endTime || requestData.startTime).getTime();
+    await recordEventDate(requestId, eventDateMs).catch(err => {
+      console.error(`[EventRequest] Failed to record event date for image retention (request ${requestId}):`, err.message);
+    });
+  }
 
   return { scheduledEvent, useVoiceChannel };
 }
@@ -128,5 +207,60 @@ export async function postApprovalAnnouncement(channel, { guildId, outcome, titl
     }
   } catch (error) {
     console.error('[EventRequest] Failed to post approval/denial announcement:', error.message);
+  }
+}
+
+/**
+ * Posts a compact, member-facing notice about a newly-created watch-party
+ * event to a server-configured channel — separate from and independent of
+ * postApprovalAnnouncement (which always posts to the moderation channel,
+ * for moderators, not members). Off by default: Discord's own scheduled-
+ * event creation already notifies interested members on its own, so this
+ * only exists for servers that want additional channel-level visibility.
+ * Controlled via /eggshen-config event-requests event-notice.
+ * @param {import('discord.js').Guild} guild
+ * @param {import('discord.js').GuildScheduledEvent} scheduledEvent
+ * @param {object} requestData - { title, startTime }
+ */
+export async function postEventCreatedNotice(guild, scheduledEvent, requestData) {
+  let noticeConfig;
+  try {
+    const config = await loadGuildConfig(guild.id);
+    noticeConfig = config.eventRequests?.eventCreatedNotice;
+  } catch (error) {
+    console.error('[EventRequest] Failed to load guild config for event-notice check:', error.message);
+    return; // Fail closed here (unlike postApprovalAnnouncement) — this is
+             // an opt-in, default-off feature, so a config-load error should
+             // not cause an unwanted notice to post.
+  }
+
+  if (!noticeConfig?.enabled || !noticeConfig?.channel) {
+    return;
+  }
+
+  try {
+    const channel = guild.channels.cache.get(noticeConfig.channel);
+    if (!channel || !channel.isTextBased()) {
+      console.error(`[EventRequest] Configured event-notice channel ${noticeConfig.channel} not found or not text-based`);
+      return;
+    }
+
+    const startTimestamp = Math.floor(new Date(requestData.startTime).getTime() / 1000);
+
+    await channel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x5865F2)
+          .setTitle('🍿 New Watch Party Scheduled')
+          .setDescription(
+            `**${requestData.title}**\n` +
+            `Starts: <t:${startTimestamp}:F>\n\n` +
+            `[View Event →](${scheduledEvent.url})`
+          )
+          .setTimestamp(),
+      ],
+    });
+  } catch (error) {
+    console.error('[EventRequest] Failed to post event-created notice:', error.message);
   }
 }

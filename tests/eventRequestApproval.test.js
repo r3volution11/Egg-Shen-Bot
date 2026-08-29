@@ -24,18 +24,23 @@ import {
   buildApprovedEmbed,
   cleanupEventRequestState,
   postApprovalAnnouncement,
+  postEventCreatedNotice,
+  resolveEventImageBuffer,
 } from '../src/utils/eventRequestApproval.js';
 import { loadGuildConfig, saveGuildConfig } from '../src/utils/guildConfig.js';
+import { saveUploadedImage } from '../src/utils/eventImageStore.js';
 
 const REQUESTS_FILE = path.join(process.cwd(), 'pending_event_requests.json');
 const SELECTIONS_FILE = path.join(process.cwd(), 'pending_event_channel_selections.json');
 const GUILD_ID = 'event-request-approval-test-guild';
 const GUILD_CONFIG_FILE = path.join(process.cwd(), 'guild_configs', `${GUILD_ID}.json`);
+const IMAGES_DIR = path.join(process.cwd(), 'event_request_images');
 
 function cleanup() {
   if (fs.existsSync(REQUESTS_FILE)) fs.unlinkSync(REQUESTS_FILE);
   if (fs.existsSync(SELECTIONS_FILE)) fs.unlinkSync(SELECTIONS_FILE);
   if (fs.existsSync(GUILD_CONFIG_FILE)) fs.unlinkSync(GUILD_CONFIG_FILE);
+  if (fs.existsSync(IMAGES_DIR)) fs.rmSync(IMAGES_DIR, { recursive: true, force: true });
   delete global.eventRequests;
   delete global.eventChannelSelections;
 }
@@ -124,6 +129,125 @@ describe('createScheduledEventFromRequest', () => {
     });
 
     expect(useVoiceChannel).toBeFalsy();
+  });
+});
+
+describe('resolveEventImageBuffer', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  test('returns null when neither imageUrl nor an uploaded image is present', async () => {
+    const buffer = await resolveEventImageBuffer('req-1', makeRequestData());
+    expect(buffer).toBeNull();
+  });
+
+  test('fetches and returns a buffer when imageUrl is set and resolves to an image', async () => {
+    const imageBytes = Buffer.from('fake-image-bytes');
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: (key) => ({ 'content-type': 'image/png', 'content-length': String(imageBytes.length) }[key]) },
+      arrayBuffer: async () => imageBytes.buffer.slice(imageBytes.byteOffset, imageBytes.byteOffset + imageBytes.byteLength),
+    });
+
+    const requestData = makeRequestData({ imageUrl: 'https://example.com/poster.png' });
+    const buffer = await resolveEventImageBuffer('req-1', requestData);
+
+    expect(global.fetch).toHaveBeenCalledWith('https://example.com/poster.png');
+    expect(buffer).toEqual(imageBytes);
+  });
+
+  test('returns null when the imageUrl fetch fails (non-ok response)', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 });
+
+    const requestData = makeRequestData({ imageUrl: 'https://example.com/missing.png' });
+    const buffer = await resolveEventImageBuffer('req-1', requestData);
+
+    expect(buffer).toBeNull();
+  });
+
+  test('returns null when the imageUrl does not resolve to an image content-type', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: (key) => ({ 'content-type': 'text/html' }[key]) },
+    });
+
+    const requestData = makeRequestData({ imageUrl: 'https://example.com/not-an-image' });
+    const buffer = await resolveEventImageBuffer('req-1', requestData);
+
+    expect(buffer).toBeNull();
+  });
+
+  test('returns null when the imageUrl fetch throws', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('network error'));
+
+    const requestData = makeRequestData({ imageUrl: 'https://example.com/poster.png' });
+    const buffer = await resolveEventImageBuffer('req-1', requestData);
+
+    expect(buffer).toBeNull();
+  });
+
+  test('reads the uploaded file from disk when hasUploadedImage is set and no imageUrl', async () => {
+    const imageBytes = Buffer.from('uploaded-image-bytes');
+    await saveUploadedImage('req-uploaded', imageBytes, 'image/png');
+
+    const requestData = makeRequestData({ hasUploadedImage: true });
+    const buffer = await resolveEventImageBuffer('req-uploaded', requestData);
+
+    expect(buffer).toEqual(imageBytes);
+  });
+
+  test('imageUrl takes priority over an uploaded image when both are present', async () => {
+    await saveUploadedImage('req-both', Buffer.from('uploaded'), 'image/png');
+    const urlBytes = Buffer.from('from-url');
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: (key) => ({ 'content-type': 'image/png', 'content-length': String(urlBytes.length) }[key]) },
+      arrayBuffer: async () => urlBytes.buffer.slice(urlBytes.byteOffset, urlBytes.byteOffset + urlBytes.byteLength),
+    });
+
+    const requestData = makeRequestData({ hasUploadedImage: true, imageUrl: 'https://example.com/override.png' });
+    const buffer = await resolveEventImageBuffer('req-both', requestData);
+
+    expect(buffer).toEqual(urlBytes);
+  });
+
+  test('returns null when hasUploadedImage is set but no file actually exists', async () => {
+    const requestData = makeRequestData({ hasUploadedImage: true });
+    const buffer = await resolveEventImageBuffer('req-missing-file', requestData);
+
+    expect(buffer).toBeNull();
+  });
+});
+
+describe('createScheduledEventFromRequest image handling', () => {
+  test('attaches the resolved image buffer to the scheduledEvents.create call', async () => {
+    const guild = makeGuild();
+    const imageBytes = Buffer.from('uploaded-image-bytes');
+    await saveUploadedImage('req-with-image', imageBytes, 'image/png');
+
+    const requestData = makeRequestData({ hasUploadedImage: true });
+    await createScheduledEventFromRequest({
+      guild, requestId: 'req-with-image', requestData, approvalType: 'full',
+    });
+
+    expect(guild.scheduledEvents.create).toHaveBeenCalledWith(
+      expect.objectContaining({ image: imageBytes })
+    );
+  });
+
+  test('does not set an image field at all when no image is available', async () => {
+    const guild = makeGuild();
+    const requestData = makeRequestData();
+
+    await createScheduledEventFromRequest({
+      guild, requestId: 'req-no-image', requestData, approvalType: 'full',
+    });
+
+    const createArgs = guild.scheduledEvents.create.mock.calls[0][0];
+    expect(createArgs.image).toBeUndefined();
   });
 });
 
@@ -277,5 +401,94 @@ describe('postApprovalAnnouncement', () => {
     });
 
     expect(channel.send).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('postEventCreatedNotice', () => {
+  function makeGuildWithChannel(channel) {
+    return {
+      id: GUILD_ID,
+      channels: { cache: new Map(channel ? [['notice-channel', channel]] : []) },
+    };
+  }
+
+  function makeNoticeChannel() {
+    return { isTextBased: () => true, send: jest.fn().mockResolvedValue(undefined) };
+  }
+
+  test('does nothing when eventCreatedNotice is not configured (default off)', async () => {
+    const channel = makeNoticeChannel();
+    const guild = makeGuildWithChannel(channel);
+
+    await postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
+      title: 'Movie Night', startTime: new Date().toISOString(),
+    });
+
+    expect(channel.send).not.toHaveBeenCalled();
+  });
+
+  test('does nothing when enabled is true but no channel is set', async () => {
+    const config = await loadGuildConfig(GUILD_ID);
+    config.eventRequests = { ...config.eventRequests, eventCreatedNotice: { enabled: true, channel: null } };
+    await saveGuildConfig(GUILD_ID, config);
+
+    const channel = makeNoticeChannel();
+    const guild = makeGuildWithChannel(channel);
+
+    await postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
+      title: 'Movie Night', startTime: new Date().toISOString(),
+    });
+
+    expect(channel.send).not.toHaveBeenCalled();
+  });
+
+  test('posts a notice with title, start time, and event link when enabled with a channel', async () => {
+    const config = await loadGuildConfig(GUILD_ID);
+    config.eventRequests = {
+      ...config.eventRequests,
+      eventCreatedNotice: { enabled: true, channel: 'notice-channel' },
+    };
+    await saveGuildConfig(GUILD_ID, config);
+
+    const channel = makeNoticeChannel();
+    const guild = makeGuildWithChannel(channel);
+    const startTime = new Date().toISOString();
+
+    await postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
+      title: 'Movie Night', startTime,
+    });
+
+    expect(channel.send).toHaveBeenCalledTimes(1);
+    const description = channel.send.mock.calls[0][0].embeds[0].data.description;
+    expect(description).toContain('Movie Night');
+    expect(description).toContain('https://discord.com/events/1');
+  });
+
+  test('does not throw when the configured channel no longer exists', async () => {
+    const config = await loadGuildConfig(GUILD_ID);
+    config.eventRequests = {
+      ...config.eventRequests,
+      eventCreatedNotice: { enabled: true, channel: 'missing-channel' },
+    };
+    await saveGuildConfig(GUILD_ID, config);
+
+    const guild = makeGuildWithChannel(null);
+
+    await expect(
+      postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
+        title: 'Movie Night', startTime: new Date().toISOString(),
+      })
+    ).resolves.not.toThrow();
+  });
+
+  test('does not post for a guild with no saved config yet (default is off)', async () => {
+    const channel = makeNoticeChannel();
+    const guild = { id: 'never-configured-guild', channels: { cache: new Map([['notice-channel', channel]]) } };
+
+    await postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
+      title: 'Movie Night', startTime: new Date().toISOString(),
+    });
+
+    expect(channel.send).not.toHaveBeenCalled();
   });
 });

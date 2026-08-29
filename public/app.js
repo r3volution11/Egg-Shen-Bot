@@ -28,6 +28,7 @@ if (!GUILD_ID || GUILD_ID === 'YOUR_GUILD_ID_HERE') {
 // State
 let currentUser = null;
 let guildConfig = null;
+let uploadedImageToken = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -92,6 +93,67 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     
+    // Event image: file upload and URL fields are mutually exclusive.
+    // Picking one clears/disables the other, matching the backend's
+    // mutual-exclusivity (only one image source is stored per request).
+    const imageFileInput = document.getElementById('event-image-file');
+    const imageUrlInput = document.getElementById('event-image-url');
+    const imageUploadStatus = document.getElementById('image-upload-status');
+
+    imageUrlInput.addEventListener('input', () => {
+        if (imageUrlInput.value.trim()) {
+            imageFileInput.value = '';
+            imageFileInput.disabled = true;
+            uploadedImageToken = null;
+            imageUploadStatus.style.display = 'none';
+        } else {
+            imageFileInput.disabled = false;
+        }
+    });
+
+    imageFileInput.addEventListener('change', async () => {
+        uploadedImageToken = null;
+
+        if (!imageFileInput.files.length) {
+            imageUploadStatus.style.display = 'none';
+            imageUrlInput.disabled = false;
+            return;
+        }
+
+        imageUrlInput.value = '';
+        imageUrlInput.disabled = true;
+
+        imageUploadStatus.style.display = 'block';
+        imageUploadStatus.className = 'image-upload-status';
+        imageUploadStatus.textContent = 'Uploading image...';
+
+        try {
+            const fileData = new FormData();
+            fileData.append('image', imageFileInput.files[0]);
+
+            const response = await fetch(`${API_BASE_URL}/event-request/upload-image`, {
+                method: 'POST',
+                credentials: 'include',
+                body: fileData
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to upload image');
+            }
+
+            uploadedImageToken = data.imageToken;
+            imageUploadStatus.className = 'image-upload-status success';
+            imageUploadStatus.textContent = '✅ Image uploaded';
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            imageUploadStatus.className = 'image-upload-status error';
+            imageUploadStatus.textContent = `❌ ${error.message}`;
+            imageFileInput.value = '';
+            imageUrlInput.disabled = false;
+        }
+    });
+
     // Set min date to today
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('start-date').min = today;
@@ -429,8 +491,10 @@ async function handleSubmit(e) {
         startTime: combineDateTimeToISO('start-date', 'start-time'),
         endTime: combineDateTimeToISO('end-date', 'end-time'),
         frequency: document.getElementById('frequency').value || null,
-        submitterUsername: currentUser.discriminator === '0' 
-            ? currentUser.username 
+        imageToken: uploadedImageToken || null,
+        imageUrl: uploadedImageToken ? null : (document.getElementById('event-image-url').value.trim() || null),
+        submitterUsername: currentUser.discriminator === '0'
+            ? currentUser.username
             : `${currentUser.username}#${currentUser.discriminator}`,
         submitterDiscordId: currentUser.id
     };
@@ -491,6 +555,13 @@ async function handleSubmit(e) {
         // Success!
         showMessage('✅ Event request submitted successfully! Moderators will review it shortly.', 'success');
         document.getElementById('event-form').reset();
+
+        // Reset image state — form.reset() clears the input values but not
+        // our JS-tracked token or the disabled/status side effects.
+        uploadedImageToken = null;
+        document.getElementById('event-image-file').disabled = false;
+        document.getElementById('event-image-url').disabled = false;
+        document.getElementById('image-upload-status').style.display = 'none';
         
         // Scroll to message
         document.getElementById('form-message').scrollIntoView({ behavior: 'smooth' });
