@@ -136,7 +136,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 credentials: 'include',
                 body: fileData
             });
-            const data = await response.json();
+
+            // A reverse proxy in front of the API (nginx, etc.) can reject an
+            // oversized upload before it ever reaches the bot, returning its
+            // own HTML error page instead of the bot's normal JSON response
+            // (e.g. a 413 from nginx's default 1MB body size limit) — treat
+            // that as a clear "too large" message instead of a confusing
+            // JSON-parse failure.
+            let data;
+            try {
+                data = await response.json();
+            } catch {
+                throw new Error(response.status === 413
+                    ? 'Image is too large for this server to accept.'
+                    : `Upload failed (server returned ${response.status}).`);
+            }
 
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to upload image');

@@ -124,6 +124,20 @@ Run `/eggshen-config event-requests get-link` in your Discord server to see your
 - Upload `/public` contents to `https://yourdomain.com`
 - Ensure the domain matches your environment variables
 
+::: warning Reverse Proxy Upload Size Limit
+If you're proxying `/api/` to the bot through nginx (or a similar reverse proxy) rather than exposing the bot's API port directly, set that proxy's own request body size limit — nginx defaults to **1MB**, which silently rejects most real event images before they ever reach the bot. The bot's own upload limit is 8MB, so configure the proxy to allow at least that much:
+
+```nginx
+location /api/ {
+    client_max_body_size 10M;
+    proxy_pass http://localhost:3000;
+    # ...
+}
+```
+
+Without this, image uploads on the web form fail silently — the browser gets a proxy-level `413 Request Entity Too Large` error page instead of the bot's normal JSON error response, and nothing shows up in the bot's own logs since the request never reached it.
+:::
+
 ### Step 4: Configure Your Server
 
 ::: warning Event Requests Disabled by Default
