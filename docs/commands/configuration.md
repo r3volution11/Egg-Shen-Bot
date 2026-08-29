@@ -687,24 +687,6 @@ Control whether approving or denying a request posts a new message to the modera
 - Only the original request message updates (title, color, buttons)
 - No separate announcement is posted
 
-#### Member-Facing Event-Created Notice
-
-```
-/eggshen-config event-requests event-notice enabled:true channel:#watch-parties
-/eggshen-config event-requests event-notice enabled:false
-```
-
-Control whether a member-facing notice is posted to a chosen channel whenever an event request is approved and its Discord Scheduled Event is created. Separate from **Announce Approve/Deny Decisions** above, which always posts to the moderation channel for moderators — this one is for regular members.
-
-**When enabled (not the default):**
-- Posts a notice with the event's title, start time, and a link to the Discord event
-- Requires a `channel` to be set — enabling without one leaves the notice inert until you set one
-
-**When disabled (default):**
-- No notice is posted — Discord's own Scheduled Event creation already notifies interested members on its own
-
-You can set `enabled` and `channel` independently or together; disabling doesn't clear a previously-set channel, so re-enabling later doesn't require picking it again.
-
 #### Allow User Channel Selection (Simple vs Advanced Mode)
 
 ```

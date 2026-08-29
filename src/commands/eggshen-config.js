@@ -811,23 +811,6 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand(subcommand =>
         subcommand
-          .setName('event-notice')
-          .setDescription('Post a member-facing notice when a watch-party event is created (off by default)')
-          .addBooleanOption(option =>
-            option
-              .setName('enabled')
-              .setDescription('Turn the notice on or off')
-              .setRequired(false)
-          )
-          .addChannelOption(option =>
-            option
-              .setName('channel')
-              .setDescription('Channel to post the notice in')
-              .setRequired(false)
-          )
-      )
-      .addSubcommand(subcommand =>
-        subcommand
           .setName('allow-user-channel-selection')
           .setDescription('Allow users to select channels in form (default: moderators choose during approval)')
           .addBooleanOption(option =>
@@ -2616,13 +2599,6 @@ export async function execute(interaction) {
           inline: true
         },
         {
-          name: 'Event-Created Notice',
-          value: eventConfig.eventCreatedNotice?.enabled && eventConfig.eventCreatedNotice?.channel
-            ? `✅ Posts to <#${eventConfig.eventCreatedNotice.channel}>`
-            : '❌ Off (default — Discord already notifies members)',
-          inline: true
-        },
-        {
           name: 'User Channel Selection',
           value: eventConfig.allowUserChannelSelection === true ? '✅ Enabled (users pick channels)' : '❌ Disabled (mods assign)',
           inline: true
@@ -2784,47 +2760,6 @@ export async function execute(interaction) {
         ? '✅ Approving/denying a request will now also post an announcement message to the moderation channel.'
         : '❌ Approving/denying a request will only update the original request message — no separate announcement will be posted.',
       ephemeral: true
-    });
-
-  } else if (group === 'event-requests' && subcommand === 'event-notice') {
-    const enabled = interaction.options.getBoolean('enabled');
-    const channel = interaction.options.getChannel('channel');
-
-    if (enabled === null && !channel) {
-      await interaction.reply({
-        content: '❌ Provide `enabled`, `channel`, or both.',
-        ephemeral: true,
-      });
-      return;
-    }
-
-    const config = await loadGuildConfig(guildId);
-    if (!config.eventRequests) {
-      config.eventRequests = {};
-    }
-    if (!config.eventRequests.eventCreatedNotice) {
-      config.eventRequests.eventCreatedNotice = { enabled: false, channel: null };
-    }
-
-    if (enabled !== null) {
-      config.eventRequests.eventCreatedNotice.enabled = enabled;
-    }
-    if (channel) {
-      config.eventRequests.eventCreatedNotice.channel = channel.id;
-    }
-    await saveGuildConfig(guildId, config);
-
-    const effectiveEnabled = config.eventRequests.eventCreatedNotice.enabled === true;
-    const effectiveChannel = config.eventRequests.eventCreatedNotice.channel;
-    const summary = effectiveEnabled && effectiveChannel
-      ? `A notice will now be posted to <#${effectiveChannel}> whenever a watch-party event is created.`
-      : effectiveEnabled
-        ? '⚠️ The notice is enabled, but no channel is configured yet — nothing will post until you set one.'
-        : 'No notice will be posted when a watch-party event is created (this is the default — Discord already notifies members on its own).';
-
-    await interaction.reply({
-      content: `✅ ${summary}`,
-      ephemeral: true,
     });
 
   } else if (group === 'event-requests' && subcommand === 'allow-user-channel-selection') {

@@ -230,14 +230,6 @@ Control whether users can request voice/stage channels for events. When disabled
 - Voice channels are reserved for specific purposes
 - Simplify the event request form
 
-### Configure the Member-Facing Event Notice
-
-```
-/eggshen-config event-requests event-notice enabled:true channel:#watch-parties
-```
-
-Off by default. See [Member-Facing Event Notice](#member-facing-event-notice) above for details.
-
 ### Get Configuration Summary
 
 ```
@@ -404,22 +396,6 @@ This is on by default. To turn it off (only the original request message updates
 ::: tip Moderator Permissions
 Only members with **Manage Events** permission or Administrator/Moderator roles can approve/deny/edit requests.
 :::
-
-### Member-Facing Event Notice
-
-The announcement above always posts to the **moderation channel**, for moderators. Separately, you can configure a notice for regular members in a channel of your choice, posted whenever an event is actually created:
-
-```
-/eggshen-config event-requests event-notice enabled:true channel:#watch-parties
-```
-
-The notice includes the event's title, start time, and a link to the Discord event. It's **off by default** — Discord's own Scheduled Event creation already notifies interested members on its own, so this is only useful if you want extra visibility in a specific channel.
-
-```
-/eggshen-config event-requests event-notice enabled:false
-```
-
-Turns it back off without losing the configured channel, so re-enabling later doesn't require picking the channel again.
 
 ## Rate Limiting
 

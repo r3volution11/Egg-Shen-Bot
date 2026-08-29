@@ -543,7 +543,7 @@ client.on('interactionCreate', async (interaction) => {
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postEventCreatedNotice } = await import('./utils/eventRequestApproval.js');
+      const { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } = await import('./utils/eventRequestApproval.js');
 
       try {
         const approvalType = requestData.voiceChannelId ? 'both' : 'full';
@@ -570,8 +570,6 @@ client.on('interactionCreate', async (interaction) => {
           actorTag: interaction.user.tag,
           scheduledEvent,
         });
-        await postEventCreatedNotice(interaction.guild, scheduledEvent, requestData);
-
         const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
         await interaction.editReply({
           content: `✅ Updated and approved as ${eventTypeText}!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`,

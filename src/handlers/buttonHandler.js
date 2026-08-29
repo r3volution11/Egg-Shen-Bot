@@ -5,7 +5,7 @@ import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
-import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postEventCreatedNotice } from '../utils/eventRequestApproval.js';
+import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } from '../utils/eventRequestApproval.js';
 import { getTimerStatus } from '../utils/timerManager.js';
 import { isAdmin } from '../utils/guildConfig.js';
 
@@ -385,8 +385,6 @@ export async function handleButtonInteraction(interaction) {
           actorTag: interaction.user.tag,
           scheduledEvent,
         });
-        await postEventCreatedNotice(guild, scheduledEvent, requestData);
-
         const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
         await interaction.editReply({
           content: `✅ Event created successfully as ${eventTypeText}!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`
@@ -495,8 +493,6 @@ export async function handleButtonInteraction(interaction) {
           actorTag: interaction.user.tag,
           scheduledEvent,
         });
-        await postEventCreatedNotice(guild, scheduledEvent, requestData);
-
         const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
         const channelInfo = useVoiceChannel
           ? `📍 Text: <#${textChannelId}>\n🔊 Voice: <#${voiceChannelId}>`

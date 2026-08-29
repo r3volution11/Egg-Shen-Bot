@@ -24,7 +24,6 @@ import {
   buildApprovedEmbed,
   cleanupEventRequestState,
   postApprovalAnnouncement,
-  postEventCreatedNotice,
   resolveEventImageBuffer,
 } from '../src/utils/eventRequestApproval.js';
 import { loadGuildConfig, saveGuildConfig } from '../src/utils/guildConfig.js';
@@ -401,94 +400,5 @@ describe('postApprovalAnnouncement', () => {
     });
 
     expect(channel.send).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('postEventCreatedNotice', () => {
-  function makeGuildWithChannel(channel) {
-    return {
-      id: GUILD_ID,
-      channels: { cache: new Map(channel ? [['notice-channel', channel]] : []) },
-    };
-  }
-
-  function makeNoticeChannel() {
-    return { isTextBased: () => true, send: jest.fn().mockResolvedValue(undefined) };
-  }
-
-  test('does nothing when eventCreatedNotice is not configured (default off)', async () => {
-    const channel = makeNoticeChannel();
-    const guild = makeGuildWithChannel(channel);
-
-    await postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
-      title: 'Movie Night', startTime: new Date().toISOString(),
-    });
-
-    expect(channel.send).not.toHaveBeenCalled();
-  });
-
-  test('does nothing when enabled is true but no channel is set', async () => {
-    const config = await loadGuildConfig(GUILD_ID);
-    config.eventRequests = { ...config.eventRequests, eventCreatedNotice: { enabled: true, channel: null } };
-    await saveGuildConfig(GUILD_ID, config);
-
-    const channel = makeNoticeChannel();
-    const guild = makeGuildWithChannel(channel);
-
-    await postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
-      title: 'Movie Night', startTime: new Date().toISOString(),
-    });
-
-    expect(channel.send).not.toHaveBeenCalled();
-  });
-
-  test('posts a notice with title, start time, and event link when enabled with a channel', async () => {
-    const config = await loadGuildConfig(GUILD_ID);
-    config.eventRequests = {
-      ...config.eventRequests,
-      eventCreatedNotice: { enabled: true, channel: 'notice-channel' },
-    };
-    await saveGuildConfig(GUILD_ID, config);
-
-    const channel = makeNoticeChannel();
-    const guild = makeGuildWithChannel(channel);
-    const startTime = new Date().toISOString();
-
-    await postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
-      title: 'Movie Night', startTime,
-    });
-
-    expect(channel.send).toHaveBeenCalledTimes(1);
-    const description = channel.send.mock.calls[0][0].embeds[0].data.description;
-    expect(description).toContain('Movie Night');
-    expect(description).toContain('https://discord.com/events/1');
-  });
-
-  test('does not throw when the configured channel no longer exists', async () => {
-    const config = await loadGuildConfig(GUILD_ID);
-    config.eventRequests = {
-      ...config.eventRequests,
-      eventCreatedNotice: { enabled: true, channel: 'missing-channel' },
-    };
-    await saveGuildConfig(GUILD_ID, config);
-
-    const guild = makeGuildWithChannel(null);
-
-    await expect(
-      postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
-        title: 'Movie Night', startTime: new Date().toISOString(),
-      })
-    ).resolves.not.toThrow();
-  });
-
-  test('does not post for a guild with no saved config yet (default is off)', async () => {
-    const channel = makeNoticeChannel();
-    const guild = { id: 'never-configured-guild', channels: { cache: new Map([['notice-channel', channel]]) } };
-
-    await postEventCreatedNotice(guild, { url: 'https://discord.com/events/1' }, {
-      title: 'Movie Night', startTime: new Date().toISOString(),
-    });
-
-    expect(channel.send).not.toHaveBeenCalled();
   });
 });
