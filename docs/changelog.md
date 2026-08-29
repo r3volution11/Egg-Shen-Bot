@@ -5,6 +5,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.21.0 - 2026-08-29
+
+### Added
+- **The event-request web form can now be deployed on more than one domain from a single bot process, with OAuth login working correctly and independently on each.** Previously the OAuth redirect target was a single static value (`OAUTH_REDIRECT_URI`/`FORM_URL`), so a login started on a second domain would incorrectly bounce the user back to whichever domain happened to be configured — now the bot derives the correct redirect target from the actual domain each login started on
+
+### Changed
+- **The "you're not a member" rejection message is clearer about why it's happening.** Previously read "You must be a member of [server] to submit event requests," which a legitimate member of a *different* Discord server could misread as a general account problem — now explicitly states the page is dedicated to one specific server, so it's clear the restriction is about which site you're on, not your Discord account
+
+### Developer
+- `GET /api/auth/discord` now derives its `redirect_uri` from the incoming request's own `Host`/protocol instead of the static `OAUTH_REDIRECT_URI` env var, and embeds the originating domain in Discord's `state` param (alongside the existing `guildId`)
+- `GET /api/auth/discord/callback` decodes that domain back out of `state` and uses it for both the token-exchange `redirect_uri` (must exactly match the authorize step, per OAuth2 spec) and the post-login redirect — replacing the previously-static `FORM_URL`. Falls back to the env vars only when a request's domain genuinely can't be determined
+- Both the OAuth-callback and submission-time "not a member" messages reworded for consistency
+- `EVENT_REQUEST_SETUP.md`'s "Multiple Servers" section rewritten — it previously described a `?guild=ID` query-param multi-tenancy model that doesn't match this codebase's actual architecture (one hardcoded `GUILD_ID` per static deployment); now documents the real per-domain deployment pattern with a worked dev/prod subdomain example
+
 ## 2.20.2 - 2026-08-29
 
 ### Fixed

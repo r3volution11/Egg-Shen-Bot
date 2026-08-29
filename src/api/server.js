@@ -254,20 +254,34 @@ export function createApiServer(client) {
   // Discord OAuth - Redirect to Discord authorization
   app.get('/api/auth/discord', (req, res) => {
     const { guildId } = req.query;
-    
+
     if (!guildId) {
       return res.status(400).json({ error: 'guildId parameter required' });
     }
-    
+
     const clientId = process.env.DISCORD_CLIENT_ID;
-    const redirectUri = encodeURIComponent(process.env.OAUTH_REDIRECT_URI || 'http://localhost:3000/api/auth/discord/callback');
+
+    // Derived from the actual incoming request rather than a single static
+    // env var, so this works correctly when the same bot process serves
+    // the form from more than one domain (e.g. a prod + dev deployment) —
+    // each domain's login flow lands back on itself, not on whichever
+    // domain happened to be in OAUTH_REDIRECT_URI. Falls back to the env
+    // var only when neither is derivable (shouldn't happen behind nginx,
+    // which sets Host/X-Forwarded-Proto on every proxied request).
+    const origin = req.get('host') ? `${req.protocol}://${req.get('host')}` : null;
+    const redirectUriRaw = origin
+      ? `${origin}/api/auth/discord/callback`
+      : (process.env.OAUTH_REDIRECT_URI || 'http://localhost:3000/api/auth/discord/callback');
+    const redirectUri = encodeURIComponent(redirectUriRaw);
     const scope = 'identify';
-    
-    // Store guildId in state parameter for callback
-    const state = Buffer.from(JSON.stringify({ guildId })).toString('base64');
-    
+
+    // Store guildId and the originating domain in state so the callback
+    // (which may be hit by Discord regardless of which domain started the
+    // flow) knows where to redirect the user back to.
+    const state = Buffer.from(JSON.stringify({ guildId, origin })).toString('base64');
+
     const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}`;
-    
+
     res.redirect(authUrl);
   });
   
@@ -280,9 +294,17 @@ export function createApiServer(client) {
     }
     
     try {
-      // Decode state to get guildId
-      const { guildId } = JSON.parse(Buffer.from(state, 'base64').toString());
-      
+      // Decode state to get guildId and the domain the login flow started
+      // on — needed so this callback (which Discord always hits at
+      // whatever redirect_uri was used to start the flow) sends the user
+      // back to the SAME domain, not a different one this bot process also
+      // happens to serve.
+      const { guildId, origin } = JSON.parse(Buffer.from(state, 'base64').toString());
+      const formUrl = origin || process.env.FORM_URL || 'http://localhost:8080';
+      const redirectUri = origin
+        ? `${origin}/api/auth/discord/callback`
+        : (process.env.OAUTH_REDIRECT_URI || 'http://localhost:3000/api/auth/discord/callback');
+
       // Exchange code for access token
       const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
         method: 'POST',
@@ -294,7 +316,7 @@ export function createApiServer(client) {
           client_secret: process.env.DISCORD_CLIENT_SECRET,
           grant_type: 'authorization_code',
           code,
-          redirect_uri: process.env.OAUTH_REDIRECT_URI || 'http://localhost:3000/api/auth/discord/callback'
+          redirect_uri: redirectUri
         })
       });
       
@@ -329,9 +351,7 @@ export function createApiServer(client) {
         const guildConfig = await loadGuildConfig(guildId);
         const inviteUrl = guildConfig.eventRequests?.inviteUrl;
         const serverName = guildConfig.eventRequests?.serverName || (guild?.name || 'this server');
-        
-        const formUrl = process.env.FORM_URL || 'http://localhost:8080';
-        
+
         // Redirect with error parameters
         const errorParams = new URLSearchParams({
           error: 'not_member',
@@ -360,7 +380,6 @@ export function createApiServer(client) {
       });
       
       // Redirect back to event request form
-      const formUrl = process.env.FORM_URL || 'http://localhost:8080';
       res.redirect(`${formUrl}?guildId=${guildId}&auth=success`);
       
     } catch (error) {
@@ -713,9 +732,9 @@ export function createApiServer(client) {
         const serverName = eventRequestConfig.serverName || 'this server';
         const inviteUrl = eventRequestConfig.inviteUrl;
         
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: 'not_member',
-          message: `You must be a member of ${serverName} to submit event requests.`,
+          message: `This page is only for members of ${serverName}. Your Discord account isn't a member of that server, so you can't submit requests here.`,
           serverName,
           inviteUrl: inviteUrl || null
         });

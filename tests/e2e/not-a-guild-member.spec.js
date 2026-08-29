@@ -16,6 +16,6 @@ test('a valid session for a user who is not a guild member is rejected on submit
   await fillRequiredFields(page);
   await page.locator('#submit-btn').click();
 
-  await expect(page.locator('#form-message')).toContainText('must be a member of');
+  await expect(page.locator('#form-message')).toContainText('only for members of');
   await expect(page.locator('#form-message').locator('a')).toHaveAttribute('href', GUILD_SIMPLE.config.inviteUrl);
 });

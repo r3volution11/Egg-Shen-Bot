@@ -136,32 +136,30 @@ Replace `YOUR_GUILD_ID` with your test server's ID (from `/eggshen-config event-
 
 ## Multiple Servers
 
-The system supports multiple Discord servers! Each server has its own configuration in `event_request_config.json`:
+One bot process can back the event-request form for more than one Discord server, but **each web form deployment is dedicated to exactly one server** — `public/app.js`'s `GUILD_ID` constant is a single, hardcoded value baked in at deploy time, not something a visitor can pick via a query parameter. To serve a second server, deploy a second copy of the `public/` folder (its own domain or subdomain) with its own `GUILD_ID`, both pointed at the same bot process.
 
-```json
-{
-  "GUILD_ID_1": {
-    "eventRequests": {
-      "enabled": true,
-      "moderationChannel": "CHANNEL_ID",
-      "serverName": "Server 1",
-      "inviteUrl": "https://discord.gg/server1",
-      "websiteUrl": "https://yourdomain.com"
-    }
-  },
-  "GUILD_ID_2": {
-    "eventRequests": {
-      "enabled": true,
-      "moderationChannel": "CHANNEL_ID",
-      "serverName": "Server 2",
-      "inviteUrl": null,
-      "websiteUrl": "http://localhost:8080"
-    }
-  }
-}
+Each Discord server's own settings still live in its own `guild_configs/<guildId>.json` (via `loadGuildConfig`/`saveGuildConfig`, not a shared `event_request_config.json`), configured independently with `/eggshen-config event-requests`:
+
+```
+/eggshen-config event-requests toggle enabled:true
+/eggshen-config event-requests moderation-channel channel:#your-channel
+/eggshen-config event-requests server-name name:"Your Server"
+/eggshen-config event-requests website-url url:https://your-domain-for-this-server.com
 ```
 
-Each server uses the same web form but with different `?guild=ID` parameters.
+**Example: a dev and production deployment on subdomains of the same domain**
+
+```
+shudderdrivein.com       → public/            → GUILD_ID = <production guild>
+dev.shudderdrivein.com   → public-dev/        → GUILD_ID = <dev/test guild>
+```
+
+Both domains proxy `/api/`, `/crop/`, and `/crop-assets/` to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part. What each domain needs:
+
+1. A second static directory (e.g. `public-dev/`) — a copy of `public/` (including `crop/`) with only `GUILD_ID` in `app.js` changed.
+2. A second nginx `server{}` block for the new (sub)domain, mirroring the existing one: same `root` pattern pointed at the new directory, the same three proxy `location` blocks, its own SSL certificate (`certbot --nginx -d dev.yourdomain.com`, once DNS for the subdomain points at the server).
+3. `ALLOWED_ORIGINS` in `.env` updated to a comma-separated list including every domain (already supported — `cors()`'s `origin` option is built directly from `ALLOWED_ORIGINS.split(',')`): `ALLOWED_ORIGINS=https://yourdomain.com,https://dev.yourdomain.com`.
+4. Both callback URLs registered in the Discord Developer Portal (OAuth2 → Redirects): `https://yourdomain.com/api/auth/discord/callback` **and** `https://dev.yourdomain.com/api/auth/discord/callback`. The bot itself derives which one to use per-request from the actual incoming domain (not a single static `OAUTH_REDIRECT_URI`), so a login started on either domain correctly lands back on that same domain — `OAUTH_REDIRECT_URI`/`FORM_URL` in `.env` only matter as a fallback for requests where the domain can't be determined (shouldn't happen behind nginx).
 
 ## Troubleshooting
 

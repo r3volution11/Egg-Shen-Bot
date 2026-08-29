@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const serverName = urlParams.get('serverName') || 'this server';
         const inviteUrl = urlParams.get('inviteUrl');
         
-        let errorMessage = `❌ You must be a member of ${serverName} to submit event requests.`;
+        let errorMessage = `❌ This page is only for members of ${serverName}. Your Discord account isn't a member of that server, so you can't submit requests here.`;
         if (inviteUrl) {
             errorMessage += ` <a href="${inviteUrl}" target="_blank" style="color: #fff; text-decoration: underline;">Click here to join the server</a>.`;
         }

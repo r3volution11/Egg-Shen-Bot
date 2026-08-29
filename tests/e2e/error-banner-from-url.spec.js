@@ -11,7 +11,7 @@ test('an ?error=not_member URL renders the join-server banner purely client-side
 
   await page.goto(`/?${params.toString()}`);
 
-  await expect(page.locator('#form-message')).toContainText('must be a member of Example Simple-Mode Server');
+  await expect(page.locator('#form-message')).toContainText('only for members of Example Simple-Mode Server');
   const link = page.locator('#form-message a');
   await expect(link).toHaveAttribute('href', 'https://discord.gg/example-simple');
 
