@@ -13,6 +13,8 @@ import path from 'path';
 import {
   extensionForMimeType,
   saveUploadedImage,
+  saveOriginalImage,
+  getOriginalImagePath,
   renameImageKey,
   recordEventDate,
   getImagePath,
@@ -86,6 +88,56 @@ describe('renameImageKey', () => {
     await expect(renameImageKey('never-uploaded', 'req-1')).resolves.toBeUndefined();
     expect(await getImagePath('req-1')).toBeNull();
   });
+
+  test('also renames the preserved original, if one was saved under the token', async () => {
+    await saveUploadedImage('placeholder-token-2', Buffer.from('cropped'), 'image/jpeg');
+    await saveOriginalImage('placeholder-token-2', Buffer.from('original'), 'image/png');
+
+    await renameImageKey('placeholder-token-2', 'real-request-id-2');
+
+    expect(await getOriginalImagePath('placeholder-token-2')).toBeNull();
+    const originalPath = await getOriginalImagePath('real-request-id-2');
+    expect(originalPath).toBe(path.join(IMAGES_DIR, 'real-request-id-2-original.png'));
+  });
+
+  test('renaming without a saved original does not error', async () => {
+    await saveUploadedImage('placeholder-token-3', Buffer.from('cropped-only'), 'image/jpeg');
+
+    await expect(renameImageKey('placeholder-token-3', 'real-request-id-3')).resolves.toBeUndefined();
+    expect(await getOriginalImagePath('real-request-id-3')).toBeNull();
+  });
+});
+
+describe('saveOriginalImage / getOriginalImagePath', () => {
+  test('stores the original separately from the cropped image under the same key', async () => {
+    await saveUploadedImage('req-both', Buffer.from('cropped-bytes'), 'image/jpeg');
+    await saveOriginalImage('req-both', Buffer.from('original-bytes'), 'image/png');
+
+    const croppedPath = await getImagePath('req-both');
+    const originalPath = await getOriginalImagePath('req-both');
+
+    expect(croppedPath).toBe(path.join(IMAGES_DIR, 'req-both.jpg'));
+    expect(originalPath).toBe(path.join(IMAGES_DIR, 'req-both-original.png'));
+    expect(fs.readFileSync(croppedPath)).toEqual(Buffer.from('cropped-bytes'));
+    expect(fs.readFileSync(originalPath)).toEqual(Buffer.from('original-bytes'));
+  });
+
+  test('returns null when no original was ever saved for a key', async () => {
+    await saveUploadedImage('req-cropped-only', Buffer.from('cropped'), 'image/jpeg');
+
+    expect(await getOriginalImagePath('req-cropped-only')).toBeNull();
+  });
+
+  test('re-cropping (overwriting the cropped image) does not affect the preserved original', async () => {
+    await saveUploadedImage('req-recrop', Buffer.from('first-crop'), 'image/jpeg');
+    await saveOriginalImage('req-recrop', Buffer.from('true-original'), 'image/png');
+
+    await deleteImage('req-recrop');
+    await saveUploadedImage('req-recrop', Buffer.from('second-crop'), 'image/jpeg');
+
+    const originalPath = await getOriginalImagePath('req-recrop');
+    expect(fs.readFileSync(originalPath)).toEqual(Buffer.from('true-original'));
+  });
 });
 
 describe('recordEventDate + pruneExpiredImages', () => {
@@ -120,6 +172,19 @@ describe('recordEventDate + pruneExpiredImages', () => {
 
   test('recordEventDate is a no-op for a key that was never stored', async () => {
     await expect(recordEventDate('nonexistent', Date.now())).resolves.toBeUndefined();
+  });
+
+  test('recordEventDate also stamps the preserved original, so it is retained/pruned on the same schedule', async () => {
+    await saveUploadedImage('req-with-original', Buffer.from('cropped'), 'image/jpeg');
+    await saveOriginalImage('req-with-original', Buffer.from('original'), 'image/png');
+
+    await recordEventDate('req-with-original', Date.now() - 100 * DAY_MS);
+
+    const deletedCount = await pruneExpiredImages();
+
+    expect(deletedCount).toBe(2); // both the cropped copy and the original
+    expect(await getImagePath('req-with-original')).toBeNull();
+    expect(await getOriginalImagePath('req-with-original')).toBeNull();
   });
 });
 

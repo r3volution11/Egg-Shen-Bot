@@ -103,6 +103,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const imageCropContainer = document.getElementById('image-crop-container');
     const imageCropTarget = document.getElementById('image-crop-target');
 
+    // The raw, uncropped file the user selected — sent alongside the first
+    // cropped upload so the server can preserve it separately. A moderator
+    // opening the crop link later crops from this true original, not from
+    // a re-crop of the already-cropped result. Only needs to be sent once
+    // per file selection, not on every debounced re-crop upload.
+    let pendingOriginalFile = null;
+
     // Uploads a given image blob (the cropped output, not necessarily the
     // raw selected file) and records the returned token. Shared by the
     // initial auto-crop-and-upload on file select and every subsequent
@@ -115,6 +122,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const fileData = new FormData();
             fileData.append('image', blob, 'event-image.jpg');
+            if (pendingOriginalFile) {
+                fileData.append('original', pendingOriginalFile);
+                pendingOriginalFile = null;
+            }
 
             const response = await fetch(`${API_BASE_URL}/event-request/upload-image`, {
                 method: 'POST',
@@ -167,6 +178,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function resetImageCropState() {
         cropper?.destroy();
         cropper = null;
+        pendingOriginalFile = null;
         imageCropContainer.style.display = 'none';
     }
 
@@ -194,6 +206,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         imageUrlInput.value = '';
         imageUrlInput.disabled = true;
+
+        pendingOriginalFile = imageFileInput.files[0];
 
         const reader = new FileReader();
         reader.onload = () => {

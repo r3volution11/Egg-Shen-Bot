@@ -6,6 +6,8 @@ import multer from 'multer';
 import { loadGuildConfig } from '../utils/guildConfig.js';
 import {
   saveUploadedImage,
+  saveOriginalImage,
+  getOriginalImagePath,
   renameImageKey,
   getImagePath,
   deleteImage,
@@ -199,7 +201,10 @@ export function createApiServer(client) {
   const ALLOWED_IMAGE_MIMETYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
   const upload = multer({
     storage: multer.memoryStorage(), // buffer only — saveUploadedImage() writes it to disk itself
-    limits: { fileSize: 8 * 1024 * 1024, files: 1 }, // 8MB cap, single file
+    // 8MB cap per file; up to 2 files total (the cropped "image" plus an
+    // optional raw "original" preserved for later re-cropping) — each
+    // field is still capped at 1 via upload.fields()'s own maxCount.
+    limits: { fileSize: 8 * 1024 * 1024, files: 2 },
     fileFilter: (req, file, cb) => {
       if (!ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype)) {
         return cb(new Error('Unsupported image type. Use PNG, JPEG, GIF, or WebP.'));
@@ -463,13 +468,23 @@ export function createApiServer(client) {
   // renamed to the real requestId once POST /api/event-request succeeds
   // (see renameImageKey below). An image uploaded but never followed by a
   // successful submission is cleaned up by eventImageStore's orphan sweep.
+  //
+  // Accepts two files: "image" (the cropped result actually used for the
+  // Discord event) and an optional "original" (the raw, uncropped file the
+  // submitter picked) — kept separately so a moderator opening the crop
+  // page later can crop from the true original, not a re-crop of an
+  // already-cropped image.
+  const uploadWithOriginal = upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'original', maxCount: 1 },
+  ]);
   app.post('/api/event-request/upload-image', imageUploadLimiter, (req, res) => {
     // multer's own errors (file too large, wrong type, etc) arrive via a
     // callback rather than a thrown exception a normal try/catch would see,
     // so they're handled explicitly here rather than via Express's generic
     // error middleware, to keep the response shape consistent with the
     // rest of this API (a JSON { error } body, not an HTML error page).
-    upload.single('image')(req, res, async (err) => {
+    uploadWithOriginal(req, res, async (err) => {
       if (err) {
         const message = err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE'
           ? 'Image is too large (8MB max).'
@@ -478,12 +493,19 @@ export function createApiServer(client) {
       }
 
       try {
-        if (!req.file) {
+        const croppedFile = req.files?.image?.[0];
+        const originalFile = req.files?.original?.[0];
+
+        if (!croppedFile) {
           return res.status(400).json({ error: 'No image file provided' });
         }
 
         const imageToken = crypto.randomBytes(16).toString('hex');
-        await saveUploadedImage(imageToken, req.file.buffer, req.file.mimetype);
+        await saveUploadedImage(imageToken, croppedFile.buffer, croppedFile.mimetype);
+
+        if (originalFile) {
+          await saveOriginalImage(imageToken, originalFile.buffer, originalFile.mimetype);
+        }
 
         res.json({ imageToken });
       } catch (error) {
@@ -543,7 +565,12 @@ export function createApiServer(client) {
     }
 
     try {
-      const filePath = await getImagePath(requestId);
+      // Prefer the preserved uncropped original, if one exists, so a
+      // moderator crops from the true source image rather than re-cropping
+      // an already-cropped result. Falls back to the cropped copy for
+      // requests with no separate original on file (e.g. a mod-added image
+      // uploaded directly through this same crop page).
+      const filePath = (await getOriginalImagePath(requestId)) || (await getImagePath(requestId));
       if (!filePath) {
         return res.status(404).json({ error: 'No image uploaded for this request yet' });
       }
@@ -561,10 +588,14 @@ export function createApiServer(client) {
   // the request had before. Not behind imageUploadLimiter — a valid
   // single-use token is a much stronger, more specific control than a
   // per-IP rate limit meant for anonymous public submitters.
+  const uploadCropSave = upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'original', maxCount: 1 },
+  ]);
   app.post('/crop/:requestId/save', (req, res) => {
     const { requestId } = req.params;
 
-    upload.single('image')(req, res, async (err) => {
+    uploadCropSave(req, res, async (err) => {
       if (err) {
         const message = err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE'
           ? 'Image is too large (8MB max).'
@@ -583,7 +614,10 @@ export function createApiServer(client) {
           return res.status(404).json({ error: 'This event request no longer exists.' });
         }
 
-        if (!req.file) {
+        const croppedFile = req.files?.image?.[0];
+        const newOriginalFile = req.files?.original?.[0];
+
+        if (!croppedFile) {
           return res.status(400).json({ error: 'No image file provided' });
         }
 
@@ -595,7 +629,14 @@ export function createApiServer(client) {
         // .jpg orphaned on disk, invisible to the prune functions since
         // they iterate the manifest, not the directory).
         await deleteImage(requestId);
-        await saveUploadedImage(requestId, req.file.buffer, req.file.mimetype);
+        await saveUploadedImage(requestId, croppedFile.buffer, croppedFile.mimetype);
+
+        // If the moderator picked a brand new source image (rather than
+        // re-cropping the pre-loaded one), that file becomes the new
+        // preserved original — so a future re-crop starts from it too.
+        if (newOriginalFile) {
+          await saveOriginalImage(requestId, newOriginalFile.buffer, newOriginalFile.mimetype);
+        }
 
         // saveUploadedImage always resets eventDate to null — re-record it
         // immediately so the freshly-cropped image doesn't regress to

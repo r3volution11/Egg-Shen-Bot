@@ -25,6 +25,8 @@ function cleanup() {
 let app;
 let signCropToken;
 let saveUploadedImage;
+let saveOriginalImage;
+let getOriginalImagePath;
 
 beforeEach(async () => {
   cleanup();
@@ -52,7 +54,7 @@ beforeEach(async () => {
   app = createApiServer(mockClient);
 
   ({ signCropToken } = await import('../src/utils/cropLinkToken.js'));
-  ({ saveUploadedImage } = await import('../src/utils/eventImageStore.js'));
+  ({ saveUploadedImage, saveOriginalImage, getOriginalImagePath } = await import('../src/utils/eventImageStore.js'));
 });
 
 afterEach(() => {
@@ -165,6 +167,34 @@ describe('GET /crop/:requestId/current-image', () => {
 
     expect(response.status).toBe(403);
   });
+
+  test('prefers the preserved original over the cropped copy, when both exist', async () => {
+    const request = await import('supertest');
+    const requestId = 'req-image-4';
+    seedRequest(requestId, { hasUploadedImage: true });
+    await saveUploadedImage(requestId, Buffer.from('cropped-version'), 'image/jpeg');
+    await saveOriginalImage(requestId, Buffer.from('true-original-version'), 'image/png');
+    const token = signCropToken(requestId);
+
+    const response = await request.default(app).get(`/crop/${requestId}/current-image`).query({ token });
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('image/png');
+    expect(response.body.toString()).toBe('true-original-version');
+  });
+
+  test('falls back to the cropped copy when no separate original was preserved', async () => {
+    const request = await import('supertest');
+    const requestId = 'req-image-5';
+    seedRequest(requestId, { hasUploadedImage: true });
+    await saveUploadedImage(requestId, Buffer.from('cropped-only'), 'image/jpeg');
+    const token = signCropToken(requestId);
+
+    const response = await request.default(app).get(`/crop/${requestId}/current-image`).query({ token });
+
+    expect(response.status).toBe(200);
+    expect(response.body.toString()).toBe('cropped-only');
+  });
 });
 
 describe('POST /crop/:requestId/save', () => {
@@ -201,6 +231,40 @@ describe('POST /crop/:requestId/save', () => {
 
     const filesInDir = fs.readdirSync(IMAGES_DIR).filter(f => f.startsWith(requestId));
     expect(filesInDir).toEqual([`${requestId}.png`]);
+  });
+
+  test('saving a new source image also preserves it as the new original', async () => {
+    const request = await import('supertest');
+    const requestId = 'req-save-new-original';
+    seedRequest(requestId);
+    const token = signCropToken(requestId);
+
+    await request.default(app)
+      .post(`/crop/${requestId}/save`)
+      .field('token', token)
+      .attach('image', Buffer.from('cropped-result'), { filename: 'crop.jpg', contentType: 'image/jpeg' })
+      .attach('original', Buffer.from('fresh-source-image'), { filename: 'source.png', contentType: 'image/png' });
+
+    const originalPath = await getOriginalImagePath(requestId);
+    expect(originalPath).not.toBeNull();
+    expect(fs.readFileSync(originalPath).toString()).toBe('fresh-source-image');
+  });
+
+  test('re-cropping the pre-loaded image (no new original attached) leaves any existing original untouched', async () => {
+    const request = await import('supertest');
+    const requestId = 'req-save-recrop';
+    seedRequest(requestId, { hasUploadedImage: true });
+    await saveUploadedImage(requestId, Buffer.from('first-crop'), 'image/jpeg');
+    await saveOriginalImage(requestId, Buffer.from('the-true-original'), 'image/png');
+    const token = signCropToken(requestId);
+
+    await request.default(app)
+      .post(`/crop/${requestId}/save`)
+      .field('token', token)
+      .attach('image', Buffer.from('adjusted-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
+
+    const originalPath = await getOriginalImagePath(requestId);
+    expect(fs.readFileSync(originalPath).toString()).toBe('the-true-original');
   });
 
   test('records an event date so the retention sweep can later prune it', async () => {
@@ -266,5 +330,45 @@ describe('POST /crop/:requestId/save', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBeDefined();
+  });
+});
+
+describe('POST /api/event-request/upload-image', () => {
+  test('accepts just the cropped image, with no original preserved', async () => {
+    const request = await import('supertest');
+
+    const response = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .attach('image', Buffer.from('cropped-only'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.imageToken).toEqual(expect.any(String));
+    expect(await getOriginalImagePath(response.body.imageToken)).toBeNull();
+  });
+
+  test('preserves the raw original when sent alongside the cropped image', async () => {
+    const request = await import('supertest');
+
+    const response = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .attach('image', Buffer.from('cropped-version'), { filename: 'crop.jpg', contentType: 'image/jpeg' })
+      .attach('original', Buffer.from('raw-original-version'), { filename: 'source.png', contentType: 'image/png' });
+
+    expect(response.status).toBe(200);
+    const { imageToken } = response.body;
+
+    const originalPath = await getOriginalImagePath(imageToken);
+    expect(originalPath).not.toBeNull();
+    expect(fs.readFileSync(originalPath).toString()).toBe('raw-original-version');
+  });
+
+  test('rejects when the cropped image field is missing, even if an original is attached', async () => {
+    const request = await import('supertest');
+
+    const response = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .attach('original', Buffer.from('raw-original-only'), { filename: 'source.png', contentType: 'image/png' });
+
+    expect(response.status).toBe(400);
   });
 });

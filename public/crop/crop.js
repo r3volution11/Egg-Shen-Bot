@@ -3,6 +3,10 @@ const requestId = window.location.pathname.split('/').filter(Boolean).pop();
 const token = params.get('token');
 
 let cropper = null;
+// Set when the moderator picks a new file (replace/upload inputs) instead
+// of cropping the pre-loaded existing image — that new file becomes the
+// request's new "original" on save, so a future re-crop starts from it.
+let newOriginalFile = null;
 
 const loadingMessage = document.getElementById('loading-message');
 const cropSection = document.getElementById('crop-section');
@@ -30,6 +34,7 @@ function initCropper(imageSrc) {
 }
 
 function loadFileIntoCropper(file) {
+    newOriginalFile = file;
     const reader = new FileReader();
     reader.onload = () => {
         cropSection.style.display = 'block';
@@ -98,6 +103,9 @@ saveBtn.addEventListener('click', async () => {
         const formData = new FormData();
         formData.append('image', blob, 'crop.jpg');
         formData.append('token', token);
+        if (newOriginalFile) {
+            formData.append('original', newOriginalFile);
+        }
 
         const response = await fetch(`/crop/${requestId}/save`, {
             method: 'POST',

@@ -5,6 +5,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.20.1 - 2026-08-29
+
+### Fixed
+- **The moderator crop page now loads the submitter's true, uncropped original — not a re-crop of their already-cropped result.** The submission form only ever uploaded the cropped output (used for the Discord event), so the moderator crop page had nothing else to load and was re-cropping an already-cropped image. The raw original is now preserved separately on upload (both from the submission form and when a moderator uploads a new source image on the crop page) and is what the crop page pre-loads, while the Discord event still uses the cropped result as before
+
+### Developer
+- New `saveOriginalImage()`/`getOriginalImagePath()` in `eventImageStore.js`, storing the original under a `-original` suffixed sibling key so it's tracked, renamed, and retained/pruned on the same lifecycle as the cropped copy (`renameImageKey()` and `recordEventDate()` now propagate to the original entry too)
+- `POST /api/event-request/upload-image` and `POST /crop/:requestId/save` now accept two multipart fields (`image` for the cropped result, optional `original` for the raw source) via `upload.fields()` instead of `upload.single()` — also caught and fixed a latent multer `limits.files` cap of 1 that would have rejected any two-file upload
+- `GET /crop/:requestId/current-image` now prefers the preserved original, falling back to the cropped copy for older/mod-added images with no separate original on file
+
 ## 2.20.0 - 2026-08-29
 
 ### Fixed

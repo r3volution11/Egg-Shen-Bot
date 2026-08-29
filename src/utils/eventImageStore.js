@@ -89,20 +89,45 @@ export async function saveUploadedImage(key, fileBuffer, mimeType) {
 }
 
 /**
- * Rename a placeholder-token image to the real requestId once a request has
- * actually been submitted (the form uploads before the request exists).
- * No-op if no image was uploaded under that token.
- * @param {string} token - Placeholder token used at upload time
- * @param {string} requestId - Real request ID to rename to
+ * Save the uncropped original a submitter selected, kept separately from
+ * the cropped version saveUploadedImage() stores (which is what Discord's
+ * event actually uses). Only ever written once per key, at first upload —
+ * a moderator re-cropping via the crop page should start from this true
+ * original, not from a re-crop of an already-cropped image. Uses a
+ * dedicated `-original` suffix on the key so it has its own manifest entry
+ * and file, tracked/pruned independently but alongside the cropped one.
+ * @param {string} key - Placeholder token or requestId
+ * @param {Buffer} fileBuffer
+ * @param {string} mimeType
+ * @returns {Promise<string>} The stored filename
  */
-export async function renameImageKey(token, requestId) {
-  const manifest = await loadManifest();
-  const entry = manifest[token];
+export async function saveOriginalImage(key, fileBuffer, mimeType) {
+  return saveUploadedImage(originalKey(key), fileBuffer, mimeType);
+}
+
+/**
+ * Absolute path to the preserved original for a given key, or null if none
+ * was ever saved (e.g. the request predates this feature, or the original
+ * was never uploaded — a mod-added image via the crop page has no separate
+ * "original" since the crop page's own upload IS the original at that point).
+ * @param {string} key - requestId (or placeholder token, pre-rename)
+ * @returns {Promise<string|null>}
+ */
+export async function getOriginalImagePath(key) {
+  return getImagePath(originalKey(key));
+}
+
+function originalKey(key) {
+  return `${key}-original`;
+}
+
+async function renameSingleImageKey(manifest, oldKey, newKey) {
+  const entry = manifest[oldKey];
   if (!entry) return;
 
   const oldPath = path.join(IMAGES_DIR, entry.filename);
   const ext = path.extname(entry.filename);
-  const newFilename = `${requestId}${ext}`;
+  const newFilename = `${newKey}${ext}`;
   const newPath = path.join(IMAGES_DIR, newFilename);
 
   try {
@@ -112,21 +137,43 @@ export async function renameImageKey(token, requestId) {
     throw error;
   }
 
-  delete manifest[token];
-  manifest[requestId] = { ...entry, filename: newFilename };
+  delete manifest[oldKey];
+  manifest[newKey] = { ...entry, filename: newFilename };
+}
+
+/**
+ * Rename a placeholder-token image to the real requestId once a request has
+ * actually been submitted (the form uploads before the request exists).
+ * No-op if no image was uploaded under that token. Also renames the
+ * preserved original (if one was saved) under its own matching key, so
+ * getOriginalImagePath keeps working once the request has a real id.
+ * @param {string} token - Placeholder token used at upload time
+ * @param {string} requestId - Real request ID to rename to
+ */
+export async function renameImageKey(token, requestId) {
+  const manifest = await loadManifest();
+  await renameSingleImageKey(manifest, token, requestId);
+  await renameSingleImageKey(manifest, originalKey(token), originalKey(requestId));
   await saveManifest(manifest);
 }
 
 /**
  * Record the linked event's date for a stored image, so the retention
  * sweep knows when it becomes eligible for deletion (90 days after this).
+ * Also stamps the preserved original's entry (if one exists), so it's
+ * retained/pruned on the same schedule as the cropped copy rather than
+ * aging out early via pruneOrphanedUploads' "still pending" check.
  * @param {string} requestId
  * @param {number} eventDateMs - Epoch ms of the event's start/end time
  */
 export async function recordEventDate(requestId, eventDateMs) {
   const manifest = await loadManifest();
-  if (!manifest[requestId]) return;
-  manifest[requestId].eventDate = eventDateMs;
+  if (manifest[requestId]) {
+    manifest[requestId].eventDate = eventDateMs;
+  }
+  if (manifest[originalKey(requestId)]) {
+    manifest[originalKey(requestId)].eventDate = eventDateMs;
+  }
   await saveManifest(manifest);
 }
 

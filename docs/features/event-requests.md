@@ -401,6 +401,10 @@ Every event request in the moderation channel shows a **🖼️ Crop Image** lin
 
 The link is tied to that one request and works for about 30 minutes; clicking Edit again on the request generates a fresh one if it's expired. Once you save a crop, it becomes the image used when the request is approved — this is a separate, more visual alternative to typing a plain URL into the Edit modal's **Image URL** field, which still works too for a quick direct swap.
 
+::: tip Cropping From the True Original
+The crop page always loads the submitter's original, uncropped upload — not their already-cropped result — so you can reframe it freely without compounding crops on top of crops. If you upload a different image instead, that becomes the new original for any future re-crop.
+:::
+
 The moderation-channel embed shows a **🖼️ Image** field (`✅ Uploaded`, `🔗 Linked (URL)`, or `❌ None`) so you can see at a glance whether a request has an image before deciding whether to crop, override, or leave it as-is.
 
 ### Denying with a Reason
