@@ -104,6 +104,10 @@ test('the moderator crop page loads the true uncropped original, not the submitt
   const requestId = await getMostRecentRequestId();
   const token = signCropToken(requestId);
 
+  // Must start listening BEFORE navigating — the crop page's own JS fires
+  // its current-image fetch immediately on load, so waiting for the
+  // response after goto() resolves races the request itself.
+  const imageResponsePromise = page.waitForResponse(res => res.url().includes('/current-image'));
   await page.goto(`/crop/${requestId}?token=${encodeURIComponent(token)}`);
 
   // The crop page's own current-image fetch resolves to whatever the
@@ -111,7 +115,7 @@ test('the moderator crop page loads the true uncropped original, not the submitt
   // proves it's the untouched original PNG, not a re-encoded JPEG crop
   // (saveUploadedImage stores crops as JPEG; the original keeps its
   // original PNG mimetype/bytes).
-  const imageResponse = await page.waitForResponse(res => res.url().includes('/current-image'));
+  const imageResponse = await imageResponsePromise;
   const imageBuffer = await imageResponse.body();
   expect(imageResponse.headers()['content-type']).toContain('image/png');
   expect(imageBuffer.toString('base64')).toBe(TEST_PNG_BASE64);

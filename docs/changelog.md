@@ -5,6 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.20.2 - 2026-08-29
+
+### Fixed
+- **The moderator crop page still showed an already-cropped image after adjusting the crop box before submitting.** The previous fix (2.20.1) correctly preserved the original, but only attached it to the *first* upload call — every subsequent re-crop (the debounced re-upload that fires after dragging the crop box) uploaded under a brand new token with no original attached, and that later token was the one that actually ended up in the submitted request. The original is now sent with every re-crop upload, not just the first, so whichever upload ends up being submitted always has its original correctly preserved
+
+### Developer
+- `public/app.js`'s `uploadImageBlob()` now sends the current selection's original file on every call instead of clearing it after the first — renamed the tracking variable (`pendingOriginalFile` → `currentOriginalFile`) to reflect that it persists for the whole file selection, not just its first upload
+- Fixed a race in the new `tests/e2e/event-image-crop.spec.js` original-preservation test itself (`page.waitForResponse` was registered after `page.goto()` had already resolved the request) — the corrected test now genuinely exercises the drag-then-submit path that reproduced this bug
+
 ## 2.20.1 - 2026-08-29
 
 ### Fixed
