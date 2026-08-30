@@ -172,30 +172,39 @@ export function createApiServer(client) {
   app.use(express.json());
   app.use(cookieParser());
   
-  // Rate limiting for event submissions (1 per 5 minutes per IP)
+  // Keys rate limits per (domain + IP) instead of just IP, since dev.* and
+  // the production domain are served by this same process — an IP-only key
+  // would make a submission on one domain burn the other's budget too.
+  const hostAndIpKeyGenerator = (req) => `${req.get('host') || 'unknown-host'}:${ipKeyGenerator(req.ip)}`;
+
+  // Rate limiting for event submissions (1 per 5 minutes per IP, per domain)
   const eventRequestLimiter = rateLimit({
     windowMs: 5 * 60 * 1000, // 5 minutes
     max: 1,
     message: { error: 'Too many event requests. Please wait 5 minutes before submitting another.' },
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: hostAndIpKeyGenerator,
   });
-  
-  // Rate limiting for channel fetching (10 per minute per IP)
+
+  // Rate limiting for channel fetching (10 per minute per IP, per domain)
   const channelFetchLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 10,
-    message: { error: 'Too many requests. Please try again later.' }
+    message: { error: 'Too many requests. Please try again later.' },
+    keyGenerator: hostAndIpKeyGenerator,
   });
 
-  // Rate limiting for image uploads (5 per 5 minutes per IP — generous
-  // enough for retries after a rejected file, tight enough to bound abuse)
+  // Rate limiting for image uploads (5 per 5 minutes per IP, per domain —
+  // generous enough for retries after a rejected file, tight enough to
+  // bound abuse)
   const imageUploadLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
     max: 5,
     message: { error: 'Too many image uploads. Please wait a few minutes before trying again.' },
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: hostAndIpKeyGenerator,
   });
 
   const ALLOWED_IMAGE_MIMETYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
@@ -985,16 +994,16 @@ export function createApiServer(client) {
   });
   
   // Test-only: lets the e2e harness reset the event-request rate limiter for
-  // the calling IP without waiting out the real 5-minute window. Inert in
-  // production. See tests/e2e/README.md.
+  // the calling host+IP without waiting out the real 5-minute window. Inert
+  // in production. See tests/e2e/README.md.
   //
-  // The limiter's default keyGenerator stores IPv6 requests under a
-  // subnet-masked key (via express-rate-limit's own ipKeyGenerator helper),
-  // not the raw IP — resetKey(req.ip) would silently no-op for IPv6 callers
-  // (e.g. localhost/::1) without this same transform applied first.
+  // Must use the same hostAndIpKeyGenerator the limiter itself is keyed on
+  // (which subnet-masks IPv6 via express-rate-limit's own ipKeyGenerator
+  // helper) — resetKey(req.ip) alone would silently no-op, both because it
+  // skips that transform and because it omits the host prefix.
   if (process.env.NODE_ENV !== 'production') {
     app.post('/api/__test__/reset-rate-limit', async (req, res) => {
-      await eventRequestLimiter.resetKey(ipKeyGenerator(req.ip));
+      await eventRequestLimiter.resetKey(hostAndIpKeyGenerator(req));
       res.sendStatus(204);
     });
   }

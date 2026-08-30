@@ -5,6 +5,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.22.1 - 2026-08-30
+
+### Fixed
+- **Submitting an event request on one domain no longer blocks a submission on another domain.** dev.shudderdrivein.com and shudderdrivein.com are served by the same bot process, but the rate limiter (1 request per 5 minutes) was keyed on IP address alone — so a submission on the dev site would incorrectly block an immediate follow-up submission on the production site (or vice versa), even though they're separate websites going to separate Discord servers. The same fix applies to the channel-lookup and image-upload limiters, which had the same gap
+
+### Developer
+- All three `express-rate-limit` instances in `src/api/server.js` (`eventRequestLimiter`, `channelFetchLimiter`, `imageUploadLimiter`) now use a shared `hostAndIpKeyGenerator` keyed on `${req.get('host')}:${ipKeyGenerator(req.ip)}` instead of the library's IP-only default
+- The test-only `/api/__test__/reset-rate-limit` route (used by the Playwright e2e suite) updated to reset using the same host+IP key, so it still resets the correct bucket
+- New `tests/eventRequestRateLimitByDomain.test.js` verifies a submission on `dev.example.com` doesn't rate-limit `example.com`, and that two submissions on the same domain are still correctly blocked (regression guard)
+
 ## 2.22.0 - 2026-08-29
 
 ### Added

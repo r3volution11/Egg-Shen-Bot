@@ -444,6 +444,8 @@ Built-in protection against spam:
 - **5 image uploads per 5 minutes** per user (by IP address)
 - **Sessions expire after 24 hours**
 
+Limits are scoped **per domain**, not just per IP — if you run a dev deployment alongside production (see [Multiple Servers](#multiple-servers-advanced) below), submitting on one domain doesn't use up the other domain's limit, even though both are served by the same bot process.
+
 ## Security Features
 
 - ✅ Discord OAuth authentication (no passwords stored)

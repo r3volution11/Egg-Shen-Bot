@@ -1,14 +1,15 @@
 import { loginAs as loginAsCookie } from './fixtures/session-cookie.js';
 
 /**
- * Resets the shared, IP-keyed event-request rate limiter for this test run.
+ * Resets the shared, host+IP-keyed event-request rate limiter for this test run.
  *
  * Must run via page.evaluate() (i.e. fetch from *inside* the browser), not
  * Playwright's standalone `request` fixture — the latter is a separate Node
  * HTTP client that can resolve "localhost" to a different local address
  * (IPv4 vs IPv6) than the actual browser page, silently resetting the wrong
  * rate-limit bucket. Running the reset from the page guarantees it shares
- * the exact same network path as every other request the test makes.
+ * the exact same network path (and Host header) as every other request the
+ * test makes.
  */
 export async function resetRateLimit(page) {
   const status = await page.evaluate(async () => {
