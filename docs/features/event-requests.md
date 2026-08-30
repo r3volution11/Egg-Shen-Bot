@@ -111,21 +111,24 @@ The bot includes a web form in the `/public` folder. Deploy these files to your 
 
 **Required Configuration:**
 
-1. Open `public/app.js`
-2. Find the `GUILD_ID` constant (around line 11)
-3. Replace the placeholder with your Discord server's Guild ID:
+1. Copy `public/config.example.js` to `public/config.js`
+2. Set `GUILD_ID` to your Discord server's Guild ID:
 
 ```javascript
-const GUILD_ID = 'YOUR_GUILD_ID_HERE'; // Change this!
+window.EGG_SHEN_CONFIG = {
+  GUILD_ID: 'YOUR_GUILD_ID_HERE', // Change this!
+};
 ```
+
+`public/config.js` is gitignored, so a future `git pull` on your server will never overwrite it.
 
 ::: tip Finding Your Guild ID
 Run `/eggshen-config event-requests get-link` in your Discord server to see your Guild ID.
 :::
 
 **Example deployment:**
-- Update `GUILD_ID` in `public/app.js`
-- Upload `/public` contents to `https://yourdomain.com`
+- Copy `config.example.js` to `config.js` in `public/` and set `GUILD_ID`
+- Upload `/public` contents (including your new `config.js`) to `https://yourdomain.com`
 - Ensure the domain matches your environment variables
 
 ::: warning Reverse Proxy Upload Size Limit
@@ -173,9 +176,9 @@ Use `/eggshen-config event-requests` commands in your Discord server:
 /eggshen-config event-requests get-link
 ```
 
-This gives you a unique link like: `https://yourdomain.com?guild=YOUR_GUILD_ID`
+This shows your configured Form URL, plus a reminder to set `GUILD_ID` in `public/config.js` on your web server if you haven't already.
 
-Share this link with your community!
+Share your Form URL with your community!
 
 ## Configuration Commands
 
@@ -458,7 +461,7 @@ Built-in protection against spam:
 
 The event request system is designed to be easily customized:
 
-1. **Update `GUILD_ID` in `public/app.js`** - Point to your Discord server
+1. **Set `GUILD_ID` in `public/config.js`** (copied from `public/config.example.js`) - Point to your Discord server
 2. **Configure server name and invite** - Use `/eggshen-config event-requests` commands
 3. **Customize styling** - Edit `public/style.css` to match your branding
 4. **Deploy to your domain** - Host on any web server (Apache, nginx, Netlify, Vercel, etc.)
@@ -468,21 +471,21 @@ The event request system is designed to be easily customized:
 If you host the bot for multiple communities, each should deploy their own instance:
 
 ```
-Server 1: Deploy to movienight.com with GUILD_ID = 'SERVER_1_ID'
-Server 2: Deploy to gamenight.com with GUILD_ID = 'SERVER_2_ID'
-Server 3: Deploy to bookclub.com with GUILD_ID = 'SERVER_3_ID'
+Server 1: Deploy to movienight.com with config.js → GUILD_ID = 'SERVER_1_ID'
+Server 2: Deploy to gamenight.com with config.js → GUILD_ID = 'SERVER_2_ID'
+Server 3: Deploy to bookclub.com with config.js → GUILD_ID = 'SERVER_3_ID'
 ```
 
 Each deployment is independent with its own:
 - Domain/subdomain
-- GUILD_ID configuration
+- `config.js` (gitignored, so a shared repo checkout never overwrites another deployment's Guild ID)
 - Custom branding and styling
 - Separate Discord OAuth configuration
 
 ::: tip For Bot Hosts
 If you're running the bot for multiple servers and want to offer event requests as a feature, provide each server with:
 1. Instructions to deploy the web form files
-2. Their specific GUILD_ID to configure
+2. Their specific Guild ID to set in `config.js`
 3. Discord OAuth setup guide
 :::
 
@@ -523,7 +526,7 @@ Don't forget to add `http://localhost:3000/api/auth/discord/callback` to Discord
 
 ### 4. Test the Flow
 
-1. Update `GUILD_ID` in `public/app.js` to your test server's ID
+1. Copy `public/config.example.js` to `public/config.js` and set `GUILD_ID` to your test server's ID
 2. Configure your test server:
 
 ```

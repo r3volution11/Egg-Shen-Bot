@@ -5,6 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.21.1 - 2026-08-29
+
+### Changed
+- **The event-request web form's Guild ID no longer lives in a file tracked by git.** Previously `public/app.js`'s `GUILD_ID` constant was hardcoded directly in a committed file, so every deployment's real value had to be preserved around each `git pull` (stash/pull/pop) or it would get clobbered by the repo's placeholder — and vice versa, a real edit always showed up as a dirty working tree. It now lives in `public/config.js`, a new gitignored file (copy `public/config.example.js` to create it) loaded before `app.js` — the same pattern this project already uses for `.env` and other server-local state. A plain `git pull` now never touches it
+
+### Developer
+- New `public/config.example.js` (committed template) sets `window.EGG_SHEN_CONFIG.GUILD_ID`; `public/app.js` reads `window.EGG_SHEN_CONFIG?.GUILD_ID` as a fallback below the existing `e2eGuildId` query-param override (unchanged, still takes priority — the Playwright e2e suite needed no changes)
+- `.gitignore` gained `public/config.js`; every "edit `GUILD_ID` in `public/app.js`" instruction across `EVENT_REQUEST_SETUP.md`, `docs/features/event-requests.md`, `docs/commands/configuration.md`, `scripts/validate-oauth-config.js`, and the `/eggshen-config event-requests` command's own reply messages (`get-link`, `view`, `website-url`) updated to reference `config.js` instead
+
 ## 2.21.0 - 2026-08-29
 
 ### Added

@@ -5,24 +5,22 @@ const API_BASE_URL = window.location.hostname === 'localhost'
 
 // ===================================================================
 // DEPLOYMENT CONFIGURATION
-// Set this to your Discord server's Guild ID when deploying the form
-// Each website deployment is dedicated to ONE specific Discord server
-// 
-// To find your Guild ID:
-// 1. Enable Developer Mode in Discord (User Settings → Advanced)
-// 2. Right-click your server icon → "Copy Server ID"
-// 
-// Example: const GUILD_ID = '1234567890123456789';
+// Each website deployment is dedicated to ONE specific Discord server.
+// The real Guild ID lives in config.js (gitignored, loaded via a <script>
+// tag before this file — see config.example.js for the template) so a
+// `git pull` never overwrites this deployment's value.
 // ===================================================================
 // e2eGuildId query param lets the Playwright e2e suite (tests/e2e/) exercise
-// this page against fixture guilds without editing this file. Has no effect
+// this page against fixture guilds without touching config.js. Has no effect
 // on a real deployment unless the param is explicitly present in the URL.
-const GUILD_ID = new URLSearchParams(window.location.search).get('e2eGuildId') || 'YOUR_GUILD_ID_HERE'; // ⚠️ CHANGE THIS!
+const GUILD_ID = new URLSearchParams(window.location.search).get('e2eGuildId')
+    || window.EGG_SHEN_CONFIG?.GUILD_ID
+    || 'YOUR_GUILD_ID_HERE';
 
 // Validate configuration
 if (!GUILD_ID || GUILD_ID === 'YOUR_GUILD_ID_HERE') {
-    document.body.innerHTML = '<div class="container"><div class="error-message" style="background: #fee; border: 1px solid #c33; padding: 20px; border-radius: 8px; color: #c33; text-align: center; margin-top: 50px;"><h2>⚠️ Configuration Required</h2><p>This event request form has not been configured with a Discord server ID.</p><p><strong>Edit <code>public/app.js</code></strong> and set the <code>GUILD_ID</code> constant to your server\'s Guild ID.</p><p>See the comments in the file for instructions on finding your Guild ID.</p></div></div>';
-    throw new Error('GUILD_ID not configured in app.js');
+    document.body.innerHTML = '<div class="container"><div class="error-message" style="background: #fee; border: 1px solid #c33; padding: 20px; border-radius: 8px; color: #c33; text-align: center; margin-top: 50px;"><h2>⚠️ Configuration Required</h2><p>This event request form has not been configured with a Discord server ID.</p><p><strong>Copy <code>public/config.example.js</code> to <code>public/config.js</code></strong> and set <code>GUILD_ID</code> to your server\'s Guild ID.</p><p>See the comments in that file for instructions on finding your Guild ID.</p></div></div>';
+    throw new Error('GUILD_ID not configured — copy public/config.example.js to public/config.js');
 }
 
 // State

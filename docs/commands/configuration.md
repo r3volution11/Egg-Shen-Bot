@@ -642,7 +642,7 @@ Discord invite link displayed on the form. Leave empty to hide.
 The URL where your event request form is hosted.
 
 ::: warning
-After setting the website URL, you must also configure `GUILD_ID` in your `public/app.js` file on your web server. See the [Event Requests Setup Guide](../features/event-requests.md) for deployment instructions.
+After setting the website URL, you must also copy `public/config.example.js` to `public/config.js` on your web server and set `GUILD_ID` there. See the [Event Requests Setup Guide](../features/event-requests.md) for deployment instructions.
 :::
 
 #### Allow/Disallow Voice Requests

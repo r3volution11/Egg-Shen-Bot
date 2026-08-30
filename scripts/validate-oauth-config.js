@@ -129,7 +129,7 @@ console.log('   → Your Application → OAuth2 → Redirects');
 if (process.env.OAUTH_REDIRECT_URI) {
   console.log(`   → Add: ${process.env.OAUTH_REDIRECT_URI}`);
 }
-console.log('2. Configure GUILD_ID in public/app.js');
+console.log('2. Copy public/config.example.js to public/config.js and set GUILD_ID');
 console.log('3. Deploy web form files to your domain');
 console.log('4. Configure server with /eggshen-config event-requests commands');
 console.log('\n' + '='.repeat(60));

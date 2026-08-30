@@ -2628,7 +2628,7 @@ export async function execute(interaction) {
         },
         {
           name: '⚙️ Required Configuration',
-          value: `Set \`GUILD_ID\` in \`public/app.js\` to: \`'${guildId}'\``,
+          value: `Set \`GUILD_ID\` in \`public/config.js\` (copied from \`public/config.example.js\`) to: \`'${guildId}'\``,
           inline: false
         }
       );
@@ -2722,10 +2722,10 @@ export async function execute(interaction) {
     await saveGuildConfig(guildId, config);
     
     await interaction.reply({
-      content: `✅ Website URL set to: ${url}\n\n⚠️ **Important:** Update \`GUILD_ID\` in your \`public/app.js\` file to: \`'${guildId}'\``,
+      content: `✅ Website URL set to: ${url}\n\n⚠️ **Important:** On your web server, copy \`public/config.example.js\` to \`public/config.js\` and set \`GUILD_ID\` to: \`'${guildId}'\``,
       ephemeral: true
     });
-    
+
   } else if (group === 'event-requests' && subcommand === 'allow-voice-requests') {
     const allow = interaction.options.getBoolean('allow');
     const config = await loadGuildConfig(guildId);
@@ -2864,7 +2864,7 @@ export async function execute(interaction) {
         },
         {
           name: '⚙️ Configuration Required',
-          value: `Before users can access the form, you must set the \`GUILD_ID\` in \`public/app.js\` to:\n\`\`\`\nconst GUILD_ID = '${guildId}';\n\`\`\``,
+          value: `Before users can access the form, copy \`public/config.example.js\` to \`public/config.js\` on your web server and set:\n\`\`\`\nwindow.EGG_SHEN_CONFIG = {\n  GUILD_ID: '${guildId}',\n};\n\`\`\``,
           inline: false
         }
       )

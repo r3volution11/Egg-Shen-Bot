@@ -51,7 +51,7 @@ Use `/eggshen-config event-requests` subcommands:
 /eggshen-config event-requests get-link
 ```
 
-This will give you a link like: `http://localhost:8080?guild=YOUR_GUILD_ID`
+This shows your configured Form URL and reminds you to set `GUILD_ID` in `public/config.js` (copied from `public/config.example.js`) if you haven't already.
 
 ## Moderator Image Cropping
 
@@ -83,7 +83,22 @@ npm start
 
 You should see: `✓ API server listening on port 3000`
 
-### 2. Serve the Web Form
+### 2. Configure the Web Form
+
+Copy `public/config.example.js` to `public/config.js` and set `GUILD_ID` to your test server's ID (from `/eggshen-config event-requests get-link`):
+
+```bash
+cp public/config.example.js public/config.js
+```
+
+```js
+window.EGG_SHEN_CONFIG = {
+  GUILD_ID: 'YOUR_TEST_SERVER_GUILD_ID',
+};
+```
+
+### 3. Serve the Web Form
+
 From the project root, serve the `/public` folder:
 
 ```bash
@@ -94,10 +109,8 @@ cd public && python3 -m http.server 8080
 npx http-server public -p 8080
 ```
 
-### 3. Open the Form
-Navigate to: `http://localhost:8080?guild=YOUR_GUILD_ID`
-
-Replace `YOUR_GUILD_ID` with your test server's ID (from `/eggshen-config event-requests get-link`)
+### 4. Open the Form
+Navigate to: `http://localhost:8080`
 
 ### 4. Test the Flow
 1. Click "Login with Discord"
@@ -124,6 +137,7 @@ Replace `YOUR_GUILD_ID` with your test server's ID (from `/eggshen-config event-
 
 3. **Deploy Web Form**:
    - Upload `/public` folder contents to your web server (yourdomain.com)
+   - Copy `public/config.example.js` to `public/config.js` on the server and set `GUILD_ID` to your Discord server's ID
    - Ensure HTTPS is enabled
 
 4. **Configure Servers**:
@@ -132,11 +146,13 @@ Replace `YOUR_GUILD_ID` with your test server's ID (from `/eggshen-config event-
    ```
 
 5. **Share the Link**:
-   Each Discord server gets a unique link: `https://yourdomain.com?guild=GUILD_ID`
+   ```
+   /eggshen-config event-requests get-link
+   ```
 
 ## Multiple Servers
 
-One bot process can back the event-request form for more than one Discord server, but **each web form deployment is dedicated to exactly one server** — `public/app.js`'s `GUILD_ID` constant is a single, hardcoded value baked in at deploy time, not something a visitor can pick via a query parameter. To serve a second server, deploy a second copy of the `public/` folder (its own domain or subdomain) with its own `GUILD_ID`, both pointed at the same bot process.
+One bot process can back the event-request form for more than one Discord server, but **each web form deployment is dedicated to exactly one server** — the real Guild ID lives in `public/config.js` (copied from `public/config.example.js`, gitignored so `git pull` never overwrites it), not something a visitor can pick via a query parameter. To serve a second server, deploy a second copy of the `public/` folder (its own domain or subdomain) with its own `config.js`, both pointed at the same bot process.
 
 Each Discord server's own settings still live in its own `guild_configs/<guildId>.json` (via `loadGuildConfig`/`saveGuildConfig`, not a shared `event_request_config.json`), configured independently with `/eggshen-config event-requests`:
 
@@ -156,7 +172,7 @@ dev.shudderdrivein.com   → public-dev/        → GUILD_ID = <dev/test guild>
 
 Both domains proxy `/api/`, `/crop/`, and `/crop-assets/` to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part. What each domain needs:
 
-1. A second static directory (e.g. `public-dev/`) — a copy of `public/` (including `crop/`) with only `GUILD_ID` in `app.js` changed.
+1. A second static directory (e.g. `public-dev/`) — a copy of `public/` (including `crop/`) with its own `config.js` set to the other server's Guild ID.
 2. A second nginx `server{}` block for the new (sub)domain, mirroring the existing one: same `root` pattern pointed at the new directory, the same three proxy `location` blocks, its own SSL certificate (`certbot --nginx -d dev.yourdomain.com`, once DNS for the subdomain points at the server).
 3. `ALLOWED_ORIGINS` in `.env` updated to a comma-separated list including every domain (already supported — `cors()`'s `origin` option is built directly from `ALLOWED_ORIGINS.split(',')`): `ALLOWED_ORIGINS=https://yourdomain.com,https://dev.yourdomain.com`.
 4. Both callback URLs registered in the Discord Developer Portal (OAuth2 → Redirects): `https://yourdomain.com/api/auth/discord/callback` **and** `https://dev.yourdomain.com/api/auth/discord/callback`. The bot itself derives which one to use per-request from the actual incoming domain (not a single static `OAUTH_REDIRECT_URI`), so a login started on either domain correctly lands back on that same domain — `OAUTH_REDIRECT_URI`/`FORM_URL` in `.env` only matter as a fallback for requests where the domain can't be determined (shouldn't happen behind nginx).

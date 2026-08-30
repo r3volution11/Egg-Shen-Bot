@@ -1,6 +1,9 @@
 # Environment variables
 .env
 
+# Per-deployment web form config (real Guild ID) — see public/config.example.js
+public/config.js
+
 # Guild configurations (server-specific settings)
 guild_configs/
 
