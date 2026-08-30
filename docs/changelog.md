@@ -5,6 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.22.4 - 2026-08-30
+
+### Fixed
+- **Approved event requests now show the actual selected channel as the event's location, instead of a hardcoded "Discord Server."** Text-channel-only events (no voice channel involved) always set the Discord Scheduled Event's location field to the literal string "Discord Server," regardless of which channel a moderator/requester actually picked — the real channel was only ever mentioned in the event description, never in the location Discord shows at the top of the event card. The location now reflects the real channel name (e.g. "#watch-party"), falling back to the server name only if the channel can no longer be found
+
+### Developer
+- `createScheduledEventFromRequest()` in `src/utils/eventRequestApproval.js` now builds the External-type event's `entityMetadata.location` from `guild.channels.cache.get(requestData.channelId)`'s name instead of a hardcoded string, truncated to Discord's 100-character location limit. Voice-channel events (`entityType: 2`) are unaffected — Discord already renders those with a real, clickable channel link
+- New tests in `tests/eventRequestApproval.test.js` cover the real-channel-name location, the guild-name fallback when the channel is missing from cache, and truncation of an overlong channel name
+
 ## 2.22.3 - 2026-08-30
 
 ### Fixed

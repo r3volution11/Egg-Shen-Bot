@@ -1,6 +1,6 @@
 {
   "name": "egg-shen-bot",
-  "version": "2.22.3",
+  "version": "2.22.4",
   "description": "Egg Shen - Discord bot for searching movies, TV shows, games, and board games with ratings from multiple services",
   "main": "src/index.js",
   "type": "module",

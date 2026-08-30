@@ -47,17 +47,19 @@ function cleanup() {
 beforeEach(cleanup);
 afterEach(cleanup);
 
-function makeGuild() {
+function makeGuild(overrides = {}) {
   return {
+    name: 'Test Guild',
     channels: {
       cache: new Map([
-        ['text-1', { id: 'text-1' }],
-        ['voice-1', { id: 'voice-1' }],
+        ['text-1', { id: 'text-1', name: 'watch-party' }],
+        ['voice-1', { id: 'voice-1', name: 'Voice Lounge' }],
       ]),
     },
     scheduledEvents: {
       create: jest.fn().mockResolvedValue({ id: 'discord-event-1', url: 'https://discord.com/events/discord-event-1' }),
     },
+    ...overrides,
   };
 }
 
@@ -88,6 +90,47 @@ describe('createScheduledEventFromRequest', () => {
       expect.objectContaining({ name: 'Movie Night', entityType: 3 })
     );
     expect(scheduledEvent.id).toBe('discord-event-1');
+  });
+
+  test('sets the External event location to the actual selected channel, not a hardcoded placeholder', async () => {
+    const guild = makeGuild();
+    const requestData = makeRequestData({ channelId: 'text-1' });
+
+    await createScheduledEventFromRequest({
+      guild, requestId: 'req-1', requestData, approvalType: 'full',
+    });
+
+    expect(guild.scheduledEvents.create).toHaveBeenCalledWith(
+      expect.objectContaining({ entityMetadata: { location: '#watch-party' } })
+    );
+  });
+
+  test('falls back to the guild name when the selected channel is not in cache', async () => {
+    const guild = makeGuild();
+    const requestData = makeRequestData({ channelId: 'deleted-channel' });
+
+    await createScheduledEventFromRequest({
+      guild, requestId: 'req-1', requestData, approvalType: 'full',
+    });
+
+    expect(guild.scheduledEvents.create).toHaveBeenCalledWith(
+      expect.objectContaining({ entityMetadata: { location: 'Test Guild' } })
+    );
+  });
+
+  test('truncates a very long channel name to Discord\'s 100-character location limit', async () => {
+    const longName = 'a'.repeat(150);
+    const guild = makeGuild();
+    guild.channels.cache.set('text-1', { id: 'text-1', name: longName });
+    const requestData = makeRequestData({ channelId: 'text-1' });
+
+    await createScheduledEventFromRequest({
+      guild, requestId: 'req-1', requestData, approvalType: 'full',
+    });
+
+    const call = guild.scheduledEvents.create.mock.calls[0][0];
+    expect(call.entityMetadata.location.length).toBeLessThanOrEqual(100);
+    expect(call.entityMetadata.location).toBe(`#${longName}`.slice(0, 100));
   });
 
   test('creates a voice+text event when approvalType is "both" and a voice channel is set', async () => {

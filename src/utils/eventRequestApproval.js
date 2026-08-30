@@ -106,7 +106,13 @@ export async function createScheduledEventFromRequest({ guild, requestId, reques
     eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') +
       `📍 Location: ${channelMention}`;
     eventConfig.entityType = 3;
-    eventConfig.entityMetadata = { location: 'Discord Server' };
+    // Discord's External-event location is a plain string, not a real
+    // channel link (entityType 2/voice is the only type Discord renders as
+    // an actual clickable channel) — capped at 100 chars, so it's built
+    // from the channel's real name, not a `<#id>` mention which would
+    // render as inert literal text here instead of a link.
+    const locationText = textChannel ? `#${textChannel.name}` : (guild.name || 'Discord Server');
+    eventConfig.entityMetadata = { location: locationText.slice(0, 100) };
   }
 
   const imageBuffer = await resolveEventImageBuffer(requestId, requestData);
