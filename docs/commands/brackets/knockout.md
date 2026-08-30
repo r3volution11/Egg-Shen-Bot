@@ -524,7 +524,7 @@ All matchups complete! Tournament has advanced to Quarterfinals.
 **Example Output (During Knockout):**
 
 ```
-🏆 The Shudder Discord Gore Cup
+🏆 The Ultimate Horror Cup
 Status: knockout
 Phase: round_of_16
 

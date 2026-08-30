@@ -5,10 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.22.2 - 2026-08-30
+
+### Changed
+- **Removed references to the maintainer's own production domain and Discord server from the open-source repo and docs.** Example URLs and a tournament-name example previously used the maintainer's real, identifiable infrastructure — replaced with generic placeholders (`example.com`, `dev.example.com`, `"The Ultimate Horror Cup"`) everywhere, including the `/bracket create` command's own description text
+
 ## 2.22.1 - 2026-08-30
 
 ### Fixed
-- **Submitting an event request on one domain no longer blocks a submission on another domain.** dev.shudderdrivein.com and shudderdrivein.com are served by the same bot process, but the rate limiter (1 request per 5 minutes) was keyed on IP address alone — so a submission on the dev site would incorrectly block an immediate follow-up submission on the production site (or vice versa), even though they're separate websites going to separate Discord servers. The same fix applies to the channel-lookup and image-upload limiters, which had the same gap
+- **Submitting an event request on one domain no longer blocks a submission on another domain.** A bot process serving the event-request form for more than one domain (e.g. a dev subdomain alongside production) had its rate limiter (1 request per 5 minutes) keyed on IP address alone — so a submission on one domain would incorrectly block an immediate follow-up submission on the other, even though they're separate websites going to separate Discord servers. The same fix applies to the channel-lookup and image-upload limiters, which had the same gap
 
 ### Developer
 - All three `express-rate-limit` instances in `src/api/server.js` (`eventRequestLimiter`, `channelFetchLimiter`, `imageUploadLimiter`) now use a shared `hostAndIpKeyGenerator` keyed on `${req.get('host')}:${ipKeyGenerator(req.ip)}` instead of the library's IP-only default
@@ -1364,7 +1369,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Vote change support (users can change votes before close)
   - Complete tournament state persistence in JSON format
   - Configurable via `/eggshen-config commands toggle`
-  - Perfect for community competitions like "The Shudder Discord Gore Cup"
+  - Perfect for community competitions like "The Ultimate Horror Cup"
 - **Spotify Premium Detection and Graceful Fallback**
   - Detects when Spotify API requires Premium subscription (403 errors)
   - Automatically disables Spotify features when Premium detected

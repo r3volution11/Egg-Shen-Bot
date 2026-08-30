@@ -21,7 +21,7 @@ head:
 
 # Tournament Bracket System
 
-**Host comprehensive tournaments** in your Discord server for movies, TV shows, video games, board games, or books! Features a complete group stage with smart search integration, wildcard system, and single-elimination knockout bracket. Perfect for entertainment communities running competitions like "The Shudder Discord Gore Cup" or similar events.
+**Host comprehensive tournaments** in your Discord server for movies, TV shows, video games, board games, or books! Features a complete group stage with smart search integration, wildcard system, and single-elimination knockout bracket. Perfect for any entertainment community running a bracket-style competition, like "The Ultimate Horror Cup" or similar events.
 
 ## Quick FAQ
 

@@ -166,8 +166,8 @@ Each Discord server's own settings still live in its own `guild_configs/<guildId
 **Example: a dev and production deployment on subdomains of the same domain**
 
 ```
-shudderdrivein.com       → public/            → GUILD_ID = <production guild>
-dev.shudderdrivein.com   → public-dev/        → GUILD_ID = <dev/test guild>
+yourdomain.com       → public/            → GUILD_ID = <production guild>
+dev.yourdomain.com   → public-dev/        → GUILD_ID = <dev/test guild>
 ```
 
 Both domains proxy `/api/`, `/crop/`, and `/crop-assets/` to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part. What each domain needs:

@@ -16,7 +16,7 @@ This guide covers everything from creating your first tournament through complet
 ```
 
 **Parameters:**
-- `name` (required) - Tournament name (e.g., "The Shudder Discord Gore Cup")
+- `name` (required) - Tournament name (e.g., "The Ultimate Horror Cup")
 - `groups` (optional) - Number of groups (4-12, default 8). Each group has 4 entries.
 
 **Who can use:** Administrators and Moderators only
@@ -34,7 +34,7 @@ This guide covers everything from creating your first tournament through complet
 ```
 /bracket create name:Quick Horror Showdown groups:4
 /bracket create name:Monthly Movie Madness groups:8
-/bracket create name:The Shudder Discord Gore Cup groups:12
+/bracket create name:The Ultimate Horror Cup groups:12
 ```
 
 ---

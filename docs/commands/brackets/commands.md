@@ -107,7 +107,7 @@ These commands are used to create and configure a tournament before voting begin
 Create a new tournament bracket. The bot automatically selects the best tournament format based on size.
 
 **Parameters:**
-- `name` (required, string): Tournament name (e.g., "The Shudder Discord Gore Cup")
+- `name` (required, string): Tournament name (e.g., "The Ultimate Horror Cup")
 - `max-titles` (optional, dropdown): Maximum number of titles (default: 32)
   - **Valid bracket sizes:** 2, 4, 8, 16, 32 (powers of 2)
   - **Valid group sizes:** 36, 40, 44, 48 (multiples of 4)

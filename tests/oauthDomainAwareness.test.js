@@ -72,18 +72,18 @@ describe('GET /api/auth/discord — redirect_uri derived from the request', () =
 
     const prodResponse = await request.default(app)
       .get('/api/auth/discord?guildId=guild-1')
-      .set('Host', 'shudderdrivein.com')
+      .set('Host', 'example.com')
       .set('X-Forwarded-Proto', 'https');
     const devResponse = await request.default(app)
       .get('/api/auth/discord?guildId=guild-1')
-      .set('Host', 'dev.shudderdrivein.com')
+      .set('Host', 'dev.example.com')
       .set('X-Forwarded-Proto', 'https');
 
     const prodState = decodeState(prodResponse.headers.location);
     const devState = decodeState(devResponse.headers.location);
 
-    expect(prodState.origin).toBe('https://shudderdrivein.com');
-    expect(devState.origin).toBe('https://dev.shudderdrivein.com');
+    expect(prodState.origin).toBe('https://example.com');
+    expect(devState.origin).toBe('https://dev.example.com');
     expect(prodState.origin).not.toBe(devState.origin);
   });
 });
@@ -127,11 +127,11 @@ describe('GET /api/auth/discord/callback — redirects back to the originating d
     mockDiscordApiSuccess();
     const request = await import('supertest');
 
-    const state = makeState({ origin: 'https://shudderdrivein.com' });
+    const state = makeState({ origin: 'https://example.com' });
     const response = await request.default(app)
       .get(`/api/auth/discord/callback?code=fake-code&state=${state}`);
 
-    expect(response.headers.location).toMatch(/^https:\/\/shudderdrivein\.com\?/);
+    expect(response.headers.location).toMatch(/^https:\/\/example\.com\?/);
   });
 
   test('the token-exchange redirect_uri matches the same origin used at the authorize step', async () => {

@@ -1,12 +1,12 @@
 /**
  * Regression test for the event-request rate limiter being keyed on IP
- * alone. dev.<domain> and the production domain are served by the same
+ * alone. A dev subdomain and the production domain are served by the same
  * bot process (see EVENT_REQUEST_SETUP.md's per-domain deployment model),
  * so an IP-only key made a submission on one domain burn the other
- * domain's budget too — reported after a real submission on
- * dev.shudderdrivein.com blocked an immediate follow-up submission on
- * shudderdrivein.com. The limiter now keys on (Host header + IP), via
- * supertest's `.set('Host', ...)` to simulate each domain.
+ * domain's budget too — reported after a real submission on a dev
+ * deployment blocked an immediate follow-up submission on production. The
+ * limiter now keys on (Host header + IP), via supertest's
+ * `.set('Host', ...)` to simulate each domain.
  *
  * Run with: npx jest tests/eventRequestRateLimitByDomain.test.js --verbose
  */

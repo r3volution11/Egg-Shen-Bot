@@ -210,7 +210,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('name')
-          .setDescription('Tournament name (e.g., "The Shudder Discord Gore Cup")')
+          .setDescription('Tournament name (e.g., "The Ultimate Horror Cup")')
           .setRequired(true)
       )
       .addIntegerOption(option =>
