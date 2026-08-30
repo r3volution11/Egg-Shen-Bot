@@ -142,6 +142,7 @@ Use only **one** of `label`, `movie`, or `tv` — providing more than one is rej
 - **Decisive auto-selection:** When a movie/TV search turns up a clear, decisive best match, the bot skips the confirmation menu and starts the timer directly — same landslide-detection behavior used by [`/movie` and `/tv`](/commands/search#smarter-auto-selection)
 - **Smart selection:** If multiple matches are found across movies, TV shows, and board games (and none is a clear winner), shows a selection menu to pick the correct title (capped at 8 results per type, so the menu never exceeds Discord's 25-option limit)
 - **No match found:** If nothing is typed and nothing is auto-detected at all, the bot tells you directly and falls back to a default duration (6 hours, server-configurable) rather than running forever unnoticed — see below
+- **Recovery from a bad auto-detected title:** If the event title the bot pulled from a Discord scheduled event doesn't cleanly match a search (no results, or an ambiguous multi-match), you're never stuck with the wrong title — a **🔎 Search** button lets you type the correct one and search again, as many times as needed — see [Auto-Detection Example](#start-a-timer) below
 - **Automatic watch history logging:** When timer completes (manual or auto-stop), automatically logs to server watch history if title found on TMDB
 - 5-second countdown before starting (with visual/text animation)
 - Public display visible to all channel members
@@ -170,6 +171,13 @@ Use only **one** of `label`, `movie`, or `tv` — providing more than one is rej
 9. Timer starts with auto-stop at 188 minutes
 
 **Tip:** This works for any Discord event linked to a channel - the bot will always check for events when you run `/timer start` without a label! Typing a label yourself (`/timer start label:The Fellowship of the Ring`) gets the same title search and auto-duration treatment, without needing a Discord event at all.
+
+**If the auto-detected title doesn't match anything (or matches too many things):** Since the title came from the scheduled event's name rather than something you typed, it won't always match cleanly — a typo in the event name, a subtitle TMDB doesn't recognize, etc. Rather than starting a timer under the wrong name (or leaving you stuck), the bot always gives you a way out when the label came from auto-detection:
+
+- **No matches at all:** Instead of silently starting the timer under the unresolved event title, you'll see a screen with two buttons — **🔎 Search** (opens a box to type the correct title, which searches again) and **▶️ Start Timer** (starts the timer anyway, with no duration — see [Timer Durations & the Expiry Warning](#timer-durations-the-expiry-warning) for what that means).
+- **Multiple matches (the usual selection menu):** The same **🔎 Search** button appears alongside the picker, in case none of the listed results are actually right.
+
+You can click **Search** as many times as you need — there's no limit — until either a search finds the right title or you choose **Start Timer** to proceed without one. This recovery flow only appears for auto-detected titles; a label you typed yourself with `label:`/`movie:`/`tv:` keeps the existing behavior (a "Start Timer (No Duration)" option in the picker, or a quiet warning and immediate start when nothing matches at all).
 
 ### Multi-Episode Watch Parties
 

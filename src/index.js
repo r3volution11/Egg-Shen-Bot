@@ -724,6 +724,25 @@ client.on('interactionCreate', async (interaction) => {
           : `✅ Timer extended by ${additionalMinutes} minutes — new total: ${newTotal} minutes (${result.remainingFormatted} remaining).`,
         flags: MessageFlags.Ephemeral,
       });
+    } else if (interaction.customId.startsWith('timer_retype_modal_')) {
+      const theme = interaction.customId.replace('timer_retype_modal_', '');
+      const retypedTitle = interaction.fields.getTextInputValue('retypedTitle');
+
+      await interaction.deferReply({ ephemeral: true });
+
+      const { loadGuildConfig } = await import('./utils/guildConfig.js');
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+
+      const { runTitleSearchAndDecide } = await import('./commands/timer.js');
+      await runTitleSearchAndDecide(interaction, {
+        channelId: interaction.channelId,
+        userId: interaction.user.id,
+        username: interaction.user.username,
+        label: retypedTitle,
+        theme,
+        guildConfig,
+        wasAutoDetected: true,
+      });
     }
   }
 });

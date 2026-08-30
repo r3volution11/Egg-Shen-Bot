@@ -5,6 +5,18 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.22.0 - 2026-08-29
+
+### Added
+- **`/timer start` no longer traps you with a bad auto-detected title.** In a watch-party channel, running `/timer start` with no options pulls the title from that channel's linked Discord scheduled event — but if that title didn't cleanly match a movie/TV/board game (no results, or several ambiguous ones), there was previously no way to correct it: a no-match silently started the timer under the wrong name, and the ambiguous-results picker only offered to proceed with that same wrong name. Both cases now offer a **🔎 Search** button that opens a box to type the correct title and search again — as many times as needed — alongside a **▶️ Start Timer** button to proceed without a duration if you'd rather not search. A label you type yourself (`label:`/`movie:`/`tv:`) is unaffected — its existing behavior is unchanged
+
+### Developer
+- New exported `runTitleSearchAndDecide()` in `src/commands/timer.js`, extracted from `execute()`'s previously-inline episode-range/generic-search/zero-results logic, now parameterized on a `wasAutoDetected` flag (`true` only when the label came from a scheduled event, never for `label:`/`movie:`/`tv:`) — gates both the new zero-results recovery screen and the extra Search button on the existing ambiguous-results picker
+- New `timer_retype_${theme}` button (`src/handlers/buttonHandler.js`) opens a modal (`timer_retype_modal_${theme}`) to capture a retyped title; its submission handler (new branch in `src/index.js`'s modal-submit dispatcher, mirroring the existing `timer_extend_modal_` branch) re-runs `runTitleSearchAndDecide()` with `wasAutoDetected: true`, so the recovery screen can reappear indefinitely until a search resolves or "Start Timer" is chosen
+- New `timer_skip_noauto_${theme}` button starts the timer with no duration from the new zero-results screen, reusing the existing fallback-duration mechanism (`guildConfig.maxTimerDurationMinutes`, default 360) unchanged
+- The existing picker's "⏭️ Skip - Start Timer Without Duration" select-menu option relabeled "▶️ Start Timer (No Duration)" everywhere (including the unaffected `label:`/`movie:`/`tv:` path), since "Skip" implied a search the user may not know happened
+- New tests: `tests/timer-retype-flow.test.js`, `tests/timer-retype-button.test.js`, `tests/timer-retype-modal.test.js`, `tests/timer-skip-noauto-button.test.js`
+
 ## 2.21.1 - 2026-08-29
 
 ### Changed

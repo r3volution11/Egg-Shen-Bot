@@ -599,6 +599,39 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
 
+    // Handle "🔎 Search" button on /timer start's auto-detect picker/
+    // zero-results screens
+    if (interaction.customId.startsWith('timer_retype_')) {
+      await handleTimerRetypeButton(interaction);
+
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+
+      if (duration > 2000) {
+        logger.logPerformance('Button: timer_retype', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+
+    // Handle "▶️ Start Timer" button on the zero-results auto-detect screen
+    if (interaction.customId.startsWith('timer_skip_noauto_')) {
+      await handleTimerSkipNoAutoButton(interaction);
+
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+
+      if (duration > 2000) {
+        logger.logPerformance('Button: timer_skip_noauto', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+
     // Unknown button type
     console.warn(`[ButtonHandler] Unknown button interaction: ${interaction.customId}`);
     logger.warning(logger.LogCategory.BUTTON, 'Unknown button interaction', {
@@ -2001,6 +2034,62 @@ async function handleTimerExtendButton(interaction) {
   modal.addComponents(new ActionRowBuilder().addComponents(minutesInput));
 
   await interaction.showModal(modal);
+}
+
+// Handle the "🔎 Search" button shown on /timer start's title picker/
+// zero-results screens (only when the label came from watch-party
+// auto-detection, never for a manually-typed label) — opens a modal to
+// type a corrected title. No ownership check: the picker is ephemeral, so
+// only the original /timer start invoker can see or click this at all, and
+// opening a modal doesn't mutate anything.
+async function handleTimerRetypeButton(interaction) {
+  const theme = interaction.customId.slice('timer_retype_'.length);
+
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
+
+  const modal = new ModalBuilder()
+    .setCustomId(`timer_retype_modal_${theme}`)
+    .setTitle('Search for a Title');
+
+  const titleInput = new TextInputBuilder()
+    .setCustomId('retypedTitle')
+    .setLabel('Movie, show, or game title')
+    .setPlaceholder('e.g. The Matrix, or Severance - S2: E1-E3')
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(100)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(titleInput));
+
+  await interaction.showModal(modal);
+}
+
+// Handle the "▶️ Start Timer" button on the zero-results auto-detect
+// screen — starts the timer with no duration, same outcome as the existing
+// select-menu "Start Timer (No Duration)" option/manually-typed zero-results
+// path, just reached from this new screen.
+async function handleTimerSkipNoAutoButton(interaction) {
+  const theme = interaction.customId.slice('timer_skip_noauto_'.length);
+
+  const embedTitle = interaction.message.embeds[0]?.title || '';
+  const labelMatch = embedTitle.match(/Couldn't find a match for "(.+)"/);
+  const label = labelMatch ? labelMatch[1] : '';
+
+  const { loadGuildConfig } = await import('../utils/guildConfig.js');
+  const guildConfig = await loadGuildConfig(interaction.guildId);
+
+  const capNote = guildConfig?.maxTimerDurationUnlimited === true
+    ? 'this timer will run until manually stopped (`/timer stop`), unless you set a duration.'
+    : `this timer will auto-stop after ${guildConfig?.maxTimerDurationMinutes || 360} minutes (the server default) with a warning about an hour before, unless you set a duration.`;
+
+  await interaction.deferUpdate();
+  await interaction.followUp({
+    content: `⚠️ Couldn't find a runtime for "${label}" — ${capNote}`,
+    ephemeral: true,
+  });
+
+  const { startTimerCountdown } = await import('../commands/timer.js');
+  await startTimerCountdown(interaction, interaction.channelId, interaction.user.id, interaction.user.username, label, null, theme, guildConfig, true);
 }
 
 /**
