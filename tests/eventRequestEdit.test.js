@@ -3,25 +3,34 @@
  *
  * Covers the button-trigger side (buttonHandler.js's edit_event_ handling,
  * which shows a modal pre-filled with the request's current title/
- * description) and the actual edit-application logic extracted into a
- * shared shape for direct testing (mutating global.eventRequests + updating
- * the moderation-channel embed), since the modal *submission* handling
- * itself lives inline in index.js's interactionCreate listener and isn't
- * independently exported — mirroring the existing watched_modal_ pattern,
- * which has the same limitation.
+ * description/start-end time) and the actual edit-application logic
+ * extracted into a shared shape for direct testing (mutating
+ * global.eventRequests + updating the moderation-channel embed), since the
+ * modal *submission* handling itself lives inline in index.js's
+ * interactionCreate listener and isn't independently exported — mirroring
+ * the existing watched_modal_ pattern, which has the same limitation.
+ *
+ * The start/end time editing logic is the one exception: unlike the
+ * title/description/imageUrl handling (still inline-only in index.js, so
+ * this file reimplements applyEditedImageUrl locally to test it),
+ * applyEventTimeEdits() lives as an independently exported function in
+ * eventRequestApproval.js, so the tests below import and call the real
+ * function directly rather than reimplementing its logic here.
  *
  * Saving the edit now also immediately approves the request (creating the
  * real Discord scheduled event) instead of just updating the stored
  * title/description and leaving it pending — see tests/eventRequestApproval.
  * test.js for coverage of the shared createScheduledEventFromRequest/
- * buildApprovedEmbed/cleanupEventRequestState logic that drives that,
- * reused from the same code path the Approve buttons use.
+ * buildApprovedEmbed/cleanupEventRequestState/applyEventTimeEdits logic
+ * that drives that, reused from the same code path the Approve buttons use.
  *
  * Run with: npx jest tests/eventRequestEdit.test.js --verbose
  */
 
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { handleButtonInteraction } from '../src/handlers/buttonHandler.js';
+import { applyEventTimeEdits } from '../src/utils/eventRequestApproval.js';
+import { formatUtcForInput } from '../src/utils/eventTimeInput.js';
 
 function makeMember({ isModerator = false } = {}) {
   return {
@@ -110,6 +119,46 @@ describe('edit_event_ button', () => {
     const modal = interaction.showModal.mock.calls[0][0];
     const imageUrlInput = modal.components[2].components[0];
     expect(imageUrlInput.data.value).toBe('');
+  });
+
+  test('the modal includes Start Time and End Time fields pre-filled from the current schedule', async () => {
+    seedRequest(requestId, { startTime: '2026-09-15T20:00:00.000Z', endTime: '2026-09-15T22:00:00.000Z' });
+    const interaction = makeInteraction({ customId: `edit_event_${requestId}`, isModerator: true });
+
+    await handleButtonInteraction(interaction);
+
+    const modal = interaction.showModal.mock.calls[0][0];
+    const startTimeInput = modal.components[3].components[0];
+    const endTimeInput = modal.components[4].components[0];
+
+    expect(startTimeInput.data.custom_id).toBe('startTime');
+    expect(startTimeInput.data.value).toBe('2026-09-15 20:00');
+    expect(endTimeInput.data.custom_id).toBe('endTime');
+    expect(endTimeInput.data.value).toBe('2026-09-15 22:00');
+  });
+
+  test('the End Time field pre-fills empty when the request has no end time yet', async () => {
+    seedRequest(requestId, { startTime: '2026-09-15T20:00:00.000Z', endTime: null });
+    const interaction = makeInteraction({ customId: `edit_event_${requestId}`, isModerator: true });
+
+    await handleButtonInteraction(interaction);
+
+    const modal = interaction.showModal.mock.calls[0][0];
+    const endTimeInput = modal.components[4].components[0];
+    expect(endTimeInput.data.value).toBe('');
+  });
+
+  test('Start Time is required, End Time is not', async () => {
+    seedRequest(requestId);
+    const interaction = makeInteraction({ customId: `edit_event_${requestId}`, isModerator: true });
+
+    await handleButtonInteraction(interaction);
+
+    const modal = interaction.showModal.mock.calls[0][0];
+    const startTimeInput = modal.components[3].components[0];
+    const endTimeInput = modal.components[4].components[0];
+    expect(startTimeInput.data.required).toBe(true);
+    expect(endTimeInput.data.required).toBeFalsy();
   });
 
   test('a non-moderator is rejected without seeing a modal', async () => {
@@ -222,5 +271,52 @@ describe('imageUrl field submission logic (mirrors index.js edit_event_modal_ ha
     applyEditedImageUrl(requestData, '');
 
     expect(requestData.imageUrl).toBe('https://example.com/keep-me.png');
+  });
+});
+
+describe('time edit application logic (mirrors index.js edit_event_modal_ handling)', () => {
+  // Unlike applyEditedImageUrl above, applyEventTimeEdits is independently
+  // exported from eventRequestApproval.js, so these call the real function
+  // directly against a seedRequest-shaped requestData rather than
+  // reimplementing index.js's inline logic locally.
+  const FIXED_NOW = new Date('2026-01-01T00:00:00.000Z');
+
+  test('a valid start+end edit updates a seeded request correctly', () => {
+    const requestId = '1234567890_abc123';
+    seedRequest(requestId, { startTime: '2020-01-01T00:00:00.000Z', endTime: null });
+    const requestData = global.eventRequests.get(requestId);
+
+    const result = applyEventTimeEdits(requestData, '2026-09-15 20:00', '2026-09-15 22:00', FIXED_NOW);
+
+    expect(result.ok).toBe(true);
+    expect(requestData.startTime).toBe('2026-09-15T20:00:00.000Z');
+    expect(requestData.endTime).toBe('2026-09-15T22:00:00.000Z');
+  });
+
+  test('blanking End Time clears it on a request that previously had one set', () => {
+    const requestId = '1234567890_abc123';
+    seedRequest(requestId, { startTime: '2020-01-01T00:00:00.000Z', endTime: '2020-01-01T01:00:00.000Z' });
+    const requestData = global.eventRequests.get(requestId);
+
+    const result = applyEventTimeEdits(requestData, '2026-09-15 20:00', '', FIXED_NOW);
+
+    expect(result.ok).toBe(true);
+    expect(requestData.endTime).toBeNull();
+  });
+
+  test('an unedited resubmit (formatted value fed straight back in) produces the exact same stored instant', () => {
+    const requestId = '1234567890_abc123';
+    seedRequest(requestId, { startTime: '2026-09-15T20:00:00.000Z', endTime: '2026-09-15T22:00:00.000Z' });
+    const requestData = global.eventRequests.get(requestId);
+
+    // Simulate a moderator who opened the modal and submitted without
+    // touching the pre-filled Start/End Time fields.
+    const startTimeInput = formatUtcForInput(requestData.startTime);
+    const endTimeInput = formatUtcForInput(requestData.endTime);
+    const result = applyEventTimeEdits(requestData, startTimeInput, endTimeInput, FIXED_NOW);
+
+    expect(result.ok).toBe(true);
+    expect(requestData.startTime).toBe('2026-09-15T20:00:00.000Z');
+    expect(requestData.endTime).toBe('2026-09-15T22:00:00.000Z');
   });
 });

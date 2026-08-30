@@ -6,6 +6,7 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlag
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } from '../utils/eventRequestApproval.js';
+import { formatUtcForInput, TIME_INPUT_PLACEHOLDER } from '../utils/eventTimeInput.js';
 import { getTimerStatus } from '../utils/timerManager.js';
 import { isAdmin } from '../utils/guildConfig.js';
 
@@ -220,13 +221,35 @@ export async function handleButtonInteraction(interaction) {
         .setValue(requestData.imageUrl || '')
         .setRequired(false);
 
+      // Discord modals have no timezone-aware date/time picker (Discord's
+      // component set doesn't have one at all), so these are plain text,
+      // strictly UTC-only and labeled as such — parsed/validated against
+      // eventTimeInput.js's fixed YYYY-MM-DD HH:mm format on submission.
+      const startTimeInput = new TextInputBuilder()
+        .setCustomId('startTime')
+        .setLabel('Start Time (UTC)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(formatUtcForInput(requestData.startTime))
+        .setPlaceholder(TIME_INPUT_PLACEHOLDER)
+        .setRequired(true);
+
+      const endTimeInput = new TextInputBuilder()
+        .setCustomId('endTime')
+        .setLabel('End Time (UTC, optional)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(formatUtcForInput(requestData.endTime))
+        .setPlaceholder(TIME_INPUT_PLACEHOLDER)
+        .setRequired(false);
+
       const modal = new ModalBuilder()
         .setCustomId(`edit_event_modal_${requestId}`)
         .setTitle('Edit Event Details')
         .addComponents(
           new ActionRowBuilder().addComponents(titleInput),
           new ActionRowBuilder().addComponents(descriptionInput),
-          new ActionRowBuilder().addComponents(imageUrlInput)
+          new ActionRowBuilder().addComponents(imageUrlInput),
+          new ActionRowBuilder().addComponents(startTimeInput),
+          new ActionRowBuilder().addComponents(endTimeInput)
         );
 
       await interaction.showModal(modal);

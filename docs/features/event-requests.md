@@ -378,12 +378,12 @@ When a request is submitted:
 4. **Choose approval type:**
    - **Approve Both** → Creates voice channel event with text channel coordination
    - **Text Only** → Creates text-only event (removes voice channel from request)
-   - **Edit** → Opens a form to correct the title or description — saving it immediately approves the request too (see below)
+   - **Edit** → Opens a form to correct the title, description, or start/end time — saving it immediately approves the request too (see below)
    - **Deny** → Opens a form for an optional reason, then removes the request without creating an event
 
 ### Editing a Request (Immediately Approves It)
 
-If a submitter's title is wrong or the description needs more detail, click **✏️ Edit**. This opens a form pre-filled with the current title and description — update either field and submit.
+If a submitter's title is wrong or the description needs more detail, click **✏️ Edit**. This opens a form pre-filled with the current title and description, along with the event's start/end time — update any field and submit.
 
 The Edit form also includes an optional **Image URL** field. Use it to add an image to a request that didn't include one, or to replace whatever image the submitter provided (upload or URL) — an image URL entered here always wins over the submitter's. Leaving it blank doesn't clear an existing image; there's no separate "remove image" action, only "optionally override it."
 
@@ -393,7 +393,7 @@ Saving the edit both updates the request **and approves it in the same step** �
 
 If you want to review the edit before it goes live, or need to change something Edit doesn't cover, deny the request instead and ask the submitter to resubmit — editing is meant for quick corrections a moderator is comfortable approving outright, not a staging step.
 
-Editing does not touch the requested start/end time. If the time also needs correcting, edit and approve first, then use the **Event URL** included in the confirmation to open Discord's own event editor and adjust the schedule there — Discord's editor handles timezones correctly for every viewer, which a text-only edit form cannot.
+The Edit form also includes **Start Time (UTC)** and **End Time (UTC, optional)** fields, pre-filled with the request's current schedule. Both use a strict `YYYY-MM-DD HH:mm` 24-hour format (e.g. `2026-09-15 20:00`) and are always interpreted as UTC — not your local time or the server's — since a modal has no timezone picker; convert to UTC before typing a value. Leaving End Time blank means the event has no set end time. Start Time must be in the future and, if both are set, End Time must be after Start Time — an invalid or past value is rejected with an explanation and nothing is saved. Discord's own event page (the confirmation's **Event URL**) still displays the final schedule correctly in every viewer's own local timezone automatically, same as before.
 
 ### Cropping or Replacing the Image
 

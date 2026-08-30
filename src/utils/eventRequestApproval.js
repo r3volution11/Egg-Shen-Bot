@@ -9,6 +9,7 @@ import fs from 'fs/promises';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 import { loadGuildConfig } from './guildConfig.js';
 import { getImagePath, recordEventDate } from './eventImageStore.js';
+import { parseUtcTimeInput } from './eventTimeInput.js';
 
 // Max bytes to accept for a fetched image URL — Discord's own scheduled
 // event image limit is much smaller than this, but capping the fetch
@@ -71,6 +72,53 @@ export async function resolveEventImageBuffer(requestId, requestData) {
   }
 
   return null;
+}
+
+/**
+ * Validates and applies moderator-edited start/end time text-input values
+ * onto requestData, in place — mirrors the shape of the existing inline
+ * title/description/imageUrl edit-application logic in index.js's
+ * edit_event_modal_ handler, extracted here (unlike those, which remain
+ * inline) because start/end time needs multi-field cross-validation
+ * (future-start-time check, end-after-start check) that's worth unit
+ * testing directly rather than only through the full interaction mock.
+ *
+ * Does NOT mutate requestData if validation fails — callers should check
+ * `.ok` before assuming any mutation happened.
+ *
+ * @param {object} requestData - mutated in place on success
+ * @param {string} startTimeInput - raw modal field text
+ * @param {string} endTimeInput - raw modal field text, '' means "no end time"
+ * @param {Date} [now] - injectable for testing the past-start-time check
+ * @returns {{ ok: true } | { ok: false, error: string }}
+ */
+export function applyEventTimeEdits(requestData, startTimeInput, endTimeInput, now = new Date()) {
+  const startResult = parseUtcTimeInput(startTimeInput);
+  if (!startResult.ok) {
+    return { ok: false, error: `Start Time: ${startResult.error}` };
+  }
+
+  let endIso = null;
+  const trimmedEnd = (endTimeInput || '').trim();
+  if (trimmedEnd) {
+    const endResult = parseUtcTimeInput(endTimeInput);
+    if (!endResult.ok) {
+      return { ok: false, error: `End Time: ${endResult.error}` };
+    }
+    endIso = endResult.iso;
+  }
+
+  if (new Date(startResult.iso).getTime() <= now.getTime()) {
+    return { ok: false, error: 'Start Time must be in the future — Discord does not allow scheduling an event to start in the past.' };
+  }
+
+  if (endIso && new Date(endIso).getTime() <= new Date(startResult.iso).getTime()) {
+    return { ok: false, error: 'End Time must be after Start Time.' };
+  }
+
+  requestData.startTime = startResult.iso;
+  requestData.endTime = endIso;
+  return { ok: true };
 }
 
 /**

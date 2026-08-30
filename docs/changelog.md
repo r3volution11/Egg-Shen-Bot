@@ -5,6 +5,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.23.0 - 2026-08-30
+
+### Added
+- **Moderators can now correct an event request's start/end time directly in the Edit form**, instead of having to approve first and then fix the schedule in Discord's own event editor afterward. Two new fields, **Start Time (UTC)** and **End Time (UTC, optional)**, are pre-filled with the request's current schedule and accept a strict `YYYY-MM-DD HH:mm` (24-hour) format — always UTC, clearly labeled, since a Discord modal has no timezone-aware picker. An unparseable value, a start time in the past, or an end time before the start time is rejected with a clear explanation and nothing is saved; leaving End Time blank clears it (no end time set)
+
+### Developer
+- New `src/utils/eventTimeInput.js`: `parseUtcTimeInput()`/`formatUtcForInput()` handle the strict UTC text format round-trip, building the instant explicitly via `Date.UTC()` rather than relying on `new Date(string)`'s implicit-local-time parsing, with a round-trip check that catches `Date.UTC`'s silent date-rollover behavior (e.g. Feb 30 → Mar 2)
+- New `applyEventTimeEdits()` in `src/utils/eventRequestApproval.js` validates and applies the edited start/end time onto `requestData` in place (future-start-time check, end-after-start check) — mutates nothing on failure. Reused by `index.js`'s `edit_event_modal_` handler, which now validates time before any other field write so a rejected edit leaves the stored request completely untouched; `createScheduledEventFromRequest()` is unchanged since it already just consumes whatever ISO strings are on `requestData`
+- `buttonHandler.js`'s Edit modal now has 5 fields total (title, description, image URL, start time, end time) — at Discord's per-modal `ActionRowBuilder` cap
+- The moderation-channel embed's `📅 Start Time`/`⏱️ End Time` fields now update in place when an edit changes the schedule, including adding/removing the End Time field when it's newly set or newly cleared
+
 ## 2.22.4 - 2026-08-30
 
 ### Fixed

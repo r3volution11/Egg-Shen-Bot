@@ -25,6 +25,7 @@ import {
   cleanupEventRequestState,
   postApprovalAnnouncement,
   resolveEventImageBuffer,
+  applyEventTimeEdits,
 } from '../src/utils/eventRequestApproval.js';
 import { loadGuildConfig, saveGuildConfig } from '../src/utils/guildConfig.js';
 import { saveUploadedImage } from '../src/utils/eventImageStore.js';
@@ -171,6 +172,83 @@ describe('createScheduledEventFromRequest', () => {
     });
 
     expect(useVoiceChannel).toBeFalsy();
+  });
+});
+
+describe('applyEventTimeEdits', () => {
+  const FIXED_NOW = new Date('2026-01-01T00:00:00.000Z');
+
+  function makeRequestData(overrides = {}) {
+    return {
+      startTime: '2020-01-01T00:00:00.000Z',
+      endTime: null,
+      ...overrides,
+    };
+  }
+
+  test('a valid start + valid end (end after start) updates requestData and returns ok', () => {
+    const requestData = makeRequestData();
+    const result = applyEventTimeEdits(requestData, '2026-09-15 20:00', '2026-09-15 22:00', FIXED_NOW);
+
+    expect(result).toEqual({ ok: true });
+    expect(requestData.startTime).toBe('2026-09-15T20:00:00.000Z');
+    expect(requestData.endTime).toBe('2026-09-15T22:00:00.000Z');
+  });
+
+  test('a valid start + blank end sets endTime to null', () => {
+    const requestData = makeRequestData({ endTime: '2020-01-01T01:00:00.000Z' });
+    const result = applyEventTimeEdits(requestData, '2026-09-15 20:00', '', FIXED_NOW);
+
+    expect(result).toEqual({ ok: true });
+    expect(requestData.startTime).toBe('2026-09-15T20:00:00.000Z');
+    expect(requestData.endTime).toBeNull();
+  });
+
+  test('an invalid start format is rejected and does not mutate requestData', () => {
+    const requestData = makeRequestData();
+    const result = applyEventTimeEdits(requestData, 'not a date', '', FIXED_NOW);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/Start Time/);
+    expect(requestData.startTime).toBe('2020-01-01T00:00:00.000Z');
+    expect(requestData.endTime).toBeNull();
+  });
+
+  test('an invalid end format (non-blank garbage) is rejected and does not mutate requestData', () => {
+    const requestData = makeRequestData();
+    const result = applyEventTimeEdits(requestData, '2026-09-15 20:00', 'not a date', FIXED_NOW);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/End Time/);
+    expect(requestData.startTime).toBe('2020-01-01T00:00:00.000Z');
+    expect(requestData.endTime).toBeNull();
+  });
+
+  test('a syntactically valid but past start time is rejected and does not mutate requestData', () => {
+    const requestData = makeRequestData();
+    const result = applyEventTimeEdits(requestData, '2025-01-01 00:00', '', FIXED_NOW);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/future/i);
+    expect(requestData.startTime).toBe('2020-01-01T00:00:00.000Z');
+  });
+
+  test('end time before start time is rejected and does not mutate requestData', () => {
+    const requestData = makeRequestData();
+    const result = applyEventTimeEdits(requestData, '2026-09-15 20:00', '2026-09-15 19:00', FIXED_NOW);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/after/i);
+    expect(requestData.startTime).toBe('2020-01-01T00:00:00.000Z');
+    expect(requestData.endTime).toBeNull();
+  });
+
+  test('end time exactly equal to start time is rejected (boundary case)', () => {
+    const requestData = makeRequestData();
+    const result = applyEventTimeEdits(requestData, '2026-09-15 20:00', '2026-09-15 20:00', FIXED_NOW);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/after/i);
   });
 });
 

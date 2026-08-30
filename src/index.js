@@ -461,6 +461,24 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       const requestData = global.eventRequests.get(requestId);
+
+      const { applyEventTimeEdits, createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } = await import('./utils/eventRequestApproval.js');
+
+      // Validate time first, before any requestData writes at all — a
+      // rejected time edit must leave requestData completely untouched
+      // (not just unpersisted), so the moderator can just retry in a fresh
+      // Edit click with no side effects left behind.
+      const startTimeInput = interaction.fields.getTextInputValue('startTime');
+      const endTimeInput = interaction.fields.getTextInputValue('endTime');
+      const timeEditResult = applyEventTimeEdits(requestData, startTimeInput, endTimeInput);
+      if (!timeEditResult.ok) {
+        await interaction.reply({
+          content: `❌ ${timeEditResult.error}`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       requestData.title = interaction.fields.getTextInputValue('title');
       requestData.description = interaction.fields.getTextInputValue('description') || null;
 
@@ -478,10 +496,10 @@ client.on('interactionCreate', async (interaction) => {
       const { saveEventRequests } = await import('./api/server.js');
       await saveEventRequests();
 
-      // Reflect the edited title/description on the moderation-channel
-      // embed. When a channel is already known this gets immediately
-      // overwritten by the "Approved" embed below; when it isn't, this is
-      // what stays visible while the channel picker is shown.
+      // Reflect the edited title/description/start-end time on the
+      // moderation-channel embed. When a channel is already known this gets
+      // immediately overwritten by the "Approved" embed below; when it
+      // isn't, this is what stays visible while the channel picker is shown.
       const originalEmbedForEdit = interaction.message?.embeds[0];
       let editedEmbed = null;
       if (originalEmbedForEdit) {
@@ -492,6 +510,29 @@ client.on('interactionCreate', async (interaction) => {
         const descriptionFieldIndex = editedEmbed.data.fields?.findIndex(f => f.name === '📝 Description');
         if (descriptionFieldIndex !== undefined && descriptionFieldIndex !== -1) {
           editedEmbed.data.fields[descriptionFieldIndex].value = requestData.description || 'No description provided';
+        }
+
+        const startTimeFieldIndex = editedEmbed.data.fields?.findIndex(f => f.name === '📅 Start Time');
+        if (startTimeFieldIndex !== undefined && startTimeFieldIndex !== -1) {
+          editedEmbed.data.fields[startTimeFieldIndex].value = `<t:${Math.floor(new Date(requestData.startTime).getTime() / 1000)}:F>`;
+        }
+
+        const endTimeFieldIndex = editedEmbed.data.fields?.findIndex(f => f.name === '⏱️ End Time');
+        if (requestData.endTime) {
+          const endTimeValue = `<t:${Math.floor(new Date(requestData.endTime).getTime() / 1000)}:F>`;
+          if (endTimeFieldIndex !== undefined && endTimeFieldIndex !== -1) {
+            editedEmbed.data.fields[endTimeFieldIndex].value = endTimeValue;
+          } else {
+            // Original request had no end time (field wasn't added at all —
+            // see server.js's `if (endTime) { embed.addFields(...) }`), but
+            // the edit just added one; add the field now instead of
+            // silently dropping it.
+            editedEmbed.addFields({ name: '⏱️ End Time', value: endTimeValue, inline: true });
+          }
+        } else if (endTimeFieldIndex !== undefined && endTimeFieldIndex !== -1) {
+          // Had an end time before, edit cleared it — remove the now-stale
+          // field rather than leaving a wrong timestamp displayed.
+          editedEmbed.data.fields.splice(endTimeFieldIndex, 1);
         }
 
         const { applyImageStatusToEmbed } = await import('./utils/eventImageStore.js');
@@ -537,7 +578,7 @@ client.on('interactionCreate', async (interaction) => {
         const buttonRow = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
 
         await interaction.reply({
-          content: `✅ Updated the request's title/description.\n\n📍 **Select Channels for Event**\n**${requestData.title}**\n\nChoose the text channel where this event will take place, and optionally a voice channel.`,
+          content: `✅ Updated the request's details.\n\n📍 **Select Channels for Event**\n**${requestData.title}**\n\nChoose the text channel where this event will take place, and optionally a voice channel.`,
           components: [textRow, voiceRow, buttonRow],
           flags: MessageFlags.Ephemeral,
         });
@@ -545,8 +586,6 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-      const { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } = await import('./utils/eventRequestApproval.js');
 
       try {
         const approvalType = requestData.voiceChannelId ? 'both' : 'full';
