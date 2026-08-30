@@ -595,8 +595,13 @@ npm run validate-oauth
 ### Requests Not Appearing
 
 - ✅ Check moderation channel is set: `/eggshen-config event-requests view`
-- ✅ Verify bot has permissions to send messages in that channel
+- ✅ Verify the bot's role has **View Channel**, **Send Messages**, and **Embed Links** in that specific channel — a channel-level permission override (common in mod-only channels) can block the bot even when its server-wide role looks correct
 - ✅ Check bot logs for errors
+
+### "Failed to Create Event: Missing Permissions" on Approval
+
+- ✅ The bot's role needs the server-wide **Manage Events** permission — this is separate from the moderation-channel permissions above and isn't something you can grant per-channel
+- ✅ Server Settings → Roles → (the bot's role) → enable **Manage Events**, then retry the approval — no restart needed
 
 ### CORS Errors
 

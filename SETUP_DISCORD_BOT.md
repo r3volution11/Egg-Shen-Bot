@@ -56,10 +56,12 @@ Still in the Bot section:
    - ☑️ `bot`
    - ☑️ `applications.commands`
 3. Under **BOT PERMISSIONS**, check:
+   - ☑️ View Channels
    - ☑️ Send Messages
    - ☑️ Embed Links
-   - ☑️ Read Messages/View Channels
-   - ☑️ Use Slash Commands
+   - ☑️ Attach Files
+   - ☑️ Manage Events (needed to create Discord Scheduled Events when an [event request](/features/event-requests) is approved)
+   - ☑️ Manage Messages (only used by legacy reaction-based polls — safe to skip if you don't need it, but cheap to include)
 4. **Copy the URL** at the bottom
 5. Open the URL in your browser
 6. Select your server and click **Authorize**

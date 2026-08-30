@@ -195,7 +195,11 @@ Both domains proxy `/api/`, `/crop/`, and `/crop-assets/` to the **same** bot pr
 
 ### Event Requests Not Appearing in Moderation Channel
 - Check that moderation channel is set: `/eggshen-config event-requests view`
-- Verify the bot has permissions to send messages in that channel
+- Verify the bot's role has **View Channel**, **Send Messages**, and **Embed Links** in that channel — a channel-specific permission override (common in mod-only channels) can block the bot even if its server-wide role permissions look correct
+
+### "Failed to create event: Missing Permissions" on Approval
+- The bot's role needs the server-wide **Manage Events** permission to create the Discord Scheduled Event — this is separate from the moderation-channel permissions above and can't be granted per-channel
+- Server Settings → Roles → (the bot's role) → enable **Manage Events**, then retry the approval (no restart needed)
 
 ### CORS Errors
 - Add your website URL to `ALLOWED_ORIGINS` in `.env`

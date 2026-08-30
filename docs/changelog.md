@@ -5,6 +5,14 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.22.3 - 2026-08-30
+
+### Fixed
+- **Setup docs told new operators to enable Discord intents the bot doesn't use, and gave an incomplete bot-permissions list.** `docs/installation.md` and `docs/api-keys.md` instructed enabling the privileged **Server Members** and **Message Content** intents — the bot's actual gateway intents (`src/index.js`) are `Guilds`, `GuildMessages`, and `GuildMessageReactions` only, so those two were unnecessary and never should have been requested. Separately, every setup doc's bot-invite permission list was missing **Manage Events** (needed to create Discord Scheduled Events on event-request approval), **Attach Files** (needed for `/image` and bracket exports), and **Manage Messages** (needed for legacy reaction-based poll cleanup) — a bot invited with only the old list would hit real "Missing Permissions" errors on those features, exactly as happened on a live server this fixes the docs for
+
+### Developer
+- Corrected `SETUP_DISCORD_BOT.md`, `QUICKSTART.md`, `docs/installation.md` (which was also missing an OAuth2 invite-link step entirely — added one), `docs/api-keys.md`, `EVENT_REQUEST_SETUP.md`, and `docs/features/event-requests.md`'s troubleshooting sections to list the full, accurate permission set and correct intent guidance, plus added dedicated troubleshooting entries distinguishing channel-level permission overrides (e.g. a locked-down moderation channel) from the server-wide **Manage Events** permission, since they fail with different Discord error codes and need different fixes
+
 ## 2.22.2 - 2026-08-30
 
 ### Changed

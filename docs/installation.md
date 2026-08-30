@@ -63,10 +63,12 @@ These APIs enable additional features. Commands requiring them **will not be reg
 3. Name your bot and accept the Terms of Service
 4. Go to "Bot" section
 5. Click "Add Bot"
-6. **Important:** Enable these Privileged Gateway Intents:
-   - Server Members Intent
-   - Message Content Intent
+6. **Privileged Gateway Intents:** leave these unchecked — the bot doesn't use Server Members Intent or Message Content Intent (it only reads slash-command interactions and reactions, both non-privileged)
 7. Copy your bot token (you'll need this later)
+8. Click **"OAuth2"** → **"URL Generator"** in the left sidebar
+9. Under **SCOPES**, check `bot` and `applications.commands`
+10. Under **BOT PERMISSIONS**, check: **View Channels**, **Send Messages**, **Embed Links**, **Attach Files**, **Manage Events**, **Manage Messages**
+11. Copy the generated URL, open it in your browser, select your server, and click **Authorize**
 
 ### 2. Get API Keys
 
@@ -185,7 +187,6 @@ If commands appear and work, installation is complete!
 ### Bot immediately crashes
 
 - Check Discord token in config.json
-- Verify all required Intents are enabled
 - Check Node.js version: `node --version`
 
 ### API errors
@@ -196,9 +197,9 @@ If commands appear and work, installation is complete!
 
 ### Permission errors
 
-- Bot needs proper permissions in server
+- The bot's server role needs: **View Channel**, **Send Messages**, **Embed Links**, **Attach Files**, **Manage Events**, **Manage Messages** — see the invite-link step in "Create Discord Bot" above
 - Check role hierarchy (bot role should be high enough)
-- Verify channel permissions
+- A channel-specific permission override (common in mod-only channels) can block the bot even when its server-wide role looks correct — check that channel's own permission settings too
 
 ## Production Deployment
 

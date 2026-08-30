@@ -43,11 +43,9 @@ Complete guide for obtaining all API keys needed for Egg Shen Bot.
    - Click **"Add Bot"** (if not already added)
    - Confirm by clicking **"Yes, do it!"**
 
-4. **Enable Intents**
+4. **Privileged Gateway Intents**
    - Scroll down to **"Privileged Gateway Intents"**
-   - Enable **"Server Members Intent"** ✅
-   - Enable **"Message Content Intent"** ✅
-   - Click **"Save Changes"**
+   - Leave **"Server Members Intent"** and **"Message Content Intent"** unchecked — the bot doesn't use either (it only reads slash-command interactions and reactions)
 
 5. **Get Bot Token**
    - Under **"TOKEN"** section, click **"Reset Token"**

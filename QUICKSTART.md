@@ -55,7 +55,7 @@ TRAKT_CLIENT_ID=your_trakt_id
 5. Go to "OAuth2" → "General" → copy Application ID → add to `.env` as `DISCORD_CLIENT_ID`
 6. Go to "OAuth2" → "URL Generator":
    - Scopes: `bot` and `applications.commands`
-   - Permissions: `Send Messages`, `Embed Links`, `Use Slash Commands`
+   - Permissions: `View Channels`, `Send Messages`, `Embed Links`, `Attach Files`, `Manage Events`, `Manage Messages`
    - Copy the URL and open it to invite bot to your server
 
 ### 4. Deploy Commands & Run
