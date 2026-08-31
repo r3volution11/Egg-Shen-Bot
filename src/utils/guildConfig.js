@@ -118,6 +118,7 @@ const defaultConfig = {
     allowedTextChannels: [], // Array of channel IDs users can select for text location (empty = all text channels)
     allowedVoiceChannels: [], // Array of channel IDs users can select for voice (empty = all voice/stage channels)
     announceDecisions: true, // Post a new message to the moderation channel when a request is approved/denied, in addition to editing the original request embed in place
+    timezone: 'UTC', // IANA zone (e.g. 'America/New_York') the Edit modal's Start/End Time fields are interpreted in; 'UTC' = original behavior, unchanged
   },
 };
 

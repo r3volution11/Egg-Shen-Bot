@@ -5,6 +5,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.24.0 - 2026-08-30
+
+### Added
+- **Moderators can now configure a per-server timezone for the event-request Edit modal's Start/End Time fields**, instead of always typing UTC. `/eggshen-config event-requests timezone timezone:America/New_York` (autocomplete-assisted, full IANA timezone database) sets the zone once; the Edit modal's Start Time/End Time labels and pre-filled values then reflect that zone automatically, and moderators simply type normal local wall-clock time (e.g. `2026-09-02 17:30` for 5:30pm Eastern) — daylight saving time is handled automatically via the IANA timezone database, so the same zone correctly produces a different UTC offset in summer vs. winter. Defaults to UTC for any server that never configures this, with no behavior change
+
+### Developer
+- `src/utils/eventTimeInput.js`: `parseUtcTimeInput()`/`formatUtcForInput()` now accept an optional `timeZone` parameter (default `'UTC'`, fully backward compatible), converting via the IANA tz database (`Intl.DateTimeFormat`'s `formatToParts`, a "guess then correct by offset" round trip — no dependency, no fixed-offset math) rather than raw UTC math when a non-UTC zone is configured. New exported `isValidTimeZone()`/`ALL_TIME_ZONES` (`Intl.supportedValuesOf('timeZone')`, plus an explicit `'UTC'` entry since the platform list doesn't include it) shared by `/eggshen-config`'s validation and autocomplete — validation is exact-match against this list, not a lenient `try/catch`, since the latter is case-insensitive and would let a moderator save an inconsistent casing
+- `applyEventTimeEdits()` in `src/utils/eventRequestApproval.js` takes a 5th optional `timeZone` parameter, threaded through from `index.js`'s `edit_event_modal_` handler via a fresh `loadGuildConfig()` read at the orchestration layer
+- `buttonHandler.js`'s Edit modal now loads guild config to label Start/End Time fields with the configured zone and pre-fill using the zone-aware formatter, with a new `buildTimeFieldLabel()` helper that respects Discord's 45-character label cap — falls back to dropping the ", optional" hint for the longest real IANA zone name (`America/Argentina/Rio_Gallegos`), with a further ellipsis-truncation safety net for any future longer zone name
+- New `/eggshen-config event-requests timezone` subcommand + `autocomplete` export in `eggshen-config.js`, following the existing `survey.js` autocomplete pattern; new `timezone: 'UTC'` field in `guildConfig.js`'s `defaultConfig.eventRequests`
+
 ## 2.23.0 - 2026-08-30
 
 ### Added

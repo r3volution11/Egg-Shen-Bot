@@ -221,6 +221,14 @@ Choose where event requests will be sent for approval. Must be a text channel.
 
 This name appears on the event request form.
 
+### Set Timezone
+
+```
+/eggshen-config event-requests timezone timezone:America/New_York
+```
+
+Sets the timezone the Edit modal's **Start Time**/**End Time** fields use — moderators then type normal local wall-clock time for this zone instead of UTC (e.g. `9/2/26 5:30 pm ET` becomes `2026-09-02 17:30` when the zone is `America/New_York`). Defaults to `UTC` if never set, with no behavior change for servers that don't configure this. Start typing in the `timezone` option to get autocomplete suggestions from the full IANA timezone database; daylight saving time transitions are handled automatically, so the same zone correctly produces a different UTC offset in summer vs. winter.
+
 ### Set Website URL
 
 ```
@@ -393,7 +401,7 @@ Saving the edit both updates the request **and approves it in the same step** �
 
 If you want to review the edit before it goes live, or need to change something Edit doesn't cover, deny the request instead and ask the submitter to resubmit — editing is meant for quick corrections a moderator is comfortable approving outright, not a staging step.
 
-The Edit form also includes **Start Time (UTC)** and **End Time (UTC, optional)** fields, pre-filled with the request's current schedule. Both use a strict `YYYY-MM-DD HH:mm` 24-hour format (e.g. `2026-09-15 20:00`) and are always interpreted as UTC — not your local time or the server's — since a modal has no timezone picker; convert to UTC before typing a value. Leaving End Time blank means the event has no set end time. Start Time must be in the future and, if both are set, End Time must be after Start Time — an invalid or past value is rejected with an explanation and nothing is saved. Discord's own event page (the confirmation's **Event URL**) still displays the final schedule correctly in every viewer's own local timezone automatically, same as before.
+The Edit form also includes **Start Time** and **End Time (optional)** fields, labeled with your server's configured timezone (UTC by default — see [Set Timezone](#set-timezone) above) and pre-filled with the request's current schedule in that zone. Both use a strict `YYYY-MM-DD HH:mm` 24-hour format (e.g. `2026-09-15 20:00`), interpreted as local wall-clock time in the configured zone — no manual UTC conversion needed. Leaving End Time blank means the event has no set end time. Start Time must be in the future and, if both are set, End Time must be after Start Time — an invalid or past value is rejected with an explanation and nothing is saved. Discord's own event page (the confirmation's **Event URL**) still displays the final schedule correctly in every viewer's own local timezone automatically, same as before.
 
 ### Cropping or Replacing the Image
 

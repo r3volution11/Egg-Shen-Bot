@@ -90,10 +90,11 @@ export async function resolveEventImageBuffer(requestId, requestData) {
  * @param {string} startTimeInput - raw modal field text
  * @param {string} endTimeInput - raw modal field text, '' means "no end time"
  * @param {Date} [now] - injectable for testing the past-start-time check
+ * @param {string} [timeZone] - IANA zone the input text is interpreted in; defaults to 'UTC'
  * @returns {{ ok: true } | { ok: false, error: string }}
  */
-export function applyEventTimeEdits(requestData, startTimeInput, endTimeInput, now = new Date()) {
-  const startResult = parseUtcTimeInput(startTimeInput);
+export function applyEventTimeEdits(requestData, startTimeInput, endTimeInput, now = new Date(), timeZone = 'UTC') {
+  const startResult = parseUtcTimeInput(startTimeInput, timeZone);
   if (!startResult.ok) {
     return { ok: false, error: `Start Time: ${startResult.error}` };
   }
@@ -101,7 +102,7 @@ export function applyEventTimeEdits(requestData, startTimeInput, endTimeInput, n
   let endIso = null;
   const trimmedEnd = (endTimeInput || '').trim();
   if (trimmedEnd) {
-    const endResult = parseUtcTimeInput(endTimeInput);
+    const endResult = parseUtcTimeInput(endTimeInput, timeZone);
     if (!endResult.ok) {
       return { ok: false, error: `End Time: ${endResult.error}` };
     }

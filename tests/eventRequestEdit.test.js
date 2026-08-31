@@ -28,9 +28,20 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { handleButtonInteraction } from '../src/handlers/buttonHandler.js';
+import fs from 'fs';
+import path from 'path';
+import { handleButtonInteraction, buildTimeFieldLabel } from '../src/handlers/buttonHandler.js';
 import { applyEventTimeEdits } from '../src/utils/eventRequestApproval.js';
 import { formatUtcForInput } from '../src/utils/eventTimeInput.js';
+import { saveGuildConfig } from '../src/utils/guildConfig.js';
+
+// Matches makeInteraction()'s hardcoded guild.id below — writing a real
+// guild_configs/{guildId}.json (mirroring tests/eventRequestApproval.test.js's
+// existing convention) lets tests exercise buttonHandler.js's real
+// loadGuildConfig() call without introducing a new module-mocking pattern
+// this test suite doesn't otherwise use.
+const GUILD_ID = 'guild-1';
+const GUILD_CONFIG_FILE = path.join(process.cwd(), 'guild_configs', `${GUILD_ID}.json`);
 
 function makeMember({ isModerator = false } = {}) {
   return {
@@ -76,6 +87,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete global.eventRequests;
+  if (fs.existsSync(GUILD_CONFIG_FILE)) fs.unlinkSync(GUILD_CONFIG_FILE);
 });
 
 describe('edit_event_ button', () => {
@@ -135,6 +147,41 @@ describe('edit_event_ button', () => {
     expect(startTimeInput.data.value).toBe('2026-09-15 20:00');
     expect(endTimeInput.data.custom_id).toBe('endTime');
     expect(endTimeInput.data.value).toBe('2026-09-15 22:00');
+  });
+
+  test('a guild with no configured timezone shows plain "(UTC)" labels — explicit backward-compat check', async () => {
+    // No guild_configs/guild-1.json on disk in this test (afterEach cleans
+    // it up after every test) — loadGuildConfig() falls back to its
+    // default, which is timezone: 'UTC'. This is the exact behavior every
+    // server had before the timezone-configuration feature existed.
+    seedRequest(requestId, { startTime: '2026-09-15T20:00:00.000Z' });
+    const interaction = makeInteraction({ customId: `edit_event_${requestId}`, isModerator: true });
+
+    await handleButtonInteraction(interaction);
+
+    const modal = interaction.showModal.mock.calls[0][0];
+    const startTimeInput = modal.components[3].components[0];
+    const endTimeInput = modal.components[4].components[0];
+    expect(startTimeInput.data.label).toBe('Start Time (UTC)');
+    expect(endTimeInput.data.label).toBe('End Time (UTC, optional)');
+  });
+
+  test('a guild with a configured non-UTC timezone shows zone-labeled fields pre-filled in local wall-clock time', async () => {
+    await saveGuildConfig(GUILD_ID, { eventRequests: { timezone: 'America/New_York' } });
+    // September = EDT (UTC-4) — 20:00 UTC is 16:00 local.
+    seedRequest(requestId, { startTime: '2026-09-15T20:00:00.000Z', endTime: '2026-09-15T22:00:00.000Z' });
+    const interaction = makeInteraction({ customId: `edit_event_${requestId}`, isModerator: true });
+
+    await handleButtonInteraction(interaction);
+
+    const modal = interaction.showModal.mock.calls[0][0];
+    const startTimeInput = modal.components[3].components[0];
+    const endTimeInput = modal.components[4].components[0];
+
+    expect(startTimeInput.data.label).toBe('Start Time (America/New_York)');
+    expect(startTimeInput.data.value).toBe('2026-09-15 16:00');
+    expect(endTimeInput.data.label).toBe('End Time (America/New_York, optional)');
+    expect(endTimeInput.data.value).toBe('2026-09-15 18:00');
   });
 
   test('the End Time field pre-fills empty when the request has no end time yet', async () => {
@@ -318,5 +365,43 @@ describe('time edit application logic (mirrors index.js edit_event_modal_ handli
     expect(result.ok).toBe(true);
     expect(requestData.startTime).toBe('2026-09-15T20:00:00.000Z');
     expect(requestData.endTime).toBe('2026-09-15T22:00:00.000Z');
+  });
+});
+
+describe('buildTimeFieldLabel', () => {
+  test('UTC labels fit trivially, with the ", optional" suffix intact', () => {
+    expect(buildTimeFieldLabel('Start Time', 'UTC')).toBe('Start Time (UTC)');
+    expect(buildTimeFieldLabel('End Time', 'UTC', true)).toBe('End Time (UTC, optional)');
+  });
+
+  test('a normal zone name fits with the full label form', () => {
+    expect(buildTimeFieldLabel('Start Time', 'America/New_York')).toBe('Start Time (America/New_York)');
+    expect(buildTimeFieldLabel('End Time', 'America/New_York', true)).toBe('End Time (America/New_York, optional)');
+  });
+
+  test('the longest real IANA zone name fits Start Time\'s full form but forces End Time to drop ", optional"', () => {
+    // America/Argentina/Rio_Gallegos (30 chars) is the longest zone name in
+    // Intl.supportedValuesOf('timeZone') — verified directly against the
+    // real platform list. "Start Time (…)" = 43 chars, fits under Discord's
+    // 45-char cap. "End Time (…, optional)" = 51 chars, over the cap, so it
+    // falls back to dropping the optional-hint suffix ("End Time (…)" = 41
+    // chars, fits).
+    const longestZone = 'America/Argentina/Rio_Gallegos';
+    const startLabel = buildTimeFieldLabel('Start Time', longestZone);
+    const endLabel = buildTimeFieldLabel('End Time', longestZone, true);
+
+    expect(startLabel).toBe(`Start Time (${longestZone})`);
+    expect(startLabel.length).toBeLessThanOrEqual(45);
+
+    expect(endLabel).toBe(`End Time (${longestZone})`); // ", optional" dropped
+    expect(endLabel.length).toBeLessThanOrEqual(45);
+  });
+
+  test('a hypothetical zone name too long even without the optional suffix truncates with an ellipsis', () => {
+    const impossiblyLongZone = 'A'.repeat(60);
+    const label = buildTimeFieldLabel('End Time', impossiblyLongZone, true);
+
+    expect(label.length).toBeLessThanOrEqual(45);
+    expect(label).toContain('…');
   });
 });

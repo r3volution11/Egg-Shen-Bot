@@ -250,6 +250,31 @@ describe('applyEventTimeEdits', () => {
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/after/i);
   });
+
+  test('a non-UTC timezone converts the moderator-typed wall-clock time to the correct UTC instant (DST-aware)', () => {
+    const requestData = makeRequestData();
+    // September = EDT (UTC-4) in America/New_York.
+    const result = applyEventTimeEdits(requestData, '2026-09-02 17:30', '', FIXED_NOW, 'America/New_York');
+
+    expect(result).toEqual({ ok: true });
+    expect(requestData.startTime).toBe('2026-09-02T21:30:00.000Z');
+  });
+
+  test('the default (no timezone argument) still behaves as pure UTC — regression guard', () => {
+    const requestData = makeRequestData();
+    const result = applyEventTimeEdits(requestData, '2026-09-02 17:30', '', FIXED_NOW);
+
+    expect(result).toEqual({ ok: true });
+    expect(requestData.startTime).toBe('2026-09-02T17:30:00.000Z');
+  });
+
+  test('an invalid timezone is handled gracefully, not thrown', () => {
+    const requestData = makeRequestData();
+    const result = applyEventTimeEdits(requestData, '2026-09-02 17:30', '', FIXED_NOW, 'Not/AZone');
+
+    expect(result.ok).toBe(false);
+    expect(requestData.startTime).toBe('2020-01-01T00:00:00.000Z');
+  });
 });
 
 describe('resolveEventImageBuffer', () => {

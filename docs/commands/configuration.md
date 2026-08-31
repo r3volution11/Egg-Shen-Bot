@@ -625,6 +625,14 @@ Set where event request approval messages appear. Moderators will see:
 
 Customize the server name shown on the event request form.
 
+#### Set Timezone
+
+```
+/eggshen-config event-requests timezone timezone:America/New_York
+```
+
+Sets the timezone the Edit modal's Start/End Time fields use (default: UTC). Start typing to get autocomplete suggestions from the full IANA timezone database. See [Event Requests Setup](../features/event-requests.md#set-timezone) for details.
+
 #### Set Invite Link (Optional)
 
 ```

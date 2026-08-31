@@ -8,7 +8,7 @@ import { saveEventRequests, saveEventChannelSelections } from '../api/server.js'
 import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } from '../utils/eventRequestApproval.js';
 import { formatUtcForInput, TIME_INPUT_PLACEHOLDER } from '../utils/eventTimeInput.js';
 import { getTimerStatus } from '../utils/timerManager.js';
-import { isAdmin } from '../utils/guildConfig.js';
+import { isAdmin, loadGuildConfig } from '../utils/guildConfig.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -35,6 +35,41 @@ setInterval(() => {
     }
   }
 }, 10 * 60 * 1000);
+
+const TIME_FIELD_LABEL_MAX_LENGTH = 45; // Discord's TextInputBuilder.setLabel() hard cap
+
+/**
+ * Builds a Start/End Time modal field label that includes the configured
+ * timezone, respecting Discord's 45-char label cap. UTC always fits
+ * trivially. For a real IANA zone, tries the full "Start Time (Zone)" /
+ * "End Time (Zone, optional)" form first; if that would exceed the cap
+ * (only possible for the longest real zone names combined with the longer
+ * "End Time ... optional" suffix — verified: the longest current IANA zone
+ * name, America/Argentina/Rio_Gallegos, produces a 51-char End Time label,
+ * over the cap, while Start Time's 43-char form fits), falls back to
+ * dropping the ", optional" suffix, and if it's *still* over (not
+ * reachable by any current real zone name, but kept as a hard safety net
+ * against a future, longer zone name being added to the IANA database),
+ * truncates the zone name itself with an ellipsis.
+ * @param {string} base - 'Start Time' or 'End Time'
+ * @param {string} timeZone
+ * @param {boolean} [optional]
+ * @returns {string}
+ */
+export function buildTimeFieldLabel(base, timeZone, optional = false) {
+  const suffix = optional ? ', optional' : '';
+  const full = `${base} (${timeZone}${suffix})`;
+  if (full.length <= TIME_FIELD_LABEL_MAX_LENGTH) return full;
+
+  const withoutOptionalNote = `${base} (${timeZone})`;
+  if (withoutOptionalNote.length <= TIME_FIELD_LABEL_MAX_LENGTH) return withoutOptionalNote;
+
+  // Last-resort truncation — reserve room for `${base} (…)`.
+  const reserved = `${base} (…)`.length;
+  const keep = Math.max(0, TIME_FIELD_LABEL_MAX_LENGTH - reserved);
+  const truncatedZone = `${timeZone.slice(0, keep)}…`;
+  return `${base} (${truncatedZone})`;
+}
 
 export async function handleButtonInteraction(interaction) {
   const startTime = Date.now();
@@ -222,22 +257,28 @@ export async function handleButtonInteraction(interaction) {
         .setRequired(false);
 
       // Discord modals have no timezone-aware date/time picker (Discord's
-      // component set doesn't have one at all), so these are plain text,
-      // strictly UTC-only and labeled as such — parsed/validated against
-      // eventTimeInput.js's fixed YYYY-MM-DD HH:mm format on submission.
+      // component set doesn't have one at all), so these are plain text in
+      // a fixed YYYY-MM-DD HH:mm format, interpreted in this guild's
+      // configured event-requests timezone (default UTC — see
+      // /eggshen-config event-requests timezone) — parsed/validated
+      // against eventTimeInput.js's parseUtcTimeInput on submission using
+      // that same zone.
+      const guildConfigForEdit = await loadGuildConfig(interaction.guild.id);
+      const editTimeZone = guildConfigForEdit.eventRequests?.timezone || 'UTC';
+
       const startTimeInput = new TextInputBuilder()
         .setCustomId('startTime')
-        .setLabel('Start Time (UTC)')
+        .setLabel(buildTimeFieldLabel('Start Time', editTimeZone))
         .setStyle(TextInputStyle.Short)
-        .setValue(formatUtcForInput(requestData.startTime))
+        .setValue(formatUtcForInput(requestData.startTime, editTimeZone))
         .setPlaceholder(TIME_INPUT_PLACEHOLDER)
         .setRequired(true);
 
       const endTimeInput = new TextInputBuilder()
         .setCustomId('endTime')
-        .setLabel('End Time (UTC, optional)')
+        .setLabel(buildTimeFieldLabel('End Time', editTimeZone, /* optional */ true))
         .setStyle(TextInputStyle.Short)
-        .setValue(formatUtcForInput(requestData.endTime))
+        .setValue(formatUtcForInput(requestData.endTime, editTimeZone))
         .setPlaceholder(TIME_INPUT_PLACEHOLDER)
         .setRequired(false);
 
