@@ -9,7 +9,7 @@ Moderation is primarily handled through the bot's rate limiting system. See [Con
 ### Clear User Rate Limits
 
 ```
-/eggshen-config rate-limit clear user:@user
+/eggshen-config-watch-party rate-limit clear user:@user
 ```
 
 Manually clear rate limits for a specific user who may be stuck.
@@ -20,13 +20,13 @@ Manually clear rate limits for a specific user who may be stuck.
 
 **Example:**
 ```
-/eggshen-config rate-limit clear user:@MovieFan
+/eggshen-config-watch-party rate-limit clear user:@MovieFan
 ```
 
 ### View Rate Limit Configuration
 
 ```
-/eggshen-config rate-limit view
+/eggshen-config-watch-party rate-limit view
 ```
 
 Shows current rate limiting settings, active limits, and user violations.
@@ -34,7 +34,7 @@ Shows current rate limiting settings, active limits, and user violations.
 ### Allow Moderator Bypass
 
 ```
-/eggshen-config rate-limit bypass enabled:true
+/eggshen-config-watch-party rate-limit bypass enabled:true
 ```
 
 Enable this to allow moderators to bypass rate limits.
@@ -43,7 +43,7 @@ Enable this to allow moderators to bypass rate limits.
 
 Most moderation is handled through configuration settings:
 
-- **Rate Limiting:** `/eggshen-config rate-limit` - See [Configuration](/commands/configuration#rate-limit-group)
+- **Rate Limiting:** `/eggshen-config-watch-party rate-limit` - See [Configuration](/commands/configuration#rate-limit-group)
 - **Command Toggles:** `/eggshen-config commands toggle` - Enable/disable commands for users
 - **Statistics:** `/eggshen-stats` - View usage patterns and potential abuse
 
@@ -62,18 +62,18 @@ Set appropriate rate limits based on your server size:
 
 **Small servers (< 100 members):**
 ```
-/eggshen-config rate-limit global max-requests:15 window-seconds:60
+/eggshen-config-watch-party rate-limit global max-requests:15 window-seconds:60
 ```
 
 **Medium servers (100-1,000):**
 ```
-/eggshen-config rate-limit global max-requests:10 window-seconds:60
+/eggshen-config-watch-party rate-limit global max-requests:10 window-seconds:60
 ```
 
 **Large servers (1,000+):**
 ```
-/eggshen-config rate-limit global max-requests:5 window-seconds:60
-/eggshen-config rate-limit guild-wide enabled:true max-requests:20 window-seconds:60
+/eggshen-config-watch-party rate-limit global max-requests:5 window-seconds:60
+/eggshen-config-watch-party rate-limit guild-wide enabled:true max-requests:20 window-seconds:60
 ```
 
 ### 3. Use Per-Command Limits
@@ -81,8 +81,8 @@ Set appropriate rate limits based on your server size:
 Restrict resource-intensive commands more than simple ones:
 
 ```
-/eggshen-config rate-limit command command:movie max-requests:5 window-seconds:60
-/eggshen-config rate-limit command command:episode-list max-requests:3 window-seconds:60
+/eggshen-config-watch-party rate-limit command command:movie max-requests:5 window-seconds:60
+/eggshen-config-watch-party rate-limit command command:episode-list max-requests:3 window-seconds:60
 ```
 
 ### 4. Enable Moderator Bypass
@@ -90,7 +90,7 @@ Restrict resource-intensive commands more than simple ones:
 Let your mod team use the bot freely:
 
 ```
-/eggshen-config rate-limit bypass enabled:true
+/eggshen-config-watch-party rate-limit bypass enabled:true
 ```
 
 ### 5. Disable Commands if Needed
@@ -109,14 +109,14 @@ Re-enable when situation is under control.
 
 Clear their limits manually:
 ```
-/eggshen-config rate-limit clear user:@user
+/eggshen-config-watch-party rate-limit clear user:@user
 ```
 
 ### Too Much Spam
 
 Tighten rate limits:
 ```
-/eggshen-config rate-limit global max-requests:5 window-seconds:120
+/eggshen-config-watch-party rate-limit global max-requests:5 window-seconds:120
 ```
 
 ### Bot Not Responding to Anyone
@@ -135,12 +135,12 @@ If "Commands Enabled" shows false, re-enable:
 
 Check current settings:
 ```
-/eggshen-config rate-limit view
+/eggshen-config-watch-party rate-limit view
 ```
 
 Increase limits as needed:
 ```
-/eggshen-config rate-limit global max-requests:20 window-seconds:60
+/eggshen-config-watch-party rate-limit global max-requests:20 window-seconds:60
 ```
 
 ## Related Documentation

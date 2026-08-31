@@ -567,23 +567,20 @@ View server statistics (Admin/Moderator only).
 
 ## Admin Commands
 
-### `/eggshen-config`
-Comprehensive server configuration (Admin/Moderator only).
+### `/eggshen-config` and friends
+Comprehensive server configuration (Admin/Moderator only), split across 5 commands to stay under Discord's per-command size limit:
 
-**Major Subcommands:**
-- `view` - View current configuration
-- `toggle` - Enable/disable services
-- `emoji` - Set custom emojis
-- `rate-limit-*` - Configure rate limiting
-- `moderation-*` - Configure moderation tools
-- `stats-toggle` - Configure statistics
-- `commands-toggle` - Enable/disable commands
+- `/eggshen-config` - settings, stats, commands, notifications
+- `/eggshen-config-watch-party` - watch party channels, rate limiting
+- `/eggshen-config-ai` - AI image generation limits and permissions
+- `/eggshen-config-moderation` - whitelist, cooldowns, auto-ban
+- `/eggshen-config-events` - event request system
 
 **Example:**
 ```
 /eggshen-config settings view
-/eggshen-config rate-limit toggle enabled:true
-/eggshen-config moderation toggle enabled:true
+/eggshen-config-watch-party rate-limit toggle enabled:true
+/eggshen-config-moderation moderation toggle enabled:true
 ```
 
 [Learn more →](/commands/configuration)
@@ -625,12 +622,12 @@ Display help information and available commands.
 | **Discovery** | `/random`, `/similar`, `/soundtrack` |
 | **Fun & Social** | `/survey`, `/potion` |
 | **Statistics** | `/stats` |
-| **Configuration** | `/eggshen-config` |
+| **Configuration** | `/eggshen-config`, `/eggshen-config-watch-party`, `/eggshen-config-ai`, `/eggshen-config-moderation`, `/eggshen-config-events` |
 | **Help** | `/help` |
 
 ## Command Permissions
 
 - **Everyone:** Search, timer, watched add, random, similar, soundtrack
-- **Admin/Mod:** stats, eggshen-config, watched from timer (or timer starter)
+- **Admin/Mod:** stats, eggshen-config (and its 4 sibling commands), watched from timer (or timer starter)
 
 [Learn about moderation →](/features/moderation-tools)

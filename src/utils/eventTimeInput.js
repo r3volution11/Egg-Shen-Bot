@@ -2,7 +2,7 @@
  * Parsing/formatting for the moderator-facing "Start/End Time" text fields
  * on the event-request Edit modal, interpreted in a per-guild-configured
  * IANA timezone (default UTC for servers that never configure one — see
- * /eggshen-config event-requests timezone). A modal has no timezone-aware
+ * /eggshen-config-events event-requests timezone). A modal has no timezone-aware
  * date picker (Discord's component set doesn't have one at all), so these
  * fields stay plain text in a single fixed format: `YYYY-MM-DD HH:mm`
  * (24-hour). No natural-language parsing, no implicit local-time

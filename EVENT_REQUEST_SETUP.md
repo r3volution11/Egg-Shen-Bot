@@ -35,20 +35,20 @@ The Event Request System allows Discord server members to submit watch party eve
 
 ### Step 1: Configure Your Server
 
-Use `/eggshen-config event-requests` subcommands:
+Use `/eggshen-config-events event-requests` subcommands:
 
 ```
-/eggshen-config event-requests toggle enabled:true
-/eggshen-config event-requests moderation-channel channel:#event-requests
-/eggshen-config event-requests server-name name:"Your Server Name"
-/eggshen-config event-requests website-url url:http://localhost:8080
-/eggshen-config event-requests invite-url url:https://discord.gg/yourserver
+/eggshen-config-events event-requests toggle enabled:true
+/eggshen-config-events event-requests moderation-channel channel:#event-requests
+/eggshen-config-events event-requests server-name name:"Your Server Name"
+/eggshen-config-events event-requests website-url url:http://localhost:8080
+/eggshen-config-events event-requests invite-url url:https://discord.gg/yourserver
 ```
 
 ### Step 2: Get the Event Request Link
 
 ```
-/eggshen-config event-requests get-link
+/eggshen-config-events event-requests get-link
 ```
 
 This shows your configured Form URL and reminds you to set `GUILD_ID` in `public/config.js` (copied from `public/config.example.js`) if you haven't already.
@@ -85,7 +85,7 @@ You should see: `✓ API server listening on port 3000`
 
 ### 2. Configure the Web Form
 
-Copy `public/config.example.js` to `public/config.js` and set `GUILD_ID` to your test server's ID (from `/eggshen-config event-requests get-link`):
+Copy `public/config.example.js` to `public/config.js` and set `GUILD_ID` to your test server's ID (from `/eggshen-config-events event-requests get-link`):
 
 ```bash
 cp public/config.example.js public/config.js
@@ -142,25 +142,25 @@ Navigate to: `http://localhost:8080`
 
 4. **Configure Servers**:
    ```
-   /eggshen-config event-requests website-url url:https://yourdomain.com
+   /eggshen-config-events event-requests website-url url:https://yourdomain.com
    ```
 
 5. **Share the Link**:
    ```
-   /eggshen-config event-requests get-link
+   /eggshen-config-events event-requests get-link
    ```
 
 ## Multiple Servers
 
 One bot process can back the event-request form for more than one Discord server, but **each web form deployment is dedicated to exactly one server** — the real Guild ID lives in `public/config.js` (copied from `public/config.example.js`, gitignored so `git pull` never overwrites it), not something a visitor can pick via a query parameter. To serve a second server, deploy a second copy of the `public/` folder (its own domain or subdomain) with its own `config.js`, both pointed at the same bot process.
 
-Each Discord server's own settings still live in its own `guild_configs/<guildId>.json` (via `loadGuildConfig`/`saveGuildConfig`, not a shared `event_request_config.json`), configured independently with `/eggshen-config event-requests`:
+Each Discord server's own settings still live in its own `guild_configs/<guildId>.json` (via `loadGuildConfig`/`saveGuildConfig`, not a shared `event_request_config.json`), configured independently with `/eggshen-config-events event-requests`:
 
 ```
-/eggshen-config event-requests toggle enabled:true
-/eggshen-config event-requests moderation-channel channel:#your-channel
-/eggshen-config event-requests server-name name:"Your Server"
-/eggshen-config event-requests website-url url:https://your-domain-for-this-server.com
+/eggshen-config-events event-requests toggle enabled:true
+/eggshen-config-events event-requests moderation-channel channel:#your-channel
+/eggshen-config-events event-requests server-name name:"Your Server"
+/eggshen-config-events event-requests website-url url:https://your-domain-for-this-server.com
 ```
 
 **Example: a dev and production deployment on subdomains of the same domain**
@@ -194,7 +194,7 @@ Both domains proxy `/api/`, `/crop/`, and `/crop-assets/` to the **same** bot pr
 - Verify port numbers match
 
 ### Event Requests Not Appearing in Moderation Channel
-- Check that moderation channel is set: `/eggshen-config event-requests view`
+- Check that moderation channel is set: `/eggshen-config-events event-requests view`
 - Verify the bot's role has **View Channel**, **Send Messages**, and **Embed Links** in that channel — a channel-specific permission override (common in mod-only channels) can block the bot even if its server-wide role permissions look correct
 
 ### "Failed to create event: Missing Permissions" on Approval

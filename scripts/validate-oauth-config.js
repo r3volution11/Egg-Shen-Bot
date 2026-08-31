@@ -131,5 +131,5 @@ if (process.env.OAUTH_REDIRECT_URI) {
 }
 console.log('2. Copy public/config.example.js to public/config.js and set GUILD_ID');
 console.log('3. Deploy web form files to your domain');
-console.log('4. Configure server with /eggshen-config event-requests commands');
+console.log('4. Configure server with /eggshen-config-events event-requests commands');
 console.log('\n' + '='.repeat(60));

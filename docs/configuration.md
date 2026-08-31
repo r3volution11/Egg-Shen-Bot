@@ -114,19 +114,19 @@ Configure channels where timer auto-detection works. When a timer starts in thes
 ### Add Watch Party Channel
 
 ```
-/eggshen-config watch-party add channel:<#channel>
+/eggshen-config-watch-party watch-party add channel:<#channel>
 ```
 
 ### Remove Watch Party Channel
 
 ```
-/eggshen-config watch-party remove channel:<#channel>
+/eggshen-config-watch-party watch-party remove channel:<#channel>
 ```
 
 ### List Configured Channels
 
 ```
-/eggshen-config watch-party list
+/eggshen-config-watch-party watch-party list
 ```
 
 ## Rate Limiting
@@ -136,7 +136,7 @@ Protect your server from spam and abuse with comprehensive rate limiting.
 ### Enable/Disable Rate Limiting
 
 ```
-/eggshen-config rate-limit toggle enabled:<true/false>
+/eggshen-config-watch-party rate-limit toggle enabled:<true/false>
 ```
 
 ### Global Rate Limits
@@ -144,7 +144,7 @@ Protect your server from spam and abuse with comprehensive rate limiting.
 Set default rate limits for all commands:
 
 ```
-/eggshen-config rate-limit global max-requests:<number> window-seconds:<number>
+/eggshen-config-watch-party rate-limit global max-requests:<number> window-seconds:<number>
 ```
 
 Example: Allow 10 requests per 60 seconds
@@ -154,7 +154,7 @@ Example: Allow 10 requests per 60 seconds
 Set custom rate limits for specific commands:
 
 ```
-/eggshen-config rate-limit command command:<command> max-requests:<number> window-seconds:<number>
+/eggshen-config-watch-party rate-limit command command:<command> max-requests:<number> window-seconds:<number>
 ```
 
 Available commands: movie, tv, episode, episode-list, timer, stats
@@ -166,7 +166,7 @@ Set max-requests to 0 to remove custom limit and use global default.
 Prevent multi-account flooding by limiting total server activity:
 
 ```
-/eggshen-config rate-limit guild-wide enabled:<true/false> max-requests:<number> window-seconds:<number>
+/eggshen-config-watch-party rate-limit guild-wide enabled:<true/false> max-requests:<number> window-seconds:<number>
 ```
 
 ### Pattern Detection
@@ -174,7 +174,7 @@ Prevent multi-account flooding by limiting total server activity:
 Detect suspicious coordinated activity patterns:
 
 ```
-/eggshen-config rate-limit pattern-detection enabled:<true/false> min-users:<number>
+/eggshen-config-watch-party rate-limit pattern-detection enabled:<true/false> min-users:<number>
 ```
 
 Flags suspicious activity when multiple users exhibit similar spam patterns.
@@ -184,7 +184,7 @@ Flags suspicious activity when multiple users exhibit similar spam patterns.
 Allow moderators to bypass rate limits:
 
 ```
-/eggshen-config rate-limit bypass enabled:<true/false>
+/eggshen-config-watch-party rate-limit bypass enabled:<true/false>
 ```
 
 ### View Rate Limits
@@ -192,7 +192,7 @@ Allow moderators to bypass rate limits:
 See current rate limit configuration:
 
 ```
-/eggshen-config rate-limit view
+/eggshen-config-watch-party rate-limit view
 ```
 
 ### Clear User Rate Limits
@@ -200,7 +200,7 @@ See current rate limit configuration:
 Admin override to clear rate limits for a specific user:
 
 ```
-/eggshen-config rate-limit clear user:<@user>
+/eggshen-config-watch-party rate-limit clear user:<@user>
 ```
 
 ### View Suspicious Activity
@@ -208,7 +208,7 @@ Admin override to clear rate limits for a specific user:
 See recent patterns flagged by pattern detection:
 
 ```
-/eggshen-config rate-limit suspicious-activity
+/eggshen-config-watch-party rate-limit suspicious-activity
 ```
 
 ### View Abuse Log
@@ -216,7 +216,7 @@ See recent patterns flagged by pattern detection:
 Track individual user violations:
 
 ```
-/eggshen-config rate-limit abuse-log
+/eggshen-config-watch-party rate-limit abuse-log
 ```
 
 ## Moderation Features
@@ -226,7 +226,7 @@ Advanced moderation tools for managing user behavior.
 ### Enable/Disable Moderation
 
 ```
-/eggshen-config moderation toggle enabled:<true/false>
+/eggshen-config-moderation moderation toggle enabled:<true/false>
 ```
 
 ### User Cooldowns
@@ -234,7 +234,7 @@ Advanced moderation tools for managing user behavior.
 Temporarily prevent a user from using bot commands:
 
 ```
-/eggshen-config moderation user-cooldown user:<@user> duration:<minutes> reason:<text>
+/eggshen-config-moderation moderation user-cooldown user:<@user> duration:<minutes> reason:<text>
 ```
 
 Maximum duration: 10,080 minutes (1 week)
@@ -242,13 +242,13 @@ Maximum duration: 10,080 minutes (1 week)
 ### Remove Cooldown
 
 ```
-/eggshen-config moderation user-cooldown-remove user:<@user>
+/eggshen-config-moderation moderation user-cooldown-remove user:<@user>
 ```
 
 ### List Active Cooldowns
 
 ```
-/eggshen-config moderation user-cooldown-list
+/eggshen-config-moderation moderation user-cooldown-list
 ```
 
 ### Whitelist Mode
@@ -256,26 +256,26 @@ Maximum duration: 10,080 minutes (1 week)
 When enabled, only whitelisted roles and users can use commands:
 
 ```
-/eggshen-config moderation whitelist-toggle enabled:<true/false>
+/eggshen-config-moderation moderation whitelist-toggle enabled:<true/false>
 ```
 
 ### Manage Whitelist
 
 Add/remove roles:
 ```
-/eggshen-config moderation whitelist-add-role role:<@role>
-/eggshen-config moderation whitelist-remove-role role:<@role>
+/eggshen-config-moderation moderation whitelist-add-role role:<@role>
+/eggshen-config-moderation moderation whitelist-remove-role role:<@role>
 ```
 
 Add/remove users:
 ```
-/eggshen-config moderation whitelist-add-user user:<@user>
-/eggshen-config moderation whitelist-remove-user user:<@user>
+/eggshen-config-moderation moderation whitelist-add-user user:<@user>
+/eggshen-config-moderation moderation whitelist-remove-user user:<@user>
 ```
 
 View whitelist:
 ```
-/eggshen-config moderation whitelist-list
+/eggshen-config-moderation moderation whitelist-list
 ```
 
 ### Auto-Ban Notifications
@@ -283,7 +283,7 @@ View whitelist:
 Enable notifications when users trigger auto-ban thresholds:
 
 ```
-/eggshen-config moderation auto-ban-toggle enabled:<true/false>
+/eggshen-config-moderation moderation auto-ban-toggle enabled:<true/false>
 ```
 
 ## Configuration Best Practices
@@ -328,18 +328,18 @@ See the [API Keys Guide](/api-keys) and [Installation Guide](/installation) for 
 
 ### Commands Not Working
 - Verify bot has proper permissions in the channel
-- Check if rate limiting is blocking commands with `/eggshen-config rate-limit view`
+- Check if rate limiting is blocking commands with `/eggshen-config-watch-party rate-limit view`
 - Ensure command isn't disabled with `/eggshen-config commands toggle`
-- Verify you're not in a user cooldown with `/eggshen-config moderation user-cooldown-list`
+- Verify you're not in a user cooldown with `/eggshen-config-moderation moderation user-cooldown-list`
 
 ### Rate Limiting Too Strict
-- View current limits: `/eggshen-config rate-limit view`
+- View current limits: `/eggshen-config-watch-party rate-limit view`
 - Adjust global or command-specific limits
 - Enable moderator bypass for staff
-- Use `/eggshen-config rate-limit clear user:@user` to help specific users
+- Use `/eggshen-config-watch-party rate-limit clear user:@user` to help specific users
 
 ### Timer Auto-Detection Not Working
-- Verify channel is added to watch-party list: `/eggshen-config watch-party list`
+- Verify channel is added to watch-party list: `/eggshen-config-watch-party watch-party list`
 - Ensure you have an ACTIVE Discord event in the server
 - Check that the event location field mentions the channel (by name, ID, or mention)
 - Event must be in "Active" status (not Scheduled or Completed)

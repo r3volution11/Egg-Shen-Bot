@@ -117,11 +117,11 @@ pm2 save
 In your test Discord server, run these commands:
 
 ```
-/eggshen-config event-requests toggle enabled:true
-/eggshen-config event-requests moderation-channel channel:#event-requests
-/eggshen-config event-requests server-name name:"Your Test Server"
-/eggshen-config event-requests website-url url:http://YOUR_SERVER_IP:8080
-/eggshen-config event-requests get-link
+/eggshen-config-events event-requests toggle enabled:true
+/eggshen-config-events event-requests moderation-channel channel:#event-requests
+/eggshen-config-events event-requests server-name name:"Your Test Server"
+/eggshen-config-events event-requests website-url url:http://YOUR_SERVER_IP:8080
+/eggshen-config-events event-requests get-link
 ```
 
 The last command will give you a link like:
@@ -230,12 +230,12 @@ Once testing is successful, you can add other servers:
 
 4. **Configure a production Discord server:**
    ```
-   /eggshen-config event-requests toggle enabled:true
-   /eggshen-config event-requests moderation-channel channel:#their-mod-channel
-   /eggshen-config event-requests server-name name:"Your Production Server"
-   /eggshen-config event-requests website-url url:https://yourdomain.com
-   /eggshen-config event-requests invite-url url:https://discord.gg/your-invite-code
-   /eggshen-config event-requests get-link
+   /eggshen-config-events event-requests toggle enabled:true
+   /eggshen-config-events event-requests moderation-channel channel:#their-mod-channel
+   /eggshen-config-events event-requests server-name name:"Your Production Server"
+   /eggshen-config-events event-requests website-url url:https://yourdomain.com
+   /eggshen-config-events event-requests invite-url url:https://discord.gg/your-invite-code
+   /eggshen-config-events event-requests get-link
    ```
 
 5. **Share the link** with that server's community

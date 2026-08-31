@@ -463,7 +463,7 @@ function showDisabledMessage() {
     document.getElementById('page-title').textContent = '🎬 Event Requests';
     document.getElementById('info-text').innerHTML = 
         '<strong>Event requests are currently disabled for this server.</strong><br><br>' +
-        'Server administrators can enable this feature using the <code>/eggshen-config event-requests toggle enabled:true</code> command in Discord.';
+        'Server administrators can enable this feature using the <code>/eggshen-config-events event-requests toggle enabled:true</code> command in Discord.';
     document.getElementById('discord-invite-link').style.display = 'none';
 }
 

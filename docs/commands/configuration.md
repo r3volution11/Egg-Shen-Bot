@@ -2,15 +2,19 @@
 
 Administrative commands for configuring and managing Egg Shen Bot in your server.
 
-## Configuration Command
+## Configuration Commands
 
-The main configuration command for server administrators.
+Configuration is split across 5 top-level commands (kept under Discord's per-command size limit — each covers a related set of settings):
 
 ```
-/eggshen-config <group> <subcommand> [parameters]
+/eggshen-config <group> <subcommand> [parameters]                 — settings, stats, commands, notifications
+/eggshen-config-watch-party <group> <subcommand> [parameters]     — watch-party, rate-limit
+/eggshen-config-ai <group> <subcommand> [parameters]               — ai-images
+/eggshen-config-moderation <group> <subcommand> [parameters]       — moderation
+/eggshen-config-events <group> <subcommand> [parameters]           — event-requests
 ```
 
-**Required Permissions:**
+**Required Permissions (all 5 commands):**
 - Administrator
 - OR Manage Server permission
 
@@ -240,33 +244,33 @@ Configure channels for watch party auto-detection.
 #### Add Watch Party Channel
 
 ```
-/eggshen-config watch-party add channel:<#channel>
+/eggshen-config-watch-party watch-party add channel:<#channel>
 ```
 
 Adds a channel where the bot will auto-detect Discord scheduled events for timer labels.
 
 **Example:**
 ```
-/eggshen-config watch-party add channel:#movie-night
+/eggshen-config-watch-party watch-party add channel:#movie-night
 ```
 
 #### Remove Watch Party Channel
 
 ```
-/eggshen-config watch-party remove channel:<#channel>
+/eggshen-config-watch-party watch-party remove channel:<#channel>
 ```
 
 Removes a channel from watch party auto-detection.
 
 **Example:**
 ```
-/eggshen-config watch-party remove channel:#movie-night
+/eggshen-config-watch-party watch-party remove channel:#movie-night
 ```
 
 #### List Watch Party Channels
 
 ```
-/eggshen-config watch-party list
+/eggshen-config-watch-party watch-party list
 ```
 
 Shows all configured watch party channels.
@@ -280,20 +284,20 @@ Advanced rate limiting configuration.
 #### Toggle Rate Limiting
 
 ```
-/eggshen-config rate-limit toggle enabled:<true/false>
+/eggshen-config-watch-party rate-limit toggle enabled:<true/false>
 ```
 
 Master switch for rate limiting system.
 
 **Example:**
 ```
-/eggshen-config rate-limit toggle enabled:true
+/eggshen-config-watch-party rate-limit toggle enabled:true
 ```
 
 #### Global Rate Limits
 
 ```
-/eggshen-config rate-limit global max-requests:<number> window-seconds:<seconds>
+/eggshen-config-watch-party rate-limit global max-requests:<number> window-seconds:<seconds>
 ```
 
 Set global rate limits for all users.
@@ -304,13 +308,13 @@ Set global rate limits for all users.
 
 **Example:**
 ```
-/eggshen-config rate-limit global max-requests:10 window-seconds:60
+/eggshen-config-watch-party rate-limit global max-requests:10 window-seconds:60
 ```
 
 #### Per-Command Rate Limits
 
 ```
-/eggshen-config rate-limit command command:<name> max-requests:<number> window-seconds:[seconds]
+/eggshen-config-watch-party rate-limit command command:<name> max-requests:<number> window-seconds:[seconds]
 ```
 
 Set custom rate limits for specific commands.
@@ -325,7 +329,7 @@ Set custom rate limits for specific commands.
 
 **Example:**
 ```
-/eggshen-config rate-limit command command:movie max-requests:5 window-seconds:60
+/eggshen-config-watch-party rate-limit command command:movie max-requests:5 window-seconds:60
 ```
 
 Set `max-requests` to 0 to remove custom limit for that command.
@@ -333,33 +337,33 @@ Set `max-requests` to 0 to remove custom limit for that command.
 #### Moderator Bypass
 
 ```
-/eggshen-config rate-limit bypass enabled:<true/false>
+/eggshen-config-watch-party rate-limit bypass enabled:<true/false>
 ```
 
 Allow moderators to bypass rate limits.
 
 **Example:**
 ```
-/eggshen-config rate-limit bypass enabled:true
+/eggshen-config-watch-party rate-limit bypass enabled:true
 ```
 
 #### Clear User Rate Limits
 
 ```
-/eggshen-config rate-limit clear user:@user
+/eggshen-config-watch-party rate-limit clear user:@user
 ```
 
 Manually clear rate limits for a specific user.
 
 **Example:**
 ```
-/eggshen-config rate-limit clear user:@MovieFan
+/eggshen-config-watch-party rate-limit clear user:@MovieFan
 ```
 
 #### View Rate Limit Config
 
 ```
-/eggshen-config rate-limit view
+/eggshen-config-watch-party rate-limit view
 ```
 
 Shows current rate limiting configuration.
@@ -367,7 +371,7 @@ Shows current rate limiting configuration.
 #### Guild-Wide Rate Limiting
 
 ```
-/eggshen-config rate-limit guild-wide enabled:<true/false> max-requests:[number] window-seconds:[seconds]
+/eggshen-config-watch-party rate-limit guild-wide enabled:<true/false> max-requests:[number] window-seconds:[seconds]
 ```
 
 Enable server-wide rate limiting (total commands across all users).
@@ -379,7 +383,7 @@ Enable server-wide rate limiting (total commands across all users).
 
 **Example:**
 ```
-/eggshen-config rate-limit guild-wide enabled:true max-requests:20 window-seconds:60
+/eggshen-config-watch-party rate-limit guild-wide enabled:true max-requests:20 window-seconds:60
 ```
 
 ---
@@ -391,7 +395,7 @@ Configure AI image generation limits and whitelist. **Cost control is critical!*
 #### View AI Image Settings & Stats
 
 ```
-/eggshen-config ai-images view
+/eggshen-config-ai ai-images view
 ```
 
 Shows:
@@ -402,7 +406,7 @@ Shows:
 #### Toggle AI Image Rate Limiting
 
 ```
-/eggshen-config ai-images toggle enabled:<true/false>
+/eggshen-config-ai ai-images toggle enabled:<true/false>
 ```
 
 Enable or disable rate limiting for AI image generation.
@@ -411,13 +415,13 @@ Enable or disable rate limiting for AI image generation.
 
 **Example:**
 ```
-/eggshen-config ai-images toggle enabled:true
+/eggshen-config-ai ai-images toggle enabled:true
 ```
 
 #### Set User Cooldown
 
 ```
-/eggshen-config ai-images user-cooldown seconds:<60-3600>
+/eggshen-config-ai ai-images user-cooldown seconds:<60-3600>
 ```
 
 Set time between AI image generations per user.
@@ -431,13 +435,13 @@ Set time between AI image generations per user.
 
 **Example:**
 ```
-/eggshen-config ai-images user-cooldown seconds:300
+/eggshen-config-ai ai-images user-cooldown seconds:300
 ```
 
 #### Set User Daily Limit
 
 ```
-/eggshen-config ai-images user-daily-limit limit:<1-100>
+/eggshen-config-ai ai-images user-daily-limit limit:<1-100>
 ```
 
 Maximum AI images per user per day.
@@ -453,13 +457,13 @@ Shows estimated monthly cost per user.
 
 **Example:**
 ```
-/eggshen-config ai-images user-daily-limit limit:10
+/eggshen-config-ai ai-images user-daily-limit limit:10
 ```
 
 #### Set Server Daily Limit
 
 ```
-/eggshen-config ai-images guild-daily-limit limit:<1-500>
+/eggshen-config-ai ai-images guild-daily-limit limit:<1-500>
 ```
 
 Maximum AI images per server per day.
@@ -475,13 +479,13 @@ Shows estimated monthly cost.
 
 **Example:**
 ```
-/eggshen-config ai-images guild-daily-limit limit:50
+/eggshen-config-ai ai-images guild-daily-limit limit:50
 ```
 
 #### Toggle Admin Cooldown Bypass
 
 ```
-/eggshen-config ai-images admin-bypass enabled:<true/false>
+/eggshen-config-ai ai-images admin-bypass enabled:<true/false>
 ```
 
 Allow admins/moderators to bypass cooldown (they always respect daily limits).
@@ -490,13 +494,13 @@ Allow admins/moderators to bypass cooldown (they always respect daily limits).
 
 **Example:**
 ```
-/eggshen-config ai-images admin-bypass enabled:true
+/eggshen-config-ai ai-images admin-bypass enabled:true
 ```
 
 #### Add User to Unlimited Whitelist
 
 ```
-/eggshen-config ai-images whitelist-add user:<@user>
+/eggshen-config-ai ai-images whitelist-add user:<@user>
 ```
 
 Grant unlimited AI image generation to a specific user.
@@ -511,26 +515,26 @@ Whitelisted users bypass ALL limits (cooldown + daily limits).
 
 **Example:**
 ```
-/eggshen-config ai-images whitelist-add user:@JohnDoe
+/eggshen-config-ai ai-images whitelist-add user:@JohnDoe
 ```
 
 #### Remove User from Whitelist
 
 ```
-/eggshen-config ai-images whitelist-remove user:<@user>
+/eggshen-config-ai ai-images whitelist-remove user:<@user>
 ```
 
 Remove unlimited access - user returns to normal rate limits.
 
 **Example:**
 ```
-/eggshen-config ai-images whitelist-remove user:@JohnDoe
+/eggshen-config-ai ai-images whitelist-remove user:@JohnDoe
 ```
 
 #### View Whitelist
 
 ```
-/eggshen-config ai-images whitelist-list
+/eggshen-config-ai ai-images whitelist-list
 ```
 
 Shows all users with unlimited AI image generation access.
@@ -538,7 +542,7 @@ Shows all users with unlimited AI image generation access.
 #### Reset User Usage
 
 ```
-/eggshen-config ai-images reset-user user:<@user>
+/eggshen-config-ai ai-images reset-user user:<@user>
 ```
 
 Reset a user's daily usage and cooldown.
@@ -550,13 +554,13 @@ Reset a user's daily usage and cooldown.
 
 **Example:**
 ```
-/eggshen-config ai-images reset-user user:@JohnDoe
+/eggshen-config-ai ai-images reset-user user:@JohnDoe
 ```
 
 #### Reset Server Usage
 
 ```
-/eggshen-config ai-images reset-guild
+/eggshen-config-ai ai-images reset-guild
 ```
 
 Reset the entire server's daily usage (user limits still apply).
@@ -568,7 +572,7 @@ Reset the entire server's daily usage (user limits still apply).
 
 **Example:**
 ```
-/eggshen-config ai-images reset-guild
+/eggshen-config-ai ai-images reset-guild
 ```
 
 **💡 See [AI Image Generation](ai-images.md) for complete documentation on the `/image` and `/bracket image` commands, cost management strategies, and best practices.**
@@ -586,7 +590,7 @@ Event requests allow community members to submit watch party events via a web fo
 #### View Current Configuration
 
 ```
-/eggshen-config event-requests view
+/eggshen-config-events event-requests view
 ```
 
 Shows current event request settings including:
@@ -600,8 +604,8 @@ Shows current event request settings including:
 #### Enable/Disable Event Requests
 
 ```
-/eggshen-config event-requests toggle enabled:true
-/eggshen-config event-requests toggle enabled:false
+/eggshen-config-events event-requests toggle enabled:true
+/eggshen-config-events event-requests toggle enabled:false
 ```
 
 Turn event requests on or off for your server.
@@ -609,7 +613,7 @@ Turn event requests on or off for your server.
 #### Set Moderation Channel
 
 ```
-/eggshen-config event-requests moderation-channel channel:#mod-queue
+/eggshen-config-events event-requests moderation-channel channel:#mod-queue
 ```
 
 Set where event request approval messages appear. Moderators will see:
@@ -620,7 +624,7 @@ Set where event request approval messages appear. Moderators will see:
 #### Set Server Name
 
 ```
-/eggshen-config event-requests server-name name:My Cool Server
+/eggshen-config-events event-requests server-name name:My Cool Server
 ```
 
 Customize the server name shown on the event request form.
@@ -628,7 +632,7 @@ Customize the server name shown on the event request form.
 #### Set Timezone
 
 ```
-/eggshen-config event-requests timezone timezone:America/New_York
+/eggshen-config-events event-requests timezone timezone:America/New_York
 ```
 
 Sets the timezone the Edit modal's Start/End Time fields use (default: UTC). Start typing to get autocomplete suggestions from the full IANA timezone database. See [Event Requests Setup](../features/event-requests.md#set-timezone) for details.
@@ -636,7 +640,7 @@ Sets the timezone the Edit modal's Start/End Time fields use (default: UTC). Sta
 #### Set Invite Link (Optional)
 
 ```
-/eggshen-config event-requests invite-url url:https://discord.gg/yourserver
+/eggshen-config-events event-requests invite-url url:https://discord.gg/yourserver
 ```
 
 Discord invite link displayed on the form. Leave empty to hide.
@@ -644,7 +648,7 @@ Discord invite link displayed on the form. Leave empty to hide.
 #### Set Website URL
 
 ```
-/eggshen-config event-requests website-url url:https://yourdomain.com
+/eggshen-config-events event-requests website-url url:https://yourdomain.com
 ```
 
 The URL where your event request form is hosted.
@@ -656,8 +660,8 @@ After setting the website URL, you must also copy `public/config.example.js` to 
 #### Allow/Disallow Voice Requests
 
 ```
-/eggshen-config event-requests allow-voice-requests allow:true
-/eggshen-config event-requests allow-voice-requests allow:false
+/eggshen-config-events event-requests allow-voice-requests allow:true
+/eggshen-config-events event-requests allow-voice-requests allow:false
 ```
 
 Control whether users can request voice/stage channels for events.
@@ -679,8 +683,8 @@ Control whether users can request voice/stage channels for events.
 #### Announce Approve/Deny Decisions
 
 ```
-/eggshen-config event-requests announce-decisions enabled:true
-/eggshen-config event-requests announce-decisions enabled:false
+/eggshen-config-events event-requests announce-decisions enabled:true
+/eggshen-config-events event-requests announce-decisions enabled:false
 ```
 
 Control whether approving or denying a request posts a new message to the moderation channel announcing the outcome, in addition to updating the original request's embed in place.
@@ -698,8 +702,8 @@ Control whether approving or denying a request posts a new message to the modera
 #### Allow User Channel Selection (Simple vs Advanced Mode)
 
 ```
-/eggshen-config event-requests allow-user-channel-selection allow:false
-/eggshen-config event-requests allow-user-channel-selection allow:true
+/eggshen-config-events event-requests allow-user-channel-selection allow:false
+/eggshen-config-events event-requests allow-user-channel-selection allow:true
 ```
 
 Control whether users select channels in the event request form.
@@ -725,8 +729,8 @@ Event requests default to **Simple Mode**. Users submit event ideas and moderato
 #### Whitelist Allowed Text Channels
 
 ```
-/eggshen-config event-requests set-allowed-text-channels channel-ids:"123,456,789"
-/eggshen-config event-requests set-allowed-text-channels channel-ids:"all"
+/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"123,456,789"
+/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"all"
 ```
 
 Control which text channels appear in the event request form dropdown.
@@ -749,7 +753,7 @@ Control which text channels appear in the event request form dropdown.
 
 **Example:**
 ```
-/eggshen-config event-requests set-allowed-text-channels channel-ids:"1234567890,9876543210"
+/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"1234567890,9876543210"
 ```
 
 ::: tip Getting Channel IDs
@@ -759,8 +763,8 @@ Right-click a channel in Discord → Copy Channel ID (requires Developer Mode en
 #### Whitelist Allowed Voice Channels
 
 ```
-/eggshen-config event-requests set-allowed-voice-channels channel-ids:"123,456,789"
-/eggshen-config event-requests set-allowed-voice-channels channel-ids:"all"
+/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"123,456,789"
+/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"all"
 ```
 
 Control which voice/stage channels appear in the event request form dropdown.
@@ -783,7 +787,7 @@ Control which voice/stage channels appear in the event request form dropdown.
 
 **Example:**
 ```
-/eggshen-config event-requests set-allowed-voice-channels channel-ids:"1234567890"
+/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"1234567890"
 ```
 
 ::: warning Independent Controls
@@ -797,7 +801,7 @@ Text and voice channel whitelists are **independent**. You can:
 #### Get Configuration Summary
 
 ```
-/eggshen-config event-requests get-link
+/eggshen-config-events event-requests get-link
 ```
 
 Shows your form URL and reminds you to configure `GUILD_ID` in your web deployment.

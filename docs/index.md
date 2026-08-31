@@ -251,7 +251,7 @@ Type `/potion give user:@Friend type:health` to send magical potions with fun po
 - Image upload with in-browser cropping (plus a moderator-only crop/replace tool)
 - Approve / Edit / Deny buttons in a Discord moderation channel
 - Approved requests automatically become Discord Scheduled Events
-- Fully configurable via `/eggshen-config event-requests` - [see the full guide →](/features/event-requests)
+- Fully configurable via `/eggshen-config-events event-requests` - [see the full guide →](/features/event-requests)
 
 ### Moderation & Admin
 - `/eggshen-config` - Comprehensive per-server configuration

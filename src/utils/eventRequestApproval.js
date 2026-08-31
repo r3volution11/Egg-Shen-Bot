@@ -216,7 +216,7 @@ export async function cleanupEventRequestState({ guildId, requestId }) {
  * that specific (possibly old) message, so other moderators wouldn't
  * reliably see who acted on a request or why. This shows up as new channel
  * activity instead. Controlled per-guild by eventRequests.announceDecisions
- * (default true) via /eggshen-config event-requests announce-decisions.
+ * (default true) via /eggshen-config-events event-requests announce-decisions.
  * @param {import('discord.js').TextBasedChannel} channel
  * @param {object} params
  * @param {string} params.guildId

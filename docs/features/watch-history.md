@@ -276,7 +276,7 @@ Browse recent watches, read notes from other viewers, and discover new content.
 For advanced setups, configure watch party channels for automatic label detection from Discord events:
 
 ```
-/eggshen-config watch-party add channel:#movie-night
+/eggshen-config-watch-party watch-party add channel:#movie-night
 ```
 
 When you start a timer in a configured channel with an active Discord event, the bot automatically uses the event name as the timer label.

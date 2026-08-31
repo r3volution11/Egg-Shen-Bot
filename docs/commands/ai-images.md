@@ -140,7 +140,7 @@ All configuration requires Administrator, Manage Server, or Moderator permission
 ### View Current Settings & Stats
 
 ```
-/eggshen-config ai-images view
+/eggshen-config-ai ai-images view
 ```
 
 Shows:
@@ -153,7 +153,7 @@ Shows:
 ### Enable/Disable AI Image Generation
 
 ```
-/eggshen-config ai-images feature-toggle enabled:false
+/eggshen-config-ai ai-images feature-toggle enabled:false
 ```
 
 Completely enable or disable AI image generation on your server.
@@ -172,7 +172,7 @@ Completely enable or disable AI image generation on your server.
 ### Set Permission Levels
 
 ```
-/eggshen-config ai-images set-permissions level:admins
+/eggshen-config-ai ai-images set-permissions level:admins
 ```
 
 Control who can use `/image`.
@@ -189,9 +189,9 @@ Control who can use `/image`.
 
 **Examples:**
 ```
-/eggshen-config ai-images set-permissions level:everyone
-/eggshen-config ai-images set-permissions level:moderators
-/eggshen-config ai-images set-permissions level:admins
+/eggshen-config-ai ai-images set-permissions level:everyone
+/eggshen-config-ai ai-images set-permissions level:moderators
+/eggshen-config-ai ai-images set-permissions level:admins
 ```
 
 💡 **Combined with rate limiting:** Permission levels determine WHO can use the command, rate limits control HOW MUCH they can use it.
@@ -199,7 +199,7 @@ Control who can use `/image`.
 ### Toggle Rate Limiting
 
 ```
-/eggshen-config ai-images toggle enabled:true
+/eggshen-config-ai ai-images toggle enabled:true
 ```
 
 Enable or disable rate limiting entirely.
@@ -209,7 +209,7 @@ Enable or disable rate limiting entirely.
 ### Set User Cooldown
 
 ```
-/eggshen-config ai-images user-cooldown seconds:300
+/eggshen-config-ai ai-images user-cooldown seconds:300
 ```
 
 Set time between generations per user (60-3600 seconds).
@@ -222,7 +222,7 @@ Set time between generations per user (60-3600 seconds).
 ### Set User Daily Limit
 
 ```
-/eggshen-config ai-images user-daily-limit limit:10
+/eggshen-config-ai ai-images user-daily-limit limit:10
 ```
 
 Maximum images per user per day (1-100).
@@ -237,7 +237,7 @@ Shows estimated monthly cost per user.
 ### Set Server Daily Limit
 
 ```
-/eggshen-config ai-images guild-daily-limit limit:50
+/eggshen-config-ai ai-images guild-daily-limit limit:50
 ```
 
 Maximum images per server per day (1-500).
@@ -252,7 +252,7 @@ Shows estimated monthly cost.
 ### Toggle Admin Cooldown Bypass
 
 ```
-/eggshen-config ai-images admin-bypass enabled:true
+/eggshen-config-ai ai-images admin-bypass enabled:true
 ```
 
 Allow admins/moderators to skip cooldown (they always respect daily limits).
@@ -263,7 +263,7 @@ Allow admins/moderators to skip cooldown (they always respect daily limits).
 ### Add User to Whitelist
 
 ```
-/eggshen-config ai-images whitelist-add user:@username
+/eggshen-config-ai ai-images whitelist-add user:@username
 ```
 
 Grant unlimited AI image generation to a user.
@@ -282,7 +282,7 @@ Whitelisted users bypass:
 ### Remove User from Whitelist
 
 ```
-/eggshen-config ai-images whitelist-remove user:@username
+/eggshen-config-ai ai-images whitelist-remove user:@username
 ```
 
 Remove unlimited access - user returns to normal rate limits.
@@ -290,7 +290,7 @@ Remove unlimited access - user returns to normal rate limits.
 ### View Whitelist
 
 ```
-/eggshen-config ai-images whitelist-list
+/eggshen-config-ai ai-images whitelist-list
 ```
 
 Shows all users with unlimited access.
@@ -298,7 +298,7 @@ Shows all users with unlimited access.
 ### Reset User Usage
 
 ```
-/eggshen-config ai-images reset-user user:@username
+/eggshen-config-ai ai-images reset-user user:@username
 ```
 
 Reset a user's daily usage and cooldown.
@@ -311,7 +311,7 @@ Reset a user's daily usage and cooldown.
 ### Reset Server Usage
 
 ```
-/eggshen-config ai-images reset-guild
+/eggshen-config-ai ai-images reset-guild
 ```
 
 Reset the entire server's daily usage (user limits still apply).
@@ -328,7 +328,7 @@ Reset the entire server's daily usage (user limits still apply).
 ### For Server Admins
 
 1. **Start Conservative:** Use default limits (5 min cooldown, 10/day per user, 50/day server)
-2. **Monitor Costs:** Use `/eggshen-config ai-images view` to track daily spending
+2. **Monitor Costs:** Use `/eggshen-config-ai ai-images view` to track daily spending
 3. **Adjust as Needed:** Increase limits for active servers, decrease for budget concerns
 4. **Whitelist Wisely:** Only grant unlimited access to trusted contributors
 5. **Communicate Limits:** Let users know about daily limits and resets
@@ -336,7 +336,7 @@ Reset the entire server's daily usage (user limits still apply).
 ### For Users
 
 1. **Be Specific:** Better prompts = better images
-2. **Check Stats:** Use `/eggshen-config ai-images view` to see remaining quota
+2. **Check Stats:** Use `/eggshen-config-ai ai-images view` to see remaining quota
 3. **Plan Usage:** Spread generations throughout the day
 4. **Respect Limits:** Daily limits reset at midnight
 5. **Report Issues:** Let admins know if you hit errors
@@ -365,19 +365,19 @@ Reset the entire server's daily usage (user limits still apply).
 
 ### "Please wait X minutes"
 You're in cooldown period. Wait or ask admin to:
-- Reset your usage: `/eggshen-config ai-images reset-user`
-- Add you to whitelist: `/eggshen-config ai-images whitelist-add`
+- Reset your usage: `/eggshen-config-ai ai-images reset-user`
+- Add you to whitelist: `/eggshen-config-ai ai-images whitelist-add`
 
 ### "Daily limit reached"
 You've hit your daily cap. Options:
 - Wait until midnight (resets automatically)
-- Ask admin to increase limit: `/eggshen-config ai-images user-daily-limit`
-- Ask admin to reset your usage: `/eggshen-config ai-images reset-user`
+- Ask admin to increase limit: `/eggshen-config-ai ai-images user-daily-limit`
+- Ask admin to reset your usage: `/eggshen-config-ai ai-images reset-user`
 
 ### "Server has reached daily limit"
 Server hit its cap. Admin options:
-- Reset server usage: `/eggshen-config ai-images reset-guild`
-- Increase limit: `/eggshen-config ai-images guild-daily-limit`
+- Reset server usage: `/eggshen-config-ai ai-images reset-guild`
+- Increase limit: `/eggshen-config-ai ai-images guild-daily-limit`
 - Wait until midnight
 
 ### "OpenAI API error"

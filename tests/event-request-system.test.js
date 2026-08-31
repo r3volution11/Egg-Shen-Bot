@@ -325,7 +325,7 @@ describe('Event Request Configuration Commands', () => {
   });
 
   test('should toggle event requests on', async () => {
-    const { execute } = await import('../src/commands/eggshen-config.js');
+    const { execute } = await import('../src/commands/eggshen-config-events.js');
     
     // Mock loadGuildConfig and saveGuildConfig
     jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
@@ -344,7 +344,7 @@ describe('Event Request Configuration Commands', () => {
   test('should set moderation channel', async () => {
     mockInteraction.options.getSubcommand = jest.fn(() => 'moderation-channel');
     
-    const { execute } = await import('../src/commands/eggshen-config.js');
+    const { execute } = await import('../src/commands/eggshen-config-events.js');
     await execute(mockInteraction);
     
     expect(mockInteraction.reply).toHaveBeenCalled();
@@ -357,7 +357,7 @@ describe('Event Request Configuration Commands', () => {
     mockGuildConfig.eventRequests.websiteUrl = 'http://localhost:8080';
     mockInteraction.options.getSubcommand = jest.fn(() => 'get-link');
     
-    const { execute } = await import('../src/commands/eggshen-config.js');
+    const { execute } = await import('../src/commands/eggshen-config-events.js');
     await execute(mockInteraction);
     
     expect(mockInteraction.reply).toHaveBeenCalled();
@@ -369,7 +369,7 @@ describe('Event Request Configuration Commands', () => {
   test('should reject non-admin users', async () => {
     mockInteraction.member.permissions.has = jest.fn(() => false);
     
-    const { execute } = await import('../src/commands/eggshen-config.js');
+    const { execute } = await import('../src/commands/eggshen-config-events.js');
     await execute(mockInteraction);
     
     expect(mockInteraction.reply).toHaveBeenCalled();

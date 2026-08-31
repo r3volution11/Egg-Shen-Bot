@@ -5,6 +5,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.24.1 - 2026-08-31
+
+### Fixed
+- **`/eggshen-config` had grown too large to redeploy.** Discord caps a single slash command's serialized size at 8000 bytes on the bulk command-registration endpoint this bot uses — `/eggshen-config`'s 9 subcommand groups had grown to 16748 bytes (over double the limit) across many past sessions, which silently blocked *every* future slash-command deploy for the entire bot the moment anyone next ran the deploy script, not just this command. Split into 5 separate commands, each with real headroom under the limit: `/eggshen-config` (settings, stats, commands, notifications), `/eggshen-config-watch-party` (watch party channels, rate limiting), `/eggshen-config-ai` (AI image generation), `/eggshen-config-moderation` (whitelist, cooldowns, auto-ban), and `/eggshen-config-events` (event requests, including the timezone setting added in 2.24.0). Every subcommand's name, options, and behavior are unchanged — only the top-level command name differs for the groups that moved
+
+### Developer
+- `src/commands/eggshen-config.js` split into 5 files: the trimmed-down original plus new `eggshen-config-watch-party.js`, `eggshen-config-ai.js`, `eggshen-config-moderation.js`, `eggshen-config-events.js` — command auto-discovery in `index.js` needed no changes since commands are already keyed by their own `data.name`, not filename
+- All in-bot message strings, `docs/**/*.md`, `EVENT_REQUEST_SETUP.md`, `PRODUCTION_TESTING.md`, `.env.production-testing`, `public/app.js`, and `scripts/validate-oauth-config.js` updated to reference the correct new command name for each moved group
+- `tests/eggshen-config-command-refs.test.js` generalized to run its schema-consistency check (every `/command <group> <subcommand>` reference in a file's own source must name a real group/subcommand of that command) against all 5 files independently, plus a new cross-file check confirming references between the 5 commands point at real groups on the referenced command
+- Verified all 5 files serialize well under Discord's 8000-byte cap (2866–4793 bytes each) via a direct `Buffer.byteLength(JSON.stringify(data.toJSON()))` check
+
 ## 2.24.0 - 2026-08-30
 
 ### Added

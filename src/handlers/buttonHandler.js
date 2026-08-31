@@ -260,7 +260,7 @@ export async function handleButtonInteraction(interaction) {
       // component set doesn't have one at all), so these are plain text in
       // a fixed YYYY-MM-DD HH:mm format, interpreted in this guild's
       // configured event-requests timezone (default UTC — see
-      // /eggshen-config event-requests timezone) — parsed/validated
+      // /eggshen-config-events event-requests timezone) — parsed/validated
       // against eventTimeInput.js's parseUtcTimeInput on submission using
       // that same zone.
       const guildConfigForEdit = await loadGuildConfig(interaction.guild.id);

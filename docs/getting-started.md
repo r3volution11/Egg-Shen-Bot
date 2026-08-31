@@ -195,7 +195,7 @@ Control which rating services appear in embeds.
 ### Set Rate Limits
 
 ```
-/eggshen-config rate-limit toggle enabled:true
+/eggshen-config-watch-party rate-limit toggle enabled:true
 ```
 
 Enable rate limiting to prevent abuse (enabled by default).
@@ -250,8 +250,8 @@ Try these commands in your server:
 
 ### Rate limit issues
 
-- Check `/eggshen-config rate-limit view` to see current settings
-- Use `/eggshen-config rate-limit clear user:@someone` for emergency overrides
+- Check `/eggshen-config-watch-party rate-limit view` to see current settings
+- Use `/eggshen-config-watch-party rate-limit clear user:@someone` for emergency overrides
 
 ## Support
 

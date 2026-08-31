@@ -169,7 +169,7 @@ Shows: Available tournament matchups (if any) + freeform generation syntax
 - **Default:** 5-minute cooldown, 10 images/user/day, 50 images/server/day
 - **Admins:** Bypass cooldown by default (still subject to daily limits)
 - **Whitelist:** Server admins can grant unlimited access to contributors
-- **Configurable:** All limits adjustable via `/eggshen-config ai-images`
+- **Configurable:** All limits adjustable via `/eggshen-config-ai ai-images`
 
 See [AI Image Generation](/commands/ai-images.md) for full documentation on rate limits and configuration.
 

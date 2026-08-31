@@ -1,17 +1,22 @@
 /**
- * Tests for /eggshen-config event-requests timezone — the per-server IANA
- * timezone setting the event-request Edit modal's Start/End Time fields use
- * (default UTC), plus its autocomplete handler over the full IANA timezone
- * list.
+ * Tests for /eggshen-config-events event-requests timezone — the per-server
+ * IANA timezone setting the event-request Edit modal's Start/End Time
+ * fields use (default UTC), plus its autocomplete handler over the full
+ * IANA timezone list.
+ *
+ * Lives in src/commands/eggshen-config-events.js — eggshen-config.js was
+ * split into 5 separate top-level commands (eggshen-config,
+ * eggshen-config-watch-party, eggshen-config-ai, eggshen-config-moderation,
+ * eggshen-config-events) once the original single command's serialized
+ * size exceeded Discord's 8000-byte per-command cap.
  *
  * Exercises execute()/autocomplete() directly with a minimal mock
- * interaction, since no existing test file covers eggshen-config.js's
- * subcommand business logic (the one existing file,
- * eggshen-config-command-refs.test.js, only checks schema/doc-reference
- * consistency). Uses a real temp guild_configs/{guildId}.json file
- * (write/cleanup), matching the convention already established in
- * tests/eventRequestApproval.test.js, rather than introducing a new
- * module-mocking pattern for guildConfig.js.
+ * interaction, since no other test file covers this command's subcommand
+ * business logic (eggshen-config-command-refs.test.js only checks
+ * schema/doc-reference consistency). Uses a real temp
+ * guild_configs/{guildId}.json file (write/cleanup), matching the
+ * convention already established in tests/eventRequestApproval.test.js,
+ * rather than introducing a new module-mocking pattern for guildConfig.js.
  *
  * Run with: npx jest tests/eggshen-config-timezone.test.js --verbose
  */
@@ -19,7 +24,7 @@
 import { describe, test, expect, afterEach, jest } from '@jest/globals';
 import fs from 'fs';
 import path from 'path';
-import { execute, autocomplete } from '../src/commands/eggshen-config.js';
+import { execute, autocomplete } from '../src/commands/eggshen-config-events.js';
 import { loadGuildConfig } from '../src/utils/guildConfig.js';
 
 const GUILD_ID = 'eggshen-config-timezone-test-guild';

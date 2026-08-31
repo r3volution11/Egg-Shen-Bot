@@ -34,7 +34,7 @@ The bot validates that users are **actual members of your Discord server** both 
 :::
 
 ::: tip Default Behavior
-By default, event requests use **Simple Mode**: users submit event ideas and moderators handle channel logistics. This reduces decision fatigue and simplifies the user experience. Enable **Advanced Mode** with `/eggshen-config event-requests allow-user-channel-selection allow:true` to let users select channels.
+By default, event requests use **Simple Mode**: users submit event ideas and moderators handle channel logistics. This reduces decision fatigue and simplifies the user experience. Enable **Advanced Mode** with `/eggshen-config-events event-requests allow-user-channel-selection allow:true` to let users select channels.
 :::
 
 ## Deployment Model
@@ -123,7 +123,7 @@ window.EGG_SHEN_CONFIG = {
 `public/config.js` is gitignored, so a future `git pull` on your server will never overwrite it.
 
 ::: tip Finding Your Guild ID
-Run `/eggshen-config event-requests get-link` in your Discord server to see your Guild ID.
+Run `/eggshen-config-events event-requests get-link` in your Discord server to see your Guild ID.
 :::
 
 **Example deployment:**
@@ -151,29 +151,29 @@ Without this, image uploads on the web form fail silently — the browser gets a
 Event requests are **disabled by default** for all servers. You must enable them using the toggle command below. Until enabled, the event request form will show a "disabled" message to users.
 :::
 
-Use `/eggshen-config event-requests` commands in your Discord server:
+Use `/eggshen-config-events event-requests` commands in your Discord server:
 
 **1. Enable event requests (required first step):**
 ```
-/eggshen-config event-requests toggle enabled:true
+/eggshen-config-events event-requests toggle enabled:true
 ```
 
 **2. Configure required settings:**
 ```
-/eggshen-config event-requests moderation-channel channel:#event-requests
-/eggshen-config event-requests server-name name:"Your Server Name"
-/eggshen-config event-requests website-url url:https://yourdomain.com
+/eggshen-config-events event-requests moderation-channel channel:#event-requests
+/eggshen-config-events event-requests server-name name:"Your Server Name"
+/eggshen-config-events event-requests website-url url:https://yourdomain.com
 ```
 
 **3. Optional settings:**
 ```
-/eggshen-config event-requests invite-url url:https://discord.gg/yourserver
+/eggshen-config-events event-requests invite-url url:https://discord.gg/yourserver
 ```
 
 ### Step 5: Get Your Link
 
 ```
-/eggshen-config event-requests get-link
+/eggshen-config-events event-requests get-link
 ```
 
 This shows your configured Form URL, plus a reminder to set `GUILD_ID` in `public/config.js` on your web server if you haven't already.
@@ -182,12 +182,12 @@ Share your Form URL with your community!
 
 ## Configuration Commands
 
-All configuration is done via `/eggshen-config event-requests` subcommands:
+All configuration is done via `/eggshen-config-events event-requests` subcommands:
 
 ### View Current Settings
 
 ```
-/eggshen-config event-requests view
+/eggshen-config-events event-requests view
 ```
 
 Shows your current configuration including the event request link.
@@ -195,8 +195,8 @@ Shows your current configuration including the event request link.
 ### Enable/Disable
 
 ```
-/eggshen-config event-requests toggle enabled:true
-/eggshen-config event-requests toggle enabled:false
+/eggshen-config-events event-requests toggle enabled:true
+/eggshen-config-events event-requests toggle enabled:false
 ```
 
 Turn event requests on or off for your server.
@@ -208,7 +208,7 @@ Event requests are **disabled by default**. You must explicitly enable them with
 ### Set Moderation Channel
 
 ```
-/eggshen-config event-requests moderation-channel channel:#event-requests
+/eggshen-config-events event-requests moderation-channel channel:#event-requests
 ```
 
 Choose where event requests will be sent for approval. Must be a text channel.
@@ -216,7 +216,7 @@ Choose where event requests will be sent for approval. Must be a text channel.
 ### Set Server Display Name
 
 ```
-/eggshen-config event-requests server-name name:"My Awesome Server"
+/eggshen-config-events event-requests server-name name:"My Awesome Server"
 ```
 
 This name appears on the event request form.
@@ -224,7 +224,7 @@ This name appears on the event request form.
 ### Set Timezone
 
 ```
-/eggshen-config event-requests timezone timezone:America/New_York
+/eggshen-config-events event-requests timezone timezone:America/New_York
 ```
 
 Sets the timezone the Edit modal's **Start Time**/**End Time** fields use — moderators then type normal local wall-clock time for this zone instead of UTC (e.g. `9/2/26 5:30 pm ET` becomes `2026-09-02 17:30` when the zone is `America/New_York`). Defaults to `UTC` if never set, with no behavior change for servers that don't configure this. Start typing in the `timezone` option to get autocomplete suggestions from the full IANA timezone database; daylight saving time transitions are handled automatically, so the same zone correctly produces a different UTC offset in summer vs. winter.
@@ -232,7 +232,7 @@ Sets the timezone the Edit modal's **Start Time**/**End Time** fields use — mo
 ### Set Website URL
 
 ```
-/eggshen-config event-requests website-url url:https://yourdomain.com
+/eggshen-config-events event-requests website-url url:https://yourdomain.com
 ```
 
 The website where your event request form is hosted.
@@ -240,7 +240,7 @@ The website where your event request form is hosted.
 ### Set Invite Link (Optional)
 
 ```
-/eggshen-config event-requests invite-url url:https://discord.gg/yourserver
+/eggshen-config-events event-requests invite-url url:https://discord.gg/yourserver
 ```
 
 Discord invite link shown on the form. Leave empty to hide.
@@ -248,8 +248,8 @@ Discord invite link shown on the form. Leave empty to hide.
 ### Allow/Disallow Voice Requests
 
 ```
-/eggshen-config event-requests allow-voice-requests allow:true
-/eggshen-config event-requests allow-voice-requests allow:false
+/eggshen-config-events event-requests allow-voice-requests allow:true
+/eggshen-config-events event-requests allow-voice-requests allow:false
 ```
 
 Control whether users can request voice/stage channels for events. When disabled, all events will be text-channel only.
@@ -262,7 +262,7 @@ Control whether users can request voice/stage channels for events. When disabled
 ### Get Configuration Summary
 
 ```
-/eggshen-config event-requests get-link
+/eggshen-config-events event-requests get-link
 ```
 
 Shows your form URL and reminds you to configure the GUILD_ID in your web form deployment.
@@ -271,7 +271,7 @@ Shows your form URL and reminds you to configure the GUILD_ID in your web form d
 
 **Simple Mode (default):**
 ```
-/eggshen-config event-requests allow-user-channel-selection allow:false
+/eggshen-config-events event-requests allow-user-channel-selection allow:false
 ```
 
 Users submit basic event details only (title, description, time). The form hides channel selectors and shows: **"Moderators will select the channels when approving your event."** Moderators assign channels during approval.
@@ -284,7 +284,7 @@ Users submit basic event details only (title, description, time). The form hides
 
 **Advanced Mode (opt-in):**
 ```
-/eggshen-config event-requests allow-user-channel-selection allow:true
+/eggshen-config-events event-requests allow-user-channel-selection allow:true
 ```
 
 Users select specific text/voice channels from admin-configured whitelists (see below). Form shows Location field (required) and optional Voice Channel checkbox.
@@ -309,18 +309,18 @@ By default (in Advanced Mode), users can select from **all text channels** and *
 
 **Whitelist text channels:**
 ```
-/eggshen-config event-requests set-allowed-text-channels channel-ids:"123456,789012,345678"
+/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"123456,789012,345678"
 ```
 
 **Whitelist voice channels:**
 ```
-/eggshen-config event-requests set-allowed-voice-channels channel-ids:"111222,333444"
+/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"111222,333444"
 ```
 
 **Allow all channels (reset to default):**
 ```
-/eggshen-config event-requests set-allowed-text-channels channel-ids:"all"
-/eggshen-config event-requests set-allowed-voice-channels channel-ids:"all"
+/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"all"
+/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"all"
 ```
 
 ::: tip When to Use Channel Whitelisting
@@ -436,7 +436,7 @@ This applies to every way a request gets approved — the Approve buttons, picki
 
 This is on by default. To turn it off (only the original request message updates, no separate announcement):
 ```
-/eggshen-config event-requests announce-decisions enabled:false
+/eggshen-config-events event-requests announce-decisions enabled:false
 ```
 
 ::: tip Moderator Permissions
@@ -472,7 +472,7 @@ Limits are scoped **per domain**, not just per IP — if you run a dev deploymen
 The event request system is designed to be easily customized:
 
 1. **Set `GUILD_ID` in `public/config.js`** (copied from `public/config.example.js`) - Point to your Discord server
-2. **Configure server name and invite** - Use `/eggshen-config event-requests` commands
+2. **Configure server name and invite** - Use `/eggshen-config-events event-requests` commands
 3. **Customize styling** - Edit `public/style.css` to match your branding
 4. **Deploy to your domain** - Host on any web server (Apache, nginx, Netlify, Vercel, etc.)
 
@@ -541,13 +541,13 @@ Don't forget to add `http://localhost:3000/api/auth/discord/callback` to Discord
 
 ```
 # In Discord
-/eggshen-config event-requests toggle enabled:true
-/eggshen-config event-requests moderation-channel channel:#test-events
-/eggshen-config event-requests server-name name:"Test Server"
-/eggshen-config event-requests website-url url:http://localhost:PORT
+/eggshen-config-events event-requests toggle enabled:true
+/eggshen-config-events event-requests moderation-channel channel:#test-events
+/eggshen-config-events event-requests server-name name:"Test Server"
+/eggshen-config-events event-requests website-url url:http://localhost:PORT
 
 # Check configuration
-/eggshen-config event-requests view
+/eggshen-config-events event-requests view
 ```
 
 3. Open `http://localhost:PORT` in browser and test the full flow!
@@ -565,7 +565,7 @@ Don't forget to add `http://localhost:3000/api/auth/discord/callback` to Discord
 
 - ✅ Verify the guild ID in the URL is correct
 - ✅ Ensure the bot is a member of that server
-- ✅ Check event requests are enabled: `/eggshen-config event-requests view`
+- ✅ Check event requests are enabled: `/eggshen-config-events event-requests view`
 
 ### "Invalid OAuth2 redirect_uri" Error
 
@@ -602,7 +602,7 @@ npm run validate-oauth
 
 ### Requests Not Appearing
 
-- ✅ Check moderation channel is set: `/eggshen-config event-requests view`
+- ✅ Check moderation channel is set: `/eggshen-config-events event-requests view`
 - ✅ Verify the bot's role has **View Channel**, **Send Messages**, and **Embed Links** in that specific channel — a channel-level permission override (common in mod-only channels) can block the bot even when its server-wide role looks correct
 - ✅ Check bot logs for errors
 
