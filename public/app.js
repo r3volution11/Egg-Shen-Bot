@@ -267,11 +267,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     populateTimeOptions(startTimeSelect);
     populateTimeOptions(endTimeSelect);
-    
+
     // Set default start time to 6:00 PM and end time to 6:15 PM
     startTimeSelect.value = '18:00';
     endTimeSelect.value = '18:15';
-    
+
+    // Show the submitter's own detected timezone next to the time fields.
+    // Times are already implicitly interpreted in the browser's local
+    // timezone when combined into an ISO instant (see
+    // combineDateTimeToISO() below) — this just makes that assumption
+    // visible so submitters can confirm it's correct, rather than leaving
+    // it as an invisible side effect of Date parsing.
+    const timezoneHint = document.getElementById('timezone-hint');
+    if (timezoneHint) {
+        try {
+            const detectedZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            timezoneHint.textContent = `Times shown in your local timezone: ${detectedZone}`;
+        } catch {
+            // Intl.DateTimeFormat().resolvedOptions().timeZone is supported
+            // in every real browser this form targets, but fail quiet with
+            // the generic static hint already in the HTML rather than risk
+            // breaking the form.
+        }
+    }
+
     // Date/Time validation and auto-update handlers
     const startDateInput = document.getElementById('start-date');
     const endDateInput = document.getElementById('end-date');

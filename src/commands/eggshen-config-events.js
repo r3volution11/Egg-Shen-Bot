@@ -1,6 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
-import { isValidTimeZone, ALL_TIME_ZONES } from '../utils/eventTimeInput.js';
 
 export const data = new SlashCommandBuilder()
   .setName('eggshen-config-events')
@@ -130,18 +129,6 @@ export const data = new SlashCommandBuilder()
           .setName('get-link')
           .setDescription('Get the event request submission link for this server')
       )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('timezone')
-          .setDescription('Set the timezone the Edit modal\'s Start/End Time fields use (default: UTC)')
-          .addStringOption(option =>
-            option
-              .setName('timezone')
-              .setDescription('IANA timezone name, e.g. America/New_York (start typing to search)')
-              .setRequired(true)
-              .setAutocomplete(true)
-          )
-      )
   );
 
 export async function execute(interaction) {
@@ -174,11 +161,6 @@ export async function execute(interaction) {
         {
           name: 'Server Name',
           value: eventConfig.serverName || 'Not set',
-          inline: true
-        },
-        {
-          name: 'Timezone',
-          value: eventConfig.timezone || 'UTC',
           inline: true
         },
         {
@@ -479,51 +461,5 @@ export async function execute(interaction) {
       .setFooter({ text: 'Requests will be sent to the moderation channel for approval' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
-
-  } else if (group === 'event-requests' && subcommand === 'timezone') {
-    const timezone = interaction.options.getString('timezone');
-
-    if (!isValidTimeZone(timezone)) {
-      await interaction.reply({
-        content: `❌ "${timezone}" isn't a recognized IANA timezone name. Start typing in the \`timezone\` option to pick from the suggestions, or see the full list of valid names in the "TZ identifier" column at <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>.`,
-        ephemeral: true
-      });
-      return;
-    }
-
-    const config = await loadGuildConfig(guildId);
-    if (!config.eventRequests) {
-      config.eventRequests = {};
-    }
-
-    config.eventRequests.timezone = timezone;
-    await saveGuildConfig(guildId, config);
-
-    await interaction.reply({
-      content: `✅ Event request Start/End Time fields in the Edit modal will now be interpreted as **${timezone}** time. This only affects how moderators enter times going forward — it does not change any already-scheduled event.`,
-      ephemeral: true
-    });
   }
-}
-
-export async function autocomplete(interaction) {
-  const group = interaction.options.getSubcommandGroup();
-  const subcommand = interaction.options.getSubcommand();
-
-  // Scoped narrowly to event-requests/timezone — this command has no other
-  // autocomplete-enabled option today, but branching on group+subcommand
-  // (rather than just the focused option's name) keeps this safe to extend
-  // if a future subcommand elsewhere in this file also adds autocomplete.
-  if (group === 'event-requests' && subcommand === 'timezone') {
-    const focusedValue = interaction.options.getFocused().toLowerCase();
-    const matches = ALL_TIME_ZONES
-      .filter(tz => tz.toLowerCase().includes(focusedValue))
-      .slice(0, 25)
-      .map(tz => ({ name: tz, value: tz }));
-
-    await interaction.respond(matches);
-    return;
-  }
-
-  await interaction.respond([]);
 }

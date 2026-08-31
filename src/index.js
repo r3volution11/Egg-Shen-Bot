@@ -463,17 +463,14 @@ client.on('interactionCreate', async (interaction) => {
       const requestData = global.eventRequests.get(requestId);
 
       const { applyEventTimeEdits, createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } = await import('./utils/eventRequestApproval.js');
-      const { loadGuildConfig } = await import('./utils/guildConfig.js');
 
       // Validate time first, before any requestData writes at all — a
       // rejected time edit must leave requestData completely untouched
       // (not just unpersisted), so the moderator can just retry in a fresh
       // Edit click with no side effects left behind.
-      const guildConfigForTimeEdit = await loadGuildConfig(interaction.guildId);
-      const editTimeZone = guildConfigForTimeEdit.eventRequests?.timezone || 'UTC';
       const startTimeInput = interaction.fields.getTextInputValue('startTime');
       const endTimeInput = interaction.fields.getTextInputValue('endTime');
-      const timeEditResult = applyEventTimeEdits(requestData, startTimeInput, endTimeInput, new Date(), editTimeZone);
+      const timeEditResult = applyEventTimeEdits(requestData, startTimeInput, endTimeInput);
       if (!timeEditResult.ok) {
         await interaction.reply({
           content: `❌ ${timeEditResult.error}`,

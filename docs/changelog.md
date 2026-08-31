@@ -5,6 +5,18 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.24.2 - 2026-08-31
+
+### Changed
+- **Removed the per-server timezone setting for the moderator Edit modal, and added a visible timezone hint to the public event-request form instead.** Discord's own Scheduled Event UI has no server-timezone concept at all — every event is created in the creator's own local time and shown back to each viewer in theirs automatically, the same as any Discord timestamp. The per-server `/eggshen-config-events event-requests timezone` setting (added in 2.24.0) was solving a problem Discord's own product doesn't try to solve, so it's been removed; the moderator Edit modal's Start/End Time fields are UTC-only again (as in 2.23.0). The real gap was on the submission side: the web form already correctly converts a submitter's typed local time to UTC (via the browser's own `Date` parsing), it just never showed what timezone it was assuming — the form now displays "Times shown in your local timezone: [detected zone]" next to the time fields so submitters can confirm it's correct
+
+### Developer
+- `src/utils/eventTimeInput.js`, `src/utils/eventRequestApproval.js`'s `applyEventTimeEdits()`, and `src/handlers/buttonHandler.js`'s Edit modal fields reverted to their 2.23.0 UTC-only shape — removed `timeZone` parameters, `zonedTimeToUtc()`/`getZonedParts()`, `isValidTimeZone`/`ALL_TIME_ZONES` exports, and the `buildTimeFieldLabel()` variable-width-label helper (no longer needed once every label is the fixed string `"Start Time (UTC)"`)
+- Removed the `/eggshen-config-events event-requests timezone` subcommand, its autocomplete handler, and `guildConfig.js`'s `eventRequests.timezone` default field
+- `public/index.html` gained a `<small id="timezone-hint">` next to the Start Time field (reusing the existing `.form-group small` hint styling every other field already uses); `public/app.js` fills it in on load via `Intl.DateTimeFormat().resolvedOptions().timeZone` — no change to `combineDateTimeToISO()` or the submission payload, since the conversion itself was already correct
+- New `tests/e2e/timezone-hint.spec.js` (Playwright) confirms the hint shows a real detected zone name, not the static placeholder
+- Test suites for the removed timezone logic reverted to their 2.23.0 scope; `tests/eggshen-config-timezone.test.js` deleted entirely
+
 ## 2.24.1 - 2026-08-31
 
 ### Fixed
