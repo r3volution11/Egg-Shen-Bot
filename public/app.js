@@ -155,6 +155,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (currentOriginalFile) {
                 fileData.append('original', currentOriginalFile);
             }
+            // Tells the server which prior upload this one replaces, so it
+            // can delete it instead of leaving it orphaned on disk — every
+            // re-crop otherwise uploads under a brand new token with nothing
+            // linking it to the one it superseded.
+            if (uploadedImageToken) {
+                fileData.append('previousToken', uploadedImageToken);
+            }
 
             const response = await fetch(`${API_BASE_URL}/event-request/upload-image`, {
                 method: 'POST',

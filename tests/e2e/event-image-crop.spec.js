@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.join(__dirname, '../..');
 const REQUESTS_FILE = path.join(REPO_ROOT, 'pending_event_requests.json');
+const MANIFEST_FILE = path.join(REPO_ROOT, 'event_request_images', 'manifest.json');
 
 async function getMostRecentRequestId() {
   const data = JSON.parse(await fs.readFile(REQUESTS_FILE, 'utf8'));
@@ -17,6 +18,11 @@ async function getMostRecentRequestId() {
   // requestId is `${Date.now()}_${random}` — sorting by that timestamp
   // prefix picks the request this test just submitted.
   return ids.sort().at(-1);
+}
+
+async function getManifestKeys() {
+  const data = JSON.parse(await fs.readFile(MANIFEST_FILE, 'utf8'));
+  return Object.keys(data);
 }
 
 // Minimal valid 1x1 PNG, embedded directly rather than adding a binary
@@ -73,6 +79,52 @@ test('"Change Image" resets the crop UI back to the picker, ready to select a fi
   await expect(page.locator('#event-image-file')).toBeEnabled();
   await expect(page.locator('#event-image-url')).toBeEnabled();
   await expect(page.locator('#event-image-url')).toHaveValue('');
+});
+
+test('adjusting the crop box after the initial auto-upload does not leave the superseded upload behind', async ({ page }) => {
+  await loginAs(page, { userId: MEMBER_ID, guildId: GUILD_SIMPLE.id });
+  await page.goto(`/?e2eGuildId=${GUILD_SIMPLE.id}`);
+  await resetRateLimit(page);
+
+  const uploadResponses = [];
+  page.on('response', (res) => {
+    if (res.url().includes('/api/event-request/upload-image')) uploadResponses.push(res);
+  });
+
+  await page.locator('#event-image-file').setInputFiles({
+    name: 'poster.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(TEST_PNG_BASE64, 'base64'),
+  });
+  await expect(page.locator('#image-upload-status')).toContainText('Image uploaded', { timeout: 5000 });
+
+  const keysBeforeAdjustment = await getManifestKeys();
+
+  // Nudging the crop box with the keyboard (rather than a mouse drag)
+  // reliably fires Cropper's cropend event regardless of how small the
+  // fixture image is, triggering the debounced re-upload this test needs
+  // to exercise — without this fix, that re-upload's predecessor would be
+  // left orphaned on disk until the once-a-day, 8-day-old sweep caught it.
+  const cropBox = page.locator('.cropper-crop-box');
+  await cropBox.click();
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => uploadResponses.length, { timeout: 3000 }).toBe(2);
+  for (const res of uploadResponses) {
+    expect(res.status()).toBe(200);
+  }
+
+  const bodies = await Promise.all(uploadResponses.map((res) => res.json()));
+  const [firstToken, secondToken] = bodies.map((b) => b.imageToken);
+  expect(secondToken).not.toBe(firstToken);
+
+  const keysAfterAdjustment = await getManifestKeys();
+  const newKeysFromThisSession = keysAfterAdjustment.filter((k) => !keysBeforeAdjustment.includes(k));
+
+  // Only the latest crop's key (plus its preserved original, re-attached
+  // and re-saved on every upload including this re-crop) should remain —
+  // the first upload's key and its original must have been deleted, not
+  // left behind.
+  expect(newKeysFromThisSession.sort()).toEqual([secondToken, `${secondToken}-original`].sort());
 });
 
 test('the moderator crop page loads the true uncropped original, not the submitter\'s already-cropped result', async ({ page }) => {

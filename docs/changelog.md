@@ -5,6 +5,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.25.1 - 2026-08-31
+
+### Fixed
+- **Repeatedly adjusting the crop box no longer piles up orphaned image files on disk.** Every crop-box adjustment auto-uploads under a brand new token; previously the file behind the token it replaced was never deleted, just left as an orphan — the daily cleanup sweep only removes orphaned uploads once they're 8 days old, so a user (or script) nudging the crop box repeatedly could accumulate files faster than they'd ever be cleaned up. The client now tells the server which upload a new one supersedes, and the server deletes it immediately
+
+### Developer
+- `POST /api/event-request/upload-image` accepts an optional `previousToken` field; when present, deletes that token's cropped image and preserved original (best-effort, not blocking the response) before returning the new token
+- `public/app.js`'s `uploadImageBlob()` sends the current `uploadedImageToken` as `previousToken` before it's overwritten by the new upload's response
+- New tests in `tests/eventCropRoute.test.js` (supersession deletes both files, first upload of a session sends no `previousToken`, a bogus token is a harmless no-op) and a new e2e test in `tests/e2e/event-image-crop.spec.js` confirming a re-crop's predecessor is gone from the manifest afterward
+
 ## 2.25.0 - 2026-08-31
 
 ### Added

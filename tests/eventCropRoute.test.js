@@ -27,6 +27,7 @@ let signCropToken;
 let saveUploadedImage;
 let saveOriginalImage;
 let getOriginalImagePath;
+let getImagePath;
 
 beforeEach(async () => {
   cleanup();
@@ -54,7 +55,7 @@ beforeEach(async () => {
   app = createApiServer(mockClient);
 
   ({ signCropToken } = await import('../src/utils/cropLinkToken.js'));
-  ({ saveUploadedImage, saveOriginalImage, getOriginalImagePath } = await import('../src/utils/eventImageStore.js'));
+  ({ saveUploadedImage, saveOriginalImage, getOriginalImagePath, getImagePath } = await import('../src/utils/eventImageStore.js'));
 });
 
 afterEach(() => {
@@ -370,5 +371,66 @@ describe('POST /api/event-request/upload-image', () => {
       .attach('original', Buffer.from('raw-original-only'), { filename: 'source.png', contentType: 'image/png' });
 
     expect(response.status).toBe(400);
+  });
+
+  test('a re-crop sent with previousToken deletes the superseded upload, so re-cropping repeatedly does not accumulate orphaned files', async () => {
+    const request = await import('supertest');
+
+    const first = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .attach('image', Buffer.from('first-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
+    const firstToken = first.body.imageToken;
+    expect(await getImagePath(firstToken)).not.toBeNull();
+
+    const second = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .field('previousToken', firstToken)
+      .attach('image', Buffer.from('second-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
+
+    expect(second.status).toBe(200);
+    expect(second.body.imageToken).not.toBe(firstToken);
+    expect(await getImagePath(firstToken)).toBeNull();
+    expect(await getImagePath(second.body.imageToken)).not.toBeNull();
+  });
+
+  test('previousToken also deletes the superseded upload\'s preserved original, not just its cropped copy', async () => {
+    const request = await import('supertest');
+
+    const first = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .attach('image', Buffer.from('first-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' })
+      .attach('original', Buffer.from('first-original'), { filename: 'source.png', contentType: 'image/png' });
+    const firstToken = first.body.imageToken;
+    expect(await getOriginalImagePath(firstToken)).not.toBeNull();
+
+    await request.default(app)
+      .post('/api/event-request/upload-image')
+      .field('previousToken', firstToken)
+      .attach('image', Buffer.from('second-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
+
+    expect(await getOriginalImagePath(firstToken)).toBeNull();
+  });
+
+  test('omitting previousToken (the first upload of a session) does not attempt any deletion', async () => {
+    const request = await import('supertest');
+
+    const response = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .attach('image', Buffer.from('only-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
+
+    expect(response.status).toBe(200);
+    expect(await getImagePath(response.body.imageToken)).not.toBeNull();
+  });
+
+  test('a bogus or already-gone previousToken is a harmless no-op, not an error', async () => {
+    const request = await import('supertest');
+
+    const response = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .field('previousToken', 'does-not-exist')
+      .attach('image', Buffer.from('some-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
+
+    expect(response.status).toBe(200);
+    expect(await getImagePath(response.body.imageToken)).not.toBeNull();
   });
 });

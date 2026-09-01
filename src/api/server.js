@@ -536,6 +536,18 @@ export function createApiServer(client) {
           await saveOriginalImage(imageToken, originalFile.buffer, originalFile.mimetype);
         }
 
+        // A re-crop replaces, not adds to, the previous upload from the same
+        // session — without this, every crop-box adjustment would leave its
+        // predecessor's file orphaned on disk until the once-a-day, 8-day-old
+        // sweep eventually catches it (see pruneOrphanedUploads). Best-effort:
+        // a stale file surviving one extra day is harmless, so this never
+        // blocks or fails the response for the new upload.
+        const previousToken = req.body.previousToken;
+        if (previousToken && typeof previousToken === 'string') {
+          await deleteImage(previousToken).catch(() => {});
+          await deleteImage(`${previousToken}-original`).catch(() => {});
+        }
+
         res.json({ imageToken });
       } catch (error) {
         console.error('[API] Error uploading event image:', error);
