@@ -5,6 +5,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.25.3 - 2026-09-01
+
+### Added
+- **The bot's Discord status now rotates hourly through John Carpenter movie flavor text**, referencing Big Trouble in Little China (the bot's namesake) and other Carpenter films — shown as a bare custom status with no "Playing/Watching" prefix
+
+### Developer
+- New `src/utils/movieQuotes.js` — flat array of status strings, easy to hand-edit
+- New `src/utils/presenceScheduler.js` — follows the existing `initialize(client)`/`shutdown()` scheduler pattern (same shape as `timerScheduler.js`, `pollScheduler.js`, etc.), sets an initial status immediately on startup then rotates hourly via `client.user.setPresence(...)` with `ActivityType.Custom`; avoids repeating the immediately-previous quote
+- `src/index.js` wires the new scheduler into the existing `clientReady` init sequence and graceful-shutdown path
+- New `tests/presenceScheduler.test.js` (7 tests) covering initial status, payload shape (`state` holds the text, not `name`), rotation timing, shutdown, and no-immediate-repeat behavior
+
 ## 2.25.2 - 2026-08-31
 
 ### Fixed

@@ -176,6 +176,10 @@ client.once('clientReady', async () => {
   const { initialize: initEventImageCleanupScheduler } = await import('./utils/eventImageCleanupScheduler.js');
   initEventImageCleanupScheduler();
 
+  // Initialize bot status rotation scheduler
+  const { initialize: initPresenceScheduler } = await import('./utils/presenceScheduler.js');
+  initPresenceScheduler(client);
+
   // Start API server for event requests
   const { startApiServer } = await import('./api/server.js');
   const apiPort = process.env.API_PORT || 3000;
@@ -935,6 +939,10 @@ async function gracefulShutdown(signal) {
   // Stop event-request image cleanup scheduler
   const { shutdown: shutdownEventImageCleanupScheduler } = await import('./utils/eventImageCleanupScheduler.js');
   shutdownEventImageCleanupScheduler();
+
+  // Stop bot status rotation scheduler
+  const { shutdown: shutdownPresenceScheduler } = await import('./utils/presenceScheduler.js');
+  shutdownPresenceScheduler();
 
   // Destroy Discord client
   client.destroy();
