@@ -139,6 +139,25 @@ header h1 {
     gap: 15px;
 }
 
+#image-url-row {
+    display: flex;
+    gap: 10px;
+}
+
+#image-url-row input {
+    flex: 1;
+}
+
+#image-url-row .btn,
+#image-crop-group .btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+#image-crop-group .btn {
+    margin-top: 12px;
+}
+
 /* Buttons */
 .btn {
     padding: 10px 20px;
@@ -286,5 +305,9 @@ footer a:hover {
 
     .form-row {
         grid-template-columns: 1fr;
+    }
+
+    #image-url-row {
+        flex-direction: column;
     }
 }

@@ -29,7 +29,7 @@ test('selecting an image auto-shows a 16:9 crop UI and uploads the cropped resul
   await resetRateLimit(page);
 
   await expect(page.locator('#event-form')).toBeVisible();
-  await expect(page.locator('#image-crop-container')).toBeHidden();
+  await expect(page.locator('#image-crop-group')).toBeHidden();
 
   await page.locator('#event-image-file').setInputFiles({
     name: 'poster.png',
@@ -37,7 +37,7 @@ test('selecting an image auto-shows a 16:9 crop UI and uploads the cropped resul
     buffer: Buffer.from(TEST_PNG_BASE64, 'base64'),
   });
 
-  await expect(page.locator('#image-crop-container')).toBeVisible();
+  await expect(page.locator('#image-crop-group')).toBeVisible();
   // Cropper.js renders its own canvas/cropper-container inside the wrapper
   // once initialized against the loaded image.
   await expect(page.locator('.cropper-container')).toBeVisible();
@@ -51,7 +51,7 @@ test('selecting an image auto-shows a 16:9 crop UI and uploads the cropped resul
   await expect(page.locator('#form-message')).toContainText('submitted successfully');
 });
 
-test('clearing a selected file re-enables the URL field, which then tears down the crop UI', async ({ page }) => {
+test('"Change Image" resets the crop UI back to the picker, ready to select a file or fetch a URL again', async ({ page }) => {
   await loginAs(page, { userId: MEMBER_ID, guildId: GUILD_SIMPLE.id });
   await page.goto(`/?e2eGuildId=${GUILD_SIMPLE.id}`);
   await resetRateLimit(page);
@@ -61,17 +61,18 @@ test('clearing a selected file re-enables the URL field, which then tears down t
     mimeType: 'image/png',
     buffer: Buffer.from(TEST_PNG_BASE64, 'base64'),
   });
-  await expect(page.locator('#image-crop-container')).toBeVisible();
-  await expect(page.locator('#event-image-url')).toBeDisabled();
+  await expect(page.locator('#image-crop-group')).toBeVisible();
+  await expect(page.locator('#image-picker-group')).toBeHidden();
+  await expect(page.locator('#image-url-group')).toBeHidden();
 
-  // Selecting a file disables the URL field (mutual exclusivity) — a real
-  // user switches to the URL path by clearing the file selection first.
-  await page.locator('#event-image-file').setInputFiles([]);
+  await page.locator('#change-image-btn').click();
+
+  await expect(page.locator('#image-crop-group')).toBeHidden();
+  await expect(page.locator('#image-picker-group')).toBeVisible();
+  await expect(page.locator('#image-url-group')).toBeVisible();
+  await expect(page.locator('#event-image-file')).toBeEnabled();
   await expect(page.locator('#event-image-url')).toBeEnabled();
-  await expect(page.locator('#image-crop-container')).toBeHidden();
-
-  await page.locator('#event-image-url').fill('https://example.com/poster.jpg');
-  await expect(page.locator('#event-image-file')).toBeDisabled();
+  await expect(page.locator('#event-image-url')).toHaveValue('');
 });
 
 test('the moderator crop page loads the true uncropped original, not the submitter\'s already-cropped result', async ({ page }) => {

@@ -1,7 +1,11 @@
 import { loginAs as loginAsCookie } from './fixtures/session-cookie.js';
 
 /**
- * Resets the shared, host+IP-keyed event-request rate limiter for this test run.
+ * Resets the shared, host+IP-keyed event-request AND image-upload rate
+ * limiters for this test run (the latter shared by both
+ * /upload-image and /fetch-image-url — a suite with several
+ * image-related tests can otherwise exhaust its real 5-per-5-minute
+ * window across tests that each look independent).
  *
  * Must run via page.evaluate() (i.e. fetch from *inside* the browser), not
  * Playwright's standalone `request` fixture — the latter is a separate Node

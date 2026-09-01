@@ -10,11 +10,7 @@ import { saveEventRequests, saveEventChannelSelections } from '../api/server.js'
 import { loadGuildConfig } from './guildConfig.js';
 import { getImagePath, recordEventDate } from './eventImageStore.js';
 import { parseUtcTimeInput } from './eventTimeInput.js';
-
-// Max bytes to accept for a fetched image URL — Discord's own scheduled
-// event image limit is much smaller than this, but capping the fetch
-// itself avoids downloading something huge just to have Discord reject it.
-const MAX_FETCHED_IMAGE_BYTES = 8 * 1024 * 1024;
+import { fetchImageUrl } from './fetchImageUrl.js';
 
 /**
  * Resolve the final image buffer (if any) for a scheduled event, per the
@@ -28,36 +24,12 @@ const MAX_FETCHED_IMAGE_BYTES = 8 * 1024 * 1024;
  */
 export async function resolveEventImageBuffer(requestId, requestData) {
   if (requestData.imageUrl) {
-    try {
-      const response = await fetch(requestData.imageUrl);
-      if (!response.ok) {
-        console.error(`[EventRequest] Image URL fetch failed (${response.status}): ${requestData.imageUrl}`);
-        return null;
-      }
-
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.startsWith('image/')) {
-        console.error(`[EventRequest] Image URL did not return an image (content-type: ${contentType}): ${requestData.imageUrl}`);
-        return null;
-      }
-
-      const contentLength = Number(response.headers.get('content-length') || 0);
-      if (contentLength > MAX_FETCHED_IMAGE_BYTES) {
-        console.error(`[EventRequest] Image URL too large (${contentLength} bytes): ${requestData.imageUrl}`);
-        return null;
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      if (arrayBuffer.byteLength > MAX_FETCHED_IMAGE_BYTES) {
-        console.error(`[EventRequest] Image URL too large after download: ${requestData.imageUrl}`);
-        return null;
-      }
-
-      return Buffer.from(arrayBuffer);
-    } catch (error) {
-      console.error(`[EventRequest] Error fetching image URL "${requestData.imageUrl}":`, error.message);
+    const result = await fetchImageUrl(requestData.imageUrl);
+    if (!result.ok) {
+      console.error(`[EventRequest] ${result.error} (${requestData.imageUrl})`);
       return null;
     }
+    return result.buffer;
   }
 
   if (requestData.hasUploadedImage) {

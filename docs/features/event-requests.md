@@ -345,7 +345,7 @@ Text and voice whitelists are **independent**:
 3. **Fill out the form:**
    - Event title (required)
    - Description (optional)
-   - **Event image** (optional) - Upload an image file or paste an image URL (not both)
+   - **Event image** (optional) - Upload an image file or paste an image URL (not both) — either way you'll get a chance to crop it
    - **Location** (required) - Text channel for the watch party
    - **Voice channel** (optional) - Check the box to add voice/stage channel
    - Start date and time (required)
@@ -355,9 +355,9 @@ Text and voice whitelists are **independent**:
 5. **Wait for moderator approval**
 
 ::: tip Event Image
-Uploading a file happens immediately when you pick it, before you submit the rest of the form — this surfaces upload problems (wrong file type, too large) right away instead of at final submission. PNG, JPEG, GIF, and WebP are supported, up to 8MB. If you'd rather not upload a file, paste a direct image URL instead. Providing neither is fine too — moderators can always add or change the image when they approve your request (see below).
+Uploading a file happens immediately when you pick it, before you submit the rest of the form — this surfaces upload problems (wrong file type, too large) right away instead of at final submission. PNG, JPEG, GIF, and WebP are supported, up to 8MB. If you'd rather not upload a file, paste a direct image URL and click **Fetch & Crop** instead. Providing neither is fine too — moderators can always add or change the image when they approve your request (see below).
 
-When you select a file, a crop tool appears automatically, pre-framed to match Discord's event cover shape — you can submit right away or drag to adjust the framing first. This only applies to uploaded files, not pasted URLs.
+Either way, a crop tool appears automatically, pre-framed to match Discord's event cover shape — you can submit right away or drag to adjust the framing first. If you change your mind about the image, click **Change Image** to clear it and pick a different file or URL.
 :::
 
 ::: tip Channel Selection

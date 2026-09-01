@@ -29,6 +29,35 @@ let guildConfig = null;
 let uploadedImageToken = null;
 let cropper = null;
 
+// The raw, uncropped file for the current selection — sent alongside EVERY
+// cropped upload (not just the first), since each debounced re-crop
+// uploads under a brand new placeholder token that replaces
+// uploadedImageToken; whichever token ends up being the one actually
+// submitted needs its own correctly-paired original on the server. null
+// when the current image came from a fetched URL rather than a local file.
+let currentOriginalFile = null;
+
+// Module-scoped (not inside the DOMContentLoaded closure below) so both
+// the image-picker event handlers AND handleSubmit's post-submit cleanup
+// can call the exact same reset logic instead of duplicating it.
+function resetImageState() {
+    cropper?.destroy();
+    cropper = null;
+    currentOriginalFile = null;
+    uploadedImageToken = null;
+
+    const imageFileInput = document.getElementById('event-image-file');
+    const imageUrlInput = document.getElementById('event-image-url');
+    imageFileInput.value = '';
+    imageFileInput.disabled = false;
+    imageUrlInput.value = '';
+    imageUrlInput.disabled = false;
+    document.getElementById('image-upload-status').style.display = 'none';
+    document.getElementById('image-picker-group').style.display = 'block';
+    document.getElementById('image-url-group').style.display = 'block';
+    document.getElementById('image-crop-group').style.display = 'none';
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     // Load guild configuration
@@ -92,26 +121,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     
-    // Event image: file upload and URL fields are mutually exclusive.
-    // Picking one clears/disables the other, matching the backend's
-    // mutual-exclusivity (only one image source is stored per request).
+    // Event image: a file upload and a pasted URL both feed the SAME crop
+    // UI — picking a file loads it into the cropper immediately; pasting a
+    // URL requires clicking "Fetch & Crop" first (the browser can't just
+    // load an arbitrary cross-origin URL into an <img> and read its pixels
+    // for Cropper.js, since canvas access to a cross-origin image without
+    // CORS headers is blocked — the server fetches it instead and hands
+    // back a data: URL, which has no such restriction). Once either path
+    // has bytes loaded into the cropper, they're indistinguishable from
+    // that point on: same crop-and-auto-upload flow, same imageToken.
+    const imagePickerGroup = document.getElementById('image-picker-group');
+    const imageUrlGroup = document.getElementById('image-url-group');
+    const imageCropGroup = document.getElementById('image-crop-group');
     const imageFileInput = document.getElementById('event-image-file');
     const imageUrlInput = document.getElementById('event-image-url');
+    const fetchImageUrlBtn = document.getElementById('fetch-image-url-btn');
+    const changeImageBtn = document.getElementById('change-image-btn');
     const imageUploadStatus = document.getElementById('image-upload-status');
-    const imageCropContainer = document.getElementById('image-crop-container');
     const imageCropTarget = document.getElementById('image-crop-target');
-
-    // The raw, uncropped file for the current selection — sent alongside
-    // EVERY cropped upload (not just the first), since each debounced
-    // re-crop uploads under a brand new placeholder token that replaces
-    // uploadedImageToken; whichever token ends up being the one actually
-    // submitted needs its own correctly-paired original on the server.
-    let currentOriginalFile = null;
 
     // Uploads a given image blob (the cropped output, not necessarily the
     // raw selected file) and records the returned token. Shared by the
-    // initial auto-crop-and-upload on file select and every subsequent
-    // re-crop-and-re-upload.
+    // initial auto-crop-and-upload on image load (file OR fetched URL) and
+    // every subsequent re-crop-and-re-upload.
     async function uploadImageBlob(blob) {
         imageUploadStatus.style.display = 'block';
         imageUploadStatus.className = 'image-upload-status';
@@ -172,59 +204,102 @@ document.addEventListener('DOMContentLoaded', async () => {
         cropUploadDebounceTimer = setTimeout(uploadCurrentCrop, 800);
     }
 
-    function resetImageCropState() {
-        cropper?.destroy();
-        cropper = null;
-        currentOriginalFile = null;
-        imageCropContainer.style.display = 'none';
+    // Loads image bytes (a data: URL or a File-derived data: URL, either
+    // way a same-origin-safe string readable by canvas) into the shared
+    // cropper — the single entry point both the file-select and
+    // fetch-URL-then-crop paths funnel into.
+    function loadImageIntoCropper(imageSrc) {
+        imagePickerGroup.style.display = 'none';
+        imageUrlGroup.style.display = 'none';
+        imageCropGroup.style.display = 'block';
+        imageCropTarget.src = imageSrc;
+        cropper = new Cropper(imageCropTarget, {
+            aspectRatio: 16 / 9,
+            viewMode: 1,
+            autoCropArea: 1,
+            ready() {
+                // Upload the initial auto-crop right away so a user who
+                // never touches the crop box still gets a working
+                // upload — cropping is optional, not mandatory.
+                uploadCurrentCrop();
+            },
+            cropend() {
+                scheduleUploadCurrentCrop();
+            },
+        });
     }
 
+    // resetImageState() is defined at module scope (used both here and by
+    // handleSubmit's post-submit cleanup) — just wire it up as the
+    // "Change Image" button's handler.
+    changeImageBtn.addEventListener('click', resetImageState);
+
     imageUrlInput.addEventListener('input', () => {
-        if (imageUrlInput.value.trim()) {
-            imageFileInput.value = '';
-            imageFileInput.disabled = true;
-            uploadedImageToken = null;
-            imageUploadStatus.style.display = 'none';
-            resetImageCropState();
-        } else {
-            imageFileInput.disabled = false;
+        imageFileInput.disabled = !!imageUrlInput.value.trim();
+    });
+
+    fetchImageUrlBtn.addEventListener('click', async () => {
+        const url = imageUrlInput.value.trim();
+        if (!url) {
+            imageUploadStatus.style.display = 'block';
+            imageUploadStatus.className = 'image-upload-status error';
+            imageUploadStatus.textContent = '❌ Enter an image URL first.';
+            return;
+        }
+
+        fetchImageUrlBtn.disabled = true;
+        fetchImageUrlBtn.textContent = 'Fetching...';
+        imageUploadStatus.style.display = 'block';
+        imageUploadStatus.className = 'image-upload-status';
+        imageUploadStatus.textContent = 'Fetching image...';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/event-request/fetch-image-url`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ imageUrl: url }),
+            });
+
+            let data;
+            try {
+                data = await response.json();
+            } catch {
+                throw new Error(response.status === 413
+                    ? 'Image is too large for this server to accept.'
+                    : `Fetch failed (server returned ${response.status}).`);
+            }
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to fetch that image URL');
+            }
+
+            // The fetched (pre-crop) bytes are this image's "original", same
+            // role a locally-picked file's raw bytes play — convert the
+            // data: URL back to a Blob so it can be sent as a normal
+            // multipart field alongside the eventual cropped upload. This
+            // resolves locally (no real network request — data: URIs are
+            // decoded in-browser), so it works offline too.
+            const originalResponse = await fetch(data.dataUrl);
+            currentOriginalFile = await originalResponse.blob();
+            loadImageIntoCropper(data.dataUrl);
+        } catch (error) {
+            console.error('Error fetching image URL:', error);
+            imageUploadStatus.className = 'image-upload-status error';
+            imageUploadStatus.textContent = `❌ ${error.message}`;
+        } finally {
+            fetchImageUrlBtn.disabled = false;
+            fetchImageUrlBtn.textContent = 'Fetch & Crop';
         }
     });
 
     imageFileInput.addEventListener('change', () => {
-        uploadedImageToken = null;
-        resetImageCropState();
-
-        if (!imageFileInput.files.length) {
-            imageUploadStatus.style.display = 'none';
-            imageUrlInput.disabled = false;
-            return;
-        }
-
-        imageUrlInput.value = '';
-        imageUrlInput.disabled = true;
+        if (!imageFileInput.files.length) return;
 
         currentOriginalFile = imageFileInput.files[0];
 
         const reader = new FileReader();
-        reader.onload = () => {
-            imageCropContainer.style.display = 'block';
-            imageCropTarget.src = reader.result;
-            cropper = new Cropper(imageCropTarget, {
-                aspectRatio: 16 / 9,
-                viewMode: 1,
-                autoCropArea: 1,
-                ready() {
-                    // Upload the initial auto-crop right away so a user who
-                    // never touches the crop box still gets a working
-                    // upload — cropping is optional, not mandatory.
-                    uploadCurrentCrop();
-                },
-                cropend() {
-                    scheduleUploadCurrentCrop();
-                },
-            });
-        };
+        reader.onload = () => loadImageIntoCropper(reader.result);
         reader.readAsDataURL(imageFileInput.files[0]);
     });
 
@@ -649,15 +724,9 @@ async function handleSubmit(e) {
         showMessage('✅ Event request submitted successfully! Moderators will review it shortly.', 'success');
         document.getElementById('event-form').reset();
 
-        // Reset image state — form.reset() clears the input values but not
-        // our JS-tracked token or the disabled/status/cropper side effects.
-        uploadedImageToken = null;
-        cropper?.destroy();
-        cropper = null;
-        document.getElementById('event-image-file').disabled = false;
-        document.getElementById('event-image-url').disabled = false;
-        document.getElementById('image-upload-status').style.display = 'none';
-        document.getElementById('image-crop-container').style.display = 'none';
+        // form.reset() clears the input values but not our JS-tracked
+        // token, the cropper instance, or the picker/crop group visibility.
+        resetImageState();
         
         // Scroll to message
         document.getElementById('form-message').scrollIntoView({ behavior: 'smooth' });

@@ -15,6 +15,7 @@ import {
   applyImageStatusToEmbed,
 } from '../utils/eventImageStore.js';
 import { signCropToken, verifyCropToken, consumeCropToken } from '../utils/cropLinkToken.js';
+import { fetchImageUrl } from '../utils/fetchImageUrl.js';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -543,6 +544,31 @@ export function createApiServer(client) {
     });
   });
 
+  // Fetches a submitter-pasted image URL server-side (same content-type/
+  // size validation as resolveEventImageBuffer, which runs this same check
+  // at approval time) and hands the bytes back as a data URL — this lets
+  // the browser load it straight into the SAME crop UI a file upload uses
+  // (img.src = dataUrl, then Cropper.js), rather than the URL being a
+  // completely separate, uncroppable path. The actual crop-and-upload
+  // still goes through POST /api/event-request/upload-image afterward,
+  // same as a picked file — this endpoint only bridges "URL" to "bytes the
+  // browser can crop," it never itself produces an imageToken.
+  app.post('/api/event-request/fetch-image-url', imageUploadLimiter, async (req, res) => {
+    const { imageUrl } = req.body;
+
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      return res.status(400).json({ error: 'No image URL provided' });
+    }
+
+    const result = await fetchImageUrl(imageUrl);
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    const dataUrl = `data:${result.contentType};base64,${result.buffer.toString('base64')}`;
+    res.json({ dataUrl });
+  });
+
   // Serve the moderator crop page's own JS/CSS from a scoped subfolder —
   // deliberately NOT a blanket express.static('public') mount, since that
   // would newly expose index.html/app.js/style.css from the bot's own
@@ -993,17 +1019,25 @@ export function createApiServer(client) {
     }
   });
   
-  // Test-only: lets the e2e harness reset the event-request rate limiter for
-  // the calling host+IP without waiting out the real 5-minute window. Inert
-  // in production. See tests/e2e/README.md.
+  // Test-only: lets the e2e harness reset event-request-related rate
+  // limiters for the calling host+IP without waiting out their real
+  // windows. Inert in production. See tests/e2e/README.md.
   //
-  // Must use the same hostAndIpKeyGenerator the limiter itself is keyed on
+  // Resets both eventRequestLimiter (the main submission limit) and
+  // imageUploadLimiter (shared by /upload-image and /fetch-image-url,
+  // 5 per 5 minutes) — a suite with several image-related tests in one
+  // worker session can otherwise exhaust the real 5-request window across
+  // tests that each look independent.
+  //
+  // Must use the same hostAndIpKeyGenerator each limiter is keyed on
   // (which subnet-masks IPv6 via express-rate-limit's own ipKeyGenerator
   // helper) — resetKey(req.ip) alone would silently no-op, both because it
   // skips that transform and because it omits the host prefix.
   if (process.env.NODE_ENV !== 'production') {
     app.post('/api/__test__/reset-rate-limit', async (req, res) => {
-      await eventRequestLimiter.resetKey(hostAndIpKeyGenerator(req));
+      const key = hostAndIpKeyGenerator(req);
+      await eventRequestLimiter.resetKey(key);
+      await imageUploadLimiter.resetKey(key);
       res.sendStatus(204);
     });
   }

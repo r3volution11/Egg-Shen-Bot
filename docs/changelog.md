@@ -5,6 +5,18 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.25.0 - 2026-08-31
+
+### Added
+- **Pasted image URLs can now be cropped, just like uploaded files.** Previously, only an uploaded image file got the crop tool — a pasted URL was used as-is, with no way to adjust framing. Paste a URL and click **Fetch & Crop** to pull it into the same crop UI a file upload uses; the fetched image is hosted the same way an upload is, so it can be re-cropped later from the moderator crop-link page too
+- **"Change Image" button** lets you back out of an image selection (file or URL) and pick a different one, without reloading the page or clearing the rest of the form — previously there was no way to change your mind once a file was picked or a URL fetched
+
+### Developer
+- New `POST /api/event-request/fetch-image-url` endpoint server-side fetches a submitter-pasted URL (reusing the same content-type/size validation `resolveEventImageBuffer` already applied at approval time, now extracted into shared `src/utils/fetchImageUrl.js`) and returns the bytes as a `data:` URL — needed because a browser can't load an arbitrary cross-origin image into a canvas-accessible `<img>` for Cropper.js without CORS headers from the third-party host
+- `public/index.html`'s image section restructured into three groups (`#image-picker-group`, `#image-url-group`, `#image-crop-group`) that show/hide together; `public/app.js` gained `loadImageIntoCropper()` (shared by both the file-`change` handler and the new fetch-URL handler) and module-scoped `resetImageState()` (shared by the new "Change Image" button and `handleSubmit`'s post-submit cleanup, which previously duplicated this logic inline)
+- The new endpoint shares the existing `imageUploadLimiter` (5 requests/5min) with `/upload-image`; the test-only `/api/__test__/reset-rate-limit` endpoint now resets both `eventRequestLimiter` and `imageUploadLimiter`, since a test run exercising several image-related tests could otherwise exhaust the real window across tests that each look independent
+- New `tests/fetchImageUrl.test.js` (7 tests) and `tests/e2e/image-url-crop.spec.js` (5 tests, using a real throwaway local HTTP server to exercise the server-side fetch end-to-end); `tests/e2e/event-image-crop.spec.js` updated for the restructured markup and the new "Change Image" flow
+
 ## 2.24.2 - 2026-08-31
 
 ### Changed
