@@ -27,7 +27,6 @@ let signCropToken;
 let saveUploadedImage;
 let saveOriginalImage;
 let getOriginalImagePath;
-let getImagePath;
 
 beforeEach(async () => {
   cleanup();
@@ -55,7 +54,7 @@ beforeEach(async () => {
   app = createApiServer(mockClient);
 
   ({ signCropToken } = await import('../src/utils/cropLinkToken.js'));
-  ({ saveUploadedImage, saveOriginalImage, getOriginalImagePath, getImagePath } = await import('../src/utils/eventImageStore.js'));
+  ({ saveUploadedImage, saveOriginalImage, getOriginalImagePath } = await import('../src/utils/eventImageStore.js'));
 });
 
 afterEach(() => {
@@ -363,74 +362,72 @@ describe('POST /api/event-request/upload-image', () => {
     expect(fs.readFileSync(originalPath).toString()).toBe('raw-original-version');
   });
 
-  test('rejects when the cropped image field is missing, even if an original is attached', async () => {
+  test('rejects when both the cropped image and the original are missing', async () => {
+    const request = await import('supertest');
+
+    const response = await request.default(app)
+      .post('/api/event-request/upload-image');
+
+    expect(response.status).toBe(400);
+  });
+
+  test('an original-only upload (right after pick/fetch, before cropping) mints a token and uses the original as the initial image too', async () => {
     const request = await import('supertest');
 
     const response = await request.default(app)
       .post('/api/event-request/upload-image')
       .attach('original', Buffer.from('raw-original-only'), { filename: 'source.png', contentType: 'image/png' });
 
-    expect(response.status).toBe(400);
-  });
-
-  test('a re-crop sent with previousToken deletes the superseded upload, so re-cropping repeatedly does not accumulate orphaned files', async () => {
-    const request = await import('supertest');
-
-    const first = await request.default(app)
-      .post('/api/event-request/upload-image')
-      .attach('image', Buffer.from('first-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
-    const firstToken = first.body.imageToken;
-    expect(await getImagePath(firstToken)).not.toBeNull();
-
-    const second = await request.default(app)
-      .post('/api/event-request/upload-image')
-      .field('previousToken', firstToken)
-      .attach('image', Buffer.from('second-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
-
-    expect(second.status).toBe(200);
-    expect(second.body.imageToken).not.toBe(firstToken);
-    expect(await getImagePath(firstToken)).toBeNull();
-    expect(await getImagePath(second.body.imageToken)).not.toBeNull();
-  });
-
-  test('previousToken also deletes the superseded upload\'s preserved original, not just its cropped copy', async () => {
-    const request = await import('supertest');
-
-    const first = await request.default(app)
-      .post('/api/event-request/upload-image')
-      .attach('image', Buffer.from('first-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' })
-      .attach('original', Buffer.from('first-original'), { filename: 'source.png', contentType: 'image/png' });
-    const firstToken = first.body.imageToken;
-    expect(await getOriginalImagePath(firstToken)).not.toBeNull();
-
-    await request.default(app)
-      .post('/api/event-request/upload-image')
-      .field('previousToken', firstToken)
-      .attach('image', Buffer.from('second-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
-
-    expect(await getOriginalImagePath(firstToken)).toBeNull();
-  });
-
-  test('omitting previousToken (the first upload of a session) does not attempt any deletion', async () => {
-    const request = await import('supertest');
-
-    const response = await request.default(app)
-      .post('/api/event-request/upload-image')
-      .attach('image', Buffer.from('only-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
-
     expect(response.status).toBe(200);
-    expect(await getImagePath(response.body.imageToken)).not.toBeNull();
+    const { imageToken } = response.body;
+
+    const originalPath = await getOriginalImagePath(imageToken);
+    expect(originalPath).not.toBeNull();
+    expect(fs.readFileSync(originalPath).toString()).toBe('raw-original-only');
+
+    // A valid, usable image already exists under this token even though the
+    // user hasn't touched the crop box yet — the original doubles as the
+    // uncropped default.
+    const { getImagePath } = await import('../src/utils/eventImageStore.js');
+    const imagePath = await getImagePath(imageToken);
+    expect(imagePath).not.toBeNull();
+    expect(fs.readFileSync(imagePath).toString()).toBe('raw-original-only');
   });
 
-  test('a bogus or already-gone previousToken is a harmless no-op, not an error', async () => {
+  test('a crop upload with an existing imageToken reuses that token instead of minting a new one, and leaves the original untouched', async () => {
+    const request = await import('supertest');
+
+    const originalUpload = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .attach('original', Buffer.from('the-true-original'), { filename: 'source.png', contentType: 'image/png' });
+    const { imageToken } = originalUpload.body;
+
+    const cropUpload = await request.default(app)
+      .post('/api/event-request/upload-image')
+      .field('imageToken', imageToken)
+      .attach('image', Buffer.from('final-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
+
+    expect(cropUpload.status).toBe(200);
+    expect(cropUpload.body.imageToken).toBe(imageToken);
+
+    const { getImagePath } = await import('../src/utils/eventImageStore.js');
+    const imagePath = await getImagePath(imageToken);
+    expect(fs.readFileSync(imagePath).toString()).toBe('final-crop');
+
+    const originalPath = await getOriginalImagePath(imageToken);
+    expect(fs.readFileSync(originalPath).toString()).toBe('the-true-original');
+  });
+
+  test('a malformed imageToken is ignored — a fresh token is minted instead of reusing an arbitrary caller-supplied key', async () => {
     const request = await import('supertest');
 
     const response = await request.default(app)
       .post('/api/event-request/upload-image')
-      .field('previousToken', 'does-not-exist')
+      .field('imageToken', '../../etc/passwd')
       .attach('image', Buffer.from('some-crop'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
 
     expect(response.status).toBe(200);
-    expect(await getImagePath(response.body.imageToken)).not.toBeNull();
+    expect(response.body.imageToken).not.toBe('../../etc/passwd');
+    expect(response.body.imageToken).toMatch(/^[0-9a-f]{32}$/);
   });
 });

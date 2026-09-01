@@ -493,16 +493,25 @@ export function createApiServer(client) {
   
   // Upload an event image ahead of submitting the actual request — the form
   // doesn't have a real requestId yet at this point, so the upload is
-  // stored under a fresh random token, returned to the client, and later
-  // renamed to the real requestId once POST /api/event-request succeeds
-  // (see renameImageKey below). An image uploaded but never followed by a
+  // stored under a token, returned to the client, and later renamed to the
+  // real requestId once POST /api/event-request succeeds (see
+  // renameImageKey below). An image uploaded but never followed by a
   // successful submission is cleaned up by eventImageStore's orphan sweep.
   //
-  // Accepts two files: "image" (the cropped result actually used for the
-  // Discord event) and an optional "original" (the raw, uncropped file the
-  // submitter picked) — kept separately so a moderator opening the crop
-  // page later can crop from the true original, not a re-crop of an
-  // already-cropped image.
+  // Two distinct call shapes share this one endpoint:
+  //  1. Original upload (right after a file is picked or a URL is fetched):
+  //     only "original" is sent, no imageToken — mints a fresh token, and
+  //     saves the original as both the preserved original AND the initial
+  //     "image" (an uncropped default), so a valid, usable image exists on
+  //     the server immediately, before the user has touched the crop box.
+  //  2. Crop upload (at Submit): "image" (the crop box's current framing)
+  //     plus an existing imageToken from step 1 — saves the crop under that
+  //     SAME token, replacing only the "image" half; the preserved original
+  //     is untouched, so a moderator re-cropping later still starts from
+  //     the true original, not a re-crop of a crop.
+  // Dragging/resizing the crop box between these two calls is purely local
+  // Cropper.js rendering — see public/app.js — so no matter how many times
+  // it's adjusted, only these two requests ever happen per submission.
   const uploadWithOriginal = upload.fields([
     { name: 'image', maxCount: 1 },
     { name: 'original', maxCount: 1 },
@@ -524,28 +533,36 @@ export function createApiServer(client) {
       try {
         const croppedFile = req.files?.image?.[0];
         const originalFile = req.files?.original?.[0];
+        const existingToken = req.body?.imageToken;
 
-        if (!croppedFile) {
+        if (!croppedFile && !originalFile) {
           return res.status(400).json({ error: 'No image file provided' });
         }
 
-        const imageToken = crypto.randomBytes(16).toString('hex');
-        await saveUploadedImage(imageToken, croppedFile.buffer, croppedFile.mimetype);
+        // Reuse the caller-supplied token (the crop-upload step, sent
+        // alongside a request that already has an original on the server)
+        // if it matches the exact format this endpoint itself generates —
+        // 32 hex characters — so a client can only ever "reuse" a token it
+        // was actually handed, never point this at an arbitrary key (e.g.
+        // path-traversal characters, or another request's requestId).
+        // Otherwise mint a fresh one (the original-upload step, the first
+        // call of a session).
+        const imageToken = (typeof existingToken === 'string' && /^[0-9a-f]{32}$/.test(existingToken))
+          ? existingToken
+          : crypto.randomBytes(16).toString('hex');
+
+        if (croppedFile) {
+          await saveUploadedImage(imageToken, croppedFile.buffer, croppedFile.mimetype);
+        }
 
         if (originalFile) {
           await saveOriginalImage(imageToken, originalFile.buffer, originalFile.mimetype);
-        }
-
-        // A re-crop replaces, not adds to, the previous upload from the same
-        // session — without this, every crop-box adjustment would leave its
-        // predecessor's file orphaned on disk until the once-a-day, 8-day-old
-        // sweep eventually catches it (see pruneOrphanedUploads). Best-effort:
-        // a stale file surviving one extra day is harmless, so this never
-        // blocks or fails the response for the new upload.
-        const previousToken = req.body.previousToken;
-        if (previousToken && typeof previousToken === 'string') {
-          await deleteImage(previousToken).catch(() => {});
-          await deleteImage(`${previousToken}-original`).catch(() => {});
+          // The original-upload step has no crop yet — use the original
+          // itself as the initial image so a valid, usable image exists on
+          // the server right away, before the user has touched the crop box.
+          if (!croppedFile) {
+            await saveUploadedImage(imageToken, originalFile.buffer, originalFile.mimetype);
+          }
         }
 
         res.json({ imageToken });

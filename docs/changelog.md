@@ -5,6 +5,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.25.2 - 2026-08-31
+
+### Fixed
+- **Adjusting the crop box on the event-request form no longer uploads a new image on every drag.** The previous fix (2.25.1) only cleaned up the file left behind by each adjustment; the adjustments themselves still each triggered a real upload, bounded only by the rate limit — a user (or script) nudging the crop box could still generate many real uploads, and a legitimate user could hit the rate limit's cap after only a few adjustments. Dragging/resizing the crop box is now purely local, exactly like the moderator's crop page has always worked. The original image still uploads immediately when picked or fetched (the source of truth a moderator can re-crop from later) — only the cropped result is deferred, uploading exactly once, when the request is submitted, using whatever framing the crop box shows at that moment
+
+### Developer
+- `POST /api/event-request/upload-image` now serves two call shapes under one endpoint: an original-only call (right after pick/fetch) mints a fresh `imageToken` and uses the original as the initial, uncropped image too; a crop call at Submit reuses an existing `imageToken` (validated as a 32-hex-character token this endpoint itself generates, never an arbitrary caller-supplied key) to save the final crop under the same key, leaving the preserved original untouched
+- `public/app.js`: `imageFileInput`'s change handler and `fetchImageUrlBtn`'s click handler now upload the original immediately; Cropper's `ready`/`cropend` callbacks no longer upload anything; `handleSubmit` reads the current crop via `cropper.getCroppedCanvas(...)` and uploads it once, reusing the already-issued token, before creating the event request
+- Reverted the 2.25.1 `previousToken` supersession-delete logic (`src/api/server.js`, `public/app.js`) — with the crop uploading only once per submission, there's nothing left to supersede
+- `tests/e2e/event-image-crop.spec.js` and `tests/e2e/image-url-crop.spec.js` updated to assert exactly one upload at pick/fetch, zero further uploads no matter how many times the crop box is adjusted, and exactly one more at Submit; `tests/eventCropRoute.test.js` updated for the new original-upload/crop-upload split
+
 ## 2.25.1 - 2026-08-31
 
 ### Fixed

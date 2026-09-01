@@ -27,12 +27,17 @@ function startImageServer({ contentType = 'image/png', body = TEST_PNG_BUFFER, s
   });
 }
 
-test('pasting an image URL and clicking Fetch & Crop loads it into the same crop UI a file upload uses', async ({ page }) => {
+test('pasting an image URL and clicking Fetch & Crop uploads the original immediately, then loads it into the same crop UI a file upload uses', async ({ page }) => {
   const { server, url } = await startImageServer();
   try {
     await loginAs(page, { userId: MEMBER_ID, guildId: GUILD_SIMPLE.id });
     await page.goto(`/?e2eGuildId=${GUILD_SIMPLE.id}`);
     await resetRateLimit(page);
+
+    const uploadResponses = [];
+    page.on('response', (res) => {
+      if (res.url().includes('/api/event-request/upload-image')) uploadResponses.push(res);
+    });
 
     await expect(page.locator('#image-crop-group')).toBeHidden();
 
@@ -43,14 +48,20 @@ test('pasting an image URL and clicking Fetch & Crop loads it into the same crop
     await expect(page.locator('#image-picker-group')).toBeHidden();
     await expect(page.locator('#image-url-group')).toBeHidden();
     await expect(page.locator('.cropper-container')).toBeVisible();
-
     await expect(page.locator('#image-upload-status')).toContainText('Image uploaded', { timeout: 5000 });
-    await expect(page.locator('#image-upload-status')).toHaveClass(/success/);
+
+    // Fetching the URL uploads the ORIGINAL right away (the source of
+    // truth a moderator's crop-link page later re-crops from) — exactly
+    // one request. Cropping itself (public/crop/crop.js's pattern,
+    // mirrored here) stays purely local until Submit.
+    expect(uploadResponses.length).toBe(1);
 
     await fillRequiredFields(page);
     await page.locator('#submit-btn').click();
 
     await expect(page.locator('#form-message')).toContainText('submitted successfully');
+    // Submit uploads the crop under the same token — a second request.
+    expect(uploadResponses.length).toBe(2);
   } finally {
     server.close();
   }

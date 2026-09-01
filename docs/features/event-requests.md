@@ -355,9 +355,9 @@ Text and voice whitelists are **independent**:
 5. **Wait for moderator approval**
 
 ::: tip Event Image
-Uploading a file happens immediately when you pick it, before you submit the rest of the form — this surfaces upload problems (wrong file type, too large) right away instead of at final submission. PNG, JPEG, GIF, and WebP are supported, up to 8MB. If you'd rather not upload a file, paste a direct image URL and click **Fetch & Crop** instead. Providing neither is fine too — moderators can always add or change the image when they approve your request (see below).
+Picking a file (PNG, JPEG, GIF, or WebP, up to 8MB) or pasting a direct image URL and clicking **Fetch & Crop** both upload it right away and load it into a crop tool, pre-framed to match Discord's event cover shape. Providing neither is fine too — moderators can always add or change the image when they approve your request (see below).
 
-Either way, a crop tool appears automatically, pre-framed to match Discord's event cover shape — you can submit right away or drag to adjust the framing first. If you change your mind about the image, click **Change Image** to clear it and pick a different file or URL.
+Drag to adjust the framing as much as you like — this only updates the preview, not the server, so there's no limit on how many times you re-adjust it. The final framing is uploaded once you submit the form. If you change your mind about the image entirely, click **Change Image** to clear it and pick a different file or URL.
 :::
 
 ::: tip Channel Selection

@@ -29,13 +29,96 @@ let guildConfig = null;
 let uploadedImageToken = null;
 let cropper = null;
 
-// The raw, uncropped file for the current selection — sent alongside EVERY
-// cropped upload (not just the first), since each debounced re-crop
-// uploads under a brand new placeholder token that replaces
-// uploadedImageToken; whichever token ends up being the one actually
-// submitted needs its own correctly-paired original on the server. null
-// when the current image came from a fetched URL rather than a local file.
+// The raw, uncropped bytes for the current selection (a picked file, or a
+// fetched URL's bytes — see fetchImageUrlBtn's handler, same role either
+// way). Uploaded immediately as the source of truth (see uploadOriginal),
+// then kept around only so a moderator's later re-crop still has it
+// preserved server-side — this variable itself is never re-sent after that
+// first upload. null until an image has been picked/fetched.
 let currentOriginalFile = null;
+
+// Posts to the upload endpoint and records whatever imageToken it returns.
+// Module-scoped (not inside the DOMContentLoaded closure below) so
+// handleSubmit — a top-level function — can call the crop step directly.
+async function sendImageUpload(fields, uploadingMessage) {
+    const imageUploadStatus = document.getElementById('image-upload-status');
+    imageUploadStatus.style.display = 'block';
+    imageUploadStatus.className = 'image-upload-status';
+    imageUploadStatus.textContent = uploadingMessage;
+
+    try {
+        const fileData = new FormData();
+        for (const [key, value] of Object.entries(fields)) {
+            fileData.append(key, value);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/event-request/upload-image`, {
+            method: 'POST',
+            credentials: 'include',
+            body: fileData
+        });
+
+        // A reverse proxy in front of the API (nginx, etc.) can reject an
+        // oversized upload before it ever reaches the bot, returning its
+        // own HTML error page instead of the bot's normal JSON response
+        // (e.g. a 413 from nginx's default 1MB body size limit) — treat
+        // that as a clear "too large" message instead of a confusing
+        // JSON-parse failure.
+        let data;
+        try {
+            data = await response.json();
+        } catch {
+            throw new Error(response.status === 413
+                ? 'Image is too large for this server to accept.'
+                : `Upload failed (server returned ${response.status}).`);
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to upload image');
+        }
+
+        uploadedImageToken = data.imageToken;
+        imageUploadStatus.className = 'image-upload-status success';
+        imageUploadStatus.textContent = '✅ Image uploaded';
+        return true;
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        imageUploadStatus.className = 'image-upload-status error';
+        imageUploadStatus.textContent = `❌ ${error.message}`;
+        return false;
+    }
+}
+
+// Uploads the raw, uncropped file/URL bytes right after they're picked or
+// fetched — this is the source-of-truth "original" a moderator's crop-link
+// page later re-crops from. Mints a fresh imageToken (the server uses the
+// original itself as the initial, uncropped image too, so a valid image
+// exists immediately even if the requester never touches the crop box).
+function uploadOriginal(file) {
+    return sendImageUpload({ original: file }, 'Uploading image...');
+}
+
+// Reads the crop box's current framing into a blob and uploads it under the
+// EXISTING imageToken from uploadOriginal — the single point where a crop
+// actually gets sent to the server, called once from handleSubmit rather
+// than on every crop-box adjustment (dragging/resizing in between is purely
+// local Cropper.js rendering, no network calls at all). Mirrors how the
+// moderator's crop page (public/crop/crop.js) only uploads once, on Save.
+function uploadCurrentCrop() {
+    if (!cropper) return Promise.resolve(true);
+    return new Promise((resolve) => {
+        cropper.getCroppedCanvas({ width: 1280, height: 720 }).toBlob(async (blob) => {
+            if (!blob) {
+                resolve(true);
+                return;
+            }
+            resolve(await sendImageUpload(
+                { image: blob, imageToken: uploadedImageToken || '' },
+                'Uploading cropped image...'
+            ));
+        }, 'image/jpeg', 0.9);
+    });
+}
 
 // Module-scoped (not inside the DOMContentLoaded closure below) so both
 // the image-picker event handlers AND handleSubmit's post-submit cleanup
@@ -140,81 +223,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const imageUploadStatus = document.getElementById('image-upload-status');
     const imageCropTarget = document.getElementById('image-crop-target');
 
-    // Uploads a given image blob (the cropped output, not necessarily the
-    // raw selected file) and records the returned token. Shared by the
-    // initial auto-crop-and-upload on image load (file OR fetched URL) and
-    // every subsequent re-crop-and-re-upload.
-    async function uploadImageBlob(blob) {
-        imageUploadStatus.style.display = 'block';
-        imageUploadStatus.className = 'image-upload-status';
-        imageUploadStatus.textContent = 'Uploading image...';
-
-        try {
-            const fileData = new FormData();
-            fileData.append('image', blob, 'event-image.jpg');
-            if (currentOriginalFile) {
-                fileData.append('original', currentOriginalFile);
-            }
-            // Tells the server which prior upload this one replaces, so it
-            // can delete it instead of leaving it orphaned on disk — every
-            // re-crop otherwise uploads under a brand new token with nothing
-            // linking it to the one it superseded.
-            if (uploadedImageToken) {
-                fileData.append('previousToken', uploadedImageToken);
-            }
-
-            const response = await fetch(`${API_BASE_URL}/event-request/upload-image`, {
-                method: 'POST',
-                credentials: 'include',
-                body: fileData
-            });
-
-            // A reverse proxy in front of the API (nginx, etc.) can reject an
-            // oversized upload before it ever reaches the bot, returning its
-            // own HTML error page instead of the bot's normal JSON response
-            // (e.g. a 413 from nginx's default 1MB body size limit) — treat
-            // that as a clear "too large" message instead of a confusing
-            // JSON-parse failure.
-            let data;
-            try {
-                data = await response.json();
-            } catch {
-                throw new Error(response.status === 413
-                    ? 'Image is too large for this server to accept.'
-                    : `Upload failed (server returned ${response.status}).`);
-            }
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to upload image');
-            }
-
-            uploadedImageToken = data.imageToken;
-            imageUploadStatus.className = 'image-upload-status success';
-            imageUploadStatus.textContent = '✅ Image uploaded';
-        } catch (error) {
-            console.error('Error uploading image:', error);
-            imageUploadStatus.className = 'image-upload-status error';
-            imageUploadStatus.textContent = `❌ ${error.message}`;
-        }
-    }
-
-    function uploadCurrentCrop() {
-        if (!cropper) return;
-        cropper.getCroppedCanvas({ width: 1280, height: 720 }).toBlob(blob => {
-            if (blob) uploadImageBlob(blob);
-        }, 'image/jpeg', 0.9);
-    }
-
-    let cropUploadDebounceTimer = null;
-    function scheduleUploadCurrentCrop() {
-        clearTimeout(cropUploadDebounceTimer);
-        cropUploadDebounceTimer = setTimeout(uploadCurrentCrop, 800);
-    }
-
     // Loads image bytes (a data: URL or a File-derived data: URL, either
     // way a same-origin-safe string readable by canvas) into the shared
     // cropper — the single entry point both the file-select and
-    // fetch-URL-then-crop paths funnel into.
+    // fetch-URL-then-crop paths funnel into, called only after the original
+    // has already been uploaded (see uploadOriginal). Dragging/resizing the
+    // crop box from here on is purely local Cropper.js rendering — nothing
+    // in this function or the callbacks below uploads anything; the crop is
+    // only read and uploaded once, at submit time (see
+    // uploadCurrentCrop/handleSubmit), the same way the moderator's crop
+    // page (public/crop/crop.js) only uploads once, on Save.
     function loadImageIntoCropper(imageSrc) {
         imagePickerGroup.style.display = 'none';
         imageUrlGroup.style.display = 'none';
@@ -224,15 +242,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             aspectRatio: 16 / 9,
             viewMode: 1,
             autoCropArea: 1,
-            ready() {
-                // Upload the initial auto-crop right away so a user who
-                // never touches the crop box still gets a working
-                // upload — cropping is optional, not mandatory.
-                uploadCurrentCrop();
-            },
-            cropend() {
-                scheduleUploadCurrentCrop();
-            },
         });
     }
 
@@ -283,12 +292,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // The fetched (pre-crop) bytes are this image's "original", same
             // role a locally-picked file's raw bytes play — convert the
-            // data: URL back to a Blob so it can be sent as a normal
-            // multipart field alongside the eventual cropped upload. This
-            // resolves locally (no real network request — data: URIs are
-            // decoded in-browser), so it works offline too.
+            // data: URL back to a Blob so it can be uploaded as the source
+            // of truth right away (see uploadOriginal). This resolves
+            // locally (no real network request — data: URIs are decoded
+            // in-browser), so it works offline too.
             const originalResponse = await fetch(data.dataUrl);
             currentOriginalFile = await originalResponse.blob();
+
+            const uploaded = await uploadOriginal(currentOriginalFile);
+            if (!uploaded) return;
+
             loadImageIntoCropper(data.dataUrl);
         } catch (error) {
             console.error('Error fetching image URL:', error);
@@ -306,7 +319,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentOriginalFile = imageFileInput.files[0];
 
         const reader = new FileReader();
-        reader.onload = () => loadImageIntoCropper(reader.result);
+        reader.onload = async () => {
+            const uploaded = await uploadOriginal(currentOriginalFile);
+            if (!uploaded) return;
+
+            loadImageIntoCropper(reader.result);
+        };
         reader.readAsDataURL(imageFileInput.files[0]);
     });
 
@@ -666,8 +684,8 @@ async function handleSubmit(e) {
         startTime: combineDateTimeToISO('start-date', 'start-time'),
         endTime: combineDateTimeToISO('end-date', 'end-time'),
         frequency: document.getElementById('frequency').value || null,
-        imageToken: uploadedImageToken || null,
-        imageUrl: uploadedImageToken ? null : (document.getElementById('event-image-url').value.trim() || null),
+        imageToken: null, // set below, after the current crop (if any) uploads
+        imageUrl: cropper ? null : (document.getElementById('event-image-url').value.trim() || null),
         submitterUsername: currentUser.discriminator === '0'
             ? currentUser.username
             : `${currentUser.username}#${currentUser.discriminator}`,
@@ -704,6 +722,26 @@ async function handleSubmit(e) {
         }
     }
     
+    // The original was already uploaded as the source of truth right when
+    // it was picked/fetched (see uploadOriginal). The crop is uploaded here,
+    // once, using whatever framing the crop box currently shows — not on
+    // every drag while editing (see uploadCurrentCrop/sendImageUpload,
+    // module-scoped above) — and reuses that same imageToken, so the
+    // original stays preserved alongside it. This mirrors how the
+    // moderator's crop page (public/crop/crop.js) only uploads on Save,
+    // never while dragging.
+    if (cropper) {
+        submitBtn.textContent = 'Uploading image...';
+        const uploaded = await uploadCurrentCrop();
+        if (!uploaded) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Request';
+            return;
+        }
+        formData.imageToken = uploadedImageToken;
+        submitBtn.textContent = 'Submitting...';
+    }
+
     try {
         const response = await fetch(`${API_BASE_URL}/event-request`, {
             method: 'POST',
