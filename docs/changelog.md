@@ -5,6 +5,12 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.25.5 - 2026-09-02
+
+### Developer
+- **Fixed `tests/event-request-system.test.js`'s long-standing flaky/failing tests — the full test suite is now 100% green (809 tests across 71 files, zero known failures).** Root causes: several tests mocked `guildConfig.js` from inside individual test bodies with only a few of its real exports stubbed and no `jest.resetModules()` between tests, so one test's incomplete mock leaked forward through Jest's shared ESM module registry and broke every later test that touched anything depending on it, in an order-dependent way; the mock guild's `channels.cache` was a plain `Map` instead of discord.js's `Collection` class real code calls `.filter()`/`.map()` on; several tests were missing required fields or mock methods (`guild.members.fetch`, `interaction.deferReply`/`editReply`/`showModal`); a few assertions tested stale behavior that never matched the real code (e.g. expecting `deny_event_` to delete the request immediately, when it only opens a reason modal — already correctly covered elsewhere); and the rate-limit test wasn't pinning a `Host` header, so per-request ephemeral ports defeated the host+IP-keyed limiter
+- Replaced the partial per-test `guildConfig.js` mocks with the real module backed by a cleaned-up `guild_configs/` temp directory (same pattern already used by `eventCropRoute.test.js`), using `saveGuildConfig` to set up specific states where a test needs one; fixed all mock shapes; corrected stale assertions; stubbed OAuth env vars in a scoped `beforeAll`/`afterAll` for the `OAuth Configuration Validation` block, which previously asserted directly on `process.env` with no guard and only passed on a machine with a real `.env` configured
+
 ## 2.25.4 - 2026-09-01
 
 ### Added
