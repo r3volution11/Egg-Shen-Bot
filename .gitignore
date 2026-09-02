@@ -29,6 +29,9 @@ pending_event_channel_selections.json
 # Event request images (user-uploaded, runtime state)
 event_request_images/
 
+# Bot status quotes (runtime state, editable via /quotes-admin)
+movie_quotes.json
+
 # Playwright e2e output
 /test-results/
 /playwright-report/

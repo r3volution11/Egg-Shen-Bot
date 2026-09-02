@@ -5,6 +5,18 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.25.4 - 2026-09-01
+
+### Added
+- **The bot's rotating status text can now be edited from a web page (`/quotes-admin`) instead of code + a redeploy.** Gated by a shared secret you set per deployment (`QUOTES_ADMIN_SECRET`, same idea as `EVENT_CROP_LINK_SECRET`) — useful since this bot is meant to be run by other server owners too, not just edited by whoever maintains the code. Add, edit, or delete status lines from a simple list; changes are picked up at the bot's next scheduled rotation, no restart needed. See `QUOTES_ADMIN_SETUP.md`
+
+### Developer
+- New `src/utils/movieQuotesStore.js` — JSON-file-backed (`movie_quotes.json`, gitignored) quote list with `loadQuotes`/`setQuotes`/`addQuote`/`updateQuote`/`deleteQuote`, mirroring `guildConfig.js`/`eventImageStore.js`'s existing read/write shape; seeds itself from `movieQuotes.js`'s array the first time the file doesn't exist yet
+- `presenceScheduler.js`'s `setRandomQuote` now reads via `movieQuotesStore.loadQuotes()` on every hourly tick instead of a static import, so edits take effect without a restart; falls back to one built-in default if the list is ever emptied out
+- `src/api/server.js`: new `requireQuotesAdmin` middleware (checks a `Bearer` token or `X-Admin-Secret` header against `QUOTES_ADMIN_SECRET`, 401/403 on mismatch, 503 if unset) gating new `GET/POST/PUT/DELETE /api/quotes*` routes; `GET /quotes-admin` serves the page itself (unauthenticated at the route level — the API calls are what's actually gated); new `/quotes-assets` static mount, same pattern as `/crop-assets`; a dedicated rate limiter (20/min) on the admin routes
+- New `public/quotes-admin/` (`quotes-admin.html`/`.js`/`.css`) — a small list-editing page modeled on `public/crop/`'s structure and visual style; the admin secret is kept in page memory only (no cookie/localStorage), re-entered each visit
+- New tests: `tests/movieQuotesStore.test.js` (13 tests), `tests/quotesAdminRoutes.test.js` (11 tests, auth + CRUD); `tests/presenceScheduler.test.js` updated for the now-async, store-backed `setRandomQuote`
+
 ## 2.25.3 - 2026-09-01
 
 ### Added

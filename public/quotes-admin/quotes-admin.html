@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Status Quotes</title>
+    <link rel="stylesheet" href="/quotes-assets/quotes-admin.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Bot Status Quotes</h1>
+            <p class="subtitle">Manage the rotating text shown as the bot's Discord status</p>
+        </header>
+
+        <div id="unlock-section">
+            <div class="form-group">
+                <label for="admin-secret">Admin Secret</label>
+                <input type="password" id="admin-secret" placeholder="Enter the admin secret" autocomplete="off">
+            </div>
+            <button type="button" id="unlock-btn" class="btn btn-submit">Unlock</button>
+            <div id="unlock-message" class="message" style="display:none;"></div>
+        </div>
+
+        <div id="editor-section" style="display:none;">
+            <div id="add-quote-row">
+                <input type="text" id="new-quote-text" placeholder="Add a new status line...">
+                <button type="button" id="add-quote-btn" class="btn btn-primary">Add</button>
+            </div>
+
+            <ul id="quote-list"></ul>
+
+            <div id="empty-state" style="display:none;">
+                <p>No quotes yet — add one above.</p>
+            </div>
+
+            <div id="editor-message" class="message" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script src="/quotes-assets/quotes-admin.js"></script>
+</body>
+</html>

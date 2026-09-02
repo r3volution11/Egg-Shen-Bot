@@ -16,6 +16,7 @@ import {
 } from '../utils/eventImageStore.js';
 import { signCropToken, verifyCropToken, consumeCropToken } from '../utils/cropLinkToken.js';
 import { fetchImageUrl } from '../utils/fetchImageUrl.js';
+import { loadQuotes, addQuote, updateQuote, deleteQuote } from '../utils/movieQuotesStore.js';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -203,6 +204,18 @@ export function createApiServer(client) {
     windowMs: 5 * 60 * 1000,
     max: 5,
     message: { error: 'Too many image uploads. Please wait a few minutes before trying again.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: hostAndIpKeyGenerator,
+  });
+
+  // Rate limiting for the quotes-admin API (20 per minute per IP, per
+  // domain — generous for normal editing, tight enough to bound brute-
+  // forcing QUOTES_ADMIN_SECRET)
+  const quotesAdminLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    message: { error: 'Too many requests. Please try again in a minute.' },
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: hostAndIpKeyGenerator,
@@ -753,6 +766,80 @@ export function createApiServer(client) {
         res.status(500).json({ error: 'Failed to save cropped image' });
       }
     });
+  });
+
+  // Serve the quotes-admin page's own JS/CSS from a scoped subfolder, same
+  // reasoning as /crop-assets above — avoids exposing a blanket
+  // express.static('public') mount as a side effect.
+  app.use('/quotes-assets', express.static(path.join(__dirname, '../../public/quotes-admin')));
+
+  // Gates the quotes-admin API routes behind a single shared secret set via
+  // QUOTES_ADMIN_SECRET — this bot is meant to be run by other server
+  // owners, not just this one, so auth here can't assume a specific
+  // Discord server/role; a per-deployment secret (same pattern as
+  // EVENT_CROP_LINK_SECRET) is the simplest thing that works for anyone
+  // self-hosting. The page itself (GET /quotes-admin) is unauthenticated —
+  // it's just a static shell with a password prompt; every actual read/
+  // write goes through this middleware.
+  function requireQuotesAdmin(req, res, next) {
+    const configuredSecret = process.env.QUOTES_ADMIN_SECRET;
+    if (!configuredSecret) {
+      return res.status(503).json({ error: 'Quote editing is not configured on this server (QUOTES_ADMIN_SECRET is not set).' });
+    }
+
+    const authHeader = req.get('authorization') || '';
+    const bearerMatch = authHeader.match(/^Bearer (.+)$/);
+    const providedSecret = bearerMatch ? bearerMatch[1] : req.get('x-admin-secret');
+
+    if (!providedSecret || providedSecret !== configuredSecret) {
+      return res.status(401).json({ error: 'Invalid or missing admin secret.' });
+    }
+
+    next();
+  }
+
+  // Quotes-admin page shell — unauthenticated at the route level (see
+  // requireQuotesAdmin above for why); loads and prompts for the secret
+  // client-side before making any API call.
+  app.get('/quotes-admin', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../public/quotes-admin/quotes-admin.html'));
+  });
+
+  app.get('/api/quotes', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
+    try {
+      const quotes = await loadQuotes();
+      res.json({ quotes });
+    } catch (error) {
+      console.error('[API] Error loading quotes:', error);
+      res.status(500).json({ error: 'Failed to load quotes' });
+    }
+  });
+
+  app.post('/api/quotes', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
+    try {
+      const quotes = await addQuote(req.body.text);
+      res.json({ quotes });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/quotes/:index', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
+    try {
+      const quotes = await updateQuote(Number(req.params.index), req.body.text);
+      res.json({ quotes });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/quotes/:index', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
+    try {
+      const quotes = await deleteQuote(Number(req.params.index));
+      res.json({ quotes });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
   });
 
   // Submit event request
