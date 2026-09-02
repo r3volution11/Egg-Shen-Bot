@@ -18,6 +18,7 @@ import fs from 'fs';
 import path from 'path';
 import { execute } from '../src/commands/bracket.js';
 import { updateCommandPermission } from '../src/utils/guildConfig.js';
+import { config } from '../src/config.js';
 
 const GUILD_ID = 'bracket-command-toggle-test-guild';
 const CONFIG_DIR = path.join(process.cwd(), 'guild_configs');
@@ -98,5 +99,35 @@ describe('/bracket respects the commandPermissions.bracket toggle', () => {
     expect(interaction.reply).not.toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringContaining('currently disabled') })
     );
+  });
+});
+
+describe('/bracket help footer respects DOCS_URL', () => {
+  const ORIGINAL_DOCS_URL = config.docsUrl;
+
+  afterEach(() => {
+    config.docsUrl = ORIGINAL_DOCS_URL;
+  });
+
+  test('defaults to eggshenbot.com when DOCS_URL is unset', async () => {
+    config.docsUrl = 'https://eggshenbot.com';
+    const interaction = makeInteraction({ subcommand: 'help', isAdmin: true });
+
+    await execute(interaction);
+
+    const call = interaction.reply.mock.calls.find(c => c[0].embeds);
+    const footerText = call[0].embeds[0].data.footer.text;
+    expect(footerText).toBe('Full documentation: eggshenbot.com/commands/brackets');
+  });
+
+  test('uses a self-hoster\'s configured DOCS_URL when set', async () => {
+    config.docsUrl = 'https://my-own-docs.example.com';
+    const interaction = makeInteraction({ subcommand: 'help', isAdmin: true });
+
+    await execute(interaction);
+
+    const call = interaction.reply.mock.calls.find(c => c[0].embeds);
+    const footerText = call[0].embeds[0].data.footer.text;
+    expect(footerText).toBe('Full documentation: my-own-docs.example.com/commands/brackets');
   });
 });

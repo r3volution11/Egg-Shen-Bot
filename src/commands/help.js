@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { isAdmin, canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { config } from '../config.js';
 
 export const data = new SlashCommandBuilder()
   .setName('eggshen-help')
@@ -18,7 +19,7 @@ export async function execute(interaction) {
     soundtrackAllowed,
     surveyAllowed,
     bracketAllowed,
-    config,
+    guildConfig,
   ] = await Promise.all([
     canUseCommand(interaction.guildId, interaction.member, 'movie'),
     canUseCommand(interaction.guildId, interaction.member, 'tv'),
@@ -35,7 +36,7 @@ export async function execute(interaction) {
   // AI image generation has its own separate config block (not part of
   // commandPermissions) - mirror canGenerateImage's own fallback exactly so
   // this never disagrees with the real enforcement logic.
-  const aiConfig = config.aiImages || { enabled: true, permissions: 'everyone' };
+  const aiConfig = guildConfig.aiImages || { enabled: true, permissions: 'everyone' };
   const imageAllowed = aiConfig.enabled;
 
   function buildCategory(entries) {
@@ -114,7 +115,7 @@ export async function execute(interaction) {
       name: '❓ Help & Info',
       value:
         '**❓ /eggshen-help** - This help message\n' +
-        '**📖 Full Documentation:** [eggshenbot.com](https://eggshenbot.com)',
+        `**📖 Full Documentation:** [${config.docsUrl.replace(/^https?:\/\//, '')}](${config.docsUrl})`,
       inline: false,
     }
   );

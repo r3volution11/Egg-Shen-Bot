@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import { execute } from '../src/commands/help.js';
 import { updateCommandPermission, loadGuildConfig, saveGuildConfig } from '../src/utils/guildConfig.js';
+import { config } from '../src/config.js';
 
 const GUILD_ID = 'help-command-test-guild';
 const CONFIG_DIR = path.join(process.cwd(), 'guild_configs');
@@ -113,6 +114,37 @@ describe('/eggshen-help hides individually disabled commands', () => {
 
     expect(value).not.toContain('/bracket');
     expect(value).toContain('/survey');
+  });
+});
+
+describe('/eggshen-help Full Documentation link', () => {
+  const ORIGINAL_DOCS_URL = config.docsUrl;
+
+  afterEach(() => {
+    config.docsUrl = ORIGINAL_DOCS_URL;
+  });
+
+  test('defaults to eggshenbot.com when DOCS_URL is unset', async () => {
+    config.docsUrl = 'https://eggshenbot.com';
+
+    const embed = await runHelpAndGetEmbed(makeInteraction());
+    const value = fieldValue(embed, '❓ Help & Info');
+    expect(value).toContain('[eggshenbot.com](https://eggshenbot.com)');
+  });
+
+  test('uses a self-hoster\'s configured DOCS_URL when set', async () => {
+    config.docsUrl = 'https://my-own-docs.example.com';
+
+    let captured;
+    await execute({
+      guildId: GUILD_ID,
+      member: makeMember(),
+      reply: async (payload) => { captured = payload; },
+    });
+
+    const value = fieldValue(captured.embeds[0], '❓ Help & Info');
+    expect(value).toContain('[my-own-docs.example.com](https://my-own-docs.example.com)');
+    expect(value).not.toContain('eggshenbot.com');
   });
 });
 

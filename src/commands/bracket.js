@@ -7,6 +7,7 @@ import { searchBoardGames } from '../services/bggService.js';
 import { searchBooks } from '../services/googleBooksService.js';
 import { hybridSearch } from '../services/aiService.js';
 import { loadGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
+import { config } from '../config.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -777,7 +778,7 @@ async function handleHelp(interaction) {
         inline: false
       }
     )
-    .setFooter({ text: 'Full documentation: eggshenbot.com/commands/brackets' });
+    .setFooter({ text: `Full documentation: ${config.docsUrl.replace(/^https?:\/\//, '')}/commands/brackets` });
   
   await interaction.reply({ embeds: [embed], ephemeral: true });
 }

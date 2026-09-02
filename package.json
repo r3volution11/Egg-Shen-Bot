@@ -28,7 +28,7 @@
     "ratings"
   ],
   "author": "",
-  "license": "CC-BY-NC-SA-4.0",
+  "license": "MIT",
   "dependencies": {
     "@napi-rs/canvas": "^1.0.1",
     "axios": "^1.6.8",

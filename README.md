@@ -6,7 +6,7 @@ A feature-rich Discord bot for searching and discovering entertainment across **
 
 **📚 [Full Documentation](https://r3volution11.github.io/Egg-Shen-Bot/)**
 
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![Discord.js](https://img.shields.io/badge/discord.js-v14-blue)](https://discord.js.org/)
 
@@ -158,18 +158,7 @@ The codebase is structured for extensibility:
 
 ## 📄 License
 
-This work is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
-
-**You are free to:**
-- **Share** — Copy and redistribute the material
-- **Adapt** — Remix, transform, and build upon the material
-
-**Under these terms:**
-- **Attribution** — Give appropriate credit and link to the license
-- **NonCommercial** — You may not use this for commercial purposes
-- **ShareAlike** — Distribute your contributions under the same license
-
-See [LICENSE](LICENSE) for full details.
+This project is licensed under the [MIT License](LICENSE) — free to use, modify, and self-host, with no strings attached.
 
 ---
 
