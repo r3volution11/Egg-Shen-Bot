@@ -238,9 +238,9 @@ Try these commands in your server:
 
 ### Bot doesn't respond to commands
 
-1. Make sure you ran `npm run register-commands`
+1. Make sure you ran `npm run deploy-commands`
 2. Check the bot has proper permissions in your server
-3. Verify the bot token in `config/config.json`
+3. Verify `DISCORD_TOKEN` in your `.env` file
 
 ### API errors
 

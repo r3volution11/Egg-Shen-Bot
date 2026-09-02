@@ -127,6 +127,12 @@ TMDB_API_KEY=your_tmdb_api_key
 
 ---
 
+## 🏠 Self-Hosting
+
+Every instance of this bot is independent. When you follow the [Installation Guide](https://r3volution11.github.io/Egg-Shen-Bot/installation), you create your **own** Discord application in your **own** Discord Developer Portal account, run it on your **own** server, and store your **own** data (server settings, timers, tournaments — all in local files/directories your instance controls). There's no shared backend, no central account, and no ongoing connection back to the original project — the original maintainer has no access to, or control over, your bot once it's running.
+
+If you only want the core bot on a single Discord server, the [Installation Guide](https://r3volution11.github.io/Egg-Shen-Bot/installation) is all you need — it explicitly calls out the minimum steps and skips anything you don't need. The optional [Event Requests feature](https://r3volution11.github.io/Egg-Shen-Bot/features/event-requests) (a public web form for event requests) has its own setup guide, including a pattern for running it across multiple Discord communities from one bot process if you moderate more than one server.
+
 ## 🎨 Customization & Building Your Own
 
 Egg Shen Bot is designed to be a **starting point for your own entertainment bot**! Feel free to:

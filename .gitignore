@@ -32,6 +32,11 @@ event_request_images/
 # Bot status quotes (runtime state, editable via /quotes-admin)
 movie_quotes.json
 
+# Real copies made from templates/ during setup (the templates themselves
+# stay tracked — see templates/README.md)
+/event_request_config.json
+/.env.production-testing
+
 # Playwright e2e output
 /test-results/
 /playwright-report/

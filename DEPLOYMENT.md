@@ -170,6 +170,25 @@ npm install  # If dependencies changed
 pm2 restart egg-shen-bot
 ```
 
+### About `ecosystem.config.js`
+
+This is PM2's config file for the bot process — every `pm2` command above (`start`, `restart`, `stop`, `logs`) targets the process it defines:
+
+```js
+module.exports = {
+  apps: [{
+    name: 'egg-shen-bot',        // process name — what you pass to pm2 commands
+    script: 'src/index.js',
+    max_memory_restart: '500M',  // restart the process if it exceeds this
+    error_file: 'logs/error.log',
+    out_file: 'logs/out.log',
+    // ...
+  }]
+};
+```
+
+If you're running more than one bot (or more than one instance of this bot) on the same server, give each its own `name` here — PM2 tracks processes by name, and every `pm2 restart`/`pm2 logs`/`pm2 stop` command in this guide would otherwise need updating to match whatever name you chose.
+
 ## Troubleshooting
 
 **Bot not responding:**

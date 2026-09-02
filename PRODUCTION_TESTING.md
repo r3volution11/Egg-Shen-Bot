@@ -1,23 +1,23 @@
-# Testing Event Requests on Production Server
+# Testing Event Requests on a Real Server
 
-This guide walks through testing the event request system on your production server (YOUR_SERVER_IP) using your test Discord server.
+This guide walks through testing the [Event Requests feature](EVENT_REQUEST_SETUP.md) on a real server (`YOUR_SERVER_IP`) using a test Discord server, before enabling it for a real community.
 
-> For fast local iteration on the form/API contract before doing a full production
+> For fast local iteration on the form/API contract before doing a full
 > OAuth walkthrough like this one, see the automated Playwright suite in
 > [`tests/e2e/README.md`](tests/e2e/README.md) — no server or real Discord app needed.
 
 ## Overview
 
 You want to:
-1. ✅ Push code to production server
-2. ✅ Test event requests with your test Discord server first
-3. ✅ Once working, enable for other servers (like your production servers)
+1. ✅ Push code to your server
+2. ✅ Test event requests with a test Discord server first
+3. ✅ Once working, enable it for the real community/communities you moderate
 
 ## Prerequisites
 
-- [ ] Code changes committed and pushed to GitHub
-- [ ] Discord Client Secret from Developer Portal
-- [ ] Access to production server (YOUR_SERVER_IP)
+- [ ] Code changes committed and pushed
+- [ ] Discord Client Secret from the Developer Portal
+- [ ] SSH access to your server (`YOUR_SERVER_IP`)
 
 ## Step 1: Update Discord Developer Portal
 
@@ -31,9 +31,9 @@ You want to:
 Keep your existing `http://localhost:3000/api/auth/discord/callback` for local development!
 :::
 
-## Step 2: Update Production Server .env
+## Step 2: Update Your Server's .env
 
-SSH into your production server:
+SSH into your server:
 
 ```bash
 ssh root@YOUR_SERVER_IP
@@ -53,10 +53,10 @@ FORM_URL=http://YOUR_SERVER_IP:8080
 ALLOWED_ORIGINS=http://YOUR_SERVER_IP:8080,https://yourdomain.com
 ```
 
-::: tip Use Template
-You can use `.env.production-testing` as a template:
+::: tip Use the Template
+[`templates/.env.production-testing.example`](templates/.env.production-testing.example) is pre-filled with the extra variables this feature needs:
 ```bash
-cat .env.production-testing
+cat templates/.env.production-testing.example
 # Copy the relevant lines to your .env
 ```
 :::
@@ -72,7 +72,7 @@ git commit -m "Add event request system"
 git push origin main
 ```
 
-On production server:
+On your server:
 
 ```bash
 cd /opt/discord-bot
@@ -207,9 +207,9 @@ ALLOWED_ORIGINS=http://YOUR_SERVER_IP:8080,https://yourdomain.com
 
 Restart after changing: `pm2 restart egg-shen-bot`
 
-## Next Steps: Adding Production Servers
+## Next Steps: Adding Real Servers
 
-Once testing is successful, you can add other servers:
+Once testing is successful, you can enable the feature for a real community — and, per [Event Requests setup's "Multiple Servers" section](EVENT_REQUEST_SETUP.md#multiple-servers), repeat this for as many Discord communities as you moderate, each with its own domain/subdomain.
 
 ### For yourdomain.com
 
@@ -228,11 +228,11 @@ Once testing is successful, you can add other servers:
 3. **Update Discord Developer Portal:**
    - Add: `https://yourdomain.com/api/auth/discord/callback`
 
-4. **Configure a production Discord server:**
+4. **Configure the Discord server:**
    ```
    /eggshen-config-events event-requests toggle enabled:true
    /eggshen-config-events event-requests moderation-channel channel:#their-mod-channel
-   /eggshen-config-events event-requests server-name name:"Your Production Server"
+   /eggshen-config-events event-requests server-name name:"Your Server Name"
    /eggshen-config-events event-requests website-url url:https://yourdomain.com
    /eggshen-config-events event-requests invite-url url:https://discord.gg/your-invite-code
    /eggshen-config-events event-requests get-link
@@ -268,11 +268,11 @@ pm2 startup
 
 ## Quick Reference
 
-### Production Server Info
+### Server Info
 - **IP:** YOUR_SERVER_IP
 - **User:** root
 - **Bot Path:** /opt/discord-bot
-- **PM2 Process:** egg-shen-bot
+- **PM2 Process:** egg-shen-bot (see `ecosystem.config.js` — rename here and in every command above if running more than one bot on the same host)
 
 ### Ports
 - **Bot API:** 3000
@@ -306,6 +306,6 @@ cd /opt/discord-bot/public && python3 -m http.server 8080 &
 
 If you run into issues:
 1. Check bot logs: `pm2 logs egg-shen-bot`
-2. Check the detailed setup guide: `EVENT_REQUEST_SETUP.md`
-3. Check VitePress docs: `docs/features/event-requests.md`
+2. Check the detailed setup guide: [`EVENT_REQUEST_SETUP.md`](EVENT_REQUEST_SETUP.md)
+3. Check the hosted docs: [Event Requests feature](https://eggshenbot.com/features/event-requests)
 4. Test locally first if needed

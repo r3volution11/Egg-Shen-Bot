@@ -7,6 +7,12 @@ description: Step-by-step installation instructions for Egg Shen Bot. Learn how 
 
 **Complete installation guide for Egg Shen Bot.** Follow these steps to set up the bot from scratch, including creating your Discord application, obtaining API keys, and getting the bot online.
 
+::: tip Minimum Viable Setup
+Everything on this page gets you a working bot on **one** Discord server. That's it — the steps below don't require a domain, a web server, or any of the multi-server complexity described elsewhere in these docs.
+
+The [Event Requests feature](/features/event-requests) (a public web form where members request watch-party events) is entirely optional, and its [setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md) covers running that form across **multiple** Discord communities from one bot process (e.g. a dev server and a production server, or several communities you moderate) — skip that guide entirely unless you specifically want the web-form feature.
+:::
+
 ## Quick FAQ
 
 **Q: What's the difference between required and optional APIs?**  
@@ -91,34 +97,17 @@ npm install
 
 ### 4. Configure Bot
 
-```bash
-# Copy example config
-cp config/config.example.json config/config.json
-
-# Edit configuration
-nano config/config.json  # or use your preferred editor
-```
-
-**config/config.json structure:**
-```json
-{
-  "discord": {
-    "token": "YOUR_BOT_TOKEN_HERE",
-    "clientId": "YOUR_BOT_CLIENT_ID",
-    "guildId": "YOUR_TEST_SERVER_ID"
-  },
-  "apis": {
-Create a `.env` file in the project root:
+This project is configured entirely through a `.env` file in the project root — there's no separate `config.json` to copy or edit.
 
 ```bash
-# Copy example environment file
+# Copy the example environment file
 cp .env.example .env
 
 # Edit with your API keys
 nano .env  # or use your preferred editor
 ```
 
-**Required .env variables:**
+**Required `.env` variables:**
 ```bash
 # Discord Configuration (Required)
 DISCORD_TOKEN=your_discord_bot_token_here
@@ -137,11 +126,17 @@ BGG_CLIENT_ID=your_bgg_client_id_here
 GUILD_ID=
 ```
 
+See `.env.example` in the repo for the complete list of variables, including ones only needed by optional features (AI images, the event-request web form, Spotify soundtrack links, etc.).
+
 **What happens if optional APIs aren't configured:**
 - `/game` and `/boardgame` commands won't be registered at all - they won't appear in Discord
 - `/random` game/boardgame subcommands will show error messages when used
 - `/similar` will skip unavailable media types (games/board games) in searches
-- Rating displays will have fewer sources without OMDB/TraktOpen URL in browser and invite to your server
+- Rating displays will have fewer sources without OMDB/Trakt
+
+### 5. Invite the Bot to Your Server
+
+If you haven't already (via the URL Generator step above), open the invite URL in your browser and select your server.
 
 ### 6. Register Commands
 
@@ -171,7 +166,7 @@ Test that everything works:
 
 ```
 /movie title:The Matrix
-/help
+/eggshen-help
 ```
 
 If commands appear and work, installation is complete!
@@ -186,7 +181,7 @@ If commands appear and work, installation is complete!
 
 ### Bot immediately crashes
 
-- Check Discord token in config.json
+- Check `DISCORD_TOKEN` in `.env`
 - Check Node.js version: `node --version`
 
 ### API errors
