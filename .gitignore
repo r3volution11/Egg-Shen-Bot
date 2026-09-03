@@ -29,8 +29,15 @@ pending_event_channel_selections.json
 # Event request images (user-uploaded, runtime state)
 event_request_images/
 
-# Bot status quotes (runtime state, editable via /quotes-admin)
+# Bot status quotes (runtime state, editable via /quotes-admin or
+# /eggshen-config-quotes) and the pending quote-suggestion queue
+# (/suggest-quote). The .test.json variants are per-test-file paths (see
+# MOVIE_QUOTES_FILE/MOVIE_QUOTES_PENDING_FILE) used to avoid parallel Jest
+# workers racing on the same real file.
 movie_quotes.json
+movie_quotes_pending.json
+movie_quotes*.test.json
+movie_quotes_pending*.test.json
 
 # Real copies made from templates/ during setup (the templates themselves
 # stay tracked — see templates/README.md)

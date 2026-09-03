@@ -19,6 +19,8 @@ export async function execute(interaction) {
     soundtrackAllowed,
     surveyAllowed,
     bracketAllowed,
+    quoteAllowed,
+    suggestQuoteAllowed,
     guildConfig,
   ] = await Promise.all([
     canUseCommand(interaction.guildId, interaction.member, 'movie'),
@@ -30,6 +32,8 @@ export async function execute(interaction) {
     canUseCommand(interaction.guildId, interaction.member, 'soundtrack'),
     canUseCommand(interaction.guildId, interaction.member, 'survey'),
     canUseCommand(interaction.guildId, interaction.member, 'bracket'),
+    canUseCommand(interaction.guildId, interaction.member, 'quote'),
+    canUseCommand(interaction.guildId, interaction.member, 'suggestQuote'),
     loadGuildConfig(interaction.guildId),
   ]);
 
@@ -100,6 +104,14 @@ export async function execute(interaction) {
   ]);
   if (aiImageGeneration) {
     embed.addFields({ name: '🎨 AI Image Generation', value: aiImageGeneration, inline: false });
+  }
+
+  const quotes = buildCategory([
+    { enabled: quoteAllowed, line: '**🎬 /quote** - Post a random status quote, optionally filtered by title or author' },
+    { enabled: suggestQuoteAllowed, line: '**💬 /suggest-quote** - Suggest a quote for the bot\'s status rotation (reviewed by a moderator)' },
+  ]);
+  if (quotes) {
+    embed.addFields({ name: '🎬 Status Quotes', value: quotes, inline: false });
   }
 
   embed.addFields(

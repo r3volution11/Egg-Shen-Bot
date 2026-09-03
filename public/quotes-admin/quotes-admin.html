@@ -23,18 +23,50 @@
         </div>
 
         <div id="editor-section" style="display:none;">
-            <div id="add-quote-row">
-                <input type="text" id="new-quote-text" placeholder="Add a new status line...">
-                <button type="button" id="add-quote-btn" class="btn btn-primary">Add</button>
+            <div class="tabs">
+                <button type="button" class="tab-btn active" data-tab="live">Quotes</button>
+                <button type="button" class="tab-btn" data-tab="pending">Suggestions <span id="pending-count" class="badge" style="display:none;"></span></button>
             </div>
 
-            <ul id="quote-list"></ul>
+            <div id="live-tab" class="tab-panel">
+                <div class="mode-toggle">
+                    <button type="button" id="mode-rows-btn" class="btn btn-secondary btn-small active">Row Editor</button>
+                    <button type="button" id="mode-bulk-btn" class="btn btn-secondary btn-small">Bulk Editor</button>
+                </div>
 
-            <div id="empty-state" style="display:none;">
-                <p>No quotes yet — add one above.</p>
+                <div id="row-mode">
+                    <div id="add-quote-row">
+                        <input type="text" id="new-quote-title" placeholder="Title (optional)">
+                        <input type="text" id="new-quote-text" placeholder="Quote text">
+                        <input type="text" id="new-quote-author" placeholder="Author (optional)">
+                        <button type="button" id="add-quote-btn" class="btn btn-primary">Add</button>
+                    </div>
+
+                    <ul id="quote-list"></ul>
+
+                    <div id="empty-state" style="display:none;">
+                        <p>No quotes yet — add one above.</p>
+                    </div>
+                </div>
+
+                <div id="bulk-mode" style="display:none;">
+                    <p class="hint">One quote per line, formatted as <code>Title | Quote | Author</code> (Title and Author are optional — leave them blank between the pipes, e.g. <code>| Just the quote text |</code>).</p>
+                    <textarea id="bulk-textarea" rows="14" spellcheck="false"></textarea>
+                    <div id="bulk-errors" class="message error" style="display:none;"></div>
+                    <button type="button" id="bulk-save-btn" class="btn btn-submit">Save All</button>
+                </div>
+
+                <div id="editor-message" class="message" style="display:none;"></div>
             </div>
 
-            <div id="editor-message" class="message" style="display:none;"></div>
+            <div id="pending-tab" class="tab-panel" style="display:none;">
+                <p class="hint">Suggestions submitted with <code>/suggest-quote</code>, awaiting approval.</p>
+                <ul id="pending-list"></ul>
+                <div id="pending-empty-state">
+                    <p>No pending suggestions.</p>
+                </div>
+                <div id="pending-message" class="message" style="display:none;"></div>
+            </div>
         </div>
     </div>
 

@@ -558,6 +558,127 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
 
+    // Handle quote-suggestion edit (mirrors edit_event_ above: opens a
+    // pre-filled modal; the actual approve-with-edits happens on submit, in
+    // index.js's edit_quote_modal_ handler)
+    if (interaction.customId.startsWith('edit_quote_')) {
+      const id = interaction.customId.replace('edit_quote_', '');
+
+      if (!isAdmin(interaction.member)) {
+        await interaction.reply({
+          content: '❌ Only moderators and administrators can edit quote suggestions.',
+          flags: MessageFlags.Ephemeral
+        });
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+        return;
+      }
+
+      const { loadPending } = await import('../utils/pendingQuotesStore.js');
+      const pending = await loadPending();
+      const entry = pending.find(p => p.id === id);
+
+      if (!entry) {
+        await interaction.reply({
+          content: '❌ This quote suggestion has expired or was already processed.',
+          flags: MessageFlags.Ephemeral
+        });
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+        return;
+      }
+
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
+
+      const titleInput = new TextInputBuilder()
+        .setCustomId('title')
+        .setLabel('Title (optional)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(entry.title || '')
+        .setMaxLength(100)
+        .setRequired(false);
+
+      const textInput = new TextInputBuilder()
+        .setCustomId('text')
+        .setLabel('Quote')
+        .setStyle(TextInputStyle.Paragraph)
+        .setValue(entry.text)
+        .setMaxLength(400)
+        .setRequired(true);
+
+      const authorInput = new TextInputBuilder()
+        .setCustomId('author')
+        .setLabel('Author (optional)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(entry.author || '')
+        .setMaxLength(100)
+        .setRequired(false);
+
+      const modal = new ModalBuilder()
+        .setCustomId(`edit_quote_modal_${id}`)
+        .setTitle('Edit Quote Suggestion')
+        .addComponents(
+          new ActionRowBuilder().addComponents(titleInput),
+          new ActionRowBuilder().addComponents(textInput),
+          new ActionRowBuilder().addComponents(authorInput)
+        );
+
+      await interaction.showModal(modal);
+
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      return;
+    }
+
+    // Handle quote-suggestion approve/reject
+    if (interaction.customId.startsWith('approve_quote_') || interaction.customId.startsWith('reject_quote_')) {
+      const isReject = interaction.customId.startsWith('reject_quote_');
+      const id = isReject
+        ? interaction.customId.replace('reject_quote_', '')
+        : interaction.customId.replace('approve_quote_', '');
+
+      if (!isAdmin(interaction.member)) {
+        await interaction.reply({
+          content: '❌ Only moderators and administrators can approve or reject quote suggestions.',
+          flags: MessageFlags.Ephemeral
+        });
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+        return;
+      }
+
+      const { approvePending, rejectPending } = await import('../utils/pendingQuotesStore.js');
+
+      try {
+        const originalEmbed = interaction.message.embeds[0];
+        const resultEmbed = new EmbedBuilder(originalEmbed);
+
+        if (isReject) {
+          await rejectPending(id);
+          resultEmbed
+            .setColor(0xFF0000)
+            .setTitle('❌ Quote Suggestion Rejected')
+            .setFooter({ text: `Rejected by ${interaction.user.tag}` });
+        } else {
+          await approvePending(id);
+          resultEmbed
+            .setColor(0x00FF00)
+            .setTitle('✅ Quote Suggestion Approved')
+            .setFooter({ text: `Approved by ${interaction.user.tag} • added to the live rotation` });
+        }
+
+        await interaction.message.edit({ embeds: [resultEmbed], components: [] });
+        await interaction.reply({
+          content: isReject ? '✅ Suggestion rejected.' : '✅ Suggestion approved and added to the live rotation.',
+          flags: MessageFlags.Ephemeral
+        });
+      } catch (error) {
+        await interaction.reply({
+          content: `❌ Failed to process quote suggestion: ${error.message}`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      return;
+    }
+
     // Handle tiebreaker voting buttons
     if (interaction.customId.startsWith('tiebreaker_vote_')) {
       await handleTiebreakerVote(interaction);

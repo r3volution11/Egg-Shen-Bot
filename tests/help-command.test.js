@@ -73,10 +73,13 @@ describe('/eggshen-help with default (unconfigured) guild', () => {
     expect(names).toContain('🏆 Tournaments & Polls');
     expect(names).toContain('🎨 AI Image Generation');
     expect(names).toContain('⏱️ Watch Party Tools');
+    expect(names).toContain('🎬 Status Quotes');
 
     expect(fieldValue(embed, '🎬 Movies & TV Shows')).toContain('/movie');
     expect(fieldValue(embed, '🏆 Tournaments & Polls')).toContain('/bracket');
     expect(fieldValue(embed, '🎨 AI Image Generation')).toContain('/image');
+    expect(fieldValue(embed, '🎬 Status Quotes')).toContain('/quote');
+    expect(fieldValue(embed, '🎬 Status Quotes')).toContain('/suggest-quote');
   });
 });
 
@@ -114,6 +117,25 @@ describe('/eggshen-help hides individually disabled commands', () => {
 
     expect(value).not.toContain('/bracket');
     expect(value).toContain('/survey');
+  });
+
+  test('disabling /quote hides its line but keeps /suggest-quote visible', async () => {
+    await updateCommandPermission(GUILD_ID, 'quote', false);
+
+    const embed = await runHelpAndGetEmbed(makeInteraction());
+    const value = fieldValue(embed, '🎬 Status Quotes');
+
+    expect(value).not.toContain('/quote**');
+    expect(value).toContain('/suggest-quote');
+  });
+
+  test('disabling both /quote and /suggest-quote omits the entire category field', async () => {
+    await updateCommandPermission(GUILD_ID, 'quote', false);
+    await updateCommandPermission(GUILD_ID, 'suggestQuote', false);
+
+    const embed = await runHelpAndGetEmbed(makeInteraction());
+
+    expect(fieldNames(embed)).not.toContain('🎬 Status Quotes');
   });
 });
 
@@ -154,11 +176,12 @@ describe('/eggshen-help with the master switch disabled', () => {
 
     const embed = await runHelpAndGetEmbed(makeInteraction());
 
-    // Games & Entertainment and Tournaments & Polls have no ungated
-    // commands, so they disappear entirely once every command in them is
-    // toggle-gated off.
+    // Games & Entertainment, Tournaments & Polls, and Status Quotes have no
+    // ungated commands, so they disappear entirely once every command in
+    // them is toggle-gated off.
     expect(fieldNames(embed)).not.toContain('🎮 Games & Entertainment');
     expect(fieldNames(embed)).not.toContain('🏆 Tournaments & Polls');
+    expect(fieldNames(embed)).not.toContain('🎬 Status Quotes');
 
     // Movies & TV Shows mixes gated (movie/tv/episode) and ungated
     // (episode-list/similar/watched) commands, so the category itself stays

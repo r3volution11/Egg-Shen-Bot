@@ -1,6 +1,11 @@
 # Bot Status Quotes Setup Guide
 
-The bot rotates its Discord status once an hour through a list of short text lines (see `src/utils/presenceScheduler.js`). That list lives in a small web page, `/quotes-admin`, so it can be edited without touching code or redeploying — useful since this bot is meant to be run by other server owners too, not just the original maintainer.
+The bot rotates its Discord status once an hour through a list of short quotes (see `src/utils/presenceScheduler.js`). Each quote can optionally carry a **title** (the movie/show/game/etc. it's from) and an **author** (the character or real person who said it). That list is managed two ways:
+
+- **`/quotes-admin`**, a small web page, so it can be edited without touching code or redeploying — useful since this bot is meant to be run by other server owners too, not just the original maintainer.
+- **`/eggshen-config-quotes`**, a set of Discord slash commands for admins/moderators to add, edit, delete, and list quotes directly from a server.
+
+Members can also submit candidate quotes with **`/suggest-quote`**; suggestions go into a review queue rather than the live rotation until an admin/moderator approves or rejects them.
 
 ## Environment Variable
 
@@ -14,14 +19,50 @@ Generate a secret once per deployment:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Keep it independent from `DISCORD_CLIENT_SECRET`/`DISCORD_TOKEN`/`EVENT_CROP_LINK_SECRET` so it can be rotated on its own. If `QUOTES_ADMIN_SECRET` isn't set, `/quotes-admin`'s API returns a clear "not configured" error and the page can't be used — everything else about the bot works normally either way.
+Keep it independent from `DISCORD_CLIENT_SECRET`/`DISCORD_TOKEN`/`EVENT_CROP_LINK_SECRET` so it can be rotated on its own. If `QUOTES_ADMIN_SECRET` isn't set, `/quotes-admin`'s API returns a clear "not configured" error and the page can't be used — the Discord-side commands (`/eggshen-config-quotes`, `/quote`, `/suggest-quote`) work regardless, since they're gated by Discord permissions, not this secret.
 
-## Using the Editor
+## Reverse Proxy Requirement (self-hosting behind nginx/Apache/etc.)
 
-Visit `https://yourdomain.com/quotes-admin` (or `http://localhost:3000/quotes-admin` locally), enter the secret when prompted, and add, edit, or delete status lines from the list. Changes save immediately and are picked up by the bot within the hour, at its next scheduled status rotation — no restart needed.
+If you're running this bot behind a reverse proxy (rather than exposing its port directly), your proxy config needs to forward **both** `/quotes-admin/` and `/quotes-assets/` to the bot process — the same way it already forwards `/`, `/api/`, and (if you use the event-request crop feature) `/crop/`/`/crop-assets/`. Without these two location blocks, `/quotes-admin` will 404 at the proxy layer before ever reaching the bot, even though `QUOTES_ADMIN_SECRET` is configured correctly. An nginx example, mirroring the existing `/crop/`/`/crop-assets/` blocks:
 
-The secret isn't stored in the browser (no cookie, no localStorage) — you'll re-enter it each time you visit the page.
+```nginx
+location /quotes-admin/ {
+    client_max_body_size 10M;
+    proxy_pass http://localhost:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location /quotes-assets/ {
+    proxy_pass http://localhost:3000;
+    proxy_set_header Host $host;
+}
+```
+
+## Using the Web Editor (`/quotes-admin`)
+
+Visit `https://yourdomain.com/quotes-admin` (or `http://localhost:3000/quotes-admin` locally), enter the secret when prompted. The page has two tabs:
+
+- **Quotes** — the live rotation. Two edit modes:
+  - **Row Editor**: add/edit/delete one quote at a time, with separate Title, Quote, and Author fields per row.
+  - **Bulk Editor**: edit the entire list as plain text, one quote per line (`Title | Quote | Author` — Title and Author may be left blank between the pipes). Useful for pasting in a large batch at once. Every line is validated before anything is saved — if one line is malformed, none of the bulk edit is applied, and the specific bad line is reported so you can fix just that one.
+- **Suggestions** — quotes submitted via `/suggest-quote`, awaiting review. Approve moves a suggestion into the live rotation; Reject discards it. This is a second path to the same review queue Discord's moderation-channel buttons use (see below) — approving/rejecting here or in Discord has the same effect either way.
+
+Changes save immediately and are picked up by the bot within the hour, at its next scheduled status rotation — no restart needed. The secret isn't stored in the browser (no cookie, no localStorage) — you'll re-enter it each time you visit the page.
+
+## Using the Discord Commands
+
+- **`/quote [title] [author]`** — posts a random quote into the channel. With no options, picks from the entire list. `title` and `author` are optional filters, combined as OR — `/quote title:"The Thing"` only pulls quotes from that title, `/quote author:"MacReady"` only pulls quotes by that author, and giving both returns a quote matching *either* one. `title` has autocomplete against the titles currently in the list.
+- **`/suggest-quote quote:"..." title:"..."(optional) author:"..."(optional)`** — any member can submit a candidate quote. It's added to the review queue, not the live rotation. If the server has a quote-suggestions moderation channel configured (see below), a message appears there with **Approve**/**Edit**/**Reject** buttons; Edit opens a modal to adjust the text/title/author before approving. If no moderation channel is set, the suggestion still lands in the queue — review it via `/quotes-admin`'s Suggestions tab instead.
+- **`/eggshen-config-quotes quotes add quote:"..." title:"..."(optional) author:"..."(optional)`** — admin/moderator only. Adds a quote straight into the live rotation, bypassing the review queue entirely (unlike `/suggest-quote`).
+- **`/eggshen-config-quotes quotes edit index:N quote:"..." title:"..." author:"..."`** / **`quotes delete index:N`** — admin/moderator only. Edit or remove a quote by its index (see `list` below to find one).
+- **`/eggshen-config-quotes quotes list [page]`** — admin/moderator only. Shows the current live quotes with their index, 10 per page.
+- **`/eggshen-config-quotes quotes moderation-channel channel:#channel`** — admin/moderator only. Sets which channel `/suggest-quote` submissions are posted to for review. Leave unconfigured to only review suggestions via `/quotes-admin`.
+
+Both `/quote` and `/suggest-quote` are toggleable per-server through the same `commandPermissions` system every other user-facing command uses (`/eggshen-config commands`).
 
 ## Storage
 
-Quotes are stored in a gitignored `movie_quotes.json` file at the project root, seeded the first time the bot starts with a small set of placeholder lines from `src/utils/movieQuotes.js`. From then on, `movie_quotes.json` is the source of truth — edit it directly on the server, or through `/quotes-admin`, either works (they read/write the same file).
+Quotes are stored in a gitignored `movie_quotes.json` file at the project root, seeded the first time the bot starts with a small set of placeholder lines from `src/utils/movieQuotes.js`. Pending suggestions live separately in a gitignored `movie_quotes_pending.json`, so a suggestion never affects the bot's live status until it's approved. From then on, these files are the source of truth — edit them directly on the server, or through `/quotes-admin`/the Discord commands above; all paths read/write the same files.

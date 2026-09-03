@@ -22,7 +22,7 @@ const ROTATE_INTERVAL = 60 * 60 * 1000; // Once per hour
 
 // Used only if the quote list is ever empty (e.g. every quote deleted
 // through the admin page) so the bot never ends up with no status at all.
-const FALLBACK_QUOTE = 'Your mystical guide to movies and TV.';
+const FALLBACK_QUOTE = { text: 'Your mystical guide to movies and TV.' };
 
 let lastQuote = null;
 
@@ -76,14 +76,14 @@ async function setRandomQuote(client) {
 
   let quote = quotes[Math.floor(Math.random() * quotes.length)];
   if (quotes.length > 1) {
-    while (quote === lastQuote) {
+    while (quote.text === lastQuote) {
       quote = quotes[Math.floor(Math.random() * quotes.length)];
     }
   }
-  lastQuote = quote;
+  lastQuote = quote.text;
 
   client.user.setPresence({
-    activities: [{ name: 'Custom Status', state: quote, type: ActivityType.Custom }],
+    activities: [{ name: 'Custom Status', state: quote.text, type: ActivityType.Custom }],
     status: 'online',
   });
 }

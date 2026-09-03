@@ -710,6 +710,55 @@ client.on('interactionCreate', async (interaction) => {
           ? '✅ Request denied and the user was notified.'
           : '✅ Request denied. (Could not DM the user — they may have DMs disabled.)',
       });
+    } else if (interaction.customId.startsWith('edit_quote_modal_')) {
+      // Mirrors edit_event_modal_ above: submitting the edit modal approves
+      // the quote suggestion immediately with the edited values, same
+      // "edit immediately approves" UX event requests use.
+      const id = interaction.customId.replace('edit_quote_modal_', '');
+
+      const { isAdmin } = await import('./utils/guildConfig.js');
+      if (!isAdmin(interaction.member)) {
+        await interaction.reply({
+          content: '❌ Only moderators and administrators can edit quote suggestions.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      // Always pass all three fields (even blank ones) as a full
+      // replacement — the modal is pre-filled from the suggestion's current
+      // values, so a field left blank here means the moderator deliberately
+      // cleared it, not "leave it unchanged."
+      const title = interaction.fields.getTextInputValue('title');
+      const text = interaction.fields.getTextInputValue('text');
+      const author = interaction.fields.getTextInputValue('author');
+
+      const { approvePending } = await import('./utils/pendingQuotesStore.js');
+
+      try {
+        await approvePending(id, { title, text, author });
+
+        const originalEmbed = interaction.message?.embeds[0];
+        if (originalEmbed) {
+          const approvedEmbed = new EmbedBuilder(originalEmbed)
+            .setColor(0x00FF00)
+            .setTitle('✅ Quote Suggestion Approved (Edited)')
+            .setDescription(`*"${text}"*`)
+            .setFooter({ text: `Approved by ${interaction.user.tag} • added to the live rotation` });
+
+          await interaction.message.edit({ embeds: [approvedEmbed], components: [] }).catch(() => {});
+        }
+
+        await interaction.reply({
+          content: '✅ Suggestion edited and approved — added to the live rotation.',
+          flags: MessageFlags.Ephemeral,
+        });
+      } catch (error) {
+        await interaction.reply({
+          content: `❌ Failed to approve quote suggestion: ${error.message}`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
     } else if (interaction.customId.startsWith('timer_extend_modal_')) {
       const channelId = interaction.customId.replace('timer_extend_modal_', '');
 

@@ -16,7 +16,8 @@ import {
 } from '../utils/eventImageStore.js';
 import { signCropToken, verifyCropToken, consumeCropToken } from '../utils/cropLinkToken.js';
 import { fetchImageUrl } from '../utils/fetchImageUrl.js';
-import { loadQuotes, addQuote, updateQuote, deleteQuote } from '../utils/movieQuotesStore.js';
+import { loadQuotes, addQuote, updateQuote, deleteQuote, replaceAllQuotes } from '../utils/movieQuotesStore.js';
+import { loadPending, approvePending, rejectPending } from '../utils/pendingQuotesStore.js';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -817,7 +818,28 @@ export function createApiServer(client) {
 
   app.post('/api/quotes', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
     try {
-      const quotes = await addQuote(req.body.text);
+      const { title, text, author } = req.body;
+      const quotes = await addQuote({ title, text, author });
+      res.json({ quotes });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Bulk replace — backs the quotes-admin page's paste-many-at-once editor.
+  // Validates every row before writing anything; on failure, returns which
+  // row failed and why so the UI can point the admin at the exact typo
+  // without discarding the rest of their edit. Registered before the
+  // `/api/quotes/:index` routes below — Express matches routes in
+  // registration order, and "bulk" would otherwise be captured as an
+  // (invalid, NaN) :index by the more general route.
+  app.put('/api/quotes/bulk', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
+    try {
+      const { quotes: incoming } = req.body;
+      if (!Array.isArray(incoming)) {
+        return res.status(400).json({ error: 'quotes must be an array' });
+      }
+      const quotes = await replaceAllQuotes(incoming);
       res.json({ quotes });
     } catch (error) {
       res.status(400).json({ error: error.message });
@@ -826,7 +848,8 @@ export function createApiServer(client) {
 
   app.put('/api/quotes/:index', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
     try {
-      const quotes = await updateQuote(Number(req.params.index), req.body.text);
+      const { title, text, author } = req.body;
+      const quotes = await updateQuote(Number(req.params.index), { title, text, author });
       res.json({ quotes });
     } catch (error) {
       res.status(400).json({ error: error.message });
@@ -837,6 +860,41 @@ export function createApiServer(client) {
     try {
       const quotes = await deleteQuote(Number(req.params.index));
       res.json({ quotes });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Pending quote-suggestion queue — approve/reject moves reviewed via
+  // /suggest-quote's web-page fallback path (Discord moderation-channel
+  // buttons, see buttonHandler.js, operate on the same store).
+  app.get('/api/quotes/pending', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
+    try {
+      const pending = await loadPending();
+      res.json({ pending });
+    } catch (error) {
+      console.error('[API] Error loading pending quotes:', error);
+      res.status(500).json({ error: 'Failed to load pending quotes' });
+    }
+  });
+
+  app.post('/api/quotes/pending/:id/approve', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
+    try {
+      const { title, text, author } = req.body || {};
+      const hasOverrides = title !== undefined || text !== undefined || author !== undefined;
+      await approvePending(req.params.id, hasOverrides ? { title, text, author } : {});
+      const [pending, quotes] = await Promise.all([loadPending(), loadQuotes()]);
+      res.json({ pending, quotes });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/quotes/pending/:id/reject', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {
+    try {
+      await rejectPending(req.params.id);
+      const pending = await loadPending();
+      res.json({ pending });
     } catch (error) {
       res.status(400).json({ error: error.message });
     }

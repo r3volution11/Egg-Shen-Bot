@@ -1,11 +1,11 @@
 ---
 title: Social Commands - Egg Shen Bot
-description: Interactive social features including surveys/polls and magical potions for entertainment-focused Discord communities.
+description: Interactive social features including surveys/polls, magical potions, and status quotes for entertainment-focused Discord communities.
 ---
 
 # Social Commands
 
-**Add fun and interactive elements** to your entertainment Discord community with surveys, polls, and playful social interactions.
+**Add fun and interactive elements** to your entertainment Discord community with surveys, polls, playful social interactions, and status quotes.
 
 ## Quick FAQ
 
@@ -272,6 +272,53 @@ Give magical potions to other users with pop culture references!
 
 **Customization:**
 Server administrators can customize potion responses and themes via `/eggshen-config`. See [Configuration](/commands/configuration) for details.
+
+---
+
+## Status Quote Commands
+
+The bot rotates its Discord status once an hour through a list of short quotes, each optionally tagged with a title (movie/show/game/etc.) and an author (character or real person). See [`QUOTES_ADMIN_SETUP.md`](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/QUOTES_ADMIN_SETUP.md) for how server admins manage that list (`/quotes-admin` web page or `/eggshen-config-quotes`).
+
+### Post a Random Quote
+
+```
+/quote title:[optional] author:[optional]
+```
+
+**Parameters:**
+- `title` (optional) - Only pull quotes from this movie/show/game/etc. Has autocomplete against titles currently in the list.
+- `author` (optional) - Only pull quotes by/from this character or person.
+
+If both `title` and `author` are given, a quote matching *either* one is returned (not both at once). With no options, a random quote is picked from the entire list.
+
+**Examples:**
+```
+/quote
+/quote title:"The Thing"
+/quote author:"MacReady"
+/quote title:"The Thing" author:"MacReady"
+```
+
+### Suggest a Quote
+
+```
+/suggest-quote quote:[text] title:[optional] author:[optional]
+```
+
+**Parameters:**
+- `quote` (required) - The quote text (max 400 characters)
+- `title` (optional) - The movie/show/game/etc. it's from (max 100 characters)
+- `author` (optional) - The character or real person who said it (max 100 characters)
+
+**How It Works:**
+1. Your suggestion is added to a review queue — it does **not** go straight into the bot's status rotation
+2. If the server has a quote-suggestions moderation channel configured, moderators see it there with Approve/Edit/Reject buttons
+3. Once approved, it becomes part of the live rotation `/quote` and the bot's status can pull from
+
+**Example:**
+```
+/suggest-quote quote:"Trust no one." title:"The Thing" author:"MacReady"
+```
 
 ---
 

@@ -5,6 +5,24 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.26.0 - 2026-09-02
+
+### Added
+- **Status quotes are now structured (title/quote/author) instead of plain text, and `/quotes-admin` is fixed and reworked.** Each quote can optionally carry a title (the movie/show/game/etc. it's from) and an author (the character or real person who said it) — existing plain-text quotes are migrated automatically, no manual re-entry needed. `/quotes-admin` gained a **bulk editor** (paste/edit the whole list at once as `Title | Quote | Author` lines, validated before saving) alongside the existing one-row-at-a-time editor, plus a **Suggestions** tab for reviewing member-submitted quotes. Fixes the page returning 404 for self-hosters running behind a reverse proxy that wasn't forwarding `/quotes-admin/`/`/quotes-assets/` — see `QUOTES_ADMIN_SETUP.md`'s new reverse-proxy section
+- **New `/quote` command** — posts a random status quote into the channel as an embed, everyone can see it. Optional `title`/`author` filters, combined as OR (`/quote title:"The Thing" author:"MacReady"` matches either), `title` has autocomplete
+- **New `/suggest-quote` command** — any member can submit a candidate quote (with optional title/author) for review, rather than it going straight into the bot's status. Suggestions land in a review queue; if the server has a quote-suggestions moderation channel configured (`/eggshen-config-quotes quotes moderation-channel`), a message appears there with Approve/Edit/Reject buttons (mirrors the existing event-request approval flow) — otherwise, review via `/quotes-admin`'s Suggestions tab instead
+- **New `/eggshen-config-quotes` command** — admin/moderator only. `quotes add`/`edit`/`delete`/`list` manage the live quote list directly from Discord (no code/redeploy needed, and `add` bypasses the review queue entirely, unlike `/suggest-quote`); `quotes moderation-channel` sets where suggestions are posted for review
+- `/eggshen-help` now lists `/quote` and `/suggest-quote` under a new "Status Quotes" category, respecting each command's `commandPermissions` toggle like every other listed command
+
+### Developer
+- `src/utils/movieQuotesStore.js`: quotes are now `{ title?, text, author? }` objects instead of bare strings; `loadQuotes()` transparently migrates and persists any legacy plain-string entries; new `replaceAllQuotes()` validates and atomically overwrites the whole list (backs the bulk editor); file path overridable via `MOVIE_QUOTES_FILE` (defaults unchanged) so parallel Jest workers don't race on the same real file across test files
+- New `src/utils/pendingQuotesStore.js` — the `/suggest-quote` review queue, backed by a separate gitignored `movie_quotes_pending.json`. Entries carry a stable random `id` (not just an array index) so a Discord moderation button clicked after other suggestions were already processed still resolves to the right entry, mirroring the event-request system's `requestId` pattern; `approvePending()`/`rejectPending()` resolve by `id`. Also overridable via `MOVIE_QUOTES_PENDING_FILE` for the same test-isolation reason
+- `src/handlers/buttonHandler.js`: new `approve_quote_`/`edit_quote_`/`reject_quote_` branches, mirroring `approve_event_`/`edit_event_`/`deny_event_`'s structure (permission check, embed update with buttons removed on resolution, Edit opens a pre-filled modal)
+- `src/index.js`: new `edit_quote_modal_` submission handler — saving the edit modal approves the suggestion immediately with the edited values, same "edit immediately approves" UX event requests already use
+- `src/utils/guildConfig.js`: new `quoteSuggestions.moderationChannel` config block; `quote`/`suggestQuote` added to `commandPermissions`
+- `src/api/server.js`: existing `/api/quotes*` routes updated for the object shape; new `PUT /api/quotes/bulk` (validates every row before writing anything, returns which row failed on error) and `GET/POST /api/quotes/pending*` routes for the web-page suggestion-review path — same `requireQuotesAdmin`/`quotesAdminLimiter` gating as the existing routes
+- New tests: `tests/pendingQuotesStore.test.js`, `tests/quote-command.test.js`, `tests/suggest-quote-command.test.js`, `tests/quoteSuggestionButtons.test.js`, `tests/eggshen-config-quotes.test.js`; `tests/movieQuotesStore.test.js`/`tests/quotesAdminRoutes.test.js`/`tests/presenceScheduler.test.js`/`tests/help-command.test.js` updated for the new shape and commands
+
 ## 2.25.5 - 2026-09-02
 
 ### Developer

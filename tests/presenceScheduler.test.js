@@ -32,7 +32,7 @@ function makeClient() {
 
 beforeEach(() => {
   jest.useFakeTimers();
-  mockLoadQuotes.mockReset().mockResolvedValue(['Quote one.', 'Quote two.', 'Quote three.']);
+  mockLoadQuotes.mockReset().mockResolvedValue([{ text: 'Quote one.' }, { text: 'Quote two.' }, { text: 'Quote three.' }]);
 });
 
 afterEach(() => {
@@ -68,7 +68,7 @@ describe('presenceScheduler', () => {
     await Promise.resolve(); await Promise.resolve();
     expect(mockLoadQuotes).toHaveBeenCalledTimes(1);
 
-    mockLoadQuotes.mockResolvedValue(['Only quote now.']);
+    mockLoadQuotes.mockResolvedValue([{ text: 'Only quote now.' }]);
     await jest.advanceTimersByTimeAsync(60 * 60 * 1000);
 
     expect(mockLoadQuotes).toHaveBeenCalledTimes(2);
