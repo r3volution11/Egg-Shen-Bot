@@ -170,3 +170,60 @@ describe('/eggshen-config-quotes quotes moderation-channel', () => {
     expect(interaction.lastReply.content).toMatch(/select a text channel/);
   });
 });
+
+describe('/eggshen-config-quotes max-pending-per-user', () => {
+  test('sets the per-user pending-suggestion cap', async () => {
+    const interaction = makeInteraction({ subcommand: 'max-pending-per-user', options: { max: 5 } });
+
+    await execute(interaction);
+
+    const config = await loadGuildConfig(GUILD_ID);
+    expect(config.quoteSuggestions.maxPendingPerUser).toBe(5);
+    expect(interaction.lastReply.content).toMatch(/at most 5/);
+  });
+});
+
+describe('/eggshen-config-quotes admin-link', () => {
+  const ORIGINAL_SECRET = process.env.QUOTES_ADMIN_SECRET;
+  const ORIGINAL_PUBLIC_URL = process.env.PUBLIC_BOT_URL;
+
+  afterEach(() => {
+    if (ORIGINAL_SECRET === undefined) delete process.env.QUOTES_ADMIN_SECRET; else process.env.QUOTES_ADMIN_SECRET = ORIGINAL_SECRET;
+    if (ORIGINAL_PUBLIC_URL === undefined) delete process.env.PUBLIC_BOT_URL; else process.env.PUBLIC_BOT_URL = ORIGINAL_PUBLIC_URL;
+  });
+
+  test('replies with a Link-style button pointing at /quotes-admin with a token', async () => {
+    process.env.QUOTES_ADMIN_SECRET = 'test-secret';
+    process.env.PUBLIC_BOT_URL = 'https://example.com';
+    const interaction = makeInteraction({ subcommand: 'admin-link' });
+
+    await execute(interaction);
+
+    const button = interaction.lastReply.components[0].components[0];
+    expect(button.data.style).toBe(5); // ButtonStyle.Link
+    expect(button.data.url).toMatch(/^https:\/\/example\.com\/quotes-admin\?token=/);
+    expect(interaction.lastReply.ephemeral).toBe(true);
+  });
+
+  test('errors when QUOTES_ADMIN_SECRET is not configured', async () => {
+    delete process.env.QUOTES_ADMIN_SECRET;
+    process.env.PUBLIC_BOT_URL = 'https://example.com';
+    const interaction = makeInteraction({ subcommand: 'admin-link' });
+
+    await execute(interaction);
+
+    expect(interaction.lastReply.content).toMatch(/QUOTES_ADMIN_SECRET/);
+    expect(interaction.lastReply.components).toBeUndefined();
+  });
+
+  test('errors when PUBLIC_BOT_URL is not configured', async () => {
+    process.env.QUOTES_ADMIN_SECRET = 'test-secret';
+    delete process.env.PUBLIC_BOT_URL;
+    const interaction = makeInteraction({ subcommand: 'admin-link' });
+
+    await execute(interaction);
+
+    expect(interaction.lastReply.content).toMatch(/PUBLIC_BOT_URL/);
+    expect(interaction.lastReply.components).toBeUndefined();
+  });
+});

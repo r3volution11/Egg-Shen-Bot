@@ -18,7 +18,7 @@ process.env.MOVIE_QUOTES_FILE = QUOTES_FILE;
 process.env.MOVIE_QUOTES_PENDING_FILE = PENDING_FILE;
 
 const { loadQuotes } = await import('../src/utils/movieQuotesStore.js');
-const { loadPending, addPending, approvePending, rejectPending } = await import('../src/utils/pendingQuotesStore.js');
+const { loadPending, addPending, approvePending, rejectPending, countPendingBySuggester } = await import('../src/utils/pendingQuotesStore.js');
 
 function cleanup() {
   if (fs.existsSync(QUOTES_FILE)) fs.rmSync(QUOTES_FILE);
@@ -32,6 +32,7 @@ function suggestion(overrides = {}) {
   return {
     text: 'A suggested quote.',
     suggestedBy: 'tester#0001',
+    suggestedById: 'user-1',
     guildId: 'guild-1',
     ...overrides,
   };
@@ -136,5 +137,31 @@ describe('rejectPending', () => {
 
   test('rejects an unknown id', async () => {
     await expect(rejectPending('does-not-exist')).rejects.toThrow();
+  });
+});
+
+describe('countPendingBySuggester', () => {
+  test('returns 0 when the user has no pending suggestions', async () => {
+    expect(await countPendingBySuggester('guild-1', 'user-1')).toBe(0);
+  });
+
+  test('counts only the given user\'s suggestions in the given guild', async () => {
+    await addPending(suggestion({ text: 'A.', suggestedById: 'user-1', guildId: 'guild-1' }));
+    await addPending(suggestion({ text: 'B.', suggestedById: 'user-1', guildId: 'guild-1' }));
+    await addPending(suggestion({ text: 'C.', suggestedById: 'user-2', guildId: 'guild-1' }));
+    await addPending(suggestion({ text: 'D.', suggestedById: 'user-1', guildId: 'guild-2' }));
+
+    expect(await countPendingBySuggester('guild-1', 'user-1')).toBe(2);
+    expect(await countPendingBySuggester('guild-1', 'user-2')).toBe(1);
+    expect(await countPendingBySuggester('guild-2', 'user-1')).toBe(1);
+  });
+
+  test('drops back to a lower count once a suggestion is approved or rejected', async () => {
+    const idA = await addPending(suggestion({ text: 'A.', suggestedById: 'user-1' }));
+    await addPending(suggestion({ text: 'B.', suggestedById: 'user-1' }));
+    expect(await countPendingBySuggester('guild-1', 'user-1')).toBe(2);
+
+    await approvePending(idA);
+    expect(await countPendingBySuggester('guild-1', 'user-1')).toBe(1);
   });
 });

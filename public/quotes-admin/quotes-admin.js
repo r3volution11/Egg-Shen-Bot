@@ -341,6 +341,22 @@ async function loadAndRenderPending() {
 
 // --- Unlock ---
 
+async function unlockWithSecret(secret) {
+    adminSecret = secret;
+    try {
+        await loadAndRenderQuotes();
+        await loadAndRenderPending();
+        hideMessage(unlockMessage);
+        unlockSection.style.display = 'none';
+        editorSection.style.display = 'block';
+        return true;
+    } catch (error) {
+        adminSecret = null;
+        showMessage(unlockMessage, `❌ ${error.message}`, 'error');
+        return false;
+    }
+}
+
 unlockBtn.addEventListener('click', async () => {
     const secret = adminSecretInput.value.trim();
     if (!secret) {
@@ -348,25 +364,44 @@ unlockBtn.addEventListener('click', async () => {
         return;
     }
 
-    adminSecret = secret;
     unlockBtn.disabled = true;
     unlockBtn.textContent = 'Unlocking...';
-
-    try {
-        await loadAndRenderQuotes();
-        await loadAndRenderPending();
-        hideMessage(unlockMessage);
-        unlockSection.style.display = 'none';
-        editorSection.style.display = 'block';
-    } catch (error) {
-        adminSecret = null;
-        showMessage(unlockMessage, `❌ ${error.message}`, 'error');
-    } finally {
-        unlockBtn.disabled = false;
-        unlockBtn.textContent = 'Unlock';
-    }
+    await unlockWithSecret(secret);
+    unlockBtn.disabled = false;
+    unlockBtn.textContent = 'Unlock';
 });
 
 adminSecretInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') unlockBtn.click();
 });
+
+// --- One-click unlock via a signed link from /eggshen-config-quotes
+// admin-link — exchanges the single-use ?token= for the real admin secret
+// server-side (never persisted, same as a manually-typed secret) and
+// unlocks automatically, skipping the password prompt entirely. The token
+// param is stripped from the visible URL right away so a screenshot/copied
+// link doesn't leak it (it's single-use anyway, but no reason to leave it
+// sitting in the address bar or browser history longer than necessary).
+(async function tryTokenUnlock() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (!token) return;
+
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    showMessage(unlockMessage, 'Unlocking via link...', 'success');
+    try {
+        const response = await fetch('/api/quotes-admin-link/exchange', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'This link is invalid.');
+        }
+        await unlockWithSecret(data.secret);
+    } catch (error) {
+        showMessage(unlockMessage, `❌ ${error.message}`, 'error');
+    }
+})();

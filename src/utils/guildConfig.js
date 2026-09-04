@@ -68,6 +68,11 @@ const defaultConfig = {
       // Per-command overrides (optional)
       // 'movie': { maxRequests: 3, windowSeconds: 30 },
       // 'episode-list': { maxRequests: 2, windowSeconds: 60 },
+      // /suggest-quote writes into a moderator-facing review queue (and
+      // posts to a moderation channel, if configured) rather than just
+      // returning a search result — tighter than the generic global default
+      // so one user can't quickly flood the queue/channel.
+      'suggest-quote': { maxRequests: 1, windowSeconds: 60 },
     },
     guildWide: {
       enabled: true, // Server-wide rate limiting (prevents multi-account flooding)
@@ -123,6 +128,7 @@ const defaultConfig = {
   },
   quoteSuggestions: {
     moderationChannel: null, // Channel ID where /suggest-quote submissions are sent for approval (null = no Discord notification, still reviewable via /quotes-admin)
+    maxPendingPerUser: 3, // A user can have at most this many suggestions awaiting review at once (per guild) — bounds queue/moderation-channel flooding independent of the per-command rate limit
   },
 };
 

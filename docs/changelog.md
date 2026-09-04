@@ -5,6 +5,21 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.26.1 - 2026-09-03
+
+### Added
+- **`/suggest-quote` is now rate-limited and capped to prevent queue/moderation-channel flooding.** Tightened its rate limit to 1 request/minute (down from the generic 1-per-20-seconds every command gets by default), and added a per-user pending-suggestion cap — a user can have at most `maxPendingPerUser` (default 3) suggestions awaiting review at once, closing a gap the rate limit alone didn't cover (a patient user could otherwise still accumulate many unresolved suggestions over time). Configurable via the new `/eggshen-config-quotes max-pending-per-user` subcommand
+- **New `/eggshen-config-quotes admin-link` subcommand** — replies with a one-click Link button that opens `/quotes-admin` already unlocked, so an admin/moderator no longer needs to be handed `QUOTES_ADMIN_SECRET` to type in manually. The link is single-use and expires in 10 minutes; requires `PUBLIC_BOT_URL` to be set (same variable the event-request crop-image link already uses)
+- **`/eggshen-config-quotes`'s subcommands are no longer nested under a redundant `quotes` group** — e.g. `/eggshen-config-quotes add`, not `/eggshen-config-quotes quotes add`. Unlike `/eggshen-config-events` (which groups multiple config areas), this command was always quotes-only, so the group added a layer with nothing else to group
+
+### Developer
+- `src/utils/pendingQuotesStore.js`: pending entries now track `suggestedById` (the Discord user's snowflake) alongside the existing display-tag `suggestedBy`, and a new `countPendingBySuggester(guildId, suggestedById)` backs the new pending cap
+- `src/utils/guildConfig.js`: new `quoteSuggestions.maxPendingPerUser` (default 3) and `rateLimits.commands['suggest-quote']` (1/minute) — no slash command adjusts the rate limit per-server yet, only `guild_configs/<guildId>.json` directly
+- New `src/utils/quotesAdminLinkToken.js` — signed, single-use, short-lived tokens backing `/eggshen-config-quotes admin-link`, mirroring `cropLinkToken.js`'s shape (HMAC-signed, `crypto.timingSafeEqual`, in-memory single-use tracking) but not tied to a specific item, since `/quotes-admin` is a standing surface, not a per-request page. The token itself isn't the admin secret — a new `POST /api/quotes-admin-link/exchange` route verifies+consumes it and hands back the real `QUOTES_ADMIN_SECRET` exactly once, keeping the long-lived secret out of the URL
+- `public/quotes-admin/quotes-admin.js`: reads a `?token=` query param on load and auto-unlocks via the exchange route above, skipping the password prompt — the token is stripped from the visible URL immediately after use; matches the page's existing no-persistence security posture (nothing is stored, a refresh re-locks it)
+- `src/commands/eggshen-config-quotes.js`: flattened out of the `quotes` subcommand group; new `max-pending-per-user` and `admin-link` subcommands
+- New tests: `tests/quotesAdminLinkToken.test.js`; `tests/pendingQuotesStore.test.js`/`tests/suggest-quote-command.test.js`/`tests/eggshen-config-quotes.test.js`/`tests/quotesAdminRoutes.test.js` extended for `suggestedById`, the pending cap, and the admin-link exchange route
+
 ## 2.26.0 - 2026-09-02
 
 ### Added

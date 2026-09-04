@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { addPending } from '../utils/pendingQuotesStore.js';
+import { addPending, countPendingBySuggester } from '../utils/pendingQuotesStore.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
 
 export const data = new SlashCommandBuilder()
@@ -43,15 +43,26 @@ export async function execute(interaction) {
 
   await interaction.deferReply({ ephemeral: true });
 
+  const config = await loadGuildConfig(interaction.guildId);
+  const maxPendingPerUser = config.quoteSuggestions?.maxPendingPerUser ?? 3;
+
+  const pendingCount = await countPendingBySuggester(interaction.guildId, interaction.user.id);
+  if (pendingCount >= maxPendingPerUser) {
+    await interaction.editReply({
+      content: `❌ You already have ${pendingCount} suggestion(s) awaiting review. Please wait for a moderator to review them before submitting more.`,
+    });
+    return;
+  }
+
   const id = await addPending({
     text,
     title,
     author,
     suggestedBy: interaction.user.tag,
+    suggestedById: interaction.user.id,
     guildId: interaction.guildId,
   });
 
-  const config = await loadGuildConfig(interaction.guildId);
   const moderationChannelId = config.quoteSuggestions?.moderationChannel;
 
   let posted = false;

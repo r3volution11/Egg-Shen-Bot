@@ -35,7 +35,7 @@ function cleanup() {
 beforeEach(cleanup);
 afterEach(cleanup);
 
-function makeInteraction({ quote = 'A suggested line.', title = null, author = null, guild = null } = {}) {
+function makeInteraction({ quote = 'A suggested line.', title = null, author = null, guild = null, userId = 'suggester-1' } = {}) {
   const options = {
     getString: (name) => (name === 'quote' ? quote : name === 'title' ? title : name === 'author' ? author : null),
   };
@@ -43,7 +43,7 @@ function makeInteraction({ quote = 'A suggested line.', title = null, author = n
   return {
     guildId: GUILD_ID,
     guild,
-    user: { tag: 'tester#0001' },
+    user: { id: userId, tag: 'tester#0001' },
     member: { permissions: { has: () => false } },
     options,
     deferReply: async () => { state.deferred = true; },
@@ -60,7 +60,14 @@ describe('/suggest-quote', () => {
 
     const pending = await loadPending();
     expect(pending).toHaveLength(1);
-    expect(pending[0]).toMatchObject({ text: 'Trust no one.', title: 'The Thing', author: 'MacReady', suggestedBy: 'tester#0001', guildId: GUILD_ID });
+    expect(pending[0]).toMatchObject({
+      text: 'Trust no one.',
+      title: 'The Thing',
+      author: 'MacReady',
+      suggestedBy: 'tester#0001',
+      suggestedById: 'suggester-1',
+      guildId: GUILD_ID,
+    });
 
     const liveQuotes = await loadQuotes();
     expect(liveQuotes.some(q => q.text === 'Trust no one.')).toBe(false);
@@ -116,5 +123,61 @@ describe('/suggest-quote', () => {
     const pending = await loadPending();
     expect(pending).toHaveLength(1);
     expect(interaction.lastReply.content).toMatch(/submitted for review/i);
+  });
+});
+
+describe('/suggest-quote per-user pending cap', () => {
+  test('rejects a new suggestion once the user hits maxPendingPerUser (default 3)', async () => {
+    for (let i = 0; i < 3; i++) {
+      await execute(makeInteraction({ quote: `Suggestion ${i}.` }));
+    }
+    expect(await loadPending()).toHaveLength(3);
+
+    const interaction = makeInteraction({ quote: 'One too many.' });
+    await execute(interaction);
+
+    expect(await loadPending()).toHaveLength(3);
+    expect(interaction.lastReply.content).toMatch(/already have 3 suggestion/i);
+  });
+
+  test('a different user is not affected by another user\'s pending count', async () => {
+    for (let i = 0; i < 3; i++) {
+      await execute(makeInteraction({ quote: `Suggestion ${i}.`, userId: 'suggester-1' }));
+    }
+
+    const interaction = makeInteraction({ quote: 'From someone else.', userId: 'suggester-2' });
+    await execute(interaction);
+
+    const pending = await loadPending();
+    expect(pending).toHaveLength(4);
+    expect(pending.some(p => p.text === 'From someone else.')).toBe(true);
+  });
+
+  test('respects a configured maxPendingPerUser override', async () => {
+    const config = await loadGuildConfig(GUILD_ID);
+    config.quoteSuggestions.maxPendingPerUser = 1;
+    await saveGuildConfig(GUILD_ID, config);
+
+    await execute(makeInteraction({ quote: 'First.' }));
+    const interaction = makeInteraction({ quote: 'Second.' });
+    await execute(interaction);
+
+    expect(await loadPending()).toHaveLength(1);
+    expect(interaction.lastReply.content).toMatch(/already have 1 suggestion/i);
+  });
+
+  test('approving/rejecting a suggestion frees up a slot for that user', async () => {
+    const { approvePending } = await import('../src/utils/pendingQuotesStore.js');
+
+    for (let i = 0; i < 3; i++) {
+      await execute(makeInteraction({ quote: `Suggestion ${i}.` }));
+    }
+    const pendingBefore = await loadPending();
+    await approvePending(pendingBefore[0].id);
+
+    const interaction = makeInteraction({ quote: 'Now there is room.' });
+    await execute(interaction);
+
+    expect(await loadPending()).toHaveLength(3);
   });
 });

@@ -36,7 +36,7 @@ async function savePending(pending) {
 
 /**
  * Loads the pending-suggestion list.
- * @returns {Promise<Array<{ id: string, title?: string, text: string, author?: string, suggestedBy: string, guildId: string }>>}
+ * @returns {Promise<Array<{ id: string, title?: string, text: string, author?: string, suggestedBy: string, suggestedById: string, guildId: string }>>}
  */
 export async function loadPending() {
   try {
@@ -52,7 +52,7 @@ export async function loadPending() {
 
 /**
  * Adds a new suggestion to the queue.
- * @param {{ title?: string, text: string, author?: string, suggestedBy: string, guildId: string }} suggestion
+ * @param {{ title?: string, text: string, author?: string, suggestedBy: string, suggestedById: string, guildId: string }} suggestion
  * @returns {Promise<string>} The new entry's id, for use in moderation-message button custom IDs
  */
 export async function addPending(suggestion) {
@@ -68,12 +68,27 @@ export async function addPending(suggestion) {
     entry.author = suggestion.author.trim();
   }
   entry.suggestedBy = suggestion.suggestedBy;
+  entry.suggestedById = suggestion.suggestedById;
   entry.guildId = suggestion.guildId;
 
   const pending = await loadPending();
   pending.push(entry);
   await savePending(pending);
   return entry.id;
+}
+
+/**
+ * Counts how many suggestions a specific user currently has awaiting review
+ * in a guild — used by /suggest-quote to cap per-user queue depth so one
+ * user can't flood the review queue (and moderation channel, if configured)
+ * even while staying under the per-command rate limit.
+ * @param {string} guildId
+ * @param {string} suggestedById Discord user ID (snowflake), not the display tag
+ * @returns {Promise<number>}
+ */
+export async function countPendingBySuggester(guildId, suggestedById) {
+  const pending = await loadPending();
+  return pending.filter(entry => entry.guildId === guildId && entry.suggestedById === suggestedById).length;
 }
 
 /**

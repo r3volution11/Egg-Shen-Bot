@@ -18,6 +18,7 @@ import { signCropToken, verifyCropToken, consumeCropToken } from '../utils/cropL
 import { fetchImageUrl } from '../utils/fetchImageUrl.js';
 import { loadQuotes, addQuote, updateQuote, deleteQuote, replaceAllQuotes } from '../utils/movieQuotesStore.js';
 import { loadPending, approvePending, rejectPending } from '../utils/pendingQuotesStore.js';
+import { consumeQuotesAdminLinkToken } from '../utils/quotesAdminLinkToken.js';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -801,9 +802,36 @@ export function createApiServer(client) {
 
   // Quotes-admin page shell — unauthenticated at the route level (see
   // requireQuotesAdmin above for why); loads and prompts for the secret
-  // client-side before making any API call.
+  // client-side before making any API call, unless a signed one-time link
+  // token is present in the URL (see /eggshen-config-quotes admin-link and
+  // the exchange route below) — the page's own JS handles reading ?token=
+  // and calling the exchange route to auto-unlock.
   app.get('/quotes-admin', (req, res) => {
     res.sendFile(path.join(__dirname, '../../public/quotes-admin/quotes-admin.html'));
+  });
+
+  // Exchanges a signed, single-use admin-link token (from
+  // /eggshen-config-quotes admin-link) for the real QUOTES_ADMIN_SECRET, so
+  // a moderator can click a Discord link straight into an unlocked
+  // /quotes-admin instead of being handed the secret to type in themselves.
+  // Deliberately not behind requireQuotesAdmin (the token itself is the
+  // credential here) but still rate-limited the same as every other
+  // quotes-admin route to bound brute-forcing.
+  app.post('/api/quotes-admin-link/exchange', quotesAdminLimiter, (req, res) => {
+    const { token } = req.body || {};
+    const result = consumeQuotesAdminLinkToken(token);
+
+    if (!result.valid) {
+      const messages = {
+        'not-configured': 'Quote editing is not configured on this server (QUOTES_ADMIN_SECRET is not set).',
+        expired: 'This link has expired. Ask for a fresh one with /eggshen-config-quotes admin-link.',
+        'already-used': 'This link has already been used. Ask for a fresh one with /eggshen-config-quotes admin-link.',
+      };
+      const status = result.reason === 'not-configured' ? 503 : 403;
+      return res.status(status).json({ error: messages[result.reason] || 'This link is invalid.' });
+    }
+
+    res.json({ secret: process.env.QUOTES_ADMIN_SECRET });
   });
 
   app.get('/api/quotes', quotesAdminLimiter, requireQuotesAdmin, async (req, res) => {

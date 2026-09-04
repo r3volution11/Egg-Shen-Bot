@@ -256,3 +256,46 @@ describe('pending quote-suggestion queue routes', () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe('POST /api/quotes-admin-link/exchange', () => {
+  test('exchanges a valid token for the real admin secret, exactly once', async () => {
+    const { signQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+    const token = signQuotesAdminLinkToken();
+    const request = await import('supertest');
+
+    const first = await request.default(app).post('/api/quotes-admin-link/exchange').send({ token });
+    expect(first.status).toBe(200);
+    expect(first.body.secret).toBe(TEST_SECRET);
+
+    const second = await request.default(app).post('/api/quotes-admin-link/exchange').send({ token });
+    expect(second.status).toBe(403);
+  });
+
+  test('the exchanged secret actually works against the real admin routes', async () => {
+    const { signQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+    const token = signQuotesAdminLinkToken();
+    const request = await import('supertest');
+
+    const exchange = await request.default(app).post('/api/quotes-admin-link/exchange').send({ token });
+    const secret = exchange.body.secret;
+
+    const response = await request.default(app).get('/api/quotes').set('Authorization', `Bearer ${secret}`);
+    expect(response.status).toBe(200);
+  });
+
+  test('rejects a malformed token', async () => {
+    const request = await import('supertest');
+    const response = await request.default(app).post('/api/quotes-admin-link/exchange').send({ token: 'not-a-real-token' });
+    expect(response.status).toBe(403);
+  });
+
+  test('returns 503 when QUOTES_ADMIN_SECRET is removed after the token was signed', async () => {
+    const { signQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+    const token = signQuotesAdminLinkToken();
+    delete process.env.QUOTES_ADMIN_SECRET;
+
+    const request = await import('supertest');
+    const response = await request.default(app).post('/api/quotes-admin-link/exchange').send({ token });
+    expect(response.status).toBe(503);
+  });
+});
