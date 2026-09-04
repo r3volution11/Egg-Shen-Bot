@@ -94,6 +94,7 @@ cp public/config.example.js public/config.js
 ```js
 window.EGG_SHEN_CONFIG = {
   GUILD_ID: 'YOUR_TEST_SERVER_GUILD_ID',
+  LOGO_URL: '', // optional — a logo shown centered at the top of the form, capped at 200px wide
 };
 ```
 

@@ -8,4 +8,9 @@
 // 2. Right-click your server icon → "Copy Server ID"
 window.EGG_SHEN_CONFIG = {
   GUILD_ID: 'YOUR_GUILD_ID_HERE',
+
+  // Optional: a logo shown at the top of the form (e.g. your server's own
+  // icon or the community/brand this form represents). Leave blank/omit to
+  // show no logo. Displayed centered, capped at 200px wide.
+  LOGO_URL: '',
 };

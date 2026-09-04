@@ -17,6 +17,9 @@ const GUILD_ID = new URLSearchParams(window.location.search).get('e2eGuildId')
     || window.EGG_SHEN_CONFIG?.GUILD_ID
     || 'YOUR_GUILD_ID_HERE';
 
+// Optional: a logo shown at the top of the form — see config.example.js.
+const LOGO_URL = window.EGG_SHEN_CONFIG?.LOGO_URL || '';
+
 // Validate configuration
 if (!GUILD_ID || GUILD_ID === 'YOUR_GUILD_ID_HERE') {
     document.body.innerHTML = '<div style="max-width: 700px; margin: 50px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; background: #12181c; color: #dde4e7;"><div style="background: #2c1214; border: 1px solid #e5484d; padding: 20px; border-radius: 8px; color: #f5a3a6; text-align: center;"><h2>⚠️ Configuration Required</h2><p>This event request form has not been configured with a Discord server ID.</p><p><strong>Copy <code>public/config.example.js</code> to <code>public/config.js</code></strong> and set <code>GUILD_ID</code> to your server\'s Guild ID.</p><p>See the comments in that file for instructions on finding your Guild ID.</p></div></div>';
@@ -148,6 +151,13 @@ function resetImageState() {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+    if (LOGO_URL) {
+        const logo = document.getElementById('server-logo');
+        logo.src = LOGO_URL;
+        logo.alt = 'Server logo';
+        logo.style.display = 'inline-block';
+    }
+
     // Load guild configuration
     await loadGuildConfig();
     

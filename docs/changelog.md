@@ -5,6 +5,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.27.1 - 2026-09-04
+
+### Added
+- **A favicon (derived from the Egg Shen bot's own logo) now shows in the browser tab on all 3 web pages** (event-request form, moderator crop page, quotes-admin) — `.ico` plus 16px/32px PNGs and an Apple touch icon
+- **The event-request form can now show an optional logo at the top**, centered and capped at 200px wide — set `LOGO_URL` in `public/config.js` (same file `GUILD_ID` already lives in) to your server's own icon or whatever brand/community the form represents. Left unset, no logo is shown (unchanged from before)
+
+### Fixed
+- **`/quotes-admin` (and the crop page) were serving the raw event-request form's HTML instead of Bootstrap's CSS/JS**, with the browser refusing to apply it due to a `text/html` MIME type mismatch. Root cause: the 2.27.0 Bootstrap migration added a `/shared-assets` static mount inside the bot process, but the reverse-proxy config on both `shudderdrivein.com` and `dev.shudderdrivein.com` was never updated to forward `/shared-assets/` to the bot — those requests fell through nginx's SPA-style fallback and got served `index.html`. Added the missing `location /shared-assets/` block (mirroring the existing `/crop-assets/`/`/quotes-assets/` pattern) to both domains
+
+### Developer
+- New `public/img/` (favicon.ico, favicon-16.png, favicon-32.png, apple-touch-icon.png), added to the existing `/shared-assets` static mount in `src/api/server.js` alongside `public/css`/`public/js`
+- `public/config.example.js`: new optional `LOGO_URL` field; `public/app.js` reads it and shows/sizes `#server-logo` in `index.html`'s header on load, no other behavior change
+- This deployment's nginx configs updated directly (both domains) — not something a `git pull` alone fixes for existing self-hosted deployments; anyone who deployed 2.27.0 behind a reverse proxy needs the equivalent `/shared-assets/` block added
+
 ## 2.27.0 - 2026-09-04
 
 ### Changed
