@@ -171,12 +171,24 @@ yourdomain.com       → public/            → GUILD_ID = <production guild>
 dev.yourdomain.com   → public-dev/        → GUILD_ID = <dev/test guild>
 ```
 
-Both domains proxy `/api/`, `/crop/`, and `/crop-assets/` to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part. What each domain needs:
+Both domains proxy `/api/`, `/crop/`, `/crop-assets/`, and `/shared-assets/` (the compiled Bootstrap CSS/JS the crop and quotes-admin pages share — see "Customizing the Look" below) to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part. What each domain needs:
 
-1. A second static directory (e.g. `public-dev/`) — a copy of `public/` (including `crop/`) with its own `config.js` set to the other server's Guild ID.
-2. A second nginx `server{}` block for the new (sub)domain, mirroring the existing one: same `root` pattern pointed at the new directory, the same three proxy `location` blocks, its own SSL certificate (`certbot --nginx -d dev.yourdomain.com`, once DNS for the subdomain points at the server).
+1. A second static directory (e.g. `public-dev/`) — a copy of `public/` (including `crop/`, `css/`, `js/`) with its own `config.js` set to the other server's Guild ID (and, optionally, its own `LOGO_URL` — see below).
+2. A second nginx `server{}` block for the new (sub)domain, mirroring the existing one: same `root` pattern pointed at the new directory, the same four proxy `location` blocks (`/api/`, `/crop/`, `/crop-assets/`, `/shared-assets/`), its own SSL certificate (`certbot --nginx -d dev.yourdomain.com`, once DNS for the subdomain points at the server).
 3. `ALLOWED_ORIGINS` in `.env` updated to a comma-separated list including every domain (already supported — `cors()`'s `origin` option is built directly from `ALLOWED_ORIGINS.split(',')`): `ALLOWED_ORIGINS=https://yourdomain.com,https://dev.yourdomain.com`.
 4. Both callback URLs registered in the Discord Developer Portal (OAuth2 → Redirects): `https://yourdomain.com/api/auth/discord/callback` **and** `https://dev.yourdomain.com/api/auth/discord/callback`. The bot itself derives which one to use per-request from the actual incoming domain (not a single static `OAUTH_REDIRECT_URI`), so a login started on either domain correctly lands back on that same domain — `OAUTH_REDIRECT_URI`/`FORM_URL` in `.env` only matter as a fallback for requests where the domain can't be determined (shouldn't happen behind nginx).
+
+## Customizing the Look
+
+Three separate mechanisms control how these pages look, each configured differently — worth keeping straight:
+
+| What | How | When it takes effect |
+|---|---|---|
+| **Accent color** (buttons, links, tabs — the whole palette is derived from this one color) | `WEB_PRIMARY_COLOR` in `.env` | Build-time — after changing it, run `npm run build:web` (see `DEPLOYMENT.md`). Whole-deployment setting: one bot process, one color, shared by every domain/guild it serves. |
+| **Logo** shown at the top of the event-request form | `LOGO_URL` in each domain's own `public/config.js` (same file `GUILD_ID` lives in) | Immediately, per page load — no build step. Per-domain: `yourdomain.com` and `dev.yourdomain.com` can each show a different logo (or none), since each has its own `config.js`. |
+| Everything else (layout, fields, spacing) | Fixed | N/A — not currently configurable. |
+
+If you just want the default look, you don't need to touch either of these — `WEB_PRIMARY_COLOR` defaults to a cyan theme, and `LOGO_URL` defaults to no logo.
 
 ## Troubleshooting
 

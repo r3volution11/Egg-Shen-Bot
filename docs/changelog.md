@@ -5,6 +5,24 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.28.0 - 2026-09-04
+
+### Added
+- **Self-hosters can now set one primary accent color (`WEB_PRIMARY_COLOR`) that mathematically derives the entire color scheme** (secondary, danger, success, the whole gray scale) for the event-request form, moderator crop page, and quotes-admin — no need to pick 7 colors independently. Danger and success are automatically kept visually distinct from whatever primary is chosen (e.g. a red primary shifts danger toward orange instead of colliding with it). Takes effect after running `npm run build:web`; unset, everything looks exactly like before this existed
+
+### Changed
+- **The 3 web pages' Bootstrap CSS/JS is now compiled from source (SCSS) rather than vendoring the full precompiled framework, and only the components/utilities these pages actually use are included.** Real measured result: **108.9KB total (CSS+JS) vs. 310.7KB before — a 65% reduction.** Concretely: only forms/buttons/nav-tabs/cards/badges/alerts are compiled in (no modal, dropdown, tooltip, popover, carousel, accordion, navbar, toast, offcanvas, breadcrumb, pagination, progress, list-group, or spinners — none of which any page uses); the utility-class set is trimmed to only what's referenced in markup; the JS bundle contains only the `Tab` component (quotes-admin's tab switcher) instead of the full bundle plus Popper
+- **`public/css/theme.css` is gone** — its entire purpose (manually re-specifying button/nav-tab hover/active colors, since Bootstrap bakes those in at compile time rather than reading root CSS variables) is now handled automatically by Bootstrap's own Sass color functions once real Sass variables are set before compiling, rather than working around it after the fact
+
+### Developer
+- New `public/scss/custom.scss` — explicit, selective `@import` list (not `@import "bootstrap/scss/bootstrap"`) naming exactly the kept components; `public/scss/_kept-utilities.scss` trims Bootstrap's `$utilities` map the same way. Adding a component or utility back is a one-line change in either file — confirmed no real cross-dependency blocks dropping any of the unused components (a couple of harmless inert CSS selectors reference dropped classes like `.btn-close`/`.dropdown-menu`, costing nothing since those classes don't exist in this project's markup)
+- New `scripts/generate-palette.js` — derives the palette from `WEB_PRIMARY_COLOR` using `culori`'s OKLCH color space (perceptually uniform, unlike raw HSL), with an explicit circular-hue-distance check that shifts danger/success away from primary's own hue when they'd otherwise collide; writes `public/scss/_generated-palette.scss` (gitignored, regenerated every build)
+- New `scripts/build-web-assets.js` (`npm run build:css`/`build:js`/`build:web`) — orchestrates palette generation, `sass` compilation, and an `esbuild` bundle of `public/js-src/bootstrap-entry.js` (imports only `bootstrap/js/dist/tab`)
+- New devDependencies: `bootstrap` (for its `scss`/`js` source, not just precompiled `dist/`), `sass`, `esbuild`, `culori`
+- **Build-output distribution split by deploy context**: this project's own deploy (`DEPLOYMENT.md`) now runs `npm run build:web` fresh every time (output gitignored) — but `public/index.html` is copied wholesale by third-party self-hosters who may have no build tooling at all, so a new `.github/workflows/build-web-fallback.yml` (mirrors the existing `deploy-docs.yml` pattern) rebuilds and auto-commits the compiled `bootstrap.min.css`/`bootstrap.min.js` back to `main` whenever their source changes — a `git clone` alone still gives a working, zero-build-step copy
+- `EVENT_REQUEST_SETUP.md`/`QUOTES_ADMIN_SETUP.md`: new "Customizing the Look" sections distinguishing `WEB_PRIMARY_COLOR` (build-time, whole-deployment) from `LOGO_URL`/`GUILD_ID` (runtime, per-domain via each domain's own `config.js`)
+- Full Jest suite (896/896) and Playwright e2e suite (20/20) green after the migration; visually verified the derived-palette system directly (a red `WEB_PRIMARY_COLOR` test build showed clearly-distinct red/orange Save/Delete buttons, not a collision)
+
 ## 2.27.1 - 2026-09-04
 
 ### Added

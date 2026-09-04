@@ -99,6 +99,18 @@ cd ~/egg-shen-bot
 npm install
 ```
 
+## Step 4b: Build the Web Page Assets
+
+The event-request form, moderator crop page, and quotes-admin page use a small, selective Bootstrap build (only the components/utilities these pages actually use, compiled from source — see `public/scss/`) instead of the full framework. Build it once per deploy:
+
+```bash
+npm run build:web
+```
+
+This regenerates `public/css/bootstrap.min.css` and `public/js/bootstrap.min.js` from source — both are gitignored (this project's own deploy always rebuilds fresh) rather than committed, unlike a typical self-hoster's `git clone`, which gets a pre-built fallback maintained by CI so it works with zero build step (see `.github/workflows/build-web-fallback.yml`). Run this again any time `public/scss/`, `public/js-src/`, or `WEB_PRIMARY_COLOR` changes — it's fast (a couple seconds) and safe to run on every deploy regardless.
+
+Optional: set `WEB_PRIMARY_COLOR` in `.env` to a hex color to customize the accent color across all 3 pages — everything else in the palette (secondary, danger, success, the gray scale) is mathematically derived from that one color, so you only ever set one value. See `.env.example` for details. Leave it unset to keep the default cyan theme.
+
 ## Step 5: Deploy Commands
 
 Deploy the bot commands to Discord:

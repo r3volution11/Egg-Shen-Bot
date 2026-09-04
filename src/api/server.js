@@ -621,10 +621,11 @@ export function createApiServer(client) {
   // that question entirely.
   app.use('/crop-assets', express.static(path.join(__dirname, '../../public/crop')));
 
-  // Serves vendored Bootstrap + the shared theme.css + favicon files so the
-  // crop and quotes-admin pages (below) can reference them without widening
-  // either scoped mount above to their parent directory — same reasoning:
-  // only public/css, public/js, and public/img are exposed, never public/
+  // Serves the built Bootstrap CSS/JS (public/css/, public/js/ — see
+  // scripts/build-web-assets.js) + favicon files so the crop and
+  // quotes-admin pages (below) can reference them without widening either
+  // scoped mount above to their parent directory — same reasoning: only
+  // public/css, public/js, and public/img are exposed, never public/
   // itself (which would also expose index.html/app.js/style.css).
   app.use('/shared-assets', express.static(path.join(__dirname, '../../public/css')));
   app.use('/shared-assets', express.static(path.join(__dirname, '../../public/js')));

@@ -1,0 +1,34 @@
+// Trims Bootstrap's $utilities map down to only the keys this project's 3
+// pages' markup actually uses (enumerated directly from every class="..."
+// in public/*.html and every className string set in public/*.js — see
+// the plan this was built from for the full audit). This is Bootstrap's
+// own documented "Utilities API" customization pattern: redefine $utilities
+// before importing utilities/api, rather than generating everything and
+// discarding the rest.
+//
+// To bring back a dropped utility (e.g. a future page needs .shadow or
+// .overflow-auto), add its key here — one line, no other change needed.
+// Full list of available keys/values: node_modules/bootstrap/scss/_utilities.scss
+
+@use "sass:map";
+
+$utilities: (
+  "display": map.get($utilities, "display"),           // .d-flex .d-grid .d-none .d-block
+  "flex-direction": map.get($utilities, "flex-direction"), // .flex-column
+  "flex-shrink": map.get($utilities, "flex-shrink"),    // .flex-shrink-0
+  "align-items": map.get($utilities, "align-items"),    // .align-items-center
+  "gap": map.get($utilities, "gap"),                    // .gap-2
+  "text-align": map.get($utilities, "text-align"),      // .text-center .text-start
+  "white-space": map.get($utilities, "white-space"),    // .text-nowrap
+  "font-style": map.get($utilities, "font-style"),      // .fst-italic
+  "color": map.get($utilities, "color"),                // .text-secondary
+  "background-color": map.get($utilities, "background-color"), // .bg-body-tertiary
+  "rounded": map.get($utilities, "rounded"),            // .rounded-circle
+  "width": map.get($utilities, "width"),                // .w-100
+  "margin-bottom": map.get($utilities, "margin-bottom"), // .mb-0 .mb-2 .mb-3 .mb-4
+  "margin-top": map.get($utilities, "margin-top"),      // .mt-2 .mt-3 .mt-4
+  "padding-y": map.get($utilities, "padding-y"),        // .py-2 .py-4
+);
+// Deliberately no !default here — this assignment must actually replace
+// the full $utilities map bootstrap/scss/utilities set moments ago, not
+// defer to it (a !default assignment would be a silent no-op).

@@ -76,3 +76,7 @@ Since a suggestion writes into a moderator-facing review queue (and optionally p
 ## Storage
 
 Quotes are stored in a gitignored `movie_quotes.json` file at the project root, seeded the first time the bot starts with a small set of placeholder lines from `src/utils/movieQuotes.js`. Pending suggestions live separately in a gitignored `movie_quotes_pending.json`, so a suggestion never affects the bot's live status until it's approved. From then on, these files are the source of truth — edit them directly on the server, or through `/quotes-admin`/the Discord commands above; all paths read/write the same files.
+
+## Customizing the Look
+
+`/quotes-admin` shares the same compiled Bootstrap CSS/JS as the event-request form and moderator crop page. The accent color is a build-time, whole-deployment setting (`WEB_PRIMARY_COLOR` in `.env`, then `npm run build:web`) — see [`EVENT_REQUEST_SETUP.md`'s "Customizing the Look"](EVENT_REQUEST_SETUP.md#customizing-the-look) section for the full picture. (The event-request form's separate `LOGO_URL` setting is specific to that page — quotes-admin doesn't currently show a logo.)

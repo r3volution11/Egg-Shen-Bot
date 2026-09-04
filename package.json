@@ -1,6 +1,6 @@
 {
   "name": "egg-shen-bot",
-  "version": "2.27.1",
+  "version": "2.28.0",
   "description": "Egg Shen - Discord bot for searching movies, TV shows, games, and board games with ratings from multiple services",
   "main": "src/index.js",
   "type": "module",
@@ -9,6 +9,9 @@
     "dev": "node --watch src/index.js",
     "deploy-commands": "node src/deploy-commands.js",
     "validate-oauth": "node scripts/validate-oauth-config.js",
+    "build:css": "node scripts/build-web-assets.js --css",
+    "build:js": "node scripts/build-web-assets.js --js",
+    "build:web": "node scripts/build-web-assets.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
@@ -45,7 +48,11 @@
   "devDependencies": {
     "@jest/globals": "^29.7.0",
     "@playwright/test": "^1.61.1",
+    "bootstrap": "^5.3.8",
+    "culori": "^4.0.2",
+    "esbuild": "^0.28.2",
     "jest": "^29.7.0",
+    "sass": "^1.104.0",
     "supertest": "^7.0.0",
     "vitepress": "^1.6.4"
   }
