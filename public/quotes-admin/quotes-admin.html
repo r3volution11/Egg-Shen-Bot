@@ -1,75 +1,86 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bot Status Quotes</title>
+    <link rel="stylesheet" href="/shared-assets/bootstrap.min.css">
+    <link rel="stylesheet" href="/shared-assets/theme.css">
     <link rel="stylesheet" href="/quotes-assets/quotes-admin.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🎬 Bot Status Quotes</h1>
-            <p class="subtitle">Manage the rotating text shown as the bot's Discord status</p>
+    <div class="container py-4" style="max-width: 800px;">
+        <header class="text-center mb-4">
+            <h1 class="h3">🎬 Bot Status Quotes</h1>
+            <p class="text-secondary">Manage the rotating text shown as the bot's Discord status</p>
         </header>
 
         <div id="unlock-section">
-            <div class="form-group">
-                <label for="admin-secret">Admin Secret</label>
-                <input type="password" id="admin-secret" placeholder="Enter the admin secret" autocomplete="off">
+            <div class="mb-3">
+                <label for="admin-secret" class="form-label">Admin Secret</label>
+                <input type="password" class="form-control" id="admin-secret" placeholder="Enter the admin secret" autocomplete="off">
             </div>
-            <button type="button" id="unlock-btn" class="btn btn-submit">Unlock</button>
-            <div id="unlock-message" class="message" style="display:none;"></div>
+            <button type="button" id="unlock-btn" class="btn btn-success w-100 py-2">Unlock</button>
+            <div id="unlock-message" class="alert mt-3" style="display:none;"></div>
         </div>
 
         <div id="editor-section" style="display:none;">
-            <div class="tabs">
-                <button type="button" class="tab-btn active" data-tab="live">Quotes</button>
-                <button type="button" class="tab-btn" data-tab="pending">Suggestions <span id="pending-count" class="badge" style="display:none;"></span></button>
-            </div>
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button type="button" class="nav-link active" id="live-tab-btn" data-bs-toggle="tab" data-bs-target="#live-tab" role="tab" aria-controls="live-tab" aria-selected="true">Quotes</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button type="button" class="nav-link" id="pending-tab-btn" data-bs-toggle="tab" data-bs-target="#pending-tab" role="tab" aria-controls="pending-tab" aria-selected="false">
+                        Suggestions <span id="pending-count" class="badge text-bg-danger d-none"></span>
+                    </button>
+                </li>
+            </ul>
 
-            <div id="live-tab" class="tab-panel">
-                <div class="mode-toggle">
-                    <button type="button" id="mode-rows-btn" class="btn btn-secondary btn-small active">Row Editor</button>
-                    <button type="button" id="mode-bulk-btn" class="btn btn-secondary btn-small">Bulk Editor</button>
-                </div>
-
-                <div id="row-mode">
-                    <div id="add-quote-row">
-                        <input type="text" id="new-quote-title" placeholder="Title (optional)">
-                        <input type="text" id="new-quote-text" placeholder="Quote text">
-                        <input type="text" id="new-quote-author" placeholder="Author (optional)">
-                        <button type="button" id="add-quote-btn" class="btn btn-primary">Add</button>
+            <div class="tab-content">
+                <div id="live-tab" class="tab-pane fade show active" role="tabpanel" aria-labelledby="live-tab-btn">
+                    <div class="btn-group mb-3" role="group">
+                        <button type="button" id="mode-rows-btn" class="btn btn-secondary btn-sm active">Row Editor</button>
+                        <button type="button" id="mode-bulk-btn" class="btn btn-secondary btn-sm">Bulk Editor</button>
                     </div>
 
-                    <ul id="quote-list"></ul>
+                    <div id="row-mode">
+                        <div id="add-quote-row" class="d-flex gap-2 mb-3">
+                            <input type="text" class="form-control" id="new-quote-title" placeholder="Title (optional)">
+                            <input type="text" class="form-control" id="new-quote-text" placeholder="Quote text">
+                            <input type="text" class="form-control" id="new-quote-author" placeholder="Author (optional)">
+                            <button type="button" id="add-quote-btn" class="btn btn-primary text-nowrap">Add</button>
+                        </div>
 
-                    <div id="empty-state" style="display:none;">
-                        <p>No quotes yet — add one above.</p>
+                        <ul id="quote-list" class="list-unstyled d-flex flex-column gap-2"></ul>
+
+                        <div id="empty-state" class="text-center text-secondary py-4" style="display:none;">
+                            <p class="mb-0">No quotes yet — add one above.</p>
+                        </div>
                     </div>
+
+                    <div id="bulk-mode" style="display:none;">
+                        <p class="text-secondary small">One quote per line, formatted as <code>Title | Quote | Author</code> (Title and Author are optional — leave them blank between the pipes, e.g. <code>| Just the quote text |</code>).</p>
+                        <textarea id="bulk-textarea" class="form-control mb-3" rows="14" spellcheck="false"></textarea>
+                        <div id="bulk-errors" class="alert alert-danger" style="display:none;"></div>
+                        <button type="button" id="bulk-save-btn" class="btn btn-success w-100 py-2">Save All</button>
+                    </div>
+
+                    <div id="editor-message" class="alert mt-3" style="display:none;"></div>
                 </div>
 
-                <div id="bulk-mode" style="display:none;">
-                    <p class="hint">One quote per line, formatted as <code>Title | Quote | Author</code> (Title and Author are optional — leave them blank between the pipes, e.g. <code>| Just the quote text |</code>).</p>
-                    <textarea id="bulk-textarea" rows="14" spellcheck="false"></textarea>
-                    <div id="bulk-errors" class="message error" style="display:none;"></div>
-                    <button type="button" id="bulk-save-btn" class="btn btn-submit">Save All</button>
+                <div id="pending-tab" class="tab-pane fade" role="tabpanel" aria-labelledby="pending-tab-btn">
+                    <p class="text-secondary small">Suggestions submitted with <code>/suggest-quote</code>, awaiting approval.</p>
+                    <ul id="pending-list" class="list-unstyled d-flex flex-column gap-2"></ul>
+                    <div id="pending-empty-state" class="text-center text-secondary py-4">
+                        <p class="mb-0">No pending suggestions.</p>
+                    </div>
+                    <div id="pending-message" class="alert mt-3" style="display:none;"></div>
                 </div>
-
-                <div id="editor-message" class="message" style="display:none;"></div>
-            </div>
-
-            <div id="pending-tab" class="tab-panel" style="display:none;">
-                <p class="hint">Suggestions submitted with <code>/suggest-quote</code>, awaiting approval.</p>
-                <ul id="pending-list"></ul>
-                <div id="pending-empty-state">
-                    <p>No pending suggestions.</p>
-                </div>
-                <div id="pending-message" class="message" style="display:none;"></div>
             </div>
         </div>
     </div>
 
+    <script src="/shared-assets/bootstrap.bundle.min.js"></script>
     <script src="/quotes-assets/quotes-admin.js"></script>
 </body>
 </html>

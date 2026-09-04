@@ -136,7 +136,7 @@ Navigate to: `http://localhost:8080`
    - Add production redirect URI: `https://yourdomain.com/api/auth/discord/callback`
 
 3. **Deploy Web Form**:
-   - Upload `/public` folder contents to your web server (yourdomain.com)
+   - Upload `/public` folder contents to your web server (yourdomain.com) — this includes `public/css/` and `public/js/` (vendored Bootstrap + the site's color theme), which the form now depends on for its styling, so a full-folder copy is required rather than copying individual files
    - Copy `public/config.example.js` to `public/config.js` on the server and set `GUILD_ID` to your Discord server's ID
    - Ensure HTTPS is enabled
 

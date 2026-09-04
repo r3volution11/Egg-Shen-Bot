@@ -1,17 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crop Event Image</title>
+    <link rel="stylesheet" href="/shared-assets/bootstrap.min.css">
+    <link rel="stylesheet" href="/shared-assets/theme.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1/dist/cropper.min.css">
     <link rel="stylesheet" href="/crop-assets/crop.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🖼️ Crop Event Image</h1>
-            <p class="subtitle">Adjust the framing, then save</p>
+    <div class="container py-4" style="max-width: 700px;">
+        <header class="text-center mb-4">
+            <h1 class="h3">🖼️ Crop Event Image</h1>
+            <p class="text-secondary">Adjust the framing, then save</p>
         </header>
 
         <div id="loading-message">Loading...</div>
@@ -21,24 +23,25 @@
                 <img id="crop-target" alt="Event image to crop">
             </div>
 
-            <div class="form-group">
-                <label for="replace-file">Or upload a different image</label>
-                <input type="file" id="replace-file" accept="image/png,image/jpeg,image/gif,image/webp">
+            <div class="mb-3">
+                <label for="replace-file" class="form-label">Or upload a different image</label>
+                <input type="file" class="form-control" id="replace-file" accept="image/png,image/jpeg,image/gif,image/webp">
             </div>
 
-            <button type="button" id="save-btn" class="btn btn-submit">Save Cropped Image</button>
-            <div id="result-message" class="message" style="display:none;"></div>
+            <button type="button" id="save-btn" class="btn btn-success w-100 py-2">Save Cropped Image</button>
+            <div id="result-message" class="alert mt-3" style="display:none;"></div>
         </div>
 
-        <div id="empty-state" style="display:none;">
+        <div id="empty-state" class="text-center text-secondary py-4" style="display:none;">
             <p>This request doesn't have an image yet.</p>
-            <div class="form-group" style="margin-top:16px;">
-                <label for="upload-file">Upload an image to crop</label>
-                <input type="file" id="upload-file" accept="image/png,image/jpeg,image/gif,image/webp">
+            <div class="mb-3 mt-3 text-start">
+                <label for="upload-file" class="form-label">Upload an image to crop</label>
+                <input type="file" class="form-control" id="upload-file" accept="image/png,image/jpeg,image/gif,image/webp">
             </div>
         </div>
     </div>
 
+    <script src="/shared-assets/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/cropperjs@1/dist/cropper.min.js"></script>
     <script src="/crop-assets/crop.js"></script>
 </body>

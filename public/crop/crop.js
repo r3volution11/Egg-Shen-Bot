@@ -17,9 +17,14 @@ const resultMessage = document.getElementById('result-message');
 const replaceFileInput = document.getElementById('replace-file');
 const uploadFileInput = document.getElementById('upload-file');
 
+// Maps this page's own success/error/info vocabulary onto Bootstrap's
+// alert-* class names (kept as a small lookup rather than a blind string
+// replace, since Bootstrap uses "danger" where this code says "error").
+const ALERT_CLASS = { success: 'alert-success', error: 'alert-danger', info: 'alert-info' };
+
 function showMessage(text, type) {
     resultMessage.textContent = text;
-    resultMessage.className = `message ${type}`;
+    resultMessage.className = `alert ${ALERT_CLASS[type] || ''}`.trim();
     resultMessage.style.display = 'block';
 }
 

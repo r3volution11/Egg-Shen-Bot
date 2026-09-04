@@ -19,9 +19,14 @@ const GUILD_ID = new URLSearchParams(window.location.search).get('e2eGuildId')
 
 // Validate configuration
 if (!GUILD_ID || GUILD_ID === 'YOUR_GUILD_ID_HERE') {
-    document.body.innerHTML = '<div class="container"><div class="error-message" style="background: #fee; border: 1px solid #c33; padding: 20px; border-radius: 8px; color: #c33; text-align: center; margin-top: 50px;"><h2>⚠️ Configuration Required</h2><p>This event request form has not been configured with a Discord server ID.</p><p><strong>Copy <code>public/config.example.js</code> to <code>public/config.js</code></strong> and set <code>GUILD_ID</code> to your server\'s Guild ID.</p><p>See the comments in that file for instructions on finding your Guild ID.</p></div></div>';
+    document.body.innerHTML = '<div style="max-width: 700px; margin: 50px auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; background: #12181c; color: #dde4e7;"><div style="background: #2c1214; border: 1px solid #e5484d; padding: 20px; border-radius: 8px; color: #f5a3a6; text-align: center;"><h2>⚠️ Configuration Required</h2><p>This event request form has not been configured with a Discord server ID.</p><p><strong>Copy <code>public/config.example.js</code> to <code>public/config.js</code></strong> and set <code>GUILD_ID</code> to your server\'s Guild ID.</p><p>See the comments in that file for instructions on finding your Guild ID.</p></div></div>';
     throw new Error('GUILD_ID not configured — copy public/config.example.js to public/config.js');
 }
+
+// Maps this page's own success/error/info vocabulary onto Bootstrap's
+// alert-* class names (kept as a small lookup rather than a blind string
+// replace, since Bootstrap uses "danger" where this code says "error").
+const ALERT_CLASS = { success: 'alert-success', error: 'alert-danger', info: 'alert-info' };
 
 // State
 let currentUser = null;
@@ -43,7 +48,7 @@ let currentOriginalFile = null;
 async function sendImageUpload(fields, uploadingMessage) {
     const imageUploadStatus = document.getElementById('image-upload-status');
     imageUploadStatus.style.display = 'block';
-    imageUploadStatus.className = 'image-upload-status';
+    imageUploadStatus.className = 'alert';
     imageUploadStatus.textContent = uploadingMessage;
 
     try {
@@ -78,12 +83,12 @@ async function sendImageUpload(fields, uploadingMessage) {
         }
 
         uploadedImageToken = data.imageToken;
-        imageUploadStatus.className = 'image-upload-status success';
+        imageUploadStatus.className = `alert ${ALERT_CLASS.success}`;
         imageUploadStatus.textContent = '✅ Image uploaded';
         return true;
     } catch (error) {
         console.error('Error uploading image:', error);
-        imageUploadStatus.className = 'image-upload-status error';
+        imageUploadStatus.className = `alert ${ALERT_CLASS.error}`;
         imageUploadStatus.textContent = `❌ ${error.message}`;
         return false;
     }
@@ -258,7 +263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const url = imageUrlInput.value.trim();
         if (!url) {
             imageUploadStatus.style.display = 'block';
-            imageUploadStatus.className = 'image-upload-status error';
+            imageUploadStatus.className = `alert ${ALERT_CLASS.error}`;
             imageUploadStatus.textContent = '❌ Enter an image URL first.';
             return;
         }
@@ -266,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         fetchImageUrlBtn.disabled = true;
         fetchImageUrlBtn.textContent = 'Fetching...';
         imageUploadStatus.style.display = 'block';
-        imageUploadStatus.className = 'image-upload-status';
+        imageUploadStatus.className = 'alert';
         imageUploadStatus.textContent = 'Fetching image...';
 
         try {
@@ -305,7 +310,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadImageIntoCropper(data.dataUrl);
         } catch (error) {
             console.error('Error fetching image URL:', error);
-            imageUploadStatus.className = 'image-upload-status error';
+            imageUploadStatus.className = `alert ${ALERT_CLASS.error}`;
             imageUploadStatus.textContent = `❌ ${error.message}`;
         } finally {
             fetchImageUrlBtn.disabled = false;
@@ -814,7 +819,7 @@ function showMessage(text, type = 'info', allowHtml = false) {
         messageDiv.textContent = text;
     }
     
-    messageDiv.className = `message ${type}`;
+    messageDiv.className = `alert ${ALERT_CLASS[type] || ''}`.trim();
     messageDiv.style.display = 'block';
     
     // Auto-hide after 10 seconds for non-error messages

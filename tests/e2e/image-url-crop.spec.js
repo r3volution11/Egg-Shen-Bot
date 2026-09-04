@@ -78,7 +78,7 @@ test('a fetch failure (404) shows a clear error and never enters the crop UI', a
     await page.locator('#fetch-image-url-btn').click();
 
     await expect(page.locator('#image-upload-status')).toContainText('404', { timeout: 5000 });
-    await expect(page.locator('#image-upload-status')).toHaveClass(/error/);
+    await expect(page.locator('#image-upload-status')).toHaveClass(/alert-danger/);
     await expect(page.locator('#image-crop-group')).toBeHidden();
   } finally {
     server.close();

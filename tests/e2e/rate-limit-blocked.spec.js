@@ -16,7 +16,7 @@ test('a second submission within 5 minutes is blocked with the real 429 response
   await page.locator('#submit-btn').click();
 
   await expect(page.locator('#form-message')).toContainText('wait 5 minutes');
-  await expect(page.locator('#form-message')).toHaveClass(/error/);
+  await expect(page.locator('#form-message')).toHaveClass(/alert-danger/);
 
   // The button must be re-enabled even after a failed submission.
   await expect(page.locator('#submit-btn')).toBeEnabled();

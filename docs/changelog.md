@@ -5,6 +5,19 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.27.0 - 2026-09-04
+
+### Changed
+- **The 3 standalone web pages (event-request form, moderator crop page, quotes-admin) now use vendored Bootstrap 5.3.8 in dark mode with a custom cyan (`#1ac3ff`) accent and blue/green-tinted grays, instead of hand-rolled CSS styled to look like Discord's own UI.** Two things prompted this: a real visual bug (quotes-admin's dynamically-added quote rows rendered as unstyled native browser inputs — no height matching the buttons, no padding — because the old CSS rule only applied inside a wrapper those rows didn't have), and a design concern that mimicking Discord's own visual identity on pages that aren't Discord surfaces reads as deceptive. All form controls, buttons, alerts, and (on quotes-admin) tabs now come from Bootstrap's real component classes; quotes-admin's hand-rolled tab-switcher JS was deleted in favor of Bootstrap's native tab component (data-driven via markup, no custom JS needed)
+
+### Developer
+- New `public/css/bootstrap.min.css`, `public/js/bootstrap.bundle.min.js` (vendored, not CDN — self-contained for self-hosters) and `public/css/theme.css` (the shared `[data-bs-theme="dark"]` color-override layer, replacing the `:root` block duplicated across all 3 pages' CSS files previously). Buttons and nav-tabs needed direct per-component `--bs-btn-*`/`--bs-nav-tabs-*` overrides since Bootstrap bakes literal hex into those classes at its own compile time rather than referencing root theme variables the way `.form-control`/`.alert-*` do
+- `src/api/server.js`: new scoped `/shared-assets` static mount for `public/css`/`public/js`, alongside the existing `/crop-assets`/`/quotes-assets` mounts — does not widen either existing mount or expose `public/index.html`/`app.js`/`style.css` from the bot's own origin
+- Each page's `style.css`/`crop.css`/`quotes-admin.css` trimmed from ~300 lines to ~15-40: only what Bootstrap has no opinion on (Cropper.js container sizing, the bulk-editor's monospace font) remains
+- Found and fixed a real regression during verification: Bootstrap's `.d-flex`/`.d-block` utility classes use `!important`, which silently overrode two elements' JS-driven `style.display = 'none'` hides on the event-request form (`#user-info`, `#discord-invite-link`) — removed the conflicting utility classes from those two elements so the existing inline-style show/hide logic in `app.js` remains the single source of truth
+- `tests/e2e/rate-limit-blocked.spec.js`, `tests/e2e/image-url-crop.spec.js`, `tests/e2e/golden-path-simple-mode.spec.js` updated for the renamed `alert-danger`/`alert-success` classes (previously `message error`/`message success`); the golden-path test's ancestor-depth assertions (`.locator('..')`/`.locator('../..')`) needed no logic change since the new `.form-check` markup preserves the exact same DOM depth `app.js`'s own traversal relies on
+- Full Jest suite (896/896) and Playwright e2e suite (20/20) verified green after the migration
+
 ## 2.26.1 - 2026-09-03
 
 ### Added

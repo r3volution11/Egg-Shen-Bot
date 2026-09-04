@@ -8,12 +8,12 @@ test('simple-mode guild: channel selection is hidden and moderators assign chann
   await resetRateLimit(page);
 
   await expect(page.locator('#event-form')).toBeVisible();
-  await expect(page.locator('#channel').locator('..')).toBeHidden(); // .form-group wrapping #channel
-  await expect(page.locator('#use-voice-channel').locator('../..')).toBeHidden(); // .form-group wrapping the checkbox
+  await expect(page.locator('#channel').locator('..')).toBeHidden(); // .mb-3 wrapping #channel
+  await expect(page.locator('#use-voice-channel').locator('../..')).toBeHidden(); // .mb-3 wrapping the .form-check
 
   await fillRequiredFields(page);
   await page.locator('#submit-btn').click();
 
   await expect(page.locator('#form-message')).toContainText('submitted successfully');
-  await expect(page.locator('#form-message')).toHaveClass(/success/);
+  await expect(page.locator('#form-message')).toHaveClass(/alert-success/);
 });

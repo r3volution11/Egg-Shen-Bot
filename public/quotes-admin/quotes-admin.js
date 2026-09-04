@@ -8,9 +8,6 @@ const adminSecretInput = document.getElementById('admin-secret');
 const unlockBtn = document.getElementById('unlock-btn');
 const unlockMessage = document.getElementById('unlock-message');
 
-const tabBtns = document.querySelectorAll('.tab-btn');
-const liveTab = document.getElementById('live-tab');
-const pendingTab = document.getElementById('pending-tab');
 const pendingCountBadge = document.getElementById('pending-count');
 
 const modeRowsBtn = document.getElementById('mode-rows-btn');
@@ -34,9 +31,14 @@ const pendingList = document.getElementById('pending-list');
 const pendingEmptyState = document.getElementById('pending-empty-state');
 const pendingMessage = document.getElementById('pending-message');
 
+// Maps this page's own success/error/info vocabulary onto Bootstrap's
+// alert-* class names (kept as a small lookup rather than a blind string
+// replace, since Bootstrap uses "danger" where this code says "error").
+const ALERT_CLASS = { success: 'alert-success', error: 'alert-danger', info: 'alert-info' };
+
 function showMessage(el, text, type) {
     el.textContent = text;
-    el.className = `message ${type}`;
+    el.className = `alert ${ALERT_CLASS[type] || ''}`.trim();
     el.style.display = 'block';
 }
 
@@ -69,16 +71,9 @@ async function apiRequest(method, path, body) {
 }
 
 // --- Tabs ---
-
-tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        tabBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const tab = btn.dataset.tab;
-        liveTab.style.display = tab === 'live' ? 'block' : 'none';
-        pendingTab.style.display = tab === 'pending' ? 'block' : 'none';
-    });
-});
+//
+// Handled entirely by Bootstrap's own JS via the data-bs-toggle="tab"
+// markup on the tab buttons in quotes-admin.html — no custom JS needed.
 
 // --- Row/Bulk mode toggle ---
 
@@ -106,29 +101,29 @@ function renderQuotes(quotes) {
 
     quotes.forEach((quote, index) => {
         const li = document.createElement('li');
-        li.className = 'quote-row';
+        li.className = 'quote-row d-flex gap-2 align-items-center';
 
         const titleInput = document.createElement('input');
         titleInput.type = 'text';
-        titleInput.className = 'field-title';
+        titleInput.className = 'form-control field-title';
         titleInput.placeholder = 'Title';
         titleInput.value = quote.title || '';
 
         const textInput = document.createElement('input');
         textInput.type = 'text';
-        textInput.className = 'field-text';
+        textInput.className = 'form-control field-text';
         textInput.placeholder = 'Quote text';
         textInput.value = quote.text;
 
         const authorInput = document.createElement('input');
         authorInput.type = 'text';
-        authorInput.className = 'field-author';
+        authorInput.className = 'form-control field-author';
         authorInput.placeholder = 'Author';
         authorInput.value = quote.author || '';
 
         const saveBtn = document.createElement('button');
         saveBtn.type = 'button';
-        saveBtn.className = 'btn btn-primary';
+        saveBtn.className = 'btn btn-primary flex-shrink-0';
         saveBtn.textContent = 'Save';
         saveBtn.addEventListener('click', async () => {
             const text = textInput.value.trim();
@@ -151,7 +146,7 @@ function renderQuotes(quotes) {
 
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
-        deleteBtn.className = 'btn btn-danger';
+        deleteBtn.className = 'btn btn-danger flex-shrink-0';
         deleteBtn.textContent = 'Delete';
         deleteBtn.addEventListener('click', async () => {
             try {
@@ -274,15 +269,18 @@ bulkSaveBtn.addEventListener('click', async () => {
 function renderPending(pending) {
     pendingList.innerHTML = '';
     pendingEmptyState.style.display = pending.length === 0 ? 'block' : 'none';
-    pendingCountBadge.style.display = pending.length > 0 ? 'inline-block' : 'none';
+    pendingCountBadge.classList.toggle('d-none', pending.length === 0);
     pendingCountBadge.textContent = pending.length;
 
     pending.forEach((suggestion) => {
         const li = document.createElement('li');
-        li.className = 'pending-row';
+        li.className = 'pending-row card bg-body-tertiary';
+
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body';
 
         const textEl = document.createElement('div');
-        textEl.className = 'pending-text';
+        textEl.className = 'pending-text fst-italic mb-2';
         textEl.textContent = `"${suggestion.text}"`;
 
         const metaParts = [];
@@ -290,11 +288,11 @@ function renderPending(pending) {
         if (suggestion.author) metaParts.push(`— ${suggestion.author}`);
         metaParts.push(`suggested by ${suggestion.suggestedBy || 'unknown'}`);
         const metaEl = document.createElement('div');
-        metaEl.className = 'pending-meta';
+        metaEl.className = 'pending-meta text-secondary small mb-3';
         metaEl.textContent = metaParts.join(' · ');
 
         const actions = document.createElement('div');
-        actions.className = 'pending-actions';
+        actions.className = 'pending-actions d-flex gap-2';
 
         const approveBtn = document.createElement('button');
         approveBtn.type = 'button';
@@ -327,9 +325,10 @@ function renderPending(pending) {
         actions.appendChild(approveBtn);
         actions.appendChild(rejectBtn);
 
-        li.appendChild(textEl);
-        li.appendChild(metaEl);
-        li.appendChild(actions);
+        cardBody.appendChild(textEl);
+        cardBody.appendChild(metaEl);
+        cardBody.appendChild(actions);
+        li.appendChild(cardBody);
         pendingList.appendChild(li);
     });
 }
