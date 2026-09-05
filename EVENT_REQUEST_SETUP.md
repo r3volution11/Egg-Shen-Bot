@@ -180,7 +180,9 @@ Each Discord server's own settings still live in its own `guild_configs/<guildId
 
 Run `npm run deploy:domain <label>` (or `npm run deploy:domain -- --all`) after `npm run build:web` to generate a complete, ready-to-serve static-file copy at `domains/<label>/` for each entry — its own `config.js` (with that entry's `GUILD_ID`/`LOGO_URL` baked in) and its own themed `css/bootstrap.min.css`, alongside a copy of `index.html`/`app.js`/`style.css`/`crop/`/`img/`. This replaces hand-copying `public/` per domain. `domains/` is gitignored — it's generated output, regenerate it any time `domains.json`, a theme, or `public/` itself changes.
 
-**Adding a second community's domain**, once it has its own entry in `domains.json`:
+**⚠️ Existing domains must be cut over too, not just new ones.** `public/css/bootstrap.min.css` no longer exists once you're on named themes — the compiled CSS only lives at `public/css/themes/<theme>/bootstrap.min.css` and, per-domain, at `domains/<label>/css/bootstrap.min.css`. If your nginx `root` is still pointed at `public/` from before you adopted `domains.json`, the CSS/JS `<link>`/`<script>` paths will 404 at the file-system level and nginx's `try_files ... /index.html` fallback will silently serve `index.html` in their place — the page loads, but the browser refuses to apply it ("MIME type ('text/html') is not a supported stylesheet MIME type"), a bug easy to ship without noticing. The fix is the same as for a brand-new domain: point that domain's nginx `root` at its `domains/<label>/` directory (step 1 below) — do this for every domain already in production, not only ones you're newly adding.
+
+**Adding a new domain, or cutting an existing one over to `domains.json`**, once it has its own entry there:
 
 1. Point that domain's nginx `root` at `domains/<label>/` (generated above) instead of `public/`.
 2. Proxy `/api/`, `/crop/`, `/crop-assets/`, `/quotes-admin/`, `/quotes-assets/`, and `/shared-assets/` (the compiled Bootstrap CSS/JS the crop and quotes-admin pages share — see "Customizing the Look" below) to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part.
