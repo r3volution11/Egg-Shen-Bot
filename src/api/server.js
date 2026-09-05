@@ -265,7 +265,7 @@ export function createApiServer(client) {
         config: {
           serverName: eventRequestConfig.serverName || 'Discord Server',
           inviteUrl: eventRequestConfig.inviteUrl || null,
-          websiteUrl: eventRequestConfig.websiteUrl || null,
+          websiteUrl: guildConfig.website?.url || null,
           allowUserChannelSelection: eventRequestConfig.allowUserChannelSelection === true,
           allowVoiceRequests: eventRequestConfig.allowVoiceRequests !== false
         }
@@ -666,7 +666,7 @@ export function createApiServer(client) {
 
     try {
       const config = await loadGuildConfig(eventRequest.guildId);
-      const theme = config.eventRequests?.webTheme || 'default';
+      const theme = config.website?.theme || 'default';
       const html = await fs.readFile(path.join(__dirname, '../../public/crop/crop.html'), 'utf8');
       const themed = html.replace('/shared-assets/bootstrap.min.css', `/shared-assets/themes/${theme}/bootstrap.min.css`);
       res.type('html').send(themed);

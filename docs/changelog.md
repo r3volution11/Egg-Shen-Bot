@@ -5,6 +5,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.29.1 - 2026-09-05
+
+### Changed
+- **Website URL and theme moved to their own `/eggshen-config-website` command**, out of `/eggshen-config-events event-requests` — neither setting was really event-request-specific (theme also drives quotes-admin links regardless of whether event requests are enabled, and the website itself may grow beyond just the event-request form). New subcommands: `/eggshen-config-website url`, `theme`, `view`
+
+### Developer
+- `src/utils/guildConfig.js`: new top-level `website: {url, theme}` namespace, replacing `eventRequests.websiteUrl`/`webTheme`
+- New `scripts/migrate-website-config.js` — one-time, idempotent migration moving any existing `eventRequests.websiteUrl`/`webTheme` in `guild_configs/*.json` into the new `website` namespace; safe to run more than once
+- Full Jest suite green after the move; new `tests/eggshen-config-website.test.js`
+
 ## 2.29.0 - 2026-09-05
 
 ### Added

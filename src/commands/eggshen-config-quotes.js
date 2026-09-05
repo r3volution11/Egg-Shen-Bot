@@ -252,7 +252,7 @@ export async function execute(interaction) {
     }
 
     const config = await loadGuildConfig(guildId);
-    const theme = config.eventRequests?.webTheme || 'default';
+    const theme = config.website?.theme || 'default';
 
     let token;
     try {

@@ -231,7 +231,7 @@ describe('/eggshen-config-quotes admin-link', () => {
     process.env.QUOTES_ADMIN_SECRET = 'test-secret';
     process.env.PUBLIC_BOT_URL = 'https://example.com';
     const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
-    await saveGuildConfig(GUILD_ID, { eventRequests: { webTheme: 'shudder' } });
+    await saveGuildConfig(GUILD_ID, { website: { theme: 'shudder' } });
     const interaction = makeInteraction({ subcommand: 'admin-link' });
 
     await execute(interaction);

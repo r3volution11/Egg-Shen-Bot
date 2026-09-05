@@ -43,7 +43,7 @@ Use `/eggshen-config-events event-requests` subcommands:
 /eggshen-config-events event-requests toggle enabled:true
 /eggshen-config-events event-requests moderation-channel channel:#event-requests
 /eggshen-config-events event-requests server-name name:"Your Server Name"
-/eggshen-config-events event-requests website-url url:http://localhost:8080
+/eggshen-config-website url url:http://localhost:8080
 /eggshen-config-events event-requests invite-url url:https://discord.gg/yourserver
 ```
 
@@ -145,7 +145,7 @@ Navigate to: `http://localhost:8080`
 
 4. **Configure Servers**:
    ```
-   /eggshen-config-events event-requests website-url url:https://yourdomain.com
+   /eggshen-config-website url url:https://yourdomain.com
    ```
 
 5. **Share the Link**:
@@ -163,11 +163,11 @@ Each Discord server's own settings still live in its own `guild_configs/<guildId
 /eggshen-config-events event-requests toggle enabled:true
 /eggshen-config-events event-requests moderation-channel channel:#your-channel
 /eggshen-config-events event-requests server-name name:"Your Server"
-/eggshen-config-events event-requests website-url url:https://your-domain-for-this-server.com
-/eggshen-config-events event-requests web-theme name:default
+/eggshen-config-website url url:https://your-domain-for-this-server.com
+/eggshen-config-website theme name:default
 ```
 
-`web-theme` picks one of the named themes defined in `scripts/web-themes.json` (see "Customizing the Look" below) — it's what colors this guild's event-request form, and any crop/quotes-admin links generated from this guild (see below).
+`/eggshen-config-website theme` picks one of the named themes defined in `scripts/web-themes.json` (see "Customizing the Look" below) — it's what colors this guild's event-request form, and any crop/quotes-admin links generated from this guild (see below). Website settings (`url`/`theme`) live under their own `/eggshen-config-website` command rather than `/eggshen-config-events`, since they apply beyond just the event-request feature.
 
 **`scripts/domains.json`** is the manifest that ties it all together — one entry per domain/community, each naming the guild it's for, the theme it should use, and (optionally) a logo:
 
@@ -194,7 +194,7 @@ Three separate mechanisms control how these pages look, each configured differen
 
 | What | How | When it takes effect |
 |---|---|---|
-| **Accent color** (buttons, links, tabs — the whole palette is derived from this one color), as one or more **named themes** | `scripts/web-themes.json` (theme name → primary color), assigned per-guild with `/eggshen-config-events event-requests web-theme name:<theme>` | Build-time for the theme's compiled CSS — after adding/changing a theme, run `npm run build:web` (produces `public/css/themes/<theme>/bootstrap.min.css` for each). Assigning a theme to a guild takes effect immediately (no rebuild) — it just changes which already-compiled CSS file that guild's pages, crop links, and quotes-admin links point at. |
+| **Accent color** (buttons, links, tabs — the whole palette is derived from this one color), as one or more **named themes** | `scripts/web-themes.json` (theme name → primary color), assigned per-guild with `/eggshen-config-website theme name:<theme>` | Build-time for the theme's compiled CSS — after adding/changing a theme, run `npm run build:web` (produces `public/css/themes/<theme>/bootstrap.min.css` for each). Assigning a theme to a guild takes effect immediately (no rebuild) — it just changes which already-compiled CSS file that guild's pages, crop links, and quotes-admin links point at. |
 | **Logo** shown at the top of the event-request form | `logoUrl` in that domain's `scripts/domains.json` entry, baked into its `config.js` by `npm run deploy:domain` | Takes effect after regenerating that domain with `deploy:domain`. Per-domain: each entry in `domains.json` can show a different logo (or none). |
 | Everything else (layout, fields, spacing) | Fixed | N/A — not currently configurable. |
 

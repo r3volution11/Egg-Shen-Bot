@@ -119,8 +119,6 @@ const defaultConfig = {
     moderationChannel: null, // Channel ID where requests are sent for approval
     serverName: null, // Display name shown on event request form
     inviteUrl: null, // Optional Discord invite link shown on form
-    websiteUrl: null, // URL where event request form is hosted
-    webTheme: 'default', // Named theme (key in scripts/web-themes.json) applied to this guild's event-request form, crop links, and quotes-admin links
     allowUserChannelSelection: false, // Allow users to select channels in form (default: moderators choose during approval)
     allowVoiceRequests: true, // Allow users to request voice/stage channels for events (only applies if allowUserChannelSelection is true)
     allowedTextChannels: [], // Array of channel IDs users can select for text location (empty = all text channels)
@@ -130,6 +128,10 @@ const defaultConfig = {
   quoteSuggestions: {
     moderationChannel: null, // Channel ID where /suggest-quote submissions are sent for approval (null = no Discord notification, still reviewable via /quotes-admin)
     maxPendingPerUser: 3, // A user can have at most this many suggestions awaiting review at once (per guild) — bounds queue/moderation-channel flooding independent of the per-command rate limit
+  },
+  website: {
+    url: null, // General URL where this guild's web presence is hosted (the event-request form today; may grow to cover more) — set via /eggshen-config-website url
+    theme: 'default', // Named theme (key in scripts/web-themes.json) applied to this guild's web pages, crop links, and quotes-admin links — set via /eggshen-config-website theme
   },
 };
 

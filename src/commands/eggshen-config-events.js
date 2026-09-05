@@ -1,6 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
-import { listThemeNames, isValidTheme } from '../utils/webThemes.js';
 
 export const data = new SlashCommandBuilder()
   .setName('eggshen-config-events')
@@ -57,28 +56,6 @@ export const data = new SlashCommandBuilder()
               .setName('url')
               .setDescription('Discord invite URL (or leave empty to hide)')
               .setRequired(false)
-          )
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('website-url')
-          .setDescription('Set the website URL where event requests can be submitted')
-          .addStringOption(option =>
-            option
-              .setName('url')
-              .setDescription('Website URL (e.g., https://yourdomain.com)')
-              .setRequired(true)
-          )
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('web-theme')
-          .setDescription('Set the named color theme used by this server\'s event-request/crop/quotes-admin pages')
-          .addStringOption(option =>
-            option
-              .setName('name')
-              .setDescription('Theme name from scripts/web-themes.json (e.g. "default")')
-              .setRequired(true)
           )
       )
       .addSubcommand(subcommand =>
@@ -181,16 +158,6 @@ export async function execute(interaction) {
           inline: true
         },
         {
-          name: 'Website URL',
-          value: eventConfig.websiteUrl || 'Not set',
-          inline: false
-        },
-        {
-          name: 'Web Theme',
-          value: eventConfig.webTheme || 'default',
-          inline: true
-        },
-        {
           name: 'Invite URL',
           value: eventConfig.inviteUrl || 'Not shown on form',
           inline: false
@@ -226,11 +193,12 @@ export async function execute(interaction) {
         }
       );
 
-    if (eventConfig.enabled && eventConfig.websiteUrl) {
+    const websiteUrl = config.website?.url;
+    if (eventConfig.enabled && websiteUrl) {
       embed.addFields(
         {
           name: '🔗 Form URL',
-          value: eventConfig.websiteUrl,
+          value: websiteUrl,
           inline: false
         },
         {
@@ -314,46 +282,6 @@ export async function execute(interaction) {
       content: url
         ? `✅ Discord invite URL set to: ${url}`
         : '✅ Discord invite URL cleared (will not be shown on form).',
-      ephemeral: true
-    });
-
-  } else if (group === 'event-requests' && subcommand === 'website-url') {
-    const url = interaction.options.getString('url');
-    const config = await loadGuildConfig(guildId);
-
-    if (!config.eventRequests) {
-      config.eventRequests = {};
-    }
-
-    config.eventRequests.websiteUrl = url;
-    await saveGuildConfig(guildId, config);
-
-    await interaction.reply({
-      content: `✅ Website URL set to: ${url}\n\n⚠️ **Important:** On your web server, copy \`public/config.example.js\` to \`public/config.js\` and set \`GUILD_ID\` to: \`'${guildId}'\``,
-      ephemeral: true
-    });
-
-  } else if (group === 'event-requests' && subcommand === 'web-theme') {
-    const name = interaction.options.getString('name');
-
-    if (!isValidTheme(name)) {
-      await interaction.reply({
-        content: `❌ "${name}" isn't a known theme. Available themes: ${listThemeNames().map(n => `\`${n}\``).join(', ')} (defined in \`scripts/web-themes.json\`).`,
-        ephemeral: true
-      });
-      return;
-    }
-
-    const config = await loadGuildConfig(guildId);
-    if (!config.eventRequests) {
-      config.eventRequests = {};
-    }
-
-    config.eventRequests.webTheme = name;
-    await saveGuildConfig(guildId, config);
-
-    await interaction.reply({
-      content: `✅ Web theme set to \`${name}\`. This applies to the event-request form, moderator crop links, and quotes-admin links generated from this server.`,
       ephemeral: true
     });
 
@@ -464,6 +392,7 @@ export async function execute(interaction) {
   } else if (group === 'event-requests' && subcommand === 'get-link') {
     const config = await loadGuildConfig(guildId);
     const eventConfig = config.eventRequests || {};
+    const websiteUrl = config.website?.url;
 
     if (!eventConfig.enabled) {
       await interaction.reply({
@@ -473,9 +402,9 @@ export async function execute(interaction) {
       return;
     }
 
-    if (!eventConfig.websiteUrl) {
+    if (!websiteUrl) {
       await interaction.reply({
-        content: '❌ No website URL configured. Set it with `/eggshen-config-events event-requests website-url`',
+        content: '❌ No website URL configured. Set it with `/eggshen-config-website url`',
         ephemeral: true
       });
       return;
@@ -490,7 +419,7 @@ export async function execute(interaction) {
       .addFields(
         {
           name: '🔗 Form URL',
-          value: eventConfig.websiteUrl,
+          value: websiteUrl,
           inline: false
         },
         {

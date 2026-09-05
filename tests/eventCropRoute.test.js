@@ -138,7 +138,7 @@ describe('GET /crop/:requestId', () => {
     const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
     const requestId = 'req-themed';
     seedRequest(requestId); // guildId: 'guild-1', per seedRequest's default
-    await saveGuildConfig('guild-1', { eventRequests: { webTheme: 'shudder' } });
+    await saveGuildConfig('guild-1', { website: { theme: 'shudder' } });
     const token = signCropToken(requestId);
 
     const response = await request.default(app).get(`/crop/${requestId}`).query({ token });
