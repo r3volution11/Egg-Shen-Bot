@@ -1,0 +1,12 @@
+{
+  "shudder-prod": {
+    "guildId": "348924434679332864",
+    "theme": "shudder",
+    "logoUrl": "https://d9hhrg4mnvzow.cloudfront.net/try.shudder.com/74a2d5da-sh-logo-recentered_10sc04w000000000000000.png"
+  },
+  "egg-shen-dev": {
+    "guildId": "1515874601534754887",
+    "theme": "default",
+    "logoUrl": "https://eggshenbot.com/logo.png"
+  }
+}

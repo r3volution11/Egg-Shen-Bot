@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
  * Derives this project's whole dark-theme color palette from ONE primary
- * color (WEB_PRIMARY_COLOR env var, defaulting to the original #1ac3ff so
- * an unconfigured deployment looks identical to before this existed) and
- * writes it as a plain Sass variables file, consumed by
- * public/scss/custom.scss before Bootstrap's own component partials
- * compile.
+ * color per named theme (scripts/web-themes.json — a theme's primaryColor,
+ * or WEB_PRIMARY_COLOR env var, or the original #1ac3ff, in that order, so
+ * an unconfigured deployment with only the "default" theme looks identical
+ * to before this existed) and writes each as a plain Sass variables file,
+ * consumed by public/scss/custom.scss before Bootstrap's own component
+ * partials compile.
  *
  * Uses culori's OKLCH color space (perceptually uniform — equal numeric
  * steps in lightness/hue look evenly spaced to the eye, unlike raw HSL)
@@ -120,13 +121,32 @@ $border-color-dark: ${palette.borderColor};
 `;
 }
 
+/**
+ * Reads scripts/web-themes.json, resolving each theme's primaryColor
+ * (null → WEB_PRIMARY_COLOR env var → DEFAULT_PRIMARY, same fallback chain
+ * as before this manifest existed — so an unconfigured deployment with only
+ * the "default" theme behaves identically to a single-theme build).
+ * @returns {Record<string, string>} theme name -> primary color
+ */
+export function loadThemeManifest() {
+  const manifestPath = path.join(__dirname, 'web-themes.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const resolved = {};
+  for (const [name, { primaryColor }] of Object.entries(manifest)) {
+    resolved[name] = primaryColor || process.env.WEB_PRIMARY_COLOR || DEFAULT_PRIMARY;
+  }
+  return resolved;
+}
+
 export function main() {
-  const primaryHex = process.env.WEB_PRIMARY_COLOR || DEFAULT_PRIMARY;
-  const palette = generatePalette(primaryHex);
-  const outPath = path.join(__dirname, '../public/scss/_generated-palette.scss');
-  fs.writeFileSync(outPath, toScss(palette));
-  console.log(`✓ Generated ${path.relative(process.cwd(), outPath)} from primary ${primaryHex}`);
-  console.log(`  primary=${palette.primary} danger=${palette.danger} success=${palette.success}`);
+  const themes = loadThemeManifest();
+  for (const [name, primaryHex] of Object.entries(themes)) {
+    const palette = generatePalette(primaryHex);
+    const outPath = path.join(__dirname, `../public/scss/_generated-palette-${name}.scss`);
+    fs.writeFileSync(outPath, toScss(palette));
+    console.log(`✓ Generated ${path.relative(process.cwd(), outPath)} (theme "${name}") from primary ${primaryHex}`);
+    console.log(`  primary=${palette.primary} danger=${palette.danger} success=${palette.success}`);
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

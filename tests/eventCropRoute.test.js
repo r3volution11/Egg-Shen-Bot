@@ -14,11 +14,13 @@ import path from 'path';
 
 const IMAGES_DIR = path.join(process.cwd(), 'event_request_images');
 const REQUESTS_FILE = path.join(process.cwd(), 'pending_event_requests.json');
+const GUILD_CONFIG_FILE = path.join(process.cwd(), 'guild_configs', 'guild-1.json');
 const ORIGINAL_SECRET = process.env.EVENT_CROP_LINK_SECRET;
 
 function cleanup() {
   if (fs.existsSync(IMAGES_DIR)) fs.rmSync(IMAGES_DIR, { recursive: true, force: true });
   if (fs.existsSync(REQUESTS_FILE)) fs.unlinkSync(REQUESTS_FILE);
+  if (fs.existsSync(GUILD_CONFIG_FILE)) fs.unlinkSync(GUILD_CONFIG_FILE);
   delete global.eventRequests;
 }
 
@@ -129,6 +131,32 @@ describe('GET /crop/:requestId', () => {
     const response = await request.default(app).get(`/crop/${requestId}`).query({ token });
 
     expect(response.status).toBe(404);
+  });
+
+  test('serves the theme assigned to the request\'s guild', async () => {
+    const request = await import('supertest');
+    const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
+    const requestId = 'req-themed';
+    seedRequest(requestId); // guildId: 'guild-1', per seedRequest's default
+    await saveGuildConfig('guild-1', { eventRequests: { webTheme: 'shudder' } });
+    const token = signCropToken(requestId);
+
+    const response = await request.default(app).get(`/crop/${requestId}`).query({ token });
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('/shared-assets/themes/shudder/bootstrap.min.css');
+  });
+
+  test('falls back to the default theme when the guild has none assigned', async () => {
+    const request = await import('supertest');
+    const requestId = 'req-unthemed';
+    seedRequest(requestId); // guild-1 has no saved config in this test
+    const token = signCropToken(requestId);
+
+    const response = await request.default(app).get(`/crop/${requestId}`).query({ token });
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('/shared-assets/themes/default/bootstrap.min.css');
   });
 });
 

@@ -110,3 +110,54 @@ describe('signQuotesAdminLinkToken / consumeQuotesAdminLinkToken', () => {
     expect(consumeQuotesAdminLinkToken(tokenB)).toEqual({ valid: true });
   });
 });
+
+describe('peekQuotesAdminLinkToken', () => {
+  test('reads back the embedded theme without consuming the token', async () => {
+    const { signQuotesAdminLinkToken, peekQuotesAdminLinkToken, consumeQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+
+    const token = signQuotesAdminLinkToken({ theme: 'shudder' });
+
+    expect(peekQuotesAdminLinkToken(token)).toEqual({ valid: true, theme: 'shudder' });
+    expect(peekQuotesAdminLinkToken(token)).toEqual({ valid: true, theme: 'shudder' }); // reload-safe
+
+    // The real one-time consumption still works afterward, unaffected.
+    expect(consumeQuotesAdminLinkToken(token)).toEqual({ valid: true });
+  });
+
+  test('returns theme: null when no theme was signed into the token', async () => {
+    const { signQuotesAdminLinkToken, peekQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+
+    const token = signQuotesAdminLinkToken();
+
+    expect(peekQuotesAdminLinkToken(token)).toEqual({ valid: true, theme: null });
+  });
+
+  test('rejects an expired token', async () => {
+    const { signQuotesAdminLinkToken, peekQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+
+    const token = signQuotesAdminLinkToken({ ttlMs: -1, theme: 'shudder' });
+
+    expect(peekQuotesAdminLinkToken(token)).toEqual({ valid: false });
+  });
+
+  test('rejects a tampered signature', async () => {
+    const { signQuotesAdminLinkToken, peekQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+
+    const token = signQuotesAdminLinkToken({ theme: 'shudder' });
+    const [payload] = token.split('.');
+    const tamperedToken = `${payload}.deadbeefdeadbeefdeadbeefdeadbeef`;
+
+    expect(peekQuotesAdminLinkToken(tamperedToken)).toEqual({ valid: false });
+  });
+
+  test.each([
+    ['empty string', ''],
+    ['no separator', 'not-a-real-token'],
+    ['garbage', 'abc.def.ghi'],
+  ])('rejects malformed input (%s) without throwing', async (_label, malformed) => {
+    const { peekQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+
+    expect(() => peekQuotesAdminLinkToken(malformed)).not.toThrow();
+    expect(peekQuotesAdminLinkToken(malformed).valid).toBe(false);
+  });
+});

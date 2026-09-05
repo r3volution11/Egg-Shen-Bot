@@ -226,4 +226,32 @@ describe('/eggshen-config-quotes admin-link', () => {
     expect(interaction.lastReply.content).toMatch(/PUBLIC_BOT_URL/);
     expect(interaction.lastReply.components).toBeUndefined();
   });
+
+  test('bakes the invoking guild\'s assigned web theme into the token', async () => {
+    process.env.QUOTES_ADMIN_SECRET = 'test-secret';
+    process.env.PUBLIC_BOT_URL = 'https://example.com';
+    const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
+    await saveGuildConfig(GUILD_ID, { eventRequests: { webTheme: 'shudder' } });
+    const interaction = makeInteraction({ subcommand: 'admin-link' });
+
+    await execute(interaction);
+
+    const button = interaction.lastReply.components[0].components[0];
+    const token = new URL(button.data.url).searchParams.get('token');
+    const { peekQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+    expect(peekQuotesAdminLinkToken(token)).toEqual({ valid: true, theme: 'shudder' });
+  });
+
+  test('bakes in the default theme when the guild has none assigned', async () => {
+    process.env.QUOTES_ADMIN_SECRET = 'test-secret';
+    process.env.PUBLIC_BOT_URL = 'https://example.com';
+    const interaction = makeInteraction({ subcommand: 'admin-link' });
+
+    await execute(interaction);
+
+    const button = interaction.lastReply.components[0].components[0];
+    const token = new URL(button.data.url).searchParams.get('token');
+    const { peekQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+    expect(peekQuotesAdminLinkToken(token)).toEqual({ valid: true, theme: 'default' });
+  });
 });

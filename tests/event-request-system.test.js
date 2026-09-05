@@ -436,6 +436,53 @@ describe('Event Request Configuration Commands', () => {
     const replyContent = mockInteraction.reply.mock.calls[0][0].content;
     expect(replyContent).toContain('Administrator');
   });
+
+  test('should set the web theme when given a valid theme name', async () => {
+    mockInteraction.options.getSubcommand = jest.fn(() => 'web-theme');
+    mockInteraction.options.getString = jest.fn(() => 'default');
+
+    const { execute } = await import('../src/commands/eggshen-config-events.js');
+    await execute(mockInteraction);
+
+    expect(mockInteraction.reply).toHaveBeenCalled();
+    const replyContent = mockInteraction.reply.mock.calls[0][0].content;
+    expect(replyContent).toContain('default');
+
+    const { loadGuildConfig } = await import('../src/utils/guildConfig.js');
+    const config = await loadGuildConfig(GUILD_ID);
+    expect(config.eventRequests.webTheme).toBe('default');
+  });
+
+  test('should reject an unknown theme name without saving it', async () => {
+    mockInteraction.options.getSubcommand = jest.fn(() => 'web-theme');
+    mockInteraction.options.getString = jest.fn(() => 'not-a-real-theme');
+
+    const { execute } = await import('../src/commands/eggshen-config-events.js');
+    await execute(mockInteraction);
+
+    expect(mockInteraction.reply).toHaveBeenCalled();
+    const replyContent = mockInteraction.reply.mock.calls[0][0].content;
+    expect(replyContent).toContain('not-a-real-theme');
+
+    const { loadGuildConfig } = await import('../src/utils/guildConfig.js');
+    const config = await loadGuildConfig(GUILD_ID);
+    expect(config.eventRequests?.webTheme).not.toBe('not-a-real-theme');
+  });
+
+  test('view embed shows the configured web theme', async () => {
+    const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
+    await saveGuildConfig(GUILD_ID, {
+      eventRequests: { enabled: true, webTheme: 'shudder' }
+    });
+    mockInteraction.options.getSubcommand = jest.fn(() => 'view');
+
+    const { execute } = await import('../src/commands/eggshen-config-events.js');
+    await execute(mockInteraction);
+
+    const replyArgs = mockInteraction.reply.mock.calls[0][0];
+    const themeField = replyArgs.embeds[0].data.fields.find(f => f.name === 'Web Theme');
+    expect(themeField.value).toBe('shudder');
+  });
 });
 
 describe('Event Request Button Handlers', () => {

@@ -120,6 +120,7 @@ const defaultConfig = {
     serverName: null, // Display name shown on event request form
     inviteUrl: null, // Optional Discord invite link shown on form
     websiteUrl: null, // URL where event request form is hosted
+    webTheme: 'default', // Named theme (key in scripts/web-themes.json) applied to this guild's event-request form, crop links, and quotes-admin links
     allowUserChannelSelection: false, // Allow users to select channels in form (default: moderators choose during approval)
     allowVoiceRequests: true, // Allow users to request voice/stage channels for events (only applies if allowUserChannelSelection is true)
     allowedTextChannels: [], // Array of channel IDs users can select for text location (empty = all text channels)

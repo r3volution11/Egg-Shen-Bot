@@ -2,6 +2,8 @@
 
 The Event Request System allows Discord server members to submit watch party events through a web form. Moderators can approve or deny requests, and approved events are automatically created as Discord Scheduled Events.
 
+This is a feature of the self-hosted bot codebase — each self-hoster runs their own bot process, `.env`, and `guild_configs/`, entirely independent of anyone else's deployment. One bot process can serve several of *your own* Discord communities at once (see "Multiple Servers" below), but this project isn't a platform where a central operator hosts bots/websites on other people's behalf.
+
 ## Architecture
 
 - **Bot API Server**: Runs on the bot (port 3000 by default) - handles OAuth, event submissions, and approval
@@ -153,7 +155,7 @@ Navigate to: `http://localhost:8080`
 
 ## Multiple Servers
 
-One bot process can back the event-request form for more than one Discord server, but **each web form deployment is dedicated to exactly one server** — the real Guild ID lives in `public/config.js` (copied from `public/config.example.js`, gitignored so `git pull` never overwrites it), not something a visitor can pick via a query parameter. To serve a second server, deploy a second copy of the `public/` folder (its own domain or subdomain) with its own `config.js`, both pointed at the same bot process.
+One bot process can back the event-request form for more than one Discord server — this is exactly how a self-hoster serving several of their own communities from a single bot process is expected to work (it's *not* a hosted service one operator runs on other people's behalf; see the note at the top of this doc). **Each web form deployment is dedicated to exactly one server** — the real Guild ID lives in that domain's own `config.js`, not something a visitor can pick via a query parameter. Each community gets its own independent domain, its own named color theme, and its own entry in `scripts/domains.json` — there's no assumption that a second community's domain is a "dev" subdomain of the first's.
 
 Each Discord server's own settings still live in its own `guild_configs/<guildId>.json` (via `loadGuildConfig`/`saveGuildConfig`, not a shared `event_request_config.json`), configured independently with `/eggshen-config-events event-requests`:
 
@@ -162,21 +164,29 @@ Each Discord server's own settings still live in its own `guild_configs/<guildId
 /eggshen-config-events event-requests moderation-channel channel:#your-channel
 /eggshen-config-events event-requests server-name name:"Your Server"
 /eggshen-config-events event-requests website-url url:https://your-domain-for-this-server.com
+/eggshen-config-events event-requests web-theme name:default
 ```
 
-**Example: a dev and production deployment on subdomains of the same domain**
+`web-theme` picks one of the named themes defined in `scripts/web-themes.json` (see "Customizing the Look" below) — it's what colors this guild's event-request form, and any crop/quotes-admin links generated from this guild (see below).
 
+**`scripts/domains.json`** is the manifest that ties it all together — one entry per domain/community, each naming the guild it's for, the theme it should use, and (optionally) a logo:
+
+```json
+{
+  "my-community": { "guildId": "123456789012345678", "theme": "default", "logoUrl": "https://example.com/logo.png" },
+  "my-other-community": { "guildId": "876543210987654321", "theme": "my-theme", "logoUrl": "" }
+}
 ```
-yourdomain.com       → public/            → GUILD_ID = <production guild>
-dev.yourdomain.com   → public-dev/        → GUILD_ID = <dev/test guild>
-```
 
-Both domains proxy `/api/`, `/crop/`, `/crop-assets/`, and `/shared-assets/` (the compiled Bootstrap CSS/JS the crop and quotes-admin pages share — see "Customizing the Look" below) to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part. What each domain needs:
+Run `npm run deploy:domain <label>` (or `npm run deploy:domain -- --all`) after `npm run build:web` to generate a complete, ready-to-serve static-file copy at `domains/<label>/` for each entry — its own `config.js` (with that entry's `GUILD_ID`/`LOGO_URL` baked in) and its own themed `css/bootstrap.min.css`, alongside a copy of `index.html`/`app.js`/`style.css`/`crop/`/`img/`. This replaces hand-copying `public/` per domain. `domains/` is gitignored — it's generated output, regenerate it any time `domains.json`, a theme, or `public/` itself changes.
 
-1. A second static directory (e.g. `public-dev/`) — a copy of `public/` (including `crop/`, `css/`, `js/`) with its own `config.js` set to the other server's Guild ID (and, optionally, its own `LOGO_URL` — see below).
-2. A second nginx `server{}` block for the new (sub)domain, mirroring the existing one: same `root` pattern pointed at the new directory, the same four proxy `location` blocks (`/api/`, `/crop/`, `/crop-assets/`, `/shared-assets/`), its own SSL certificate (`certbot --nginx -d dev.yourdomain.com`, once DNS for the subdomain points at the server).
-3. `ALLOWED_ORIGINS` in `.env` updated to a comma-separated list including every domain (already supported — `cors()`'s `origin` option is built directly from `ALLOWED_ORIGINS.split(',')`): `ALLOWED_ORIGINS=https://yourdomain.com,https://dev.yourdomain.com`.
-4. Both callback URLs registered in the Discord Developer Portal (OAuth2 → Redirects): `https://yourdomain.com/api/auth/discord/callback` **and** `https://dev.yourdomain.com/api/auth/discord/callback`. The bot itself derives which one to use per-request from the actual incoming domain (not a single static `OAUTH_REDIRECT_URI`), so a login started on either domain correctly lands back on that same domain — `OAUTH_REDIRECT_URI`/`FORM_URL` in `.env` only matter as a fallback for requests where the domain can't be determined (shouldn't happen behind nginx).
+**Adding a second community's domain**, once it has its own entry in `domains.json`:
+
+1. Point that domain's nginx `root` at `domains/<label>/` (generated above) instead of `public/`.
+2. Proxy `/api/`, `/crop/`, `/crop-assets/`, `/quotes-admin/`, `/quotes-assets/`, and `/shared-assets/` (the compiled Bootstrap CSS/JS the crop and quotes-admin pages share — see "Customizing the Look" below) to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part.
+3. Its own SSL certificate (`certbot --nginx -d your-new-domain.com`, once DNS for it points at the server).
+4. `ALLOWED_ORIGINS` in `.env` updated to a comma-separated list including every domain (already supported — `cors()`'s `origin` option is built directly from `ALLOWED_ORIGINS.split(',')`): `ALLOWED_ORIGINS=https://yourdomain.com,https://your-new-domain.com`.
+5. Both callback URLs registered in the Discord Developer Portal (OAuth2 → Redirects): `https://yourdomain.com/api/auth/discord/callback` **and** `https://your-new-domain.com/api/auth/discord/callback`. The bot itself derives which one to use per-request from the actual incoming domain (not a single static `OAUTH_REDIRECT_URI`), so a login started on either domain correctly lands back on that same domain — `OAUTH_REDIRECT_URI`/`FORM_URL` in `.env` only matter as a fallback for requests where the domain can't be determined (shouldn't happen behind nginx).
 
 ## Customizing the Look
 
@@ -184,11 +194,13 @@ Three separate mechanisms control how these pages look, each configured differen
 
 | What | How | When it takes effect |
 |---|---|---|
-| **Accent color** (buttons, links, tabs — the whole palette is derived from this one color) | `WEB_PRIMARY_COLOR` in `.env` | Build-time — after changing it, run `npm run build:web` (see `DEPLOYMENT.md`). Whole-deployment setting: one bot process, one color, shared by every domain/guild it serves. |
-| **Logo** shown at the top of the event-request form | `LOGO_URL` in each domain's own `public/config.js` (same file `GUILD_ID` lives in) | Immediately, per page load — no build step. Per-domain: `yourdomain.com` and `dev.yourdomain.com` can each show a different logo (or none), since each has its own `config.js`. |
+| **Accent color** (buttons, links, tabs — the whole palette is derived from this one color), as one or more **named themes** | `scripts/web-themes.json` (theme name → primary color), assigned per-guild with `/eggshen-config-events event-requests web-theme name:<theme>` | Build-time for the theme's compiled CSS — after adding/changing a theme, run `npm run build:web` (produces `public/css/themes/<theme>/bootstrap.min.css` for each). Assigning a theme to a guild takes effect immediately (no rebuild) — it just changes which already-compiled CSS file that guild's pages, crop links, and quotes-admin links point at. |
+| **Logo** shown at the top of the event-request form | `logoUrl` in that domain's `scripts/domains.json` entry, baked into its `config.js` by `npm run deploy:domain` | Takes effect after regenerating that domain with `deploy:domain`. Per-domain: each entry in `domains.json` can show a different logo (or none). |
 | Everything else (layout, fields, spacing) | Fixed | N/A — not currently configurable. |
 
-If you just want the default look, you don't need to touch either of these — `WEB_PRIMARY_COLOR` defaults to a cyan theme, and `LOGO_URL` defaults to no logo.
+If you just want the default look, you don't need to touch any of these — the `"default"` theme in `scripts/web-themes.json` uses `WEB_PRIMARY_COLOR` if set, else a cyan theme, and an empty `logoUrl` shows no logo.
+
+The moderator-only crop page and `/quotes-admin` pick up their theme automatically, matching whichever guild the link was generated from — a crop link from a guild assigned the `"shudder"` theme renders red-themed even though crop.html itself isn't part of any per-domain copy; the bot resolves and serves it themed on the fly (see `QUOTES_ADMIN_SETUP.md` for the quotes-admin side of this).
 
 ## Troubleshooting
 

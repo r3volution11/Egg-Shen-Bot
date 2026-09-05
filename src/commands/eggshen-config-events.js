@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
+import { listThemeNames, isValidTheme } from '../utils/webThemes.js';
 
 export const data = new SlashCommandBuilder()
   .setName('eggshen-config-events')
@@ -66,6 +67,17 @@ export const data = new SlashCommandBuilder()
             option
               .setName('url')
               .setDescription('Website URL (e.g., https://yourdomain.com)')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('web-theme')
+          .setDescription('Set the named color theme used by this server\'s event-request/crop/quotes-admin pages')
+          .addStringOption(option =>
+            option
+              .setName('name')
+              .setDescription('Theme name from scripts/web-themes.json (e.g. "default")')
               .setRequired(true)
           )
       )
@@ -172,6 +184,11 @@ export async function execute(interaction) {
           name: 'Website URL',
           value: eventConfig.websiteUrl || 'Not set',
           inline: false
+        },
+        {
+          name: 'Web Theme',
+          value: eventConfig.webTheme || 'default',
+          inline: true
         },
         {
           name: 'Invite URL',
@@ -313,6 +330,30 @@ export async function execute(interaction) {
 
     await interaction.reply({
       content: `✅ Website URL set to: ${url}\n\n⚠️ **Important:** On your web server, copy \`public/config.example.js\` to \`public/config.js\` and set \`GUILD_ID\` to: \`'${guildId}'\``,
+      ephemeral: true
+    });
+
+  } else if (group === 'event-requests' && subcommand === 'web-theme') {
+    const name = interaction.options.getString('name');
+
+    if (!isValidTheme(name)) {
+      await interaction.reply({
+        content: `❌ "${name}" isn't a known theme. Available themes: ${listThemeNames().map(n => `\`${n}\``).join(', ')} (defined in \`scripts/web-themes.json\`).`,
+        ephemeral: true
+      });
+      return;
+    }
+
+    const config = await loadGuildConfig(guildId);
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+
+    config.eventRequests.webTheme = name;
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: `✅ Web theme set to \`${name}\`. This applies to the event-request form, moderator crop links, and quotes-admin links generated from this server.`,
       ephemeral: true
     });
 

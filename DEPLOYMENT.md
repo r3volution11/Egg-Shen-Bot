@@ -107,9 +107,9 @@ The event-request form, moderator crop page, and quotes-admin page use a small, 
 npm run build:web
 ```
 
-This regenerates `public/css/bootstrap.min.css` and `public/js/bootstrap.min.js` from source — both are gitignored (this project's own deploy always rebuilds fresh) rather than committed, unlike a typical self-hoster's `git clone`, which gets a pre-built fallback maintained by CI so it works with zero build step (see `.github/workflows/build-web-fallback.yml`). Run this again any time `public/scss/`, `public/js-src/`, or `WEB_PRIMARY_COLOR` changes — it's fast (a couple seconds) and safe to run on every deploy regardless.
+This regenerates `public/css/themes/<theme>/bootstrap.min.css` (one per entry in `scripts/web-themes.json`) and `public/js/bootstrap.min.js` from source — all gitignored except `themes/default/` (this project's own deploy always rebuilds fresh; a typical self-hoster's `git clone` gets a pre-built "default" theme fallback maintained by CI so it works with zero build step — see `.github/workflows/build-web-fallback.yml`). Run this again any time `public/scss/`, `public/js-src/`, or `scripts/web-themes.json` changes — it's fast (a couple seconds) and safe to run on every deploy regardless.
 
-Optional: set `WEB_PRIMARY_COLOR` in `.env` to a hex color to customize the accent color across all 3 pages — everything else in the palette (secondary, danger, success, the gray scale) is mathematically derived from that one color, so you only ever set one value. See `.env.example` for details. Leave it unset to keep the default cyan theme.
+Optional: add named themes to `scripts/web-themes.json` (each with its own primary color) and assign one per Discord server with `/eggshen-config-events event-requests web-theme` — everything else in a theme's palette (secondary, danger, success, the gray scale) is mathematically derived from that one primary color, so you only ever set one value per theme. The built-in `"default"` theme uses `WEB_PRIMARY_COLOR` from `.env` if set, else the original cyan. See `EVENT_REQUEST_SETUP.md`'s "Customizing the Look" for the full picture, including per-domain deployment via `npm run deploy:domain`.
 
 ## Step 5: Deploy Commands
 

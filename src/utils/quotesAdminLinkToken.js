@@ -13,6 +13,13 @@
  * Authorization: Bearer flow. This keeps the long-lived secret out of the
  * URL (query strings end up in browser history/server logs) while still
  * letting a short-lived link stand in for typing the secret manually.
+ *
+ * The token's payload can also carry a `theme` name (the invoking guild's
+ * assigned web theme — see webThemes.js) so GET /quotes-admin can render
+ * that guild's color theme even though the underlying quote data is
+ * bot-wide, not per-guild. Reading it (peekQuotesAdminLinkToken) is
+ * deliberately non-consuming, since it needs to run on every page
+ * load/reload, not just the one real exchange.
  */
 
 import crypto from 'crypto';
@@ -42,16 +49,70 @@ function sign(payload, secret) {
 /**
  * @param {object} [options]
  * @param {number} [options.ttlMs]
+ * @param {string} [options.theme] — the invoking guild's assigned web theme
+ *   (see webThemes.js), baked into the token so /quotes-admin can render the
+ *   right theme even though the quote data itself has no guildId of its own.
  * @returns {string} opaque token
  */
-export function signQuotesAdminLinkToken({ ttlMs = DEFAULT_TTL_MS } = {}) {
+export function signQuotesAdminLinkToken({ ttlMs = DEFAULT_TTL_MS, theme } = {}) {
   const secret = getSecret();
   const payload = base64url(JSON.stringify({
     exp: Date.now() + ttlMs,
     jti: crypto.randomBytes(8).toString('hex'),
+    ...(theme ? { theme } : {}),
   }));
   const sig = sign(payload, secret);
   return `${payload}.${sig}`;
+}
+
+/**
+ * Verifies signature and expiry and returns the token's embedded theme,
+ * WITHOUT marking the jti consumed — used only to pick which CSS to serve
+ * on GET /quotes-admin, which must remain safe to reload/revisit ahead of
+ * (or instead of) the real one-time exchange in consumeQuotesAdminLinkToken.
+ * @param {string} token
+ * @returns {{valid: true, theme: string|null} | {valid: false}}
+ */
+export function peekQuotesAdminLinkToken(token) {
+  if (typeof token !== 'string' || !token.includes('.')) {
+    return { valid: false };
+  }
+
+  const [payload, sig] = token.split('.');
+  if (!payload || !sig) {
+    return { valid: false };
+  }
+
+  let secret;
+  try {
+    secret = getSecret();
+  } catch {
+    return { valid: false };
+  }
+
+  const expectedSig = sign(payload, secret);
+  const sigBuffer = Buffer.from(sig);
+  const expectedBuffer = Buffer.from(expectedSig);
+  if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+    return { valid: false };
+  }
+
+  let decoded;
+  try {
+    decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
+    return { valid: false };
+  }
+
+  if (!decoded.exp || !decoded.jti) {
+    return { valid: false };
+  }
+
+  if (Date.now() > decoded.exp) {
+    return { valid: false };
+  }
+
+  return { valid: true, theme: decoded.theme || null };
 }
 
 /**

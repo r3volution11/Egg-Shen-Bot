@@ -251,9 +251,12 @@ export async function execute(interaction) {
       return;
     }
 
+    const config = await loadGuildConfig(guildId);
+    const theme = config.eventRequests?.webTheme || 'default';
+
     let token;
     try {
-      token = signQuotesAdminLinkToken();
+      token = signQuotesAdminLinkToken({ theme });
     } catch (error) {
       await interaction.reply({ content: `❌ ${error.message}`, ephemeral: true });
       return;

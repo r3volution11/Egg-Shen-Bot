@@ -1,14 +1,19 @@
 name: Build Web Assets Fallback
 
-# Keeps a compiled, working copy of the selective Bootstrap CSS/JS
-# (public/css/bootstrap.min.css, public/js/bootstrap.min.js) committed to
-# the repo even though this project's own deploy always rebuilds them fresh
-# (see DEPLOYMENT.md) and .gitignore excludes them from normal commits.
+# Keeps a compiled, working copy of the selective Bootstrap CSS/JS for the
+# "default" theme (public/css/themes/default/bootstrap.min.css,
+# public/js/bootstrap.min.js) committed to the repo even though this
+# project's own deploy always rebuilds them fresh (see DEPLOYMENT.md) and
+# .gitignore excludes them from normal commits.
 #
 # Why: public/index.html is copied wholesale by third-party self-hosters
 # who may have no Node/build tooling at all — "git clone, done" needs to
-# keep working. This workflow is the only thing that hand-maintains these
-# two files; nobody should ever commit them manually.
+# keep working. Only the "default" theme is seeded this way — a self-hoster
+# who wants a named theme (e.g. a non-default entry in
+# scripts/web-themes.json) is, by definition, not the zero-config case this
+# fallback exists for, and runs `npm run build:web` themselves. This
+# workflow is the only thing that hand-maintains these files; nobody should
+# ever commit them manually.
 
 on:
   push:
@@ -17,6 +22,7 @@ on:
     paths:
       - 'public/scss/**'
       - 'public/js-src/**'
+      - 'scripts/web-themes.json'
       - 'scripts/generate-palette.js'
       - 'scripts/build-web-assets.js'
       - 'package.json'
@@ -52,7 +58,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: 'chore: rebuild web assets fallback [skip ci]'
-          file_pattern: 'public/css/bootstrap.min.css public/js/bootstrap.min.js'
+          file_pattern: 'public/css/themes/default/bootstrap.min.css public/js/bootstrap.min.js'
           # Both files are gitignored (this project's own deploy always
           # rebuilds them fresh) — without -f here, `git add` silently
           # skips them and this action commits nothing. Both files are

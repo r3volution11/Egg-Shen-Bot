@@ -5,6 +5,23 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.29.0 - 2026-09-05
+
+### Added
+- **Named web color themes** — `scripts/web-themes.json` maps a theme name to a primary color; `npm run build:web` compiles one full Bootstrap CSS build per theme (`public/css/themes/<theme>/bootstrap.min.css`), and `/eggshen-config-events event-requests web-theme name:<theme>` assigns one per Discord server. Lets a self-hoster running several of their own communities from one bot process give each its own brand color, instead of one `WEB_PRIMARY_COLOR` for the whole deployment
+- **The moderator crop page and quotes-admin links now render in the theme assigned to the guild they're for.** The crop page resolves its theme server-side from the event request's own guild (no new link/token plumbing needed); quotes-admin links (`/eggshen-config-quotes admin-link`) bake the invoking guild's theme into the signed link itself, since the underlying quote list has no guild of its own to look one up from. Visiting `/quotes-admin` directly, with no link, falls back to the `"default"` theme
+- **New `scripts/domains.json` + `npm run deploy:domain <label>`** — a manifest tying each domain/community to a guild ID, theme, and optional logo, replacing hand-copied `public`/`public-dev` folders. Generates a complete, ready-to-serve static-file copy at `domains/<label>/` (its own `config.js` and themed CSS) for each entry, or all of them at once with `--all`
+
+### Changed
+- **`EVENT_REQUEST_SETUP.md`'s "Multiple Servers" and "Customizing the Look" sections rewritten** around named themes and `domains.json`, replacing the old "dev subdomain of your production domain" example — a second (or third) community's domain is now just another independent entry in the manifest, not assumed to be subordinate to the first
+
+### Developer
+- `src/utils/guildConfig.js`: new `eventRequests.webTheme` field (defaults to `'default'`)
+- `src/utils/webThemes.js`: new — lists/validates theme names against `scripts/web-themes.json` for the new slash-command subcommand
+- `src/utils/quotesAdminLinkToken.js`: `signQuotesAdminLinkToken` accepts an optional `theme`; new non-consuming `peekQuotesAdminLinkToken` reads it back safely on every page load/reload without burning the token's one real use
+- `scripts/generate-palette.js`/`scripts/build-web-assets.js`: loop the new theme manifest instead of producing one fixed-name palette/CSS file; `.github/workflows/build-web-fallback.yml` now only seeds the `"default"` theme's compiled CSS for zero-build-tooling self-hosters
+- Full Jest suite (914/914, 18 new) and Playwright e2e suite green after the change
+
 ## 2.28.0 - 2026-09-04
 
 ### Added

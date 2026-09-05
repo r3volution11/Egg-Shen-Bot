@@ -18,7 +18,7 @@ import { signCropToken, verifyCropToken, consumeCropToken } from '../utils/cropL
 import { fetchImageUrl } from '../utils/fetchImageUrl.js';
 import { loadQuotes, addQuote, updateQuote, deleteQuote, replaceAllQuotes } from '../utils/movieQuotesStore.js';
 import { loadPending, approvePending, rejectPending } from '../utils/pendingQuotesStore.js';
-import { consumeQuotesAdminLinkToken } from '../utils/quotesAdminLinkToken.js';
+import { consumeQuotesAdminLinkToken, peekQuotesAdminLinkToken } from '../utils/quotesAdminLinkToken.js';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -644,7 +644,13 @@ export function createApiServer(client) {
   // of a login (a moderator is clicking a link from a Discord message, not
   // authenticating). GET requests use verifyCropToken (not consumeCropToken)
   // so reloading the page doesn't burn the token — only a successful save does.
-  app.get('/crop/:requestId', (req, res) => {
+  //
+  // Serves crop.html with its one CSS href swapped to the requesting
+  // guild's assigned theme (resolved from the event request's own guildId,
+  // already being read here to confirm the request exists — no new
+  // plumbing needed) instead of res.sendFile, so a moderator sees the same
+  // theme their guild's event-request form uses.
+  app.get('/crop/:requestId', async (req, res) => {
     const { requestId } = req.params;
     const { token } = req.query;
 
@@ -653,11 +659,21 @@ export function createApiServer(client) {
       return res.status(403).type('text/plain').send('This crop link is invalid or has expired. Ask a moderator to open Edit on the request again for a fresh link.');
     }
 
-    if (!global.eventRequests || !global.eventRequests.has(requestId)) {
+    const eventRequest = global.eventRequests && global.eventRequests.get(requestId);
+    if (!eventRequest) {
       return res.status(404).type('text/plain').send('This event request no longer exists (it may have already been approved or denied).');
     }
 
-    res.sendFile(path.join(__dirname, '../../public/crop/crop.html'));
+    try {
+      const config = await loadGuildConfig(eventRequest.guildId);
+      const theme = config.eventRequests?.webTheme || 'default';
+      const html = await fs.readFile(path.join(__dirname, '../../public/crop/crop.html'), 'utf8');
+      const themed = html.replace('/shared-assets/bootstrap.min.css', `/shared-assets/themes/${theme}/bootstrap.min.css`);
+      res.type('html').send(themed);
+    } catch (error) {
+      console.error('[EventRequests] Error serving themed crop page:', error);
+      res.sendFile(path.join(__dirname, '../../public/crop/crop.html'));
+    }
   });
 
   // Streams the request's currently-attached uploaded image (if any) so the
@@ -816,8 +832,25 @@ export function createApiServer(client) {
   // token is present in the URL (see /eggshen-config-quotes admin-link and
   // the exchange route below) — the page's own JS handles reading ?token=
   // and calling the exchange route to auto-unlock.
-  app.get('/quotes-admin', (req, res) => {
-    res.sendFile(path.join(__dirname, '../../public/quotes-admin/quotes-admin.html'));
+  //
+  // Serves quotes-admin.html with its one CSS href swapped to the theme
+  // embedded in ?token= (peekQuotesAdminLinkToken — non-consuming, safe to
+  // call on every load/reload, unlike the real exchange below). No/invalid
+  // token (including a direct visit with no link at all) falls back to the
+  // "default" theme, since there's no guild context to resolve otherwise.
+  app.get('/quotes-admin', async (req, res) => {
+    const { token } = req.query;
+    const peeked = token ? peekQuotesAdminLinkToken(token) : { valid: false };
+    const theme = (peeked.valid && peeked.theme) || 'default';
+
+    try {
+      const html = await fs.readFile(path.join(__dirname, '../../public/quotes-admin/quotes-admin.html'), 'utf8');
+      const themed = html.replace('/shared-assets/bootstrap.min.css', `/shared-assets/themes/${theme}/bootstrap.min.css`);
+      res.type('html').send(themed);
+    } catch (error) {
+      console.error('[QuotesAdmin] Error serving themed quotes-admin page:', error);
+      res.sendFile(path.join(__dirname, '../../public/quotes-admin/quotes-admin.html'));
+    }
   });
 
   // Exchanges a signed, single-use admin-link token (from

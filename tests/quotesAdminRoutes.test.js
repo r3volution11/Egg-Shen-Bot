@@ -59,6 +59,49 @@ describe('GET /quotes-admin', () => {
     expect(response.status).toBe(200);
     expect(response.text).toContain('Bot Status Quotes');
   });
+
+  test('falls back to the default theme with no token', async () => {
+    const request = await import('supertest');
+    const response = await request.default(app).get('/quotes-admin');
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('/shared-assets/themes/default/bootstrap.min.css');
+  });
+
+  test('renders the theme embedded in a valid admin-link token', async () => {
+    const request = await import('supertest');
+    const { signQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+    const token = signQuotesAdminLinkToken({ theme: 'shudder' });
+
+    const response = await request.default(app).get('/quotes-admin').query({ token });
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('/shared-assets/themes/shudder/bootstrap.min.css');
+  });
+
+  test('does not consume the token just by rendering the theme (still exchangeable afterward)', async () => {
+    const request = await import('supertest');
+    const { signQuotesAdminLinkToken } = await import('../src/utils/quotesAdminLinkToken.js');
+    const token = signQuotesAdminLinkToken({ theme: 'shudder' });
+
+    await request.default(app).get('/quotes-admin').query({ token });
+    await request.default(app).get('/quotes-admin').query({ token }); // simulates a reload
+
+    const exchangeResponse = await request.default(app)
+      .post('/api/quotes-admin-link/exchange')
+      .send({ token });
+
+    expect(exchangeResponse.status).toBe(200);
+    expect(exchangeResponse.body.secret).toBe(TEST_SECRET);
+  });
+
+  test('falls back to the default theme with an invalid token', async () => {
+    const request = await import('supertest');
+    const response = await request.default(app).get('/quotes-admin').query({ token: 'garbage' });
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('/shared-assets/themes/default/bootstrap.min.css');
+  });
 });
 
 describe('quotes-admin API auth', () => {
