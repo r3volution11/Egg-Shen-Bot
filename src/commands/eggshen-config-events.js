@@ -203,7 +203,7 @@ export async function execute(interaction) {
         },
         {
           name: '⚙️ Required Configuration',
-          value: `Set \`GUILD_ID\` in \`public/config.js\` (copied from \`public/config.example.js\`) to: \`'${guildId}'\``,
+          value: `This server's web deployment needs \`GUILD_ID: '${guildId}'\` in its \`config.js\` — see \`/eggshen-config-website url\`'s reply for details.`,
           inline: false
         }
       );
@@ -424,7 +424,7 @@ export async function execute(interaction) {
         },
         {
           name: '⚙️ Configuration Required',
-          value: `Before users can access the form, copy \`public/config.example.js\` to \`public/config.js\` on your web server and set:\n\`\`\`\nwindow.EGG_SHEN_CONFIG = {\n  GUILD_ID: '${guildId}',\n};\n\`\`\``,
+          value: `Before users can access the form, this server's web deployment's \`config.js\` needs:\n\`\`\`\nwindow.EGG_SHEN_CONFIG = {\n  GUILD_ID: '${guildId}',\n};\n\`\`\`\n(\`public/config.js\` for a single-domain setup, or the matching \`scripts/domains.json\` entry if you're using \`deploy-domain-copy.js\` for multiple domains.)`,
           inline: false
         }
       )

@@ -79,7 +79,7 @@ export async function execute(interaction) {
     await saveGuildConfig(guildId, config);
 
     await interaction.reply({
-      content: `✅ Website URL set to: ${url}\n\n⚠️ **Important:** On your web server, copy \`public/config.example.js\` to \`public/config.js\` and set \`GUILD_ID\` to: \`'${guildId}'\``,
+      content: `✅ Website URL set to: ${url}\n\n⚠️ **Important:** this server's web deployment needs \`GUILD_ID: '${guildId}'\` in its \`config.js\` — either \`public/config.js\` (copied from \`public/config.example.js\`) for a single-domain setup, or, if you're using \`scripts/domains.json\`/\`deploy-domain-copy.js\` for multiple domains, the matching entry there (regenerate with \`npm run deploy:domain\` after any change).`,
       ephemeral: true
     });
 
