@@ -18,6 +18,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `src/api/server.js`: the initial moderation embed attaches the uploaded file directly (`AttachmentBuilder` + `embed.setThumbnail('attachment://...')`) or references a pasted URL's thumbnail directly (already public, no attachment needed); the crop-save embed-refresh path re-attaches the freshly-cropped image the same way
 - New tests pinning the original bug (`tests/eventRequestApproval.test.js`: "a non-JPEG uploaded image is not mislabeled as image/jpg") and the new thumbnail behavior (`tests/event-request-system.test.js`, both the pasted-URL and uploaded-file cases)
 
+## 2.31.0 - 2026-09-07
+
+### Added
+- **Metacritic scores now appear in the ratings row for movies.** The score was already arriving in the OMDB response the bot fetches on every lookup and was simply being discarded, so this costs no extra API call. TV series generally have no Metascore, so the badge renders only when a score exists rather than showing a blank. Toggleable per server like every other service, via `/eggshen-config services toggle`, with its own optional custom emoji
+
+### Changed
+- **The Rotten Tomatoes badge is now consistently labelled "RT Critics".** One of its three branches still read "Rotten Tomatoes", which implied a combined critics+audience score the bot cannot source. Investigated whether the audience score could be added and confirmed it cannot: OMDB's RT data is critics-only (its `tomatoes=true` fields exist but return `N/A` for every audience value across both recent and catalogue titles), Watchmode's `critic_score` is its own aggregate that diverges sharply from RT (71 vs RT's 85% on *The Thing*), TMDB and Trakt report their own community scores on a different scale, and the official RT API is restricted to approved commercial partners. Labelling any of those as RT's audience score would be presenting the wrong number under a trusted brand
+- `docs/commands/search.md` claimed Rotten Tomatoes "(Critics & Audience)" — corrected, with a note explaining why the audience score is absent and pointing at IMDb/Trakt/Letterboxd as the community-voted alternatives
+
+### Fixed
+- **Two titles from the same group could still meet in the first knockout round.** The separation pass paired participants as (0,1), (2,3)… but `buildBracketTree` gives the first `numByes` participants a matchup to themselves, which shifts every real pairing — so the check was inspecting slots the bracket never actually pairs. It also only searched forward, leaving the final pair with nothing to trade against. Measured at **243 same-group first-round matchups across 1,600 generations** before the fix, **0 after**
+- Raised the Jest per-test timeout from the 5s default to 15s. A quotes-admin test that spins up a `supertest` server was intermittently exceeding it under parallel worker load — verified as pre-existing (it reproduces without any of this release's changes) rather than newly introduced
+
+### Developer
+- New `tests/ratings-badges.test.js` (10 tests) covering Metacritic presence/absence, the per-guild toggle, and the RT critics-only labelling
+- `tests/bracket-seeding.test.js` now checks same-group separation across **all four** group sizes and across 25 repeated randomized seedings. The previous single-sample check caught the bug above only about 1 run in 9; the strengthened version catches it every time
+- `/eggshen-config` service and emoji status displays now fall back to the raw key name instead of rendering `undefined` when a config key has no display label
+
 ## 2.30.1 - 2026-09-06
 
 ### Fixed

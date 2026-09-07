@@ -16,6 +16,7 @@ const defaultConfig = {
     letterboxd: true,
     trakt: true,
     rottenTomatoes: true,
+    metacritic: true,
     justWatch: true,
   },
   emojis: {
@@ -23,6 +24,7 @@ const defaultConfig = {
     letterboxd: '',
     trakt: '',
     rtCritics: '',
+    metacritic: '',
     justWatch: '',
   },
   region: 'US', // Default region for streaming availability (ISO 3166-1 country code)

@@ -17,5 +17,6 @@
   "verbose": true,
   "setupFiles": [
     "<rootDir>/tests/jest.setup.js"
-  ]
+  ],
+  "testTimeout": 15000
 }

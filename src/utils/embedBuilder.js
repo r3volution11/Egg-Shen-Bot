@@ -372,6 +372,7 @@ function buildRatingsText(data, enabledServices = null, guildEmojis = null) {
     letterboxd: true,
     trakt: true,
     rottenTomatoes: true,
+    metacritic: true,
     justWatch: true,
   };
   
@@ -410,20 +411,40 @@ function buildRatingsText(data, enabledServices = null, guildEmojis = null) {
     }
   }
   
-  // Rotten Tomatoes - Critics score only (OMDB limitation)
+  // Rotten Tomatoes — critics score only.
+  //
+  // The audience score is deliberately absent, not an oversight. OMDB's RT data
+  // arrives in the generic `Ratings[]` array and is critics-only; its dedicated
+  // `tomatoes=true` tier still returns the tomatoUserMeter/tomatoUserRating
+  // fields but every one of them is "N/A" (verified across both recent and
+  // catalogue titles), since OMDB no longer licenses that data. No other
+  // integrated service carries RT's audience number either — Watchmode's
+  // `critic_score` is its own aggregate and diverges sharply from RT (71 vs RT's
+  // 85% on The Thing), and TMDB/Trakt report their own community scores on a
+  // different scale entirely. The official RT API is gated behind Fandango
+  // business approval. So the badge is always labelled "RT Critics" rather than
+  // "Rotten Tomatoes", to be explicit about which half of the split this is.
   if (services.rottenTomatoes) {
-    if (omdb && omdb.Ratings && urls.rottenTomatoes) {
-      const rtRating = omdb.Ratings.find(r => r.Source === 'Rotten Tomatoes');
-      if (rtRating) {
-        const criticsIcon = emojis.rtCritics ? `${emojis.rtCritics} ` : '';
-        badges.push(`[${criticsIcon}**RT Critics:** ${rtRating.Value}](${urls.rottenTomatoes})`);
-      } else {
-        const criticsIcon = emojis.rtCritics ? `${emojis.rtCritics} ` : '';
-        badges.push(`[${criticsIcon}**RT Critics**](${urls.rottenTomatoes})`);
-      }
-    } else if (urls.rottenTomatoes) {
-      const criticsIcon = emojis.rtCritics ? `${emojis.rtCritics} ` : '';
-      badges.push(`[${criticsIcon}**Rotten Tomatoes**](${urls.rottenTomatoes})`);
+    const criticsIcon = emojis.rtCritics ? `${emojis.rtCritics} ` : '';
+    const rtRating = omdb?.Ratings?.find(r => r.Source === 'Rotten Tomatoes');
+
+    if (urls.rottenTomatoes) {
+      badges.push(rtRating
+        ? `[${criticsIcon}**RT Critics:** ${rtRating.Value}](${urls.rottenTomatoes})`
+        : `[${criticsIcon}**RT Critics**](${urls.rottenTomatoes})`);
+    }
+  }
+
+  // Metacritic — already present in the OMDB payload the bot fetches anyway, so
+  // this costs no extra request. Movies carry a Metascore; TV series generally
+  // do not, so the badge simply doesn't render when the score is absent.
+  if (services.metacritic) {
+    const metacritic = omdb?.Ratings?.find(r => r.Source === 'Metacritic');
+    if (metacritic) {
+      const icon = emojis.metacritic ? `${emojis.metacritic} ` : '';
+      badges.push(urls.metacritic
+        ? `[${icon}**Metacritic:** ${metacritic.Value}](${urls.metacritic})`
+        : `${icon}**Metacritic:** ${metacritic.Value}`);
     }
   }
   

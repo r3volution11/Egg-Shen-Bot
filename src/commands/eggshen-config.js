@@ -28,7 +28,8 @@ export const data = new SlashCommandBuilder()
                 { name: 'IMDb', value: 'imdb' },
                 { name: 'Letterboxd', value: 'letterboxd' },
                 { name: 'Trakt', value: 'trakt' },
-                { name: 'Rotten Tomatoes', value: 'rottenTomatoes' },
+                { name: 'RT Critics', value: 'rottenTomatoes' },
+                { name: 'Metacritic', value: 'metacritic' },
                 { name: 'JustWatch', value: 'justWatch' }
               )
           )
@@ -53,6 +54,7 @@ export const data = new SlashCommandBuilder()
                 { name: 'Letterboxd', value: 'letterboxd' },
                 { name: 'Trakt', value: 'trakt' },
                 { name: 'RT Critics', value: 'rtCritics' },
+                { name: 'Metacritic', value: 'metacritic' },
                 { name: 'JustWatch', value: 'justWatch' }
               )
           )
@@ -262,9 +264,10 @@ export async function execute(interaction) {
           imdb: 'IMDb',
           letterboxd: 'Letterboxd',
           trakt: 'Trakt',
-          rottenTomatoes: 'Rotten Tomatoes',
+          rottenTomatoes: 'RT Critics',
+          metacritic: 'Metacritic',
           justWatch: 'JustWatch',
-        }[service];
+        }[service] || service;
         return `${emoji} **${serviceName}**`;
       })
       .join('\n');
@@ -276,8 +279,9 @@ export async function execute(interaction) {
           letterboxd: 'Letterboxd',
           trakt: 'Trakt',
           rtCritics: 'RT Critics',
+          metacritic: 'Metacritic',
           justWatch: 'JustWatch',
-        }[service];
+        }[service] || service;
         const emojiDisplay = emojiId ? `${emojiId} (set)` : '(not set)';
         return `**${serviceName}:** ${emojiDisplay}`;
       })

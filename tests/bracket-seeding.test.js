@@ -136,17 +136,44 @@ describe('Group mode seeds every qualifier', () => {
     });
   });
 
-  test('titles from the same group do not meet in the first round', () => {
-    const guildId = guildFor('no-same-group');
-    runGroupStage(guildId, 48); // full 32-slot field, no byes
+  // Run every size, not just the tidy one. Seeding is randomized, so a single
+  // sample of a single size hid a real bug: separation paired entries as
+  // (0,1),(2,3)… while buildBracketTree gives the first `numByes` participants
+  // a matchup to themselves, shifting every real pair. Sizes with byes (36, 40)
+  // were the ones that broke.
+  test.each([36, 40, 44, 48])(
+    '%i titles: no two titles from the same group meet in the first round',
+    maxTitles => {
+      const guildId = guildFor(`no-same-group-${maxTitles}`);
+      runGroupStage(guildId, maxTitles);
 
-    const tournament = bracketManager.loadTournament(guildId);
-    const collisions = tournament.knockoutBracket.filter(
-      m => m.round === tournament.phase && m.movie1 && m.movie2 &&
-        m.movie1.groupId && m.movie1.groupId === m.movie2.groupId
-    );
+      const tournament = bracketManager.loadTournament(guildId);
+      const collisions = tournament.knockoutBracket.filter(
+        m => m.round === tournament.phase && m.movie1 && m.movie2 &&
+          m.movie1.groupId && m.movie1.groupId === m.movie2.groupId
+      );
 
-    expect(collisions).toHaveLength(0);
+      expect(collisions.map(m => `${m.movie1.title} vs ${m.movie2.title}`)).toEqual([]);
+    }
+  );
+
+  test('separation holds across repeated randomized seedings', () => {
+    // The bug behind this test only surfaced about 1 run in 9, so one sample
+    // per size is not enough to trust. Regenerate the bracket repeatedly.
+    const guildId = guildFor('no-same-group-repeat');
+    runGroupStage(guildId, 36); // 27 qualifiers into a 32 bracket -> 5 byes
+
+    for (let attempt = 0; attempt < 25; attempt++) {
+      bracketManager.generateKnockoutBracket(guildId);
+      const tournament = bracketManager.loadTournament(guildId);
+
+      const collisions = tournament.knockoutBracket.filter(
+        m => m.round === tournament.phase && m.movie1 && m.movie2 &&
+          m.movie1.groupId && m.movie1.groupId === m.movie2.groupId
+      );
+
+      expect(collisions.map(m => `${m.movie1.title} vs ${m.movie2.title}`)).toEqual([]);
+    }
   });
 
   test('group results carry the groupId needed for same-group separation', () => {

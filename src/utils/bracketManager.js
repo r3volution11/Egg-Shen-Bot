@@ -203,24 +203,57 @@ const ROUND_SEQUENCE = {
 function separateSameGroup(participants) {
   const result = [...participants];
 
-  for (let i = 0; i + 1 < result.length; i += 2) {
-    const a = result[i];
-    const b = result[i + 1];
-    if (!a || !b || !a.groupId || a.groupId !== b.groupId) continue;
+  // buildBracketTree gives the first `numByes` participants a matchup to
+  // themselves, so real head-to-head pairs only begin after those. Separation
+  // has to work on the same indices the tree will actually pair, or it
+  // "fixes" pairings that never existed and misses the ones that do.
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(result.length || 1)));
+  const numByes = bracketSize - result.length;
 
-    // Find a later entry that collides with neither side of this pair.
-    const swapIndex = result.findIndex((candidate, idx) =>
-      idx > i + 1 &&
-      candidate.groupId !== a.groupId &&
-      // Don't create a new collision in the pair we steal from.
-      (idx % 2 === 0
-        ? result[idx + 1]?.groupId !== b.groupId
-        : result[idx - 1]?.groupId !== b.groupId)
-    );
+  /** Index this slot is paired against, or -1 if it receives a bye. */
+  const partnerOf = idx => {
+    if (idx < numByes) return -1; // bye: no opponent
+    const offset = idx - numByes;
+    return numByes + (offset % 2 === 0 ? offset + 1 : offset - 1);
+  };
 
-    if (swapIndex !== -1) {
-      [result[i + 1], result[swapIndex]] = [result[swapIndex], result[i + 1]];
+  const collides = (x, y) =>
+    x && y && x.groupId && y.groupId && x.groupId === y.groupId;
+
+  // Repair repeatedly: one swap can resolve a pair while disturbing another, so
+  // a single forward pass leaves collisions behind. Each pass strictly reduces
+  // the collision count or finds nothing to swap, and the bound keeps this
+  // finite even for a field where some collision is unavoidable.
+  const maxPasses = result.length;
+
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let swapped = false;
+
+    for (let i = numByes; i + 1 < result.length; i += 2) {
+      const a = result[i];
+      const b = result[i + 1];
+      if (!collides(a, b)) continue;
+
+      // Trade b for any entry that resolves this pair without creating a new
+      // collision where it came from. Byes are valid trade partners: an entry
+      // moved into a bye slot has no opponent to clash with.
+      const swapIndex = result.findIndex((candidate, idx) => {
+        if (idx === i || idx === i + 1 || !candidate) return false;
+        if (collides(candidate, a)) return false;
+
+        const partnerIdx = partnerOf(idx);
+        if (partnerIdx === -1) return true; // moving b into a bye slot is always safe
+        if (partnerIdx === i || partnerIdx === i + 1) return false;
+        return !collides(result[partnerIdx], b);
+      });
+
+      if (swapIndex !== -1) {
+        [result[i + 1], result[swapIndex]] = [result[swapIndex], result[i + 1]];
+        swapped = true;
+      }
     }
+
+    if (!swapped) break;
   }
 
   return result;

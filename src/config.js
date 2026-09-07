@@ -72,6 +72,7 @@ export const config = {
     trakt: process.env.EMOJI_TRAKT || '',
     rtCritics: process.env.EMOJI_RT_CRITICS || '',
     rtAudience: process.env.EMOJI_RT_AUDIENCE || '',
+    metacritic: process.env.EMOJI_METACRITIC || '',
     justWatch: process.env.EMOJI_JUSTWATCH || '',
   },
 };

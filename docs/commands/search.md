@@ -56,7 +56,8 @@ Search for movies and view detailed information.
 **Features:**
 - TMDB integration for comprehensive movie data
 - OMDB integration for additional ratings
-- Rotten Tomatoes scores (Critics & Audience)
+- Rotten Tomatoes Critics score (see note below)
+- Metacritic score (movies; TV series rarely carry a Metascore)
 - IMDb ratings and links
 - Trakt.tv integration
 - Letterboxd links
@@ -65,6 +66,20 @@ Search for movies and view detailed information.
 - Genre and content ratings
 - Streaming availability via JustWatch
 - Also-known-as (AKA) title matching, so movies better known under a reissue/US title still turn up and display correctly
+
+::: info Why there's no Rotten Tomatoes audience score
+Egg Shen shows the **RT Critics** score but not the audience score. OMDB — the
+bot's source for Rotten Tomatoes data — only returns the critics number; its
+dedicated Tomatoes fields exist but come back empty, since OMDB no longer
+licenses that data. No other integrated service carries RT's audience figure
+either (Watchmode's critic score is its own aggregate, and TMDB/Trakt report
+their own community ratings on a different scale), and the official Rotten
+Tomatoes API is restricted to approved commercial partners.
+
+Rather than label someone else's number as RT's, the badge is always shown as
+"RT Critics". For an audience-side view, the **IMDb**, **Trakt**, and
+**Letterboxd** badges are all community-voted scores.
+:::
 
 **Example:**
 ```
