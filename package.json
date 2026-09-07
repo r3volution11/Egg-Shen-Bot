@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "deploy-commands": "node src/deploy-commands.js",
+    "check:commands": "node scripts/check-command-size.js",
     "validate-oauth": "node scripts/validate-oauth-config.js",
     "build:css": "node scripts/build-web-assets.js --css",
     "build:js": "node scripts/build-web-assets.js --js",
