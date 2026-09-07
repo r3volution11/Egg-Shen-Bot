@@ -51,9 +51,16 @@ const defaultConfig = {
     bracket: true,
     quote: true,
     suggestQuote: true,
+    watchlist: true,
   },
   notifications: {
     restartAnnouncements: false, // Send announcements when bot restarts with active timers
+  },
+  watchlist: {
+    maxSize: 100, // Maximum titles allowed on the server watchlist
+    modOnlyAdd: false, // When true, only admins/moderators can add titles
+    autoAddChampion: false, // Add a tournament winner to the watchlist automatically
+    autoRemoveWatched: true, // Drop a title from the watchlist when logged via /watched
   },
   watchPartyChannels: [], // Channel IDs where watch party timers can auto-detect event titles
   administrators: [], // Will be populated with server owner/admins

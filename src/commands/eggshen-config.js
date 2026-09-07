@@ -197,7 +197,8 @@ export const data = new SlashCommandBuilder()
                 { name: 'Book Command', value: 'book' },
                 { name: 'Survey Command', value: 'survey' },
                 { name: 'Soundtrack Command', value: 'soundtrack' },
-                { name: 'Bracket Command', value: 'bracket' }
+                { name: 'Bracket Command', value: 'bracket' },
+                { name: 'Watchlist Command', value: 'watchlist' }
               )
           )
           .addBooleanOption(option =>
@@ -293,7 +294,8 @@ export async function execute(interaction) {
       `${config.commandPermissions.episode ? '✅' : '❌'} **/episode:** ${config.commandPermissions.episode ? 'Enabled' : 'Disabled'}\n` +
       `${config.commandPermissions.survey !== false ? '✅' : '❌'} **/survey:** ${config.commandPermissions.survey !== false ? 'Enabled' : 'Disabled'}\n` +
       `${config.commandPermissions.soundtrack !== false ? '✅' : '❌'} **/soundtrack:** ${config.commandPermissions.soundtrack !== false ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.bracket !== false ? '✅' : '❌'} **/bracket:** ${config.commandPermissions.bracket !== false ? 'Enabled' : 'Disabled'}`;
+      `${config.commandPermissions.bracket !== false ? '✅' : '❌'} **/bracket:** ${config.commandPermissions.bracket !== false ? 'Enabled' : 'Disabled'}\n` +
+      `${config.commandPermissions.watchlist !== false ? '✅' : '❌'} **/watchlist:** ${config.commandPermissions.watchlist !== false ? 'Enabled' : 'Disabled'}`;
 
     const notificationsStatus = `${config.notifications?.restartAnnouncements ? '✅' : '❌'} **Restart Announcements:** ${config.notifications?.restartAnnouncements ? 'Enabled' : 'Disabled'}`;
 

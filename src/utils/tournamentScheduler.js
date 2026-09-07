@@ -564,9 +564,32 @@ async function autoCloseMatchup(guild, tournament, matchup) {
       await updateVotingMessageClosed(guild, matchup, matchup.id, 'matchup');
     }
     
+    // A tie opens a tiebreaker instead of deciding a winner — the tiebreaker
+    // vote is posted by its own path, so there are no results to announce yet.
+    if (result.tiebreakerCreated) {
+      return;
+    }
+
+    // Re-read the matchup from the saved tournament: closeKnockoutMatchup
+    // returns the tournament, not the matchup, and the stored record now
+    // carries the winner and final vote counts.
+    const closedMatchup = result.tournament?.knockoutBracket?.find(m => m.id === matchup.id) || matchup;
+
     // Post results notification
-    await postMatchupResults(guild, tournament, result.matchup);
-    
+    await postMatchupResults(guild, tournament, closedMatchup);
+
+    // A finished tournament can seed the watchlist with its champion.
+    if (result.tournament?.status === 'completed') {
+      const { addChampionToWatchlist } = await import('./watchlistIntegration.js');
+      const added = await addChampionToWatchlist(guild.id, result.tournament);
+
+      if (added.added) {
+        logger.info(logger.LogCategory.SCHEDULER, 'Added tournament champion to watchlist', {
+          guildId: guild.id,
+          title: added.title,
+        });
+      }
+    }
   } catch (error) {
     console.error(`[TournamentScheduler] Error auto-closing matchup ${matchup.id}:`, error);
   }
@@ -748,9 +771,16 @@ async function postMatchupResults(guild, tournament, matchup) {
     
     if (!channel) return;
     
-    const votesA = matchup.votes[0] || 0;
-    const votesB = matchup.votes[1] || 0;
-    const winner = votesA > votesB ? matchup.participants[0] : matchup.participants[1];
+    // Matchups store votes as {movie1: [...], movie2: [...]} and their entrants
+    // as movie1/movie2 — there is no `participants` array or numerically-indexed
+    // `votes`, so reading those threw and no result was ever posted.
+    const votesA = matchup.votes1Count ?? matchup.votes?.movie1?.length ?? 0;
+    const votesB = matchup.votes2Count ?? matchup.votes?.movie2?.length ?? 0;
+    const winner = matchup.winner || (votesA >= votesB ? matchup.movie1 : matchup.movie2);
+    const loser = winner === matchup.movie1 ? matchup.movie2 : matchup.movie1;
+
+    if (!winner) return;
+
     const winnerVotes = Math.max(votesA, votesB);
     const loserVotes = Math.min(votesA, votesB);
     
@@ -766,7 +796,7 @@ async function postMatchupResults(guild, tournament, matchup) {
         },
         {
           name: 'Runner-up',
-          value: `${matchup.participants[0].title === winner.title ? matchup.participants[1].title : matchup.participants[0].title}\n${loserVotes} vote${loserVotes !== 1 ? 's' : ''}`,
+          value: `${loser?.title || 'Bye'}\n${loserVotes} vote${loserVotes !== 1 ? 's' : ''}`,
           inline: true
         }
       )

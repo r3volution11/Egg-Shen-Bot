@@ -5,6 +5,28 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.30.0 - 2026-09-06
+
+### Added
+- **New `/watchlist` command — a persistent queue of what the server plans to watch next.** Fills the gap between deciding on something and actually watching it: previously a tournament could crown a champion, or a survey could settle an argument, and someone still had to remember the result. Subcommands: `add`, `remove`, `list`, `pick`, `want`, `clear`
+- **`/watchlist pick`** chooses something to watch — at random (the argument-settler), by most votes, or by whatever has waited longest — and shows it with its poster
+- **`/watchlist want`** lets members vote for titles they want to watch; votes drive the "Most wanted" sort and the `votes` pick method. Running it again on the same title takes the vote back
+- **`/watchlist remove` and `/watchlist want` use autocomplete** against the titles already on the list, so there's no retyping and no ambiguity about which entry is meant
+- **The watchlist connects to what already exists.** Logging a title with `/watched add` — or letting a watch party timer log it automatically — removes it from the watchlist, and a finished tournament can put its champion straight on the list, tagged with the tournament it won
+- **New `/eggshen-config-watch-party watchlist` settings group**: `max-size` (10–500, default 100), `mod-only-add`, `auto-add-champion` (off by default), `auto-remove-watched` (on by default), plus a `view` subcommand showing current settings and list size
+
+### Fixed
+- **Auto-closing a knockout matchup never posted its results.** `postMatchupResults` read `matchup.participants[0]` and `matchup.votes[0]`, but matchups store their entrants as `movie1`/`movie2` and votes as `votes.movie1`/`votes.movie2` — no matchup has ever had a `participants` array, so the function threw on every invocation and the result embed was silently dropped. It also received `result.matchup`, which `closeKnockoutMatchup` does not return
+- Auto-closing a matchup that ended in a tie no longer tries to announce a winner — the tiebreaker vote is posted by its own path
+
+### Developer
+- New `src/utils/watchlistManager.js` — per-guild JSON storage mirroring `watchHistoryManager`'s shape. Entry identity is `tmdbId` + `type`, since TMDb ids are only unique within a media type (a movie and a show can both be id 1396)
+- New `src/utils/watchlistIntegration.js` — keeps the tournament→watchlist hook out of both `watchlistManager` (pure storage) and `bracketManager` (synchronous, while watchlist writes are async). Skips tournament types the watchlist can't represent (games, board games, books) and never throws, so a watchlist failure can't disrupt announcing a winner
+- The "remove once watched" sync lives inside `saveWatchHistory` rather than in each caller, so all five call sites — including an auto-completing watch party timer — stay in sync
+- `/watchlist` is 1781 bytes (22.3% of Discord's 8000-byte limit); the new config group brings `/eggshen-config-watch-party` to 4450 (55.6%). Both verified with `npm run check:commands`
+- New `tests/command-size-limit.test.js` — fails the suite if any command exceeds the 8000-byte limit, or if an unexpected command crosses 75% of it. The limit had previously only ever surfaced as a failed deploy
+- New `tests/watchlistManager.test.js` (31 tests)
+- Watchlist settings read defensively (`config.watchlist || {}`) because `loadGuildConfig` returns saved files verbatim without merging in newly-added defaults — existing guilds have no `watchlist` key
 ## 2.29.2 - 2026-09-06
 
 ### Fixed

@@ -23,6 +23,9 @@ guild_polls/
 # Tournaments (server-specific tournament data)
 guild_tournaments/
 
+# Watchlists (server-specific watchlist data)
+guild_watchlists/
+
 # Active timers (runtime state)
 active_timers.json
 

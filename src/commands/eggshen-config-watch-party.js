@@ -37,6 +37,44 @@ export const data = new SlashCommandBuilder()
           .setDescription('List all configured watch party channels')
       )
   )
+  // ========== WATCHLIST GROUP ==========
+  .addSubcommandGroup(group =>
+    group
+      .setName('watchlist')
+      .setDescription('Server watchlist settings')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('settings')
+          .setDescription('Change how the watchlist behaves')
+          .addIntegerOption(option =>
+            option
+              .setName('max-size')
+              .setDescription('Maximum titles allowed on the watchlist (default: 100)')
+              .setMinValue(10)
+              .setMaxValue(500)
+          )
+          .addBooleanOption(option =>
+            option
+              .setName('mod-only-add')
+              .setDescription('Only let moderators add titles (default: off)')
+          )
+          .addBooleanOption(option =>
+            option
+              .setName('auto-add-champion')
+              .setDescription('Add tournament winners to the watchlist automatically (default: off)')
+          )
+          .addBooleanOption(option =>
+            option
+              .setName('auto-remove-watched')
+              .setDescription('Remove a title once logged with /watched add (default: on)')
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('view')
+          .setDescription('Show the current watchlist settings')
+      )
+  )
   // ========== RATE-LIMIT GROUP ==========
   .addSubcommandGroup(group =>
     group
@@ -683,6 +721,81 @@ export async function execute(interaction) {
         inline: false,
       });
     }
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  } else if (group === 'watchlist' && subcommand === 'settings') {
+    // Update watchlist behavior. Every option is optional, so only the ones
+    // actually supplied are changed.
+    const maxSize = interaction.options.getInteger('max-size');
+    const modOnlyAdd = interaction.options.getBoolean('mod-only-add');
+    const autoAddChampion = interaction.options.getBoolean('auto-add-champion');
+    const autoRemoveWatched = interaction.options.getBoolean('auto-remove-watched');
+
+    if (maxSize === null && modOnlyAdd === null && autoAddChampion === null && autoRemoveWatched === null) {
+      await interaction.reply({
+        content: 'Nothing to change — set at least one option, or use `/eggshen-config-watch-party watchlist view` to see the current settings.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const config = await loadGuildConfig(guildId);
+    // Configs saved before the watchlist existed have no watchlist key.
+    config.watchlist = {
+      maxSize: 100,
+      modOnlyAdd: false,
+      autoAddChampion: false,
+      autoRemoveWatched: true,
+      ...(config.watchlist || {}),
+    };
+
+    const changes = [];
+    if (maxSize !== null) {
+      config.watchlist.maxSize = maxSize;
+      changes.push(`**Max size:** ${maxSize} titles`);
+    }
+    if (modOnlyAdd !== null) {
+      config.watchlist.modOnlyAdd = modOnlyAdd;
+      changes.push(`**Who can add:** ${modOnlyAdd ? 'Moderators only' : 'Everyone'}`);
+    }
+    if (autoAddChampion !== null) {
+      config.watchlist.autoAddChampion = autoAddChampion;
+      changes.push(`**Auto-add tournament winners:** ${autoAddChampion ? 'On' : 'Off'}`);
+    }
+    if (autoRemoveWatched !== null) {
+      config.watchlist.autoRemoveWatched = autoRemoveWatched;
+      changes.push(`**Remove when watched:** ${autoRemoveWatched ? 'On' : 'Off'}`);
+    }
+
+    await saveGuildConfig(guildId, config);
+
+    await interaction.reply({
+      content: `✅ Watchlist settings updated.\n\n${changes.join('\n')}`,
+      ephemeral: true,
+    });
+  } else if (group === 'watchlist' && subcommand === 'view') {
+    const config = await loadGuildConfig(guildId);
+    const settings = {
+      maxSize: 100,
+      modOnlyAdd: false,
+      autoAddChampion: false,
+      autoRemoveWatched: true,
+      ...(config.watchlist || {}),
+    };
+
+    const { getWatchlist } = await import('../utils/watchlistManager.js');
+    const entries = await getWatchlist(guildId);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('🎞️ Watchlist Settings')
+      .addFields(
+        { name: 'Titles on the list', value: `${entries.length} / ${settings.maxSize}`, inline: true },
+        { name: 'Who can add', value: settings.modOnlyAdd ? 'Moderators only' : 'Everyone', inline: true },
+        { name: 'Auto-add tournament winners', value: settings.autoAddChampion ? '✅ On' : '❌ Off', inline: true },
+        { name: 'Remove when watched', value: settings.autoRemoveWatched ? '✅ On' : '❌ Off', inline: true }
+      )
+      .setFooter({ text: 'Change these with /eggshen-config-watch-party watchlist settings' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }

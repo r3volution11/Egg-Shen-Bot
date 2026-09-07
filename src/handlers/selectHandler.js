@@ -53,6 +53,7 @@ export async function handleSelectInteraction(interaction) {
     'select_episode_show',
     'select_episode_list_show',
     'select_watched',
+    'select_watchlist_add',
     'select_random_episode',
     'select_similar',
     'select_soundtrack',
@@ -570,6 +571,52 @@ export async function handleSelectInteraction(interaction) {
     return;
   }
   
+  // Handle watchlist add selection
+  if (interaction.customId === 'select_watchlist_add') {
+    const value = interaction.values[0];
+    // Format: `${type}_${tmdbId}_${base64Payload}` — type is 'movie' or 'tv',
+    // neither of which contains an underscore, so the first two splits are safe.
+    const firstSep = value.indexOf('_');
+    const secondSep = value.indexOf('_', firstSep + 1);
+    const type = value.slice(0, firstSep);
+    const tmdbId = value.slice(firstSep + 1, secondSep);
+    const encodedData = value.slice(secondSep + 1);
+
+    try {
+      const { note, userId } = JSON.parse(
+        Buffer.from(encodedData, 'base64').toString('utf-8')
+      );
+
+      // Only the person who ran the command may resolve their own search.
+      if (interaction.user.id !== userId) {
+        await interaction.followUp({
+          content: '❌ Only the person who ran the command can make this selection.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await interaction.deferUpdate();
+
+      const { addResolvedTitle } = await import('../commands/watchlist.js');
+      const { loadGuildConfig } = await import('../utils/guildConfig.js');
+      const { DEFAULT_MAX_SIZE } = await import('../utils/watchlistManager.js');
+
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+      const settings = { maxSize: DEFAULT_MAX_SIZE, ...(guildConfig.watchlist || {}) };
+
+      await addResolvedTitle(interaction, type, tmdbId, note, settings);
+    } catch (error) {
+      console.error('Watchlist selection error:', error);
+      await interaction.editReply({
+        content: 'An error occurred while adding to the watchlist. Please try again later.',
+        embeds: [],
+        components: [],
+      }).catch(() => {});
+    }
+    return;
+  }
+
   // Handle watched selection
   if (interaction.customId === 'select_watched') {
     const value = interaction.values[0];

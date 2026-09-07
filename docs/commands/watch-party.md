@@ -307,6 +307,74 @@ This warning **only ever fires for fallback-duration timers.** A timer with a re
 
 `/timer autostop disable` remains the way to start a timer with **no expiry at all** from the outset.
 
+## Watchlist
+
+The server's queue of what to watch next — the step between deciding on something and actually watching it.
+
+### Adding titles
+
+```
+/watchlist add title:<title> note:[why you want to watch it]
+```
+
+Searches TMDb for movies and TV shows. If several titles match, pick the right one from the menu. A title already on the list can't be added twice.
+
+**Example:**
+```
+/watchlist add title:The Thing note:Kurt Russell double feature?
+```
+
+### Viewing the list
+
+```
+/watchlist list filter:[all|movie|tv] sort:[recent|oldest|votes]
+```
+
+Shows who added each title, any note, and how many people have voted for it. Sort by **Most wanted** to see what the server actually wants, or **Longest waiting** to surface things that have been sitting there.
+
+### Voting for what to watch
+
+```
+/watchlist want title:<title>
+```
+
+Registers that you want to watch something. Run it again on the same title to take your vote back. Votes drive the **Most wanted** sort and the `votes` pick method.
+
+### Picking something to watch
+
+```
+/watchlist pick method:[random|votes|oldest] filter:[movie|tv]
+```
+
+Chooses one title and shows it with its poster. `random` is the argument-settler; `votes` picks the most wanted; `oldest` picks whatever has waited longest.
+
+### Removing titles
+
+```
+/watchlist remove title:<title>
+```
+
+Anyone can remove a title they added themselves. Removing someone else's addition requires moderator permissions. Moderators can also empty the list entirely with `/watchlist clear`.
+
+### How the watchlist connects to everything else
+
+- **Watching something removes it.** Logging a title with `/watched add` — or letting a watch party timer log it automatically — drops it from the watchlist. Turn this off with `auto-remove-watched`.
+- **Tournament winners can be added automatically.** With `auto-add-champion` enabled, a finished `/bracket` tournament puts its champion straight on the list, tagged with the tournament it won. Off by default, and only applies to movie and TV tournaments (games, board games and books aren't TMDb-backed).
+
+### Watchlist settings
+
+```
+/eggshen-config-watch-party watchlist settings
+/eggshen-config-watch-party watchlist view
+```
+
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| `max-size` | 100 | Maximum titles allowed on the list (10–500) |
+| `mod-only-add` | Off | Restrict adding to moderators |
+| `auto-add-champion` | Off | Put tournament winners on the list automatically |
+| `auto-remove-watched` | On | Remove a title once it's logged as watched |
+
 ## Watch History
 
 Track what your server community watches together.
