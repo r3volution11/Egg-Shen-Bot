@@ -20,7 +20,7 @@ import { canGenerateImage, getGuildImageStats } from '../src/utils/aiImageTracke
 import { loadGuildConfig, saveGuildConfig } from '../src/utils/guildConfig.js';
 
 const GUILD_ID = 'ai-image-tracker-test-guild';
-const CONFIG_DIR = path.join(process.cwd(), 'guild_configs');
+const CONFIG_DIR = (process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'));
 
 function cleanup() {
   const f = path.join(CONFIG_DIR, `${GUILD_ID}.json`);

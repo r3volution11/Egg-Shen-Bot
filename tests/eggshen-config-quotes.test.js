@@ -20,7 +20,7 @@ const { setQuotes } = await import('../src/utils/movieQuotesStore.js');
 const { loadGuildConfig } = await import('../src/utils/guildConfig.js');
 
 const GUILD_ID = 'eggshen-config-quotes-test-guild';
-const GUILD_CONFIG_FILE = path.join(process.cwd(), 'guild_configs', `${GUILD_ID}.json`);
+const GUILD_CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'), `${GUILD_ID}.json`);
 
 function cleanup() {
   if (fs.existsSync(QUOTES_FILE)) fs.rmSync(QUOTES_FILE);

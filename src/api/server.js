@@ -27,10 +27,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path to persist event requests
-const EVENT_REQUESTS_FILE = path.join(__dirname, '../../pending_event_requests.json');
-// Path to persist in-progress channel selections (approve flow, step before event creation)
-const EVENT_CHANNEL_SELECTIONS_FILE = path.join(__dirname, '../../pending_event_channel_selections.json');
+// Paths to persist event requests and in-progress channel selections (the
+// approve flow's step before event creation). Both are overridable by env var
+// so parallel Jest workers (each test file runs in its own process) can point
+// at unique files instead of racing on the same real ones — unset in
+// production, where the defaults apply.
+const EVENT_REQUESTS_FILE = process.env.EVENT_REQUESTS_FILE || path.join(__dirname, '../../pending_event_requests.json');
+const EVENT_CHANNEL_SELECTIONS_FILE = process.env.EVENT_CHANNEL_SELECTIONS_FILE || path.join(__dirname, '../../pending_event_channel_selections.json');
 
 /**
  * Save event requests to disk

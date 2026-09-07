@@ -5,7 +5,10 @@ import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const tournamentsDir = join(__dirname, '../../guild_tournaments');
+// Overridable via GUILD_TOURNAMENTS_DIR so parallel Jest workers (each test
+// file runs in its own process) can point at a unique directory instead of
+// racing on the same real one — unset in production, where the default applies.
+const tournamentsDir = process.env.GUILD_TOURNAMENTS_DIR || join(__dirname, '../../guild_tournaments');
 
 // Ensure tournaments directory exists
 if (!existsSync(tournamentsDir)) {

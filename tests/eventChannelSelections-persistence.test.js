@@ -27,7 +27,7 @@ import {
   loadEventChannelSelections,
 } from '../src/api/server.js';
 
-const SELECTIONS_FILE = path.join(process.cwd(), 'pending_event_channel_selections.json');
+const SELECTIONS_FILE = (process.env.EVENT_CHANNEL_SELECTIONS_FILE || path.join(process.cwd(), 'pending_event_channel_selections.json'));
 
 function cleanup() {
   if (fs.existsSync(SELECTIONS_FILE)) fs.unlinkSync(SELECTIONS_FILE);

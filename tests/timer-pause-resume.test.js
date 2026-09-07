@@ -22,7 +22,7 @@ import {
   restoreTimerTimeouts,
 } from '../src/utils/timerManager.js';
 
-const TIMERS_FILE = path.join(process.cwd(), 'active_timers.json');
+const TIMERS_FILE = process.env.ACTIVE_TIMERS_FILE || path.join(process.cwd(), 'active_timers.json');
 
 function cleanup() {
   clearAllTimers();

@@ -24,7 +24,7 @@ npm run test:simulate
 ```
 
 This runs a complete tournament from start to finish:
-- Creates tournament with 4 groups (16 movies)
+- Creates a 36-title group-stage tournament (9 groups of 4)
 - Adds realistic horror movie titles
 - Simulates 5 users voting in each group
 - Closes groups and calculates results
@@ -195,3 +195,40 @@ Once automated tests pass:
 5. ✅ Verify Discord message formatting looks good
 
 Automated tests catch logic bugs. Human testing catches UX issues.
+
+## Test Isolation
+
+`tests/jest.setup.js` (wired in via `setupFiles`) gives every Jest worker its
+own scratch directory under the system temp dir, keyed by `JEST_WORKER_ID`.
+
+This exists because Jest runs each test file in its own worker process, while
+several modules default to a single fixed path under the repo root
+(`guild_configs/`, `guild_tournaments/`, `active_timers.json`,
+`event_request_images/`, and others). Suites that wiped those in
+`beforeEach`/`afterEach` were deleting each other's fixtures mid-run — which
+surfaced as 1–10 tests failing in a *different* suite on almost every run, with
+the specific failures changing each time.
+
+Each affected module reads an env var and falls back to its real path when the
+var is unset, so production behavior is unchanged:
+
+| Env var | Module | Default |
+|---------|--------|---------|
+| `GUILD_CONFIGS_DIR` | `guildConfig.js` | `guild_configs/` |
+| `GUILD_TOURNAMENTS_DIR` | `bracketManager.js`, `tournamentScheduler.js` | `guild_tournaments/` |
+| `GUILD_WATCHLISTS_DIR` | `watchlistManager.js` | `guild_watchlists/` |
+| `GUILD_POLLS_DIR` | `pollManager.js` | `guild_polls/` |
+| `ACTIVE_TIMERS_FILE` | `timerManager.js` | `active_timers.json` |
+| `EVENT_IMAGES_DIR` | `eventImageStore.js` | `event_request_images/` |
+| `EVENT_REQUESTS_FILE` | `api/server.js` | `pending_event_requests.json` |
+| `EVENT_CHANNEL_SELECTIONS_FILE` | `api/server.js` | `pending_event_channel_selections.json` |
+| `MOVIE_QUOTES_FILE` | `movieQuotesStore.js` | `movie_quotes.json` |
+
+**When adding a module that persists to disk**, give its path the same
+`process.env.X || <default>` treatment and add a `fallback(...)` line to
+`tests/jest.setup.js`. A suite that needs its own specific path can still set
+the env var itself — the setup only fills in a default where one isn't already
+chosen.
+
+A side effect worth keeping: tests no longer write scratch files into the repo
+root at all.

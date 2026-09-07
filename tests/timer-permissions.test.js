@@ -15,9 +15,9 @@ import { execute } from '../src/commands/timer.js';
 import { startTimer, clearAllTimers } from '../src/utils/timerManager.js';
 import { saveGuildConfig } from '../src/utils/guildConfig.js';
 
-const TIMERS_FILE = path.join(process.cwd(), 'active_timers.json');
+const TIMERS_FILE = process.env.ACTIVE_TIMERS_FILE || path.join(process.cwd(), 'active_timers.json');
 const TEST_GUILD_ID = 'timer-permissions-test-guild';
-const TEST_GUILD_CONFIG_FILE = path.join(process.cwd(), 'guild_configs', `${TEST_GUILD_ID}.json`);
+const TEST_GUILD_CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'), `${TEST_GUILD_ID}.json`);
 
 function cleanup() {
   clearAllTimers();

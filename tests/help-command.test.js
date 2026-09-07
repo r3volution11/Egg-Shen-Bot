@@ -19,7 +19,7 @@ import { updateCommandPermission, loadGuildConfig, saveGuildConfig } from '../sr
 import { config } from '../src/config.js';
 
 const GUILD_ID = 'help-command-test-guild';
-const CONFIG_DIR = path.join(process.cwd(), 'guild_configs');
+const CONFIG_DIR = (process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'));
 
 function cleanup() {
   const f = path.join(CONFIG_DIR, `${GUILD_ID}.json`);

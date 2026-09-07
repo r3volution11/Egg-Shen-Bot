@@ -23,7 +23,7 @@ import {
   pruneOrphanedUploads,
 } from '../src/utils/eventImageStore.js';
 
-const IMAGES_DIR = path.join(process.cwd(), 'event_request_images');
+const IMAGES_DIR = process.env.EVENT_IMAGES_DIR || path.join(process.cwd(), 'event_request_images');
 const MANIFEST_PATH = path.join(IMAGES_DIR, 'manifest.json');
 
 function cleanup() {

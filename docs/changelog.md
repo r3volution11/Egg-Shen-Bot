@@ -5,6 +5,19 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.30.1 - 2026-09-06
+
+### Fixed
+- **The Jest suite was unreliable — 1 to 10 tests failed on almost every run, in a different suite each time.** Jest runs each test file in its own worker process, but several modules default to a single fixed path under the repo root (`guild_configs/`, `guild_tournaments/`, `active_timers.json`, `event_request_images/`, `pending_event_requests.json`, `guild_polls/`). Suites that wiped those in `beforeEach`/`afterEach` were deleting each other's fixtures mid-run, so a passing suite could be failed by an unrelated one running beside it. Verified as long-standing rather than newly introduced by reproducing it on earlier commits
+- Every affected module now reads an env var and falls back to its real path when unset (the pattern `movieQuotesStore.js` already used for `MOVIE_QUOTES_FILE`), and `tests/jest.setup.js` gives each worker its own scratch directory keyed by `JEST_WORKER_ID`. **Production behavior is unchanged** — the env vars are unset outside tests, so every default resolves exactly as before
+- Tests no longer write scratch files into the repo root at all
+
+### Developer
+- New `tests/jest.setup.js`, wired in via `setupFiles` so it runs before any test file's static imports are evaluated — the env vars must be set before a module under test reads its path at import time
+- `tests/README.md` documents the isolation contract, including the table of env vars and the rule for adding a new module that persists to disk
+- Corrected `tests/README.md`'s description of `npm run test:simulate` — it builds a 36-title/9-group tournament, not the 4 groups the doc claimed
+- Full suite verified green across 8 consecutive runs (974/974 each), where the same suite previously failed intermittently on most runs
+
 ## 2.30.0 - 2026-09-06
 
 ### Added

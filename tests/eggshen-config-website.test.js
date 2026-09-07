@@ -13,7 +13,7 @@ import fs from 'fs';
 import path from 'path';
 
 const GUILD_ID = 'eggshen-config-website-test-guild';
-const GUILD_CONFIG_FILE = path.join(process.cwd(), 'guild_configs', `${GUILD_ID}.json`);
+const GUILD_CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'), `${GUILD_ID}.json`);
 
 function cleanup() {
   if (fs.existsSync(GUILD_CONFIG_FILE)) fs.rmSync(GUILD_CONFIG_FILE);

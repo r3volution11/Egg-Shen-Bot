@@ -27,7 +27,7 @@ import {
   addVote,
 } from '../src/utils/pollManager.js';
 
-const POLLS_DIR = path.join(process.cwd(), 'guild_polls');
+const POLLS_DIR = (process.env.GUILD_POLLS_DIR || path.join(process.cwd(), 'guild_polls'));
 const GUILD_A = 'poll-manager-test-guild-a';
 const GUILD_B = 'poll-manager-test-guild-b';
 

@@ -8,19 +8,28 @@ import { EmbedBuilder } from 'discord.js';
 import fs from 'fs/promises';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 import { loadGuildConfig } from './guildConfig.js';
-import { getImagePath, recordEventDate } from './eventImageStore.js';
+import { getImagePath, mimeTypeForFilePath, recordEventDate } from './eventImageStore.js';
 import { parseUtcTimeInput } from './eventTimeInput.js';
 import { fetchImageUrl } from './fetchImageUrl.js';
 
 /**
- * Resolve the final image buffer (if any) for a scheduled event, per the
- * priority order: an explicit imageUrl (mod override, or a user-submitted
- * URL with no upload) wins if present; otherwise a user-uploaded file, if
- * one exists for this request; otherwise no image. Never throws — a bad
- * URL or a missing file just means no image, not a failed approval.
+ * Resolve the final image (if any) for a scheduled event, per the priority
+ * order: an explicit imageUrl (mod override, or a user-submitted URL with no
+ * upload) wins if present; otherwise a user-uploaded file, if one exists for
+ * this request; otherwise no image. Never throws — a bad URL or a missing
+ * file just means no image, not a failed approval.
+ *
+ * Returns a `data:<mime>;base64,...` URI rather than a bare Buffer —
+ * discord.js's resolveImage()/resolveBase64() accept either, but a bare
+ * Buffer gets hardcoded to `image/jpg` regardless of the image's real
+ * format (see node_modules/discord.js/src/util/DataResolver.js). A
+ * mismatched declared content-type (e.g. a PNG mislabeled as image/jpg) can
+ * make Discord silently reject/drop the cover image, so the real
+ * content-type is always attached explicitly here instead of relying on
+ * discord.js's Buffer fallback.
  * @param {string} requestId
  * @param {object} requestData - { imageUrl, hasUploadedImage, ... }
- * @returns {Promise<Buffer|null>}
+ * @returns {Promise<string|null>}
  */
 export async function resolveEventImageBuffer(requestId, requestData) {
   if (requestData.imageUrl) {
@@ -29,14 +38,16 @@ export async function resolveEventImageBuffer(requestId, requestData) {
       console.error(`[EventRequest] ${result.error} (${requestData.imageUrl})`);
       return null;
     }
-    return result.buffer;
+    return `data:${result.contentType};base64,${result.buffer.toString('base64')}`;
   }
 
   if (requestData.hasUploadedImage) {
     try {
       const filePath = await getImagePath(requestId);
       if (!filePath) return null;
-      return await fs.readFile(filePath);
+      const buffer = await fs.readFile(filePath);
+      const mimeType = mimeTypeForFilePath(filePath) || 'image/jpeg';
+      return `data:${mimeType};base64,${buffer.toString('base64')}`;
     } catch (error) {
       console.error(`[EventRequest] Error reading uploaded image for request ${requestId}:`, error.message);
       return null;
@@ -135,16 +146,16 @@ export async function createScheduledEventFromRequest({ guild, requestId, reques
     eventConfig.entityMetadata = { location: locationText.slice(0, 100) };
   }
 
-  const imageBuffer = await resolveEventImageBuffer(requestId, requestData);
-  if (imageBuffer) {
-    eventConfig.image = imageBuffer;
+  const imageDataUri = await resolveEventImageBuffer(requestId, requestData);
+  if (imageDataUri) {
+    eventConfig.image = imageDataUri;
   }
 
   const scheduledEvent = await guild.scheduledEvents.create(eventConfig);
 
   // Only an uploaded (locally-stored) image needs retention tracking — a
   // URL-sourced image isn't stored on our disk at all, nothing to prune.
-  if (imageBuffer && requestData.hasUploadedImage && !requestData.imageUrl) {
+  if (imageDataUri && requestData.hasUploadedImage && !requestData.imageUrl) {
     const eventDateMs = new Date(requestData.endTime || requestData.startTime).getTime();
     await recordEventDate(requestId, eventDateMs).catch(err => {
       console.error(`[EventRequest] Failed to record event date for image retention (request ${requestId}):`, err.message);

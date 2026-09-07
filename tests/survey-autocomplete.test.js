@@ -17,7 +17,7 @@ import { autocomplete } from '../src/commands/survey.js';
 import { createPoll, closePoll } from '../src/utils/pollManager.js';
 
 const GUILD = 'survey-autocomplete-test-guild';
-const POLL_FILE = path.join(process.cwd(), 'guild_polls', `${GUILD}.json`);
+const POLL_FILE = path.join(process.env.GUILD_POLLS_DIR || path.join(process.cwd(), 'guild_polls'), `${GUILD}.json`);
 
 function cleanup() {
   if (fs.existsSync(POLL_FILE)) fs.unlinkSync(POLL_FILE);

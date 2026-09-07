@@ -12,9 +12,9 @@ import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globa
 import fs from 'fs';
 import path from 'path';
 
-const IMAGES_DIR = path.join(process.cwd(), 'event_request_images');
-const REQUESTS_FILE = path.join(process.cwd(), 'pending_event_requests.json');
-const GUILD_CONFIG_FILE = path.join(process.cwd(), 'guild_configs', 'guild-1.json');
+const IMAGES_DIR = process.env.EVENT_IMAGES_DIR || path.join(process.cwd(), 'event_request_images');
+const REQUESTS_FILE = process.env.EVENT_REQUESTS_FILE || path.join(process.cwd(), 'pending_event_requests.json');
+const GUILD_CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'), 'guild-1.json');
 const ORIGINAL_SECRET = process.env.EVENT_CROP_LINK_SECRET;
 
 function cleanup() {

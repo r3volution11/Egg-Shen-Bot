@@ -71,7 +71,7 @@ jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
 let handleSelectInteraction;
 let getTimerStatus, clearAllTimers;
 
-const TIMERS_FILE = path.join(process.cwd(), 'active_timers.json');
+const TIMERS_FILE = process.env.ACTIVE_TIMERS_FILE || path.join(process.cwd(), 'active_timers.json');
 
 function cleanupTimerFile() {
   if (fs.existsSync(TIMERS_FILE)) fs.unlinkSync(TIMERS_FILE);

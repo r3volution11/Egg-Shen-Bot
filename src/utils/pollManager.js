@@ -6,7 +6,10 @@ import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'disc
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const POLLS_DIR = join(__dirname, '../../guild_polls');
+// Overridable via GUILD_POLLS_DIR so parallel Jest workers (each test file runs
+// in its own process) can point at a unique directory instead of racing on the
+// same real one — unset in production, where the default applies.
+const POLLS_DIR = process.env.GUILD_POLLS_DIR || join(__dirname, '../../guild_polls');
 
 // Ensure polls directory exists
 if (!existsSync(POLLS_DIR)) {

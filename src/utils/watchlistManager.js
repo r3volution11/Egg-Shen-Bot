@@ -13,7 +13,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const WATCHLIST_DIR = path.join(__dirname, '../../guild_watchlists');
+// Overridable via GUILD_WATCHLISTS_DIR so parallel Jest workers (each test file
+// runs in its own process) can point at a unique directory instead of racing on
+// the same real one — unset in production, where the default applies.
+const WATCHLIST_DIR = process.env.GUILD_WATCHLISTS_DIR || path.join(__dirname, '../../guild_watchlists');
 
 /** Hard ceiling regardless of guild config, to keep a file readable and embeds sane. */
 export const MAX_WATCHLIST_SIZE = 500;

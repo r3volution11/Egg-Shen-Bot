@@ -14,5 +14,8 @@
     "src/services/*.js"
   ],
   "coverageDirectory": "coverage",
-  "verbose": true
+  "verbose": true,
+  "setupFiles": [
+    "<rootDir>/tests/jest.setup.js"
+  ]
 }

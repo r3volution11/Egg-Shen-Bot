@@ -17,7 +17,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const IMAGES_DIR = path.join(__dirname, '../../event_request_images');
+// Overridable via EVENT_IMAGES_DIR so parallel Jest workers (each test file
+// runs in its own process) can point at a unique directory instead of racing
+// on the same real one — unset in production, where the default applies.
+const IMAGES_DIR = process.env.EVENT_IMAGES_DIR || path.join(__dirname, '../../event_request_images');
 const MANIFEST_PATH = path.join(IMAGES_DIR, 'manifest.json');
 
 const RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days past the event date
@@ -57,6 +60,22 @@ async function saveManifest(manifest) {
  */
 export function extensionForMimeType(mimeType) {
   return ALLOWED_EXTENSIONS_BY_MIME[mimeType] || null;
+}
+
+const MIME_TYPE_BY_EXTENSION = Object.fromEntries(
+  Object.entries(ALLOWED_EXTENSIONS_BY_MIME).map(([mime, ext]) => [ext, mime])
+);
+
+/**
+ * Mimetype for a stored file's extension (the inverse of
+ * extensionForMimeType), or null if unrecognized. Used to recover a stored
+ * image's real content-type from its path alone, since the manifest only
+ * records the filename — not needed for saving (mimeType is known then),
+ * only for reading an already-stored file back out generically.
+ * @param {string} filePath
+ */
+export function mimeTypeForFilePath(filePath) {
+  return MIME_TYPE_BY_EXTENSION[path.extname(filePath).toLowerCase()] || null;
 }
 
 /**

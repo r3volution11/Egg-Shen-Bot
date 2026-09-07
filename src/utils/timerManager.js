@@ -16,7 +16,10 @@ const __dirname = path.dirname(__filename);
 const activeTimers = new Map();
 
 // Path to persist timers
-const TIMERS_FILE = path.join(__dirname, '../../active_timers.json');
+// Overridable via ACTIVE_TIMERS_FILE so parallel Jest workers (each test file
+// runs in its own process) can point at a unique file instead of racing on the
+// same real one — unset in production, where the default applies.
+const TIMERS_FILE = process.env.ACTIVE_TIMERS_FILE || path.join(__dirname, '../../active_timers.json');
 
 /**
  * Save active timers to disk

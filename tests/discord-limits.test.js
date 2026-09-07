@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 
 const TEST_GUILD_ID = 'discord-limits-test';
-const TEST_TOURNAMENT_DIR = path.join(process.cwd(), 'guild_tournaments');
+const TEST_TOURNAMENT_DIR = (process.env.GUILD_TOURNAMENTS_DIR || path.join(process.cwd(), 'guild_tournaments'));
 
 function cleanup() {
   const testFile = path.join(TEST_TOURNAMENT_DIR, `${TEST_GUILD_ID}.json`);

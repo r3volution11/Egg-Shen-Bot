@@ -22,7 +22,7 @@ import { Collection } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 
-const CONFIG_DIR = path.join(process.cwd(), 'guild_configs');
+const CONFIG_DIR = (process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'));
 
 function cleanupGuildConfigs() {
   if (fs.existsSync(CONFIG_DIR)) {

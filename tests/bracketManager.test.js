@@ -9,7 +9,7 @@ import path from 'path';
 import * as bracketManager from '../src/utils/bracketManager.js';
 
 const TEST_GUILD_ID = 'test-guild-123';
-const TEST_TOURNAMENT_DIR = path.join(process.cwd(), 'guild_tournaments');
+const TEST_TOURNAMENT_DIR = (process.env.GUILD_TOURNAMENTS_DIR || path.join(process.cwd(), 'guild_tournaments'));
 
 // Clean up test data before and after each test
 beforeEach(() => {

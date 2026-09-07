@@ -22,7 +22,7 @@ import { handleButtonInteraction } from '../src/handlers/buttonHandler.js';
 import { createPoll, getPoll } from '../src/utils/pollManager.js';
 
 const GUILD_ID = 'survey-vote-button-test-guild';
-const POLL_FILE = path.join(process.cwd(), 'guild_polls', `${GUILD_ID}.json`);
+const POLL_FILE = path.join(process.env.GUILD_POLLS_DIR || path.join(process.cwd(), 'guild_polls'), `${GUILD_ID}.json`);
 
 function cleanup() {
   if (fs.existsSync(POLL_FILE)) fs.unlinkSync(POLL_FILE);

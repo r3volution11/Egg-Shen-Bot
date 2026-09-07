@@ -19,7 +19,7 @@ import {
 } from '../src/utils/watchlistManager.js';
 
 const GUILD_ID = 'test-watchlist-guild';
-const WATCHLIST_DIR = path.join(process.cwd(), 'guild_watchlists');
+const WATCHLIST_DIR = (process.env.GUILD_WATCHLISTS_DIR || path.join(process.cwd(), 'guild_watchlists'));
 const FILE = path.join(WATCHLIST_DIR, `${GUILD_ID}_watchlist.json`);
 
 function cleanup() {

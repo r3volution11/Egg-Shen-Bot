@@ -4,7 +4,10 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const configDir = path.join(__dirname, '../../guild_configs');
+// Overridable via GUILD_CONFIGS_DIR so parallel Jest workers (each test file
+// runs in its own process) can point at a unique directory instead of racing
+// on the same real one — unset in production, where the default applies.
+const configDir = process.env.GUILD_CONFIGS_DIR || path.join(__dirname, '../../guild_configs');
 
 // Default configuration for new guilds
 const defaultConfig = {

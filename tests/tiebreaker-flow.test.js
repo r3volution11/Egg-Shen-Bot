@@ -14,7 +14,7 @@ import path from 'path';
 import * as bracketManager from '../src/utils/bracketManager.js';
 
 const GUILD_ID = 'tiebreaker-test-guild';
-const TOURNAMENT_DIR = path.join(process.cwd(), 'guild_tournaments');
+const TOURNAMENT_DIR = (process.env.GUILD_TOURNAMENTS_DIR || path.join(process.cwd(), 'guild_tournaments'));
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 

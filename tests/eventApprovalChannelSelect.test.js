@@ -30,7 +30,7 @@ import path from 'path';
 import { handleSelectInteraction } from '../src/handlers/selectHandler.js';
 
 const INDEX_SOURCE = fs.readFileSync(path.join(process.cwd(), 'src/index.js'), 'utf8');
-const SELECTIONS_FILE = path.join(process.cwd(), 'pending_event_channel_selections.json');
+const SELECTIONS_FILE = (process.env.EVENT_CHANNEL_SELECTIONS_FILE || path.join(process.cwd(), 'pending_event_channel_selections.json'));
 
 function cleanup() {
   if (fs.existsSync(SELECTIONS_FILE)) fs.unlinkSync(SELECTIONS_FILE);

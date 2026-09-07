@@ -30,11 +30,11 @@ import {
 import { loadGuildConfig, saveGuildConfig } from '../src/utils/guildConfig.js';
 import { saveUploadedImage } from '../src/utils/eventImageStore.js';
 
-const REQUESTS_FILE = path.join(process.cwd(), 'pending_event_requests.json');
-const SELECTIONS_FILE = path.join(process.cwd(), 'pending_event_channel_selections.json');
+const REQUESTS_FILE = (process.env.EVENT_REQUESTS_FILE || path.join(process.cwd(), 'pending_event_requests.json'));
+const SELECTIONS_FILE = (process.env.EVENT_CHANNEL_SELECTIONS_FILE || path.join(process.cwd(), 'pending_event_channel_selections.json'));
 const GUILD_ID = 'event-request-approval-test-guild';
-const GUILD_CONFIG_FILE = path.join(process.cwd(), 'guild_configs', `${GUILD_ID}.json`);
-const IMAGES_DIR = path.join(process.cwd(), 'event_request_images');
+const GUILD_CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'), `${GUILD_ID}.json`);
+const IMAGES_DIR = process.env.EVENT_IMAGES_DIR || path.join(process.cwd(), 'event_request_images');
 
 function cleanup() {
   if (fs.existsSync(REQUESTS_FILE)) fs.unlinkSync(REQUESTS_FILE);
@@ -264,7 +264,7 @@ describe('resolveEventImageBuffer', () => {
     expect(buffer).toBeNull();
   });
 
-  test('fetches and returns a buffer when imageUrl is set and resolves to an image', async () => {
+  test('fetches and returns a data URI (with the real content-type) when imageUrl is set and resolves to an image', async () => {
     const imageBytes = Buffer.from('fake-image-bytes');
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -273,10 +273,10 @@ describe('resolveEventImageBuffer', () => {
     });
 
     const requestData = makeRequestData({ imageUrl: 'https://example.com/poster.png' });
-    const buffer = await resolveEventImageBuffer('req-1', requestData);
+    const dataUri = await resolveEventImageBuffer('req-1', requestData);
 
     expect(global.fetch).toHaveBeenCalledWith('https://example.com/poster.png');
-    expect(buffer).toEqual(imageBytes);
+    expect(dataUri).toBe(`data:image/png;base64,${imageBytes.toString('base64')}`);
   });
 
   test('returns null when the imageUrl fetch fails (non-ok response)', async () => {
@@ -309,14 +309,14 @@ describe('resolveEventImageBuffer', () => {
     expect(buffer).toBeNull();
   });
 
-  test('reads the uploaded file from disk when hasUploadedImage is set and no imageUrl', async () => {
+  test('reads the uploaded file from disk when hasUploadedImage is set and no imageUrl, tagged with its real content-type', async () => {
     const imageBytes = Buffer.from('uploaded-image-bytes');
     await saveUploadedImage('req-uploaded', imageBytes, 'image/png');
 
     const requestData = makeRequestData({ hasUploadedImage: true });
-    const buffer = await resolveEventImageBuffer('req-uploaded', requestData);
+    const dataUri = await resolveEventImageBuffer('req-uploaded', requestData);
 
-    expect(buffer).toEqual(imageBytes);
+    expect(dataUri).toBe(`data:image/png;base64,${imageBytes.toString('base64')}`);
   });
 
   test('imageUrl takes priority over an uploaded image when both are present', async () => {
@@ -324,26 +324,26 @@ describe('resolveEventImageBuffer', () => {
     const urlBytes = Buffer.from('from-url');
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      headers: { get: (key) => ({ 'content-type': 'image/png', 'content-length': String(urlBytes.length) }[key]) },
+      headers: { get: (key) => ({ 'content-type': 'image/webp', 'content-length': String(urlBytes.length) }[key]) },
       arrayBuffer: async () => urlBytes.buffer.slice(urlBytes.byteOffset, urlBytes.byteOffset + urlBytes.byteLength),
     });
 
-    const requestData = makeRequestData({ hasUploadedImage: true, imageUrl: 'https://example.com/override.png' });
-    const buffer = await resolveEventImageBuffer('req-both', requestData);
+    const requestData = makeRequestData({ hasUploadedImage: true, imageUrl: 'https://example.com/override.webp' });
+    const dataUri = await resolveEventImageBuffer('req-both', requestData);
 
-    expect(buffer).toEqual(urlBytes);
+    expect(dataUri).toBe(`data:image/webp;base64,${urlBytes.toString('base64')}`);
   });
 
   test('returns null when hasUploadedImage is set but no file actually exists', async () => {
     const requestData = makeRequestData({ hasUploadedImage: true });
-    const buffer = await resolveEventImageBuffer('req-missing-file', requestData);
+    const dataUri = await resolveEventImageBuffer('req-missing-file', requestData);
 
-    expect(buffer).toBeNull();
+    expect(dataUri).toBeNull();
   });
 });
 
 describe('createScheduledEventFromRequest image handling', () => {
-  test('attaches the resolved image buffer to the scheduledEvents.create call', async () => {
+  test('attaches the resolved image as a correctly-tagged data URI to the scheduledEvents.create call', async () => {
     const guild = makeGuild();
     const imageBytes = Buffer.from('uploaded-image-bytes');
     await saveUploadedImage('req-with-image', imageBytes, 'image/png');
@@ -354,8 +354,22 @@ describe('createScheduledEventFromRequest image handling', () => {
     });
 
     expect(guild.scheduledEvents.create).toHaveBeenCalledWith(
-      expect.objectContaining({ image: imageBytes })
+      expect.objectContaining({ image: `data:image/png;base64,${imageBytes.toString('base64')}` })
     );
+  });
+
+  test('a non-JPEG uploaded image is not mislabeled as image/jpg (the original bug)', async () => {
+    const guild = makeGuild();
+    const imageBytes = Buffer.from('webp-bytes');
+    await saveUploadedImage('req-webp-image', imageBytes, 'image/webp');
+
+    const requestData = makeRequestData({ hasUploadedImage: true });
+    await createScheduledEventFromRequest({
+      guild, requestId: 'req-webp-image', requestData, approvalType: 'full',
+    });
+
+    const createArgs = guild.scheduledEvents.create.mock.calls[0][0];
+    expect(createArgs.image).toMatch(/^data:image\/webp;base64,/);
   });
 
   test('does not set an image field at all when no image is available', async () => {
