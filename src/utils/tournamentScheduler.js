@@ -188,8 +188,11 @@ async function autoResolveTiebreaker(guild, tiebreaker) {
     }
 
     const winner = closeResult.winner;
-    const voteCounts = closeResult.voteCounts || {};
-    const wasRandom = Object.values(voteCounts).every(v => v === 0);
+    // closeTiebreaker returns the tallies on the tiebreaker record, not at the
+    // top level — reading closeResult.voteCounts made wasRandom always true.
+    const voteCounts = closeResult.tiebreaker?.voteCounts || {};
+    const tallies = Object.values(voteCounts);
+    const wasRandom = tallies.length === 0 || tallies.every(v => v === 0);
 
     // Update the voting embed to show it's closed
     if (tiebreaker.messageChannelId && tiebreaker.messageId) {
@@ -503,10 +506,21 @@ async function autoCloseGroup(guild, tournament, groupId, group) {
     if (group.votingMessageChannelId && group.votingMessageId) {
       await updateVotingMessageClosed(guild, group, groupId, 'group');
     }
-    
+
+    const closedGroup = result.tournament.groups[groupId];
+
+    // A tied group is NOT decided yet — a tiebreaker vote was opened instead.
+    // Posting "final results" here would announce advancing titles before the
+    // tiebreaker has run.
+    if (closedGroup.status === 'tiebreaker') {
+      const tiebreakers = (result.tiebreakersCreated || []).filter(tb => tb.groupId === groupId);
+      await postGroupTiebreakerNotice(guild, tournament, groupId, tiebreakers);
+      return;
+    }
+
     // Post results notification
-    await postGroupResults(guild, tournament, groupId, result.tournament.groups[groupId]);
-    
+    await postGroupResults(guild, tournament, groupId, closedGroup);
+
   } catch (error) {
     console.error(`[TournamentScheduler] Error auto-closing group ${groupId}:`, error);
     logger.error(logger.LogCategory.SCHEDULER, `Error auto-closing group ${groupId}`, {
@@ -605,6 +619,80 @@ async function updateVotingMessageClosed(guild, item, id, type) {
     
   } catch (error) {
     console.error('[TournamentScheduler] Error updating voting message:', error);
+  }
+}
+
+/**
+ * Post the tiebreaker voting embed(s) for a group that auto-closed on a tie.
+ * Mirrors what `/bracket close-groups` posts, including the vote buttons and
+ * the stored message reference the auto-resolver later edits.
+ */
+async function postGroupTiebreakerNotice(guild, tournament, groupId, tiebreakers) {
+  try {
+    const group = tournament.groups[groupId];
+    const channel = group?.votingMessageChannelId
+      ? await guild.channels.fetch(group.votingMessageChannelId).catch(() => null)
+      : null;
+
+    if (!channel) return;
+
+    if (tiebreakers.length === 0) {
+      // Group is waiting on a tiebreaker we have no record of — say so rather
+      // than announcing results that do not exist yet.
+      await channel.send({
+        embeds: [new EmbedBuilder()
+          .setColor('#FFAA00')
+          .setTitle(`🔀 Group ${groupId} — Tiebreaker Required`)
+          .setDescription(`**${tournament.name}**\n\nVoting closed with a tie. Results are pending a tiebreaker.`)
+          .setTimestamp()],
+      });
+      return;
+    }
+
+    for (const { tiebreaker, position } of tiebreakers) {
+      const voteCounts = {};
+      tiebreaker.tiedOptions.forEach((_, i) => { voteCounts[i] = 0; });
+      Object.values(tiebreaker.votes || {}).forEach(idx => {
+        voteCounts[idx] = (voteCounts[idx] || 0) + 1;
+      });
+
+      const optionsText = tiebreaker.tiedOptions
+        .map((opt, i) => `**${i + 1}.** ${opt.title} — ${voteCounts[i] || 0} vote${voteCounts[i] !== 1 ? 's' : ''}`)
+        .join('\n');
+
+      const embed = new EmbedBuilder()
+        .setColor('#FFAA00')
+        .setTitle(`🔀 Tiebreaker: Group ${groupId} — ${position} place`)
+        .setDescription(
+          `**${tournament.name}**\n\n` +
+          `Voting closed with a tie. Click a button below to break it!\n\n${optionsText}`
+        )
+        .addFields({ name: '⏰ Closes', value: `<t:${Math.floor(tiebreaker.deadline / 1000)}:R>`, inline: true })
+        .setFooter({ text: `Tiebreaker ID: ${tiebreaker.id}` })
+        .setTimestamp();
+
+      const buttons = tiebreaker.tiedOptions.map((opt, i) =>
+        new ButtonBuilder()
+          .setCustomId(`tiebreaker_vote_${tiebreaker.id}_${i}`)
+          .setLabel(opt.title.length > 80 ? `${opt.title.substring(0, 77)}...` : opt.title)
+          .setStyle(ButtonStyle.Primary)
+      );
+      const rows = [];
+      for (let i = 0; i < buttons.length; i += 5) {
+        rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+      }
+
+      const msg = await channel.send({ embeds: [embed], components: rows });
+      bracketManager.storeTiebreakerMessage(guild.id, tiebreaker.id, channel.id, msg.id);
+    }
+
+    logger.notice(logger.LogCategory.SCHEDULER, `Posted tiebreaker vote for Group ${groupId}`, {
+      guildId: guild.id,
+      groupId,
+      tiebreakerCount: tiebreakers.length,
+    });
+  } catch (error) {
+    console.error('[TournamentScheduler] Error posting tiebreaker notice:', error);
   }
 }
 

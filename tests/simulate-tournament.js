@@ -220,12 +220,30 @@ async function runBracketModeSimulation() {
 async function runGroupModeSimulation() {
   // Step 2: Add Titles to Groups
   section('Step 2: Add Titles to Groups');
-  const moviesByGroup = {
-    A: ['The Thing', 'Alien', 'The Exorcist', 'The Shining'],
-    B: ['Hereditary', 'Midsommar', 'The Witch', 'It Follows'],
-    C: ['Evil Dead', 'Halloween', 'The Texas Chain Saw Massacre', 'A Nightmare on Elm Street'],
-    D: ['Scream', 'The Ring', 'The Descent', '28 Days Later']
-  };
+  // Build one 4-title group per group the tournament actually has. Hardcoding
+  // A-D against a 9-group (36-title) tournament left 5 groups empty, so the
+  // knockout stage could never open.
+  const simTournament = bracketManager.loadTournament(SIMULATION_GUILD_ID);
+  const groupIds = 'ABCDEFGHIJKL'.slice(0, simTournament.groupCount).split('');
+  const titlePool = [
+    'The Thing', 'Alien', 'The Exorcist', 'The Shining',
+    'Hereditary', 'Midsommar', 'The Witch', 'It Follows',
+    'Evil Dead', 'Halloween', 'The Texas Chain Saw Massacre', 'A Nightmare on Elm Street',
+    'Scream', 'The Ring', 'The Descent', '28 Days Later',
+    'Suspiria', 'Poltergeist', 'The Babadook', 'Get Out',
+    'Sinister', 'Insidious', 'The Conjuring', 'Nosferatu',
+    'Psycho', 'The Omen', 'Carrie', 'Jaws',
+    'The Fly', 'Videodrome', 'Rosemary\'s Baby', 'Don\'t Look Now',
+    'Audition', 'Ringu', 'Ju-On', 'Pulse',
+    'Martyrs', 'Inside', 'High Tension', 'Frontier(s)',
+    'Session 9', 'The Vanishing', 'Kill List', 'Possession',
+    'Hellraiser', 'Candyman', 'Child\'s Play', 'Phantasm',
+  ];
+
+  const moviesByGroup = {};
+  groupIds.forEach((group, gi) => {
+    moviesByGroup[group] = titlePool.slice(gi * 4, gi * 4 + 4);
+  });
   
   for (const [group, movies] of Object.entries(moviesByGroup)) {
     log(`\nGroup ${group}:`, 'yellow');
@@ -251,7 +269,7 @@ async function runGroupModeSimulation() {
   const deadline = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
   const openResult = bracketManager.openGroupVoting(
     SIMULATION_GUILD_ID,
-    ['A', 'B', 'C', 'D'],
+    groupIds,
     deadline
   );
   
@@ -264,7 +282,7 @@ async function runGroupModeSimulation() {
   
   // Step 4: Simulate Voting
   section('Step 4: Simulate Voting (10 users per group)');
-  for (const group of ['A', 'B', 'C', 'D']) {
+  for (const group of groupIds) {
     const votes = simulateVotes(group, 10); // Increased to 10 users to reduce ties
     log(`\nGroup ${group} - ${Object.keys(votes).length} votes cast:`, 'yellow');
     
@@ -285,7 +303,7 @@ async function runGroupModeSimulation() {
   section('Step 5: Close Groups and Calculate Results');
   const closeResult = bracketManager.closeGroupVoting(
     SIMULATION_GUILD_ID,
-    ['A', 'B', 'C', 'D'],
+    groupIds,
     3600000 // 1 hour tiebreaker duration
   );
     

@@ -5,6 +5,28 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.29.2 - 2026-09-06
+
+### Fixed
+- **Group-stage tournaments dropped every group runner-up (and any surplus wildcards) from the knockout bracket.** Round 1 was built by looping over group winners only and pairing each with one entry from a shared runners-up + wildcards pool, so exactly `groupCount × 2` titles were seated and every leftover qualifier was silently discarded — no error, no warning. At 36 titles all 9 runners-up vanished; measured seating was 18/27 (36), 20/30 (40), 22/32 (44) and 24/32 (48). The knockout bracket is now built as a true single-elimination tree sized to the next power of 2, seating **every** qualifier, with byes for any unfilled slots
+- **The knockout bracket was not a valid tournament tree.** A 36-title tournament produced 9 → 5 → 3 → 2 → 1 matchups per round; rounds now halve correctly (16 → 8 → 4 → 2 → 1) all the way to a single final
+- **Titles from the same group could meet in round 1.** The "avoid same-group pairings" rule compared a `groupId` that group results never actually carried, so the comparison was always `undefined !== undefined` and never fired. Group results now carry their `groupId` and the rule works
+- **More wildcards were requested than could ever exist.** A 9-group tournament asked for 14 wildcards from only 9 possible third-place finishers, sizing the bracket for participants that could not exist. Wildcard count is now capped at one per group
+- **Auto-closing a tied group announced final results before the tiebreaker had run.** The scheduler posted a "📊 Results — ✅ Advances" embed and disabled voting whenever a group's deadline passed, including when the tie had just opened a tiebreaker vote. It now posts the tiebreaker vote (with working buttons) instead, and only posts results once the group is genuinely decided
+- **Every auto-resolved tiebreaker was announced as "random — no votes cast", even when members had voted.** The scheduler read the vote tallies from the wrong level of the result object, so the "was this random?" check was always vacuously true
+- **Bye matchups misaligned round advancement.** The three winner-advance code paths filtered out matchups lacking two participants, which shifted every subsequent winner into the wrong next-round slot once byes existed. All three now share one position-ordered implementation
+- **`/bracket advance-knockout` could advance a partially-finished round**, compacting the closed matchups and landing winners in the wrong slots; it now refuses and reports how many matchups are still open
+- A group tiebreaker at an unexpected position silently left the group closed with no result, stalling the tournament; it now returns an explicit error
+- A completed tournament set only one of `winner`/`champion` depending on which code path finished it — both are now always set
+
+### Developer
+- `src/utils/bracketManager.js`: new shared `buildBracketTree()`, `propagateWinners()`, `resolveByes()` and `separateSameGroup()` helpers replace four divergent copies of the bracket-building and round-advance logic across `generateInitialBracket`, `generateKnockoutBracket`, `regenerateKnockoutBracket`, `closeKnockoutMatchup`, `finalizeKnockoutMatchupAfterTiebreaker` and `advanceKnockoutRound`
+- `calculateWildcardCount()` is now exported and used by `/bracket close-groups` for the wildcard count it displays, instead of a duplicated copy of the (buggy) formula
+- Replaced `sort(() => Math.random() - 0.5)` with a Fisher-Yates `shuffle()` — the comparator is inconsistent and produces a biased ordering
+- `npm run test:simulate` has been failing at step 7 (`Only 4 of 9 groups have been closed`) — it hardcoded 4 groups against a 36-title/9-group tournament, so it never reached bracket generation. It now builds one group per group the tournament actually has, and runs to completion
+- New `tests/bracket-seeding.test.js` (21 tests) asserts the invariant that was missing: every qualifier reaches the bracket exactly once, across all four group sizes and all five bracket sizes, plus tree shape, bye handling, wildcard capping and a full play-through to a single champion. 15 of the 21 fail against the previous code
+- Full Jest suite green (938/938)
+
 ## 2.29.1 - 2026-09-05
 
 ### Changed

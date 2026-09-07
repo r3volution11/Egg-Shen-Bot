@@ -153,12 +153,204 @@ export function getTournamentStatistics(guildId) {
 }
 
 /**
- * Calculate number of wildcards needed based on group count
+ * Shuffle an array uniformly (Fisher-Yates).
+ * `sort(() => Math.random() - 0.5)` is NOT a uniform shuffle — the comparator is
+ * inconsistent, so engines produce a biased ordering.
+ * @param {Array} items - Array to shuffle (not mutated)
+ * @returns {Array} New shuffled array
  */
-function calculateWildcardCount(groupCount) {
+function shuffle(items) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/**
+ * Calculate number of wildcards needed based on group count.
+ * Only third-place finishers can be wildcards, so at most one per group is
+ * available — never ask for more than that, or the bracket is sized for
+ * participants that cannot exist.
+ */
+export function calculateWildcardCount(groupCount) {
   const directAdvancers = groupCount * 2; // Top 2 from each group
   const targetBracketSize = Math.pow(2, Math.ceil(Math.log2(directAdvancers))); // Next power of 2
-  return targetBracketSize - directAdvancers; // Wildcards needed to fill bracket
+  const shortfall = targetBracketSize - directAdvancers; // Slots left to fill
+  return Math.min(shortfall, groupCount); // At most one third-place finisher per group
+}
+
+const ROUND_SEQUENCE = {
+  'round_of_32': 'round_of_16',
+  'round_of_16': 'quarterfinals',
+  'quarterfinals': 'semifinals',
+  'semifinals': 'finals',
+};
+
+/**
+ * Reorder participants so that titles from the same group avoid meeting in the
+ * first round. buildBracketTree pairs adjacent entries (after byes), so this
+ * swaps a colliding entry with the next non-colliding one further down.
+ * Best-effort: with a lopsided field a collision may be unavoidable, in which
+ * case the original order is kept for that pair.
+ * @param {Array} participants - Seeded participants
+ * @returns {Array} Reordered participants
+ */
+function separateSameGroup(participants) {
+  const result = [...participants];
+
+  for (let i = 0; i + 1 < result.length; i += 2) {
+    const a = result[i];
+    const b = result[i + 1];
+    if (!a || !b || !a.groupId || a.groupId !== b.groupId) continue;
+
+    // Find a later entry that collides with neither side of this pair.
+    const swapIndex = result.findIndex((candidate, idx) =>
+      idx > i + 1 &&
+      candidate.groupId !== a.groupId &&
+      // Don't create a new collision in the pair we steal from.
+      (idx % 2 === 0
+        ? result[idx + 1]?.groupId !== b.groupId
+        : result[idx - 1]?.groupId !== b.groupId)
+    );
+
+    if (swapIndex !== -1) {
+      [result[i + 1], result[swapIndex]] = [result[swapIndex], result[i + 1]];
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Build a complete single-elimination bracket tree that seats EVERY participant.
+ *
+ * The bracket is sized to the next power of 2 at or above the participant count;
+ * any shortfall becomes byes. A bye is a first-round matchup with only `movie1`
+ * set, so that participant advances without a vote. Later rounds are created as
+ * TBD placeholders wired to their source matchups.
+ *
+ * @param {Array} participants - Ordered participants to seat (seeding already applied)
+ * @returns {{matchups: Array, firstRoundMatchups: Array, startingRound: string}}
+ */
+function buildBracketTree(participants) {
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(participants.length)));
+  const startingRound = getStartingRound(bracketSize);
+  const numFirstRoundSlots = bracketSize / 2;
+  const numByes = bracketSize - participants.length;
+
+  // Byes go to the participants seeded first, one per matchup, so no matchup
+  // ever has an empty movie1 slot.
+  const firstRoundMatchups = [];
+  let next = 0;
+  for (let i = 0; i < numFirstRoundSlots; i++) {
+    const movie1 = participants[next++] || null;
+    const movie2 = i < numByes ? null : (participants[next++] || null);
+    firstRoundMatchups.push({
+      id: crypto.randomBytes(6).toString('hex'),
+      round: startingRound,
+      position: i,
+      movie1,
+      movie2,
+      status: 'pending',
+      isBye: movie2 === null,
+      votes: { movie1: [], movie2: [] },
+    });
+  }
+
+  // Generate every subsequent round as TBD placeholders wired to their sources.
+  const allMatchups = [...firstRoundMatchups];
+  let currentRound = startingRound;
+  let currentMatchups = firstRoundMatchups;
+
+  while (ROUND_SEQUENCE[currentRound] && currentMatchups.length > 1) {
+    const nextRound = ROUND_SEQUENCE[currentRound];
+    const nextMatchups = [];
+
+    for (let i = 0; i < currentMatchups.length; i += 2) {
+      nextMatchups.push({
+        id: crypto.randomBytes(6).toString('hex'),
+        round: nextRound,
+        position: i / 2,
+        movie1: null, // TBD - winner of matchup i
+        movie2: null, // TBD - winner of matchup i+1
+        status: 'pending',
+        votes: { movie1: [], movie2: [] },
+        sourceMatchups: [currentMatchups[i].id, currentMatchups[i + 1]?.id].filter(Boolean),
+      });
+    }
+
+    allMatchups.push(...nextMatchups);
+    currentMatchups = nextMatchups;
+    currentRound = nextRound;
+  }
+
+  return { matchups: allMatchups, firstRoundMatchups, startingRound };
+}
+
+/**
+ * Advance bye recipients in the first round so their opponents' slot is not
+ * left waiting on a vote that will never happen.
+ * @param {Object} tournament - Tournament object (mutated)
+ */
+function resolveByes(tournament) {
+  const byeMatchups = tournament.knockoutBracket.filter(m => m.isBye && m.status === 'pending');
+
+  byeMatchups.forEach(matchup => {
+    matchup.status = 'closed';
+    matchup.winner = matchup.movie1;
+    matchup.votes1Count = 0;
+    matchup.votes2Count = 0;
+    matchup.votingClosed = Date.now();
+
+    tournament.knockoutResults[matchup.id] = {
+      winner: matchup.movie1,
+      votes1: 0,
+      votes2: 0,
+      wasTie: false,
+      wasBye: true,
+    };
+  });
+
+  if (byeMatchups.length > 0) {
+    propagateWinners(tournament, tournament.phase);
+  }
+}
+
+/**
+ * Propagate the winners of a completed round into the next round's TBD slots.
+ * Pairs of matchups (by position) feed one matchup in the next round.
+ * @param {Object} tournament - Tournament object (mutated)
+ * @param {string} round - The round whose winners should advance
+ * @returns {boolean} True if any winner was placed
+ */
+function propagateWinners(tournament, round) {
+  const nextRound = ROUND_SEQUENCE[round];
+  if (!nextRound) return false;
+
+  const currentRoundMatchups = tournament.knockoutBracket
+    .filter(m => m.round === round)
+    .sort((a, b) => a.position - b.position);
+  const nextRoundMatchups = tournament.knockoutBracket
+    .filter(m => m.round === nextRound)
+    .sort((a, b) => a.position - b.position);
+
+  let placed = false;
+  currentRoundMatchups.forEach((matchup, index) => {
+    if (!matchup.winner) return;
+    const nextMatchup = nextRoundMatchups[Math.floor(index / 2)];
+    if (!nextMatchup) return;
+
+    if (index % 2 === 0) {
+      nextMatchup.movie1 = matchup.winner;
+    } else {
+      nextMatchup.movie2 = matchup.winner;
+    }
+    placed = true;
+  });
+
+  return placed;
 }
 
 /**
@@ -747,6 +939,7 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
       customImageUrl: movie.customImageUrl,
       metadata: movie.metadata,
       voteCount: movie.votes.length,
+      groupId,
     })).sort((a, b) => b.voteCount - a.voteCount);
     
     // Detect ties
@@ -1052,12 +1245,13 @@ export function finalizeGroupAfterTiebreaker(guildId, tiebreakerId) {
     return { success: false, error: 'Tiebreaker has no winner yet' };
   }
 
-  const group = tournament.groups[tiebreaker.groupId];
+  const groupId = tiebreaker.groupId;
+  const group = tournament.groups[groupId];
   if (!group) {
     return { success: false, error: 'Group not found' };
   }
 
-  const groupResults = tournament.groupResults[tiebreaker.groupId] || {};
+  const groupResults = tournament.groupResults[groupId] || {};
 
   // Apply tiebreaker winner to the appropriate position
   if (tiebreaker.position === '1st') {
@@ -1073,6 +1267,7 @@ export function finalizeGroupAfterTiebreaker(guildId, tiebreakerId) {
       customImageUrl: movie.customImageUrl,
       metadata: movie.metadata,
       voteCount: movie.votes.length,
+      groupId,
     })).sort((a, b) => b.voteCount - a.voteCount);
 
     const remainingAfterFirst = results.filter(r => r.index !== tiebreaker.winner.index);
@@ -1092,16 +1287,25 @@ export function finalizeGroupAfterTiebreaker(guildId, tiebreakerId) {
       customImageUrl: movie.customImageUrl,
       metadata: movie.metadata,
       voteCount: movie.votes.length,
+      groupId,
     })).sort((a, b) => b.voteCount - a.voteCount);
 
-    const remainingAfterSecond = results.filter(r => 
-      r.index !== groupResults.first.index && r.index !== tiebreaker.winner.index
+    const remainingAfterSecond = results.filter(r =>
+      r.index !== groupResults.first?.index && r.index !== tiebreaker.winner.index
     );
     groupResults.third = remainingAfterSecond[0] || null;
     groupResults.allResults = results;
+  } else {
+    // Only '1st' and '2nd' group tiebreakers are meaningful. Anything else
+    // would leave the group closed with no result, silently stalling the
+    // tournament — surface it instead.
+    return {
+      success: false,
+      error: `Unsupported tiebreaker position "${tiebreaker.position}" for group ${groupId}`,
+    };
   }
 
-  tournament.groupResults[tiebreaker.groupId] = groupResults;
+  tournament.groupResults[groupId] = groupResults;
   group.status = 'closed';
   group.votingOpen = false;
   group.votingClosed = Date.now();
@@ -1155,47 +1359,25 @@ export function finalizeKnockoutMatchupAfterTiebreaker(guildId, tiebreakerId) {
     resolvedByTiebreaker: true,
   };
 
-  // Check if we should auto-advance to next round
+  // Check if we should auto-advance to next round. Every matchup in the round
+  // counts, byes included — filtering them out would misalign the pairing.
   const currentRoundMatchups = tournament.knockoutBracket.filter(
-    m => m.round === tournament.phase && m.movie1 && m.movie2
+    m => m.round === tournament.phase
   );
   const allClosed = currentRoundMatchups.every(m => m.status === 'closed');
 
   if (allClosed) {
-    // Auto-advance logic (same as in closeKnockoutMatchup)
-    const roundMap = {
-      'round_of_32': 'round_of_16',
-      'round_of_16': 'quarterfinals',
-      'quarterfinals': 'semifinals',
-      'semifinals': 'finals',
-    };
-    
-    const nextRound = roundMap[tournament.phase];
-    
+    const nextRound = ROUND_SEQUENCE[tournament.phase];
+
     if (nextRound) {
-      const nextRoundMatchups = tournament.knockoutBracket.filter(m => m.round === nextRound);
-      
-      currentRoundMatchups.forEach((completedMatchup, index) => {
-        const winner = completedMatchup.winner;
-        if (!winner) return;
-        
-        const nextMatchupIndex = Math.floor(index / 2);
-        const nextMatchup = nextRoundMatchups[nextMatchupIndex];
-        
-        if (nextMatchup) {
-          if (index % 2 === 0) {
-            nextMatchup.movie1 = winner;
-          } else {
-            nextMatchup.movie2 = winner;
-          }
-        }
-      });
-      
+      propagateWinners(tournament, tournament.phase);
       tournament.phase = nextRound;
     } else if (tournament.phase === 'finals') {
       // Tournament complete
       tournament.status = 'completed';
       tournament.winner = matchup.winner;
+      tournament.champion = matchup.winner;
+      tournament.completedAt = Date.now();
     }
   }
 
@@ -1267,7 +1449,7 @@ export function calculateWildcards(guildId) {
     
     if (tiedForLast.length > 1) {
       // Shuffle tied movies and take enough to fill wildcard spots
-      const shuffled = tiedForLast.sort(() => Math.random() - 0.5);
+      const shuffled = shuffle(tiedForLast);
       const nonTied = thirdPlaceMovies.filter(m => m.voteCount > lastPlaceVotes);
       thirdPlaceMovies.length = 0;
       thirdPlaceMovies.push(...nonTied, ...shuffled);
@@ -1298,95 +1480,16 @@ function generateInitialBracket(guildId) {
     return { success: false, error: 'Need at least 2 titles to generate bracket' };
   }
   
-  // Shuffle titles for random seeding
-  const shuffledTitles = [...tournament.titles].sort(() => Math.random() - 0.5);
-  const totalParticipants = shuffledTitles.length;
-  const startingRound = getStartingRound(totalParticipants);
-  
-  // Calculate number of first round matchups
-  // For powers of 2, all play in first round
-  // For non-powers of 2, some get byes
-  const nearestPowerOf2 = Math.pow(2, Math.ceil(Math.log2(totalParticipants)));
-  const numByes = nearestPowerOf2 - totalParticipants;
-  const numFirstRoundMatchups = Math.floor((totalParticipants - numByes) / 2);
-  
-  // Create first round matchups
-  const firstRoundMatchups = [];
-  let titleIndex = 0;
-  
-  for (let i = 0; i < numFirstRoundMatchups; i++) {
-    firstRoundMatchups.push({
-      id: crypto.randomBytes(6).toString('hex'),
-      round: startingRound,
-      position: i,
-      movie1: shuffledTitles[titleIndex++],
-      movie2: shuffledTitles[titleIndex++],
-      status: 'pending',
-      votes: { movie1: [], movie2: [] },
-    });
-  }
-  
-  // Remaining titles get byes to next round
-  const byeRecipients = shuffledTitles.slice(titleIndex);
-  
-  // Generate ALL subsequent rounds with TBD/bye placeholders
-  const allMatchups = [...firstRoundMatchups];
-  const roundSequence = {
-    'round_of_32': 'round_of_16',
-    'round_of_16': 'quarterfinals',
-    'quarterfinals': 'semifinals',
-    'semifinals': 'finals'
-  };
-  
-  let currentRound = startingRound;
-  let currentMatchups = firstRoundMatchups;
-  let byeIndex = 0;
-  
-  while (roundSequence[currentRound]) {
-    const nextRound = roundSequence[currentRound];
-    const nextMatchups = [];
-    
-    // Create matchups for next round
-    for (let i = 0; i < currentMatchups.length; i += 2) {
-      const matchup = {
-        id: crypto.randomBytes(6).toString('hex'),
-        round: nextRound,
-        position: Math.floor(nextMatchups.length),
-        movie1: null, // TBD - winner of matchup i
-        movie2: null, // TBD - winner of matchup i+1
-        status: 'pending',
-        votes: { movie1: [], movie2: [] },
-        sourceMatchups: [currentMatchups[i].id, currentMatchups[i + 1]?.id].filter(Boolean)
-      };
-      nextMatchups.push(matchup);
-    }
-    
-    // Add bye recipients to next round if applicable
-    while (byeIndex < byeRecipients.length && nextMatchups.length < Math.pow(2, Math.ceil(Math.log2(totalParticipants)) - Object.keys(roundSequence).indexOf(nextRound) - 1)) {
-      // Find an empty slot for bye recipient
-      for (let matchup of nextMatchups) {
-        if (!matchup.movie1) {
-          matchup.movie1 = byeRecipients[byeIndex++];
-          break;
-        } else if (!matchup.movie2) {
-          matchup.movie2 = byeRecipients[byeIndex++];
-          break;
-        }
-      }
-    }
-    
-    allMatchups.push(...nextMatchups);
-    currentMatchups = nextMatchups;
-    currentRound = nextRound;
-    
-    if (currentRound === 'finals') break;
-  }
-  
+  // Shuffle titles for random seeding, then seat every one of them.
+  const participants = shuffle(tournament.titles);
+  const { matchups: allMatchups, firstRoundMatchups, startingRound } = buildBracketTree(participants);
+
   tournament.knockoutBracket = allMatchups;
   tournament.status = 'knockout';
   tournament.phase = startingRound;
-  
-  return saveTournament(guildId, tournament) 
+  resolveByes(tournament);
+
+  return saveTournament(guildId, tournament)
     ? { success: true, tournament, matchups: firstRoundMatchups, startingRound }
     : { success: false, error: 'Failed to save bracket' };
 }
@@ -1427,92 +1530,34 @@ export function generateKnockoutBracket(guildId) {
     };
   }
   
-  // Get winners and runners-up
+  // Seat EVERY qualifier: group winners, runners-up, and wildcards.
+  // Winners are seeded first so that any byes (when the field is not a power
+  // of 2) go to the strongest finishers.
   const groupResults = Object.values(tournament.groupResults);
-  const winners = groupResults.map(r => ({ ...r.first, type: 'winner', groupId: r.first.groupId }));
-  const runnersUp = groupResults.map(r => ({ ...r.second, type: 'runnerup', groupId: r.second.groupId }));
-  
-  // Combine runners-up and wildcards
-  const nonWinners = [...runnersUp, ...tournament.wildcards.map(w => ({ ...w, type: 'wildcard' }))];
-  
-  // Calculate total participants and starting round
-  const totalParticipants = winners.length + nonWinners.length;
-  const startingRound = getStartingRound(totalParticipants);
-  
-  // Shuffle non-winners
-  const shuffledNonWinners = nonWinners.sort(() => Math.random() - 0.5);
-  
-  // Create first round matchups: pair each winner with a non-winner from different group
-  const firstRoundMatchups = [];
-  const usedNonWinners = new Set();
-  
-  winners.forEach((winner, index) => {
-    // Find a non-winner from a different group
-    // Use title+groupId as unique key since 'index' is NOT unique across groups
-    const opponent = shuffledNonWinners.find(nw => {
-      const key = `${nw.title}_${nw.groupId}`;
-      return !usedNonWinners.has(key) && nw.groupId !== winner.groupId;
-    }) || shuffledNonWinners.find(nw => {
-      const key = `${nw.title}_${nw.groupId}`;
-      return !usedNonWinners.has(key);
-    });
-    
-    if (opponent) {
-      const opponentKey = `${opponent.title}_${opponent.groupId}`;
-      usedNonWinners.add(opponentKey);
-      firstRoundMatchups.push({
-        id: crypto.randomBytes(6).toString('hex'),
-        round: startingRound,
-        position: index,
-        movie1: winner,
-        movie2: opponent,
-        status: 'pending',
-        votes: { movie1: [], movie2: [] },
-      });
-    }
-  });
-  
-  // Generate ALL subsequent rounds with TBD placeholders
-  const allMatchups = [...firstRoundMatchups];
-  const roundSequence = {
-    'round_of_32': 'round_of_16',
-    'round_of_16': 'quarterfinals',
-    'quarterfinals': 'semifinals',
-    'semifinals': 'finals'
-  };
-  
-  let currentRound = startingRound;
-  let currentMatchups = firstRoundMatchups;
-  
-  while (roundSequence[currentRound]) {
-    const nextRound = roundSequence[currentRound];
-    const nextMatchups = [];
-    
-    // Create matchups for next round (each pair of current round feeds into one matchup)
-    for (let i = 0; i < currentMatchups.length; i += 2) {
-      nextMatchups.push({
-        id: crypto.randomBytes(6).toString('hex'),
-        round: nextRound,
-        position: i / 2,
-        movie1: null, // TBD - winner of matchup i
-        movie2: null, // TBD - winner of matchup i+1
-        status: 'pending',
-        votes: { movie1: [], movie2: [] },
-        sourceMatchups: [currentMatchups[i].id, currentMatchups[i + 1]?.id].filter(Boolean)
-      });
-    }
-    
-    allMatchups.push(...nextMatchups);
-    currentMatchups = nextMatchups;
-    currentRound = nextRound;
+  const winners = groupResults
+    .filter(r => r.first)
+    .map(r => ({ ...r.first, type: 'winner' }));
+  const runnersUp = groupResults
+    .filter(r => r.second)
+    .map(r => ({ ...r.second, type: 'runnerup' }));
+  const wildcards = (tournament.wildcards || []).map(w => ({ ...w, type: 'wildcard' }));
+
+  const nonWinners = shuffle([...runnersUp, ...wildcards]);
+  const participants = separateSameGroup([...winners, ...nonWinners]);
+
+  if (participants.length < 2) {
+    return { success: false, error: 'Not enough qualifiers to generate a knockout bracket' };
   }
-  
+
+  const { matchups: allMatchups, firstRoundMatchups, startingRound } = buildBracketTree(participants);
+
   tournament.knockoutBracket = allMatchups;
   tournament.phase = startingRound;
   tournament.status = 'knockout';
-  
+  resolveByes(tournament);
+
   return saveTournament(guildId, tournament)
-    ? { success: true, tournament, matchups: firstRoundMatchups }
+    ? { success: true, tournament, matchups: firstRoundMatchups, startingRound }
     : { success: false, error: 'Failed to save' };
 }
 
@@ -1588,76 +1633,32 @@ export function regenerateKnockoutBracket(guildId) {
     return { success: false, error: wildcardsResult.error };
   }
   
-  // Completely rebuild knockout bracket from group results
+  // Completely rebuild knockout bracket from group results, seating every
+  // qualifier (winners, runners-up and wildcards).
   const groupResults = Object.values(tournament.groupResults);
-  const winners = groupResults.map(r => ({ ...r.first, type: 'winner', groupId: r.first.groupId }));
-  const runnersUp = groupResults.map(r => ({ ...r.second, type: 'runnerup', groupId: r.second.groupId }));
-  const nonWinners = [...runnersUp, ...wildcardsResult.wildcards.map(w => ({ ...w, type: 'wildcard' }))];
-  
-  // Calculate total participants and starting round
-  const totalParticipants = winners.length + nonWinners.length;
-  const startingRound = getStartingRound(totalParticipants);
-  
-  // Shuffle non-winners
-  const shuffledNonWinners = nonWinners.sort(() => Math.random() - 0.5);
-  
-  // Create first round matchups - pair all participants
-  const firstRoundMatchups = [];
-  const allParticipants = [...winners, ...shuffledNonWinners];
-  
-  // Pair participants two at a time
-  for (let i = 0; i < allParticipants.length; i += 2) {
-    if (allParticipants[i + 1]) {
-      firstRoundMatchups.push({
-        id: crypto.randomBytes(6).toString('hex'),
-        round: startingRound,
-        position: i / 2,
-        movie1: allParticipants[i],
-        movie2: allParticipants[i + 1],
-        status: 'pending',
-        votes: { movie1: [], movie2: [] },
-      });
-    }
+  const winners = groupResults
+    .filter(r => r.first)
+    .map(r => ({ ...r.first, type: 'winner' }));
+  const runnersUp = groupResults
+    .filter(r => r.second)
+    .map(r => ({ ...r.second, type: 'runnerup' }));
+  const wildcards = wildcardsResult.wildcards.map(w => ({ ...w, type: 'wildcard' }));
+
+  const nonWinners = shuffle([...runnersUp, ...wildcards]);
+  const participants = separateSameGroup([...winners, ...nonWinners]);
+
+  if (participants.length < 2) {
+    return { success: false, error: 'Not enough qualifiers to regenerate a knockout bracket' };
   }
-  
-  // Generate all subsequent rounds with TBD placeholders
-  const allMatchups = [...firstRoundMatchups];
-  const roundSequence = {
-    'round_of_32': 'round_of_16',
-    'round_of_16': 'quarterfinals',
-    'quarterfinals': 'semifinals',
-    'semifinals': 'finals'
-  };
-  
-  let currentRound = startingRound;
-  let currentMatchups = firstRoundMatchups;
-  
-  while (roundSequence[currentRound]) {
-    const nextRound = roundSequence[currentRound];
-    const nextMatchups = [];
-    
-    for (let i = 0; i < currentMatchups.length; i += 2) {
-      nextMatchups.push({
-        id: crypto.randomBytes(6).toString('hex'),
-        round: nextRound,
-        position: i / 2,
-        movie1: null,
-        movie2: null,
-        status: 'pending',
-        votes: { movie1: [], movie2: [] },
-        sourceMatchups: [currentMatchups[i].id, currentMatchups[i + 1]?.id].filter(Boolean)
-      });
-    }
-    
-    allMatchups.push(...nextMatchups);
-    currentMatchups = nextMatchups;
-    currentRound = nextRound;
-  }
-  
+
+  const { matchups: allMatchups, firstRoundMatchups, startingRound } = buildBracketTree(participants);
+
   // Replace knockout bracket entirely
   tournament.knockoutBracket = allMatchups;
+  tournament.knockoutResults = {};
   tournament.phase = startingRound;
   tournament.wildcards = wildcardsResult.wildcards;
+  resolveByes(tournament);
   
   return saveTournament(guildId, tournament)
     ? { 
@@ -1879,52 +1880,26 @@ export function closeKnockoutMatchup(guildId, matchupId, tiebreakerDurationMs = 
   
   let autoAdvanced = false;
   
-  // Check if all matchups in current round are closed
+  // Check if all matchups in current round are closed. Byes are already closed
+  // and must stay in this list, or the pairing index shifts.
   const currentRoundMatchups = tournament.knockoutBracket.filter(
-    m => m.round === tournament.phase && m.movie1 && m.movie2
+    m => m.round === tournament.phase
   );
   const allClosed = currentRoundMatchups.every(m => m.status === 'closed');
-  
+
   if (allClosed) {
     autoAdvanced = true;
-    
-    // Auto-advance winners to next round
-    const roundMap = {
-      'round_of_32': 'round_of_16',
-      'round_of_16': 'quarterfinals',
-      'quarterfinals': 'semifinals',
-      'semifinals': 'finals',
-    };
-    
-    const nextRound = roundMap[tournament.phase];
-    
+
+    const nextRound = ROUND_SEQUENCE[tournament.phase];
+
     if (nextRound) {
-      // Find next round matchups and populate with winners
-      const nextRoundMatchups = tournament.knockoutBracket.filter(m => m.round === nextRound);
-      
-      currentRoundMatchups.forEach((completedMatchup, index) => {
-        const winner = completedMatchup.winner;
-        if (!winner) return;
-        
-        // Each pair of current matchups feeds into one next matchup
-        const nextMatchupIndex = Math.floor(index / 2);
-        const nextMatchup = nextRoundMatchups[nextMatchupIndex];
-        
-        if (nextMatchup) {
-          // Determine if this winner goes to movie1 or movie2 slot based on position
-          if (index % 2 === 0) {
-            nextMatchup.movie1 = winner;
-          } else {
-            nextMatchup.movie2 = winner;
-          }
-        }
-      });
-      
+      propagateWinners(tournament, tournament.phase);
       tournament.phase = nextRound;
       saveTournament(guildId, tournament);
     } else if (tournament.phase === 'finals') {
       // Tournament complete
       tournament.status = 'completed';
+      tournament.winner = winner;
       tournament.champion = winner;
       tournament.completedAt = Date.now();
       saveTournament(guildId, tournament);
@@ -1943,57 +1918,34 @@ export function advanceKnockoutRound(guildId) {
     return { success: false, error: 'Tournament not in knockout phase' };
   }
   
-  // Get all completed matchups from current round
+  // Every matchup in the round, in bracket order — a partially-decided round
+  // must not be compacted, or winners land in the wrong next-round slots.
   const currentRoundMatchups = tournament.knockoutBracket.filter(
-    m => m.round === tournament.phase && m.status === 'closed'
+    m => m.round === tournament.phase
   );
-  
+
   if (currentRoundMatchups.length === 0) {
     return { success: false, error: 'No completed matchups to advance from' };
   }
-  
-  // Determine next round
-  const roundMap = {
-    'round_of_32': 'round_of_16',
-    'round_of_16': 'quarterfinals',
-    'quarterfinals': 'semifinals',
-    'semifinals': 'finals',
-  };
-  
-  const nextRound = roundMap[tournament.phase];
+
+  const unresolved = currentRoundMatchups.filter(m => m.status !== 'closed');
+  if (unresolved.length > 0) {
+    return {
+      success: false,
+      error: `Cannot advance: ${unresolved.length} matchup${unresolved.length !== 1 ? 's are' : ' is'} still open in ${tournament.phase}. Close them first.`,
+    };
+  }
+
+  const nextRound = ROUND_SEQUENCE[tournament.phase];
   if (!nextRound) {
     return { success: false, error: 'No next round available' };
   }
-  
+
   // Find all matchups in the next round (they should already exist with TBD placeholders)
   const nextRoundMatchups = tournament.knockoutBracket.filter(m => m.round === nextRound);
-  
-  // Populate the TBD slots with winners
-  currentRoundMatchups.forEach((completedMatchup, index) => {
-    const winner = completedMatchup.winner;
-    if (!winner) return;
-    
-    // Find which next round matchup this winner should go to
-    // Each pair of current matchups feeds into one next matchup
-    const nextMatchupIndex = Math.floor(index / 2);
-    const nextMatchup = nextRoundMatchups[nextMatchupIndex];
-    
-    if (nextMatchup) {
-      // Determine if this winner goes to movie1 or movie2 slot
-      if (index % 2 === 0) {
-        nextMatchup.movie1 = winner;
-      } else {
-        nextMatchup.movie2 = winner;
-      }
-    }
-  });
-  
+
+  propagateWinners(tournament, tournament.phase);
   tournament.phase = nextRound;
-  
-  // Check if we're in finals
-  if (nextRound === 'finals') {
-    tournament.phase = 'finals';
-  }
   
   return saveTournament(guildId, tournament)
     ? { success: true, tournament, nextMatchups: nextRoundMatchups }

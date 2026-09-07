@@ -1591,7 +1591,7 @@ async function handleCloseGroups(interaction) {
     }
   });
   
-  const wildcardsNeeded = Math.pow(2, Math.ceil(Math.log2(result.tournament.groupCount * 2))) - (result.tournament.groupCount * 2);
+  const wildcardsNeeded = bracketManager.calculateWildcardCount(result.tournament.groupCount);
   embed.setFooter({ text: wildcardsNeeded > 0 ? `Top 2 advance automatically • Best ${wildcardsNeeded} third-place finishers will be wildcards` : 'Top 2 advance automatically to knockout stage' });
   
   await interaction.editReply({ embeds: [embed] });
