@@ -775,16 +775,26 @@ export function createApiServer(client) {
         requestData.imageUrl = null; // cropping only makes sense against a concrete file
         await saveEventRequests();
 
-        // Refresh the moderation-channel embed's image-status field so it
-        // reflects the crop without a moderator needing to reload/guess.
+        // Refresh the moderation-channel embed's image-status field and
+        // thumbnail so it reflects the crop without a moderator needing to
+        // reload/guess.
         try {
           if (requestData.channelMessageId && requestData.messageId) {
             const modChannel = await client.channels.fetch(requestData.channelMessageId).catch(() => null);
             const modMessage = await modChannel?.messages.fetch(requestData.messageId).catch(() => null);
             if (modMessage && modMessage.embeds[0]) {
-              const { EmbedBuilder } = await import('discord.js');
+              const { EmbedBuilder, AttachmentBuilder } = await import('discord.js');
               const refreshedEmbed = applyImageStatusToEmbed(new EmbedBuilder(modMessage.embeds[0]), requestData);
-              await modMessage.edit({ embeds: [refreshedEmbed] });
+
+              const croppedPath = await getImagePath(requestId);
+              const attachmentName = `event-image${path.extname(croppedPath || '.jpg')}`;
+              refreshedEmbed.setThumbnail(`attachment://${attachmentName}`);
+              const refreshedAttachment = croppedPath ? new AttachmentBuilder(croppedPath, { name: attachmentName }) : null;
+
+              await modMessage.edit({
+                embeds: [refreshedEmbed],
+                ...(refreshedAttachment ? { files: [refreshedAttachment] } : {})
+              });
             }
           }
         } catch (embedError) {
@@ -1141,6 +1151,29 @@ export function createApiServer(client) {
 
       applyImageStatusToEmbed(embed, { hasUploadedImage: !!imageToken, imageUrl: effectiveImageUrl });
 
+      // Show the actual image in the moderation message (not just the
+      // status text above) so a moderator can see it at a glance instead of
+      // clicking Crop Image or waiting until after approval. A pasted URL is
+      // already public, so it's referenced directly; an uploaded file has
+      // to be attached to this message (embed.setThumbnail can't point at a
+      // local file path), referenced back via the attachment:// scheme.
+      let imageAttachment = null;
+      if (effectiveImageUrl) {
+        embed.setThumbnail(effectiveImageUrl);
+      } else if (imageToken) {
+        try {
+          const filePath = await getImagePath(imageToken);
+          if (filePath) {
+            const attachmentName = `event-image${path.extname(filePath)}`;
+            const { AttachmentBuilder } = await import('discord.js');
+            imageAttachment = new AttachmentBuilder(filePath, { name: attachmentName });
+            embed.setThumbnail(`attachment://${attachmentName}`);
+          }
+        } catch (error) {
+          console.error('[EventRequests] Failed to attach uploaded image thumbnail:', error.message);
+        }
+      }
+
       embed.setFooter({ text: `Guild: ${guild.name}` });
       embed.setTimestamp();
 
@@ -1210,9 +1243,10 @@ export function createApiServer(client) {
       }
 
       // Send to moderation channel
-      const message = await modChannel.send({ 
-        embeds: [embed], 
-        components: [buttons]
+      const message = await modChannel.send({
+        embeds: [embed],
+        components: [buttons],
+        ...(imageAttachment ? { files: [imageAttachment] } : {})
       });
       
       // Store request data (we'll need it when the button is clicked)

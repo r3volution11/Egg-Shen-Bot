@@ -222,6 +222,67 @@ describe('Event Request System', () => {
       expect(response.body).toHaveProperty('error');
     });
 
+    test('a pasted image URL is shown as a visible thumbnail on the moderation embed, not just a status field', async () => {
+      const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
+      await saveGuildConfig('900000000000000099', {
+        eventRequests: { enabled: true, moderationChannel: '123456789' }
+      });
+
+      const request = await import('supertest');
+      const response = await request.default(app)
+        .post('/api/event-request')
+        .send({
+          guildId: '900000000000000099',
+          title: 'Friday Night Movie',
+          description: 'A movie night',
+          channelId: 'voice123',
+          startTime: new Date(Date.now() + 86400000).toISOString(),
+          submitterUsername: 'TestUser',
+          submitterDiscordId: '123456789',
+          imageUrl: 'https://example.com/poster.png'
+        });
+
+      expect(response.status).toBe(200);
+      const sentEmbed = mockChannel.send.mock.calls[0][0].embeds[0];
+      expect(sentEmbed.data.thumbnail.url).toBe('https://example.com/poster.png');
+    });
+
+    test('an uploaded image is attached to the moderation message and shown as a thumbnail', async () => {
+      const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
+      await saveGuildConfig('900000000000000099', {
+        eventRequests: { enabled: true, moderationChannel: '123456789' }
+      });
+
+      const request = await import('supertest');
+
+      const uploadResponse = await request.default(app)
+        .post('/api/event-request/upload-image')
+        .attach('image', Buffer.from('fake-png-bytes'), { filename: 'poster.png', contentType: 'image/png' });
+      expect(uploadResponse.status).toBe(200);
+      const { imageToken } = uploadResponse.body;
+      expect(imageToken).toBeTruthy();
+
+      const response = await request.default(app)
+        .post('/api/event-request')
+        .send({
+          guildId: '900000000000000099',
+          title: 'Friday Night Movie',
+          description: 'A movie night',
+          channelId: 'voice123',
+          startTime: new Date(Date.now() + 86400000).toISOString(),
+          submitterUsername: 'TestUser',
+          submitterDiscordId: '123456789',
+          imageToken
+        });
+
+      expect(response.status).toBe(200);
+      const sendArgs = mockChannel.send.mock.calls[0][0];
+      expect(sendArgs.files).toHaveLength(1);
+      expect(sendArgs.files[0].name).toBe('event-image.png');
+      const sentEmbed = sendArgs.embeds[0];
+      expect(sentEmbed.data.thumbnail.url).toBe('attachment://event-image.png');
+    });
+
     test('should reject request for disabled guild', async () => {
       // No config saved — loadGuildConfig falls back to its real default,
       // which has eventRequests.enabled: false.

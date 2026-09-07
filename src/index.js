@@ -542,6 +542,15 @@ client.on('interactionCreate', async (interaction) => {
         const { applyImageStatusToEmbed } = await import('./utils/eventImageStore.js');
         applyImageStatusToEmbed(editedEmbed, requestData);
 
+        // A URL-sourced image is already public — reflect it as a visible
+        // thumbnail too, not just the status text field above. An
+        // upload-sourced image's thumbnail/attachment isn't touched here
+        // (this modal can only set/override a URL, never a file), so it
+        // stays whatever the original submission or a later crop set.
+        if (editedImageUrl) {
+          editedEmbed.setThumbnail(editedImageUrl);
+        }
+
         await interaction.message.edit({ embeds: [editedEmbed] }).catch(() => {});
       }
 
