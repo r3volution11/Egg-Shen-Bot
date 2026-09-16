@@ -132,6 +132,9 @@ export async function handleSelectInteraction(interaction) {
     let duration = null;
     let label = '';
     let episodeRangeBreakdown = null;
+    // What the user just told us the timer is for. Carried onto the timer
+    // record so /timer stop can log it without re-guessing from the label.
+    let media = null;
 
     if (isRange) {
       // Range picker: label comes from the embed title's show-name portion,
@@ -147,6 +150,7 @@ export async function handleSelectInteraction(interaction) {
       const episodeEnd = parseInt(parts[7], 10);
 
       console.log(`[Timer] User selected show ${sourceId} for range S${season} E${episodeStart}-E${episodeEnd}`);
+      media = { tmdbId: sourceId, type: 'tv', episodeRange: { season, episodeStart, episodeEnd } };
 
       try {
         const { resolveEpisodeRangeDuration } = await import('../commands/timer.js');
@@ -173,6 +177,7 @@ export async function handleSelectInteraction(interaction) {
         const sourceId = parseInt(parts[2]);
 
         console.log(`[Timer] User selected ${type} with ID ${sourceId}`);
+        media = { tmdbId: sourceId, type, episodeRange: null };
 
         try {
           let runtime = null;
@@ -181,9 +186,13 @@ export async function handleSelectInteraction(interaction) {
             runtime = details?.runtime;
             console.log(`[Timer] Movie runtime: ${runtime} minutes`);
           } else if (type === 'tv') {
-            const details = await getTVShowDetails(sourceId);
-            runtime = details?.episode_run_time?.[0];
-            console.log(`[Timer] TV episode runtime: ${runtime} minutes`);
+            // No episode range means no idea how many episodes are being
+            // watched, and one episode's runtime would end the party early
+            // — with no expiry warning, since any duration clears the
+            // isFallbackDuration flag that earns one. Skip the lookup
+            // entirely (it can't produce a usable answer) and let the
+            // server's fallback cap bound the timer instead.
+            console.log(`[Timer] TV selection has no episode range — leaving duration unset`);
           } else {
             const details = await getBoardGameDetails(sourceId);
             runtime = details?.playingTime ? parseInt(details.playingTime, 10) : null;
@@ -215,7 +224,7 @@ export async function handleSelectInteraction(interaction) {
 
     // Now start the timer countdown (post publicly, not ephemeral)
     const { startTimerCountdown } = await import('../commands/timer.js');
-    await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, true);
+    await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, true, media);
     return;
   }
   

@@ -2210,7 +2210,7 @@ async function handleTimerRetypeButton(interaction) {
 
 // Handle the "▶️ Start Timer" button on the zero-results auto-detect
 // screen — starts the timer with no duration, same outcome as the existing
-// select-menu "Start Timer (No Duration)" option/manually-typed zero-results
+// select-menu "Start Timer Without Title Selection" option/manually-typed zero-results
 // path, just reached from this new screen.
 async function handleTimerSkipNoAutoButton(interaction) {
   const theme = interaction.customId.slice('timer_skip_noauto_'.length);

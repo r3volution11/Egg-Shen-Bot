@@ -10,8 +10,10 @@
  * This also adds board games as a third search source (BoardGameGeek's
  * `playingTime` field is the only other media type with real, usable
  * duration data — video games and books have nothing comparable). Each
- * source is capped at 8 results (not 10) so three combined sources plus the
- * "Skip" option never exceed Discord's real 25-option select-menu limit.
+ * source is capped at 8 results (not 10), and the merged list is then
+ * explicitly capped at 24, so the combined sources plus the leading "Skip"
+ * option never exceed Discord's real 25-option select-menu limit. See
+ * tests/timer-skip-option-first.test.js for the ceiling's own coverage.
  *
  * Run with: npx jest tests/timer-duration-detection.test.js --verbose
  */
@@ -152,7 +154,13 @@ describe('single-result auto-duration', () => {
     expect(status.duration).toBe(106);
   });
 
-  test('a single TV match uses episode_run_time[0] + 10', async () => {
+  test('a single TV match sets NO duration (it has no episode count)', async () => {
+    // This used to set episode_run_time[0] + 10 = 32 minutes. A watch party
+    // is rarely one episode, so that ended timers early — and because any
+    // duration clears isFallbackDuration, it also suppressed the expiry
+    // warning that would have let someone extend. Falling through to the
+    // server cap is both safer and warned. TV gets a real duration only via
+    // an explicit episode range (see tests/timer-episode-range.test.js).
     mockSearchTVShows.mockResolvedValue([{ id: 2316, name: 'The Office', first_air_date: '2005-03-24' }]);
     mockGetTVShowDetails.mockResolvedValue({ episode_run_time: [22, 30] });
 
@@ -160,7 +168,8 @@ describe('single-result auto-duration', () => {
     await runExecute(interaction);
 
     const status = getTimerStatus('channel-1');
-    expect(status.duration).toBe(32);
+    expect(status.duration).toBe(360); // server fallback cap, not 32
+    expect(status.isFallbackDuration).toBe(true); // so it still gets warned
   });
 
   test('a single board game match uses parseInt(playingTime) + 10', async () => {

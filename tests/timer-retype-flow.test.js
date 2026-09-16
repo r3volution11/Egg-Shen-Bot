@@ -196,7 +196,10 @@ describe('ambiguous results', () => {
     const selectMenu = call.components[0].components[0];
     const startTimerOption = selectMenu.options.find(o => o.data.value === 'timer_skip_modern');
     expect(startTimerOption).toBeDefined();
-    expect(startTimerOption.data.label).toBe('▶️ Start Timer (No Duration)');
+    expect(startTimerOption.data.label).toBe('▶️ Start Timer Without Title Selection');
+    // It leads the menu — the whole point is that nobody has to scroll to
+    // find it.
+    expect(selectMenu.options[0].data.value).toBe('timer_skip_modern');
   });
 });
 

@@ -68,3 +68,49 @@ export function parseEpisodeRange(label) {
 
   return { season, episodeStart, episodeEnd, showName };
 }
+
+/**
+ * Resolves a show + episode range from a Discord scheduled event's name and
+ * description, which watch-party hosts overwhelmingly split across the two
+ * fields — name "Tales From the Crypt", description "Season 6 episodes 4 - 7".
+ * parseEpisodeRange can't read that shape on its own: the description has no
+ * show-name prefix, so it bails, and the name has no range notation at all.
+ *
+ * Deliberately restricted to the verbose pattern when reading a description.
+ * Descriptions are free-form prose, where the bare "<n>x<n>" shorthand
+ * misfires badly — "Join us at 8x30 pm" would otherwise parse as season 8,
+ * episode 30 and send the timer off summing runtimes for a season that
+ * probably doesn't exist. An event name is a much more constrained field, so
+ * it keeps the full parseEpisodeRange treatment including the shorthand.
+ *
+ * @param {string} name - Scheduled event name
+ * @param {string} [description] - Scheduled event description (nullable in Discord's API)
+ * @returns {{season: number, episodeStart: number, episodeEnd: number, showName: string}|null}
+ */
+export function parseEventEpisodeRange(name, description) {
+  // The name alone may already carry the whole notation
+  // (e.g. "Severance - S2: E1-E3"), which is the case parseEpisodeRange
+  // was built for.
+  const fromName = parseEpisodeRange(name);
+  if (fromName) return fromName;
+
+  if (!name || typeof name !== 'string' || !name.trim()) return null;
+  if (!description || typeof description !== 'string') return null;
+
+  const match = description.match(VERBOSE_RANGE_PATTERN);
+  if (!match) return null;
+
+  const season = parseInt(match[1] ?? match[2], 10);
+  const episodeStart = parseInt(match[3], 10);
+  const episodeEnd = match[4] ? parseInt(match[4], 10) : episodeStart;
+
+  if (!Number.isInteger(season) || !Number.isInteger(episodeStart) || !Number.isInteger(episodeEnd)) {
+    return null;
+  }
+
+  if (episodeEnd < episodeStart) return null;
+
+  // The whole event name is the show name here — unlike the single-string
+  // case, there's no notation embedded in it that needs stripping out.
+  return { season, episodeStart, episodeEnd, showName: name.trim() };
+}

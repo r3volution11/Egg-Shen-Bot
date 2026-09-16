@@ -190,9 +190,17 @@ export async function restoreTimerTimeouts(client) {
  *   nothing else was available (no label, no search match, user skipped
  *   selection, etc). Lets timerScheduler.js warn only on these timers, not on
  *   a normal movie/episode timer that just happens to run long.
+ * @param {object|null} media - What the start flow identified the timer as:
+ *   `{tmdbId, type, episodeRange}`. The start flow already resolves these to
+ *   look up a runtime, and previously discarded them — keeping them lets
+ *   /timer stop log the exact title that was chosen rather than re-searching
+ *   TMDB from the label and taking the first hit, and lets the stop/warning
+ *   messages tailor themselves to TV. Every field is optional: a skipped or
+ *   unresolved title stores nothing, as do timers from before this existed,
+ *   so all readers must tolerate undefined.
  * @returns {boolean} - True if started, false if timer already exists
  */
-export function startTimer(channelId, userId, username, label = '', durationMinutes = null, client = null, isFallbackDuration = false) {
+export function startTimer(channelId, userId, username, label = '', durationMinutes = null, client = null, isFallbackDuration = false, media = null) {
   // Check if timer already exists for this channel
   if (activeTimers.has(channelId)) {
     return false;
@@ -205,6 +213,14 @@ export function startTimer(channelId, userId, username, label = '', durationMinu
     username,
     label: label || '',
   };
+
+  if (media?.tmdbId) {
+    timerData.tmdbId = media.tmdbId;
+    timerData.type = media.type || null;
+    if (media.episodeRange) {
+      timerData.episodeRange = media.episodeRange;
+    }
+  }
 
   // Add duration if specified
   if (durationMinutes && durationMinutes > 0) {

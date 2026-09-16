@@ -7,147 +7,88 @@ import { hybridSearch, pickLandslideWinner } from '../services/aiService.js';
 import { parseEpisodeRange } from '../utils/episodeRangeParser.js';
 
 /**
- * Auto-detect event title from scheduled events
- * Looks for active events where the event location matches the current channel
+ * Find the scheduled event tied to a channel, so a watch party's details can
+ * be read without asking the user to retype what the event already says.
+ *
+ * A voice/stage event carries the channel directly in `channelId`; an
+ * External event (the shape eventRequestApproval.js creates for text-only
+ * parties) can only point at a channel through its free-text location, so
+ * both the raw ID/mention and the "#channel-name" form are checked.
+ *
+ * @param {import('discord.js').Guild} guild
+ * @param {string} channelId
+ * @param {object} [options]
+ * @param {boolean} [options.includeScheduled=true] - also match events that
+ *   haven't started yet. `/timer remind` wants those (it runs before the
+ *   party); `/timer start` does NOT — matching a not-yet-started event there
+ *   would label a timer with a party that isn't happening.
+ * @param {string} [options.logPrefix='Timer Event']
+ * @returns {Promise<import('discord.js').GuildScheduledEvent|null>}
  */
-async function getEventTitleForChannel(guild, channelId) {
+async function getEventForChannel(guild, channelId, { includeScheduled = true, logPrefix = 'Timer Event' } = {}) {
   try {
-    console.log(`[Timer Auto-Detection] Checking for events in channel ${channelId}...`);
-    
+    console.log(`[${logPrefix}] Checking for events in channel ${channelId}...`);
+
     // Fetch all scheduled events
     const events = await guild.scheduledEvents.fetch();
-    console.log(`[Timer Auto-Detection] Found ${events.size} total scheduled event(s)`);
-    
-    // Find active events
-    const activeEvents = events.filter(event => event.status === GuildScheduledEventStatus.Active);
-    console.log(`[Timer Auto-Detection] Found ${activeEvents.size} ACTIVE event(s)`);
-    
-    if (activeEvents.size === 0) {
-      console.log(`[Timer Auto-Detection] No active events found`);
+    console.log(`[${logPrefix}] Found ${events.size} total scheduled event(s)`);
+
+    const relevantEvents = events.filter(event =>
+      event.status === GuildScheduledEventStatus.Active ||
+      (includeScheduled && event.status === GuildScheduledEventStatus.Scheduled)
+    );
+    console.log(`[${logPrefix}] Found ${relevantEvents.size} relevant event(s)`);
+
+    if (relevantEvents.size === 0) {
+      console.log(`[${logPrefix}] No relevant events found`);
       return null;
     }
-    
+
     // Look for an event where the channel matches
-    // Discord events can have a channel property if it's a voice/stage event
-    // or entityMetadata.location for external events (we check both)
-    for (const [, event] of activeEvents) {
-      console.log(`[Timer Auto-Detection] Checking event: "${event.name}"`);
-      console.log(`[Timer Auto-Detection] - Event status: ${event.status}`);
-      console.log(`[Timer Auto-Detection] - Event channelId: ${event.channelId}`);
-      console.log(`[Timer Auto-Detection] - Event location: ${event.entityMetadata?.location || 'none'}`);
-      
+    for (const [, event] of relevantEvents) {
+      console.log(`[${logPrefix}] Checking event: "${event.name}"`);
+      console.log(`[${logPrefix}] - Event status: ${event.status}`);
+      console.log(`[${logPrefix}] - Event channelId: ${event.channelId}`);
+      console.log(`[${logPrefix}] - Event location: ${event.entityMetadata?.location || 'none'}`);
+
       // Check if it's a channel-based event and matches our channel
       if (event.channelId === channelId) {
-        console.log(`[Timer Auto-Detection] ✅ Found matching event: "${event.name}" (channel-based)`);
-        return event.name;
+        console.log(`[${logPrefix}] ✅ Found matching event: "${event.name}" (channel-based)`);
+        return event;
       }
-      
+
       // Check if the location field mentions this channel
       // Users might write "#movie-night" or the channel ID in the location
       if (event.entityMetadata?.location) {
         const location = event.entityMetadata.location.toLowerCase();
         const channelMention = `<#${channelId}>`;
-        
-        console.log(`[Timer Auto-Detection] - Checking if location contains channel ID or mention...`);
-        console.log(`[Timer Auto-Detection] - Looking for: "${channelId}" or "${channelMention}"`);
-        
-        // Check if location contains channel mention or ID
-        if (location.includes(channelId) || location.includes(channelMention.toLowerCase())) {
-          console.log(`[Timer Auto-Detection] ✅ Found matching event: "${event.name}" (location mentions channel)`);
-          return event.name;
-        }
-        
-        // Also check if location matches channel name (e.g., "#general", "#movie-night")
-        // Get the actual channel to compare names
-        const channel = guild.channels.cache.get(channelId);
-        if (channel) {
-          const channelNamePattern = `#${channel.name}`.toLowerCase();
-          console.log(`[Timer Auto-Detection] - Also checking channel name: "${channelNamePattern}"`);
-          
-          if (location === channelNamePattern || location.includes(channelNamePattern)) {
-            console.log(`[Timer Auto-Detection] ✅ Found matching event: "${event.name}" (location matches channel name)`);
-            return event.name;
-          }
-        }
-      }
-    }
-    
-    console.log(`[Timer Auto-Detection] ❌ No matching events found for channel ${channelId}`);
-    return null;
-  } catch (error) {
-    console.error('[Timer Auto-Detection] Error fetching scheduled events:', error);
-    return null;
-  }
-}
 
-/**
- * Get full event object for remind subcommand
- * Returns the event object instead of just the title
- */
-async function getEventForChannel(guild, channelId) {
-  try {
-    console.log(`[Timer Remind] Checking for events in channel ${channelId}...`);
-    
-    // Fetch all scheduled events
-    const events = await guild.scheduledEvents.fetch();
-    console.log(`[Timer Remind] Found ${events.size} total scheduled event(s)`);
-    
-    // Find active or scheduled events (not just active)
-    const relevantEvents = events.filter(event => 
-      event.status === GuildScheduledEventStatus.Active || 
-      event.status === GuildScheduledEventStatus.Scheduled
-    );
-    console.log(`[Timer Remind] Found ${relevantEvents.size} active/scheduled event(s)`);
-    
-    if (relevantEvents.size === 0) {
-      console.log(`[Timer Remind] No relevant events found`);
-      return null;
-    }
-    
-    // Look for an event where the channel matches
-    for (const [, event] of relevantEvents) {
-      console.log(`[Timer Remind] Checking event: "${event.name}"`);
-      console.log(`[Timer Remind] - Event status: ${event.status}`);
-      console.log(`[Timer Remind] - Event channelId: ${event.channelId}`);
-      console.log(`[Timer Remind] - Event location: ${event.entityMetadata?.location || 'none'}`);
-      
-      // Check if it's a channel-based event and matches our channel
-      if (event.channelId === channelId) {
-        console.log(`[Timer Remind] ✅ Found matching event: "${event.name}" (channel-based)`);
-        return event;
-      }
-      
-      // Check if the location field mentions this channel
-      if (event.entityMetadata?.location) {
-        const location = event.entityMetadata.location.toLowerCase();
-        const channelMention = `<#${channelId}>`;
-        
-        console.log(`[Timer Remind] - Checking if location contains channel ID or mention...`);
-        
+        console.log(`[${logPrefix}] - Checking if location contains channel ID or mention...`);
+
         // Check if location contains channel mention or ID
         if (location.includes(channelId) || location.includes(channelMention.toLowerCase())) {
-          console.log(`[Timer Remind] ✅ Found matching event: "${event.name}" (location mentions channel)`);
+          console.log(`[${logPrefix}] ✅ Found matching event: "${event.name}" (location mentions channel)`);
           return event;
         }
-        
-        // Also check if location matches channel name
+
+        // Also check if location matches channel name (e.g., "#general", "#movie-night")
         const channel = guild.channels.cache.get(channelId);
         if (channel) {
           const channelNamePattern = `#${channel.name}`.toLowerCase();
-          console.log(`[Timer Remind] - Also checking channel name: "${channelNamePattern}"`);
-          
+          console.log(`[${logPrefix}] - Also checking channel name: "${channelNamePattern}"`);
+
           if (location === channelNamePattern || location.includes(channelNamePattern)) {
-            console.log(`[Timer Remind] ✅ Found matching event: "${event.name}" (location matches channel name)`);
+            console.log(`[${logPrefix}] ✅ Found matching event: "${event.name}" (location matches channel name)`);
             return event;
           }
         }
       }
     }
-    
-    console.log(`[Timer Remind] ❌ No matching events found for channel ${channelId}`);
+
+    console.log(`[${logPrefix}] ❌ No matching events found for channel ${channelId}`);
     return null;
   } catch (error) {
-    console.error('[Timer Remind] Error fetching scheduled events:', error);
+    console.error(`[${logPrefix}] Error fetching scheduled events:`, error);
     return null;
   }
 }
@@ -246,6 +187,28 @@ export function buildEpisodeRangeBreakdownMessage(breakdown) {
 }
 
 /**
+ * The "just start it" escape hatch offered in every /timer start picker.
+ *
+ * Deliberately built as the FIRST option everywhere rather than appended
+ * last: people starting a watch party want the timer running, not a TMDB
+ * disambiguation quiz, and burying this under up to 24 results was pushing
+ * them to other bots instead. The wording spells out what it does, since a
+ * first-time user has no idea what "title selection" was going to buy them.
+ *
+ * The `value` shape is load-bearing — selectHandler.js reads `parts[1]` for
+ * the 'skip' marker and the last segment as the theme. Don't add segments.
+ *
+ * @param {string} theme - 'modern' or 'classic'
+ */
+export function buildSkipOption(theme) {
+  return {
+    label: '▶️ Start Timer Without Title Selection',
+    description: 'Skip the lookup — just start the timer now (runs until stopped)',
+    value: `timer_skip_${theme}`,
+  };
+}
+
+/**
  * Runs episode-range detection + the generic movie/TV/board-game search
  * against `label`, then either starts the timer directly (landslide/single
  * match, or nothing found) or shows a picker and returns, awaiting a user
@@ -321,39 +284,40 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
         // different years) - show a picker carrying the range through.
         console.log(`[Timer] Found ${showResults.length} shows matching "${episodeRange.showName}", showing selection menu`);
 
-        const options = showResults.slice(0, 24).map((result) => {
-          const title = result.name;
-          const year = result.first_air_date;
-          const yearStr = year ? ` (${year.split('-')[0]})` : '';
-          const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
+        // Skip option first, real results after — capped at 24 so the total
+        // stays within Discord's 25-option limit.
+        const options = [
+          buildSkipOption(theme),
+          ...showResults.slice(0, 24).map((result) => {
+            const title = result.name;
+            const year = result.first_air_date;
+            const yearStr = year ? ` (${year.split('-')[0]})` : '';
+            const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
 
-          return {
-            label: `${title}${yearStr}`.substring(0, 100),
-            description: overview.substring(0, 100),
-            value: `timer_tv_${result.id}_${theme}_range_${episodeRange.season}_${episodeRange.episodeStart}_${episodeRange.episodeEnd}`,
-          };
-        });
-
-        options.push({
-          label: '▶️ Start Timer (No Duration)',
-          description: 'Timer will run continuously until manually stopped',
-          value: `timer_skip_${theme}`,
-        });
+            return {
+              label: `${title}${yearStr}`.substring(0, 100),
+              description: overview.substring(0, 100),
+              value: `timer_tv_${result.id}_${theme}_range_${episodeRange.season}_${episodeRange.episodeStart}_${episodeRange.episodeEnd}`,
+            };
+          }),
+        ];
 
         const selectMenu = new StringSelectMenuBuilder()
           .setCustomId('timer_select_runtime')
-          .setPlaceholder('Select the correct show')
+          .setPlaceholder('Start now, or pick the correct show')
           .addOptions(options);
 
+        // NOTE: this title is parsed by selectHandler.js's
+        // /Confirm Show for "(.+?)" \(S\d+/ regex to recover the show name —
+        // change the two together or the range picker loses its label.
         const embed = new EmbedBuilder()
           .setColor(0x0099FF)
           .setTitle(`🎬 Confirm Show for "${episodeRange.showName}" (S${episodeRange.season} E${episodeRange.episodeStart}-E${episodeRange.episodeEnd})`)
           .setDescription(
-            `Found ${showResults.length} possible matches.\n\n` +
-            `**Select the correct show** to sum episodes ${episodeRange.episodeStart}-${episodeRange.episodeEnd} and add a 10-minute buffer.\n\n` +
-            (wasAutoDetected
-              ? `Click **Search** to look up a different title, or **Start Timer** to begin without a duration (continuous until stopped).`
-              : `Or choose "Start Timer" to start without a duration (continuous until stopped).`)
+            `**Just want to start?** Pick the first option — the timer starts right away.\n\n` +
+            `Or select the correct show below to sum episodes ${episodeRange.episodeStart}-${episodeRange.episodeEnd} and set the duration automatically ` +
+            `(${showResults.length} possible matches).` +
+            (wasAutoDetected ? `\n\nClick **Search** to look up a different title.` : '')
           )
           .setFooter({ text: 'Select from the menu below' });
 
@@ -426,8 +390,20 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
           const details = await getMovieDetails(result.id);
           runtime = details?.runtime;
         } else if (result.type === 'tv') {
-          const details = await getTVShowDetails(result.id);
-          runtime = details?.episode_run_time?.[0];
+          // A TV show's episode_run_time is ONE episode (~26 min), but a
+          // watch party is almost always several — so that runtime would
+          // stop the timer an hour into a two-hour party. Worse, setting any
+          // duration clears isFallbackDuration, which is the very flag that
+          // earns a timer its "about to expire" warning and Extend button
+          // (see timerScheduler.js). No duration is strictly safer: the
+          // server's fallback cap still bounds it AND it gets warned.
+          //
+          // TV gets a real duration only from an explicit episode range,
+          // where the episode count is actually known — see
+          // resolveEpisodeRangeDuration.
+          console.log(`[Timer] TV match "${result.name || result.title}" has no episode range — leaving duration unset`);
+          runtime = null;
+          noRuntimeFound = true;
         } else {
           const details = await getBoardGameDetails(result.id);
           runtime = details?.playingTime ? parseInt(details.playingTime, 10) : null;
@@ -441,40 +417,41 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
         // Multiple results - show selection menu
         console.log(`[Timer] Found ${allResults.length} results, showing selection menu`);
 
-        const options = allResults.map((result) => {
-          const title = result.title || result.name;
-          const year = result.release_date || result.first_air_date;
-          const yearStr = year ? ` (${year.split('-')[0]})` : '';
-          const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
+        // Skip option first, then results. The explicit 24-cap states the
+        // invariant rather than leaving it to be inferred from the three
+        // per-type slices above happening to sum to exactly 24.
+        const options = [
+          buildSkipOption(theme),
+          ...allResults.slice(0, 24).map((result) => {
+            const title = result.title || result.name;
+            const year = result.release_date || result.first_air_date;
+            const yearStr = year ? ` (${year.split('-')[0]})` : '';
+            const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
 
-          return {
-            label: `${title}${yearStr}`.substring(0, 100),
-            description: overview.substring(0, 100),
-            value: `timer_${result.type}_${result.id}_${theme}`,
-          };
-        });
-
-        // Add "Start Timer - No Duration" option
-        options.push({
-          label: '▶️ Start Timer (No Duration)',
-          description: 'Timer will run continuously until manually stopped',
-          value: `timer_skip_${theme}`,
-        });
+            return {
+              label: `${title}${yearStr}`.substring(0, 100),
+              description: overview.substring(0, 100),
+              value: `timer_${result.type}_${result.id}_${theme}`,
+            };
+          }),
+        ];
 
         const selectMenu = new StringSelectMenuBuilder()
           .setCustomId('timer_select_runtime')
-          .setPlaceholder('Select the correct title to auto-detect runtime')
+          .setPlaceholder('Start now, or pick the correct title')
           .addOptions(options);
 
+        // NOTE: this title is parsed by selectHandler.js's
+        // /Confirm Title for "(.+)"/ regex to recover the label — change the
+        // two together or selected timers lose their name.
         const embed = new EmbedBuilder()
           .setColor(0x0099FF)
           .setTitle(`🎬 Confirm Title for "${label}"`)
           .setDescription(
-            `Found ${allResults.length} possible matches.\n\n` +
-            `**Select the correct title** to auto-detect runtime and add a 10-minute buffer.\n\n` +
-            (wasAutoDetected
-              ? `Click **Search** to look up a different title, or **Start Timer** to begin without a duration (continuous until stopped).`
-              : `Or choose "Start Timer" to start without a duration (continuous until stopped).`)
+            `**Just want to start?** Pick the first option — the timer starts right away.\n\n` +
+            `Or select the correct title below to set the duration automatically ` +
+            `(${allResults.length} possible matches).` +
+            (wasAutoDetected ? `\n\nClick **Search** to look up a different title.` : '')
           )
           .setFooter({ text: 'Select from the menu below' });
 
@@ -776,39 +753,38 @@ export async function execute(interaction) {
             } else {
               console.log(`[Timer] Found ${showResults.length} shows matching "${explicitRange.showName}", showing selection menu`);
 
-              const options = showResults.slice(0, 24).map((result) => {
-                const title = result.name;
-                const year = result.first_air_date;
-                const yearStr = year ? ` (${year.split('-')[0]})` : '';
-                const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
+              const options = [
+                buildSkipOption(theme),
+                ...showResults.slice(0, 24).map((result) => {
+                  const title = result.name;
+                  const year = result.first_air_date;
+                  const yearStr = year ? ` (${year.split('-')[0]})` : '';
+                  const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
 
-                return {
-                  label: `${title}${yearStr}`.substring(0, 100),
-                  description: overview.substring(0, 100),
-                  value: `timer_tv_${result.id}_${theme}_range_${explicitRange.season}_${explicitRange.episodeStart}_${explicitRange.episodeEnd}`,
-                };
-              });
-
-              options.push({
-                label: '▶️ Start Timer (No Duration)',
-                description: 'Timer will run continuously until manually stopped',
-                value: `timer_skip_${theme}`,
-              });
+                  return {
+                    label: `${title}${yearStr}`.substring(0, 100),
+                    description: overview.substring(0, 100),
+                    value: `timer_tv_${result.id}_${theme}_range_${explicitRange.season}_${explicitRange.episodeStart}_${explicitRange.episodeEnd}`,
+                  };
+                }),
+              ];
 
               const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId('timer_select_runtime')
-                .setPlaceholder('Select the correct show')
+                .setPlaceholder('Start now, or pick the correct show')
                 .addOptions(options);
 
               const row = new ActionRowBuilder().addComponents(selectMenu);
 
+              // NOTE: parsed by selectHandler.js's
+              // /Confirm Show for "(.+?)" \(S\d+/ regex — keep them in sync.
               const embed = new EmbedBuilder()
                 .setColor(0x0099FF)
                 .setTitle(`🎬 Confirm Show for "${explicitRange.showName}" (S${explicitRange.season} E${explicitRange.episodeStart}-E${explicitRange.episodeEnd})`)
                 .setDescription(
-                  `Found ${showResults.length} possible matches.\n\n` +
-                  `**Select the correct show** to sum episodes ${explicitRange.episodeStart}-${explicitRange.episodeEnd} and add a 10-minute buffer.\n\n` +
-                  `Or choose "Start Timer" to start without a duration (continuous until stopped).`
+                  `**Just want to start?** Pick the first option — the timer starts right away.\n\n` +
+                  `Or select the correct show below to sum episodes ${explicitRange.episodeStart}-${explicitRange.episodeEnd} and set the duration automatically ` +
+                  `(${showResults.length} possible matches).`
                 )
                 .setFooter({ text: 'Select from the menu below' });
 
@@ -849,8 +825,14 @@ export async function execute(interaction) {
               const details = await getMovieDetails(result.id);
               runtime = details?.runtime;
             } else {
-              const details = await getTVShowDetails(result.id);
-              runtime = details?.episode_run_time?.[0];
+              // Same rule as the auto-detected path: a bare show name says
+              // nothing about how many episodes are being watched, so a
+              // single episode's runtime is a guess that usually ends the
+              // timer early. Someone who wants a precise TV duration can say
+              // so — `tv:"Severance S2: E1-E3"` takes the range path above.
+              console.log(`[Timer] TV match "${label}" has no episode range — leaving duration unset`);
+              runtime = null;
+              noRuntimeFound = true;
             }
 
             if (runtime && runtime > 0) {
@@ -860,39 +842,38 @@ export async function execute(interaction) {
           } else {
             console.log(`[Timer] Found ${results.length} ${explicitType} results, showing selection menu`);
 
-            const options = results.slice(0, 24).map((result) => {
-              const title = result.title || result.name;
-              const year = result.release_date || result.first_air_date;
-              const yearStr = year ? ` (${year.split('-')[0]})` : '';
-              const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
+            const options = [
+              buildSkipOption(theme),
+              ...results.slice(0, 24).map((result) => {
+                const title = result.title || result.name;
+                const year = result.release_date || result.first_air_date;
+                const yearStr = year ? ` (${year.split('-')[0]})` : '';
+                const overview = result.overview ? result.overview.substring(0, 97) + '...' : 'No description';
 
-              return {
-                label: `${title}${yearStr}`.substring(0, 100),
-                description: overview.substring(0, 100),
-                value: `timer_${explicitType}_${result.id}_${theme}`,
-              };
-            });
-
-            options.push({
-              label: '▶️ Start Timer (No Duration)',
-              description: 'Timer will run continuously until manually stopped',
-              value: `timer_skip_${theme}`,
-            });
+                return {
+                  label: `${title}${yearStr}`.substring(0, 100),
+                  description: overview.substring(0, 100),
+                  value: `timer_${explicitType}_${result.id}_${theme}`,
+                };
+              }),
+            ];
 
             const selectMenu = new StringSelectMenuBuilder()
               .setCustomId('timer_select_runtime')
-              .setPlaceholder(`Select the correct ${explicitType === 'movie' ? 'movie' : 'show'}`)
+              .setPlaceholder(`Start now, or pick the correct ${explicitType === 'movie' ? 'movie' : 'show'}`)
               .addOptions(options);
 
             const row = new ActionRowBuilder().addComponents(selectMenu);
 
+            // NOTE: parsed by selectHandler.js's /Confirm Title for "(.+)"/
+            // regex — keep them in sync.
             const embed = new EmbedBuilder()
               .setColor(0x0099FF)
               .setTitle(`🎬 Confirm Title for "${query}"`)
               .setDescription(
-                `Found ${results.length} possible matches.\n\n` +
-                `**Select the correct title** to auto-detect runtime and add a 10-minute buffer.\n\n` +
-                `Or choose "Start Timer" to start without a duration (continuous until stopped).`
+                `**Just want to start?** Pick the first option — the timer starts right away.\n\n` +
+                `Or select the correct title below to set the duration automatically ` +
+                `(${results.length} possible matches).`
               )
               .setFooter({ text: 'Select from the menu below' });
 
@@ -1563,7 +1544,14 @@ export async function execute(interaction) {
  * @param {object} guildConfig - Guild config, used to resolve the fallback duration cap when none was detected
  * @param {boolean} fromSelection - Deprecated parameter (always posts publicly now)
  */
-export async function startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, fromSelection = false) {
+/**
+ * @param {object|null} [media] - What the timer is for, when the start flow
+ *   managed to identify it: `{tmdbId, type, episodeRange}`. Persisted on the
+ *   timer record so /timer stop can log the right title instead of
+ *   re-searching TMDB from the label and taking whatever comes back first.
+ *   Null whenever the title was skipped or never resolved.
+ */
+export async function startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, fromSelection = false, media = null) {
   // Check if timer already exists
   const existingTimer = getTimerStatus(channelId);
   if (existingTimer) {
@@ -1647,7 +1635,7 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         await message.edit(msg);
       }
       
-      startTimer(channelId, userId, username, label, duration, interaction.client, isFallbackDuration);
+      startTimer(channelId, userId, username, label, duration, interaction.client, isFallbackDuration, media);
       return;
       
     } else {
@@ -1686,7 +1674,7 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         .setFooter({ text: '⏱️ Timer started!' });
       await message.edit({ embeds: [countdownEmbed] });
       
-      startTimer(channelId, userId, username, label, duration, interaction.client, isFallbackDuration);
+      startTimer(channelId, userId, username, label, duration, interaction.client, isFallbackDuration, media);
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       

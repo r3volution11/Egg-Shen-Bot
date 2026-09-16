@@ -218,8 +218,10 @@ describe('/timer start — movie: option', () => {
     expect(editReplyCall).toBeDefined();
 
     const options = editReplyCall[0].components[0].components[0].options;
-    expect(options[0].data.value).toBe('timer_movie_1_modern');
-    expect(options[1].data.value).toBe('timer_movie_2_modern');
+    // The skip option leads every picker, so results start at index 1.
+    expect(options[0].data.value).toBe('timer_skip_modern');
+    expect(options[1].data.value).toBe('timer_movie_1_modern');
+    expect(options[2].data.value).toBe('timer_movie_2_modern');
   });
 });
 
@@ -235,7 +237,11 @@ describe('/timer start — tv: option (plain show name)', () => {
     expect(mockSearchMovies).not.toHaveBeenCalled();
   });
 
-  test('a single match uses episode_run_time[0] + 10', async () => {
+  test('a single match sets NO duration — a bare show name has no episode count', async () => {
+    // Same rule as the auto-detected path: one episode's runtime is a guess
+    // that usually ends a watch party early, and setting it would suppress
+    // the expiry warning. Someone wanting a precise TV duration says so with
+    // range notation (`tv:"The Office S9: E1-E3"`), covered below.
     mockSearchTVShows.mockResolvedValue([{ id: 10, name: 'The Office', first_air_date: '2005-03-24' }]);
     mockGetTVShowDetails.mockResolvedValue({ episode_run_time: [22] });
 
@@ -243,8 +249,9 @@ describe('/timer start — tv: option (plain show name)', () => {
     await runExecute(interaction);
 
     const status = getTimerStatus('channel-1');
-    expect(status.duration).toBe(32);
-    expect(status.label).toBe('The Office');
+    expect(status.duration).toBe(360); // server fallback cap, not 32
+    expect(status.isFallbackDuration).toBe(true);
+    expect(status.label).toBe('The Office'); // still labeled correctly
   });
 });
 
@@ -296,6 +303,8 @@ describe('/timer start — tv: option with episode-range notation', () => {
     expect(getTimerStatus('channel-1')).toBeNull();
     const editReplyCall = interaction.editReply.mock.calls.find(call => call[0]?.components);
     const options = editReplyCall[0].components[0].components[0].options;
-    expect(options[0].data.value).toBe('timer_tv_42_modern_range_5_5_8');
+    // The skip option leads every picker, so results start at index 1.
+    expect(options[0].data.value).toBe('timer_skip_modern');
+    expect(options[1].data.value).toBe('timer_tv_42_modern_range_5_5_8');
   });
 });
