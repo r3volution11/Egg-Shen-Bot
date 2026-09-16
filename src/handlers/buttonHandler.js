@@ -760,6 +760,37 @@ export async function handleButtonInteraction(interaction) {
       return;
     }
 
+    // Handle "▶️ Start Now" / "🔎 Look Up Title" on the ambiguous-title prompt
+    if (interaction.customId.startsWith('timer_start_now_')) {
+      await handleTimerStartNowButton(interaction);
+
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+
+      if (duration > 2000) {
+        logger.logPerformance('Button: timer_start_now', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+
+    if (interaction.customId.startsWith('timer_lookup_')) {
+      await handleTimerLookupButton(interaction);
+
+      const duration = Date.now() - startTime;
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+
+      if (duration > 2000) {
+        logger.logPerformance('Button: timer_lookup', duration, {
+          userId: interaction.user.id,
+          guildId: interaction.guild?.id
+        });
+      }
+      return;
+    }
+
     // Handle "▶️ Start Timer" button on the zero-results auto-detect screen
     if (interaction.customId.startsWith('timer_skip_noauto_')) {
       await handleTimerSkipNoAutoButton(interaction);
@@ -2206,6 +2237,93 @@ async function handleTimerRetypeButton(interaction) {
   modal.addComponents(new ActionRowBuilder().addComponents(titleInput));
 
   await interaction.showModal(modal);
+}
+
+// Recover the auto-detected title from the ambiguous-title prompt's embed.
+// Mirrors how the other timer buttons/selects carry state — the embed is the
+// only thing Discord hands back with the click.
+function readLabelFromPrompt(interaction) {
+  const embedTitle = interaction.message.embeds[0]?.title || '';
+  const match = embedTitle.match(/Start the timer for "(.+)"\?/);
+  return match ? match[1] : '';
+}
+
+// Split a prompt button's id into its theme and (optional) episode range.
+// Ids are `<prefix><theme>` or `<prefix><theme>_range_<s>_<e1>_<e2>`, the
+// range being present only when it came from the event's description and so
+// isn't recoverable from the label.
+function parsePromptCustomId(customId, prefix) {
+  const rest = customId.slice(prefix.length);
+  const rangeMatch = rest.match(/^(.+?)_range_(\d+)_(\d+)_(\d+)$/);
+
+  if (!rangeMatch) return { theme: rest, episodeRange: null };
+
+  return {
+    theme: rangeMatch[1],
+    episodeRange: {
+      season: parseInt(rangeMatch[2], 10),
+      episodeStart: parseInt(rangeMatch[3], 10),
+      episodeEnd: parseInt(rangeMatch[4], 10),
+    },
+  };
+}
+
+// "▶️ Start Now" on the ambiguous-title prompt: begin the countdown with the
+// auto-detected label and no duration. The server's fallback cap still bounds
+// the timer, and because no duration was set it keeps isFallbackDuration —
+// so it gets the expiry warning and its Extend button.
+async function handleTimerStartNowButton(interaction) {
+  const { theme } = parsePromptCustomId(interaction.customId, 'timer_start_now_');
+  const label = readLabelFromPrompt(interaction);
+
+  const { loadGuildConfig } = await import('../utils/guildConfig.js');
+  const guildConfig = await loadGuildConfig(interaction.guildId);
+
+  await interaction.deferUpdate();
+
+  const { startTimerCountdown } = await import('../commands/timer.js');
+  await startTimerCountdown(
+    interaction,
+    interaction.channelId,
+    interaction.user.id,
+    interaction.user.username,
+    label,
+    null,
+    theme,
+    guildConfig,
+    true
+  );
+}
+
+// "🔎 Look Up Title" on the ambiguous-title prompt: run the search the
+// prompt deferred, which lands on the normal picker (with its own
+// "Start Timer Without Title Selection" option first, so this is never a
+// one-way door).
+async function handleTimerLookupButton(interaction) {
+  const { theme, episodeRange } = parsePromptCustomId(interaction.customId, 'timer_lookup_');
+  const label = readLabelFromPrompt(interaction);
+
+  const { loadGuildConfig } = await import('../utils/guildConfig.js');
+  const guildConfig = await loadGuildConfig(interaction.guildId);
+
+  await interaction.deferUpdate();
+
+  // autoDetectMode 'full' so the search shows the picker rather than
+  // bouncing back to the prompt the user just clicked past. The range (when
+  // the event's description carried one) is handed back so the picker can
+  // still sum episodes rather than re-deriving it from the bare label.
+  const { runTitleSearchAndDecide } = await import('../commands/timer.js');
+  await runTitleSearchAndDecide(interaction, {
+    channelId: interaction.channelId,
+    userId: interaction.user.id,
+    username: interaction.user.username,
+    label,
+    theme,
+    guildConfig,
+    wasAutoDetected: true,
+    autoDetectMode: 'full',
+    detectedRange: episodeRange ? { ...episodeRange, showName: label } : null,
+  });
 }
 
 // Handle the "▶️ Start Timer" button on the zero-results auto-detect

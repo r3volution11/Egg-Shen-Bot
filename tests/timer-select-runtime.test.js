@@ -61,6 +61,7 @@ jest.unstable_mockModule('../src/api/server.js', () => ({
 // exports are stubbed since selectHandler.js imports them too, even though
 // this test's timer_select_runtime path doesn't exercise them.
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   loadGuildConfig: jest.fn().mockResolvedValue({}),
   isAdmin: jest.fn().mockReturnValue(false),
   getEnabledServices: jest.fn().mockResolvedValue({}),

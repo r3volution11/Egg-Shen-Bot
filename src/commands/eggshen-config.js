@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { loadGuildConfig, saveGuildConfig, toggleService, setEmoji, updateStatsTracking, getCommandPermissions, updateCommandPermission, isAdmin } from '../utils/guildConfig.js';
+import { loadGuildConfig, saveGuildConfig, toggleService, setEmoji, updateStatsTracking, getCommandPermissions, updateCommandPermission, isAdmin, getAutoDetectMode } from '../utils/guildConfig.js';
 import { clearStats } from '../utils/statsTracker.js';
 
 export const data = new SlashCommandBuilder()
@@ -307,6 +307,13 @@ export async function execute(interaction) {
       ? config.watchPartyChannels.map(channelId => `<#${channelId}>`).join(', ')
       : 'None configured';
 
+    const autoDetectLabels = {
+      ask: 'Ask — sets the duration when sure, otherwise offers a choice',
+      full: 'Full — always shows the list of matches when unsure',
+      off: 'Off — scheduled events are ignored',
+    };
+    const autoDetectDisplay = autoDetectLabels[getAutoDetectMode(config)];
+
     const regionDisplay = config.region || 'US';
     const maxResultsDisplay = config.maxSearchResults || 20;
     const timerFallbackDisplay = config.maxTimerDurationUnlimited
@@ -379,7 +386,7 @@ export async function execute(interaction) {
       })
       .addFields({
         name: 'Watch Party Channels',
-        value: `🎬 ${watchPartyChannelsDisplay}\n\nTimers in these channels auto-detect titles from scheduled events. Perfect for servers with multiple simultaneous watch parties! Manage with \`/eggshen-config-watch-party watch-party add/remove/list\`.`,
+        value: `🎬 ${watchPartyChannelsDisplay}\n⚡ **Auto-detect:** ${autoDetectDisplay}\n\nTimers in these channels auto-detect titles from scheduled events. Perfect for servers with multiple simultaneous watch parties! Manage with \`/eggshen-config-watch-party watch-party add/remove/list\` and \`/eggshen-config-watch-party watch-party auto-detect\`.`,
         inline: false,
       })
       .addFields({

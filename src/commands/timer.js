@@ -1,10 +1,10 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
 import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop } from '../utils/timerManager.js';
-import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
+import { loadGuildConfig, isAdmin, getAutoDetectMode } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
 import { hybridSearch, pickLandslideWinner } from '../services/aiService.js';
-import { parseEpisodeRange } from '../utils/episodeRangeParser.js';
+import { parseEpisodeRange, parseEventEpisodeRange } from '../utils/episodeRangeParser.js';
 
 /**
  * Find the scheduled event tied to a channel, so a watch party's details can
@@ -156,6 +156,7 @@ export async function resolveEpisodeRangeDuration(showId, episodeRange) {
   return {
     duration,
     breakdown: {
+      showId,
       showName: showDetails?.name || episodeRange.showName,
       season: episodeRange.season,
       episodeCount: summed.episodeCount,
@@ -184,6 +185,56 @@ export function buildEpisodeRangeBreakdownMessage(breakdown) {
     `${'─'.repeat(14)}\n` +
     `${breakdown.episodeCount} episodes, ~${avgRuntime} min each = ${breakdown.totalRuntime} min + 10 min buffer = ${breakdown.duration} min`
   );
+}
+
+/**
+ * The two-button screen shown when an auto-detected title matched several
+ * things and we can't tell which is right.
+ *
+ * The alternative — dropping someone into a 25-option list the moment they
+ * try to start a watch party — is what drove people to a different bot. A
+ * plain either/or reads in a glance: look it up, or just start. Both are one
+ * click, and "Start Now" is never more than that one click away.
+ *
+ * Callers must pass a `label`, since the "Look Up Title" button recovers it
+ * from this embed's title (see buttonHandler's timer_lookup_ handler).
+ *
+ * @param {string} label - the auto-detected title
+ * @param {number} matchCount - how many candidates the search returned
+ * @param {string} theme - 'modern' or 'classic'
+ */
+export function buildAmbiguousTitlePrompt(label, matchCount, theme, episodeRange = null) {
+  // A range recovered from the event's description isn't in the label, so
+  // encode it in the button ids — otherwise "Look Up Title" would re-search
+  // the bare show name and lose the episodes the host told us about.
+  const rangeSuffix = episodeRange
+    ? `_range_${episodeRange.season}_${episodeRange.episodeStart}_${episodeRange.episodeEnd}`
+    : '';
+  // NOTE: the title is parsed by buttonHandler.js's
+  // /Start the timer for "(.+)"/ regex to recover the label — change the
+  // two together or the buttons lose track of what's playing.
+  const embed = new EmbedBuilder()
+    .setColor(0x0099FF)
+    .setTitle(`🎬 Start the timer for "${label}"?`)
+    .setDescription(
+      `**Start Now** begins the countdown right away — the timer runs until someone stops it.\n\n` +
+      `**Look Up Title** finds it on TMDB so the timer can stop on its own when the movie ends ` +
+      `(${matchCount} possible matches to choose from).`
+    )
+    .setFooter({ text: 'Auto-detected from this channel\'s scheduled event' });
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`timer_start_now_${theme}${rangeSuffix}`)
+      .setLabel('▶️ Start Now')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`timer_lookup_${theme}${rangeSuffix}`)
+      .setLabel('🔎 Look Up Title')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row] };
 }
 
 /**
@@ -236,10 +287,16 @@ export function buildSkipOption(theme) {
  * @param {object} params.guildConfig
  * @param {boolean} params.wasAutoDetected
  */
-export async function runTitleSearchAndDecide(interaction, { channelId, userId, username, label, theme, guildConfig, wasAutoDetected }) {
+export async function runTitleSearchAndDecide(interaction, { channelId, userId, username, label, theme, guildConfig, wasAutoDetected, detectedRange = null, autoDetectMode = 'ask' }) {
+  // In 'ask' mode an auto-detected title that can't be pinned down gets a
+  // two-button choice rather than a picker. Only auto-detected titles: a
+  // label someone typed is a deliberate request to search, so it still goes
+  // straight to the list of matches.
+  const promptWhenAmbiguous = wasAutoDetected && autoDetectMode === 'ask';
   let duration = null;
   let noRuntimeFound = false;
   let episodeRangeBreakdown = null;
+  let media = null; // what we resolved the timer to, for the watch log at stop time
 
   function buildSearchRow(selectMenu) {
     const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -259,7 +316,10 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
   // BEFORE the general movie/TV/boardgame search below, since searching
   // for the raw, unparsed label (range notation and all) would rarely
   // match well against the show name alone.
-  const episodeRange = !duration && label ? parseEpisodeRange(label) : null;
+  // A range the caller already resolved (from a scheduled event's name AND
+  // description) wins — parseEpisodeRange can only see the label, so it
+  // would miss a range that lived in the event's description.
+  const episodeRange = detectedRange || (!duration && label ? parseEpisodeRange(label) : null);
 
   if (episodeRange) {
     console.log(`[Timer] Detected episode range in "${label}": S${episodeRange.season} E${episodeRange.episodeStart}-E${episodeRange.episodeEnd} (show: "${episodeRange.showName}")`);
@@ -272,6 +332,15 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
         noRuntimeFound = true;
       } else if (showResults.length === 1 || landslideShow) {
         const show = landslideShow || showResults[0];
+        media = {
+          tmdbId: show.id,
+          type: 'tv',
+          episodeRange: {
+            season: episodeRange.season,
+            episodeStart: episodeRange.episodeStart,
+            episodeEnd: episodeRange.episodeEnd,
+          },
+        };
         const result = await resolveEpisodeRangeDuration(show.id, episodeRange);
         if (result) {
           duration = result.duration;
@@ -282,6 +351,12 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
       } else {
         // Multiple shows matched the name (e.g. same-titled show across
         // different years) - show a picker carrying the range through.
+        if (promptWhenAmbiguous) {
+          console.log(`[Timer] Found ${showResults.length} shows matching "${episodeRange.showName}" — offering start/look-up instead of a picker`);
+          await interaction.editReply(buildAmbiguousTitlePrompt(label, showResults.length, theme, episodeRange));
+          return;
+        }
+
         console.log(`[Timer] Found ${showResults.length} shows matching "${episodeRange.showName}", showing selection menu`);
 
         // Skip option first, real results after — capped at 24 so the total
@@ -384,6 +459,7 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
         // landslide winner with nothing competitive in the other types.
         const result = soloWinner ? { ...soloWinner, type: soloWinnerType } : allResults[0];
         console.log(`[Timer] Found single ${result.type} match: ${result.title || result.name}`);
+        media = { tmdbId: result.id, type: result.type, episodeRange: null };
 
         let runtime = null;
         if (result.type === 'movie') {
@@ -415,6 +491,12 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
         }
       } else {
         // Multiple results - show selection menu
+        if (promptWhenAmbiguous) {
+          console.log(`[Timer] Found ${allResults.length} results for "${label}" — offering start/look-up instead of a picker`);
+          await interaction.editReply(buildAmbiguousTitlePrompt(label, allResults.length, theme));
+          return;
+        }
+
         console.log(`[Timer] Found ${allResults.length} results, showing selection menu`);
 
         // Skip option first, then results. The explicit 24-cap states the
@@ -521,7 +603,7 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
   }
 
   // Check if timer already exists and start countdown
-  await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig);
+  await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, false, media);
 }
 
 export const data = new SlashCommandBuilder()
@@ -679,6 +761,9 @@ export async function execute(interaction) {
     let noRuntimeFound = false;
     let episodeRangeBreakdown = null; // set when duration came from summing a multi-episode range
     let wasAutoDetected = false; // set when label came from a watch-party channel's scheduled event, not typed
+    let detectedRange = null; // episode range read off the scheduled event (name and/or description)
+    let explicitMedia = null; // what an explicit movie:/tv: option resolved to, for the watch log
+    const autoDetectMode = getAutoDetectMode(guildConfig);
 
     // At most one of label/movie/tv may be given — each is a different way
     // of saying "here's what's playing," so more than one is an ambiguous
@@ -699,20 +784,34 @@ export async function execute(interaction) {
       const watchPartyChannels = guildConfig.watchPartyChannels || [];
 
       console.log(`[Timer] No manual label provided. Checking for auto-detection...`);
+      console.log(`[Timer] Auto-detect mode: ${autoDetectMode}`);
       console.log(`[Timer] Configured watch party channels:`, watchPartyChannels);
       console.log(`[Timer] Current channel ID: ${channelId}`);
 
       // Check if this channel is configured for watch party auto-detection
-      if (watchPartyChannels.includes(channelId)) {
+      if (autoDetectMode !== 'off' && watchPartyChannels.includes(channelId)) {
         console.log(`[Timer] ✅ Channel is configured for auto-detection. Fetching events...`);
-        const autoDetectedTitle = await getEventTitleForChannel(interaction.guild, channelId);
-        if (autoDetectedTitle) {
-          label = autoDetectedTitle;
+        const event = await getEventForChannel(interaction.guild, channelId, {
+          includeScheduled: false, // a party that hasn't started isn't what's playing
+          logPrefix: 'Timer Auto-Detection',
+        });
+        if (event) {
+          label = event.name;
           wasAutoDetected = true;
           console.log(`[Timer] ✅ Auto-detected event title: "${label}"`);
+
+          // Hosts routinely put the show in the event name and the range in
+          // its description ("Tales From the Crypt" / "Season 6 episodes
+          // 4 - 7"), so the range only surfaces when both are read together.
+          detectedRange = parseEventEpisodeRange(event.name, event.description);
+          if (detectedRange) {
+            console.log(`[Timer] ✅ Auto-detected episode range: S${detectedRange.season} E${detectedRange.episodeStart}-E${detectedRange.episodeEnd} (show: "${detectedRange.showName}")`);
+          }
         } else {
           console.log(`[Timer] ❌ No matching event found for auto-detection`);
         }
+      } else if (autoDetectMode === 'off') {
+        console.log(`[Timer] ❌ Watch-party auto-detection is disabled for this server`);
       } else {
         console.log(`[Timer] ❌ Channel ${channelId} is not in configured watch party channels`);
       }
@@ -743,6 +842,15 @@ export async function execute(interaction) {
             } else if (showResults.length === 1 || landslideShow) {
               const show = landslideShow || showResults[0];
               label = show.name;
+              explicitMedia = {
+                tmdbId: show.id,
+                type: 'tv',
+                episodeRange: {
+                  season: explicitRange.season,
+                  episodeStart: explicitRange.episodeStart,
+                  episodeEnd: explicitRange.episodeEnd,
+                },
+              };
               const result = await resolveEpisodeRangeDuration(show.id, explicitRange);
               if (result) {
                 duration = result.duration;
@@ -819,6 +927,7 @@ export async function execute(interaction) {
             const result = landslideWinner || results[0];
             label = result.title || result.name;
             console.log(`[Timer] Found single ${explicitType} match: ${label}`);
+            explicitMedia = { tmdbId: result.id, type: explicitType, episodeRange: null };
 
             let runtime = null;
             if (explicitType === 'movie') {
@@ -888,7 +997,7 @@ export async function execute(interaction) {
     }
 
     if (!explicitType && !duration) {
-      await runTitleSearchAndDecide(interaction, { channelId, userId, username, label, theme, guildConfig, wasAutoDetected });
+      await runTitleSearchAndDecide(interaction, { channelId, userId, username, label, theme, guildConfig, wasAutoDetected, detectedRange, autoDetectMode });
     } else {
       if (duration) {
         duration = clampTimerDuration(duration, guildConfig);
@@ -912,7 +1021,7 @@ export async function execute(interaction) {
       }
 
       // Check if timer already exists and start countdown
-      await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig);
+      await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, false, explicitMedia);
     }
   } else if (subcommand === 'stop') {
     const activeTimer = getTimerStatus(channelId);

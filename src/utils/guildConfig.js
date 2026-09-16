@@ -68,6 +68,17 @@ const defaultConfig = {
     autoRemoveWatched: true, // Drop a title from the watchlist when logged via /watched
   },
   watchPartyChannels: [], // Channel IDs where watch party timers can auto-detect event titles
+  // How /timer start uses a watch-party channel's active scheduled event:
+  //   'ask' (default) — look the title up. When it's identified confidently
+  //       (one match, a landslide, or a resolvable episode range) the
+  //       duration is set and the timer just starts. When it's ambiguous,
+  //       offer two buttons — look up the title, or start right now —
+  //       instead of dropping the user into a 25-option list.
+  //   'full' — same, but an ambiguous title goes straight to that list.
+  //   'off' — ignore scheduled events entirely; /timer start needs a label.
+  // Always read it through getAutoDetectMode() below, never directly —
+  // configs written before this key existed simply lack it.
+  watchPartyAutoDetectMode: 'ask',
   administrators: [], // Will be populated with server owner/admins
   rateLimits: {
     enabled: true, // Master switch for rate limiting
@@ -193,6 +204,26 @@ export async function saveGuildConfig(guildId, config) {
   await ensureConfigDir();
   const configPath = getConfigPath(guildId);
   await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
+}
+
+const AUTO_DETECT_MODES = new Set(['ask', 'full', 'off']);
+
+/**
+ * How much /timer start should do with a watch-party channel's scheduled
+ * event — see watchPartyAutoDetectMode in defaultConfig for what each mode
+ * means.
+ *
+ * Normalized rather than read directly because there are no config
+ * migrations: every guild configured before this key existed simply lacks
+ * it, and an unset (or hand-edited, or garbage) value has to land on the
+ * default rather than silently disabling auto-detection.
+ *
+ * @param {object} guildConfig
+ * @returns {'ask'|'full'|'off'}
+ */
+export function getAutoDetectMode(guildConfig) {
+  const mode = guildConfig?.watchPartyAutoDetectMode;
+  return AUTO_DETECT_MODES.has(mode) ? mode : 'ask';
 }
 
 /**

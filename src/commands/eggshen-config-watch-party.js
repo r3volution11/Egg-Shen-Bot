@@ -36,6 +36,22 @@ export const data = new SlashCommandBuilder()
           .setName('list')
           .setDescription('List all configured watch party channels')
       )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('auto-detect')
+          .setDescription('Choose how much /timer start does with a channel\'s active event')
+          .addStringOption(option =>
+            option
+              .setName('mode')
+              .setDescription('How much the bot should do on its own')
+              .setRequired(true)
+              .addChoices(
+                { name: 'Ask (default) — set the duration when sure, otherwise offer a choice', value: 'ask' },
+                { name: 'Full — always show the list of matches when unsure', value: 'full' },
+                { name: 'Off — ignore scheduled events entirely', value: 'off' }
+              )
+          )
+      )
   )
   // ========== WATCHLIST GROUP ==========
   .addSubcommandGroup(group =>
@@ -316,6 +332,44 @@ export async function execute(interaction) {
         inline: false,
       })
       .setFooter({ text: 'Use /eggshen-config-watch-party watch-party add or watch-party remove to manage channels' });
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  } else if (group === 'watch-party' && subcommand === 'auto-detect') {
+    const mode = interaction.options.getString('mode');
+
+    const config = await loadGuildConfig(guildId);
+    config.watchPartyAutoDetectMode = mode;
+    await saveGuildConfig(guildId, config);
+
+    const summaries = {
+      ask: {
+        title: '⚡ Auto-Detect: Ask',
+        description:
+          '`/timer start` names the timer after the channel\'s active event and looks the title up.\n\n' +
+          '• **Recognized** (a movie, or an event that says which episodes are playing) — the duration is set and the timer just starts.\n' +
+          '• **Unsure** — two buttons: **Start Now**, or **Look Up Title** to pick from the matches.\n\n' +
+          'Nobody ever has to scroll a list just to start watching.',
+      },
+      full: {
+        title: '🔎 Auto-Detect: Full',
+        description:
+          '`/timer start` looks the event\'s title up and, when it can\'t tell which match is right, shows the full list to choose from.\n\n' +
+          '**Start Timer Without Title Selection** is always the first option in that list.',
+      },
+      off: {
+        title: '🚫 Auto-Detect: Off',
+        description:
+          '`/timer start` will ignore scheduled events entirely. Timers started without a `label` will be unnamed.',
+      },
+    };
+
+    const summary = summaries[mode] || summaries.ask;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle(summary.title)
+      .setDescription(summary.description)
+      .setFooter({ text: 'Change this any time with /eggshen-config-watch-party watch-party auto-detect' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   } else if (group === 'rate-limit' && subcommand === 'toggle') {

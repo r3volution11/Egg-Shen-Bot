@@ -40,6 +40,7 @@ jest.unstable_mockModule('../src/services/bggService.js', () => ({
 }));
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   loadGuildConfig: jest.fn().mockResolvedValue({}),
   isAdmin: jest.fn().mockReturnValue(false),
 }));
@@ -84,6 +85,11 @@ function baseParams(overrides = {}) {
     theme: 'modern',
     guildConfig: {},
     wasAutoDetected: false,
+    // Matches how the Search modal calls in (src/index.js): someone who just
+    // typed a title has asked for the lookup, so an ambiguous result shows
+    // the matches rather than the "start now or look it up?" prompt that a
+    // freshly auto-detected title gets.
+    autoDetectMode: 'full',
     ...overrides,
   };
 }

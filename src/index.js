@@ -843,6 +843,11 @@ client.on('interactionCreate', async (interaction) => {
         theme,
         guildConfig,
         wasAutoDetected: true,
+        // 'full' so an ambiguous result shows the matches. Someone who just
+        // typed a title into the Search modal has explicitly asked to look
+        // it up — offering them "start now or look it up?" would bounce them
+        // back past the thing they came here to do.
+        autoDetectMode: 'full',
       });
     }
   }

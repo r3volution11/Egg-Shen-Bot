@@ -58,6 +58,7 @@ jest.unstable_mockModule('../src/utils/embedBuilder.js', () => ({
 }));
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   canUseCommand: jest.fn().mockResolvedValue(true),
   loadGuildConfig: jest.fn().mockResolvedValue({ region: 'US', maxSearchResults: 20 }),
   getEnabledServices: jest.fn().mockResolvedValue({}),

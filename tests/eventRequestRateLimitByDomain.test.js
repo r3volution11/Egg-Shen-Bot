@@ -14,6 +14,7 @@
 import { jest } from '@jest/globals';
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   loadGuildConfig: jest.fn().mockResolvedValue({
     eventRequests: {
       enabled: true,

@@ -31,6 +31,7 @@ jest.unstable_mockModule('../src/utils/statsTracker.js', () => ({
 }));
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   loadGuildConfig: jest.fn().mockResolvedValue({ maxSearchResults: 20 }),
 }));
 

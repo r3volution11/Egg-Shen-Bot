@@ -49,6 +49,7 @@ jest.unstable_mockModule('../src/services/bggService.js', () => ({
 // indefinitely (its callbacks/microtasks never get a real-clock tick to
 // resolve on), so it's mocked here to return the default config synchronously.
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   loadGuildConfig: jest.fn().mockResolvedValue({}),
   isAdmin: jest.fn().mockReturnValue(false),
 }));
