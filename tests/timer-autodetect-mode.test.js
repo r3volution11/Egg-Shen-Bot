@@ -200,6 +200,29 @@ describe("'ask' (the default): look it up, but never trap anyone in a list", () 
     expect(showedAPicker(interaction)).toBe(false);
   });
 
+  test('an exact title match resolves without asking, even among siblings', async () => {
+    // The production case: TMDB returns the show plus its near-identical
+    // siblings, whose similar names drag the semantic gap to nearly zero. An
+    // exact title match settles it without a prompt. (Only the TV search
+    // returns an exact match here, so there's exactly one.)
+    mockSearchTVShows.mockResolvedValue([
+      { id: 3, name: 'Tales from the Crypt', first_air_date: '1989-06-10' },
+      { id: 4, name: 'Tales from the Cryptkeeper', first_air_date: '1993-09-18' },
+    ]);
+    mockGetTVShowDetails.mockResolvedValue({ name: 'Tales from the Crypt', episode_run_time: [26] });
+
+    const interaction = makeInteraction({
+      event: makeEvent({ name: 'Tales From the Crypt' }),
+      guildConfig: config(),
+    });
+    await runExecute(interaction);
+
+    const status = getTimerStatus(WATCH_PARTY_CHANNEL);
+    expect(status).not.toBeNull();
+    expect(status.tmdbId).toBe(3); // the show, not the Cryptkeeper spin-off
+    expect(showedAPicker(interaction)).toBe(false);
+  });
+
   test('an ambiguous title offers two buttons instead of a picker', async () => {
     mockSearchMovies.mockResolvedValue([
       { id: 1, title: 'Tales from the Crypt', release_date: '1972-03-08' },
@@ -340,9 +363,11 @@ describe("'ask' (the default): look it up, but never trap anyone in a list", () 
 
 describe("'full': ambiguity goes straight to the list", () => {
   test('shows the picker rather than the two-button prompt', async () => {
+    // No exact title match, so neither the scores nor the exact-match path
+    // can resolve it — this is the genuinely ambiguous case.
     mockSearchMovies.mockResolvedValue([
-      { id: 1, title: 'Tales from the Crypt', release_date: '1972-03-08' },
-      { id: 2, title: 'Demon Knight', release_date: '1995-01-13' },
+      { id: 1, title: 'Tales from the Crypt: Demon Knight', release_date: '1995-01-13' },
+      { id: 2, title: 'Tales from the Cryptkeeper', release_date: '1993-09-18' },
     ]);
 
     const interaction = makeInteraction({

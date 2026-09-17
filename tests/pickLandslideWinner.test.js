@@ -81,3 +81,83 @@ describe('pickLandslideWinner', () => {
     logSpy.mockRestore();
   });
 });
+
+describe('pickLandslideWinner — exact title match', () => {
+  test('wins for the real production case the scores rejected', () => {
+    // Measured on the live bot. The top result is exactly right, but 0.738
+    // is under the 0.80 floor and the runner-up is a near-identical sibling
+    // title, so the score path declined and users got a picker.
+    const results = [
+      result('Tales from the Crypt', 0.738),
+      result('Tales from the Cryptkeeper', 0.667),
+    ];
+
+    expect(pickLandslideWinner(results)).toBeNull(); // scores alone: no winner
+    expect(pickLandslideWinner(results, 'Tales From the Crypt'))
+      .toEqual(result('Tales from the Crypt', 0.738));
+  });
+
+  test('wins when a "Collection" sibling scores almost identically', () => {
+    // The other measured case: a 0.007 gap, which no threshold tuning fixes.
+    const results = [
+      result('Tales from the Crypt', 0.740),
+      result('Tales From The Crypt Collection', 0.734),
+    ];
+
+    expect(pickLandslideWinner(results, 'Tales From the Crypt'))
+      .toEqual(result('Tales from the Crypt', 0.740));
+  });
+
+  test('ignores case, punctuation and spacing differences', () => {
+    // normalizeTitle turns each punctuation run into a space, so an
+    // apostrophe typed or omitted the same way on both sides still matches,
+    // as does differing case and extra whitespace.
+    const results = [result("Schindler's List", 0.5), result('Another Film', 0.4)];
+    expect(pickLandslideWinner(results, "  SCHINDLER'S   LIST ")).toEqual(results[0]);
+    expect(pickLandslideWinner(results, 'Schindler s List')).toEqual(results[0]);
+
+    const colon = [result('Alien: Romulus', 0.5), result('Alien', 0.4)];
+    expect(pickLandslideWinner(colon, 'Alien Romulus')).toEqual(colon[0]);
+  });
+
+  test('matches a TV result by its name field', () => {
+    const results = [{ name: 'Severance', semanticScore: 0.5 }, { name: 'Severance Package', semanticScore: 0.4 }];
+    expect(pickLandslideWinner(results, 'Severance')).toEqual(results[0]);
+  });
+
+  test('picks the exact match even when it is not the top-ranked result', () => {
+    const results = [result('Alien Nation', 0.7), result('Alien', 0.65)];
+    expect(pickLandslideWinner(results, 'Alien')).toEqual(result('Alien', 0.65));
+  });
+
+  test('declines when two results share the queried title (a genuine remake)', () => {
+    // "Suspiria" (1977) and (2018) are both exactly right — this IS ambiguous,
+    // so it must still fall through to the picker.
+    const results = [result('Suspiria', 0.7), result('Suspiria', 0.69)];
+    expect(pickLandslideWinner(results, 'Suspiria')).toBeNull();
+  });
+
+  test('works with no semantic scores at all (OpenAI unavailable)', () => {
+    const results = [{ title: 'Tales from the Crypt' }, { title: 'Tales from the Cryptkeeper' }];
+    expect(pickLandslideWinner(results)).toBeNull();
+    expect(pickLandslideWinner(results, 'Tales from the Crypt')).toEqual(results[0]);
+  });
+
+  test('falls through to the scores when nothing matches exactly', () => {
+    const results = [result('Something Else Entirely', 0.95), result('Also Not It', 0.4)];
+    expect(pickLandslideWinner(results, 'My Query')).toEqual(result('Something Else Entirely', 0.95));
+  });
+
+  test('an empty or missing query is just score-only behavior', () => {
+    const results = [result('A Title', 0.5), result('Another', 0.4)];
+    expect(pickLandslideWinner(results, '')).toBeNull();
+    expect(pickLandslideWinner(results, null)).toBeNull();
+  });
+
+  test('logs that scores were bypassed', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    pickLandslideWinner([result('Juno', 0.5), result('Other', 0.4)], 'Juno');
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('exact title match'));
+    logSpy.mockRestore();
+  });
+});

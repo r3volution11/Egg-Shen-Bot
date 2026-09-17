@@ -154,9 +154,11 @@ describe('▶️ Start Now', () => {
 
 describe('🔎 Look Up Title', () => {
   test('runs the search and shows the picker, not another prompt', async () => {
+    // Deliberately no exact title match — otherwise the search resolves it
+    // outright and never reaches a picker.
     mockSearchMovies.mockResolvedValue([
-      { id: 1, title: 'Tales from the Crypt', release_date: '1972-03-08' },
-      { id: 2, title: 'Demon Knight', release_date: '1995-01-13' },
+      { id: 1, title: 'Tales from the Crypt: Demon Knight', release_date: '1995-01-13' },
+      { id: 2, title: 'Tales from the Cryptkeeper', release_date: '1993-09-18' },
     ]);
 
     const interaction = createMockInteraction({ customId: 'timer_lookup_modern' });

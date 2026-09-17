@@ -57,7 +57,7 @@ export async function execute(interaction) {
     
     // If only one result, or the top result is a decisive semantic-search
     // landslide over the runner-up, display it directly without a picker.
-    const landslideWinner = results.length > 1 ? pickLandslideWinner(results) : null;
+    const landslideWinner = results.length > 1 ? pickLandslideWinner(results, query) : null;
     if (results.length === 1 || landslideWinner) {
       const chosen = landslideWinner || results[0];
       const { getMovieDetails } = await import('../services/tmdbService.js');

@@ -402,6 +402,47 @@ const LANDSLIDE_SCORE_FLOOR = 0.80;
 const LANDSLIDE_SCORE_GAP = 0.15;
 
 /**
+ * Get a result's display title regardless of whether it's a movie or a show.
+ */
+function resultTitle(result) {
+  return result?.title || result?.name || '';
+}
+
+/**
+ * Does exactly one result match the query title-for-title?
+ *
+ * Semantic scores are a similarity measure, not an identity check, and they
+ * systematically fail the most common watch-party case: a franchise with
+ * collections and spin-offs. Real production scores for the query
+ * "Tales From the Crypt":
+ *
+ *   top="Tales from the Crypt" 0.738  second="Tales from the Cryptkeeper" 0.667
+ *   top="Tales from the Crypt" 0.740  second="Tales From The Crypt Collection" 0.734
+ *
+ * The top result is exactly right both times, yet neither clears the 0.80
+ * floor, and the second doesn't come close to the 0.15 gap — so the user got
+ * asked to disambiguate something unambiguous. Near-identical sibling titles
+ * drag the score down precisely when the match is obvious.
+ *
+ * An exact normalized title match is a stronger and more literal signal than
+ * any score, so it's checked first. Requiring exactly ONE exact match keeps
+ * it safe: genuinely ambiguous cases (a remake sharing its original's title,
+ * like "Suspiria" or "The Thing") have two or more and fall through to the
+ * scores, then to the picker.
+ *
+ * @param {Array} results
+ * @param {string} query
+ * @returns {Object|null}
+ */
+function pickExactTitleMatch(results, query) {
+  const normalizedQuery = normalizeTitle(query);
+  if (!normalizedQuery) return null;
+
+  const exactMatches = results.filter(r => normalizeTitle(resultTitle(r)) === normalizedQuery);
+  return exactMatches.length === 1 ? exactMatches[0] : null;
+}
+
+/**
  * Decide whether a ranked results list has a "landslide" winner — a top
  * result decisively ahead of everything else — that's safe to auto-select
  * instead of showing the user a picker. Returns null (meaning: show the
@@ -409,11 +450,25 @@ const LANDSLIDE_SCORE_GAP = 0.15;
  * missing semanticScore entirely (e.g. OpenAI unavailable, or re-ranking
  * fell back to unscored results) — this always degrades safely to today's
  * existing picker behavior.
+ *
  * @param {Array} results - Ranked results, as returned by hybridSearch()
+ * @param {string} [query] - The original search query. When given, a single
+ *   exact title match wins outright, ahead of the score thresholds. Omit it
+ *   to get score-only behavior.
  * @returns {Object|null} The winning result, or null if no landslide
  */
-export function pickLandslideWinner(results) {
+export function pickLandslideWinner(results, query = null) {
   if (!results || results.length < 2) return null;
+
+  // An exact title match beats the scores — and works even without OpenAI,
+  // where there are no scores to consult at all.
+  if (query) {
+    const exact = pickExactTitleMatch(results, query);
+    if (exact) {
+      console.log(`[LandslideCheck] exact title match for "${query}" → "${resultTitle(exact)}" (auto-selected, scores not consulted)`);
+      return exact;
+    }
+  }
 
   const [top, second] = results;
   if (typeof top.semanticScore !== 'number' || typeof second.semanticScore !== 'number') {
@@ -424,8 +479,8 @@ export function pickLandslideWinner(results) {
   const isLandslide = top.semanticScore >= LANDSLIDE_SCORE_FLOOR && gap >= LANDSLIDE_SCORE_GAP;
 
   console.log(
-    `[LandslideCheck] top="${top.title || top.name}" score=${top.semanticScore.toFixed(3)} ` +
-    `second="${second.title || second.name}" score=${second.semanticScore.toFixed(3)} ` +
+    `[LandslideCheck] top="${resultTitle(top)}" score=${top.semanticScore.toFixed(3)} ` +
+    `second="${resultTitle(second)}" score=${second.semanticScore.toFixed(3)} ` +
     `gap=${gap.toFixed(3)} landslide=${isLandslide}`
   );
 

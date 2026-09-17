@@ -230,8 +230,10 @@ describe('landslide/single match — unaffected by wasAutoDetected', () => {
 
 describe('episode-range notation retyped via the Search modal', () => {
   test('a retyped title matching range notation still runs the range sub-path and offers Search when ambiguous', async () => {
+    // Neither candidate matches the parsed show name exactly, so this stays
+    // ambiguous and reaches the picker (an exact match would auto-resolve).
     mockSearchTVShows.mockResolvedValue([
-      { id: 1, name: 'Severance', first_air_date: '2022-01-01' },
+      { id: 1, name: 'Severance (US)', first_air_date: '2022-01-01' },
       { id: 2, name: 'Severance (UK)', first_air_date: '2010-01-01' },
     ]);
 

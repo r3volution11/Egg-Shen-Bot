@@ -82,7 +82,7 @@ export async function execute(interaction) {
 
     // If only one show result, or the top result is a decisive semantic
     // landslide over the runner-up, search for the episode directly.
-    const landslideWinner = showResults.length > 1 ? pickLandslideWinner(showResults) : null;
+    const landslideWinner = showResults.length > 1 ? pickLandslideWinner(showResults, showQuery) : null;
     if (showResults.length === 1 || landslideWinner) {
       const chosenShow = landslideWinner || showResults[0];
       const { searchEpisodeByName, getEpisodeDetails, getTVShowDetails } = await import('../services/tmdbService.js');

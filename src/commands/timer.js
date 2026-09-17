@@ -295,6 +295,10 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
   const promptWhenAmbiguous = wasAutoDetected && autoDetectMode === 'ask';
   let duration = null;
   let noRuntimeFound = false;
+  // Set when a title was matched but yields no usable duration (a TV show
+  // with no episode count). Unlike noRuntimeFound, this must NOT trigger the
+  // "couldn't find a match" correction screen — we found it fine.
+  let matchedWithoutDuration = false;
   let episodeRangeBreakdown = null;
   let media = null; // what we resolved the timer to, for the watch log at stop time
 
@@ -325,7 +329,7 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
     console.log(`[Timer] Detected episode range in "${label}": S${episodeRange.season} E${episodeRange.episodeStart}-E${episodeRange.episodeEnd} (show: "${episodeRange.showName}")`);
     try {
       const showResults = await hybridSearch(episodeRange.showName, searchTVShows, 'tv', getTVAlternativeTitles);
-      const landslideShow = showResults.length > 1 ? pickLandslideWinner(showResults) : null;
+      const landslideShow = showResults.length > 1 ? pickLandslideWinner(showResults, episodeRange.showName) : null;
 
       if (!showResults || showResults.length === 0) {
         console.log(`[Timer] No show found for "${episodeRange.showName}", continuing without duration`);
@@ -428,8 +432,8 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
       // they were ranked against different candidate pools. If exactly
       // one type has a landslide winner and the other types have no
       // results at all, auto-select it without merging/showing a picker.
-      const movieLandslide = movieResults.length > 1 ? pickLandslideWinner(movieResults) : (movieResults.length === 1 ? movieResults[0] : null);
-      const tvLandslide = tvResults.length > 1 ? pickLandslideWinner(tvResults) : (tvResults.length === 1 ? tvResults[0] : null);
+      const movieLandslide = movieResults.length > 1 ? pickLandslideWinner(movieResults, label) : (movieResults.length === 1 ? movieResults[0] : null);
+      const tvLandslide = tvResults.length > 1 ? pickLandslideWinner(tvResults, label) : (tvResults.length === 1 ? tvResults[0] : null);
       const otherTypesEmpty = {
         movie: tvResults.length === 0 && (boardGameResults || []).length === 0,
         tv: movieResults.length === 0 && (boardGameResults || []).length === 0,
@@ -479,7 +483,11 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
           // resolveEpisodeRangeDuration.
           console.log(`[Timer] TV match "${result.name || result.title}" has no episode range — leaving duration unset`);
           runtime = null;
-          noRuntimeFound = true;
+          // The title WAS identified — there's just no reliable duration for
+          // it. Distinct from "nothing matched", which offers a correction
+          // screen; re-asking about a title we successfully matched would be
+          // the exact friction this whole flow is trying to remove.
+          matchedWithoutDuration = true;
         } else {
           const details = await getBoardGameDetails(result.id);
           runtime = details?.playingTime ? parseInt(details.playingTime, 10) : null;
@@ -595,9 +603,22 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
 
     const capNote = guildConfig?.maxTimerDurationUnlimited === true
       ? 'this timer will run until manually stopped (`/timer stop`), unless you set a duration.'
-      : `this timer will auto-stop after ${guildConfig?.maxTimerDurationMinutes || 360} minutes (the server default) with a warning about an hour before, unless you set a duration.`;
+      : `this timer will auto-stop after ${guildConfig?.maxTimerDurationMinutes || 360} minutes (the server default) with a warning before it ends, unless you set a duration.`;
     await interaction.followUp({
       content: `⚠️ Couldn't find a runtime for "${label}" — ${capNote}`,
+      ephemeral: true,
+    });
+  } else if (matchedWithoutDuration && !duration) {
+    // Matched, but a TV show's single-episode runtime says nothing about how
+    // long tonight's party is, so no duration was set. Say why, and how to
+    // get one, rather than leaving it a mystery.
+    const capNote = guildConfig?.maxTimerDurationUnlimited === true
+      ? 'It will run until someone stops it.'
+      : `It will auto-stop after ${guildConfig?.maxTimerDurationMinutes || 360} minutes (the server default), with a warning before it ends.`;
+    await interaction.followUp({
+      content:
+        `📺 Started **${label}** without a duration — episode counts vary, so guessing one would likely cut the party short. ` +
+        `${capNote}\n\nFor an exact duration, include the episodes (e.g. \`/timer start tv:"${label} S1: E1-E3"\`) or set one with \`/timer adjust\`.`,
       ephemeral: true,
     });
   }
@@ -763,6 +784,7 @@ export async function execute(interaction) {
     let wasAutoDetected = false; // set when label came from a watch-party channel's scheduled event, not typed
     let detectedRange = null; // episode range read off the scheduled event (name and/or description)
     let explicitMedia = null; // what an explicit movie:/tv: option resolved to, for the watch log
+    let explicitMatchedWithoutDuration = false; // tv: matched a show, but a show has no single runtime
     const autoDetectMode = getAutoDetectMode(guildConfig);
 
     // At most one of label/movie/tv may be given — each is a different way
@@ -833,7 +855,7 @@ export async function execute(interaction) {
           console.log(`[Timer] Detected episode range in tv option "${query}": S${explicitRange.season} E${explicitRange.episodeStart}-E${explicitRange.episodeEnd} (show: "${explicitRange.showName}")`);
           try {
             const showResults = await hybridSearch(explicitRange.showName, searchTVShows, 'tv', getTVAlternativeTitles);
-            const landslideShow = showResults.length > 1 ? pickLandslideWinner(showResults) : null;
+            const landslideShow = showResults.length > 1 ? pickLandslideWinner(showResults, explicitRange.showName) : null;
 
             if (!showResults || showResults.length === 0) {
               console.log(`[Timer] No show found for "${explicitRange.showName}", continuing without duration`);
@@ -917,7 +939,7 @@ export async function execute(interaction) {
 
         try {
           const results = await hybridSearch(query, searchFn, explicitType, altTitlesFn);
-          const landslideWinner = results.length > 1 ? pickLandslideWinner(results) : null;
+          const landslideWinner = results.length > 1 ? pickLandslideWinner(results, query) : null;
 
           if (!results || results.length === 0) {
             console.log(`[Timer] No ${explicitType} found for "${query}", continuing without duration`);
@@ -941,7 +963,7 @@ export async function execute(interaction) {
               // so — `tv:"Severance S2: E1-E3"` takes the range path above.
               console.log(`[Timer] TV match "${label}" has no episode range — leaving duration unset`);
               runtime = null;
-              noRuntimeFound = true;
+              explicitMatchedWithoutDuration = true;
             }
 
             if (runtime && runtime > 0) {
@@ -1013,9 +1035,19 @@ export async function execute(interaction) {
       if (noRuntimeFound && !duration) {
         const capNote = guildConfig?.maxTimerDurationUnlimited === true
           ? 'this timer will run until manually stopped (`/timer stop`), unless you set a duration.'
-          : `this timer will auto-stop after ${guildConfig?.maxTimerDurationMinutes || 360} minutes (the server default) with a warning about an hour before, unless you set a duration.`;
+          : `this timer will auto-stop after ${guildConfig?.maxTimerDurationMinutes || 360} minutes (the server default) with a warning before it ends, unless you set a duration.`;
         await interaction.followUp({
           content: `⚠️ Couldn't find a runtime for "${label}" — ${capNote}`,
+          ephemeral: true,
+        });
+      } else if (explicitMatchedWithoutDuration && !duration) {
+        const capNote = guildConfig?.maxTimerDurationUnlimited === true
+          ? 'It will run until someone stops it.'
+          : `It will auto-stop after ${guildConfig?.maxTimerDurationMinutes || 360} minutes (the server default), with a warning before it ends.`;
+        await interaction.followUp({
+          content:
+            `📺 Started **${label}** without a duration — episode counts vary, so guessing one would likely cut the party short. ` +
+            `${capNote}\n\nFor an exact duration, include the episodes (e.g. \`/timer start tv:"${label} S1: E1-E3"\`) or set one with \`/timer adjust\`.`,
           ephemeral: true,
         });
       }

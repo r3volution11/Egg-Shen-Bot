@@ -173,6 +173,22 @@ describe('single-result auto-duration', () => {
     expect(status.isFallbackDuration).toBe(true); // so it still gets warned
   });
 
+  test('a matched TV show explains why it has no duration, without claiming it was not found', async () => {
+    // "Couldn't find a runtime" would be wrong here — the show WAS matched.
+    mockSearchTVShows.mockResolvedValue([{ id: 2316, name: 'The Office', first_air_date: '2005-03-24' }]);
+    mockGetTVShowDetails.mockResolvedValue({ episode_run_time: [22] });
+
+    const interaction = makeInteraction({ label: 'The Office' });
+    await runExecute(interaction);
+
+    const followUps = interaction.followUp.mock.calls.map(c => c[0].content).filter(Boolean);
+    const note = followUps.find(c => c.includes('without a duration'));
+    expect(note).toBeDefined();
+    expect(note).toContain('episode counts vary');
+    expect(note).toContain('/timer adjust');
+    expect(followUps.join(' ')).not.toContain("Couldn't find");
+  });
+
   test('a single board game match uses parseInt(playingTime) + 10', async () => {
     mockSearchBoardGames.mockResolvedValue([{ id: 13, name: 'Catan' }]);
     mockGetBoardGameDetails.mockResolvedValue({ playingTime: '90' });
