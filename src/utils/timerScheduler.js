@@ -14,7 +14,28 @@ import * as logger from './logger.js';
 let client = null;
 let schedulerInterval = null;
 const CHECK_INTERVAL = 60 * 1000; // Check every 1 minute
-const WARNING_WINDOW_MS = 60 * 60 * 1000; // Warn when <= 1 hour remains
+const MAX_WARNING_WINDOW_MS = 60 * 60 * 1000; // Never warn more than 1 hour out
+const MIN_WARNING_WINDOW_MS = 10 * 60 * 1000; // ...nor less than 10 minutes
+const WARNING_WINDOW_FRACTION = 0.15; // Otherwise, the last ~15% of the timer
+
+/**
+ * How far ahead of a timer's end to warn, scaled to its length.
+ *
+ * A fixed 1-hour window misfires on short timers: extending a timer by an
+ * hour would put it instantly inside the window and warn immediately, which
+ * is why extending used to clear isFallbackDuration to suppress it. Scaling
+ * removes that need — a 1-hour extension now warns with ~10 minutes left, so
+ * the flag can survive and the timer keeps getting warned every time.
+ *
+ * 6h → 54m notice · 2h → 18m · 1h → 10m (floored) · 20m → 10m (floored)
+ *
+ * @param {number} durationMinutes
+ * @returns {number} milliseconds before endTime to warn
+ */
+export function warningWindowMs(durationMinutes) {
+  const scaled = durationMinutes * 60 * 1000 * WARNING_WINDOW_FRACTION;
+  return Math.min(MAX_WARNING_WINDOW_MS, Math.max(MIN_WARNING_WINDOW_MS, scaled));
+}
 
 // Track which channels have already been warned for their current endTime,
 // so we don't re-post every minute within the warning window.
@@ -37,7 +58,7 @@ export function initialize(discordClient) {
   console.log('✓ Timer scheduler initialized');
   logger.info(logger.LogCategory.SCHEDULER, 'Timer scheduler initialized', {
     checkInterval: `${CHECK_INTERVAL / 1000}s`,
-    warningWindow: `${WARNING_WINDOW_MS / 60000}m`,
+    warningWindow: `${MIN_WARNING_WINDOW_MS / 60000}m–${MAX_WARNING_WINDOW_MS / 60000}m (scaled to timer length)`,
   });
 }
 
@@ -94,7 +115,7 @@ async function checkTimerExpirations() {
         continue;
       }
 
-      if (remainingMs > WARNING_WINDOW_MS) {
+      if (remainingMs > warningWindowMs(timer.duration)) {
         // Not within the warning window yet. If a stale warning exists for
         // an older endTime (e.g. timer was extended past the window again),
         // clear it so a fresh warning can fire once it re-enters the window.

@@ -1048,7 +1048,8 @@ export async function execute(interaction) {
           result.username,
           interaction.user.username,
           channelId,
-          result.userId
+          result.userId,
+          result
         );
       } else {
         // Timer without label - show button to manually log
@@ -1073,7 +1074,7 @@ export async function execute(interaction) {
               inline: true,
             }
           )
-          .setFooter({ text: 'Use the button below to log what you watched • Only timer starter/mods/admins can log' })
+          .setFooter({ text: 'Use the button below to log what you watched • Use /timer pause during breaks instead of stopping' })
           .setTimestamp();
 
         // Add button for manual logging (timer starter/mods/admins only)
@@ -1217,10 +1218,11 @@ export async function execute(interaction) {
         }
       ];
 
-      // Add remaining time if a real duration is set — a fallback duration
-      // (nothing typed, nothing detected) is an internal auto-stop safety
-      // net only, not something the user set or the bot determined, so it's
-      // not shown here even though it's still tracked for auto-stop/warning.
+      // A real duration gets the full remaining/total display. A fallback one
+      // (nothing typed, nothing detected) is a safety net rather than a
+      // runtime, so it's labeled as one — but it IS shown: the timer really
+      // will stop then, and hiding that left people with no idea a deadline
+      // existed until the warning arrived.
       const hasDisplayableDuration = timer.duration && !timer.isFallbackDuration;
       if (hasDisplayableDuration) {
         fields.push({
@@ -1233,6 +1235,14 @@ export async function execute(interaction) {
           value: `${timer.duration} minutes`,
           inline: true,
         });
+      } else if (timer.duration && timer.isFallbackDuration) {
+        fields.push({
+          name: 'Auto-stops in',
+          value: timer.isExpired
+            ? 'Expired (stopping...)'
+            : `${timer.remainingFormatted} (no duration set)`,
+          inline: true,
+        });
       }
 
       const embed = new EmbedBuilder()
@@ -1240,7 +1250,15 @@ export async function execute(interaction) {
         .setTitle(timer.paused ? '⏸️ Timer Paused' : (timer.isExpired ? '⏰ Timer Expired' : '⏱️ Timer Status'))
         .setDescription(timer.label ? `**${timer.label}**` : 'Active timer')
         .addFields(fields)
-        .setFooter({ text: timer.paused ? 'Use /timer resume to continue' : (hasDisplayableDuration ? 'Auto-stop enabled' : 'Use /timer stop to end the timer') })
+        .setFooter({
+          text: timer.paused
+            ? 'Use /timer resume to continue'
+            : (hasDisplayableDuration
+              ? 'Auto-stop enabled'
+              : (timer.duration
+                ? 'Set a real duration with /timer adjust, or turn auto-stop off with /timer autostop disable'
+                : 'Use /timer stop to end the timer')),
+        })
         .setTimestamp(timer.startTime);
 
       await interaction.reply({ embeds: [embed], ephemeral: !isPublic });
@@ -1826,27 +1844,22 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
  * @param {string} stoppedBy - Username who stopped timer
  * @param {string} channelId - Channel ID
  */
-async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, startedBy, stoppedBy, channelId, starterUserId) {
+async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, startedBy, stoppedBy, channelId, starterUserId, timer = null) {
   // Defer reply
   await interaction.deferReply();
-  
+
   try {
-    const { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } = await import('../services/tmdbService.js');
+    const tmdb = await import('../services/tmdbService.js');
     const { saveWatchHistory } = await import('../utils/watchHistoryManager.js');
     const { trackSearch } = await import('../utils/statsTracker.js');
-    
-    // Search for the title
-    const [movieResults, tvResults] = await Promise.all([
-      searchMovies(title),
-      searchTVShows(title),
-    ]);
-    
-    const allResults = [
-      ...(movieResults || []).map(r => ({ ...r, type: 'movie' })),
-      ...(tvResults || []).map(r => ({ ...r, type: 'tv' })),
-    ];
-    
-    if (allResults.length === 0) {
+    const { resolveWatchedTitle, buildWatchLogNotes, buildPauseHint } = await import('../utils/timerWatchLog.js');
+
+    // Prefer the title the start flow already pinned down over re-searching
+    // the label and hoping the first hit is right.
+    const resolved = await resolveWatchedTitle(timer, title, tmdb);
+    const pauseHint = buildPauseHint(timer);
+
+    if (!resolved) {
       // Could not find title - show timer stopped message with manual log button
       const embed = new EmbedBuilder()
         .setColor(0xFF0000)
@@ -1869,9 +1882,9 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
             inline: true,
           }
         )
-        .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log' })
+        .setFooter({ text: `Use the button below to manually log to watch history • ${pauseHint}` })
         .setTimestamp();
-      
+
       // Add button for manual logging (timer starter/mods/admins only)
       const button = new ButtonBuilder()
         .setCustomId(`log_watched_${channelId}_${starterUserId}`)
@@ -1880,29 +1893,25 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
         .setEmoji('📝');
 
       const row = new ActionRowBuilder().addComponents(button);
-      
+
       await interaction.editReply({ embeds: [embed], components: [row] });
       return;
     }
-    
-    // Use the first result
-    const result = allResults[0];
-    const details = result.type === 'movie' 
-      ? await getMovieDetails(result.id)
-      : await getTVShowDetails(result.id);
-    
+
+    const { tmdbId, type, details } = resolved;
     const fullTitle = details.title || details.name;
     const year = details.release_date || details.first_air_date;
     const yearStr = year ? year.split('-')[0] : '';
     const posterPath = details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : null;
-    
-    // Save to watch history
+
+    // One show-level entry per watch party, with the episode range in the
+    // notes — see buildWatchLogNotes for why it isn't one row per episode.
     await saveWatchHistory(interaction.guildId, {
-      tmdbId: result.id,
-      type: result.type,
+      tmdbId,
+      type,
       title: fullTitle,
       year: yearStr,
-      notes: `Watch party timer: ${elapsedTime}`,
+      notes: buildWatchLogNotes(elapsedTime, timer?.episodeRange),
       savedBy: stoppedBy,
       savedById: interaction.user.id,
       watchedAt: Date.now(),
@@ -1933,7 +1942,7 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
         },
         {
           name: 'Type',
-          value: result.type === 'movie' ? 'Movie' : 'TV Show',
+          value: type === 'movie' ? 'Movie' : 'TV Show',
           inline: true,
         },
         {
@@ -1952,7 +1961,7 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
           inline: true,
         }
       )
-      .setFooter({ text: 'Use /watched history to view watch history • Use button to manually log again • Use /timer start to begin a new timer' })
+      .setFooter({ text: `Use /watched history to view watch history • ${pauseHint}` })
       .setTimestamp();
     
     if (posterPath) {
@@ -1995,7 +2004,7 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
           inline: true,
         }
       )
-      .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log' })
+      .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log • Use /timer pause during breaks' })
       .setTimestamp();
     
     // Add button for manual logging (timer starter/mods/admins only)

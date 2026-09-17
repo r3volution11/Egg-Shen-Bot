@@ -58,10 +58,10 @@ describe('timerScheduler', () => {
     expect(mockGetAllTimers).toHaveBeenCalledTimes(1);
   });
 
-  test('sends a warning when a fallback-duration timer has 30 minutes left (inside the 1-hour window)', async () => {
+  test('sends a warning when a fallback-duration timer has 30 minutes left (inside its scaled window)', async () => {
     const client = makeClient();
     mockGetAllTimers.mockReturnValue(makeTimersMap([
-      ['channel-1', { userId: 'user-1', label: 'Movie Night', duration: 120, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true }],
+      ['channel-1', { userId: 'user-1', label: 'Movie Night', duration: 360, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true }],
     ]));
 
     timerScheduler.initialize(client);
@@ -86,6 +86,44 @@ describe('timerScheduler', () => {
     expect(client.channels.fetch).not.toHaveBeenCalled();
   });
 
+  describe('warningWindowMs scales with the timer length', () => {
+    test.each([
+      ['the 6-hour fallback default gets 54 minutes', 360, 54],
+      ['a 2-hour timer gets 18 minutes', 120, 18],
+      ['a 1-hour timer gets the 10-minute floor', 60, 10],
+      ['a 20-minute timer is floored at 10 minutes', 20, 10],
+      ['a 24-hour timer is capped at an hour', 1440, 60],
+    ])('%s', (_label, durationMinutes, expectedMinutes) => {
+      expect(timerScheduler.warningWindowMs(durationMinutes)).toBe(expectedMinutes * 60 * 1000);
+    });
+
+    test('a 1-hour extension does not warn instantly', async () => {
+      // The reason extending used to clear isFallbackDuration: under a fixed
+      // 1-hour window, a timer extended by an hour was immediately inside it.
+      const client = makeClient();
+      mockGetAllTimers.mockReturnValue(makeTimersMap([
+        ['channel-1', { userId: 'user-1', duration: 60, endTime: Date.now() + 59 * 60 * 1000, isFallbackDuration: true }],
+      ]));
+
+      timerScheduler.initialize(client);
+      await jest.advanceTimersByTimeAsync(60 * 1000);
+
+      expect(client.channels.fetch).not.toHaveBeenCalled();
+    });
+
+    test('but it does warn once ~10 minutes remain', async () => {
+      const client = makeClient();
+      mockGetAllTimers.mockReturnValue(makeTimersMap([
+        ['channel-1', { userId: 'user-1', duration: 60, endTime: Date.now() + 9 * 60 * 1000, isFallbackDuration: true }],
+      ]));
+
+      timerScheduler.initialize(client);
+      await jest.advanceTimersByTimeAsync(60 * 1000);
+
+      expect(client.channels.fetch).toHaveBeenCalledWith('channel-1');
+    });
+  });
+
   test('never warns for a timer with a real (non-fallback) duration, no matter how long it runs', async () => {
     const client = makeClient();
     mockGetAllTimers.mockReturnValue(makeTimersMap([
@@ -103,7 +141,7 @@ describe('timerScheduler', () => {
   test('does not warn a second time for a timer already warned within the same window', async () => {
     const client = makeClient();
     mockGetAllTimers.mockReturnValue(makeTimersMap([
-      ['channel-1', { userId: 'user-1', label: 'Movie Night', duration: 120, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true }],
+      ['channel-1', { userId: 'user-1', label: 'Movie Night', duration: 360, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true }],
     ]));
 
     timerScheduler.initialize(client);
@@ -116,7 +154,7 @@ describe('timerScheduler', () => {
   test('does not warn for a paused timer', async () => {
     const client = makeClient();
     mockGetAllTimers.mockReturnValue(makeTimersMap([
-      ['channel-1', { userId: 'user-1', paused: true, duration: 120, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true }],
+      ['channel-1', { userId: 'user-1', paused: true, duration: 360, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true }],
     ]));
 
     timerScheduler.initialize(client);
@@ -151,7 +189,7 @@ describe('timerScheduler', () => {
 
   test('clearWarning allows a fresh warning to fire again after being cleared', async () => {
     const client = makeClient();
-    const timer = { userId: 'user-1', label: 'Movie Night', duration: 120, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true };
+    const timer = { userId: 'user-1', label: 'Movie Night', duration: 360, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true };
     mockGetAllTimers.mockReturnValue(makeTimersMap([['channel-1', timer]]));
 
     timerScheduler.initialize(client);
@@ -166,7 +204,7 @@ describe('timerScheduler', () => {
 
   test('re-entering the warning window after an extension warns again with the new endTime', async () => {
     const client = makeClient();
-    const timer = { userId: 'user-1', label: 'Movie Night', duration: 120, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true };
+    const timer = { userId: 'user-1', label: 'Movie Night', duration: 360, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true };
     mockGetAllTimers.mockReturnValue(makeTimersMap([['channel-1', timer]]));
 
     timerScheduler.initialize(client);
@@ -186,7 +224,7 @@ describe('timerScheduler', () => {
   test('cleans up sentWarnings entries for timers that no longer exist', async () => {
     const client = makeClient();
     mockGetAllTimers.mockReturnValue(makeTimersMap([
-      ['channel-1', { userId: 'user-1', duration: 120, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true }],
+      ['channel-1', { userId: 'user-1', duration: 360, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true }],
     ]));
 
     timerScheduler.initialize(client);
@@ -198,7 +236,7 @@ describe('timerScheduler', () => {
 
     // clearWarning should be a no-op now, but re-adding the same channelId
     // with a fresh endTime should warn again rather than being stuck "already warned".
-    const freshTimer = { userId: 'user-1', duration: 120, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true };
+    const freshTimer = { userId: 'user-1', duration: 360, endTime: Date.now() + 30 * 60 * 1000, isFallbackDuration: true };
     mockGetAllTimers.mockReturnValue(makeTimersMap([['channel-1', freshTimer]]));
     await jest.advanceTimersByTimeAsync(60 * 1000);
 

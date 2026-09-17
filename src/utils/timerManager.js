@@ -92,7 +92,8 @@ async function handleAutoStopFired(channelId, client) {
           result.elapsedFormatted,
           result.username,
           channelId,
-          result.userId
+          result.userId,
+          result
         );
       } else {
         // Timer without label - show button to manually log
@@ -114,7 +115,7 @@ async function handleAutoStopFired(channelId, client) {
               inline: true,
             }
           )
-          .setFooter({ text: 'Use the button below to log what you watched • Only timer starter/mods/admins can log' })
+          .setFooter({ text: 'Use the button below to log what you watched • Use /timer pause during breaks instead of stopping' })
           .setTimestamp();
 
         // Add button for manual logging (timer starter/mods/admins only)
@@ -525,13 +526,20 @@ export function adjustTimerDuration(channelId, newDurationMinutes, client) {
   const newEndTime = timer.startTime + (newDurationMinutes * 60 * 1000);
   const remainingMs = newEndTime - Date.now();
 
-  // Update timer data. Any explicit adjust/extend (whether via /timer adjust,
-  // /timer autostop enable, or the expiry-warning's extend modal) means the
-  // user has now made a real, informed choice about the duration — so this
-  // is no longer a silent fallback, even if it started as one.
+  // Update timer data.
+  //
+  // A timer that never had a real duration KEEPS its fallback flag through an
+  // extension. Extending doesn't tell us how long the movie actually is — the
+  // person is buying more time, not declaring a runtime — so the timer should
+  // keep earning its "about to expire" warning each time it approaches the
+  // new end. (This used to clear the flag, which silenced every warning after
+  // the first. That was a workaround for a fixed 1-hour warning window firing
+  // instantly on a 1-hour extension; the window now scales with the timer's
+  // length, so the workaround isn't needed — see timerScheduler.js.)
+  //
+  // A timer that DID have a real duration stays non-fallback, as before.
   timer.duration = newDurationMinutes;
   timer.endTime = newEndTime;
-  timer.isFallbackDuration = false;
 
   // Set up new auto-stop timeout
   if (client) {
@@ -594,25 +602,20 @@ export function disableTimerAutostop(channelId) {
  * @param {string} startedBy - Username who started timer
  * @param {string} channelId - Channel ID
  */
-async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, startedBy, channelId, starterUserId) {
+async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, startedBy, channelId, starterUserId, timer = null) {
   try {
-    const { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails } = await import('../services/tmdbService.js');
+    const tmdb = await import('../services/tmdbService.js');
     const { saveWatchHistory } = await import('./watchHistoryManager.js');
     const { trackSearch } = await import('./statsTracker.js');
     const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
-    
-    // Search for the title
-    const [movieResults, tvResults] = await Promise.all([
-      searchMovies(title),
-      searchTVShows(title),
-    ]);
-    
-    const allResults = [
-      ...(movieResults || []).map(r => ({ ...r, type: 'movie' })),
-      ...(tvResults || []).map(r => ({ ...r, type: 'tv' })),
-    ];
-    
-    if (allResults.length === 0) {
+    const { resolveWatchedTitle, buildWatchLogNotes, buildPauseHint } = await import('./timerWatchLog.js');
+
+    // Prefer the title the start flow already pinned down over re-searching
+    // the label and hoping the first hit is right.
+    const resolved = await resolveWatchedTitle(timer, title, tmdb);
+    const pauseHint = buildPauseHint(timer);
+
+    if (!resolved) {
       // Could not find title - send simple completion message with manual log button
       const embed = new EmbedBuilder()
         .setColor(0xFF0000)
@@ -630,9 +633,9 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
             inline: true,
           }
         )
-        .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log' })
+        .setFooter({ text: `Use the button below to manually log to watch history • ${pauseHint}` })
         .setTimestamp();
-      
+
       // Add button for manual logging (timer starter/mods/admins only)
       const button = new ButtonBuilder()
         .setCustomId(`log_watched_${channelId}_${starterUserId}`)
@@ -641,29 +644,26 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
         .setEmoji('📝');
 
       const row = new ActionRowBuilder().addComponents(button);
-      
+
       await channel.send({ embeds: [embed], components: [row] });
       return;
     }
-    
-    // Use the first result
-    const result = allResults[0];
-    const details = result.type === 'movie' 
-      ? await getMovieDetails(result.id)
-      : await getTVShowDetails(result.id);
-    
+
+    const { tmdbId, type, details } = resolved;
     const fullTitle = details.title || details.name;
     const year = details.release_date || details.first_air_date;
     const yearStr = year ? year.split('-')[0] : '';
     const posterPath = details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : null;
-    
-    // Save to watch history (use bot as the saver since this is automatic)
+
+    // One show-level entry per watch party, with the episode range in the
+    // notes — watch history has no season/episode concept, and a row per
+    // episode would bury everything else in /watched history.
     await saveWatchHistory(channel.guild.id, {
-      tmdbId: result.id,
-      type: result.type,
+      tmdbId,
+      type,
       title: fullTitle,
       year: yearStr,
-      notes: `Watch party timer: ${elapsedTime} (auto-completed)`,
+      notes: buildWatchLogNotes(elapsedTime, timer?.episodeRange, ' (auto-completed)'),
       savedBy: 'Egg Shen Bot',
       savedById: client.user.id,
       watchedAt: Date.now(),
@@ -697,7 +697,7 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
         },
         {
           name: 'Type',
-          value: result.type === 'movie' ? 'Movie' : 'TV Show',
+          value: type === 'movie' ? 'Movie' : 'TV Show',
           inline: true,
         },
         {
@@ -711,7 +711,7 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
           inline: true,
         }
       )
-      .setFooter({ text: 'Use /watched history to view watch history • Use button to manually log again • Use /timer start to begin a new timer' })
+      .setFooter({ text: `Use /watched history to view watch history • ${pauseHint}` })
       .setTimestamp();
     
     if (posterPath) {
@@ -751,7 +751,7 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
           inline: true,
         }
       )
-      .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log' })
+      .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log • Use /timer pause during breaks' })
       .setTimestamp();
     
     // Add button for manual logging (timer starter/mods/admins only)

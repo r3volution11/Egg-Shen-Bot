@@ -147,19 +147,27 @@ describe('/timer start — fallback duration is never shown in the "Timer Starte
   });
 });
 
-describe('/timer status — fallback duration is never shown', () => {
-  test('a fallback-duration timer shows no Remaining Time / Total Duration fields', async () => {
+describe('/timer status — a fallback duration reads as a safety net, not a runtime', () => {
+  test('a fallback-duration timer shows when it will auto-stop, labeled as unset', async () => {
+    // It used to show nothing at all, which left people unaware a deadline
+    // existed until the warning fired. It still must not masquerade as a
+    // real "Remaining Time / Total Duration" the way a detected runtime does.
     startTimer('channel-1', 'user-1', 'tester', '', 360, null, true);
 
     const interaction = makeStatusInteraction();
     await execute(interaction);
 
     const embed = interaction.reply.mock.calls[0][0].embeds[0];
-    const fieldNames = (embed.data.fields || []).map(f => f.name);
+    const fields = embed.data.fields || [];
+    const fieldNames = fields.map(f => f.name);
 
     expect(fieldNames).not.toContain('Remaining Time');
     expect(fieldNames).not.toContain('Total Duration');
-    expect(embed.data.footer.text).toBe('Use /timer stop to end the timer');
+
+    const autoStop = fields.find(f => f.name === 'Auto-stops in');
+    expect(autoStop).toBeDefined();
+    expect(autoStop.value).toContain('no duration set');
+    expect(embed.data.footer.text).toContain('/timer adjust');
   });
 
   test('a real duration (not a fallback) still shows Remaining Time / Total Duration', async () => {
