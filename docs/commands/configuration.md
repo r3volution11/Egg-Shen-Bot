@@ -275,6 +275,24 @@ Removes a channel from watch party auto-detection.
 
 Shows all configured watch party channels.
 
+#### Watch Party Auto-Detect
+
+```
+/eggshen-config-watch-party watch-party auto-detect mode:<ask|full|off>
+```
+
+Controls how much `/timer start` does on its own with a watch-party channel's active scheduled event.
+
+| Mode | Behavior |
+|------|----------|
+| **`ask`** *(default)* | Looks the title up. When it's identified confidently — a single match, an exact title match, or an episode range it can resolve — the duration is set and the timer just starts. When it's ambiguous, offers two buttons: **▶️ Start Now** or **🔎 Look Up Title**. |
+| **`full`** | Same, but an ambiguous title goes straight to the full list of matches. **▶️ Start Timer Without Title Selection** is always its first option. |
+| **`off`** | Scheduled events are ignored entirely; `/timer start` needs a `label`. |
+
+The setting governs what the bot does *unprompted*. A label you type yourself with `label:`/`movie:`/`tv:` always gets the full search, in every mode.
+
+`ask` exists because a watch party shouldn't begin with a quiz. Most of the time the lookup succeeds silently and you get a correct duration for free; when it can't, one click starts the timer anyway.
+
 ---
 
 ### Rate Limit Group
