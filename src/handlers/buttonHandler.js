@@ -2,7 +2,7 @@
  * Handle button interactions with comprehensive error handling
  */
 import * as logger from '../utils/logger.js';
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } from '../utils/eventRequestApproval.js';
@@ -855,6 +855,8 @@ export async function handleButtonInteraction(interaction) {
  * Sends user a personal voting dashboard with all open groups
  */
 async function handleStartGroupVoting(interaction) {
+  if (!await ensureTournamentManager(interaction, 'start group voting')) return;
+
   const groupIdsStr = interaction.customId.replace('start_group_voting_', '');
   const groupIds = groupIdsStr.split(',');
   
@@ -1282,6 +1284,8 @@ async function handleKnockoutVote(interaction) {
  * Handle "Start Voting" button click - sends personal voting dashboard to user
  */
 async function handleStartKnockoutVoting(interaction) {
+  if (!await ensureTournamentManager(interaction, 'start knockout voting')) return;
+
   // Extract round from customId (e.g., 'start_knockout_voting_round_of_32' -> 'round_of_32')
   const round = interaction.customId.replace('start_knockout_voting_', '');
   
@@ -1415,9 +1419,42 @@ async function handleStartKnockoutVoting(interaction) {
 }
 
 /**
+ * Gate a tournament-management button behind the same admin/mod check its
+ * slash command uses.
+ *
+ * `/bracket open-matchup` and `/bracket close-matchup` are both in the
+ * requiresAdmin list in commands/bracket.js, but the selector they post is a
+ * PUBLIC message (deferReply with no ephemeral flag) — so without this,
+ * anyone in the channel could click those buttons and open or close
+ * matchups, including closing one early to settle a result they liked.
+ * Discord gives every viewer the same buttons; only the handler can tell
+ * who actually pressed one.
+ *
+ * @param {import('discord.js').Interaction} interaction
+ * @param {string} action - what they tried to do, for the refusal message
+ * @returns {Promise<boolean>} true when the click may proceed
+ */
+async function ensureTournamentManager(interaction, action) {
+  const member = interaction.member;
+  const allowed = isAdmin(member)
+    || member?.permissions?.has?.(PermissionFlagsBits.Administrator)
+    || member?.permissions?.has?.(PermissionFlagsBits.ModerateMembers);
+
+  if (allowed) return true;
+
+  await interaction.followUp({
+    content: `❌ Only administrators and moderators can ${action}.`,
+    flags: MessageFlags.Ephemeral,
+  });
+  return false;
+}
+
+/**
  * Handle open matchup button clicks from interactive selector
  */
 async function handleOpenMatchupButton(interaction) {
+  if (!await ensureTournamentManager(interaction, 'open matchups for voting')) return;
+
   // Parse button customId: open_matchup_{matchupId}_{durationMs}
   const [, , matchupId, durationMs] = interaction.customId.split('_');
   
@@ -1572,6 +1609,8 @@ async function handleOpenMatchupButton(interaction) {
  * Handle close matchup button clicks from interactive selector
  */
 async function handleCloseMatchupButton(interaction) {
+  if (!await ensureTournamentManager(interaction, 'close matchups')) return;
+
   // Parse button customId: close_matchup_{matchupId}
   const [, , matchupId] = interaction.customId.split('_');
   
@@ -1695,6 +1734,8 @@ async function handleCloseMatchupButton(interaction) {
  * Handle open region button clicks from interactive selector
  */
 async function handleOpenRegionButton(interaction) {
+  if (!await ensureTournamentManager(interaction, 'open matchups for voting')) return;
+
   // Parse button customId: open_region_{region}_{durationMs}
   const [, , region, durationMs] = interaction.customId.split('_');
   const regionNum = parseInt(region);
