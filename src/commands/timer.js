@@ -1865,11 +1865,19 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
 
       let message = await channel.send({ embeds: [buildCountdownEmbed(countdownSteps[0])] });
 
-      // From 3 onward, each tick ALSO posts its own message. Discord never
-      // notifies on an edit, so a countdown that only edits in place is
-      // invisible to anyone not already looking at the channel — which is
-      // exactly how people were missing that a party had started.
+      // From 3 onward the countdown is also spoken aloud in the channel,
+      // because Discord never notifies on an edit — a countdown that only
+      // animates the card in place is invisible to anyone not already
+      // looking, which is how people were missing that a party had started.
+      //
+      // The ticks accumulate into ONE message rather than posting separately,
+      // the way the classic theme does. A message per number repeats the
+      // bot's author header above every single one, so three numbers cost six
+      // lines of channel; appending to one message keeps the header once and
+      // stacks the numbers under it.
       const AUDIBLE_FROM = 3;
+      let tickerMessage = null;
+      const tickLines = [];
 
       for (let i = 1; i < countdownSteps.length; i++) {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1877,13 +1885,26 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         await message.edit({ embeds: [buildCountdownEmbed(step)] });
 
         if (step.num <= AUDIBLE_FROM) {
-          // ### rather than # — these post as their own messages, where a
-          // full h1 dwarfed the countdown card it was meant to accompany.
-          await channel.send({ content: `### ${step.emoji} ${step.num}` }).catch(() => {});
+          tickLines.push(`${step.emoji} **${step.num}**`);
+          const content = tickLines.join('\n');
+
+          try {
+            // The first tick posts (and notifies); the rest grow it in place.
+            tickerMessage = tickerMessage
+              ? await tickerMessage.edit({ content })
+              : await channel.send({ content });
+          } catch (error) {
+            // A failed tick must never stop the countdown.
+          }
         }
       }
 
       await new Promise(resolve => setTimeout(resolve, 1000));
+
+      if (tickerMessage) {
+        tickLines.push('🎬 **GO!**');
+        await tickerMessage.edit({ content: tickLines.join('\n') }).catch(() => {});
+      }
 
       const goEmbed = new EmbedBuilder()
         .setColor(0x00FF00)

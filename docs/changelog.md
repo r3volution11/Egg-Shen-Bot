@@ -5,6 +5,11 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.34.3 - 2026-09-18
+
+### Changed
+- **The spoken countdown now stacks into one message instead of posting three.** Each number was its own message, and Discord repeats the bot's author header above every one — so three numbers cost six lines of channel, with "[App] Egg Shen Bot" appearing three times. The classic theme never had this problem because it appends to a single message, and this now does the same: the countdown posts once at "3" (which is what notifies the channel) and then grows in place for "2", "1" and "GO". Same audible countdown, a third of the vertical space, and two fewer messages nudging your scroll position
+
 ## 2.34.2 - 2026-09-18
 
 ### Changed

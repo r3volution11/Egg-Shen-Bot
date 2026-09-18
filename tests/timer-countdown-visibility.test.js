@@ -75,7 +75,8 @@ afterEach(() => {
 });
 
 function makeInteraction() {
-  const message = { edit: jest.fn().mockResolvedValue(undefined) };
+  const message = {};
+  message.edit = jest.fn().mockResolvedValue(message);
   return {
     channelId: 'channel-1',
     guildId: 'guild-1',
@@ -101,34 +102,70 @@ function sends(interaction) {
   return interaction.channel.send.mock.calls.map(c => c[0]);
 }
 
+/**
+ * The spoken countdown's final text.
+ *
+ * It posts once at "3" and then edits itself for each later tick, so the
+ * last content it was given is what the channel ends up showing.
+ */
+function finalTickerContent(interaction) {
+  const edits = interaction._message.edit.mock.calls
+    .map(c => c[0]?.content)
+    .filter(Boolean);
+  if (edits.length) return edits.at(-1);
+
+  const posted = sends(interaction).filter(s => s?.content && !s.embeds);
+  return posted.at(-1)?.content || '';
+}
+
 describe('the countdown produces real notifications', () => {
-  test('posts new messages for the final seconds, not just edits', async () => {
+  test('speaks the countdown as a real message, so the channel notifies', async () => {
     const interaction = makeInteraction();
     await runCountdown(interaction);
 
-    const contents = sends(interaction)
-      .map(s => (typeof s === 'string' ? s : s.content))
-      .filter(Boolean);
+    // A genuinely new message (not an edit of the card) is what notifies —
+    // it appears at "3" and then grows for "2" and "1".
+    const posted = sends(interaction).filter(s => s?.content && !s.embeds);
+    expect(posted).toHaveLength(1);
+    expect(posted[0].content).toContain('3');
 
-    // 3, 2 and 1 each get their own message so the channel actually pings.
-    expect(contents.some(c => c.includes('3'))).toBe(true);
-    expect(contents.some(c => c.includes('2'))).toBe(true);
-    expect(contents.some(c => c.includes('1'))).toBe(true);
+    const ticker = finalTickerContent(interaction);
+    expect(ticker).toContain('3');
+    expect(ticker).toContain('2');
+    expect(ticker).toContain('1');
   });
 
   test('counts down red → yellow → green, like a starting light', async () => {
     const interaction = makeInteraction();
     await runCountdown(interaction);
 
-    const countdownPosts = sends(interaction)
-      .map(s => (typeof s === 'string' ? s : s.content))
-      .filter(c => c && /### /.test(c));
+    const ticker = finalTickerContent(interaction);
 
-    const emojiFor = n => countdownPosts.find(c => c.endsWith(` ${n}`));
+    expect(ticker).toContain('🔴 **3**');
+    expect(ticker).toContain('🟡 **2**');
+    expect(ticker).toContain('🟢 **1**');
+  });
 
-    expect(emojiFor(3)).toContain('🔴');
-    expect(emojiFor(2)).toContain('🟡');
-    expect(emojiFor(1)).toContain('🟢');
+  test('stacks the ticks into one message instead of one per number', async () => {
+    // A separate message per number repeats the bot's author header above
+    // each one, so three numbers cost six lines of channel. The classic
+    // theme appends to a single message; this matches it.
+    const interaction = makeInteraction();
+    await runCountdown(interaction);
+
+    const contentOnlySends = sends(interaction).filter(s => s?.content && !s.embeds);
+    expect(contentOnlySends).toHaveLength(1);
+
+    // …and that one message ends up holding every tick.
+    const ticker = finalTickerContent(interaction);
+    expect(ticker.split('\n').length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('the ticker ends on GO', async () => {
+    const interaction = makeInteraction();
+    await runCountdown(interaction);
+
+    expect(finalTickerContent(interaction)).toContain('GO!');
   });
 
   test('the card, its emoji and its blocks agree at every step', async () => {
@@ -145,7 +182,9 @@ describe('the countdown produces real notifications', () => {
     // The first card is sent; the rest are edits of it.
     const cards = [
       interaction.channel.send.mock.calls[0][0].embeds[0],
-      ...interaction._message.edit.mock.calls.map(c => c[0].embeds[0]),
+      ...interaction._message.edit.mock.calls
+        .map(c => c[0].embeds?.[0])
+        .filter(Boolean),
     ];
 
     const cardFor = n =>
@@ -173,19 +212,12 @@ describe('the countdown produces real notifications', () => {
     expect(first.data.title).toContain('🔴');
   });
 
-  test('uses a modest heading, not a full-size one', async () => {
-    // A full h1 per second dwarfed the countdown card it accompanies.
+  test('keeps the ticks compact — no oversized headings', async () => {
+    // A heading per number dwarfed the countdown card it accompanies.
     const interaction = makeInteraction();
     await runCountdown(interaction);
 
-    const countdownPosts = sends(interaction)
-      .map(s => (typeof s === 'string' ? s : s.content))
-      .filter(c => c && /^#+ /.test(c));
-
-    expect(countdownPosts.length).toBeGreaterThan(0);
-    for (const post of countdownPosts) {
-      expect(post.startsWith('### ')).toBe(true);
-    }
+    expect(finalTickerContent(interaction)).not.toMatch(/^#+ /m);
   });
 
   test('still animates the countdown card in place', async () => {
