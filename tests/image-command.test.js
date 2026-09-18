@@ -16,6 +16,7 @@
 import { describe, test, expect, jest, beforeAll, beforeEach } from '@jest/globals';
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
+  getPosterUrl: jest.fn(() => null),
   searchMovies: jest.fn().mockResolvedValue([]),
   searchTVShows: jest.fn().mockResolvedValue([]),
 }));

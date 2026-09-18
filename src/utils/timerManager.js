@@ -127,7 +127,14 @@ async function handleAutoStopFired(channelId, client) {
 
         const row = new ActionRowBuilder().addComponents(button);
 
-        await channel.send({ embeds: [embed], components: [row] });
+        // Mention the starter in the content — a timer that auto-stops
+        // does so when nobody is necessarily watching the channel, and a
+        // mention inside an embed never pings.
+        await channel.send({
+          content: `⏰ <@${result.userId}> your watch party timer has finished.`,
+          embeds: [embed],
+          components: [row],
+        });
       }
     }
   } catch (error) {
@@ -645,7 +652,14 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
 
       const row = new ActionRowBuilder().addComponents(button);
 
-      await channel.send({ embeds: [embed], components: [row] });
+      // Mention the starter in the content — a timer that auto-stops
+      // does so when nobody is necessarily watching the channel, and a
+      // mention inside an embed never pings.
+      await channel.send({
+        content: `⏰ <@${starterUserId}> your watch party timer has finished.`,
+        embeds: [embed],
+        components: [row],
+      });
       return;
     }
 
@@ -727,7 +741,14 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
 
     const row = new ActionRowBuilder().addComponents(button);
     
-    await channel.send({ embeds: [embed], components: [row] });
+    // Mention the starter in the content — a timer that auto-stops
+    // does so when nobody is necessarily watching the channel, and a
+    // mention inside an embed never pings.
+    await channel.send({
+      content: `⏰ <@${starterUserId}> your watch party timer has finished.`,
+      embeds: [embed],
+      components: [row],
+    });
     
   } catch (error) {
     console.error('[Timer] Error auto-logging to watch history:', error);
@@ -763,6 +784,13 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
 
     const row = new ActionRowBuilder().addComponents(button);
     
-    await channel.send({ embeds: [embed], components: [row] });
+    // Mention the starter in the content — a timer that auto-stops
+    // does so when nobody is necessarily watching the channel, and a
+    // mention inside an embed never pings.
+    await channel.send({
+      content: `⏰ <@${starterUserId}> your watch party timer has finished.`,
+      embeds: [embed],
+      components: [row],
+    });
   }
 }

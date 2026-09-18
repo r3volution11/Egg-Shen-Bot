@@ -16,6 +16,7 @@ const mockCreateSearchResults = jest.fn().mockResolvedValue({ embeds: [{ title: 
 const mockPickLandslideWinner = jest.fn();
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
+  getPosterUrl: jest.fn(() => null),
   searchMovies: jest.fn(),
   getMovieAlternativeTitles: jest.fn().mockResolvedValue([]),
   getMovieAlternativeTitlesDetailed: jest.fn().mockResolvedValue([]),

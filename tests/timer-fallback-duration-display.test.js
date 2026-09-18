@@ -18,6 +18,7 @@ import fs from 'fs';
 import path from 'path';
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
+  getPosterUrl: jest.fn(() => null),
   searchMovies: jest.fn().mockResolvedValue([]),
   searchTVShows: jest.fn().mockResolvedValue([]),
   getMovieDetails: jest.fn(),
@@ -102,7 +103,20 @@ async function runStart(interaction) {
   const promise = execute(interaction);
   await jest.advanceTimersByTimeAsync(15000);
   await promise;
-  return interaction.channel.send.mock.results[0]?.value;
+  return interaction;
+}
+
+/**
+ * The "Timer Started" embed.
+ *
+ * It is posted as its OWN message rather than as a final edit of the
+ * countdown, because Discord never notifies on an edit — a start that only
+ * edited in place was invisible to anyone not already watching the channel.
+ */
+function startedEmbed(interaction) {
+  const sends = interaction.channel.send.mock.calls;
+  const withEmbed = sends.filter(c => c[0]?.embeds?.length);
+  return withEmbed.at(-1)[0].embeds[0];
 }
 
 function makeStatusInteraction() {
@@ -119,10 +133,9 @@ function makeStatusInteraction() {
 describe('/timer start — fallback duration is never shown in the "Timer Started" embed', () => {
   test('no label at all: no Duration field, footer says "Use /timer stop"', async () => {
     const interaction = makeStartInteraction({});
-    const message = await runStart(interaction);
+    await runStart(interaction);
 
-    const finalCall = message.edit.mock.calls.at(-1)[0];
-    const embed = finalCall.embeds[0];
+    const embed = startedEmbed(interaction);
     const fieldNames = (embed.data.fields || []).map(f => f.name);
 
     expect(fieldNames).not.toContain('Duration');
@@ -135,10 +148,9 @@ describe('/timer start — fallback duration is never shown in the "Timer Starte
 
   test('a manually-typed duration IS shown normally', async () => {
     const interaction = makeStartInteraction({ duration: 45 });
-    const message = await runStart(interaction);
+    await runStart(interaction);
 
-    const finalCall = message.edit.mock.calls.at(-1)[0];
-    const embed = finalCall.embeds[0];
+    const embed = startedEmbed(interaction);
     const durationField = (embed.data.fields || []).find(f => f.name === 'Duration');
 
     expect(durationField).toBeDefined();

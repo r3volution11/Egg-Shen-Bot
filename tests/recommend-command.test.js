@@ -26,6 +26,7 @@ const mockTrackSearch = jest.fn();
 const mockCanUseCommand = jest.fn();
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
+  getPosterUrl: jest.fn(() => null),
   getGenres: mockGetGenres,
   searchPeople: mockSearchPeople,
   getPersonById: mockGetPersonById,

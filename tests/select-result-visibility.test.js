@@ -28,6 +28,7 @@ const mockGetUnifiedMovieWatchProviders = jest.fn();
 const mockGetUnifiedTVWatchProviders = jest.fn();
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
+  getPosterUrl: jest.fn(() => null),
   getMovieDetails: mockGetMovieDetails,
   getTVShowDetails: mockGetTVShowDetails,
   getUnifiedMovieWatchProviders: mockGetUnifiedMovieWatchProviders,

@@ -18,6 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `src/api/server.js`: the initial moderation embed attaches the uploaded file directly (`AttachmentBuilder` + `embed.setThumbnail('attachment://...')`) or references a pasted URL's thumbnail directly (already public, no attachment needed); the crop-save embed-refresh path re-attaches the freshly-cropped image the same way
 - New tests pinning the original bug (`tests/eventRequestApproval.test.js`: "a non-JPEG uploaded image is not mislabeled as image/jpg") and the new thumbnail behavior (`tests/event-request-system.test.js`, both the pasted-URL and uploaded-file cases)
 
+## 2.34.0 - 2026-09-17
+
+### Changed
+- **The watch-party countdown is now something you can actually miss less easily.** The entire timer lifecycle — all five countdown steps, GO, and "Timer Started" — happened inside a single message that was edited seven times. Discord only notifies on *new* messages and never on edits, so unless someone was already looking at the channel during those six seconds there was no signal at all; people routinely missed both that a party had started and that it had finished. The card still animates in place (that's the point of it), but the final seconds now each post their own message, so the countdown is audible from 3
+- **"Timer Started" is its own message and mentions whoever started it.** It was the last edit in the chain, which made the single most important moment the least noticeable one. It now posts fresh, with the starter mentioned in the message content — a mention inside an embed never pings anyone, which is why the existing "Started by" field never helped
+- **Timer cards show poster art.** The countdown carries the poster as a thumbnail and the "Now Playing" card shows it full width, using the TMDB id the timer already stores. Embeds size themselves to their widest line, so a short title rendered as a cramped little box; the poster plus a full-width rule gives the card real presence. Entirely decorative — a poster lookup that fails or is unavailable leaves the countdown exactly as it was
+- **Timer completion messages now mention the starter too.** A timer that auto-stops does so precisely when nobody is necessarily watching the channel
+
+### Developer
+- New `tests/timer-countdown-visibility.test.js` (10 tests) pinning the behavior that matters: real messages for the final seconds, the start announced as its own message, the mention in content rather than in an embed, and poster art degrading safely when TMDB is unavailable. Suite: 94 files, 1233 tests
+
 ## 2.33.0 - 2026-09-17
 
 ### Added

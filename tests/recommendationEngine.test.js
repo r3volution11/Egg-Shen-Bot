@@ -16,6 +16,7 @@ const mockGetSimilarMovies = jest.fn();
 const mockGetSimilarTV = jest.fn();
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
+  getPosterUrl: jest.fn(() => null),
   getSimilarMovies: mockGetSimilarMovies,
   getSimilarTV: mockGetSimilarTV,
 }));

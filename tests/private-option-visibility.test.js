@@ -19,6 +19,7 @@ const mockGetMovieDetails = jest.fn();
 const mockGetMovieAlternativeTitlesDetailed = jest.fn();
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
+  getPosterUrl: jest.fn(() => null),
   searchMovies: jest.fn().mockResolvedValue([{ id: 1, title: 'The Thing', release_date: '1982-06-25' }]),
   getMovieAlternativeTitles: jest.fn().mockResolvedValue([]),
   getMovieAlternativeTitlesDetailed: mockGetMovieAlternativeTitlesDetailed,

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
 import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin, getAutoDetectMode } from '../utils/guildConfig.js';
-import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes } from '../services/tmdbService.js';
+import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes, getPosterUrl } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
 import { hybridSearch, pickLandslideWinner } from '../services/aiService.js';
 import { parseEpisodeRange, parseEventEpisodeRange } from '../utils/episodeRangeParser.js';
@@ -1710,6 +1710,37 @@ export async function execute(interaction) {
  *   re-searching TMDB from the label and taking whatever comes back first.
  *   Null whenever the title was skipped or never resolved.
  */
+// A full-width rule. Discord sizes an embed to its widest line, so this is
+// what stops a short title rendering as a cramped little box.
+const CARD_RULE = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+
+/**
+ * Poster art for the title a timer is for, if we know what it is.
+ *
+ * Purely decorative — a timer must never wait on, or fail because of, a
+ * poster lookup, so every failure resolves to null and the countdown runs
+ * exactly as before.
+ *
+ * @param {object|null} media - {tmdbId, type} captured when the title was resolved
+ * @returns {Promise<string|null>}
+ */
+async function fetchPosterUrl(media) {
+  if (!media?.tmdbId || (media.type !== 'movie' && media.type !== 'tv')) {
+    return null;
+  }
+
+  try {
+    const details = media.type === 'movie'
+      ? await getMovieDetails(media.tmdbId)
+      : await getTVShowDetails(media.tmdbId);
+
+    return details?.poster_path ? getPosterUrl(details.poster_path) : null;
+  } catch (error) {
+    console.error('[Timer] Poster lookup failed (continuing without art):', error.message);
+    return null;
+  }
+}
+
 export async function startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, fromSelection = false, media = null) {
   // Check if timer already exists
   const existingTimer = getTimerStatus(channelId);
@@ -1806,32 +1837,50 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         { num: 2, color: 0xFFCC00, emoji: '🟢', blocks: '🟩🟩⬜⬜⬜' },
         { num: 1, color: 0x00FF00, emoji: '🟢', blocks: '🟩⬜⬜⬜⬜' },
       ];
-      
-      const countdownEmbed = new EmbedBuilder()
-        .setColor(countdownSteps[0].color)
-        .setTitle(`${countdownSteps[0].emoji} STARTING TIMER ${countdownSteps[0].emoji}`)
-        .setDescription(`# ${countdownSteps[0].num}\n${countdownSteps[0].blocks}`)
-        .setFooter({ text: '🎬 Get ready!' });
-      
-      let message = await channel.send({ embeds: [countdownEmbed] });
-      
+
+      // Fetched before the countdown starts so the art is already in hand and
+      // no step has to wait on TMDB mid-count.
+      const posterUrl = await fetchPosterUrl(media);
+
+      const titleLine = label ? `## ${label}` : '## Watch Party';
+
+      const buildCountdownEmbed = (step) => {
+        const embed = new EmbedBuilder()
+          .setColor(step.color)
+          .setTitle(`${step.emoji} STARTING TIMER ${step.emoji}`)
+          .setDescription(`${titleLine}\n${CARD_RULE}\n# ${step.num}\n${step.blocks}`)
+          .setFooter({ text: '🎬 Get ready!' });
+        if (posterUrl) embed.setThumbnail(posterUrl);
+        return embed;
+      };
+
+      let message = await channel.send({ embeds: [buildCountdownEmbed(countdownSteps[0])] });
+
+      // From 3 onward, each tick ALSO posts its own message. Discord never
+      // notifies on an edit, so a countdown that only edits in place is
+      // invisible to anyone not already looking at the channel — which is
+      // exactly how people were missing that a party had started.
+      const AUDIBLE_FROM = 3;
+
       for (let i = 1; i < countdownSteps.length; i++) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         const step = countdownSteps[i];
-        countdownEmbed
-          .setColor(step.color)
-          .setTitle(`${step.emoji} STARTING TIMER ${step.emoji}`)
-          .setDescription(`# ${step.num}\n${step.blocks}`);
-        await message.edit({ embeds: [countdownEmbed] });
+        await message.edit({ embeds: [buildCountdownEmbed(step)] });
+
+        if (step.num <= AUDIBLE_FROM) {
+          await channel.send({ content: `# ${step.emoji} ${step.num}` }).catch(() => {});
+        }
       }
-      
+
       await new Promise(resolve => setTimeout(resolve, 1000));
-      countdownEmbed
+
+      const goEmbed = new EmbedBuilder()
         .setColor(0x00FF00)
         .setTitle('🎬 🎥 🍿 GO! 🍿 🎥 🎬')
-        .setDescription('# 🟢 START!\n🟩🟩🟩🟩🟩\n\n**Timer is now running!**')
+        .setDescription(`${titleLine}\n${CARD_RULE}\n# 🟢 START!\n🟩🟩🟩🟩🟩\n\n**Timer is now running!**`)
         .setFooter({ text: '⏱️ Timer started!' });
-      await message.edit({ embeds: [countdownEmbed] });
+      if (posterUrl) goEmbed.setThumbnail(posterUrl);
+      await message.edit({ embeds: [goEmbed] });
       
       startTimer(channelId, userId, username, label, duration, interaction.client, isFallbackDuration, media);
       
@@ -1856,13 +1905,24 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
 
       const embed = new EmbedBuilder()
         .setColor(0x00FF00)
-        .setTitle('⏱️ Timer Started 🟩')
-        .setDescription(label ? `**${label}**` : 'Timer is now running')
+        .setTitle('▶️  NOW PLAYING')
+        .setDescription(
+          `${label ? `# ${label}` : '# Watch Party'}\n${CARD_RULE}\n**The timer is running.**`
+        )
         .addFields(timerFields)
         .setFooter({ text: (duration && !isFallbackDuration) ? 'Timer will auto-stop when complete' : 'Use /timer stop to end the timer' })
         .setTimestamp();
 
-      await message.edit({ embeds: [embed] });
+      if (posterUrl) embed.setImage(posterUrl);
+
+      // Posted as a NEW message rather than editing the countdown, so it
+      // actually notifies — and mentions the starter in the content, since a
+      // mention inside an embed field never pings anyone. The countdown
+      // message stays on GO above it as the visual lead-in.
+      await channel.send({
+        content: `<@${userId}> ▶️ **${label || 'Watch party'}** has started!`,
+        embeds: [embed],
+      });
       return;
     }
 }
