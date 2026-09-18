@@ -131,6 +131,48 @@ describe('the countdown produces real notifications', () => {
     expect(emojiFor(1)).toContain('🟢');
   });
 
+  test('the card, its emoji and its blocks agree at every step', async () => {
+    // These drifted apart once: the emoji said red at 3 while the embed
+    // stripe was orange and the blocks were yellow, so nothing read as a
+    // single countdown. All three must carry the same colour per step.
+    const RED = 0xFF0000;
+    const YELLOW = 0xFFCC00;
+    const GREEN = 0x00FF00;
+
+    const interaction = makeInteraction();
+    await runCountdown(interaction);
+
+    // The first card is sent; the rest are edits of it.
+    const cards = [
+      interaction.channel.send.mock.calls[0][0].embeds[0],
+      ...interaction._message.edit.mock.calls.map(c => c[0].embeds[0]),
+    ];
+
+    const cardFor = n =>
+      cards.find(e => new RegExp(`# ${n}\\b`).test(e.data.description || ''));
+
+    expect(cardFor(3).data.color).toBe(RED);
+    expect(cardFor(3).data.title).toContain('🔴');
+    expect(cardFor(3).data.description).toContain('🟥');
+
+    expect(cardFor(2).data.color).toBe(YELLOW);
+    expect(cardFor(2).data.title).toContain('🟡');
+    expect(cardFor(2).data.description).toContain('🟨');
+
+    expect(cardFor(1).data.color).toBe(GREEN);
+    expect(cardFor(1).data.title).toContain('🟢');
+    expect(cardFor(1).data.description).toContain('🟩');
+  });
+
+  test('stays red through the early steps', async () => {
+    const interaction = makeInteraction();
+    await runCountdown(interaction);
+
+    const first = interaction.channel.send.mock.calls[0][0].embeds[0];
+    expect(first.data.color).toBe(0xFF0000);
+    expect(first.data.title).toContain('🔴');
+  });
+
   test('uses a modest heading, not a full-size one', async () => {
     // A full h1 per second dwarfed the countdown card it accompanies.
     const interaction = makeInteraction();

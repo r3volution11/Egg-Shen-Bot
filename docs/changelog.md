@@ -5,6 +5,11 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.34.2 - 2026-09-18
+
+### Changed
+- **The countdown card's colour now matches its numbers.** The embed's accent stripe and its block row were still running through orange and amber while the emoji had already switched to the red/yellow/green starting light, so at "3" the card showed orange next to a red ball, and at "2" amber next to a yellow one. All three signals — accent stripe, emoji and blocks — now carry the same colour at every step: red through 5-4-3, yellow at 2, green at 1
+
 ## 2.34.1 - 2026-09-18
 
 ### Changed

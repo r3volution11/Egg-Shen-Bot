@@ -1830,16 +1830,21 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
       
     } else {
       // Modern theme - post to channel
-      // The last three steps run red → yellow → green, like a starting light:
-      // 3 is "get ready", 2 is "almost", 1 is "go on the next beat". The
-      // emoji is what people actually see in the posted countdown messages,
-      // so it carries that progression rather than the embed's accent color.
+      // The countdown is one starting light: red while you wait (5-4-3),
+      // yellow to get set (2), green to go (1). The embed's accent stripe,
+      // its emoji, and the block row all carry the SAME colour at each step —
+      // when they diverged, the card said one thing and the posted number
+      // said another, and neither read as a countdown.
+      const RED = 0xFF0000;
+      const YELLOW = 0xFFCC00;
+      const GREEN = 0x00FF00;
+
       const countdownSteps = [
-        { num: 5, color: 0xFF0000, emoji: '🔴', blocks: '🟥🟥🟥🟥🟥' },
-        { num: 4, color: 0xFF4400, emoji: '🔴', blocks: '🟧🟧🟧🟧⬜' },
-        { num: 3, color: 0xFF8800, emoji: '🔴', blocks: '🟨🟨🟨⬜⬜' },
-        { num: 2, color: 0xFFCC00, emoji: '🟡', blocks: '🟩🟩⬜⬜⬜' },
-        { num: 1, color: 0x00FF00, emoji: '🟢', blocks: '🟩⬜⬜⬜⬜' },
+        { num: 5, color: RED, emoji: '🔴', blocks: '🟥🟥🟥🟥🟥' },
+        { num: 4, color: RED, emoji: '🔴', blocks: '🟥🟥🟥🟥⬜' },
+        { num: 3, color: RED, emoji: '🔴', blocks: '🟥🟥🟥⬜⬜' },
+        { num: 2, color: YELLOW, emoji: '🟡', blocks: '🟨🟨⬜⬜⬜' },
+        { num: 1, color: GREEN, emoji: '🟢', blocks: '🟩⬜⬜⬜⬜' },
       ];
 
       // Fetched before the countdown starts so the art is already in hand and
