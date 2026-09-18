@@ -334,7 +334,7 @@ export async function discoverRandomMovie(filters = {}) {
     
     if (filters.minRating) {
       params['vote_average.gte'] = parseFloat(filters.minRating);
-      params.vote_count_gte = 100; // Ensure sufficient votes
+      params['vote_count.gte'] = 100; // Ensure sufficient votes (dotted key — TMDB ignores unknown params silently)
     }
     
     if (filters.maxRating) {
@@ -387,7 +387,7 @@ export async function discoverRandomTV(filters = {}) {
     
     if (filters.minRating) {
       params['vote_average.gte'] = parseFloat(filters.minRating);
-      params.vote_count_gte = 100; // Ensure sufficient votes
+      params['vote_count.gte'] = 100; // Ensure sufficient votes (dotted key — TMDB ignores unknown params silently)
     }
     
     if (filters.maxRating) {
