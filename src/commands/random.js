@@ -89,11 +89,9 @@ export const data = new SlashCommandBuilder()
             { name: 'Documentary', value: '99' },
             { name: 'Drama', value: '18' },
             { name: 'Family', value: '10751' },
-            { name: 'Horror', value: '27' },
             { name: 'Mystery', value: '9648' },
             { name: 'News', value: '10763' },
             { name: 'Reality', value: '10764' },
-            { name: 'Romance', value: '10749' },
             { name: 'Sci-Fi & Fantasy', value: '10765' },
             { name: 'War & Politics', value: '10768' },
             { name: 'Western', value: '37' }
