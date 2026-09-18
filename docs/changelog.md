@@ -5,19 +5,6 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 2.30.2 - 2026-09-07
-
-### Fixed
-- **A moderator approving an event request with an image often got a scheduled event with no cover image at all.** `resolveEventImageBuffer()` returned a bare `Buffer` regardless of the image's real format, and discord.js's `resolveImage()`/`resolveBase64()` hardcode a raw Buffer's content-type to `image/jpg` when it isn't already a `data:` URI — so a pasted PNG/WEBP link, or any non-JPEG upload, got mislabeled and Discord silently dropped the cover image. (Uploads/crops made through this project's own crop tool always happen to export JPEG, which is why this wasn't universally broken.) Now builds a `data:<real-mimetype>;base64,...` URI explicitly, using the image's actual content-type in both cases (fetched URL's real `content-type` header; a stored file's real extension)
-
-### Added
-- **The moderation-channel message now shows the actual submitted/pasted image as a thumbnail**, not just a "✅ Uploaded"/"🔗 Linked" text status — a moderator can see what was submitted at a glance, without clicking "Crop Image" or waiting until after approval. Refreshes automatically after a moderator re-crops, and after editing in the image URL via the Edit modal
-
-### Developer
-- `src/utils/eventImageStore.js`: new `mimeTypeForFilePath()` — the inverse of the existing `extensionForMimeType()`, recovering a stored file's real mimetype from its extension for cases (like this fix) where only a bare path is in hand
-- `src/api/server.js`: the initial moderation embed attaches the uploaded file directly (`AttachmentBuilder` + `embed.setThumbnail('attachment://...')`) or references a pasted URL's thumbnail directly (already public, no attachment needed); the crop-save embed-refresh path re-attaches the freshly-cropped image the same way
-- New tests pinning the original bug (`tests/eventRequestApproval.test.js`: "a non-JPEG uploaded image is not mislabeled as image/jpg") and the new thumbnail behavior (`tests/event-request-system.test.js`, both the pasted-URL and uploaded-file cases)
-
 ## 2.34.0 - 2026-09-17
 
 ### Changed
@@ -91,6 +78,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `tests/ratings-badges.test.js` (10 tests) covering Metacritic presence/absence, the per-guild toggle, and the RT critics-only labelling
 - `tests/bracket-seeding.test.js` now checks same-group separation across **all four** group sizes and across 25 repeated randomized seedings. The previous single-sample check caught the bug above only about 1 run in 9; the strengthened version catches it every time
 - `/eggshen-config` service and emoji status displays now fall back to the raw key name instead of rendering `undefined` when a config key has no display label
+
+## 2.30.2 - 2026-09-07
+
+### Fixed
+- **A moderator approving an event request with an image often got a scheduled event with no cover image at all.** `resolveEventImageBuffer()` returned a bare `Buffer` regardless of the image's real format, and discord.js's `resolveImage()`/`resolveBase64()` hardcode a raw Buffer's content-type to `image/jpg` when it isn't already a `data:` URI — so a pasted PNG/WEBP link, or any non-JPEG upload, got mislabeled and Discord silently dropped the cover image. (Uploads/crops made through this project's own crop tool always happen to export JPEG, which is why this wasn't universally broken.) Now builds a `data:<real-mimetype>;base64,...` URI explicitly, using the image's actual content-type in both cases (fetched URL's real `content-type` header; a stored file's real extension)
+
+### Added
+- **The moderation-channel message now shows the actual submitted/pasted image as a thumbnail**, not just a "✅ Uploaded"/"🔗 Linked" text status — a moderator can see what was submitted at a glance, without clicking "Crop Image" or waiting until after approval. Refreshes automatically after a moderator re-crops, and after editing in the image URL via the Edit modal
+
+### Developer
+- `src/utils/eventImageStore.js`: new `mimeTypeForFilePath()` — the inverse of the existing `extensionForMimeType()`, recovering a stored file's real mimetype from its extension for cases (like this fix) where only a bare path is in hand
+- `src/api/server.js`: the initial moderation embed attaches the uploaded file directly (`AttachmentBuilder` + `embed.setThumbnail('attachment://...')`) or references a pasted URL's thumbnail directly (already public, no attachment needed); the crop-save embed-refresh path re-attaches the freshly-cropped image the same way
+- New tests pinning the original bug (`tests/eventRequestApproval.test.js`: "a non-JPEG uploaded image is not mislabeled as image/jpg") and the new thumbnail behavior (`tests/event-request-system.test.js`, both the pasted-URL and uploaded-file cases)
 
 ## 2.30.1 - 2026-09-06
 
