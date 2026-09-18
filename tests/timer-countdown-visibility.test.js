@@ -116,6 +116,36 @@ describe('the countdown produces real notifications', () => {
     expect(contents.some(c => c.includes('1'))).toBe(true);
   });
 
+  test('counts down red → yellow → green, like a starting light', async () => {
+    const interaction = makeInteraction();
+    await runCountdown(interaction);
+
+    const countdownPosts = sends(interaction)
+      .map(s => (typeof s === 'string' ? s : s.content))
+      .filter(c => c && /### /.test(c));
+
+    const emojiFor = n => countdownPosts.find(c => c.endsWith(` ${n}`));
+
+    expect(emojiFor(3)).toContain('🔴');
+    expect(emojiFor(2)).toContain('🟡');
+    expect(emojiFor(1)).toContain('🟢');
+  });
+
+  test('uses a modest heading, not a full-size one', async () => {
+    // A full h1 per second dwarfed the countdown card it accompanies.
+    const interaction = makeInteraction();
+    await runCountdown(interaction);
+
+    const countdownPosts = sends(interaction)
+      .map(s => (typeof s === 'string' ? s : s.content))
+      .filter(c => c && /^#+ /.test(c));
+
+    expect(countdownPosts.length).toBeGreaterThan(0);
+    for (const post of countdownPosts) {
+      expect(post.startsWith('### ')).toBe(true);
+    }
+  });
+
   test('still animates the countdown card in place', async () => {
     const interaction = makeInteraction();
     await runCountdown(interaction);

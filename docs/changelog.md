@@ -5,6 +5,12 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.34.1 - 2026-09-18
+
+### Changed
+- **Scaled the posted countdown numbers back down.** The 3-2-1 messages that make the countdown audible were rendering as full-size headings, which dwarfed the countdown card they were meant to accompany. They now use a smaller heading — still clearly visible in the channel, no longer shouting over everything else
+- **The countdown now runs red → yellow → green**, like a starting light: 3 is red, 2 is yellow, 1 is green. The previous sequence had 3 as yellow and both 2 and 1 as green, so there was no red in the final countdown at all and the last two steps looked identical
+
 ## 2.34.0 - 2026-09-17
 
 ### Changed

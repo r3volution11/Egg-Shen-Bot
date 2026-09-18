@@ -1830,11 +1830,15 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
       
     } else {
       // Modern theme - post to channel
+      // The last three steps run red → yellow → green, like a starting light:
+      // 3 is "get ready", 2 is "almost", 1 is "go on the next beat". The
+      // emoji is what people actually see in the posted countdown messages,
+      // so it carries that progression rather than the embed's accent color.
       const countdownSteps = [
         { num: 5, color: 0xFF0000, emoji: '🔴', blocks: '🟥🟥🟥🟥🟥' },
-        { num: 4, color: 0xFF4400, emoji: '🟠', blocks: '🟧🟧🟧🟧⬜' },
-        { num: 3, color: 0xFF8800, emoji: '🟡', blocks: '🟨🟨🟨⬜⬜' },
-        { num: 2, color: 0xFFCC00, emoji: '🟢', blocks: '🟩🟩⬜⬜⬜' },
+        { num: 4, color: 0xFF4400, emoji: '🔴', blocks: '🟧🟧🟧🟧⬜' },
+        { num: 3, color: 0xFF8800, emoji: '🔴', blocks: '🟨🟨🟨⬜⬜' },
+        { num: 2, color: 0xFFCC00, emoji: '🟡', blocks: '🟩🟩⬜⬜⬜' },
         { num: 1, color: 0x00FF00, emoji: '🟢', blocks: '🟩⬜⬜⬜⬜' },
       ];
 
@@ -1868,7 +1872,9 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         await message.edit({ embeds: [buildCountdownEmbed(step)] });
 
         if (step.num <= AUDIBLE_FROM) {
-          await channel.send({ content: `# ${step.emoji} ${step.num}` }).catch(() => {});
+          // ### rather than # — these post as their own messages, where a
+          // full h1 dwarfed the countdown card it was meant to accompany.
+          await channel.send({ content: `### ${step.emoji} ${step.num}` }).catch(() => {});
         }
       }
 
