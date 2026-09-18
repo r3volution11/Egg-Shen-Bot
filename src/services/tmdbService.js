@@ -312,6 +312,42 @@ export function getBackdropUrl(backdropPath, size = 'w1280') {
  * @param {Object} filters - Optional filters { genre, decade, minRating, maxRating }
  * @returns {Object} Random movie result
  */
+/**
+ * Pick a random title from a filtered /discover result set.
+ *
+ * Asking for a random page 1-50 outright breaks down as filters get
+ * narrower: a tight filter may only have a few pages, and most random picks
+ * would land past the end and come back empty. So probe page 1 first to
+ * learn how many pages actually exist, then pick within that range.
+ *
+ * Costs one extra request only when the pool is big enough to warrant a
+ * second page — a single-page result is answered from the probe itself.
+ *
+ * @param {'movie'|'tv'} type
+ * @param {object} params - fully-built discover params (without `page`)
+ * @returns {Promise<object|null>}
+ */
+async function pickRandomDiscoverResult(type, params) {
+  const probe = await tmdbApi.get(`/discover/${type}`, {
+    params: { ...params, page: 1 },
+  });
+
+  const totalPages = probe.data?.total_pages || 0;
+  if (totalPages === 0) return null;
+
+  // TMDB refuses pages past 500 regardless of total_pages.
+  const maxPage = Math.min(totalPages, 50, 500);
+  const page = Math.floor(Math.random() * maxPage) + 1;
+
+  const results = page === 1
+    ? probe.data.results
+    : (await tmdbApi.get(`/discover/${type}`, { params: { ...params, page } })).data?.results;
+
+  if (!results || results.length === 0) return null;
+
+  return results[Math.floor(Math.random() * results.length)];
+}
+
 export async function discoverRandomMovie(filters = {}) {
   try {
     const params = {
@@ -319,7 +355,6 @@ export async function discoverRandomMovie(filters = {}) {
       sort_by: 'popularity.desc',
       include_adult: false,
       include_video: false,
-      page: Math.floor(Math.random() * 50) + 1, // Random page 1-50
     };
 
     if (filters.genre) {
@@ -341,16 +376,7 @@ export async function discoverRandomMovie(filters = {}) {
       params['vote_average.lte'] = parseFloat(filters.maxRating);
     }
 
-    const response = await tmdbApi.get('/discover/movie', { params });
-    const results = response.data.results;
-    
-    if (!results || results.length === 0) {
-      return null;
-    }
-    
-    // Pick a random movie from the page
-    const randomIndex = Math.floor(Math.random() * results.length);
-    return results[randomIndex];
+    return await pickRandomDiscoverResult('movie', params);
   } catch (error) {
     console.error('TMDB discover movie error:', error.message);
     throw new Error('Failed to discover random movie');
@@ -368,7 +394,6 @@ export async function discoverRandomTV(filters = {}) {
       language: 'en-US',
       sort_by: 'popularity.desc',
       include_adult: false,
-      page: Math.floor(Math.random() * 50) + 1, // Random page 1-50
     };
 
     if (filters.genre) {
@@ -394,16 +419,7 @@ export async function discoverRandomTV(filters = {}) {
       params['vote_average.lte'] = parseFloat(filters.maxRating);
     }
 
-    const response = await tmdbApi.get('/discover/tv', { params });
-    const results = response.data.results;
-    
-    if (!results || results.length === 0) {
-      return null;
-    }
-    
-    // Pick a random show from the page
-    const randomIndex = Math.floor(Math.random() * results.length);
-    return results[randomIndex];
+    return await pickRandomDiscoverResult('tv', params);
   } catch (error) {
     console.error('TMDB discover TV error:', error.message);
     throw new Error('Failed to discover random TV show');

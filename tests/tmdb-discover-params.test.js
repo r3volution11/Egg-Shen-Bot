@@ -82,3 +82,75 @@ describe('buildDiscoverParams', () => {
     expect(params['primary_release_date.gte']).toBeUndefined();
   });
 });
+
+describe('random page selection respects how many pages exist', () => {
+  /** Mock a discover response with a given total_pages. */
+  function seedPages(totalPages, resultsPerPage = 20) {
+    mockGet.mockImplementation((url, options) => {
+      const page = options.params.page;
+      if (page > totalPages) {
+        return Promise.resolve({ data: { total_pages: totalPages, results: [] } });
+      }
+      return Promise.resolve({
+        data: {
+          total_pages: totalPages,
+          results: Array.from({ length: resultsPerPage }, (_, i) => ({
+            id: page * 100 + i, title: `P${page} #${i}`,
+          })),
+        },
+      });
+    });
+  }
+
+  test('never asks for a page beyond the result set', async () => {
+    // A narrow filter may only have a couple of pages; asking for a random
+    // page 1-50 would come back empty most of the time.
+    seedPages(2);
+
+    for (let i = 0; i < 25; i++) {
+      const result = await tmdb.discoverRandomMovie({ minRating: 9 });
+      expect(result).not.toBeNull();
+    }
+
+    const requestedPages = mockGet.mock.calls.map(c => c.params?.page ?? c[1].params.page);
+    expect(Math.max(...requestedPages)).toBeLessThanOrEqual(2);
+  });
+
+  test('a single-page result costs only one request', async () => {
+    seedPages(1);
+
+    await tmdb.discoverRandomMovie({ minRating: 9 });
+
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns null when the filters match nothing', async () => {
+    mockGet.mockResolvedValue({ data: { total_pages: 0, results: [] } });
+
+    expect(await tmdb.discoverRandomMovie({ minRating: 10 })).toBeNull();
+  });
+
+  test('still spreads across pages when there are many', async () => {
+    seedPages(500);
+
+    const pages = new Set();
+    for (let i = 0; i < 30; i++) {
+      await tmdb.discoverRandomMovie({});
+      const calls = mockGet.mock.calls;
+      pages.add(calls[calls.length - 1][1].params.page);
+    }
+
+    // Randomness should not collapse to a single page.
+    expect(pages.size).toBeGreaterThan(1);
+  });
+
+  test('TV uses the same page-aware selection', async () => {
+    seedPages(3);
+
+    const result = await tmdb.discoverRandomTV({ genre: '10765' });
+
+    expect(result).not.toBeNull();
+    const pagesAsked = mockGet.mock.calls.map(c => c[1].params.page);
+    expect(Math.max(...pagesAsked)).toBeLessThanOrEqual(3);
+  });
+});
