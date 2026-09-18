@@ -379,6 +379,41 @@ Get random movie, TV show, episode, game, board game, or book with filters.
 
 ---
 
+### `/recommend`
+Suggests what to watch next based on what this server has actually watched.
+
+**Every option is optional** — a bare `/recommend` works. Combine as many or as few as you like.
+
+| Option | What it does |
+|--------|--------------|
+| `type` | Movies or TV shows (default: both) |
+| `source` | Where picks come from (default: your watch history) |
+| `genre` | Autocompleted from TMDB's live genre list |
+| `decade` | 1950s through 2020s |
+| `director` | Autocompleted; ranks directors ahead of same-named actors |
+| `private` | Show the result only to you |
+
+**Sources:**
+- **Watch History** *(default)* — finds titles similar to what the server watches most, skips anything already seen, and ranks them for tonal fit
+- **Most Watched** — what this server rewatches. Until something has been watched twice, it shows recent watches instead and says so, rather than presenting an arbitrary order as a ranking
+- **Discover** — browses TMDB by filter. The default on a server with no watch history yet
+
+**Examples:**
+```
+/recommend
+/recommend type:tv genre:Comedy
+/recommend source:most-watched type:movie
+/recommend director:John Carpenter decade:1980s
+```
+
+Results link to IMDb, and to Letterboxd for movies. When AI is configured, each pick includes a one-line reason referencing titles the server actually watched; without it, picks are ranked by popularity and similarity instead. The footer tells you which.
+
+::: tip Genres differ between movies and TV
+TMDB has no Horror or Romance category for television, so those won't appear when `type:tv` is set. Autocomplete only ever offers genres that can actually return results.
+:::
+
+---
+
 ### `/similar`
 Find similar content recommendations.
 
