@@ -96,6 +96,9 @@ const defaultConfig = {
       // returning a search result — tighter than the generic global default
       // so one user can't quickly flood the queue/channel.
       'suggest-quote': { maxRequests: 1, windowSeconds: 60 },
+      // /recommend fans out to several TMDB endpoints and may make an
+      // OpenAI call, so it costs far more per invocation than a lookup.
+      'recommend': { maxRequests: 2, windowSeconds: 120 },
     },
     guildWide: {
       enabled: true, // Server-wide rate limiting (prevents multi-account flooding)

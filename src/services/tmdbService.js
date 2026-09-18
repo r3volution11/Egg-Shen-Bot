@@ -587,3 +587,189 @@ export async function getUnifiedTVWatchProviders(tvId, imdbId, region = 'US') {
   return mergeWatchProviders(tmdbProviders, watchmodeProviders);
 }
 
+
+// ---------------------------------------------------------------------------
+// Genre lists
+// ---------------------------------------------------------------------------
+
+// TMDB's genre taxonomies are effectively immutable, so one fetch per process
+// is plenty. Caching also matters for autocomplete, which fires on every
+// keystroke — that must never become a TMDB request per character typed.
+const genreListCache = new Map(); // 'movie' | 'tv' -> [{id, name}]
+
+/**
+ * Fetch TMDB's genre list for a media type.
+ *
+ * Movie and TV have DIFFERENT taxonomies, and the difference is not cosmetic:
+ * TV has no Horror and no Romance at all, while movies do. Hardcoding the
+ * lists (as /random did) let two movie-only IDs sit in the TV list, where
+ * they silently returned zero results. Reading them from TMDB means the
+ * options offered are always exactly the ones TMDB will accept.
+ *
+ * @param {'movie'|'tv'} type
+ * @returns {Promise<Array<{id: number, name: string}>>} empty array on failure
+ */
+export async function getGenres(type) {
+  if (genreListCache.has(type)) {
+    return genreListCache.get(type);
+  }
+
+  try {
+    const response = await tmdbApi.get(`/genre/${type}/list`, {
+      params: { language: 'en-US' },
+    });
+    const genres = response.data?.genres || [];
+    // Only cache a real answer — an empty list from a transient failure
+    // shouldn't poison the cache for the life of the process.
+    if (genres.length > 0) {
+      genreListCache.set(type, genres);
+    }
+    return genres;
+  } catch (error) {
+    console.error(`TMDB ${type} genre list error:`, error.message);
+    return [];
+  }
+}
+
+export const getMovieGenres = () => getGenres('movie');
+export const getTVGenres = () => getGenres('tv');
+
+/** Test-only: drop the cached genre lists. */
+export function _resetGenreCache() {
+  genreListCache.clear();
+}
+
+// ---------------------------------------------------------------------------
+// People
+// ---------------------------------------------------------------------------
+
+/**
+ * Search TMDB for a person, ranking directors first.
+ *
+ * Names collide across departments — "John Carpenter" is both a director
+ * (11770) and an actor (2244869) — and for a director: filter the wrong one
+ * yields nothing. TMDB's own ordering doesn't account for that, so known
+ * directors are promoted ahead of equally-popular actors.
+ *
+ * @param {string} query
+ * @returns {Promise<Array>} up to 10 people, directors first; [] on failure
+ */
+export async function searchPeople(query) {
+  try {
+    const response = await tmdbApi.get('/search/person', {
+      params: { query, language: 'en-US', include_adult: false },
+    });
+
+    const results = response.data?.results || [];
+    return [...results]
+      .sort((a, b) => {
+        const aDir = a.known_for_department === 'Directing' ? 1 : 0;
+        const bDir = b.known_for_department === 'Directing' ? 1 : 0;
+        if (aDir !== bDir) return bDir - aDir;
+        return (b.popularity || 0) - (a.popularity || 0);
+      })
+      .slice(0, 10);
+  } catch (error) {
+    console.error('TMDB person search error:', error.message);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Discover (list-returning)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build /discover query params from a filter object.
+ *
+ * Shared by the list-returning discover below and kept deliberately separate
+ * from discoverRandomMovie/discoverRandomTV's inline params, which also
+ * randomize the page. Exported for testing — these keys are easy to typo and
+ * TMDB silently ignores unrecognized ones rather than erroring (which is how
+ * `vote_count_gte` went unnoticed).
+ *
+ * @param {'movie'|'tv'} type
+ * @param {object} filters - {genre, decade, minRating, personId}
+ */
+export function buildDiscoverParams(type, filters = {}) {
+  const params = {
+    language: 'en-US',
+    sort_by: 'popularity.desc',
+    include_adult: false,
+    'vote_count.gte': 50, // keep 1-vote curios out of recommendations
+  };
+
+  if (type === 'movie') {
+    params.include_video = false;
+  }
+
+  if (filters.genre) {
+    params.with_genres = String(filters.genre);
+  }
+
+  if (filters.decade) {
+    const startYear = parseInt(filters.decade, 10);
+    if (Number.isInteger(startYear)) {
+      const dateKey = type === 'movie' ? 'primary_release_date' : 'first_air_date';
+      params[`${dateKey}.gte`] = `${startYear}-01-01`;
+      params[`${dateKey}.lte`] = `${startYear + 9}-12-31`;
+    }
+  }
+
+  if (filters.minRating) {
+    params['vote_average.gte'] = parseFloat(filters.minRating);
+  }
+
+  if (filters.personId) {
+    // Movies credit a director in the crew; TV credits are modelled as
+    // creators and per-episode directors, so with_crew finds almost nothing
+    // there — with_people (cast OR crew) is the workable equivalent.
+    if (type === 'movie') {
+      params.with_crew = String(filters.personId);
+    } else {
+      params.with_people = String(filters.personId);
+    }
+  }
+
+  return params;
+}
+
+/**
+ * Discover a LIST of titles matching filters.
+ *
+ * discoverRandomMovie/discoverRandomTV return a single item from a randomly
+ * chosen page, which is right for /random and wrong for recommendations —
+ * this returns the ranked page so callers can score and pick.
+ *
+ * @param {'movie'|'tv'} type
+ * @param {object} filters
+ * @returns {Promise<Array>} [] on failure
+ */
+export async function discoverTitles(type, filters = {}) {
+  try {
+    const params = buildDiscoverParams(type, filters);
+    const response = await tmdbApi.get(`/discover/${type}`, { params });
+    return response.data?.results || [];
+  } catch (error) {
+    console.error(`TMDB discover ${type} error:`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Look up a person by TMDB id, for turning an autocomplete value back into a
+ * display name.
+ *
+ * @returns {Promise<{id: number, name: string}|null>} null on failure
+ */
+export async function getPersonById(personId) {
+  try {
+    const response = await tmdbApi.get(`/person/${personId}`, {
+      params: { language: 'en-US' },
+    });
+    return response.data || null;
+  } catch (error) {
+    console.error('TMDB person lookup error:', error.message);
+    return null;
+  }
+}

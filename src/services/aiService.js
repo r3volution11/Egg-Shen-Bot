@@ -555,3 +555,124 @@ export async function generateAnnouncementText({ segments, tone, customTone, tim
     return null;
   }
 }
+
+/**
+ * Re-rank recommendation candidates against a server's actual taste, and say
+ * why each pick fits.
+ *
+ * TMDB's /similar is literal — it leans toward the same franchise, era, and
+ * cast — so a server that watches slow-burn folk horror gets offered the
+ * sequel rather than the tonal match. A model given the real watch list can
+ * reorder for that, and can write a one-line "why" grounded in titles the
+ * server genuinely watched.
+ *
+ * It deliberately does NOT invent titles: candidates come from TMDB, so
+ * there is nothing to hallucinate into existence and nothing to resolve.
+ * The model only chooses among and annotates what it is given.
+ *
+ * Follows generateAnnouncementText's contract exactly — returns null rather
+ * than throwing, for any failure including a malformed response. Callers
+ * treat null as "use the deterministic order and omit the why-lines".
+ *
+ * @param {object} params
+ * @param {string[]} params.watchedTitles - "Title (Year)" strings, most-watched first
+ * @param {Array} params.candidates - [{title, year, overview, rating}], index-aligned
+ * @param {string} params.type - 'movie' | 'tv', for phrasing
+ * @param {string} [params.filterSummary] - e.g. "Horror, 1980s", for context
+ * @returns {Promise<Array<{index: number, reason: string}>|null>}
+ */
+export async function generateRecommendationRanking({ watchedTitles, candidates, type, filterSummary }) {
+  if (!isOpenAIAvailable()) {
+    return null;
+  }
+
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return null;
+  }
+
+  const watchedList = (watchedTitles || []).slice(0, 20).join(', ');
+  const candidateList = candidates
+    .map((c, i) => {
+      const overview = c.overview ? ` — ${String(c.overview).substring(0, 200)}` : '';
+      const rating = c.rating ? ` [${c.rating}/10]` : '';
+      return `${i}. ${c.title}${c.year ? ` (${c.year})` : ''}${rating}${overview}`;
+    })
+    .join('\n');
+
+  const noun = type === 'tv' ? 'TV shows' : 'movies';
+
+  const prompt = [
+    `A Discord community picks ${noun} to watch together. Here is what they have actually watched:`,
+    watchedList || '(no history available)',
+    '',
+    filterSummary ? `They are currently looking for: ${filterSummary}.` : '',
+    '',
+    `Choose the 5 best picks for this group from the numbered candidates below, ordered best first.`,
+    'Judge by tone, subgenre and sensibility — not just popularity. Prefer a real tonal match over an obvious franchise sequel.',
+    'For each pick write one short sentence saying why this group specifically would like it, naming a title they watched where that helps.',
+    '',
+    'Candidates:',
+    candidateList,
+    '',
+    'Respond with JSON only, in exactly this shape:',
+    '{"picks":[{"index":<number from the list above>,"reason":"<one sentence, max 140 characters>"}]}',
+    'Use at most 5 picks. Only use index numbers that appear in the list.',
+  ].filter(Boolean).join('\n');
+
+  try {
+    const response = await openaiApi.post('/chat/completions', {
+      model: CHAT_MODEL,
+      messages: [
+        { role: 'system', content: 'You recommend films and television to a community based on their demonstrated taste. You reply with JSON only.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 600,
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
+    });
+
+    const raw = response.data.choices?.[0]?.message?.content?.trim();
+    if (!raw) return null;
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (parseError) {
+      console.error('Recommendation ranking returned unparseable JSON:', raw.substring(0, 200));
+      return null;
+    }
+
+    if (!parsed || !Array.isArray(parsed.picks)) {
+      return null;
+    }
+
+    // A hallucinated or out-of-range index must never index into the
+    // candidate array — validate every pick before it reaches the caller.
+    const seen = new Set();
+    const picks = [];
+
+    for (const pick of parsed.picks) {
+      // Check the raw value is a number BEFORE coercing — Number(null) is 0
+      // and Number('') is 0, either of which would silently become a valid
+      // index pointing at the first candidate.
+      if (typeof pick?.index !== 'number') continue;
+
+      const index = pick.index;
+      if (!Number.isInteger(index) || index < 0 || index >= candidates.length) continue;
+      if (seen.has(index)) continue;
+
+      seen.add(index);
+      picks.push({
+        index,
+        reason: String(pick?.reason || '').substring(0, 140),
+      });
+
+      if (picks.length >= 5) break;
+    }
+
+    return picks.length > 0 ? picks : null;
+  } catch (error) {
+    console.error('Recommendation ranking error:', error.response?.data || error.message);
+    return null;
+  }
+}
