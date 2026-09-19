@@ -5,6 +5,12 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.36.1 - 2026-09-18
+
+### Fixed
+- **`/timer status` shows seconds again.** The new human-readable format dropped them as soon as there was a minute to report, which is fine for a runtime and wrong for elapsed time — people sync a watch party against that number, and "2h 43m" isn't precise enough to start on. Elapsed now reads `2h 43m 32s`, and the auto-stop countdown does the same. A *duration* still omits them, since a fixed runtime like `1h 47m` gains nothing from a ticking seconds column
+- Once hours are on display the minutes column stays even at zero, so a timer an hour and five seconds in reads `1h 0m 5s` rather than `1h 5s`, which looks like a column is missing
+
 ## 2.36.0 - 2026-09-18
 
 ### Changed

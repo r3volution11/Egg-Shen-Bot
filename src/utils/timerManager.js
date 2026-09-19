@@ -453,19 +453,24 @@ function formatElapsedTime(ms) {
  * @param {number} ms
  * @returns {string}
  */
-export function formatDurationHuman(ms) {
+export function formatDurationHuman(ms, { showSeconds = false } = {}) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m`;
-  }
-  return `${seconds}s`;
+  // Seconds are opt-in because the two things this formats want different
+  // precision. Elapsed time is a live clock people sync a watch party
+  // against, so it needs them; a runtime ("1h 47m") is a fixed figure where
+  // a ticking seconds column is just noise.
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  // Once an hour is on display, minutes stay even at zero — "1h 5s" reads as
+  // though a minutes column is missing, where "1h 0m 5s" is unambiguous.
+  if (minutes > 0 || (hours > 0 && showSeconds)) parts.push(`${minutes}m`);
+  if (showSeconds || parts.length === 0) parts.push(`${seconds}s`);
+
+  return parts.join(' ');
 }
 
 /**

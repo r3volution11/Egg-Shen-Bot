@@ -88,8 +88,24 @@ describe('formatDurationHuman', () => {
     [3_600_000, '1h'],
     [9_812_000, '2h 43m'],
     [21_600_000, '6h'],
-  ])('%sms reads as %s', (ms, expected) => {
+  ])('%sms reads as %s without seconds', (ms, expected) => {
     expect(formatDurationHuman(ms)).toBe(expected);
+  });
+
+  test.each([
+    [0, '0s'],
+    [48_000, '48s'],
+    [60_000, '1m 0s'],
+    [332_000, '5m 32s'],
+    [3_605_000, '1h 0m 5s'],
+    [9_812_000, '2h 43m 32s'],
+  ])('%sms reads as %s with seconds', (ms, expected) => {
+    expect(formatDurationHuman(ms, { showSeconds: true })).toBe(expected);
+  });
+
+  test('keeps the minutes column once hours are shown', () => {
+    // "1h 5s" reads as though a column is missing.
+    expect(formatDurationHuman(3_605_000, { showSeconds: true })).toBe('1h 0m 5s');
   });
 
   test('never renders a negative span', () => {
@@ -134,6 +150,25 @@ describe('/timer status is compact', () => {
 
     expect(statsLine).toContain('**Elapsed:**');
     expect(statsLine).toContain('**Duration:** 1h 47m');
+  });
+
+  test('elapsed carries seconds — people sync a watch party against it', async () => {
+    startTimer('channel-1', 'user-1', 'tester', 'The Thing', 107, null, false);
+
+    const embed = (await status(makeStatusInteraction())).embeds[0].data;
+    const statsLine = embed.description.split('\n')[1];
+
+    // A freshly started timer reads in seconds.
+    expect(statsLine).toMatch(/\*\*Elapsed:\*\* \d+s/);
+  });
+
+  test('duration does NOT carry seconds — a runtime is a fixed figure', async () => {
+    startTimer('channel-1', 'user-1', 'tester', 'The Thing', 107, null, false);
+
+    const embed = (await status(makeStatusInteraction())).embeds[0].data;
+    const durationPart = embed.description.split('**Duration:**')[1];
+
+    expect(durationPart.trim()).toBe('1h 47m');
   });
 
   test('omits the separator when a timer has no label', async () => {

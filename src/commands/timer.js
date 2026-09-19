@@ -1289,7 +1289,9 @@ export async function execute(interaction) {
         ? '⏸️ Paused'
         : (timer.isExpired ? '⏰ Expired' : '⏱️ Timer');
 
-      const elapsed = formatDurationHuman(timer.elapsedMs);
+      // Elapsed carries seconds — people sync a watch party against this
+      // number, so "2h 43m" alone isn't precise enough to start on.
+      const elapsed = formatDurationHuman(timer.elapsedMs, { showSeconds: true });
 
       let durationText;
       if (hasDisplayableDuration) {
@@ -1299,7 +1301,7 @@ export async function execute(interaction) {
         // it says when it stops rather than claiming a total.
         durationText = timer.isExpired
           ? 'stopping…'
-          : `auto-stops in ${formatDurationHuman(timer.remainingMs)}`;
+          : `auto-stops in ${formatDurationHuman(timer.remainingMs, { showSeconds: true })}`;
       } else {
         durationText = 'no limit';
       }
