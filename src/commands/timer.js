@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
-import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop } from '../utils/timerManager.js';
+import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop, formatDurationHuman, formatMinutesHuman } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin, getAutoDetectMode } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes, getPosterUrl } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
@@ -1277,61 +1277,39 @@ export async function execute(interaction) {
     const timer = getTimerStatus(channelId);
 
     if (timer) {
-      const fields = [
-        {
-          name: 'Elapsed Time',
-          value: timer.elapsedFormatted,
-          inline: true,
-        },
-        {
-          name: 'Started by',
-          value: timer.username,
-          inline: true,
-        }
-      ];
-
-      // A real duration gets the full remaining/total display. A fallback one
-      // (nothing typed, nothing detected) is a safety net rather than a
-      // runtime, so it's labeled as one — but it IS shown: the timer really
-      // will stop then, and hiding that left people with no idea a deadline
-      // existed until the warning arrived.
+      // Deliberately minimal: most people run this to glance at how far in
+      // they are, so it answers that in one line rather than spreading four
+      // fields, a description, a footer and a timestamp down the channel.
+      //
+      // Durations read as "2h 43m" rather than H:MM:SS — "2:43:32" looks like
+      // a clock time, and "5:32" is ambiguous between hours and minutes.
       const hasDisplayableDuration = timer.duration && !timer.isFallbackDuration;
+
+      const state = timer.paused
+        ? '⏸️ Paused'
+        : (timer.isExpired ? '⏰ Expired' : '⏱️ Timer');
+
+      const elapsed = formatDurationHuman(timer.elapsedMs);
+
+      let durationText;
       if (hasDisplayableDuration) {
-        fields.push({
-          name: 'Remaining Time',
-          value: timer.paused ? timer.remainingFormatted : (timer.isExpired ? 'Expired (stopping...)' : timer.remainingFormatted),
-          inline: true,
-        });
-        fields.push({
-          name: 'Total Duration',
-          value: `${timer.duration} minutes`,
-          inline: true,
-        });
+        durationText = formatMinutesHuman(timer.duration);
       } else if (timer.duration && timer.isFallbackDuration) {
-        fields.push({
-          name: 'Auto-stops in',
-          value: timer.isExpired
-            ? 'Expired (stopping...)'
-            : `${timer.remainingFormatted} (no duration set)`,
-          inline: true,
-        });
+        // A fallback duration is an auto-stop safety net, not a runtime, so
+        // it says when it stops rather than claiming a total.
+        durationText = timer.isExpired
+          ? 'stopping…'
+          : `auto-stops in ${formatDurationHuman(timer.remainingMs)}`;
+      } else {
+        durationText = 'no limit';
       }
 
       const embed = new EmbedBuilder()
         .setColor(timer.paused ? 0xFFA500 : (timer.isExpired ? 0xFF0000 : 0x5865F2))
-        .setTitle(timer.paused ? '⏸️ Timer Paused' : (timer.isExpired ? '⏰ Timer Expired' : '⏱️ Timer Status'))
-        .setDescription(timer.label ? `**${timer.label}**` : 'Active timer')
-        .addFields(fields)
-        .setFooter({
-          text: timer.paused
-            ? 'Use /timer resume to continue'
-            : (hasDisplayableDuration
-              ? 'Auto-stop enabled'
-              : (timer.duration
-                ? 'Set a real duration with /timer adjust, or turn auto-stop off with /timer autostop disable'
-                : 'Use /timer stop to end the timer')),
-        })
-        .setTimestamp(timer.startTime);
+        .setDescription(
+          `### ${state}${timer.label ? `: ${timer.label}` : ''}\n` +
+          `**Elapsed:** ${elapsed}\u2003**Duration:** ${durationText}`
+        );
 
       await interaction.reply({ embeds: [embed], ephemeral: !isPublic });
     } else {

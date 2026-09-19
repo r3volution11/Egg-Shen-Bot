@@ -5,6 +5,23 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.36.0 - 2026-09-18
+
+### Changed
+- **`/timer status` is now two lines instead of a full card.** It was rendering up to four fields plus a description, a footer and a timestamp — a lot of channel for a question people ask in passing. It now answers that question directly:
+
+  ```
+  ⏱️ Timer: The Covenant (2006)
+  Elapsed: 2h 43m    Duration: 1h 47m
+  ```
+
+  The title moves into a smaller heading rather than a full-size embed title, and elapsed and duration share one line. "Started by" and the auto-stop footer are gone — `/timer status` is for checking progress, not for auditing who started what
+- **Durations read the way people say them.** `2h 43m` rather than `2:43:32`, which looks like a clock time, and `5m` rather than `5:32`, which is ambiguous between five hours and five minutes. A timer with auto-stop turned off reads "no limit", and a fallback safety-cap duration says "auto-stops in 5h 30m" rather than claiming a total nobody chose
+
+### Developer
+- New `formatDurationHuman()` / `formatMinutesHuman()` in `src/utils/timerManager.js`. Added alongside the existing `formatElapsedTime` rather than replacing it — 25 call sites depend on the H:MM:SS form, which is fine where a label says "Total Time" and poor in a line someone is skimming
+- New `tests/timer-status-format.test.js` (14 tests) pinning the two-line shape, the absence of fields/footer/timestamp, and the human duration formatting. Suite: 95 files, 1274 tests
+
 ## 2.35.0 - 2026-09-18
 
 ### Fixed

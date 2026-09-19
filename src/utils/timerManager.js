@@ -439,6 +439,43 @@ function formatElapsedTime(ms) {
 }
 
 /**
+ * Format a span of time the way a person would say it: "2h 43m", "5m", "48s".
+ *
+ * formatElapsedTime's H:MM:SS is compact but genuinely ambiguous at a glance
+ * — "2:43:32" reads as a clock time rather than a duration, and "5:32" could
+ * be five hours or five minutes depending on which one you assume. That's
+ * fine in a stop summary where the label says "Total Time", and poor in a
+ * status line someone is skimming.
+ *
+ * Seconds are dropped once there's an hour to show, since nobody skimming a
+ * two-hour timer needs them.
+ *
+ * @param {number} ms
+ * @returns {string}
+ */
+export function formatDurationHuman(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m`;
+  }
+  return `${seconds}s`;
+}
+
+/**
+ * The same, from a duration already expressed in whole minutes.
+ */
+export function formatMinutesHuman(totalMinutes) {
+  return formatDurationHuman((Number(totalMinutes) || 0) * 60 * 1000);
+}
+
+/**
  * Get all active timers (for debugging)
  * @returns {Map} - Map of all active timers
  */

@@ -160,52 +160,42 @@ describe('/timer start — fallback duration is never shown in the "Timer Starte
 });
 
 describe('/timer status — a fallback duration reads as a safety net, not a runtime', () => {
-  test('a fallback-duration timer shows when it will auto-stop, labeled as unset', async () => {
+  /** The single description line /timer status now renders. */
+  function statusText(interaction) {
+    return interaction.reply.mock.calls[0][0].embeds[0].data.description;
+  }
+
+  test('a fallback-duration timer says when it auto-stops, not a total', async () => {
     // It used to show nothing at all, which left people unaware a deadline
     // existed until the warning fired. It still must not masquerade as a
-    // real "Remaining Time / Total Duration" the way a detected runtime does.
+    // real runtime the way a detected duration does.
     startTimer('channel-1', 'user-1', 'tester', '', 360, null, true);
 
     const interaction = makeStatusInteraction();
     await execute(interaction);
 
-    const embed = interaction.reply.mock.calls[0][0].embeds[0];
-    const fields = embed.data.fields || [];
-    const fieldNames = fields.map(f => f.name);
-
-    expect(fieldNames).not.toContain('Remaining Time');
-    expect(fieldNames).not.toContain('Total Duration');
-
-    const autoStop = fields.find(f => f.name === 'Auto-stops in');
-    expect(autoStop).toBeDefined();
-    expect(autoStop.value).toContain('no duration set');
-    expect(embed.data.footer.text).toContain('/timer adjust');
+    const text = statusText(interaction);
+    expect(text).toContain('auto-stops in');
+    // 360 minutes is the safety cap, not something anyone chose — it must
+    // never be presented as the timer's duration.
+    expect(text).not.toMatch(/\*\*Duration:\*\* 6h(?!.*auto-stops)/);
   });
 
-  test('a real duration (not a fallback) still shows Remaining Time / Total Duration', async () => {
+  test('a real duration is shown as the duration', async () => {
     startTimer('channel-1', 'user-1', 'tester', '', 90, null, false);
 
     const interaction = makeStatusInteraction();
     await execute(interaction);
 
-    const embed = interaction.reply.mock.calls[0][0].embeds[0];
-    const fieldNames = (embed.data.fields || []).map(f => f.name);
-
-    expect(fieldNames).toContain('Remaining Time');
-    expect(fieldNames).toContain('Total Duration');
-    expect(embed.data.footer.text).toBe('Auto-stop enabled');
+    expect(statusText(interaction)).toContain('**Duration:** 1h 30m');
   });
 
-  test('a timer with autostop disabled (no duration at all) shows no duration fields either', async () => {
+  test('a timer with autostop disabled reads as having no limit', async () => {
     startTimer('channel-1', 'user-1', 'tester', '', null, null, false);
 
     const interaction = makeStatusInteraction();
     await execute(interaction);
 
-    const embed = interaction.reply.mock.calls[0][0].embeds[0];
-    const fieldNames = (embed.data.fields || []).map(f => f.name);
-
-    expect(fieldNames).not.toContain('Remaining Time');
-    expect(fieldNames).not.toContain('Total Duration');
+    expect(statusText(interaction)).toContain('no limit');
   });
 });
