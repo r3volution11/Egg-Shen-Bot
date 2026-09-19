@@ -222,7 +222,9 @@ Answers the one question people actually ask — how far in are we — in two li
 Elapsed: 2h 43m 32s    Duration: 1h 47m
 ```
 
-Elapsed time carries seconds, since that's the number people sync a watch party against. A timer with auto-stop turned off reads **no limit**; one running on the server's safety cap says **auto-stops in 5h 30m** rather than claiming a runtime nobody set. A paused timer says so.
+Elapsed time carries seconds, since that's the number people sync a watch party against.
+
+**Duration only appears when the bot actually knows the runtime** — from a title lookup or a duration you typed. A timer running on the server's auto-stop cap shows elapsed time alone: that cap is a backstop against a timer running forever, not a statement about how long the film is, and showing it would answer "when does this end?" with an unrelated number. A paused timer says so.
 
 **Parameters:**
 - `public` (optional) - Show this to everyone in the channel (default: true — set `false` to keep it to yourself)

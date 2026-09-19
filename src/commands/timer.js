@@ -1296,24 +1296,23 @@ export async function execute(interaction) {
       // number, so "2h 43m" alone isn't precise enough to start on.
       const elapsed = formatDurationHuman(timer.elapsedMs, { showSeconds: true });
 
-      let durationText;
+      // Duration appears ONLY when it came from a real title lookup or the
+      // user typed it. The server's fallback cap is a backstop against a
+      // timer running forever — it says nothing about how long the film is
+      // or when it ends, so showing it here answers the question wrongly and
+      // just adds clutter. A timer without a known runtime simply shows how
+      // far in it is. (/timer status's job is progress; the auto-stop
+      // deadline still announces itself via the expiry warning.)
+      const stats = [`**Elapsed:** ${elapsed}`];
       if (hasDisplayableDuration) {
-        durationText = formatMinutesHuman(timer.duration);
-      } else if (timer.duration && timer.isFallbackDuration) {
-        // A fallback duration is an auto-stop safety net, not a runtime, so
-        // it says when it stops rather than claiming a total.
-        durationText = timer.isExpired
-          ? 'stopping…'
-          : `auto-stops in ${formatDurationHuman(timer.remainingMs, { showSeconds: true })}`;
-      } else {
-        durationText = 'no limit';
+        stats.push(`**Duration:** ${formatMinutesHuman(timer.duration)}`);
       }
 
       const embed = new EmbedBuilder()
         .setColor(timer.paused ? 0xFFA500 : (timer.isExpired ? 0xFF0000 : 0x5865F2))
         .setDescription(
           `### ${state}${timer.label ? `: ${timer.label}` : ''}\n` +
-          `**Elapsed:** ${elapsed}\u2003**Duration:** ${durationText}`
+          stats.join('\u2003')
         );
 
       await interaction.reply({ embeds: [embed], ephemeral: !isPublic });

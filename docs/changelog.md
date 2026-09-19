@@ -5,6 +5,11 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.37.1 - 2026-09-19
+
+### Changed
+- **`/timer status` now shows a duration only when the bot actually knows the runtime** — from a title lookup or a duration you typed. A timer running on the server's auto-stop cap previously reported "auto-stops in 5h 30m", which answers "when does this finish?" with a number that has nothing to do with the film: that cap is a backstop against a timer running forever, not a runtime. Those timers now show elapsed time alone. The auto-stop deadline still announces itself through the expiry warning, which is where it's actually actionable
+
 ## 2.37.0 - 2026-09-19
 
 ### Changed

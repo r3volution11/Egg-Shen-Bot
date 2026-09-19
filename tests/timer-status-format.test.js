@@ -164,6 +164,17 @@ describe('/timer status is compact', () => {
     expect(statsLine).toMatch(/\*\*Elapsed:\*\* \d+s/);
   });
 
+  test('omits duration entirely when it is only the auto-stop backstop', async () => {
+    // A fallback cap is not a runtime — showing it would answer "when does
+    // this finish?" with a number that has nothing to do with the film.
+    startTimer('channel-1', 'user-1', 'tester', 'The Thing', 360, null, true);
+
+    const embed = (await status(makeStatusInteraction())).embeds[0].data;
+
+    expect(embed.description).not.toContain('Duration:');
+    expect(embed.description).toContain('**Elapsed:**');
+  });
+
   test('duration does NOT carry seconds — a runtime is a fixed figure', async () => {
     startTimer('channel-1', 'user-1', 'tester', 'The Thing', 107, null, false);
 

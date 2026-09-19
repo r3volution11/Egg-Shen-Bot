@@ -165,20 +165,19 @@ describe('/timer status — a fallback duration reads as a safety net, not a run
     return interaction.reply.mock.calls[0][0].embeds[0].data.description;
   }
 
-  test('a fallback-duration timer says when it auto-stops, not a total', async () => {
-    // It used to show nothing at all, which left people unaware a deadline
-    // existed until the warning fired. It still must not masquerade as a
-    // real runtime the way a detected duration does.
+  test('a fallback-duration timer shows no duration at all', async () => {
+    // The 360-minute safety cap is a backstop against a timer running
+    // forever. It says nothing about how long the film is or when it ends,
+    // so surfacing it here answers the user's actual question wrongly.
     startTimer('channel-1', 'user-1', 'tester', '', 360, null, true);
 
     const interaction = makeStatusInteraction();
     await execute(interaction);
 
     const text = statusText(interaction);
-    expect(text).toContain('auto-stops in');
-    // 360 minutes is the safety cap, not something anyone chose — it must
-    // never be presented as the timer's duration.
-    expect(text).not.toMatch(/\*\*Duration:\*\* 6h(?!.*auto-stops)/);
+    expect(text).not.toContain('Duration:');
+    expect(text).not.toContain('6h');
+    expect(text).toContain('**Elapsed:**'); // still answers how far in we are
   });
 
   test('a real duration is shown as the duration', async () => {
@@ -190,12 +189,12 @@ describe('/timer status — a fallback duration reads as a safety net, not a run
     expect(statusText(interaction)).toContain('**Duration:** 1h 30m');
   });
 
-  test('a timer with autostop disabled reads as having no limit', async () => {
+  test('a timer with autostop disabled shows no duration either', async () => {
     startTimer('channel-1', 'user-1', 'tester', '', null, null, false);
 
     const interaction = makeStatusInteraction();
     await execute(interaction);
 
-    expect(statusText(interaction)).toContain('no limit');
+    expect(statusText(interaction)).not.toContain('Duration:');
   });
 });
