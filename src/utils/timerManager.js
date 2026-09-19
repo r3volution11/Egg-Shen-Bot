@@ -539,6 +539,65 @@ export function canControlTimerPauseStop(timer, userId, member, guildConfig) {
 }
 
 /**
+ * Who may set or correct a running timer's title.
+ *
+ * Deliberately looser than pause/stop while the timer has NO title: an
+ * unidentified timer is the problem we want fixed, whoever is watching can
+ * fix it, and there is nothing to vandalize in an empty field. The risky
+ * case — overwriting a title someone already set, which silently corrupts
+ * the watch-history entry written at stop time — stays restricted to the
+ * starter and moderators.
+ *
+ * @param {object} timer - the active timer record
+ * @param {string} userId - who is asking
+ * @param {object} member - their guild member, for the admin/mod check
+ * @returns {boolean}
+ */
+export function canSetTimerTitle(timer, userId, member) {
+  if (!timer) return false;
+  if (!timer.label) return true; // nothing set yet — anyone may identify it
+  return timer.userId === userId || isAdmin(member);
+}
+
+/**
+ * Set or correct an active timer's title and what it refers to.
+ *
+ * The label is what the watch-history entry is written under at stop time,
+ * and tmdbId/type are what save it from being re-guessed by a title search —
+ * so fixing this mid-party is what keeps the log accurate.
+ *
+ * Deliberately does NOT touch duration: a timer already counting is synced
+ * to a real playback, and silently rescheduling its auto-stop underneath
+ * people would be worse than an imperfect end time. `/timer adjust` exists
+ * for that and says what it is doing.
+ *
+ * @param {string} channelId
+ * @param {string} label - the corrected title
+ * @param {object|null} media - {tmdbId, type, episodeRange} when identified
+ * @returns {object|null} the updated timer, or null if none is running
+ */
+export function setTimerTitle(channelId, label, media = null) {
+  const timer = activeTimers.get(channelId);
+  if (!timer) return null;
+
+  timer.label = label || '';
+
+  if (media?.tmdbId) {
+    timer.tmdbId = media.tmdbId;
+    timer.type = media.type || null;
+    if (media.episodeRange) {
+      timer.episodeRange = media.episodeRange;
+    } else {
+      delete timer.episodeRange;
+    }
+  }
+
+  saveTimers().catch(err => console.error('Failed to save timers:', err));
+
+  return { ...timer };
+}
+
+/**
  * Adjust the duration of an active timer
  * Calculates elapsed time and reschedules auto-stop based on new total duration
  * @param {string} channelId - Discord channel ID

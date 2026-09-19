@@ -236,6 +236,28 @@ Status is public by default: a watch party is a shared activity, and whoever ask
 
 `/timer check` is an alias for `/timer status` and works exactly the same way, including the `public` option.
 
+### Name a Running Timer
+
+```
+/timer title <title>
+```
+
+Names a timer that was started without identifying what's playing — which is what the watch-history entry gets written under when it stops.
+
+**Who can use it:**
+- **While the timer has no title, anyone can set one.** That's the state worth fixing, and whoever's watching can fix it
+- **Once a title is set, only the person who started the timer or a moderator can change it** — overwriting a correct title would quietly corrupt the watch-history entry
+
+It runs the same lookup `/timer start` does, so an exact title resolves instantly and episode notation works too:
+```
+/timer title The Thing
+/timer title Tales from the Crypt S6: E4-E7
+```
+
+If nothing matches on TMDB the timer is still named with what you typed — an approximate label beats an unnamed one. The change is announced in the channel, since it was made on everyone's behalf.
+
+**This does not change the duration.** A running timer is synced to real playback, so rescheduling its auto-stop underneath everyone would be worse than an imperfect end time — use `/timer adjust` for that.
+
 ### Pause and Resume Timer
 
 ```

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
-import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop, formatDurationHuman, formatMinutesHuman } from '../utils/timerManager.js';
+import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop, formatDurationHuman, formatMinutesHuman, canSetTimerTitle, setTimerTitle } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin, getAutoDetectMode } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes, getPosterUrl } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
@@ -781,6 +781,18 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('title')
+      .setDescription('🏷️ Name what the running timer is for, so it logs to watch history correctly')
+      .addStringOption(option =>
+        option
+          .setName('title')
+          .setDescription('Movie or show being watched (e.g. The Thing, or "Severance S2: E1-E3")')
+          .setRequired(true)
+          .setMaxLength(100)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('autostop')
       .setDescription('⚙️ Enable or disable auto-stop for the active timer')
       .addStringOption(option =>
@@ -1517,6 +1529,101 @@ export async function execute(interaction) {
         });
       }
     }
+  } else if (subcommand === 'title') {
+    const requested = interaction.options.getString('title');
+    const timer = getTimerStatus(channelId);
+
+    if (!timer) {
+      return await interaction.reply({
+        content: '❌ No active timer in this channel. Use `/timer start` to begin one.',
+        ephemeral: true,
+      });
+    }
+
+    if (!canSetTimerTitle(timer, interaction.user.id, interaction.member)) {
+      return await interaction.reply({
+        content: `❌ **${timer.label}** is already set as the title. Only the person who started the timer or a moderator can change it.`,
+        ephemeral: true,
+      });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    // Reuse the start flow's lookup so an exact title resolves instantly and
+    // an ambiguous one gets the same picker people already know — including
+    // episode-range notation, which is how a multi-episode party is named.
+    const { title: searchLabel, year: searchYear } = stripTrailingYear(requested);
+    const episodeRange = parseEpisodeRange(requested);
+
+    let resolved = null;
+    try {
+      if (episodeRange) {
+        const shows = await hybridSearch(episodeRange.showName, searchTVShows, 'tv', getTVAlternativeTitles);
+        const show = shows.length === 1 ? shows[0] : pickLandslideWinner(shows, episodeRange.showName);
+        if (show) {
+          resolved = {
+            label: requested,
+            media: {
+              tmdbId: show.id,
+              type: 'tv',
+              episodeRange: {
+                season: episodeRange.season,
+                episodeStart: episodeRange.episodeStart,
+                episodeEnd: episodeRange.episodeEnd,
+              },
+            },
+          };
+        }
+      } else {
+        const [movies, shows] = await Promise.all([
+          hybridSearch(searchLabel, searchMovies, 'movie', getMovieAlternativeTitles).catch(() => []),
+          hybridSearch(searchLabel, searchTVShows, 'tv', getTVAlternativeTitles).catch(() => []),
+        ]);
+
+        const exactMovie = pickExactTitleMatch(movies, searchLabel, searchYear);
+        const exactTV = pickExactTitleMatch(shows, searchLabel, searchYear);
+        const soleMovie = movies.length === 1 && shows.length === 0 ? movies[0] : null;
+        const soleTV = shows.length === 1 && movies.length === 0 ? shows[0] : null;
+
+        const winner = (exactMovie && !exactTV) ? { r: exactMovie, type: 'movie' }
+          : (exactTV && !exactMovie) ? { r: exactTV, type: 'tv' }
+          : soleMovie ? { r: soleMovie, type: 'movie' }
+          : soleTV ? { r: soleTV, type: 'tv' }
+          : null;
+
+        if (winner) {
+          resolved = {
+            label: winner.r.title || winner.r.name,
+            media: { tmdbId: winner.r.id, type: winner.type, episodeRange: null },
+          };
+        }
+      }
+    } catch (error) {
+      console.error('[Timer] Title lookup failed:', error.message);
+    }
+
+    // Nothing matched confidently — still record what they typed. An
+    // approximate label beats an unnamed timer, and /timer stop re-searches
+    // it anyway when there's no stored id.
+    const label = resolved?.label || requested;
+    const media = resolved?.media || null;
+
+    setTimerTitle(channelId, label, media);
+
+    const identified = media
+      ? `Matched on TMDB, so it will log to watch history correctly.`
+      : `Couldn't match this on TMDB — the timer is named, but double-check the watch-history entry when it stops.`;
+
+    await interaction.editReply({
+      content: `🏷️ Timer is now **${label}**. ${identified}`,
+    });
+
+    // Announce it publicly: whoever fixed the title did it for everyone's
+    // benefit, and the people watching should see what the timer now says.
+    await interaction.channel.send({
+      content: `🏷️ <@${interaction.user.id}> set this timer's title to **${label}**.`,
+    }).catch(() => {});
+
   } else if (subcommand === 'adjust') {
     const requestedDuration = interaction.options.getInteger('duration');
     const timer = getTimerStatus(channelId);

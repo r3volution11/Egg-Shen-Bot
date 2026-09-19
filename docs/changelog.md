@@ -5,6 +5,13 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.38.0 - 2026-09-19
+
+### Added
+- **New `/timer title` — name a running timer that was started without identifying what's playing.** The title is what the watch-history entry gets written under when the timer stops, so a timer nobody named produces an unidentified log entry. Now whoever's watching can fix it mid-party. It runs the same lookup `/timer start` does, so an exact title resolves instantly and episode notation (`Tales from the Crypt S6: E4-E7`) records the range too; if nothing matches, the timer is still named with what was typed, since an approximate label beats an unnamed one
+- The permission rule is deliberately asymmetric, because the two cases carry very different risk. **While the timer has no title, anyone may set one** — that is the state worth fixing, and an empty field has nothing to vandalize. **Once a title exists, only the starter or a moderator may change it**, since overwriting a correct title silently corrupts the watch-history entry written at stop time
+- Setting a title never reschedules the auto-stop. A running timer is synced to real playback, and moving its end time underneath everyone would be worse than an imperfect one — `/timer adjust` exists for that and says what it does
+
 ## 2.37.1 - 2026-09-19
 
 ### Changed
