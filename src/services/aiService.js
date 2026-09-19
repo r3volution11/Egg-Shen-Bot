@@ -434,12 +434,28 @@ function resultTitle(result) {
  * @param {string} query
  * @returns {Object|null}
  */
-function pickExactTitleMatch(results, query) {
+export function pickExactTitleMatch(results, query, year = null) {
   const normalizedQuery = normalizeTitle(query);
   if (!normalizedQuery) return null;
 
-  const exactMatches = results.filter(r => normalizeTitle(resultTitle(r)) === normalizedQuery);
-  return exactMatches.length === 1 ? exactMatches[0] : null;
+  const exactMatches = (results || []).filter(r => normalizeTitle(resultTitle(r)) === normalizedQuery);
+
+  if (exactMatches.length === 1) return exactMatches[0];
+  if (exactMatches.length === 0) return null;
+
+  // Several titles match exactly — "The Covenant" is a 2006 film, a 2013
+  // film and a 2023 film. Normally that's genuine ambiguity and the user
+  // should choose, but when the query carried a year ("The Covenant (2006)")
+  // it already answered the question, so use it to break the tie.
+  if (year) {
+    const sameYear = exactMatches.filter(r => {
+      const date = r.release_date || r.first_air_date || '';
+      return String(date).slice(0, 4) === String(year);
+    });
+    if (sameYear.length === 1) return sameYear[0];
+  }
+
+  return null;
 }
 
 /**
@@ -457,13 +473,13 @@ function pickExactTitleMatch(results, query) {
  *   to get score-only behavior.
  * @returns {Object|null} The winning result, or null if no landslide
  */
-export function pickLandslideWinner(results, query = null) {
+export function pickLandslideWinner(results, query = null, year = null) {
   if (!results || results.length < 2) return null;
 
   // An exact title match beats the scores — and works even without OpenAI,
   // where there are no scores to consult at all.
   if (query) {
-    const exact = pickExactTitleMatch(results, query);
+    const exact = pickExactTitleMatch(results, query, year);
     if (exact) {
       console.log(`[LandslideCheck] exact title match for "${query}" → "${resultTitle(exact)}" (auto-selected, scores not consulted)`);
       return exact;

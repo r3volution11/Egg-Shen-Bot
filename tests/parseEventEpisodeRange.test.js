@@ -111,3 +111,40 @@ describe('parseEventEpisodeRange', () => {
     });
   });
 });
+
+describe('stripTrailingYear', () => {
+  test.each([
+    ['The Covenant (2006)', 'The Covenant', '2006'],
+    ['The Covenant [2006]', 'The Covenant', '2006'],
+    ['The Covenant - 2006', 'The Covenant', '2006'],
+    ['Halloween (1978)', 'Halloween', '1978'],
+    ['The Thing ( 1982 )', 'The Thing', '1982'],
+  ])('strips the year from %s', async (input, title, year) => {
+    const { stripTrailingYear } = await import('../src/utils/episodeRangeParser.js');
+    expect(stripTrailingYear(input)).toEqual({ title, year });
+  });
+
+  test.each([
+    ['Blade Runner 2049'],
+    ['Summer of 1984'],
+    ['1917'],
+    ['2012'],
+    ['The Thing'],
+  ])('leaves %s alone — the number is part of the title', async (input) => {
+    const { stripTrailingYear } = await import('../src/utils/episodeRangeParser.js');
+    expect(stripTrailingYear(input)).toEqual({ title: input, year: null });
+  });
+
+  test('handles empty and non-string input', async () => {
+    const { stripTrailingYear } = await import('../src/utils/episodeRangeParser.js');
+    expect(stripTrailingYear('')).toEqual({ title: '', year: null });
+    expect(stripTrailingYear(null)).toEqual({ title: '', year: null });
+    expect(stripTrailingYear(undefined)).toEqual({ title: '', year: null });
+  });
+
+  test('does not strip a year that is the entire title', async () => {
+    const { stripTrailingYear } = await import('../src/utils/episodeRangeParser.js');
+    // "(2006)" alone leaves nothing to search for, so it stays as-is.
+    expect(stripTrailingYear('(2006)').title).toBe('(2006)');
+  });
+});

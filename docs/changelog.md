@@ -5,6 +5,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.35.0 - 2026-09-18
+
+### Fixed
+- **An event named with a year — "The Covenant (2006)" — found nothing and sent the user to a "couldn't find a match" screen.** TMDB matches a search literally, so the `(2006)` suffix returned **zero** results for a film the bot could otherwise have found instantly; the host then had to click Search, retype the title, and pick from 21 results. Auto-detection now searches without the year while the timer keeps the name exactly as the host wrote it. Only a bracketed or dash-separated year is removed, so "Blade Runner 2049", "Summer of 1984" and "1917" are untouched
+- **An exact title match was still being overruled into a picker.** The auto-select gate required every *other* media type to return nothing, which is a sensible guard for a fuzzy score but far too strict for a literal match — an exact film match produced a 21-option list purely because some unrelated show also matched the words. An exact title match now settles it outright
+- **A year in the event name now breaks a tie between identically-titled results.** Three films are called "The Covenant" (2006, 2013, 2023), and one show is too. A host who wrote the year already answered which one they meant, so it's used to disambiguate rather than discarded
+
+### Changed
+- **The "Now Playing" card is smaller.** The poster drops from TMDB's w500 to w342 rendition — still clearly larger than the countdown thumbnail, without the card dominating the channel — the title renders one heading size down, and the separator rule between the title and "The timer is running" is gone
+
 ## 2.34.3 - 2026-09-18
 
 ### Changed

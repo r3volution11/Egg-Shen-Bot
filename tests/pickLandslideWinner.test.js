@@ -161,3 +161,58 @@ describe('pickLandslideWinner — exact title match', () => {
     logSpy.mockRestore();
   });
 });
+
+describe('pickExactTitleMatch — year disambiguation', () => {
+  let pickExactTitleMatch;
+
+  beforeAll(async () => {
+    ({ pickExactTitleMatch } = await import('../src/services/aiService.js'));
+  });
+
+  const covenants = [
+    { title: 'The Covenant', release_date: '2006-09-07', id: 9954 },
+    { title: 'The Covenant', release_date: '2013-01-01', id: 414751 },
+    { title: 'The Covenant', release_date: '2023-01-01', id: 1266409 },
+  ];
+
+  test('declines when several titles match exactly and no year is given', () => {
+    // Genuine ambiguity — the user should choose.
+    expect(pickExactTitleMatch(covenants, 'The Covenant')).toBeNull();
+  });
+
+  test('uses the year from the event name to break the tie', () => {
+    // A host who wrote "The Covenant (2006)" already answered the question.
+    const picked = pickExactTitleMatch(covenants, 'The Covenant', '2006');
+    expect(picked.id).toBe(9954);
+  });
+
+  test('still declines when the year matches more than one', () => {
+    const sameYear = [
+      { title: 'Dup', release_date: '2006-01-01', id: 1 },
+      { title: 'Dup', release_date: '2006-06-01', id: 2 },
+    ];
+    expect(pickExactTitleMatch(sameYear, 'Dup', '2006')).toBeNull();
+  });
+
+  test('declines when the year matches none of them', () => {
+    expect(pickExactTitleMatch(covenants, 'The Covenant', '1999')).toBeNull();
+  });
+
+  test('matches TV by first_air_date', () => {
+    const shows = [
+      { name: 'Ghosts', first_air_date: '2019-04-15', id: 1 },
+      { name: 'Ghosts', first_air_date: '2021-10-07', id: 2 },
+    ];
+    expect(pickExactTitleMatch(shows, 'Ghosts', '2021').id).toBe(2);
+  });
+
+  test('a single exact match still wins without needing a year', () => {
+    const one = [{ title: 'Juno', release_date: '2007-12-05', id: 620 }];
+    expect(pickExactTitleMatch(one, 'Juno').id).toBe(620);
+  });
+
+  test('tolerates missing results', () => {
+    expect(pickExactTitleMatch(null, 'Anything')).toBeNull();
+    expect(pickExactTitleMatch([], 'Anything')).toBeNull();
+  });
+});

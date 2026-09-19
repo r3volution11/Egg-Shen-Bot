@@ -114,3 +114,43 @@ export function parseEventEpisodeRange(name, description) {
   // case, there's no notation embedded in it that needs stripping out.
   return { season, episodeStart, episodeEnd, showName: name.trim() };
 }
+
+/**
+ * Strip a trailing year from a title, e.g. "The Covenant (2006)" → "The
+ * Covenant".
+ *
+ * Watch-party hosts routinely disambiguate an event name with the year, but
+ * TMDB's search matches it literally — `"The Covenant (2006)"` returns ZERO
+ * results while `"The Covenant"` returns the film. An auto-detected title
+ * that searches for nothing sends the user to a "couldn't find a match"
+ * screen for a title the bot could have found, which is exactly the friction
+ * auto-detection exists to avoid.
+ *
+ * Only a 4-digit year in the 1800s-2000s range is removed, and only from the
+ * end, so a title that genuinely contains a number ("1917", "2012",
+ * "Blade Runner 2049") is untouched.
+ *
+ * @param {string} title
+ * @returns {{title: string, year: string|null}}
+ */
+export function stripTrailingYear(title) {
+  if (!title || typeof title !== 'string') {
+    return { title: '', year: null };
+  }
+
+  // A bracketed year is unambiguous: "(2006)" or "[2006]".
+  const bracketed = title.match(/^(.*?)\s*[([]\s*(1[89]\d{2}|20\d{2})\s*[)\]]\s*$/);
+  if (bracketed && bracketed[1].trim()) {
+    return { title: bracketed[1].trim(), year: bracketed[2] };
+  }
+
+  // A dash-separated year is nearly as safe: "The Covenant - 2006".
+  const dashed = title.match(/^(.*?)\s+[-–—]\s*(1[89]\d{2}|20\d{2})\s*$/);
+  if (dashed && dashed[1].trim()) {
+    return { title: dashed[1].trim(), year: dashed[2] };
+  }
+
+  // A BARE trailing number is left alone — "Blade Runner 2049", "Summer of
+  // 1984" and "1917" are all titles, not titles plus a year.
+  return { title: title.trim(), year: null };
+}

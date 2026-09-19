@@ -3,8 +3,8 @@ import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTime
 import { loadGuildConfig, isAdmin, getAutoDetectMode } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes, getPosterUrl } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
-import { hybridSearch, pickLandslideWinner } from '../services/aiService.js';
-import { parseEpisodeRange, parseEventEpisodeRange } from '../utils/episodeRangeParser.js';
+import { hybridSearch, pickLandslideWinner, pickExactTitleMatch } from '../services/aiService.js';
+import { parseEpisodeRange, parseEventEpisodeRange, stripTrailingYear } from '../utils/episodeRangeParser.js';
 
 /**
  * Find the scheduled event tied to a channel, so a watch party's details can
@@ -415,16 +415,24 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
   // this label, so falling through to search the raw range-containing
   // string here would rarely help and just adds latency.
   if (!duration && label && !episodeRange) {
-    console.log(`[Timer] Attempting to detect runtime for: "${label}"`);
+    // Hosts disambiguate event names with a year ("The Covenant (2006)"),
+    // but TMDB matches that literally and returns nothing — which sent the
+    // user to a "couldn't find a match" screen for a title the bot could
+    // have found. Search without it; the timer keeps the name as written.
+    const { title: searchLabel, year: searchYear } = stripTrailingYear(label);
+    if (searchLabel !== label) {
+      console.log(`[Timer] Searching for "${searchLabel}" (dropped the year from "${label}")`);
+    }
+    console.log(`[Timer] Attempting to detect runtime for: "${searchLabel}"`);
     try {
       // Search for the movie/TV show/board game. Movie/TV searches go
       // through hybridSearch for semantic ranking (enabling the landslide
       // check below); board games have no embedding support, so they stay
       // on a plain keyword search.
       const [movieResults, tvResults, boardGameResults] = await Promise.all([
-        hybridSearch(label, searchMovies, 'movie', getMovieAlternativeTitles).catch(() => []),
-        hybridSearch(label, searchTVShows, 'tv', getTVAlternativeTitles).catch(() => []),
-        searchBoardGames(label).catch(() => []),
+        hybridSearch(searchLabel, searchMovies, 'movie', getMovieAlternativeTitles).catch(() => []),
+        hybridSearch(searchLabel, searchTVShows, 'tv', getTVAlternativeTitles).catch(() => []),
+        searchBoardGames(searchLabel).catch(() => []),
       ]);
 
       // Check each type independently for a landslide winner — never
@@ -432,8 +440,8 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
       // they were ranked against different candidate pools. If exactly
       // one type has a landslide winner and the other types have no
       // results at all, auto-select it without merging/showing a picker.
-      const movieLandslide = movieResults.length > 1 ? pickLandslideWinner(movieResults, label) : (movieResults.length === 1 ? movieResults[0] : null);
-      const tvLandslide = tvResults.length > 1 ? pickLandslideWinner(tvResults, label) : (tvResults.length === 1 ? tvResults[0] : null);
+      const movieLandslide = movieResults.length > 1 ? pickLandslideWinner(movieResults, searchLabel, searchYear) : (movieResults.length === 1 ? movieResults[0] : null);
+      const tvLandslide = tvResults.length > 1 ? pickLandslideWinner(tvResults, searchLabel, searchYear) : (tvResults.length === 1 ? tvResults[0] : null);
       const otherTypesEmpty = {
         movie: tvResults.length === 0 && (boardGameResults || []).length === 0,
         tv: movieResults.length === 0 && (boardGameResults || []).length === 0,
@@ -441,7 +449,39 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
 
       let soloWinner = null;
       let soloWinnerType = null;
-      if (movieLandslide && otherTypesEmpty.movie) {
+
+      // An exact title match settles it outright, whatever the other types
+      // returned. The landslide path below additionally requires every OTHER
+      // type to come back empty — a sensible guard for a fuzzy score, but far
+      // too strict for a literal match: "The Covenant" matched a film exactly
+      // and still showed a 21-option picker, because some unrelated TV show
+      // also matched the words.
+      const exactMovie = pickExactTitleMatch(movieResults, searchLabel, searchYear);
+      const exactTV = pickExactTitleMatch(tvResults, searchLabel, searchYear);
+
+      if (exactMovie && !exactTV) {
+        soloWinner = exactMovie;
+        soloWinnerType = 'movie';
+      } else if (exactTV && !exactMovie) {
+        soloWinner = exactTV;
+        soloWinnerType = 'tv';
+      } else if (exactMovie && exactTV && searchYear) {
+        // Both a film and a show carry this exact title, but the host wrote a
+        // year — whichever was released that year is the one they meant.
+        const yearOf = r => String(r.release_date || r.first_air_date || '').slice(0, 4);
+        const movieMatchesYear = yearOf(exactMovie) === String(searchYear);
+        const tvMatchesYear = yearOf(exactTV) === String(searchYear);
+
+        if (movieMatchesYear && !tvMatchesYear) {
+          soloWinner = exactMovie;
+          soloWinnerType = 'movie';
+        } else if (tvMatchesYear && !movieMatchesYear) {
+          soloWinner = exactTV;
+          soloWinnerType = 'tv';
+        }
+      }
+
+      if (!soloWinner && movieLandslide && otherTypesEmpty.movie) {
         soloWinner = movieLandslide;
         soloWinnerType = 'movie';
       } else if (tvLandslide && otherTypesEmpty.tv) {
@@ -1721,10 +1761,17 @@ const CARD_RULE = '━━━━━━━━━━━━━━━━━━━━�
  * poster lookup, so every failure resolves to null and the countdown runs
  * exactly as before.
  *
+ * Discord gives no control over how large it renders an embed image — it
+ * fills the card width whatever you send — so the only real size lever is
+ * which TMDB rendition the URL points at. w342 keeps the Now Playing poster
+ * clearly bigger than the countdown thumbnail without the card dominating
+ * the channel.
+ *
  * @param {object|null} media - {tmdbId, type} captured when the title was resolved
+ * @param {string} [size] - TMDB poster rendition (w92/w154/w185/w342/w500/w780)
  * @returns {Promise<string|null>}
  */
-async function fetchPosterUrl(media) {
+async function fetchPosterUrl(media, size = 'w342') {
   if (!media?.tmdbId || (media.type !== 'movie' && media.type !== 'tv')) {
     return null;
   }
@@ -1734,7 +1781,7 @@ async function fetchPosterUrl(media) {
       ? await getMovieDetails(media.tmdbId)
       : await getTVShowDetails(media.tmdbId);
 
-    return details?.poster_path ? getPosterUrl(details.poster_path) : null;
+    return details?.poster_path ? getPosterUrl(details.poster_path, size) : null;
   } catch (error) {
     console.error('[Timer] Poster lookup failed (continuing without art):', error.message);
     return null;
@@ -1939,7 +1986,7 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         .setColor(0x00FF00)
         .setTitle('▶️  NOW PLAYING')
         .setDescription(
-          `${label ? `# ${label}` : '# Watch Party'}\n${CARD_RULE}\n**The timer is running.**`
+          `${label ? `## ${label}` : '## Watch Party'}\n**The timer is running.**`
         )
         .addFields(timerFields)
         .setFooter({ text: (duration && !isFallbackDuration) ? 'Timer will auto-stop when complete' : 'Use /timer stop to end the timer' })

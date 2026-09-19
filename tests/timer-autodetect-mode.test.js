@@ -224,6 +224,61 @@ describe("'ask' (the default): look it up, but never trap anyone in a list", () 
     expect(showedAPicker(interaction)).toBe(false);
   });
 
+  test('an event name with a year still resolves — no picker, no prompt', async () => {
+    // Reported from the live server: the event was named "The Covenant
+    // (2006)". TMDB matches that literally and returned ZERO results, so
+    // auto-detection dropped the user on a "couldn't find a match" screen for
+    // a film the bot could have found — the exact friction auto-detect exists
+    // to remove. Three films share the title, so the year also breaks the tie.
+    mockSearchMovies.mockResolvedValue([
+      { id: 9954, title: 'The Covenant', release_date: '2006-09-07' },
+      { id: 414751, title: 'The Covenant', release_date: '2013-01-01' },
+    ]);
+    mockGetMovieDetails.mockResolvedValue({ runtime: 97 });
+
+    const interaction = makeInteraction({
+      event: makeEvent({ name: 'The Covenant (2006)' }),
+      guildConfig: config(),
+    });
+    await runExecute(interaction);
+
+    // Searched without the year...
+    expect(mockSearchMovies).toHaveBeenCalledWith('The Covenant');
+
+    // ...and resolved the 2006 film outright.
+    const status = getTimerStatus(WATCH_PARTY_CHANNEL);
+    expect(status).not.toBeNull();
+    expect(status.tmdbId).toBe(9954);
+    expect(status.duration).toBe(107); // 97 + 10 buffer
+    expect(showedAPicker(interaction)).toBe(false);
+
+    // The timer keeps the name the host actually wrote.
+    expect(status.label).toBe('The Covenant (2006)');
+  });
+
+  test('an exact match wins even when another type also matches the words', async () => {
+    // "The Covenant" is both a film and a show. The old gate required every
+    // other type to come back empty, so an exact film match still produced a
+    // 21-option picker.
+    mockSearchMovies.mockResolvedValue([
+      { id: 9954, title: 'The Covenant', release_date: '2006-09-07' },
+    ]);
+    mockSearchTVShows.mockResolvedValue([
+      { id: 5555, name: 'The Covenant', first_air_date: '2019-01-01' },
+    ]);
+    mockGetMovieDetails.mockResolvedValue({ runtime: 97 });
+
+    const interaction = makeInteraction({
+      event: makeEvent({ name: 'The Covenant (2006)' }),
+      guildConfig: config(),
+    });
+    await runExecute(interaction);
+
+    const status = getTimerStatus(WATCH_PARTY_CHANNEL);
+    expect(status.tmdbId).toBe(9954); // the 2006 film, not the show
+    expect(showedAPicker(interaction)).toBe(false);
+  });
+
   test('an ambiguous title offers two buttons instead of a picker', async () => {
     mockSearchMovies.mockResolvedValue([
       { id: 1, title: 'Tales from the Crypt', release_date: '1972-03-08' },
