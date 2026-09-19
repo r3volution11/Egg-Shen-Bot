@@ -1,10 +1,15 @@
 /**
  * Regression coverage for /timer status and /timer check's default
- * visibility. People mostly run these to glance at their own progress on
- * a movie/episode, so unlike the search commands (public by default,
- * private:true to opt out), /timer status and /timer check default to
- * private (ephemeral) and take a public:true option to announce the
- * status to the whole channel instead.
+ * visibility.
+ *
+ * These default to PUBLIC: a watch party is a shared activity, and someone
+ * asking how far in they are is almost always asking on everyone's behalf —
+ * an ephemeral answer meant the next person had to ask again. `public:false`
+ * still keeps it to yourself.
+ *
+ * The flag is read with `?? true` rather than `|| true`, since getBoolean
+ * returns null when unset and `||` would swallow a deliberate false along
+ * with it — which is what the public:false case below actually guards.
  *
  * Run with: npx jest tests/timer-status-visibility.test.js --verbose
  */
@@ -47,14 +52,14 @@ function makeInteraction({ subcommand, isPublic = null }) {
 }
 
 describe.each(['status', 'check'])('/timer %s — visibility', (subcommand) => {
-  test('defaults to ephemeral (private) when no public option is given', async () => {
+  test('defaults to public when no option is given', async () => {
     startTimer('channel-1', 'starter-user', 'starter-user');
     const interaction = makeInteraction({ subcommand });
 
     await execute(interaction);
 
     expect(interaction.reply).toHaveBeenCalledWith(
-      expect.objectContaining({ ephemeral: true })
+      expect.objectContaining({ ephemeral: false })
     );
   });
 

@@ -733,7 +733,7 @@ export const data = new SlashCommandBuilder()
       .addBooleanOption(option =>
         option
           .setName('public')
-          .setDescription('Show this to everyone in the channel instead of just you (default: false)')
+          .setDescription('Show this to everyone in the channel (default: true — set false to keep it to yourself)')
           .setRequired(false)
       )
   )
@@ -744,7 +744,7 @@ export const data = new SlashCommandBuilder()
       .addBooleanOption(option =>
         option
           .setName('public')
-          .setDescription('Show this to everyone in the channel instead of just you (default: false)')
+          .setDescription('Show this to everyone in the channel (default: true — set false to keep it to yourself)')
           .setRequired(false)
       )
   )
@@ -1271,9 +1271,12 @@ export async function execute(interaction) {
 
     await interaction.reply({ embeds: [embed] });
   } else if (subcommand === 'status' || subcommand === 'check') {
-    // Most people check the timer just to glance at their own progress, so
-    // default to private — pass public:true to announce it to the channel.
-    const isPublic = interaction.options.getBoolean('public') || false;
+    // Public by default: a watch party is a shared activity, and someone
+    // asking how far in they are is almost always asking on everyone's
+    // behalf. `?? true` rather than `|| true` so an explicit public:false
+    // still keeps it private — getBoolean returns null when unset, and `||`
+    // would swallow a deliberate false along with it.
+    const isPublic = interaction.options.getBoolean('public') ?? true;
     const timer = getTimerStatus(channelId);
 
     if (timer) {

@@ -63,12 +63,14 @@ afterEach(() => {
   cleanupTimerFile();
 });
 
-function makeStatusInteraction({ isPublic = false } = {}) {
+function makeStatusInteraction({ isPublic = null } = {}) {
   return {
     channelId: 'channel-1',
     guildId: 'guild-1',
     options: {
       getSubcommand: () => 'status',
+      // Discord returns null for an option the user didn't supply — the
+      // distinction the `?? true` default depends on.
       getBoolean: () => isPublic,
     },
     reply: jest.fn().mockResolvedValue(undefined),
@@ -189,15 +191,15 @@ describe('/timer status is compact', () => {
     expect(embed.description).toContain('⏸️ Paused');
   });
 
-  test('stays private by default and public on request', async () => {
+  test('is public by default and private on request', async () => {
     startTimer('channel-1', 'user-1', 'tester', 'The Thing', 60, null, false);
 
-    const priv = await status(makeStatusInteraction());
-    expect(priv.ephemeral).toBe(true);
+    const pub = await status(makeStatusInteraction());
+    expect(pub.ephemeral).toBe(false);
 
     clearAllTimers();
     startTimer('channel-1', 'user-1', 'tester', 'The Thing', 60, null, false);
-    const pub = await status(makeStatusInteraction({ isPublic: true }));
-    expect(pub.ephemeral).toBe(false);
+    const priv = await status(makeStatusInteraction({ isPublic: false }));
+    expect(priv.ephemeral).toBe(true);
   });
 });

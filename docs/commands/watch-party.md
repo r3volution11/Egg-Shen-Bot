@@ -215,20 +215,21 @@ If TMDB doesn't have a specific runtime for one of the episodes, the show's aver
 /timer check
 ```
 
-Shows the current timer status for the channel:
-- Elapsed time
-- Remaining time (if duration was set)
-- Total duration (if set)
-- What's being watched
-- Who started the timer
-- Auto-stop status
+Answers the one question people actually ask — how far in are we — in two lines:
+
+```
+⏱️ Timer: The Covenant (2006)
+Elapsed: 2h 43m 32s    Duration: 1h 47m
+```
+
+Elapsed time carries seconds, since that's the number people sync a watch party against. A timer with auto-stop turned off reads **no limit**; one running on the server's safety cap says **auto-stops in 5h 30m** rather than claiming a runtime nobody set. A paused timer says so.
 
 **Parameters:**
-- `public` (optional) - Show this to everyone in the channel instead of just you (default: false)
+- `public` (optional) - Show this to everyone in the channel (default: true — set `false` to keep it to yourself)
 
-By default, checking the timer only shows the result to you — most people check just to glance at their own progress, and showing it to everyone every time would flood the channel. Add `public:true` to announce the current status to the whole channel instead:
+Status is public by default: a watch party is a shared activity, and whoever asks is usually asking on everyone's behalf. If you'd rather check quietly:
 ```
-/timer status public:true
+/timer status public:false
 ```
 
 `/timer check` is an alias for `/timer status` and works exactly the same way, including the `public` option.

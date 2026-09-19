@@ -5,6 +5,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.37.0 - 2026-09-19
+
+### Changed
+- **[BREAKING]** **`/timer status` and `/timer check` are now public by default.** A watch party is a shared activity, and whoever runs these is almost always asking on everyone's behalf — an ephemeral answer meant the next person had to ask again. Pass `public:false` to check quietly instead. The "no active timer" message stays private either way, since there's nothing to share
+- `docs/commands/watch-party.md` still described the old four-field status card and the old default; updated to show what the command actually renders now
+
+### Developer
+- The flag is read with `?? true` rather than `|| true` — `getBoolean` returns null for an option the user didn't supply, and `||` would swallow a deliberate `public:false` along with it. `tests/timer-status-visibility.test.js` fails on that exact mistake
+
 ## 2.36.1 - 2026-09-18
 
 ### Fixed
