@@ -228,9 +228,12 @@ async function handleAdd(interaction, settings) {
     const guildConfig = await loadGuildConfig(interaction.guildId);
     const maxResults = guildConfig.maxSearchResults || 20;
 
-    const payload = Buffer.from(
-      JSON.stringify({ note, userId: interaction.user.id })
-    ).toString('base64');
+    // By nonce rather than inline: Discord caps an option value at 100
+    // characters, and a note of roughly 30 characters pushed the base64 past
+    // it. The value was then truncated, and the truncated base64 failed to
+    // parse — so a normal-length note silently lost the add.
+    const { stashSelection } = await import('../utils/pendingSelections.js');
+    const payload = stashSelection({ note, userId: interaction.user.id });
 
     const options = allResults.slice(0, maxResults).map(result => {
       const resultTitle = result.title || result.name;
@@ -243,7 +246,7 @@ async function handleAdd(interaction, settings) {
       return {
         label: `${resultTitle}${yearStr}`.substring(0, 100),
         description: `${TYPE_ICON[result.type]} ${overview}`.substring(0, 100),
-        value: `${result.type}_${result.id}_${payload}`.substring(0, 100),
+        value: `${result.type}_${result.id}_${payload}`,
       };
     });
 

@@ -1358,7 +1358,11 @@ export async function execute(interaction) {
       console.log(`[Timer Remind] Auto-detected event: "${eventTitle}"`);
       
       // Search TMDB for this title
-      const results = await searchContent(eventTitle);
+      // Hosts name events "The Covenant (2006)"; TMDB matches that literally
+      // and returns nothing, so the announcement silently loses its poster
+      // and runtime. Same fix /timer start got — search without the year.
+      const { title: searchableTitle } = stripTrailingYear(eventTitle);
+      const results = await searchContent(searchableTitle);
       
       if (results.length === 0) {
         // No TMDB results - just show a basic announcement

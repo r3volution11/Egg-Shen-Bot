@@ -139,9 +139,20 @@ export async function execute(interaction) {
         return;
       }
 
-      // Multiple results - show selection menu
-      // Store the notes and private flag in the custom ID for later
-      const selectionData = JSON.stringify({ notes, userId: interaction.user.id, username: interaction.user.username, isPrivate });
+      // Multiple results - show selection menu.
+      //
+      // The context travels by nonce rather than inside the option value:
+      // Discord caps that value at 100 characters, and this payload always
+      // exceeded it (a user snowflake alone is 18 digits), so the previous
+      // `.substring(0, 50)` truncated the base64 into something JSON.parse
+      // always threw on — every selection failed with "An error occurred".
+      const { stashSelection } = await import('../utils/pendingSelections.js');
+      const selectionNonce = stashSelection({
+        notes,
+        userId: interaction.user.id,
+        username: interaction.user.username,
+        isPrivate,
+      });
       
       // Load guild config to get maxSearchResults
       const guildConfig = await loadGuildConfig(interaction.guildId);
@@ -156,7 +167,7 @@ export async function execute(interaction) {
         return {
           label: `${title}${yearStr}`.substring(0, 100),
           description: `${result.type === 'movie' ? '🎬' : '📺'} ${overview}`.substring(0, 100),
-          value: `watched_${result.type}_${result.id}_${Buffer.from(selectionData).toString('base64').substring(0, 50)}`,
+          value: `watched_${result.type}_${result.id}_${selectionNonce}`,
         };
       });
 

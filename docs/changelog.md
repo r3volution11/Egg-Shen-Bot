@@ -5,6 +5,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.39.0 - 2026-09-22
+
+### Fixed
+- **`/watched add` failed every single time the title was ambiguous.** The command packed its context (who asked, any note, the privacy flag) into the select-menu option value as base64 and truncated it to 50 characters to fit — but the smallest realistic payload is 108 characters, since a Discord user ID alone is 18 digits. The truncated base64 never parsed, so choosing a result produced "An error occurred while adding to watch history" and **nothing was written**. The single-result path worked, which is why it survived: anyone testing with an unambiguous title never reached it. Ambiguous titles are exactly the watch-party case — *Fargo*, *Watchmen*, *The Covenant*
+- **`/watchlist add` lost the entry whenever the note was longer than about 25 characters.** Same cause, narrower trigger: the note pushed the option value past Discord's 100-character cap and it was truncated mid-payload. The `note` option had no length limit, so an ordinary sentence was enough
+- **Time spent paused was counted as watch time.** `/timer stop` computed elapsed as `now - startTime` and ignored pauses entirely, so a watch party with a 40-minute dinner break was logged as 40 minutes longer than it was — permanently, in watch history. `docs/commands/watch-party.md` has always promised the opposite, and `/timer pause` is what we actively recommend during breaks. It also made `/timer adjust` reject valid durations after a long pause, since its "already run for N minutes" guard used the same inflated number
+- **`/timer remind` and `/watchparty remind` found nothing for an event named with a year.** Both searched TMDB with the raw event name, so "The Covenant (2006)" returned zero results and the announcement silently lost its poster, runtime and overview — the same bug `/timer start` had fixed in 2.35.0, in two paths that never got the fix
+
+### Developer
+- New `src/utils/pendingSelections.js` holds selection context keyed by a short nonce, with a 15-minute expiry matched to Discord's own component-token lifetime. Embedding the payload in the customId was never viable — Discord caps an option value at 100 characters. An expired selection now says so rather than failing silently
+- All six open-coded elapsed-time calculations in `timerManager.js` now route through one `elapsedMsOf()` helper. They had drifted: `pauseTimer` and `getTimerStatus` froze correctly at `pausedAt`, while `stopTimer` and `adjustTimerDuration` did not
+- `tests/timer-pause-resume.test.js` had a test named "reports the frozen elapsed time" that set up the exact failing scenario, commented that paused time "must not affect the report", and then asserted only that a reply was sent — so it passed throughout. It now checks the number
+- Neither select handler (`select_watched`, `select_watchlist_add`) had **any** test coverage, which is how a 100% failure rate shipped. New `tests/selection-payload-roundtrip.test.js` drives the real command to build its menu and feeds the menu's own option value back into the real handler; restoring the old truncation fails four of its tests. Suite: 99 files, 1326 tests
+
 ## 2.38.1 - 2026-09-22
 
 ### Developer

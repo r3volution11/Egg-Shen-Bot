@@ -16,6 +16,10 @@ import path from 'path';
 import { execute } from '../src/commands/timer.js';
 import {
   startTimer,
+  stopTimer,
+  pauseTimer,
+  resumeTimer,
+  adjustTimerDuration,
   clearAllTimers,
   getTimerStatus,
   loadTimers,
@@ -255,19 +259,80 @@ describe('/timer adjust while paused', () => {
 });
 
 describe('/timer stop while paused', () => {
-  test('stopping a paused timer still works and reports the frozen elapsed time', async () => {
+  test('stopping a paused timer reports the frozen elapsed time, not wall-clock', async () => {
+    // This test previously asserted only that reply() was called, so it
+    // passed while stopTimer was counting every paused second as watch time.
     jest.useFakeTimers({ now: 1_000_000 });
     startTimer('channel-1', 'starter-user', 'starter-user');
 
-    jest.setSystemTime(1_000_000 + 3000);
+    jest.setSystemTime(1_000_000 + 3000); // 3s watched
     await execute(makeInteraction({ subcommand: 'pause', userId: 'starter-user' }));
 
-    jest.setSystemTime(1_000_000 + 999999); // time passes while paused, must not affect the report
-    const interaction = makeInteraction({ subcommand: 'stop', userId: 'starter-user' });
-    await execute(interaction);
+    jest.setSystemTime(1_000_000 + 999999); // ~16 minutes paused
+    const result = stopTimer('channel-1');
 
+    expect(result.elapsedMs).toBe(3000);
     expect(getTimerStatus('channel-1')).toBeNull();
-    expect(interaction.reply).toHaveBeenCalled();
+  });
+
+  test('paused time is excluded from the elapsed time a stop reports', async () => {
+    // The number this produces is written into watch history, so a party
+    // with a long dinner break would otherwise be logged as that much longer.
+    jest.useFakeTimers({ now: 1_000_000 });
+    startTimer('channel-1', 'starter-user', 'starter-user');
+
+    jest.setSystemTime(1_000_000 + 5_000); // 5s watched
+    pauseTimer('channel-1');
+
+    jest.setSystemTime(1_000_000 + 5_000 + 40 * 60_000); // 40-minute break
+    resumeTimer('channel-1', null);
+
+    jest.setSystemTime(1_000_000 + 5_000 + 40 * 60_000 + 7_000); // 7s more
+    const result = stopTimer('channel-1');
+
+    expect(result.elapsedMs).toBe(12_000); // 5s + 7s, not 40 minutes and 12s
+  });
+
+  test('accumulates across several pauses', async () => {
+    jest.useFakeTimers({ now: 1_000_000 });
+    startTimer('channel-1', 'starter-user', 'starter-user');
+    let now = 1_000_000;
+
+    const advance = (ms) => { now += ms; jest.setSystemTime(now); };
+
+    advance(2_000);            // watched 2s
+    pauseTimer('channel-1');
+    advance(60_000);           // break
+    resumeTimer('channel-1', null);
+
+    advance(3_000);            // watched 3s
+    pauseTimer('channel-1');
+    advance(120_000);          // longer break
+    resumeTimer('channel-1', null);
+
+    advance(4_000);            // watched 4s
+    const result = stopTimer('channel-1');
+
+    expect(result.elapsedMs).toBe(9_000); // 2 + 3 + 4
+  });
+
+  test('/timer adjust measures against watched time, not wall-clock', async () => {
+    // adjustTimerDuration refuses a duration shorter than the elapsed time.
+    // Counting paused minutes there rejected perfectly valid durations after
+    // a long break.
+    jest.useFakeTimers({ now: 1_000_000 });
+    startTimer('channel-1', 'starter-user', 'starter-user', 'Film', 120, null, false);
+
+    jest.setSystemTime(1_000_000 + 60_000); // 1 minute watched
+    pauseTimer('channel-1');
+    jest.setSystemTime(1_000_000 + 60_000 + 90 * 60_000); // 90-minute break
+    resumeTimer('channel-1', null);
+
+    // 90 minutes is comfortably longer than the 1 minute actually watched.
+    const result = adjustTimerDuration('channel-1', 90, null);
+
+    expect(result.error).toBeUndefined();
+    expect(result.success).toBe(true);
   });
 });
 

@@ -67,6 +67,33 @@ export async function loadTimers() {
 }
 
 /**
+ * How long a timer has actually been running, excluding time spent paused.
+ *
+ * Every elapsed-time calculation must go through this. They used to be
+ * open-coded in six places and disagreed: pauseTimer and getTimerStatus
+ * correctly froze at `pausedAt`, while stopTimer and adjustTimerDuration
+ * computed `Date.now() - startTime` and so counted every paused minute as
+ * watched. That number is written into watch history, so a watch party with
+ * a 40-minute dinner break was logged as 40 minutes longer than it was —
+ * and `docs/commands/watch-party.md` promises the opposite.
+ *
+ * `pausedMs` accumulates across however many pauses a party takes. Timers
+ * started before this existed simply lack the field, which reads as 0.
+ *
+ * @param {object} timer
+ * @returns {number} milliseconds actually watched
+ */
+function elapsedMsOf(timer) {
+  const accumulatedPause = timer.pausedMs || 0;
+
+  // While paused the clock is frozen at the moment of pausing; the current
+  // pause hasn't been added to pausedMs yet, so stop at pausedAt.
+  const until = timer.paused && timer.pausedAt ? timer.pausedAt : Date.now();
+
+  return Math.max(0, until - timer.startTime - accumulatedPause);
+}
+
+/**
  * Handle a timer's auto-stop firing: stop it, fetch the channel, and post the
  * completion message (auto-logged to watch history if labeled, otherwise a
  * manual-log button). Shared by every place that schedules an auto-stop
@@ -268,7 +295,7 @@ export function stopTimer(channelId) {
     clearTimeout(timer.autoStopTimeout);
   }
 
-  const elapsedMs = Date.now() - timer.startTime;
+  const elapsedMs = elapsedMsOf(timer);
   activeTimers.delete(channelId);
 
   // Save to disk
@@ -299,7 +326,7 @@ export function pauseTimer(channelId) {
     return { alreadyPaused: true };
   }
 
-  const elapsedMs = Date.now() - timer.startTime;
+  const elapsedMs = elapsedMsOf(timer);
   const hadDuration = !!(timer.duration && timer.endTime);
 
   if (timer.autoStopTimeout) {
@@ -341,8 +368,12 @@ export function resumeTimer(channelId, client) {
     return { notPaused: true };
   }
 
-  const elapsedMs = timer.pausedAt - timer.startTime;
+  const elapsedMs = elapsedMsOf(timer);
   const hadDuration = timer.remainingMsAtPause !== null && timer.remainingMsAtPause !== undefined;
+
+  // Bank the pause that just ended so it never counts as watch time. This is
+  // what keeps elapsed honest across however many breaks a party takes.
+  timer.pausedMs = (timer.pausedMs || 0) + Math.max(0, Date.now() - timer.pausedAt);
 
   if (hadDuration) {
     const newEndTime = Date.now() + timer.remainingMsAtPause;
@@ -382,7 +413,7 @@ export function getTimerStatus(channelId) {
   }
 
   if (timer.paused) {
-    const elapsedMs = timer.pausedAt - timer.startTime;
+    const elapsedMs = elapsedMsOf(timer);
     const result = {
       ...timer,
       elapsedMs,
@@ -399,7 +430,7 @@ export function getTimerStatus(channelId) {
     return result;
   }
 
-  const elapsedMs = Date.now() - timer.startTime;
+  const elapsedMs = elapsedMsOf(timer);
   const result = {
     ...timer,
     elapsedMs,
@@ -613,7 +644,7 @@ export function adjustTimerDuration(channelId, newDurationMinutes, client) {
   }
 
   // Calculate elapsed time
-  const elapsedMs = Date.now() - timer.startTime;
+  const elapsedMs = elapsedMsOf(timer);
   const elapsedMinutes = elapsedMs / (60 * 1000);
   
   // If new duration is less than elapsed time, the timer would be expired

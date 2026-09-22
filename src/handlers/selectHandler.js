@@ -592,9 +592,20 @@ export async function handleSelectInteraction(interaction) {
     const encodedData = value.slice(secondSep + 1);
 
     try {
-      const { note, userId } = JSON.parse(
-        Buffer.from(encodedData, 'base64').toString('utf-8')
-      );
+      // See src/utils/pendingSelections.js — the payload travels by nonce
+      // because a note of any length overflowed Discord's 100-char value cap.
+      const { readSelection } = await import('../utils/pendingSelections.js');
+      const stored = readSelection(encodedData);
+
+      if (!stored) {
+        await interaction.followUp({
+          content: '⏰ This selection has expired. Run `/watchlist add` again.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const { note, userId } = stored;
 
       // Only the person who ran the command may resolve their own search.
       if (interaction.user.id !== userId) {
@@ -629,12 +640,24 @@ export async function handleSelectInteraction(interaction) {
   // Handle watched selection
   if (interaction.customId === 'select_watched') {
     const value = interaction.values[0];
-    const [, type, tmdbId, encodedData] = value.split('_');
+    const [, type, tmdbId, selectionNonce] = value.split('_');
     
     try {
-      // Decode the stored data
-      const dataStr = Buffer.from(encodedData, 'base64').toString('utf-8');
-      const { notes, userId, username, isPrivate = false } = JSON.parse(dataStr);
+      // The context lives in pendingSelections rather than in the value —
+      // Discord caps an option value at 100 chars, which this payload always
+      // exceeded. See src/utils/pendingSelections.js.
+      const { readSelection } = await import('../utils/pendingSelections.js');
+      const stored = readSelection(selectionNonce);
+
+      if (!stored) {
+        await interaction.followUp({
+          content: '⏰ This selection has expired. Run `/watched add` again.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      const { notes, userId, username, isPrivate = false } = stored;
       
       // Only allow the person who initiated to select
       if (interaction.user.id !== userId) {
