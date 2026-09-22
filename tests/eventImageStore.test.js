@@ -26,10 +26,24 @@ import {
 const IMAGES_DIR = process.env.EVENT_IMAGES_DIR || path.join(process.cwd(), 'event_request_images');
 const MANIFEST_PATH = path.join(IMAGES_DIR, 'manifest.json');
 
-function cleanup() {
-  if (fs.existsSync(IMAGES_DIR)) {
-    fs.rmSync(IMAGES_DIR, { recursive: true, force: true });
+/**
+ * Empty a directory without removing it.
+ *
+ * Deleting the directory outright is what made these suites interfere:
+ * jest.setup.js scopes the path per WORKER, and Jest reuses a worker across
+ * test files, so rmSync on the directory pulled it out from under whichever
+ * suite ran next in that worker. Clearing the contents leaves the directory
+ * in place and is safe regardless of who else shares it.
+ */
+function emptyDir(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir)) {
+    fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
   }
+}
+
+function cleanup() {
+  emptyDir(IMAGES_DIR);
 }
 
 beforeEach(cleanup);
@@ -65,7 +79,13 @@ describe('saveUploadedImage / getImagePath', () => {
   test('rejects an unsupported mimetype without writing anything', async () => {
     await expect(saveUploadedImage('token-1', Buffer.from('x'), 'application/pdf'))
       .rejects.toThrow('Unsupported image type');
-    expect(fs.existsSync(IMAGES_DIR)).toBe(false);
+
+    // The assertion is "nothing was written", not "the directory is absent" —
+    // cleanup now empties the directory rather than deleting it, since
+    // deleting a path shared with another suite is what caused cross-suite
+    // flakiness.
+    const written = fs.existsSync(IMAGES_DIR) ? fs.readdirSync(IMAGES_DIR) : [];
+    expect(written).toEqual([]);
   });
 
   test('getImagePath returns null for a key that was never stored', async () => {

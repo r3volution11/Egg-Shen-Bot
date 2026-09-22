@@ -22,7 +22,15 @@ import { Collection } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 
-const CONFIG_DIR = (process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'));
+// Cleanup below recursively deletes CONFIG_DIR, so this suite must own it —
+// jest.setup.js's directory is scoped per WORKER, and Jest reuses a worker
+// across files, so sharing it meant wiping another suite's fixtures mid-run.
+process.env.GUILD_CONFIGS_DIR = path.join(
+  process.env.GUILD_CONFIGS_DIR || process.cwd(), '..', 'event-request-system-suite', 'guild_configs'
+);
+fs.mkdirSync(process.env.GUILD_CONFIGS_DIR, { recursive: true });
+
+const CONFIG_DIR = process.env.GUILD_CONFIGS_DIR;
 
 function cleanupGuildConfigs() {
   if (fs.existsSync(CONFIG_DIR)) {

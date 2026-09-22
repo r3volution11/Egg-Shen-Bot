@@ -36,11 +36,27 @@ const GUILD_ID = 'event-request-approval-test-guild';
 const GUILD_CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'), `${GUILD_ID}.json`);
 const IMAGES_DIR = process.env.EVENT_IMAGES_DIR || path.join(process.cwd(), 'event_request_images');
 
+/**
+ * Empty a directory without removing it.
+ *
+ * Deleting the directory outright is what made these suites interfere:
+ * jest.setup.js scopes the path per WORKER, and Jest reuses a worker across
+ * test files, so rmSync on the directory pulled it out from under whichever
+ * suite ran next in that worker. Clearing the contents leaves the directory
+ * in place and is safe regardless of who else shares it.
+ */
+function emptyDir(dir) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir)) {
+    fs.rmSync(path.join(dir, entry), { recursive: true, force: true });
+  }
+}
+
 function cleanup() {
   if (fs.existsSync(REQUESTS_FILE)) fs.unlinkSync(REQUESTS_FILE);
   if (fs.existsSync(SELECTIONS_FILE)) fs.unlinkSync(SELECTIONS_FILE);
   if (fs.existsSync(GUILD_CONFIG_FILE)) fs.unlinkSync(GUILD_CONFIG_FILE);
-  if (fs.existsSync(IMAGES_DIR)) fs.rmSync(IMAGES_DIR, { recursive: true, force: true });
+  emptyDir(IMAGES_DIR);
   delete global.eventRequests;
   delete global.eventChannelSelections;
 }

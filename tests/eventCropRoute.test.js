@@ -12,9 +12,23 @@ import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globa
 import fs from 'fs';
 import path from 'path';
 
-const IMAGES_DIR = process.env.EVENT_IMAGES_DIR || path.join(process.cwd(), 'event_request_images');
-const REQUESTS_FILE = process.env.EVENT_REQUESTS_FILE || path.join(process.cwd(), 'pending_event_requests.json');
-const GUILD_CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'), 'guild-1.json');
+// This suite's cleanup RECURSIVELY DELETES the directories below, so it must
+// own them outright. jest.setup.js scopes them per worker, but Jest reuses a
+// worker across many test files in sequence — so a worker-scoped directory is
+// still shared with whatever suite runs next, and wiping it pulled fixtures
+// out from under event-request-system and the other API-server suites. That
+// surfaced as a different unrelated test failing on roughly one run in three.
+//
+// Set before any import below reads them.
+const SUITE_DIR = path.join(process.env.GUILD_CONFIGS_DIR || process.cwd(), '..', 'eventCropRoute-suite');
+process.env.EVENT_IMAGES_DIR = path.join(SUITE_DIR, 'event_request_images');
+process.env.EVENT_REQUESTS_FILE = path.join(SUITE_DIR, 'pending_event_requests.json');
+process.env.GUILD_CONFIGS_DIR = path.join(SUITE_DIR, 'guild_configs');
+fs.mkdirSync(process.env.GUILD_CONFIGS_DIR, { recursive: true });
+
+const IMAGES_DIR = process.env.EVENT_IMAGES_DIR;
+const REQUESTS_FILE = process.env.EVENT_REQUESTS_FILE;
+const GUILD_CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR, 'guild-1.json');
 const ORIGINAL_SECRET = process.env.EVENT_CROP_LINK_SECRET;
 
 function cleanup() {

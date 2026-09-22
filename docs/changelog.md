@@ -5,6 +5,13 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.38.1 - 2026-09-22
+
+### Developer
+- **Fixed the test suite's cross-file flakiness.** Roughly one run in three failed a single test — a different one each time (quotes-admin, event-crop, OAuth), each passing in isolation. The cause: four suites called `rmSync(dir, { recursive: true })` on directories that `jest.setup.js` scopes per *worker*, and Jest reuses a worker across many test files in sequence. Deleting the directory pulled fixtures out from under whichever suite ran next in that worker
+- `eventCropRoute` and `event-request-system` now claim their own paths before importing anything that reads them; `eventImageStore` and `eventRequestApproval` empty the directory's *contents* instead of removing the directory, which is safe no matter who shares the path. Verified by inspecting the real scratch directories before and after — previously both suites resolved to one shared `worker-N/guild_configs`, now each gets its own
+- New `tests/test-isolation.test.js` fails, and names the offending file, if any suite recursively deletes a worker-shared directory without claiming it first. It found two of the four offenders on its first run. 10 consecutive full-suite runs clean afterward, where the same machine previously failed about one in three
+
 ## 2.38.0 - 2026-09-19
 
 ### Added
