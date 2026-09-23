@@ -5,6 +5,13 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.39.1 - 2026-09-22
+
+### Developer
+- **`/watchparty remind` and `/timer remind` now share one implementation.** They are the same feature under two names, and each carried its own byte-for-byte copy of the event lookup, the TMDB search and the announcement builder — so a fix landing in one silently skipped the other. That is precisely how `/watchparty remind` missed the year-suffix handling added in 2.35.0 and kept finding nothing for an event named "The Covenant (2006)"
+- The shared parts moved to `src/utils/scheduledEventLookup.js` (`findEventForChannel`, `searchEventTitle`, `formatRuntime`), and the announcement itself is now `runRemind()` in `timer.js`, which `/watchparty remind` calls. Net **392 lines removed**, with both commands' Discord schemas byte-identical to before — nothing changes for anyone using them
+- New `tests/watchparty-remind-alias.test.js` asserts both entry points search without the year and produce the same announcement, so they cannot drift apart again. Suite: 100 files, 1333 tests
+
 ## 2.39.0 - 2026-09-22
 
 ### Fixed

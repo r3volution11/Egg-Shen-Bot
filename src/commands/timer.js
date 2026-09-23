@@ -1,133 +1,11 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, GuildScheduledEventStatus, StringSelectMenuBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop, formatDurationHuman, formatMinutesHuman, canSetTimerTitle, setTimerTitle } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin, getAutoDetectMode } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes, getPosterUrl } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
 import { hybridSearch, pickLandslideWinner, pickExactTitleMatch } from '../services/aiService.js';
 import { parseEpisodeRange, parseEventEpisodeRange, stripTrailingYear } from '../utils/episodeRangeParser.js';
-
-/**
- * Find the scheduled event tied to a channel, so a watch party's details can
- * be read without asking the user to retype what the event already says.
- *
- * A voice/stage event carries the channel directly in `channelId`; an
- * External event (the shape eventRequestApproval.js creates for text-only
- * parties) can only point at a channel through its free-text location, so
- * both the raw ID/mention and the "#channel-name" form are checked.
- *
- * @param {import('discord.js').Guild} guild
- * @param {string} channelId
- * @param {object} [options]
- * @param {boolean} [options.includeScheduled=true] - also match events that
- *   haven't started yet. `/timer remind` wants those (it runs before the
- *   party); `/timer start` does NOT — matching a not-yet-started event there
- *   would label a timer with a party that isn't happening.
- * @param {string} [options.logPrefix='Timer Event']
- * @returns {Promise<import('discord.js').GuildScheduledEvent|null>}
- */
-async function getEventForChannel(guild, channelId, { includeScheduled = true, logPrefix = 'Timer Event' } = {}) {
-  try {
-    console.log(`[${logPrefix}] Checking for events in channel ${channelId}...`);
-
-    // Fetch all scheduled events
-    const events = await guild.scheduledEvents.fetch();
-    console.log(`[${logPrefix}] Found ${events.size} total scheduled event(s)`);
-
-    const relevantEvents = events.filter(event =>
-      event.status === GuildScheduledEventStatus.Active ||
-      (includeScheduled && event.status === GuildScheduledEventStatus.Scheduled)
-    );
-    console.log(`[${logPrefix}] Found ${relevantEvents.size} relevant event(s)`);
-
-    if (relevantEvents.size === 0) {
-      console.log(`[${logPrefix}] No relevant events found`);
-      return null;
-    }
-
-    // Look for an event where the channel matches
-    for (const [, event] of relevantEvents) {
-      console.log(`[${logPrefix}] Checking event: "${event.name}"`);
-      console.log(`[${logPrefix}] - Event status: ${event.status}`);
-      console.log(`[${logPrefix}] - Event channelId: ${event.channelId}`);
-      console.log(`[${logPrefix}] - Event location: ${event.entityMetadata?.location || 'none'}`);
-
-      // Check if it's a channel-based event and matches our channel
-      if (event.channelId === channelId) {
-        console.log(`[${logPrefix}] ✅ Found matching event: "${event.name}" (channel-based)`);
-        return event;
-      }
-
-      // Check if the location field mentions this channel
-      // Users might write "#movie-night" or the channel ID in the location
-      if (event.entityMetadata?.location) {
-        const location = event.entityMetadata.location.toLowerCase();
-        const channelMention = `<#${channelId}>`;
-
-        console.log(`[${logPrefix}] - Checking if location contains channel ID or mention...`);
-
-        // Check if location contains channel mention or ID
-        if (location.includes(channelId) || location.includes(channelMention.toLowerCase())) {
-          console.log(`[${logPrefix}] ✅ Found matching event: "${event.name}" (location mentions channel)`);
-          return event;
-        }
-
-        // Also check if location matches channel name (e.g., "#general", "#movie-night")
-        const channel = guild.channels.cache.get(channelId);
-        if (channel) {
-          const channelNamePattern = `#${channel.name}`.toLowerCase();
-          console.log(`[${logPrefix}] - Also checking channel name: "${channelNamePattern}"`);
-
-          if (location === channelNamePattern || location.includes(channelNamePattern)) {
-            console.log(`[${logPrefix}] ✅ Found matching event: "${event.name}" (location matches channel name)`);
-            return event;
-          }
-        }
-      }
-    }
-
-    console.log(`[${logPrefix}] ❌ No matching events found for channel ${channelId}`);
-    return null;
-  } catch (error) {
-    console.error(`[${logPrefix}] Error fetching scheduled events:`, error);
-    return null;
-  }
-}
-
-/**
- * Search for content on TMDB and return results
- */
-async function searchContent(title) {
-  try {
-    // Search both movies and TV shows
-    const [movieResults, tvResults] = await Promise.all([
-      searchMovies(title),
-      searchTVShows(title)
-    ]);
-    
-    // Combine and sort by popularity
-    const allResults = [
-      ...movieResults.map(m => ({ ...m, type: 'movie' })),
-      ...tvResults.map(t => ({ ...t, type: 'tv' }))
-    ].sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-    
-    return allResults.slice(0, 10); // Return top 10
-  } catch (error) {
-    console.error('[Timer Remind] Error searching TMDB:', error);
-    return [];
-  }
-}
-
-/**
- * Format runtime for display
- */
-function formatRuntime(minutes) {
-  if (!minutes) return 'Unknown';
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hours === 0) return `${mins}m`;
-  if (mins === 0) return `${hours}h`;
-  return `${hours}h ${mins}m`;
-}
+import { findEventForChannel, searchEventTitle, formatRuntime } from '../utils/scheduledEventLookup.js';
 
 /**
  * Resolve a multi-episode watch-party duration for a known show: fetch the
@@ -865,7 +743,7 @@ export async function execute(interaction) {
       // Check if this channel is configured for watch party auto-detection
       if (autoDetectMode !== 'off' && watchPartyChannels.includes(channelId)) {
         console.log(`[Timer] ✅ Channel is configured for auto-detection. Fetching events...`);
-        const event = await getEventForChannel(interaction.guild, channelId, {
+        const event = await findEventForChannel(interaction.guild, channelId, {
           includeScheduled: false, // a party that hasn't started isn't what's playing
           logPrefix: 'Timer Auto-Detection',
         });
@@ -1335,204 +1213,7 @@ export async function execute(interaction) {
       });
     }
   } else if (subcommand === 'remind') {
-    await interaction.deferReply();
-    
-    try {
-      const customMessage = interaction.options.getString('message');
-      const roleToMention = interaction.options.getRole('role');
-      
-      // Try to detect event from Discord scheduled events
-      const event = await getEventForChannel(interaction.guild, interaction.channel.id);
-      
-      if (!event) {
-        // editReply() can't make an already-public deferred reply ephemeral, so
-        // delete the public placeholder and send the error as a followUp instead.
-        await interaction.deleteReply();
-        return await interaction.followUp({
-          content: '❌ No scheduled event found for this channel!\n\nMake sure you have a Discord scheduled event set up for this channel (or with this channel mentioned in the location).',
-          ephemeral: true
-        });
-      }
-      
-      const eventTitle = event.name;
-      console.log(`[Timer Remind] Auto-detected event: "${eventTitle}"`);
-      
-      // Search TMDB for this title
-      // Hosts name events "The Covenant (2006)"; TMDB matches that literally
-      // and returns nothing, so the announcement silently loses its poster
-      // and runtime. Same fix /timer start got — search without the year.
-      const { title: searchableTitle } = stripTrailingYear(eventTitle);
-      const results = await searchContent(searchableTitle);
-      
-      if (results.length === 0) {
-        // No TMDB results - just show a basic announcement
-        const embed = new EmbedBuilder()
-          .setColor('#FF6B9D')
-          .setTitle('⏱️ Starting Timer Now!')
-          .setDescription(`**${eventTitle}**\n\nTimer starting - get ready!`)
-          .setFooter({ text: `Hosted by ${interaction.user.username}` })
-          .setTimestamp();
-        
-        if (customMessage) {
-          embed.addFields({ name: '💬 Host', value: customMessage });
-        }
-        
-        // Add voice channel button if event has a voice channel
-        const components = [];
-        if (event.channelId) {
-          const voiceChannel = interaction.guild.channels.cache.get(event.channelId);
-          if (voiceChannel && (voiceChannel.type === 2 || voiceChannel.type === 13)) { // Voice or Stage
-            const button = new ButtonBuilder()
-              .setLabel('Join Voice Channel')
-              .setStyle(ButtonStyle.Link)
-              .setURL(`https://discord.com/channels/${interaction.guild.id}/${event.channelId}`);
-            
-            components.push(new ActionRowBuilder().addComponents(button));
-          }
-        }
-        
-        const messageContent = roleToMention ? `${roleToMention}` : null;
-        
-        return await interaction.editReply({ 
-          content: messageContent,
-          embeds: [embed],
-          components
-        });
-      }
-      
-      // If only one result, use it directly
-      // If multiple results, use the first one (most popular)
-      const selectedContent = results[0];
-      
-      // Get full details
-      let details;
-      if (selectedContent.type === 'movie') {
-        details = await getMovieDetails(selectedContent.id);
-      } else {
-        details = await getTVShowDetails(selectedContent.id);
-      }
-      
-      // Build the announcement embed
-      const embed = new EmbedBuilder()
-        .setColor('#FF6B9D')
-        .setTitle(`⏱️ Starting Timer Now!`)
-        .setDescription(`**${details.title || details.name}**${details.tagline ? `\n*${details.tagline}*` : ''}\n\nGet ready - timer starting!`)
-        .setFooter({ text: `Hosted by ${interaction.user.username}` })
-        .setTimestamp();
-      
-      // Add poster if available
-      if (details.poster_path) {
-        embed.setThumbnail(`https://image.tmdb.org/t/p/w500${details.poster_path}`);
-      }
-      
-      // Add fields
-      const fields = [];
-      
-      // Runtime
-      if (details.runtime) {
-        fields.push({ 
-          name: '⏱️ Runtime', 
-          value: formatRuntime(details.runtime),
-          inline: true
-        });
-      } else if (details.episode_run_time && details.episode_run_time.length > 0) {
-        fields.push({ 
-          name: '⏱️ Episode Length', 
-          value: formatRuntime(details.episode_run_time[0]),
-          inline: true
-        });
-      }
-      
-      // Release year
-      const year = details.release_date?.split('-')[0] || details.first_air_date?.split('-')[0];
-      if (year) {
-        fields.push({ 
-          name: '📅 Year', 
-          value: year,
-          inline: true
-        });
-      }
-      
-      // Overview (truncated)
-      if (details.overview) {
-        const truncatedOverview = details.overview.length > 200 
-          ? details.overview.substring(0, 197) + '...' 
-          : details.overview;
-        fields.push({ 
-          name: '📖 Overview', 
-          value: truncatedOverview
-        });
-      }
-      
-      // Custom message from host
-      if (customMessage) {
-        fields.push({ 
-          name: '💬 Host', 
-          value: customMessage
-        });
-      }
-      
-      embed.addFields(fields);
-      
-      // Add buttons
-      const components = [];
-      const buttons = [];
-      
-      // TMDB link
-      const tmdbUrl = selectedContent.type === 'movie' 
-        ? `https://www.themoviedb.org/movie/${selectedContent.id}`
-        : `https://www.themoviedb.org/tv/${selectedContent.id}`;
-      
-      buttons.push(
-        new ButtonBuilder()
-          .setLabel('View on TMDB')
-          .setStyle(ButtonStyle.Link)
-          .setURL(tmdbUrl)
-      );
-      
-      // Voice channel button if event has a voice channel
-      if (event.channelId) {
-        const voiceChannel = interaction.guild.channels.cache.get(event.channelId);
-        if (voiceChannel && (voiceChannel.type === 2 || voiceChannel.type === 13)) { // Voice or Stage
-          buttons.push(
-            new ButtonBuilder()
-              .setLabel('Join Voice Channel')
-              .setStyle(ButtonStyle.Link)
-              .setURL(`https://discord.com/channels/${interaction.guild.id}/${event.channelId}`)
-          );
-        }
-      }
-      
-      if (buttons.length > 0) {
-        components.push(new ActionRowBuilder().addComponents(buttons));
-      }
-      
-      const messageContent = roleToMention ? `${roleToMention}` : null;
-      
-      await interaction.editReply({
-        content: messageContent,
-        embeds: [embed],
-        components
-      });
-      
-    } catch (error) {
-      console.error('[Timer Remind] Error executing remind command:', error);
-      
-      if (interaction.deferred) {
-        // editReply() can't make an already-public deferred reply ephemeral, so
-        // delete the public placeholder and send the error as a followUp instead.
-        await interaction.deleteReply().catch(() => {});
-        await interaction.followUp({
-          content: '❌ An error occurred while creating the timer reminder.',
-          ephemeral: true
-        });
-      } else {
-        await interaction.reply({
-          content: '❌ An error occurred while creating the timer reminder.',
-          ephemeral: true
-        });
-      }
-    }
+    await runRemind(interaction);
   } else if (subcommand === 'title') {
     const requested = interaction.options.getString('title');
     const timer = getTimerStatus(channelId);
@@ -2281,5 +1962,217 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
     const row = new ActionRowBuilder().addComponents(button);
     
     await interaction.editReply({ embeds: [embed], components: [row] });
+  }
+}
+
+
+/**
+ * Announce that a watch party is about to begin.
+ *
+ * Exported because `/watchparty remind` is the same feature under a second
+ * name — it used to carry a byte-for-byte copy of this logic, which is how
+ * it missed the year-suffix fix and kept returning nothing for an event
+ * named "The Covenant (2006)". One implementation, two entry points.
+ *
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction
+ * @param {string} [logPrefix] - distinguishes the two callers in the logs
+ */
+export async function runRemind(interaction, logPrefix = 'Timer Remind') {
+  await interaction.deferReply();
+  
+  try {
+    const customMessage = interaction.options.getString('message');
+    const roleToMention = interaction.options.getRole('role');
+    
+    // Try to detect event from Discord scheduled events
+    const event = await findEventForChannel(interaction.guild, interaction.channel.id, { logPrefix });
+    
+    if (!event) {
+      // editReply() can't make an already-public deferred reply ephemeral, so
+      // delete the public placeholder and send the error as a followUp instead.
+      await interaction.deleteReply();
+      return await interaction.followUp({
+        content: '❌ No scheduled event found for this channel!\n\nMake sure you have a Discord scheduled event set up for this channel (or with this channel mentioned in the location).',
+        ephemeral: true
+      });
+    }
+    
+    const eventTitle = event.name;
+    console.log(`[Timer Remind] Auto-detected event: "${eventTitle}"`);
+    
+    // Search TMDB for this title
+    // Hosts name events "The Covenant (2006)"; TMDB matches that literally
+    // and returns nothing, so the announcement silently loses its poster
+    // and runtime. Same fix /timer start got — search without the year.
+    const results = await searchEventTitle(eventTitle, logPrefix);
+    
+    if (results.length === 0) {
+      // No TMDB results - just show a basic announcement
+      const embed = new EmbedBuilder()
+        .setColor('#FF6B9D')
+        .setTitle('⏱️ Starting Timer Now!')
+        .setDescription(`**${eventTitle}**\n\nTimer starting - get ready!`)
+        .setFooter({ text: `Hosted by ${interaction.user.username}` })
+        .setTimestamp();
+      
+      if (customMessage) {
+        embed.addFields({ name: '💬 Host', value: customMessage });
+      }
+      
+      // Add voice channel button if event has a voice channel
+      const components = [];
+      if (event.channelId) {
+        const voiceChannel = interaction.guild.channels.cache.get(event.channelId);
+        if (voiceChannel && (voiceChannel.type === 2 || voiceChannel.type === 13)) { // Voice or Stage
+          const button = new ButtonBuilder()
+            .setLabel('Join Voice Channel')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`https://discord.com/channels/${interaction.guild.id}/${event.channelId}`);
+          
+          components.push(new ActionRowBuilder().addComponents(button));
+        }
+      }
+      
+      const messageContent = roleToMention ? `${roleToMention}` : null;
+      
+      return await interaction.editReply({ 
+        content: messageContent,
+        embeds: [embed],
+        components
+      });
+    }
+    
+    // If only one result, use it directly
+    // If multiple results, use the first one (most popular)
+    const selectedContent = results[0];
+    
+    // Get full details
+    let details;
+    if (selectedContent.type === 'movie') {
+      details = await getMovieDetails(selectedContent.id);
+    } else {
+      details = await getTVShowDetails(selectedContent.id);
+    }
+    
+    // Build the announcement embed
+    const embed = new EmbedBuilder()
+      .setColor('#FF6B9D')
+      .setTitle(`⏱️ Starting Timer Now!`)
+      .setDescription(`**${details.title || details.name}**${details.tagline ? `\n*${details.tagline}*` : ''}\n\nGet ready - timer starting!`)
+      .setFooter({ text: `Hosted by ${interaction.user.username}` })
+      .setTimestamp();
+    
+    // Add poster if available
+    if (details.poster_path) {
+      embed.setThumbnail(`https://image.tmdb.org/t/p/w500${details.poster_path}`);
+    }
+    
+    // Add fields
+    const fields = [];
+    
+    // Runtime
+    if (details.runtime) {
+      fields.push({ 
+        name: '⏱️ Runtime', 
+        value: formatRuntime(details.runtime),
+        inline: true
+      });
+    } else if (details.episode_run_time && details.episode_run_time.length > 0) {
+      fields.push({ 
+        name: '⏱️ Episode Length', 
+        value: formatRuntime(details.episode_run_time[0]),
+        inline: true
+      });
+    }
+    
+    // Release year
+    const year = details.release_date?.split('-')[0] || details.first_air_date?.split('-')[0];
+    if (year) {
+      fields.push({ 
+        name: '📅 Year', 
+        value: year,
+        inline: true
+      });
+    }
+    
+    // Overview (truncated)
+    if (details.overview) {
+      const truncatedOverview = details.overview.length > 200 
+        ? details.overview.substring(0, 197) + '...' 
+        : details.overview;
+      fields.push({ 
+        name: '📖 Overview', 
+        value: truncatedOverview
+      });
+    }
+    
+    // Custom message from host
+    if (customMessage) {
+      fields.push({ 
+        name: '💬 Host', 
+        value: customMessage
+      });
+    }
+    
+    embed.addFields(fields);
+    
+    // Add buttons
+    const components = [];
+    const buttons = [];
+    
+    // TMDB link
+    const tmdbUrl = selectedContent.type === 'movie' 
+      ? `https://www.themoviedb.org/movie/${selectedContent.id}`
+      : `https://www.themoviedb.org/tv/${selectedContent.id}`;
+    
+    buttons.push(
+      new ButtonBuilder()
+        .setLabel('View on TMDB')
+        .setStyle(ButtonStyle.Link)
+        .setURL(tmdbUrl)
+    );
+    
+    // Voice channel button if event has a voice channel
+    if (event.channelId) {
+      const voiceChannel = interaction.guild.channels.cache.get(event.channelId);
+      if (voiceChannel && (voiceChannel.type === 2 || voiceChannel.type === 13)) { // Voice or Stage
+        buttons.push(
+          new ButtonBuilder()
+            .setLabel('Join Voice Channel')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`https://discord.com/channels/${interaction.guild.id}/${event.channelId}`)
+        );
+      }
+    }
+    
+    if (buttons.length > 0) {
+      components.push(new ActionRowBuilder().addComponents(buttons));
+    }
+    
+    const messageContent = roleToMention ? `${roleToMention}` : null;
+    
+    await interaction.editReply({
+      content: messageContent,
+      embeds: [embed],
+      components
+    });
+    
+  } catch (error) {
+    console.error('[Timer Remind] Error executing remind command:', error);
+    
+    if (interaction.deferred) {
+      // editReply() can't make an already-public deferred reply ephemeral, so
+      // delete the public placeholder and send the error as a followUp instead.
+      await interaction.deleteReply().catch(() => {});
+      await interaction.followUp({
+        content: '❌ An error occurred while creating the timer reminder.',
+        ephemeral: true
+      });
+    } else {
+      await interaction.reply({
+        content: '❌ An error occurred while creating the timer reminder.',
+        ephemeral: true
+      });
+    }
   }
 }
