@@ -79,6 +79,14 @@ const defaultConfig = {
   // Always read it through getAutoDetectMode() below, never directly —
   // configs written before this key existed simply lack it.
   watchPartyAutoDetectMode: 'ask',
+  // Extra minutes added per episode when a multi-episode watch party's
+  // duration is calculated. TMDB reports ad-free runtimes, so a 25-minute
+  // episode on an ad-supported service (Tubi, Pluto) really runs 33-35 —
+  // across four episodes that shortfall is enough to stop the timer
+  // mid-party. Default 5 covers a typical break load without overshooting a
+  // clean source; set higher for a server that always watches with ads.
+  // Read through getEpisodeBufferMinutes() below, never directly.
+  episodeBufferMinutes: 5,
   administrators: [], // Will be populated with server owner/admins
   rateLimits: {
     enabled: true, // Master switch for rate limiting
@@ -207,6 +215,22 @@ export async function saveGuildConfig(guildId, config) {
   await ensureConfigDir();
   const configPath = getConfigPath(guildId);
   await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
+}
+
+/**
+ * Extra minutes to allow per episode in a multi-episode watch party.
+ *
+ * Normalized rather than read directly: configs written before this key
+ * existed simply lack it, and a hand-edited or nonsense value must land on
+ * the default rather than producing a NaN duration.
+ *
+ * @param {object} guildConfig
+ * @returns {number} 0-30
+ */
+export function getEpisodeBufferMinutes(guildConfig) {
+  const value = Number(guildConfig?.episodeBufferMinutes);
+  if (!Number.isFinite(value) || value < 0) return 5;
+  return Math.min(30, Math.round(value));
 }
 
 const AUTO_DETECT_MODES = new Set(['ask', 'full', 'off']);

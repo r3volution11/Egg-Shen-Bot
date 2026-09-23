@@ -154,7 +154,12 @@ export async function handleSelectInteraction(interaction) {
 
       try {
         const { resolveEpisodeRangeDuration } = await import('../commands/timer.js');
-        const result = await resolveEpisodeRangeDuration(sourceId, { season, episodeStart, episodeEnd, showName: label });
+        const { getEpisodeBufferMinutes } = await import('../utils/guildConfig.js');
+        const result = await resolveEpisodeRangeDuration(
+          sourceId,
+          { season, episodeStart, episodeEnd, showName: label },
+          getEpisodeBufferMinutes(guildConfig)
+        );
         if (result) {
           duration = result.duration;
           episodeRangeBreakdown = result.breakdown;

@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop, formatDurationHuman, formatMinutesHuman, canSetTimerTitle, setTimerTitle } from '../utils/timerManager.js';
-import { loadGuildConfig, isAdmin, getAutoDetectMode } from '../utils/guildConfig.js';
+import { loadGuildConfig, isAdmin, getAutoDetectMode, getEpisodeBufferMinutes } from '../utils/guildConfig.js';
 import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes, getPosterUrl } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
 import { hybridSearch, pickLandslideWinner, pickExactTitleMatch } from '../services/aiService.js';
@@ -16,7 +16,7 @@ import { findEventForChannel, searchEventTitle, formatRuntime } from '../utils/s
  * @param {{season: number, episodeStart: number, episodeEnd: number, showName: string}} episodeRange
  * @returns {Promise<{duration: number, breakdown: {showName: string, season: number, episodeCount: number, episodes: Array, totalRuntime: number, duration: number}}|null>}
  */
-export async function resolveEpisodeRangeDuration(showId, episodeRange) {
+export async function resolveEpisodeRangeDuration(showId, episodeRange, bufferPerEpisode = 5) {
   const [seasonDetails, showDetails] = await Promise.all([
     getSeasonDetails(showId, episodeRange.season),
     getTVShowDetails(showId).catch(() => null),
@@ -28,13 +28,20 @@ export async function resolveEpisodeRangeDuration(showId, episodeRange) {
   const summed = sumEpisodeRuntimes(seasonDetails, episodeRange.episodeStart, episodeRange.episodeEnd, fallbackRuntime);
   if (!summed) return null;
 
-  const duration = summed.totalRuntime + 10;
-  console.log(`[Timer] ✅ Auto-detected episode-range duration: ${summed.episodeCount} episodes = ${summed.totalRuntime}min + 10min buffer = ${duration}min`);
+  // The buffer scales with episode count rather than being a flat +10. TMDB
+  // reports ad-free runtimes, so a 25-minute episode on Tubi or Pluto really
+  // runs 33-35 — and a flat buffer left a four-episode party ~20 minutes
+  // short, which is exactly when a timer dies mid-watch. Floored at 10 so a
+  // single episode keeps its original allowance.
+  const buffer = Math.max(10, summed.episodeCount * bufferPerEpisode);
+  const duration = summed.totalRuntime + buffer;
+  console.log(`[Timer] ✅ Auto-detected episode-range duration: ${summed.episodeCount} episodes = ${summed.totalRuntime}min + ${buffer}min buffer = ${duration}min`);
 
   return {
     duration,
     breakdown: {
       showId,
+      buffer,
       showName: showDetails?.name || episodeRange.showName,
       season: episodeRange.season,
       episodeCount: summed.episodeCount,
@@ -61,7 +68,7 @@ export function buildEpisodeRangeBreakdownMessage(breakdown) {
     `📺 **${breakdown.showName}** — Season ${breakdown.season}, Episodes ${breakdown.episodes[0].episodeNumber}-${breakdown.episodes[breakdown.episodes.length - 1].episodeNumber} (${breakdown.episodeCount} episodes)\n` +
     `${episodeLines}\n` +
     `${'─'.repeat(14)}\n` +
-    `${breakdown.episodeCount} episodes, ~${avgRuntime} min each = ${breakdown.totalRuntime} min + 10 min buffer = ${breakdown.duration} min`
+    `${breakdown.episodeCount} episodes, ~${avgRuntime} min each = ${breakdown.totalRuntime} min + ${breakdown.buffer ?? 10} min buffer = ${breakdown.duration} min`
   );
 }
 
@@ -223,7 +230,7 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
             episodeEnd: episodeRange.episodeEnd,
           },
         };
-        const result = await resolveEpisodeRangeDuration(show.id, episodeRange);
+        const result = await resolveEpisodeRangeDuration(show.id, episodeRange, getEpisodeBufferMinutes(guildConfig));
         if (result) {
           duration = result.duration;
           episodeRangeBreakdown = result.breakdown;
@@ -589,20 +596,25 @@ export const data = new SlashCommandBuilder()
           )
       )
   )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('stop')
-      .setDescription('🛑 Stop the active timer in this channel')
-  )
+  // pause/resume are listed BEFORE stop deliberately. Discord renders
+  // subcommands in registration order and offers no way to reorder them per
+  // invocation, so this is the only lever on which one people reach for
+  // first — and they were reaching for stop out of habit, then losing the
+  // running total for a multi-episode party.
   .addSubcommand(subcommand =>
     subcommand
       .setName('pause')
-      .setDescription('⏸️ Pause the active timer in this channel')
+      .setDescription('⏸️ Pause during a break — keeps the running total (use this, not stop)')
   )
   .addSubcommand(subcommand =>
     subcommand
       .setName('resume')
       .setDescription('▶️ Resume a paused timer in this channel')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('stop')
+      .setDescription('🛑 End the watch party and log it — use /timer pause for breaks')
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -803,7 +815,7 @@ export async function execute(interaction) {
                   episodeEnd: explicitRange.episodeEnd,
                 },
               };
-              const result = await resolveEpisodeRangeDuration(show.id, explicitRange);
+              const result = await resolveEpisodeRangeDuration(show.id, explicitRange, getEpisodeBufferMinutes(guildConfig));
               if (result) {
                 duration = result.duration;
                 episodeRangeBreakdown = result.breakdown;

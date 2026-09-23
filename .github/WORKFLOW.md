@@ -1,33 +1,20 @@
 # Development Workflow
 
-**Looking for workflow rules and best practices?**
+Workflow rules, testing conventions, Discord API limits and the release
+checklist all live in **[`CLAUDE.md`](../CLAUDE.md)** at the repository root.
 
-All development workflow documentation is maintained in:
+That file is loaded automatically by Claude Code at the start of a session,
+so the conventions apply without anyone having to remember them — which is
+the point. It is equally readable by humans; edit it there.
 
-📁 **`/memories/repo/workflow-rules.md`**
+## Quick reference
 
-This file contains:
-- ✅ Command lifecycle (add/modify/remove)
-- ✅ Documentation requirements
-- ✅ Deployment procedures
-- ✅ Discord API limits
-- ✅ Git workflow
-- ✅ Code quality checks
+- **Release checklist** — changelog → push → tag + GitHub release → deploy
+- **Testing** — break the fix and confirm the test fails before trusting it
+- **Discord limits** — the ones that have actually caused bugs here
+- **TMDB gotchas** — genre taxonomies, silently-ignored parameters, ad-free runtimes
 
-## Why `/memories/repo/`?
+## GitHub Actions
 
-Repository memory files are:
-- Loaded into GitHub Copilot's context automatically
-- Designed for codebase conventions and rules
-- Accessible via the memory system
-- Version controlled with your repository
-
-## Quick Links
-
-- [Workflow Rules](/memories/repo/workflow-rules.md)
-- [Changelog Rules](/memories/repo/changelog-updates.md)
-- [GitHub Actions](./.github/workflows/)
-
----
-
-**Note:** This `.github/WORKFLOW.md` file is just a pointer. The actual workflow documentation lives in `/memories/repo/workflow-rules.md`.
+See [`.github/workflows/`](./workflows/) — `deploy-docs.yml` publishes
+eggshenbot.com on every push to `main` that touches `docs/`.

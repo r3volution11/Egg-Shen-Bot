@@ -5,6 +5,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.40.0 - 2026-09-22
+
+### Changed
+- **Multi-episode watch parties now allow more time for ads.** The duration was the summed episode runtimes plus a flat 10 minutes, but TMDB reports *ad-free* runtimes — a 25-minute episode on Tubi or Pluto really runs 33-35. Across four episodes that left the timer roughly 20 minutes short, which is exactly when it dies mid-party. The buffer now scales with the episode count (5 minutes each by default, never less than 10 total), so a four-episode Tales From the Crypt party gets 120 minutes instead of 110. Tunable per server with `/eggshen-config-watch-party watch-party episode-buffer` — 0 for a clean source, 8-10 for an ad-supported one
+- **`/timer pause` and `/timer resume` now appear before `/timer stop`** in the subcommand list, and their descriptions say what they're for. People reach for stop out of habit and lose the running total for a multi-episode party; Discord renders subcommands in registration order and offers no way to reorder them per invocation, so ordering is the only lever available
+
+### Developer
+- **New `CLAUDE.md` at the repository root**, loaded automatically at the start of a session so the repo's conventions apply without anyone having to remember them: the four-step release checklist (a step that was skipped for three versions running), the testing rules below, the Discord limits that have actually caused bugs here, and the TMDB behavior that has caught us out. `.github/WORKFLOW.md` had pointed at a `/memories/repo/` directory that does not exist; it now points at `CLAUDE.md`
+- New `tests/select-handler-contract.test.js` (44 tests) holds **every** select handler to one contract — registered in the allowlist, and graceful on malformed input — rather than testing only the two that broke. Five handlers had no coverage at all before this
+- New `tests/pendingSelections.test.js` and the per-episode buffer cases in `tests/timer-episode-range.test.js`. Suite: 101 files, 1382 tests
+
 ## 2.39.1 - 2026-09-22
 
 ### Developer

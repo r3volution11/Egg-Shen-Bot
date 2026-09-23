@@ -38,6 +38,19 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand(subcommand =>
         subcommand
+          .setName('episode-buffer')
+          .setDescription('Extra minutes per episode for multi-episode watch parties')
+          .addIntegerOption(option =>
+            option
+              .setName('minutes')
+              .setDescription('Per episode. 0 for ad-free sources, 8-10 for Tubi/Pluto (default: 5)')
+              .setRequired(true)
+              .setMinValue(0)
+              .setMaxValue(30)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
           .setName('auto-detect')
           .setDescription('Choose how much /timer start does with a channel\'s active event')
           .addStringOption(option =>
@@ -332,6 +345,27 @@ export async function execute(interaction) {
         inline: false,
       })
       .setFooter({ text: 'Use /eggshen-config-watch-party watch-party add or watch-party remove to manage channels' });
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  } else if (group === 'watch-party' && subcommand === 'episode-buffer') {
+    const minutes = interaction.options.getInteger('minutes');
+
+    const config = await loadGuildConfig(guildId);
+    config.episodeBufferMinutes = minutes;
+    await saveGuildConfig(guildId, config);
+
+    const example = 4 * 25 + Math.max(10, 4 * minutes);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('⏱️ Episode Buffer Updated')
+      .setDescription(
+        `Multi-episode watch parties now allow **${minutes} extra minute${minutes === 1 ? '' : 's'} per episode**.\n\n` +
+        `TMDB reports ad-free runtimes, so a 25-minute episode on an ad-supported service really runs closer to 33. ` +
+        `Without this, a four-episode party ran out of time before the last episode finished.\n\n` +
+        `**Example:** four 25-minute episodes → **${example} minutes** total.`
+      )
+      .setFooter({ text: '0 for a clean source · 8-10 for Tubi or Pluto · the minimum total buffer is 10 minutes' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   } else if (group === 'watch-party' && subcommand === 'auto-detect') {

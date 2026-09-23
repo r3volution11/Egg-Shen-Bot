@@ -39,6 +39,7 @@ jest.unstable_mockModule('../src/utils/embedBuilder.js', () => ({
 }));
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getEpisodeBufferMinutes: jest.fn(() => 5),
   getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   isAdmin: (member) => member?.isAdmin === true,
   loadGuildConfig: mockLoadGuildConfig,

@@ -58,6 +58,7 @@ jest.unstable_mockModule('../src/services/bggService.js', () => ({
 }));
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getEpisodeBufferMinutes: jest.fn(() => 5),
   getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   loadGuildConfig: jest.fn().mockResolvedValue({}),
   isAdmin: jest.fn().mockReturnValue(false),
@@ -277,7 +278,7 @@ describe('/timer start — tv: option with episode-range notation', () => {
 
     expect(mockSearchTVShows).toHaveBeenCalledWith('Tales from the Crypt');
     const status = getTimerStatus('channel-1');
-    expect(status.duration).toBe(98); // 22+22+21+23 + 10 buffer
+    expect(status.duration).toBe(108); // 22+22+21+23 = 88, + 20 buffer (4 eps x 5)
   });
 
   test('shows the episode breakdown as a followUp', async () => {

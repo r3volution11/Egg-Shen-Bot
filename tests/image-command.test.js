@@ -34,6 +34,7 @@ jest.unstable_mockModule('../src/utils/aiImageTracker.js', () => ({
   recordImageGeneration: jest.fn().mockResolvedValue(undefined),
 }));
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getEpisodeBufferMinutes: jest.fn(() => 5),
   getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   isTrueAdmin: jest.fn().mockResolvedValue(false),
   isModerator: jest.fn().mockResolvedValue(false),

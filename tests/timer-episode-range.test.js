@@ -62,6 +62,7 @@ jest.unstable_mockModule('../src/services/bggService.js', () => ({
 }));
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getEpisodeBufferMinutes: jest.fn(() => 5),
   getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   loadGuildConfig: jest.fn().mockResolvedValue({}),
   isAdmin: jest.fn().mockReturnValue(false),
@@ -143,7 +144,7 @@ const seasonFiveDetails = {
 };
 
 describe('/timer start — episode range, single unambiguous show', () => {
-  test('sums episode runtimes across the range and adds the 10-minute buffer', async () => {
+  test('sums episode runtimes and scales the buffer with the episode count', async () => {
     mockSearchTVShows.mockResolvedValue([
       { id: 42, name: 'Tales from the Crypt', first_air_date: '1989-06-10' },
     ]);
@@ -153,9 +154,11 @@ describe('/timer start — episode range, single unambiguous show', () => {
     const interaction = makeInteraction({ label: 'Tales from the Crypt - S5: E5 - E8' });
     await runExecute(interaction);
 
-    // 22 + 22 + 21 + 23 = 88, + 10 buffer = 98
+    // 22 + 22 + 21 + 23 = 88, + 20 buffer (4 episodes x 5) = 108.
+    // The buffer scales because TMDB reports ad-free runtimes — a flat +10
+    // left a four-episode party on an ad-supported service ~20 min short.
     const status = getTimerStatus('channel-1');
-    expect(status.duration).toBe(98);
+    expect(status.duration).toBe(108);
     expect(status.isFallbackDuration).toBeFalsy();
   });
 
@@ -188,7 +191,7 @@ describe('/timer start — episode range, single unambiguous show', () => {
     const breakdownCall = interaction.followUp.mock.calls.find(c => c[0].content.includes('Tales from the Crypt'));
     expect(breakdownCall[0].content).toContain('E5: 22 min');
     expect(breakdownCall[0].content).toContain('E8: 23 min');
-    expect(breakdownCall[0].content).toContain('88 min + 10 min buffer = 98 min');
+    expect(breakdownCall[0].content).toContain('88 min + 20 min buffer = 108 min');
   });
 
   test('marks estimated episodes distinctly in the breakdown', async () => {
@@ -265,5 +268,59 @@ describe('/timer start — episode range with multiple matching shows', () => {
     const options = editReplyCall[0].components[0].components[0].options;
     const rangeOption = options.find(o => o.data.value.includes('_range_'));
     expect(rangeOption.data.value).toBe('timer_tv_42_modern_range_5_5_8');
+  });
+});
+
+describe('the buffer scales with episode count', () => {
+  // TMDB reports ad-free runtimes. A 25-minute episode on Tubi or Pluto
+  // really runs 33-35, so a flat +10 left a four-episode party roughly 20
+  // minutes short — precisely when a timer dies mid-watch.
+  const seasonOf = (count, runtime = 25) => ({
+    episodes: Array.from({ length: count }, (_, i) => ({
+      episode_number: i + 1,
+      runtime,
+    })),
+  });
+
+  test.each([
+    [1, 25, 35],   // one episode keeps the original 10-minute floor
+    [2, 50, 60],   // 2 x 5 = 10, still the floor
+    [4, 100, 120], // 4 x 5 = 20
+    [8, 200, 240], // 8 x 5 = 40
+  ])('%s episode(s): %s min of runtime becomes %s min', async (count, summed, expected) => {
+    mockSearchTVShows.mockResolvedValue([
+      { id: 42, name: 'Tales from the Crypt', first_air_date: '1989-06-10' },
+    ]);
+    mockGetSeasonDetails.mockResolvedValue(seasonOf(count));
+    mockGetTVShowDetails.mockResolvedValue({ name: 'Tales from the Crypt', episode_run_time: [25] });
+
+    const interaction = makeInteraction({
+      label: `Tales from the Crypt - S1: E1 - E${count}`,
+    });
+    await runExecute(interaction);
+
+    const status = getTimerStatus('channel-1');
+    expect(status.duration).toBe(expected);
+  });
+
+  test('the real Tales From the Crypt case gets enough time for ads', async () => {
+    // Four 25-minute episodes. Ad-free that's 110 minutes with the old flat
+    // buffer; on Tubi the party actually runs ~132.
+    mockSearchTVShows.mockResolvedValue([
+      { id: 2391, name: 'Tales from the Crypt', first_air_date: '1989-06-10' },
+    ]);
+    // Episodes 4-7 specifically, matching the real event.
+    mockGetSeasonDetails.mockResolvedValue({
+      episodes: [4, 5, 6, 7].map(n => ({ episode_number: n, runtime: 25 })),
+    });
+    mockGetTVShowDetails.mockResolvedValue({ name: 'Tales from the Crypt', episode_run_time: [25] });
+
+    const interaction = makeInteraction({ label: 'Tales from the Crypt - S6: E4 - E7' });
+    await runExecute(interaction);
+
+    const duration = getTimerStatus('channel-1').duration;
+
+    expect(duration).toBe(120);
+    expect(duration).toBeGreaterThan(110); // the old flat-buffer result
   });
 });

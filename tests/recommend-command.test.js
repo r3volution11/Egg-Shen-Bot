@@ -46,6 +46,7 @@ jest.unstable_mockModule('../src/utils/watchHistoryManager.js', () => ({
 }));
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getEpisodeBufferMinutes: jest.fn(() => 5),
   canUseCommand: mockCanUseCommand,
 }));
 

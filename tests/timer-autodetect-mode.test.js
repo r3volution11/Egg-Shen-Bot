@@ -64,6 +64,7 @@ const mockLoadGuildConfig = jest.fn();
 const realGuildConfig = await import('../src/utils/guildConfig.js');
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getEpisodeBufferMinutes: jest.fn(() => 5),
   ...realGuildConfig,
   loadGuildConfig: mockLoadGuildConfig,
 }));
@@ -347,7 +348,7 @@ describe("'ask' (the default): look it up, but never trap anyone in a list", () 
     await runExecute(interaction);
 
     const status = getTimerStatus(WATCH_PARTY_CHANNEL);
-    expect(status.duration).toBe(113); // 103 summed + 10 buffer
+    expect(status.duration).toBe(123); // 103 summed + 20 buffer (4 eps x 5)
     expect(status.isFallbackDuration).toBe(false); // a real, informed duration
     expect(status.label).toBe('Tales From the Crypt'); // the friendly event name
     expect(showedAPicker(interaction)).toBe(false);
