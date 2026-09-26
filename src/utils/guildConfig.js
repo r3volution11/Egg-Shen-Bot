@@ -87,6 +87,15 @@ const defaultConfig = {
   // clean source; set higher for a server that always watches with ads.
   // Read through getEpisodeBufferMinutes() below, never directly.
   episodeBufferMinutes: 5,
+  // AI-written announcement text (/announce). Separate from rateLimits.aiImages,
+  // which governs image generation — text costs a fraction of an image, so a
+  // server may want one without the other. A manually supplied `message` always
+  // posts verbatim regardless of this setting; it only controls whether the bot
+  // writes the text when no message was given.
+  // Read through getAiTextEnabled() below, never directly.
+  aiText: {
+    enabled: true,
+  },
   administrators: [], // Will be populated with server owner/admins
   rateLimits: {
     enabled: true, // Master switch for rate limiting
@@ -251,6 +260,29 @@ const AUTO_DETECT_MODES = new Set(['ask', 'full', 'off']);
 export function getAutoDetectMode(guildConfig) {
   const mode = guildConfig?.watchPartyAutoDetectMode;
   return AUTO_DETECT_MODES.has(mode) ? mode : 'ask';
+}
+
+/**
+ * Whether this server wants AI-written *text* (announcement flavor text).
+ *
+ * Distinct from `aiImages.enabled`, which governs image generation — a server
+ * may well want one and not the other, and they cost very different amounts.
+ *
+ * Defaults to TRUE so nothing changes for a server already relying on AI
+ * announcements: before this key existed, AI text was used whenever the
+ * operator had configured an API key. Only an explicit `false` turns it off.
+ * Normalized because there are no config migrations, so an unset or
+ * hand-edited value has to land on the default.
+ *
+ * Note this is the server's *preference*, not a capability check — the
+ * operator may not have an API key at all. Callers need both this and
+ * `isOpenAIAvailable()`.
+ *
+ * @param {object} guildConfig
+ * @returns {boolean}
+ */
+export function getAiTextEnabled(guildConfig) {
+  return guildConfig?.aiText?.enabled !== false;
 }
 
 /**

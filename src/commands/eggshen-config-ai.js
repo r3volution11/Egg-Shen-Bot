@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
+import { loadGuildConfig, saveGuildConfig, isAdmin, getAiTextEnabled } from '../utils/guildConfig.js';
+import { isOpenAIAvailable } from '../services/aiService.js';
 import { getGuildImageStats, getUserImageStats, resetUserImageUsage, resetGuildImageUsage } from '../utils/aiImageTracker.js';
 
 export const data = new SlashCommandBuilder()
@@ -145,6 +146,31 @@ export const data = new SlashCommandBuilder()
         subcommand
           .setName('whitelist-list')
           .setDescription('View users with unlimited AI image generation')
+      )
+  )
+  // ========== AI TEXT GROUP ==========
+  // Separate from ai-images on purpose: text generation costs a fraction of an
+  // image, so a server may well want the announcement flavor text while
+  // keeping image generation off (or the reverse).
+  .addSubcommandGroup(group =>
+    group
+      .setName('ai-text')
+      .setDescription('Configure AI-written announcement text')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('feature-toggle')
+          .setDescription('Enable or disable AI-written announcement text on this server')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable AI-written announcement text')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('view')
+          .setDescription('Show whether AI announcement text is enabled and available')
       )
   );
 
@@ -523,6 +549,61 @@ export async function execute(interaction) {
         inline: false,
       })
       .setFooter({ text: 'Use for bot contributors or premium users' })
+      .setTimestamp();
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+
+  } else if (group === 'ai-text' && subcommand === 'feature-toggle') {
+    const enabled = interaction.options.getBoolean('enabled');
+
+    const config = await loadGuildConfig(guildId);
+    if (!config.aiText) config.aiText = {};
+    config.aiText.enabled = enabled;
+    await saveGuildConfig(guildId, config);
+
+    // Worth saying plainly that turning it ON is not sufficient: the flag is
+    // the server's preference, the API key is the operator's, and a server
+    // owner who is not the operator cannot tell the difference otherwise.
+    const available = isOpenAIAvailable();
+    const note = enabled
+      ? (available
+        ? '\n\n✨ `/announce` will write the announcement for you when you don\'t supply your own message.'
+        : '\n\n⚠️ No OpenAI API key is configured on this bot, so announcements will still use the plain template. Ask whoever hosts the bot to set `OPENAI_API_KEY`.')
+      : '\n\n📝 `/announce` will use the plain template instead. Your own `message` text always posts exactly as written either way.';
+
+    await interaction.reply({
+      content: `✅ AI-written announcement text **${enabled ? 'enabled' : 'disabled'}** on this server.${note}`,
+      ephemeral: true,
+    });
+
+  } else if (group === 'ai-text' && subcommand === 'view') {
+    const config = await loadGuildConfig(guildId);
+    const enabled = getAiTextEnabled(config);
+    const available = isOpenAIAvailable();
+
+    const embed = new EmbedBuilder()
+      .setColor(enabled && available ? 0x57F287 : 0xFEE75C)
+      .setTitle('✍️ AI Announcement Text')
+      .addFields(
+        {
+          name: 'This server',
+          value: enabled ? '✅ Enabled' : '🚫 Disabled',
+          inline: true,
+        },
+        {
+          name: 'API key on this bot',
+          value: available ? '✅ Configured' : '❌ Not configured',
+          inline: true,
+        },
+        {
+          name: 'What happens now',
+          value: enabled && available
+            ? 'AI writes the announcement when no `message` is supplied.'
+            : 'Announcements use the plain template. Your own `message` text always posts exactly as written.',
+          inline: false,
+        }
+      )
+      .setFooter({ text: 'Change with /eggshen-config-ai ai-text feature-toggle' })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
