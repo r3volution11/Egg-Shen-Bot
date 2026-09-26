@@ -5,6 +5,23 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.40.1 - 2026-09-25
+
+### Fixed
+- **`/random game` no longer blames your filters when the games database is down.** Both the "nothing matched your filters" case and a genuine API failure (an expired key, a timeout, an upstream error) arrive the same way, and the command reported both as "No games found matching your filters" — so people kept adjusting filters that were never the problem, and nothing was written to the log to explain it. The two are now told apart, and the underlying error is always logged. `/random boardgame` gets the same logging; its wording now covers both causes, because BoardGameGeek's own error handling discards the detail needed to distinguish them
+- **A very long tournament name could silently stop group voting from closing.** The name goes into embed titles, which Discord caps at 256 characters; past that the embed fails to build. In the background auto-close path that failure was swallowed, so voting simply stayed open with only a log line to show for it. `/bracket create` and `/bracket edit-name` now cap the name, and any over-long name already stored is trimmed when it is next saved
+- **A long note no longer breaks `/watchlist list` entirely.** The whole listing is one embed description, and one long enough note could push it past Discord's limit — which failed the entire list, not just that entry. Notes are now capped when added, older ones are trimmed on display, and the listing shows as many whole entries as fit and says how many of the total that was
+- **An event request could lose its cover image.** When renaming an upload to its real request ID, the image file was moved on disk before the record of it was written, and a failure partway through left the record pointing at a file that no longer existed — the approval embed showed no image, and the cleanup sweep could never reclaim the orphaned file. Whatever was moved is now always recorded
+- **`/quote`'s title suggestions could stop working.** Discord rejects an entire autocomplete response if any suggestion exceeds 100 characters, so a single long title added through the web admin page meant no suggestions at all. Titles are now clamped for display
+
+### Changed
+- **Search statistics no longer grow forever.** Every search appended a row to the server's stats file with nothing ever removing it, and each new search rewrote the whole file — so commands got gradually slower the longer a server used the bot. Individual rows are now kept for 35 days, which is longer than the furthest-back view (`/stats month`) can reach, so every figure `/stats` reports is unchanged. All-time totals are counted separately and were never affected
+
+### Developer
+- `statsTracker` and `watchHistoryManager` now honour `GUILD_STATS_DIR` and `GUILD_WATCH_HISTORY_DIR`. They were the last two stores without a test override, so seven suites wrote into the live `guild_stats/` and `guild_watch_history/` directories, and `tests/test-isolation.test.js` could not guard variables that did not exist. Both are now in the guard list
+- New `tests/statsTracker-pruning.test.js` and `tests/option-length-caps.test.js`; the retention window is pinned against every `/stats` filter, and the `/watchlist list` budget is driven end to end through the real command. Every fix here was verified by breaking it and confirming the new test fails. Suite: 103 files, 1413 tests
+- Measured a pre-existing test flake at roughly **1 failure in 10 full runs** on an unmodified tree, hitting a different test each time (`eventCropRoute` with `read ECONNRESET`, `timer-pause-resume`, and two `quotesAdminRoutes` cases). Jest sets no `maxWorkers` and every run reports a worker failing to exit, so the cause looks like worker contention and leaked handles rather than any one suite. Recorded rather than fixed here; note that at this rate a single clean run proves nothing
+
 ## 2.40.0 - 2026-09-22
 
 ### Changed
