@@ -39,43 +39,74 @@ Host synchronized watch parties with timers and track what your community watche
 
 ## Announcements
 
-Generate the initial "hey, we're watching this tonight" announcement — typically posted an hour or two before the watch party, well before `/timer remind`'s final-notice ping.
+`/announce` covers the two moments a watch party needs announcing: the advance notice, and the final nudge.
 
-### Generate an Announcement
+| When | Command |
+|---|---|
+| An hour or more ahead | `/announce party` |
+| A few minutes before | `/announce starting` |
+| The moment you start the timer | `/timer remind` |
+
+Both `/announce` subcommands post to the channel themselves, and both are Admin/Moderator only.
+
+### The Advance Notice
 
 ```
-/announce title1:<title> episodes1:[optional] title2:[optional] episodes2:[optional] time:<time> host:[optional] tone:[optional] custom-tone:[optional]
+/announce party title1:<title> time:<time> message:[optional] channel:[optional] role:[optional] episodes1:[optional] title2:[optional] episodes2:[optional] host:[optional] tone:[optional] custom-tone:[optional]
 ```
 
 **Parameters:**
 - `title1` (required) - First movie or TV show title
+- `time` (required) - Start time to include, used exactly as typed (e.g. `"8:00 PM EST"`)
+- `message` (optional) - **Your own announcement text, posted exactly as written.** Skips AI entirely
+- `channel` (optional) - Where to post it. Defaults to the channel you run the command in
+- `role` (optional) - Role to ping. Pinged in the message itself, so it genuinely notifies
 - `episodes1` (optional) - Episode(s) for `title1` if it's a TV show — flexible notation: `S3E9-E12`, `S3E9-12`, `Season 3 Episode 9`, `S03E09-E12`, etc.
 - `title2` / `episodes2` (optional) - A second title, for back-to-back watch parties (e.g. two episodes then a movie)
-- `time` (required) - Start time to include in the announcement, used exactly as typed (e.g. `"8:00 PM EST"`)
 - `host` (optional) - Who's hosting — a persona name (like a horror-host character) or a literal `@mention`, your choice
-- `tone` (optional) - One of `Funny`, `Scary`, `Dramatic`, `Wholesome`, `Mysterious`
+- `tone` (optional) - One of `Funny`, `Scary`, `Dramatic`, `Wholesome`, `Mysterious`. Only applies to AI-written text
 - `custom-tone` (optional) - Describe your own tone/style instead (e.g. `"like a noir detective"`) — overrides `tone` if both are given
 
+**Which text gets posted:**
+
+| You supplied | Server AI setting | Result |
+|---|---|---|
+| `message` | either | Your text, exactly as written. No AI call |
+| nothing | enabled | AI writes it from the real plot and streaming info |
+| nothing | disabled | A plain template |
+
 **Features:**
-- Looks up each title on TMDB for the real plot/premise, so the AI writes something specific to the movie or show rather than generic filler
+- Looks up each title on TMDB for the real plot/premise, so AI-written text is specific to the movie or show rather than generic filler
 - Automatically includes real streaming availability ("Available to stream on...")
-- Reply is private (only visible to you) and formatted as a copy-paste-ready code block — **the bot never posts the announcement anywhere itself**, you post it manually wherever you'd like (e.g. an announcements channel)
-- If OpenAI is unavailable, falls back to a plain, clearly-labeled non-AI template instead of failing outright
-- Admin/Moderator only
+- Uses the title's landscape artwork, which keeps the card about half the height a poster would
+- Checks it can actually post in the target channel first, so you're never told an announcement went out when it didn't
+- Falls back to a plain template if AI is off or unavailable, rather than failing
 
 **Example:**
 ```
-/announce title1:"Tales From the Crypt" episodes1:"S3E9-E12" title2:"Hellraiser" time:"8:00 PM EST" host:"Cryptkeeper" tone:Scary
+/announce party title1:"Tales From the Crypt" episodes1:"S3E9-E12" title2:"Hellraiser" time:"8:00 PM EST" host:"Cryptkeeper" tone:Scary role:@Movie Night
 ```
 
-**How It Works:**
-1. Run `/announce` with your title(s), start time, and optional host/tone
-2. Bot looks up each title's plot and streaming availability, then asks AI to write short promotional flavor text in your chosen tone
-3. You get back a private, copy-paste-ready announcement
-4. Post it yourself wherever you'd like (e.g. your server's announcements channel) — the bot doesn't post it for you
-5. Later, run `/timer remind` closer to start time, then `/timer start` when you begin
+### The Final Nudge
 
-**Tip:** Since nothing is posted automatically, you can generate a few variations (different tones, or run it again) before picking your favorite to post.
+```
+/announce starting message:<text> title:[optional] channel:[optional] role:[optional]
+```
+
+**Parameters:**
+- `message` (required) - e.g. `"Starting in 10 minutes"` or `"Starting at 9:35 pm"`. Always posted exactly as written
+- `title` (optional) - What's being watched. Adds the artwork and the canonical title
+- `channel` (optional) - Where to post it. Defaults to the current channel
+- `role` (optional) - Role to ping, in the message content
+
+AI is never involved here — a timing claim is the one thing that must not be paraphrased.
+
+**Example:**
+```
+/announce starting message:"Starting in 10 minutes" title:"Hellraiser" role:@Movie Night
+```
+
+**Tip:** An unrecognised `title` won't lose your announcement — it posts with what you typed, just without the artwork.
 
 ## Timer Reminders
 

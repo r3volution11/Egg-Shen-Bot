@@ -148,6 +148,16 @@ export async function execute(interaction) {
           '**📋 /eggshen-logs** - View bot activity logs\n' +
           '**🔄 /eggshen-restart** - Restart the bot (requires PM2)',
         inline: false,
+      },
+      {
+        name: '📣 Announcements (Admin/Mod)',
+        value:
+          '**📣 /announce party** - Announce an upcoming watch party (an hour or more ahead)\n' +
+          '**🎬 /announce starting** - Announce that it\'s about to start\n' +
+          '  • Write your own `message`, or let AI write it for you\n' +
+          '  • Posts to this channel, or any channel you pick\n' +
+          '  • Add `role` to ping the people who want to know',
+        inline: false,
       }
     );
   }

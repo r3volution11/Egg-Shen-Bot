@@ -297,30 +297,52 @@ Log and view server watch party history.
 
 ---
 
-### `/announce`
-Generate AI-written watch party announcement text for you to copy and post yourself (Admin/Moderator only).
+### `/announce party`
+Post an advance watch party announcement to a channel (Admin/Moderator only).
 
 **Options:**
 - `title1` (required) - First movie or TV show title
+- `time` (required) - Start time to include in the announcement (e.g. `"8:00 PM EST"`)
+- `message` (optional) - **Your own text, posted exactly as written.** Skips AI entirely
+- `channel` (optional) - Where to post it (default: the current channel)
+- `role` (optional) - Role to ping, in the message content so it actually notifies
 - `episodes1` (optional) - Episode(s) for `title1` if it's a TV show (e.g. `"S3E9-E12"`, `"Season 3 Episode 9"`)
 - `title2` / `episodes2` (optional) - A second title, for back-to-back watch parties
-- `time` (required) - Start time to include in the announcement (e.g. `"8:00 PM EST"`)
 - `host` (optional) - Who's hosting — a name, persona, or `@mention`
-- `tone` (optional) - `Funny`, `Scary`, `Dramatic`, `Wholesome`, or `Mysterious`
+- `tone` (optional) - `Funny`, `Scary`, `Dramatic`, `Wholesome`, or `Mysterious`. AI-written text only
 - `custom-tone` (optional) - Free-text tone/style instead of the preset list — overrides `tone`
 
 **Features:**
-- Looks up the real plot/premise from TMDB so the AI writes about the actual movie/show, not generic filler
+- Your own `message` always posts verbatim; AI only writes the text when you don't supply one and the server has AI text enabled
+- Looks up the real plot/premise from TMDB so AI-written text is about the actual movie/show, not generic filler
 - Includes real streaming availability ("Available to stream on...") automatically
-- Reply is private (only visible to you) and formatted as a copy-paste-ready code block — the bot never posts the announcement anywhere itself
-- Falls back to a plain (non-AI) template if OpenAI is unavailable, so the command still returns something useful
+- Verifies it can post in the target channel before claiming success
+- Falls back to a plain (non-AI) template when AI is off or unavailable
 
 **Example:**
 ```
-/announce title1:"Tales From the Crypt" episodes1:"S3E9-E12" title2:"Hellraiser" time:"8:00 PM EST" host:"Cryptkeeper" tone:Scary
+/announce party title1:"Tales From the Crypt" episodes1:"S3E9-E12" title2:"Hellraiser" time:"8:00 PM EST" host:"Cryptkeeper" tone:Scary
 ```
 
-[Learn more →](/commands/watch-party#announce)
+[Learn more →](/commands/watch-party#the-advance-notice)
+
+---
+
+### `/announce starting`
+Post the "starting in 10 minutes" nudge to a channel (Admin/Moderator only).
+
+**Options:**
+- `message` (required) - e.g. `"Starting in 10 minutes"` or `"Starting at 9:35 pm"`. Always posted exactly as written
+- `title` (optional) - What's being watched, which adds the artwork
+- `channel` (optional) - Where to post it (default: the current channel)
+- `role` (optional) - Role to ping, in the message content
+
+**Example:**
+```
+/announce starting message:"Starting in 10 minutes" title:"Hellraiser" role:@Movie Night
+```
+
+[Learn more →](/commands/watch-party#the-final-nudge)
 
 ---
 

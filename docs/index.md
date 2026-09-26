@@ -45,7 +45,7 @@ features:
 
   - icon: 🎪
     title: Social Features
-    details: Create surveys & polls with up to 10 options, live vote updates, and auto-close timers. Send magical potions to users with 78+ pop culture references. Search for movie and TV show soundtracks on iTunes and Spotify. Generate AI-written watch party announcements.
+    details: Create surveys & polls with up to 10 options, live vote updates, and auto-close timers. Send magical potions to users with 78+ pop culture references. Search for movie and TV show soundtracks on iTunes and Spotify. Post watch party announcements in your own words, or let AI write them.
   
   - icon: 🛡️
     title: Advanced Moderation
@@ -203,8 +203,10 @@ Type `/similar` after searching for something to get personalized recommendation
 **Watch Party Timers**  
 Create a Discord scheduled event for a specific channel, then run `/timer start` in that channel. The bot automatically looks up your server's events, detects the event title linked to that channel, and sets up a timer with the correct runtime from TMDB or BoardGameGeek - no manual typing needed! If the detected title doesn't match anything cleanly, a **Search** button lets you retype it on the spot instead of starting under the wrong name. Multi-episode watch parties (e.g. "Tales from the Crypt S5E5-E8") are recognized automatically, with each episode's runtime summed into the total. Timers can be paused and resumed without losing elapsed time.
 
-**AI Watch Party Announcements**  
-Type `/announce title1:"Hellraiser" time:"8:00 PM EST" tone:Scary` to get AI-written promotional text for your watch party, pulling in the real plot and streaming availability so it's about the actual movie, not generic filler. Copy-paste ready — the bot never posts it for you.
+**Watch Party Announcements**  
+Two announcements, for the two moments that matter. Ahead of time, `/announce party title1:"Hellraiser" time:"8:00 PM EST" message:"Bring your own puzzle box."` posts a card with the start time and where to stream it. Minutes before, `/announce starting message:"Starting in 10 minutes" title:"Hellraiser"` posts the nudge. Both go to the current channel or any channel you name, and `role:` pings the people who want to know — in the message itself, so it actually notifies.
+
+Your own `message` always posts exactly as written. Leave it out and, if your server has AI text enabled, the bot writes it for you from the real plot and streaming availability rather than generic filler — pick a `tone`, or describe your own with `custom-tone`. Turn that off per server with `/eggshen-config-ai ai-text feature-toggle`.
 
 **Fun Social Interactions**  
 Type `/potion give user:@Friend type:health` to send magical potions with fun pop culture references! Choose from 13 potion types - helpful (Health, Mana, Strength, Speed, Love) or harmful (Poison, Weakness, Curse, Slow) - with 78+ unique responses featuring references to LOTR, Harry Potter, Dark Souls, Get Out, The Ring, and more. Admins can add custom responses!
@@ -230,7 +232,8 @@ Type `/potion give user:@Friend type:health` to send magical potions with fun po
 - `/timer adjust` / `/timer autostop` - Change duration or toggle auto-stop
 - `/timer stop` - End a timer manually
 - `/timer remind` - Announce that the timer's about to start, with poster and event details
-- `/announce` - Generate AI-written watch party promo text (Admin/Moderator only)
+- `/announce party` - Post an advance watch party announcement, your words or AI's (Admin/Moderator only)
+- `/announce starting` - Post the "starting in 10 minutes" nudge (Admin/Moderator only)
 - `/watchparty remind` - Announce a scheduled watch party is starting
 - `/watched add` / `/watched history` - Log and browse your server's watch history with frequency data
 - Auto-stop timers based on content runtime (with 10-minute buffer)
@@ -275,7 +278,7 @@ Type `/potion give user:@Friend type:health` to send magical potions with fun po
 ✅ **Comprehensive Ratings** - IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek, Google Books  
 ✅ **Watch Party Ready** - Built-in timers with auto-detection, pause/resume, multi-episode support, and watch history tracking  
 ✅ **Goes Beyond Discord** - A public, Discord-gated web form lets your community submit event requests without needing bot commands, and moderators approve them into real Discord Scheduled Events with one click  
-✅ **AI-Powered** - Generates watch party announcement text and versus-battle poster art on demand  
+✅ **AI-Powered (optional)** - Writes watch party announcement text and versus-battle poster art on demand, and every server can turn it off  
 ✅ **Smart & Helpful** - Auto-detects titles from Discord events, provides streaming availability  
 ✅ **Respects Your Server** - Advanced rate limiting and moderation tools included  
 ✅ **Fully Customizable** - Per-server configuration for services, permissions, timers, event requests, and features  

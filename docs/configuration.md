@@ -129,6 +129,35 @@ Configure channels where timer auto-detection works. When a timer starts in thes
 /eggshen-config-watch-party watch-party list
 ```
 
+## AI Announcement Text
+
+`/announce` can write your announcement for you, drawing on the title's real plot and streaming availability. It's optional, and enabled by default.
+
+Turning it off doesn't limit `/announce` — supplying your own `message` always posts exactly what you wrote, whatever this is set to. It only controls what happens when you *don't* write one: with AI on, the bot writes it; with AI off, it uses a plain template.
+
+### Enable or Disable
+
+```
+/eggshen-config-ai ai-text feature-toggle enabled:false
+```
+
+### Check the Current State
+
+```
+/eggshen-config-ai ai-text view
+```
+
+This reports two separate things, because both have to be true for AI text to run:
+
+- **This server** — the setting above, which a server admin controls
+- **API key on this bot** — whether whoever hosts the bot has set `OPENAI_API_KEY`
+
+If you're self-hosting and the key isn't configured, announcements fall back to the plain template no matter what this is set to. See the [API Keys Guide](/api-keys) for how to get one.
+
+::: tip Separate from AI images
+This is independent of `/eggshen-config-ai ai-images feature-toggle`. Text costs a tiny fraction of what an image does, so you can run one without the other.
+:::
+
 ## Rate Limiting
 
 Protect your server from spam and abuse with comprehensive rate limiting.
