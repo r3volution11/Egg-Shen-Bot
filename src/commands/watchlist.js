@@ -17,6 +17,25 @@ import { trackSearch } from '../utils/statsTracker.js';
 
 const TYPE_ICON = { movie: '🎬', tv: '📺' };
 
+/** Matches the `note` option's setMaxLength, for entries stored before it existed. */
+const MAX_NOTE_DISPLAY = 200;
+
+/** Discord's embed description limit; discord.js throws past it. */
+const MAX_EMBED_DESCRIPTION = 4096;
+
+/**
+ * A note trimmed to a length that is safe in every place notes render.
+ *
+ * The slash option caps new notes, but entries added before that cap existed
+ * are already on disk and are rendered unchanged. handleList also bounds the
+ * description as a whole, since 25 notes at this length would exceed it even
+ * so; this keeps any single note from dominating the listing.
+ */
+export function noteForDisplay(note) {
+  if (typeof note !== 'string') return note;
+  return note.length > MAX_NOTE_DISPLAY ? `${note.slice(0, MAX_NOTE_DISPLAY - 1)}…` : note;
+}
+
 export const data = new SlashCommandBuilder()
   .setName('watchlist')
   .setDescription('The server watchlist — what you plan to watch next')
@@ -35,6 +54,11 @@ export const data = new SlashCommandBuilder()
           .setName('note')
           .setDescription('Why you want to watch it')
           .setRequired(false)
+          // Notes render into an embed field (1024) and into the /watchlist
+          // list description alongside up to 24 others. See noteForDisplay()
+          // for notes stored before this cap, and handleList for the
+          // description budget that backs it up.
+          .setMaxLength(200)
       )
   )
   .addSubcommand(subcommand =>
@@ -328,7 +352,7 @@ export async function addResolvedTitle(interaction, type, tmdbId, note, settings
     .setFooter({ text: `Added by ${interaction.user.username} • /watchlist want to vote for it` })
     .setTimestamp();
 
-  if (note) embed.addFields({ name: 'Note', value: note, inline: false });
+  if (note) embed.addFields({ name: 'Note', value: noteForDisplay(note), inline: false });
   if (result.entry.posterUrl) embed.setThumbnail(result.entry.posterUrl);
 
   await interaction.editReply({ embeds: [embed], components: [] });
@@ -408,34 +432,42 @@ async function handleList(interaction) {
     return;
   }
 
-  // Discord caps an embed description at 4096 characters; 25 entries with
-  // notes stays comfortably inside that.
-  const shown = sorted.slice(0, 25);
+  const sortLabel = { recent: 'newest first', oldest: 'longest waiting', votes: 'most wanted' }[sort];
+  const filterLabel = { all: 'titles', movie: 'movies', tv: 'TV shows' }[filter];
+  const header = `${sorted.length} ${filterLabel}, ${sortLabel}\n\n`;
 
-  const lines = shown.map((entry, index) => {
+  const candidates = sorted.slice(0, 25).map((entry, index) => {
     const icon = TYPE_ICON[entry.type] || '•';
     const year = entry.year ? ` (${entry.year})` : '';
     const votes = wantCount(entry);
     const voteStr = votes > 0 ? ` • 👍 ${votes}` : '';
-    const noteStr = entry.note ? `\n   💭 ${entry.note}` : '';
+    const noteStr = entry.note ? `\n   💭 ${noteForDisplay(entry.note)}` : '';
     const sourceStr = entry.source ? ` • ${entry.source}` : '';
 
     return `**${index + 1}.** ${icon} **${entry.title}**${year}${voteStr}\n   Added by ${entry.addedBy}${sourceStr}${noteStr}`;
   });
 
-  const sortLabel = { recent: 'newest first', oldest: 'longest waiting', votes: 'most wanted' }[sort];
-  const filterLabel = { all: 'titles', movie: 'movies', tv: 'TV shows' }[filter];
+  // Discord caps an embed description at 4096 and discord.js throws past it,
+  // which would fail the whole listing rather than one entry. 25 entries fit
+  // comfortably at typical lengths, but notes, titles, usernames and sources
+  // are all variable, so take only as many whole lines as fit and say so.
+  // Dropping a trailing entry beats truncating mid-line.
+  const lines = [];
+  let used = header.length;
+  for (const line of candidates) {
+    if (used + line.length + 1 > MAX_EMBED_DESCRIPTION) break;
+    lines.push(line);
+    used += line.length + 1;
+  }
 
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle(`🎞️ ${interaction.guild.name} Watchlist`)
-    .setDescription(
-      `${sorted.length} ${filterLabel}, ${sortLabel}\n\n${lines.join('\n')}`
-    )
+    .setDescription(`${header}${lines.join('\n')}`)
     .setTimestamp();
 
-  if (sorted.length > shown.length) {
-    embed.setFooter({ text: `Showing ${shown.length} of ${sorted.length} — narrow it down with the filter option` });
+  if (sorted.length > lines.length) {
+    embed.setFooter({ text: `Showing ${lines.length} of ${sorted.length} — narrow it down with the filter option` });
   }
 
   await interaction.editReply({ embeds: [embed] });
@@ -476,7 +508,7 @@ async function handlePick(interaction) {
     .setFooter({ text: 'Log it afterwards with /watched add' })
     .setTimestamp();
 
-  if (picked.note) embed.addFields({ name: 'Note', value: picked.note, inline: false });
+  if (picked.note) embed.addFields({ name: 'Note', value: noteForDisplay(picked.note), inline: false });
   if (picked.posterUrl) embed.setImage(picked.posterUrl);
 
   await interaction.editReply({ embeds: [embed] });

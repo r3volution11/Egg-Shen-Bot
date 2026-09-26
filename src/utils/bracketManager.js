@@ -33,11 +33,33 @@ export function loadTournament(guildId) {
 }
 
 /**
+ * The longest a tournament name may be once stored.
+ *
+ * The name is interpolated into embed titles, which Discord caps at 256 — the
+ * longest such prefix is "📊 Group A Results - ". The slash options cap input
+ * at 100, but that only protects NEW input: a tournament created before the
+ * cap existed, or one restored from an export, can still hold a longer name.
+ * Clamping here covers those too, since every mutation re-saves.
+ *
+ * This matters most in tournamentScheduler's auto-close path, where a throwing
+ * .setTitle() is swallowed by an outer try/catch and group voting silently
+ * never closes.
+ */
+export const MAX_TOURNAMENT_NAME_LENGTH = 100;
+
+/**
  * Save tournament data for a guild
  */
 export function saveTournament(guildId, tournament) {
   const filePath = join(tournamentsDir, `${guildId}.json`);
   try {
+    // Deliberately mutates the caller's object rather than a copy: callers hold
+    // the tournament they just loaded and keep saving it, so a clamp that only
+    // affected the written file would leave the long name live in memory and
+    // still able to throw in whatever renders next.
+    if (typeof tournament?.name === 'string' && tournament.name.length > MAX_TOURNAMENT_NAME_LENGTH) {
+      tournament.name = tournament.name.slice(0, MAX_TOURNAMENT_NAME_LENGTH);
+    }
     writeFileSync(filePath, JSON.stringify(tournament, null, 2));
     return true;
   } catch (error) {

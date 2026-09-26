@@ -213,6 +213,12 @@ export const data = new SlashCommandBuilder()
           .setName('name')
           .setDescription('Tournament name (e.g., "The Ultimate Horror Cup")')
           .setRequired(true)
+          // The name is interpolated into embed titles, which Discord caps at
+          // 256 — and the longest of those prefixes it with "📊 Group A
+          // Results - ". Without a cap, an over-long name makes .setTitle()
+          // throw inside tournamentScheduler's auto-close, where the outer
+          // try/catch swallows it and group voting silently never closes.
+          .setMaxLength(100)
       )
       .addIntegerOption(option =>
         option
@@ -306,6 +312,7 @@ export const data = new SlashCommandBuilder()
           .setName('name')
           .setDescription('New tournament name')
           .setRequired(true)
+          .setMaxLength(100) // Same embed-title ceiling as `create`.
       )
   )
   .addSubcommand(subcommand =>
@@ -317,6 +324,7 @@ export const data = new SlashCommandBuilder()
           .setName('message')
           .setDescription('Announcement message to the server')
           .setRequired(false)
+          .setMaxLength(1000) // Goes into an embed description (Discord caps at 4096).
       )
       .addAttachmentOption(option =>
         option
