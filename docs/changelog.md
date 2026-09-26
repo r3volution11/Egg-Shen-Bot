@@ -5,6 +5,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.41.0 - 2026-09-26
+
+### Added
+- **`/announce` now posts the announcement for you**, instead of handing back text to copy and paste. It covers both moments a watch party needs announcing: `/announce party` for the advance notice an hour or more ahead, and `/announce starting` for the nudge a few minutes before the timer starts. Both take an optional `channel` (defaulting to wherever you ran the command) and an optional `role` to ping — the ping goes in the message itself, because a mention inside an embed never notifies anyone
+- **Your own words come first.** Supply `message` and it posts exactly as written, with no AI involved at all. Leave it out and, if your server has AI text enabled, the bot writes it from the title's real plot and streaming availability — otherwise it uses a plain template. The private confirmation tells you which happened, so an announcement never reads generically without explanation. `/announce starting` never uses AI: a timing claim shouldn't be paraphrased
+- **AI-written announcement text can now be turned off per server**, with `/eggshen-config-ai ai-text feature-toggle`. Separate from the AI *image* switch, since text costs a fraction of an image — a server can have one without the other. `/eggshen-config-ai ai-text view` reports both the server's setting and whether the bot has an API key at all, because both are needed and only one of them is a server admin's to change
+
+### Changed
+- **The "Now Playing" card is about half as tall.** It was using the portrait poster at full card width. Discord gives no control over how large it renders an embed image, so the lever is the artwork's shape: it now uses the title's landscape backdrop, which keeps the art as the feature while taking far less of the channel. Titles without a backdrop still show their poster rather than losing the art. The countdown's small corner thumbnail keeps the poster, where it reads better
+
+### Developer
+- New `tests/ai-text-toggle.test.js`; `tests/announce-command.test.js` rewritten for posting, with the text precedence pinned in both directions. Suite: 104 files, 1443 tests
+- `getAiTextEnabled()` defaults to **true** and treats only an explicit `false` as off. There are no config migrations here, so a guild configured before the key existed simply lacks it — defaulting to false would have silently switched the feature off for servers already using it
+
 ## 2.40.1 - 2026-09-25
 
 ### Fixed
