@@ -97,6 +97,34 @@ describe('/random game', () => {
     );
   });
 
+  test('reports an outage rather than blaming the filters when the API fails', async () => {
+    // rawgService throws for BOTH no-results and a real failure (an expired
+    // key, a 500, a timeout), and this branch swallowed the error either way.
+    // "No games found matching your filters" sent people off adjusting filters
+    // that were never the problem, with nothing in the logs to explain it.
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockDiscoverRandomGame.mockRejectedValue(new Error('Failed to discover random game'));
+    const interaction = makeInteraction('game');
+
+    await execute(interaction);
+
+    const content = interaction.editReply.mock.calls.at(-1)[0].content;
+    expect(content).not.toContain('matching your filters');
+    expect(content).toContain('Couldn\'t reach');
+    expect(errorSpy).toHaveBeenCalled(); // the operator can actually see it
+    errorSpy.mockRestore();
+  });
+
+  test('logs the underlying error even on the no-results path', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockDiscoverRandomGame.mockRejectedValue(new Error('No games found matching the specified filters'));
+
+    await execute(makeInteraction('game'));
+
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   test('renders the embed when a game is found', async () => {
     mockDiscoverRandomGame.mockResolvedValue({ name: 'Portal 2', released: '2011-04-19' });
     const interaction = makeInteraction('game');
@@ -110,15 +138,34 @@ describe('/random game', () => {
 });
 
 describe('/random boardgame', () => {
-  test('shows a friendly message instead of a generic error when nothing matches', async () => {
+  test('shows a friendly message instead of a generic error when the lookup fails', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockGetRandomBoardGame.mockRejectedValue(new Error('Failed to get random board game'));
     const interaction = makeInteraction('boardgame');
 
     await execute(interaction);
 
-    expect(interaction.editReply).toHaveBeenCalledWith(
-      expect.objectContaining({ content: expect.stringContaining('No board games found matching your filters') })
-    );
+    // Not the catch-all "An error occurred", and it mentions both possible
+    // causes because BGG's message cannot distinguish them (see below).
+    const content = interaction.editReply.mock.calls.at(-1)[0].content;
+    expect(content).toContain('BoardGameGeek');
+    expect(content).toContain('filters');
+    expect(content).not.toContain('An error occurred');
+    errorSpy.mockRestore();
+  });
+
+  test('logs the real error, since BGG\'s message cannot be trusted', async () => {
+    // bggService.js:218 replaces every message with "Failed to get random board
+    // game" — including the genuine no-results case at :179. So this branch
+    // cannot tell an empty result set from an outage, and swallowing the error
+    // left no way to find out. The log is the only diagnostic there is.
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetRandomBoardGame.mockRejectedValue(new Error('Failed to get random board game'));
+
+    await execute(makeInteraction('boardgame'));
+
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   test('renders the embed when a board game is found', async () => {

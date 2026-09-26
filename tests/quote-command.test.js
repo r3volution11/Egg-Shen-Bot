@@ -156,4 +156,40 @@ describe('/quote autocomplete', () => {
 
     expect(responded).toEqual([{ name: 'The Thing', value: 'The Thing' }]);
   });
+
+  test('clamps an over-long title to Discord\'s 100-character cap', async () => {
+    // Discord rejects the WHOLE autocomplete response if any choice exceeds
+    // 100 characters, so one bad title means no suggestions at all. The slash
+    // input path is capped at 100, but the web path is not: POST /api/quotes
+    // and PUT /api/quotes/bulk reach normalizeQuote, which only trims.
+    const longTitle = `The Extremely Long Title That ${'Goes On '.repeat(20)}Forever`;
+    expect(longTitle.length).toBeGreaterThan(100); // the fixture is actually too long
+    await setQuotes([{ title: longTitle, text: 'A.' }]);
+
+    let responded;
+    const interaction = makeInteraction({ focused: 'extremely' });
+    interaction.respond = async (choices) => { responded = choices; };
+
+    await autocomplete(interaction);
+
+    expect(responded).toHaveLength(1);
+    expect(responded[0].name.length).toBeLessThanOrEqual(100);
+    expect(responded[0].value.length).toBeLessThanOrEqual(100);
+  });
+
+  test('a clamped value still finds the quote it came from', async () => {
+    // Truncating the value is only safe because execute() filters by substring.
+    const longTitle = `Nosferatu ${'The Vampyre '.repeat(15)}1979`;
+    await setQuotes([{ title: longTitle, text: 'A symphony of horror.' }]);
+
+    let responded;
+    const acInteraction = makeInteraction({ focused: 'nosferatu' });
+    acInteraction.respond = async (choices) => { responded = choices; };
+    await autocomplete(acInteraction);
+
+    // Feed the clamped value straight back in, as Discord would.
+    const captured = await runAndCapture(makeInteraction({ title: responded[0].value }));
+
+    expect(captured.embeds[0].data.description).toContain('A symphony of horror.');
+  });
 });

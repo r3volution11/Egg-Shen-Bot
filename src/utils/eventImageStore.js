@@ -171,9 +171,18 @@ async function renameSingleImageKey(manifest, oldKey, newKey) {
  */
 export async function renameImageKey(token, requestId) {
   const manifest = await loadManifest();
-  await renameSingleImageKey(manifest, token, requestId);
-  await renameSingleImageKey(manifest, originalKey(token), originalKey(requestId));
-  await saveManifest(manifest);
+  try {
+    await renameSingleImageKey(manifest, token, requestId);
+    await renameSingleImageKey(manifest, originalKey(token), originalKey(requestId));
+  } finally {
+    // Save whatever renames actually landed, even if the second one threw.
+    // renameSingleImageKey moves the file on disk BEFORE updating the manifest
+    // in memory, so bailing out without saving would leave the manifest
+    // pointing at a filename that no longer exists: getImagePath returns null,
+    // the approval embed loses its image, and the orphan sweep can never
+    // reclaim the moved file because it sits under no manifest key.
+    await saveManifest(manifest);
+  }
 }
 
 /**

@@ -126,6 +126,28 @@ describe('renameImageKey', () => {
     await expect(renameImageKey('placeholder-token-3', 'real-request-id-3')).resolves.toBeUndefined();
     expect(await getOriginalImagePath('real-request-id-3')).toBeNull();
   });
+
+  test('a failure on the second rename still records the first', async () => {
+    // renameSingleImageKey moves the file on disk BEFORE updating the in-memory
+    // manifest, and the manifest was only saved after BOTH renames. So if the
+    // second threw anything but ENOENT, the first rename had already happened
+    // but was never recorded: getImagePath returned null (the approval embed
+    // lost its image) and the orphan sweep could never reclaim the moved file,
+    // because it sat under no manifest key.
+    await saveUploadedImage('token-4', Buffer.from('cropped'), 'image/jpeg');
+    await saveOriginalImage('token-4', Buffer.from('original'), 'image/png');
+
+    // Block the original's destination with a directory, so fs.rename fails
+    // with EEXIST/ENOTEMPTY rather than ENOENT.
+    fs.mkdirSync(path.join(IMAGES_DIR, 'req-4-original.png'));
+    fs.writeFileSync(path.join(IMAGES_DIR, 'req-4-original.png', 'occupied'), 'x');
+
+    await expect(renameImageKey('token-4', 'req-4')).rejects.toThrow();
+
+    // The cropped image moved, so the manifest must say so.
+    expect(await getImagePath('req-4')).toBe(path.join(IMAGES_DIR, 'req-4.jpg'));
+    expect(await getImagePath('token-4')).toBeNull();
+  });
 });
 
 describe('saveOriginalImage / getOriginalImagePath', () => {

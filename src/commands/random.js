@@ -17,6 +17,23 @@ import { canUseCommand } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
 import { config } from '../config.js';
 
+/**
+ * Whether a RAWG discovery error means "nothing matched" rather than "the
+ * lookup failed".
+ *
+ * rawgService signals an empty result set by throwing (rawgService.js:80) with
+ * the same shape it uses for an HTTP failure, but its wrapper at :91 preserves
+ * the original message, so the two are still distinguishable. An unrecognised
+ * message is treated as a real failure: telling someone their filters are wrong
+ * while the API is down sends them adjusting filters forever.
+ *
+ * There is deliberately no BGG equivalent — bggService.js:218 overwrites every
+ * message, so no caller can tell its two cases apart.
+ */
+function isNoResultsError(error) {
+  return /no games found/i.test(error?.message || '');
+}
+
 export const data = new SlashCommandBuilder()
   .setName('random')
   .setDescription('Get a random movie, TV show, episode, game, board game, or book')
@@ -516,8 +533,15 @@ export async function execute(interaction) {
       try {
         game = await discoverRandomGame(filters);
       } catch (discoverError) {
+        // rawgService throws for BOTH "no results" and a genuine API failure,
+        // and this swallowed the error either way — so an expired key or an
+        // upstream 500 told people to adjust filters that were never the
+        // problem, and left nothing in the logs to diagnose it with.
+        console.error('[random game] RAWG lookup failed:', discoverError);
         await interaction.editReply({
-          content: 'No games found matching your filters. Try adjusting them.',
+          content: isNoResultsError(discoverError)
+            ? 'No games found matching your filters. Try adjusting them.'
+            : '❌ Couldn\'t reach the game database just now. Try again in a moment.',
         });
         return;
       }
@@ -567,8 +591,15 @@ export async function execute(interaction) {
       try {
         boardGame = await getRandomBoardGame(filters);
       } catch (discoverError) {
+        // Unlike RAWG, bggService is not distinguishable from out here: its
+        // catch-all at bggService.js:218 replaces every message with "Failed to
+        // get random board game", so the "No board games available" case at
+        // :179 never reaches us. Rather than guess, word this so it is true
+        // whether BGG had nothing or was simply unreachable — and log the real
+        // error, which is the only way to tell which it was.
+        console.error('[random boardgame] BGG lookup failed:', discoverError);
         await interaction.editReply({
-          content: 'No board games found matching your filters. Try adjusting them.',
+          content: '❌ Couldn\'t get a board game from BoardGameGeek just now. Try again in a moment, or adjust your filters.',
         });
         return;
       }

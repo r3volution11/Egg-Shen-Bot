@@ -80,7 +80,15 @@ export async function autocomplete(interaction) {
   const matches = titles
     .filter(title => title.toLowerCase().includes(focusedValue))
     .slice(0, 25)
-    .map(title => ({ name: title, value: title }));
+    // Discord caps both fields at 100 and rejects the WHOLE response if any
+    // one exceeds it, leaving the user with no suggestions at all. The Discord
+    // input path is capped, but the web path is not: POST /api/quotes and
+    // PUT /api/quotes/bulk reach normalizeQuote, which only trims.
+    //
+    // Truncating the value is safe because execute() uses it as a substring
+    // filter (`q.title.includes(titleFilter)`), so a clipped title still
+    // matches the full stored one.
+    .map(title => ({ name: title.slice(0, 100), value: title.slice(0, 100) }));
 
   await interaction.respond(matches);
 }
