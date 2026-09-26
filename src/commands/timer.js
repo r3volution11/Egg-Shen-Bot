@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { startTimer, stopTimer, getTimerStatus, adjustTimerDuration, disableTimerAutostop, pauseTimer, resumeTimer, clampTimerDuration, canControlTimerPauseStop, formatDurationHuman, formatMinutesHuman, canSetTimerTitle, setTimerTitle } from '../utils/timerManager.js';
 import { loadGuildConfig, isAdmin, getAutoDetectMode, getEpisodeBufferMinutes } from '../utils/guildConfig.js';
-import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes, getPosterUrl } from '../services/tmdbService.js';
+import { searchMovies, searchTVShows, getMovieDetails, getTVShowDetails, getMovieAlternativeTitles, getTVAlternativeTitles, getSeasonDetails, sumEpisodeRuntimes, getPosterUrl, getBackdropUrl } from '../services/tmdbService.js';
 import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js';
 import { hybridSearch, pickLandslideWinner, pickExactTitleMatch } from '../services/aiService.js';
 import { parseEpisodeRange, parseEventEpisodeRange, stripTrailingYear } from '../utils/episodeRangeParser.js';
@@ -1541,25 +1541,32 @@ export async function execute(interaction) {
 const CARD_RULE = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
 
 /**
- * Poster art for the title a timer is for, if we know what it is.
+ * Art for the title a timer is for, if we know what it is: the portrait poster
+ * and the landscape backdrop, from a single TMDB lookup.
  *
- * Purely decorative — a timer must never wait on, or fail because of, a
- * poster lookup, so every failure resolves to null and the countdown runs
- * exactly as before.
+ * Purely decorative — a timer must never wait on, or fail because of, an art
+ * lookup, so every failure resolves to nulls and the countdown runs exactly as
+ * before.
  *
- * Discord gives no control over how large it renders an embed image — it
- * fills the card width whatever you send — so the only real size lever is
- * which TMDB rendition the URL points at. w342 keeps the Now Playing poster
- * clearly bigger than the countdown thumbnail without the card dominating
- * the channel.
+ * Discord gives no control over how large it renders an embed image: setImage
+ * always fills the card width whatever rendition you send, so the requested
+ * rendition affects sharpness, never size. The real levers are setImage vs
+ * setThumbnail, and the image's ASPECT RATIO — at a fixed width a 16:9
+ * backdrop is roughly half the height of a 2:3 poster. That is why this returns
+ * both shapes instead of taking a pixel size.
+ *
+ * `backdropUrl` falls back to the poster, since plenty of older or obscure
+ * titles have no backdrop and losing the art entirely would be worse than a
+ * taller card.
  *
  * @param {object|null} media - {tmdbId, type} captured when the title was resolved
- * @param {string} [size] - TMDB poster rendition (w92/w154/w185/w342/w500/w780)
- * @returns {Promise<string|null>}
+ * @returns {Promise<{posterUrl: string|null, backdropUrl: string|null}>}
  */
-async function fetchPosterUrl(media, size = 'w342') {
+async function fetchTimerArt(media) {
+  const none = { posterUrl: null, backdropUrl: null };
+
   if (!media?.tmdbId || (media.type !== 'movie' && media.type !== 'tv')) {
-    return null;
+    return none;
   }
 
   try {
@@ -1567,10 +1574,17 @@ async function fetchPosterUrl(media, size = 'w342') {
       ? await getMovieDetails(media.tmdbId)
       : await getTVShowDetails(media.tmdbId);
 
-    return details?.poster_path ? getPosterUrl(details.poster_path, size) : null;
+    const posterUrl = details?.poster_path
+      ? getPosterUrl(details.poster_path, 'w342')
+      : null;
+    const backdropUrl = details?.backdrop_path
+      ? getBackdropUrl(details.backdrop_path, 'w780')
+      : posterUrl;
+
+    return { posterUrl, backdropUrl };
   } catch (error) {
-    console.error('[Timer] Poster lookup failed (continuing without art):', error.message);
-    return null;
+    console.error('[Timer] Art lookup failed (continuing without art):', error.message);
+    return none;
   }
 }
 
@@ -1682,7 +1696,11 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
 
       // Fetched before the countdown starts so the art is already in hand and
       // no step has to wait on TMDB mid-count.
-      const posterUrl = await fetchPosterUrl(media);
+      // One lookup, both shapes: the small countdown thumbnails want the
+      // portrait poster, the full-width Now Playing image wants the landscape
+      // backdrop. See fetchTimerArt on why shape, not pixel size, is the lever
+      // for how much channel the card takes up.
+      const { posterUrl, backdropUrl } = await fetchTimerArt(media);
 
       const titleLine = label ? `## ${label}` : '## Watch Party';
 
@@ -1778,7 +1796,10 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
         .setFooter({ text: (duration && !isFallbackDuration) ? 'Timer will auto-stop when complete' : 'Use /timer stop to end the timer' })
         .setTimestamp();
 
-      if (posterUrl) embed.setImage(posterUrl);
+      // Landscape, so the card stays about half as tall as the poster made it
+      // while the art is still the feature. Falls back to the poster for a
+      // title with no backdrop.
+      if (backdropUrl) embed.setImage(backdropUrl);
 
       // Posted as a NEW message rather than editing the countdown, so it
       // actually notifies — and mentions the starter in the content, since a

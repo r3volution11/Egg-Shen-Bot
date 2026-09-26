@@ -46,6 +46,7 @@ function realSumEpisodeRuntimes(seasonDetails, episodeStart, episodeEnd, fallbac
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
   getPosterUrl: jest.fn(() => null),
+  getBackdropUrl: jest.fn(() => null),
   searchMovies: mockSearchMovies,
   searchTVShows: mockSearchTVShows,
   getMovieDetails: mockGetMovieDetails,

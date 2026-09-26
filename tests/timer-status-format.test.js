@@ -16,6 +16,7 @@ import path from 'path';
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
   getPosterUrl: jest.fn(() => null),
+  getBackdropUrl: jest.fn(() => null),
   searchMovies: jest.fn().mockResolvedValue([]),
   searchTVShows: jest.fn().mockResolvedValue([]),
   getMovieDetails: jest.fn(),

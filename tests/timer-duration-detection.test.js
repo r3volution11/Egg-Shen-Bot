@@ -31,6 +31,7 @@ const mockGetBoardGameDetails = jest.fn();
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
   getPosterUrl: jest.fn(() => null),
+  getBackdropUrl: jest.fn(() => null),
   searchMovies: mockSearchMovies,
   searchTVShows: mockSearchTVShows,
   getMovieDetails: mockGetMovieDetails,

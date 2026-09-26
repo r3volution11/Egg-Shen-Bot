@@ -21,9 +21,11 @@ import path from 'path';
 const mockGetMovieDetails = jest.fn();
 const mockGetTVShowDetails = jest.fn();
 const mockGetPosterUrl = jest.fn();
+const mockGetBackdropUrl = jest.fn();
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
   getPosterUrl: mockGetPosterUrl,
+  getBackdropUrl: mockGetBackdropUrl,
   searchMovies: jest.fn().mockResolvedValue([]),
   searchTVShows: jest.fn().mockResolvedValue([]),
   getMovieDetails: mockGetMovieDetails,
@@ -63,9 +65,10 @@ beforeAll(async () => {
 beforeEach(() => {
   clearAllTimers();
   cleanupTimerFile();
-  mockGetMovieDetails.mockReset().mockResolvedValue({ poster_path: '/poster.jpg' });
-  mockGetTVShowDetails.mockReset().mockResolvedValue({ poster_path: '/show.jpg' });
-  mockGetPosterUrl.mockReset().mockImplementation(p => p ? `https://image.tmdb.org/t/p/w500${p}` : null);
+  mockGetMovieDetails.mockReset().mockResolvedValue({ poster_path: '/poster.jpg', backdrop_path: '/backdrop.jpg' });
+  mockGetTVShowDetails.mockReset().mockResolvedValue({ poster_path: '/show.jpg', backdrop_path: '/show-backdrop.jpg' });
+  mockGetPosterUrl.mockReset().mockImplementation(p => p ? `https://image.tmdb.org/t/p/w342${p}` : null);
+  mockGetBackdropUrl.mockReset().mockImplementation(p => p ? `https://image.tmdb.org/t/p/w780${p}` : null);
   jest.useFakeTimers();
 });
 
@@ -253,7 +256,24 @@ describe('the countdown produces real notifications', () => {
 });
 
 describe('the card has visual weight', () => {
-  test('shows poster art when the title is known', async () => {
+  test('features the LANDSCAPE backdrop on the Now Playing card', async () => {
+    // Discord gives no control over an embed image's display size — setImage
+    // always fills the card width — so aspect ratio is the only real lever on
+    // how much channel the card occupies. At a fixed width a 16:9 backdrop is
+    // about half the height of a 2:3 poster, which is what stops the card
+    // dominating the channel.
+    const interaction = makeInteraction();
+    await runCountdown(interaction, { media: { tmdbId: 948, type: 'movie' } });
+
+    const started = sends(interaction).filter(s => s?.embeds?.length).at(-1);
+    expect(started.embeds[0].data.image?.url).toContain('backdrop.jpg');
+    expect(started.embeds[0].data.image?.url).not.toContain('poster.jpg');
+  });
+
+  test('falls back to the poster when a title has no backdrop', async () => {
+    // Plenty of older or obscure titles have no backdrop, and losing the art
+    // entirely would be worse than a taller card.
+    mockGetMovieDetails.mockResolvedValue({ poster_path: '/poster.jpg', backdrop_path: null });
     const interaction = makeInteraction();
     await runCountdown(interaction, { media: { tmdbId: 948, type: 'movie' } });
 
@@ -261,12 +281,23 @@ describe('the card has visual weight', () => {
     expect(started.embeds[0].data.image?.url).toContain('poster.jpg');
   });
 
-  test('uses the poster as a thumbnail during the countdown itself', async () => {
+  test('looks the title up once, not once per shape', async () => {
+    const interaction = makeInteraction();
+    await runCountdown(interaction, { media: { tmdbId: 948, type: 'movie' } });
+
+    expect(mockGetMovieDetails).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the PORTRAIT poster as the countdown thumbnail', async () => {
+    // The countdown thumbnail is a small right-aligned corner image, where a
+    // poster reads better than a backdrop — so the two cards deliberately use
+    // different shapes of the same title's art.
     const interaction = makeInteraction();
     await runCountdown(interaction, { media: { tmdbId: 948, type: 'movie' } });
 
     const firstCard = interaction.channel.send.mock.calls[0][0];
     expect(firstCard.embeds[0].data.thumbnail?.url).toContain('poster.jpg');
+    expect(firstCard.embeds[0].data.thumbnail?.url).not.toContain('backdrop.jpg');
   });
 
   test('includes the title and a full-width rule so the card is not cramped', async () => {
