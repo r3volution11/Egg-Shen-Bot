@@ -4,7 +4,11 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const statsDir = path.join(__dirname, '../../guild_stats');
+// Overridable via GUILD_STATS_DIR so parallel Jest workers (each test file runs
+// in its own process) write to a scratch directory instead of the real one —
+// seven suites were writing guild-1_stats.json into the repo. Unset in
+// production, where the default applies.
+const statsDir = process.env.GUILD_STATS_DIR || path.join(__dirname, '../../guild_stats');
 
 /**
  * Ensure the stats directory exists
@@ -58,6 +62,45 @@ export async function saveGuildStats(guildId, stats) {
 }
 
 /**
+ * How long a raw search row is kept, and the hard ceiling on how many.
+ *
+ * `stats.searches` grew without bound: nothing pruned it, `trackSearch` runs on
+ * a dozen command paths, and every call reads, parses, mutates and rewrites the
+ * whole file — so an active guild's commands got steadily slower forever.
+ *
+ * Pruning is safe because the all-time view never reads these rows. The
+ * aggregate counters (totalSearches, topMovies, topShows, topEpisodes,
+ * commandCounts, userStats) are maintained incrementally here and are what
+ * `getStats` returns for 'all-time'. The raw rows are only re-aggregated for
+ * the 'today' / 'week' / 'month' filters, so anything older than a month is
+ * already unreachable. The extra days are slack for month-length and clock
+ * differences; the row cap is a backstop for a guild busy enough to exceed it
+ * inside the window.
+ */
+const SEARCH_RETENTION_DAYS = 35;
+const MAX_SEARCH_ROWS = 5000;
+
+/**
+ * Drop rows no view can reach any more, newest kept.
+ *
+ * Rows with a missing or unparseable timestamp are kept rather than dropped —
+ * losing real history to a bad field would be worse than keeping a few rows the
+ * date filters ignore. The row cap still bounds them.
+ */
+export function pruneSearches(searches) {
+  if (!Array.isArray(searches)) return [];
+
+  const cutoff = Date.now() - SEARCH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+  const recent = searches.filter(search => {
+    const at = Date.parse(search?.timestamp);
+    return Number.isNaN(at) ? true : at >= cutoff;
+  });
+
+  return recent.length > MAX_SEARCH_ROWS ? recent.slice(-MAX_SEARCH_ROWS) : recent;
+}
+
+/**
  * Track a search event
  */
 export async function trackSearch(guildId, userId, username, type, title, year = null) {
@@ -78,7 +121,8 @@ export async function trackSearch(guildId, userId, username, type, title, year =
   
   // Add to searches array
   stats.searches.push(searchRecord);
-  
+  stats.searches = pruneSearches(stats.searches);
+
   // Update top content counters
   const contentKey = year ? `${title} (${year})` : title;
   

@@ -10,7 +10,11 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const HISTORY_DIR = path.join(__dirname, '../../guild_watch_history');
+// Overridable via GUILD_WATCH_HISTORY_DIR so parallel Jest workers (each test
+// file runs in its own process) write to a scratch directory instead of the real
+// one — this holds the live watch history. Unset in production, where the
+// default applies.
+const HISTORY_DIR = process.env.GUILD_WATCH_HISTORY_DIR || path.join(__dirname, '../../guild_watch_history');
 
 /**
  * Ensure the history directory exists

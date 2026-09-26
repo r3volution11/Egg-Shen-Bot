@@ -41,3 +41,5 @@ fallback('GUILD_CONFIGS_DIR', path.join(workerDir, 'guild_configs'));
 fallback('GUILD_TOURNAMENTS_DIR', path.join(workerDir, 'guild_tournaments'));
 fallback('GUILD_WATCHLISTS_DIR', path.join(workerDir, 'guild_watchlists'));
 fallback('GUILD_POLLS_DIR', path.join(workerDir, 'guild_polls'));
+fallback('GUILD_STATS_DIR', path.join(workerDir, 'guild_stats'));
+fallback('GUILD_WATCH_HISTORY_DIR', path.join(workerDir, 'guild_watch_history'));
