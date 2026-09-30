@@ -5,6 +5,24 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.43.0 - 2026-09-30
+
+### Added
+- **Each server can have its own bot address.** `/eggshen-config-website bot-url` sets the address used in links the bot posts in that server: the tournament setup form, the moderator crop page and the quotes admin page. Servers without one keep using the bot's `PUBLIC_BOT_URL`. One bot can now serve a test server and a live server on different domains, and each server's links go to its own site, so testing takes the same path the live server does. When you set it, the bot checks that the address reaches this bot and that the setup form's page is forwarded, and warns you if either isn't. See [Bot URL](/commands/configuration#bot-url)
+
+### Fixed
+- **Starting the knockout too early named a command that doesn't exist.** With groups still open, the error said to run `/bracket close-group`. It now points to `/bracket close` or `/bracket close-groups`
+- **Timers could be lost on a restart.** Every timer change saves the list of running timers to disk, but saves didn't wait for each other. Starting a timer and pausing it a moment later wrote the same file twice at once, which could leave it half-written, and then no timers came back after the next restart. Saves now happen one at a time, and each writes a complete file before replacing the old one
+- **`/bracket resize` now updates the tournament's capacity.** A groups tournament resized from its starting size kept the old maximum (a 5-group tournament still said 36 titles)
+- **Self-hosting:** the tournament setup form needs two paths forwarded by your reverse proxy, the same way `/crop/` already is. The [setup guide](/commands/brackets/import) now shows the nginx blocks. Without them, the link opens your website's own page instead of the form
+
+### Developer
+- `getPublicBotUrl(guildConfig)` in `guildConfig.js` builds every link the bot posts: the server's `website.botUrl`, else `PUBLIC_BOT_URL`. Kept apart from `website.url`, the event form's host, which for self-hosters can be a static site. **Command definition changed** (`/eggshen-config-website bot-url`): run `deploy-commands`
+- **Test runs no longer hang or leak.** Four modules started a cleanup `setInterval` as soon as they were imported: `logger`, `aiImageTracker`, `rateLimiter` and `buttonHandler`. The event-request route also set a 7-day `setTimeout` per submission, and `clearAllTimers` emptied its map without cancelling pending auto-stops. So a test file importing any of them never exited on its own, and every full run printed "A worker process has failed to exit gracefully". The housekeeping timers are now `unref()`'d, which doesn't matter to the bot since its Discord connection keeps it running; `clearAllTimers` cancels what it drops; and every test file exits alone. The warning is gone
+- **Found the intermittent test failures.** For weeks, about one full run in ten failed somewhere, in a different test each time: a 400 or 404 a route can't produce, a reset connection, or a 15-second hang. supertest starts each test app with `listen(0)`, which binds every address, then connects to `127.0.0.1:<port>`. On macOS that bind succeeds even when another program already holds the port on `127.0.0.1`, so the request went to that program instead. Editors, password managers and the like keep dozens of those ports open. `tests/jest.setup.js` now makes supertest listen on `127.0.0.1` itself, and `tests/supertest-loopback.test.js` fails if that patch ever stops applying. Measured: 60 of 60 full runs pass, up from roughly 1 failure in 10
+- The saves race above also failed `timer-pause-resume` now and then; `back-to-back changes are all on disk before a reload reads them` now covers it
+- The backlog said `image-url-crop.spec.js` depended on the network. It doesn't: it serves its image from a local server. Its one failure was a 5-second wait under load
+
 ## 2.42.0 - 2026-09-30
 
 ### Added
