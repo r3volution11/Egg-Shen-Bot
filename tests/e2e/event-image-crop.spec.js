@@ -6,6 +6,9 @@ import { GUILD_SIMPLE, MEMBER_ID } from './fixtures/scenarios.js';
 import { loginAs, resetRateLimit, fillRequiredFields } from './helpers.js';
 import { signCropToken } from '../../src/utils/cropLinkToken.js';
 
+// Must match the harness (tests/e2e/harness/serve.js); read when a token is signed
+process.env.EVENT_CROP_LINK_SECRET = process.env.EVENT_CROP_LINK_SECRET || 'e2e-crop-link-secret';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.join(__dirname, '../..');

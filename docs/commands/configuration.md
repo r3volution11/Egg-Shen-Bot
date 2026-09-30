@@ -593,7 +593,7 @@ Reset the entire server's daily usage (user limits still apply).
 /eggshen-config-ai ai-images reset-guild
 ```
 
-**💡 See [AI Image Generation](ai-images.md) for complete documentation on the `/image` and `/bracket image` commands, cost management strategies, and best practices.**
+**💡 See [AI Image Generation](ai-images.md) for complete documentation on the `/image` command, cost management strategies, and best practices.**
 
 ---
 

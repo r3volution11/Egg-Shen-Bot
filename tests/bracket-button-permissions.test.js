@@ -1,7 +1,7 @@
 /**
  * Regression test: tournament MANAGEMENT buttons never checked permissions.
  *
- * /bracket open-matchup, close-matchup, open-groups and advance-knockout are
+ * /bracket open-matchup, close-matchup, open-groups and open are
  * all in bracket.js's requiresAdmin list, but the selectors they post are
  * PUBLIC messages (deferReply with no ephemeral flag). Discord shows those
  * buttons to everyone in the channel, and the button handlers re-ran none of

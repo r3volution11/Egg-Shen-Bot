@@ -192,12 +192,12 @@ Host comprehensive tournaments for movies, TV shows, video games, board games, o
 **Key Subcommands:**
 - `help` - **🆕 Comprehensive tournament guide** (All members)
 - `create` - Create new tournament (Admin/Mod)
+- `setup-link` - Private link to the web setup form: upload a CSV/JSON file or fill it in (Admin/Mod)
 - `manage-titles` - Add or remove titles from groups (Admin/Mod)
 - `open` - **🆕 Smart:** Auto-opens next round based on phase (Admin/Mod)
 - `close` - **🆕 Smart:** Auto-closes current round and advances (Admin/Mod)
 - `open-groups` - Open specific groups for voting (Admin/Mod)
 - `close-groups` - Close specific groups (Admin/Mod)
-- `advance-knockout` - Generate knockout bracket (Admin/Mod)
 - `resolve-tiebreaker` - **🆕** Manually resolve ties (Admin/Mod)
 - `open-matchup` - Open specific matchup(s) (Admin/Mod)
 - `close-matchup` - Close specific matchup(s) (Admin/Mod)

@@ -192,6 +192,7 @@ export default defineConfig({
             items: [
               { text: 'Overview & Quick Start', link: '/commands/brackets/' },
               { text: 'Setup & Group Stage', link: '/commands/brackets/setup' },
+              { text: 'Setup Form & Templates', link: '/commands/brackets/import' },
               { text: 'Knockout Rounds', link: '/commands/brackets/knockout' },
               { text: 'Command Reference', link: '/commands/brackets/commands' },
               { text: 'Tips & Strategies', link: '/commands/brackets/tips' }

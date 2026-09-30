@@ -263,7 +263,7 @@ Include the year to distinguish remakes or similar titles:
 
 ### Alternate Titles (AKAs)
 
-Some movies and shows are stored in TMDB under an original or foreign title, even though they're actually known and distributed under a different one — for example, the 1978 film *Day of the Woman* is TMDB's title of record for what's far better known as *I Spit on Your Grave*. `/movie` and `/tv` (and `/soundtrack` and `/bracket` add-title) check TMDB's alternate-title (AKA) data when a query doesn't cleanly match the top result, so titles like these are still found:
+Some movies and shows are stored in TMDB under an original or foreign title, even though they're actually known and distributed under a different one — for example, the 1978 film *Day of the Woman* is TMDB's title of record for what's far better known as *I Spit on Your Grave*. `/movie` and `/tv` (and `/soundtrack` and `/bracket manage-titles`) check TMDB's alternate-title (AKA) data when a query doesn't cleanly match the top result, so titles like these are still found:
 ```
 /movie query:I Spit On Your Grave
 → Finds "Day of the Woman (1978)"

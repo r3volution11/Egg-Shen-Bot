@@ -139,18 +139,18 @@ Type `/book query:Clive Barker Books of Blood` to find:
 Host comprehensive tournaments for your community! **[View Full Tournament Guide →](/commands/brackets/)**
 
 **Example Tournament Flow:**
-1. **Create**: `/bracket create name:"The Movie Cup" max-titles:36`
-2. **Add Titles**: `/bracket manage-titles action:"Add Title" group:A type:movie title:"The Thing"` (repeat for each title across all groups)
+1. **Create**: `/bracket create name:"The Movie Cup" max-titles:16` - a straight bracket (2–32 titles), or 36–48 for a groups tournament
+2. **Add Titles**: `/bracket manage-titles action:add type:movie title:"The Thing"` (repeat for each title), or run `/bracket setup-link` to set it all up from a CSV or JSON file on the [setup form](/commands/brackets/import)
 3. **Announce**: `/bracket announce` - Publicly announce the tournament with full details
-4. **Group Voting**: `/bracket open-groups groups:"A,B,C,D"` - Let everyone vote on their favorites
-5. **Advance**: `/bracket advance-knockout duration:"24h"` - Generate bracket and start voting
-6. **Next Rounds**: After a round closes, use `/bracket open` to smart-open the next one
+4. **Start**: `/bracket open duration:"24h"` - Builds the bracket and opens round one (in a groups tournament, opens the groups; run it again after they close to start the knockout)
+5. **Close**: `/bracket close` - Closes the round and moves the winners on
+6. **Next Rounds**: `/bracket open` again for each round
 7. **Champion**: Winner is crowned automatically!
 
 **Tournament Features:**
-- **Flexible Sizes**: 4-12 groups (16-48 participants total)
+- **Two Shapes**: Straight bracket (2-32 titles) or groups tournament (4-12 groups of 4, then a knockout)
 - **Smart Wildcards**: Automatically calculated based on tournament size
-- **Regional System**: Organized left/right bracket with 1A, 2B labels
+- **Regional System**: Each round split into 4 regions with 1A, 2B labels
 - **Three Opening Modes**: Open entire rounds, by region, or individual matchups
 - **Automatic Tiebreakers**: Tied votes trigger a short voting round, resolved automatically when it ends
 - **AI Versus Images**: Generate custom matchup posters with `/image matchup:"..."`

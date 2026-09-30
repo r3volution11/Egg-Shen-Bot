@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Tournament Setup</title>
+    <link rel="icon" href="/shared-assets/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/shared-assets/favicon-32.png">
+    <link rel="apple-touch-icon" href="/shared-assets/apple-touch-icon.png">
+    <link rel="stylesheet" href="/shared-assets/bootstrap.min.css">
+    <link rel="stylesheet" href="/tournament-setup-assets/setup.css">
+</head>
+<body>
+    <div class="container py-4" style="max-width: 960px;">
+        <header class="mb-4">
+            <h1 class="h3 mb-1">🏆 Tournament Setup</h1>
+            <p class="text-secondary mb-0"><span id="guild-name"></span><span id="link-expiry"></span></p>
+        </header>
+
+        <div id="page-message" class="alert" style="display:none;" role="status"></div>
+
+        <div id="loading" class="text-center text-secondary py-5">Loading…</div>
+
+        <main id="setup" style="display:none;">
+            <!-- 1. Type and file -->
+            <section class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h5 card-title">1. What's in the tournament</h2>
+
+                    <div class="mb-3">
+                        <label for="type" class="form-label">Type</label>
+                        <select id="type" class="form-select" style="max-width: 20rem;">
+                            <option value="">Choose…</option>
+                            <option value="movie">Movies</option>
+                            <option value="tv">TV shows</option>
+                            <option value="game">Video games</option>
+                            <option value="boardgame">Board games</option>
+                            <option value="book">Books</option>
+                        </select>
+                        <div class="form-text">A tournament holds one kind of title. Titles are looked up in TMDB (movies and TV), RAWG (games), BoardGameGeek or Google Books.</div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="file" class="form-label">Start from a file <span class="text-secondary">(optional)</span></label>
+                        <input type="file" id="file" class="form-control" accept=".csv,.json,text/csv,application/json">
+                        <div class="form-text">
+                            A CSV with one title per row, or a JSON file that also holds the settings. Loading a file replaces the titles below; nothing is saved until you press the button at the bottom.
+                            Templates: <a class="template-link" data-file="straight-bracket.csv" href="#">straight bracket CSV</a> ·
+                            <a class="template-link" data-file="groups.csv" href="#">groups CSV</a> ·
+                            <a class="template-link" data-file="tournament.json" href="#">JSON</a> ·
+                            <a class="docs-link" data-anchor="csv-columns" href="#" target="_blank" rel="noopener">what the columns mean</a>
+                        </div>
+                    </div>
+                    <ul id="file-errors" class="list-unstyled text-danger small mb-0"></ul>
+                </div>
+            </section>
+
+            <!-- 2. Titles -->
+            <section class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h5 card-title">2. Titles</h2>
+                    <p id="shape" class="mb-2"></p>
+                    <p class="form-text mt-0">
+                        Leave <strong>Group</strong> empty everywhere for a straight bracket (2–32 titles). Give titles group letters for a groups tournament (4–12 groups of exactly 4); an empty group is filled in for you.
+                        Edit a title or year and press <strong>Find matches</strong> to search again.
+                        <a class="docs-link" data-anchor="rules-the-form-checks" href="#" target="_blank" rel="noopener">Sizes and rules</a>
+                    </p>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-2" id="titles-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col" class="col-num">#</th>
+                                    <th scope="col">Title</th>
+                                    <th scope="col" class="col-year">Year</th>
+                                    <th scope="col" class="col-group">Group</th>
+                                    <th scope="col" class="col-match">Match</th>
+                                    <th scope="col" class="col-actions"><span class="visually-hidden">Row actions</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="rows"></tbody>
+                        </table>
+                    </div>
+                    <p id="empty-rows" class="text-secondary">No titles yet. Load a file, or add them one at a time.</p>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" id="add-row" class="btn btn-secondary">Add title</button>
+                        <button type="button" id="find-matches" class="btn btn-primary">Find matches</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. Settings -->
+            <section class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h5 card-title">3. Settings</h2>
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Tournament name</label>
+                        <input type="text" id="name" class="form-control" maxlength="100" required>
+                    </div>
+
+                    <fieldset class="mb-3" id="seeding-fieldset">
+                        <legend class="form-label fs-6">Seeding <span class="text-secondary">(straight brackets only)</span></legend>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="seeding" id="seeding-random" value="random" checked>
+                            <label class="form-check-label" for="seeding-random"><strong>Random</strong> — the titles are shuffled when the bracket is built.</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="seeding" id="seeding-ordered" value="ordered">
+                            <label class="form-check-label" for="seeding-ordered"><strong>Ordered</strong> — the list above is the seed order: #1 is the top seed. Round one pairs best with worst (1 v 8, 2 v 7…), #1 and #2 can only meet in the final, and any byes go to the top seeds. Use the ↑ ↓ buttons to reorder.</label>
+                        </div>
+                        <div class="form-text"><a class="docs-link" data-anchor="seeding" href="#" target="_blank" rel="noopener">How seeding works</a></div>
+                    </fieldset>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <label for="voting-duration" class="form-label">Voting time</label>
+                            <input type="text" id="voting-duration" class="form-control" placeholder="24h">
+                            <div class="form-text">How long a round stays open when <code>/bracket open</code> is run without a <code>duration</code>. A number and m, h or d, from 5m to 30d.</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="tiebreaker-duration" class="form-label">Tiebreaker time</label>
+                            <input type="text" id="tiebreaker-duration" class="form-control" placeholder="1h">
+                            <div class="form-text">How long a tiebreaker vote runs when <code>/bracket close</code> finds a tie. From 5m to 7d.</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="announcement-message" class="form-label">Announcement <span class="text-secondary">(optional)</span></label>
+                        <textarea id="announcement-message" class="form-control" rows="3" maxlength="1000"></textarea>
+                        <div class="form-text">Posted by <code>/bracket announce</code> when you don't type a message there.</div>
+                    </div>
+                    <div class="mb-1">
+                        <label for="announcement-image" class="form-label">Announcement banner link <span class="text-secondary">(optional)</span></label>
+                        <input type="url" id="announcement-image" class="form-control" placeholder="https://…">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. Save -->
+            <section class="card mb-4">
+                <div class="card-body">
+                    <ul id="save-errors" class="text-danger mb-3" style="display:none;"></ul>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <button type="button" id="save" class="btn btn-success px-4">Create tournament</button>
+                        <button type="button" id="backup" class="btn btn-outline-secondary" style="display:none;">Download backup</button>
+                        <a class="docs-link ms-auto small" data-anchor="" href="#" target="_blank" rel="noopener">Setup guide</a>
+                    </div>
+                    <div id="saved" class="alert alert-success mt-3 mb-0" style="display:none;"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/tournament-setup-assets/setup.js"></script>
+</body>
+</html>

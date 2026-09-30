@@ -14,6 +14,7 @@ This page provides detailed documentation for all tournament bracket commands. C
 |---------|-------------|-------------|-------|
 | `help` | Everyone | View tournament guide and command overview | Any |
 | `create` | Admin/Mod | Create a new tournament | Setup |
+| `setup-link` | Admin/Mod | Private link to the web [setup form](./import) (CSV/JSON upload or fill in) | Setup |
 | `manage-titles` | Admin/Mod | Add or remove titles from groups | Setup |
 | `resize` | Admin/Mod | Change the number of groups before voting begins | Setup |
 | `edit-name` | Admin/Mod | Rename the tournament | Any |
@@ -22,7 +23,6 @@ This page provides detailed documentation for all tournament bracket commands. C
 | `close` | Admin/Mod | Smart: Closes current round (auto-detects phase) | Any |
 | `open-groups` | Admin/Mod | Open specific groups for button-based voting | Group Stage |
 | `close-groups` | Admin/Mod | Close specific groups and calculate results | Group Stage |
-| `advance-knockout` | Admin/Mod | Generate knockout bracket from group results | Transition |
 | `regenerate` | Admin/Mod | Rebuild the knockout bracket from group results (fixes bracket structure issues) | Knockout |
 | `resolve-tiebreaker` | Admin/Mod | Resolve a tiebreaker — tally votes or manually override | Any |
 | `open-matchup` | Admin/Mod | Open specific matchup(s) for voting | Knockout |
@@ -32,7 +32,7 @@ This page provides detailed documentation for all tournament bracket commands. C
 | `status` | Everyone | View tournament status with live voter counts and leaders | Any |
 | `list-groups` | Everyone | List all groups and their titles | Any |
 | `view` | Everyone | View visual bracket (knockout phase only) | Knockout |
-| `export` | Everyone | Export tournament results (JSON or Markdown) | Any |
+| `export` | Everyone | Export the lineup and settings (JSON) or results (Markdown) | Any |
 | `cancel` | Admin/Mod | Cancel the tournament | Any |
 
 **Key Changes:**
@@ -40,6 +40,8 @@ This page provides detailed documentation for all tournament bracket commands. C
 - 🔄 **Unified Management**: `/bracket manage-titles` replaces `add-title` and `remove-title`
 - ⚖️ **Tiebreaker Voting & Resolution**: Ties are now resolved by member button-voting, with `/bracket resolve-tiebreaker` available to tally votes early or manually override the winner
 - 🎨 **AI Images Moved**: Matchup image generation now lives in the standalone [`/image`](../ai-images) command (`/image matchup:"Title A vs Title B"`), alongside its freeform, message, and versus-search modes
+- 🆕 **Setup Form**: `/bracket setup-link` sets up a whole tournament from a CSV or JSON file, or a form. See [Setup Form](./import)
+- ❌ **Removed**: `advance-knockout` — `/bracket open` starts the knockout once every group is closed
 - ❌ **Removed**: `open-knockout`, `close-knockout`, `open-quarters`, `close-quarters`, `open-semis`, `close-semis`, `open-finals`, `close-finals`, `open-region` — all superseded by the smart `open`/`close`/`open-matchup` commands
 
 **Visual Examples:**
@@ -58,11 +60,6 @@ This page provides detailed documentation for all tournament bracket commands. C
 
 </div>
 </div>
-| `view` | Everyone | View visual bracket (knockout phase only) | Knockout |
-| `image` | Everyone | Generate AI image for any matchup | Any |
-| `edit-name` | Admin/Mod | Change the tournament name | Any |
-| `regenerate` | Admin/Mod | Regenerate knockout bracket with full tree | Knockout |
-| `cancel` | Admin/Mod | Cancel the tournament | Any |
 
 ---
 
@@ -111,8 +108,8 @@ Create a new tournament bracket. The bot automatically selects the best tourname
 - `max-titles` (optional, dropdown): Maximum number of titles (default: 32)
   - **Valid bracket sizes:** 2, 4, 8, 16, 32 (powers of 2)
   - **Valid group sizes:** 36, 40, 44, 48 (multiples of 4)
-  - **Bracket Mode** (2-32 titles): Direct matchup voting, like March Madness
-  - **Group Stage Mode** (36-48 titles): Group voting → knockout
+  - **Straight bracket** (2-32 titles): No groups; head-to-head matchups from round one. This is the most titles it can hold — you can start with fewer, and empty slots become byes
+  - **Groups tournament** (36-48 titles): 9-12 groups of 4, then a knockout. `/bracket resize` changes the group count (4-12) during setup
   - Discord shows labeled choices: "8 titles (Quarterfinals)", "36 titles (9 groups)", etc.
 
 **Example Usage:**
@@ -123,11 +120,35 @@ Create a new tournament bracket. The bot automatically selects the best tourname
 ```
 
 **Notes:**
-- Tournament names are visible to all participants
-- Default is 32 titles if not specified (Bracket Mode)
-- Only mathematically clean sizes are allowed to ensure professional tournament structures
-- Powers of 2 create balanced brackets; multiples of 4 create complete groups
+- Tournament names are visible to all participants (max 100 characters)
+- Default is 32 titles if not specified (straight bracket)
+- The reply is private; use `/bracket announce` to tell the server
 - Only one active tournament per server at a time
+
+---
+
+### `/bracket setup-link`
+
+Get a private link to the web setup form, where you can set up a whole tournament at once instead of adding titles one by one.
+
+**Who Can Use:** Admin/Mod only
+
+**Parameters:** None
+
+**Example Usage:**
+```
+/bracket setup-link
+```
+
+**Notes:**
+- The reply is private, and the link works for 60 minutes. Anyone you give it to can change the server's tournament setup
+- On the form, upload a CSV or JSON file, or fill the tournament in by hand
+- The setup can be edited on the form until voting opens
+- The form can also save seeding (straight brackets), default voting and tiebreaker durations, and an announcement message and banner
+- The bot needs `PUBLIC_BOT_URL` set to its public address, or it can't build the link
+- A `/bracket export format:json` file can be uploaded here to run a tournament again
+
+See [Setup Form](./import) for the file format and details.
 
 ---
 
@@ -217,9 +238,10 @@ Announce the tournament to the channel with optional custom message and banner.
 
 **Notes:**
 - Creates a public, visible announcement (not ephemeral)
-- Default message shows tournament name and details
+- Default message shows tournament name and details. In a straight bracket it shows "Format: Straight bracket" and the title count
 - Custom message replaces default text
 - Banner image appears at top of announcement
+- If the [setup form](./import) saved an announcement message or banner, they're used when `message` or `image` is left out
 - Use this after setup is complete and before voting begins
 
 ---
@@ -238,13 +260,15 @@ These intelligent commands automatically detect the tournament phase and perform
 - `duration` (optional, string): Voting duration
   - Format: `<number><unit>` where unit is m (minutes), h (hours), or d (days)
   - Examples: "24h", "3d", "45m", "12h"
-  - Default: 24h if not specified
+  - Default: the tournament's default voting duration from the [setup form](./import), else 24h
   - Range: 5m minimum, 30d maximum
 
 **What It Does:**
-- **Setup, straight bracket:** Builds the bracket and opens the first round. This is how a straight bracket starts.
+- **Setup, straight bracket:** Builds the bracket and opens the first round. This is how a straight bracket starts. Seeding is random by default, or ordered (list order = seed order, 1 v N, byes to top seeds) if chosen on the [setup form](./import). If round one has more than 5 matchups, it builds the bracket and asks you to open it by region with `/bracket open-matchup`
 - **Setup, groups mode:** Opens every group, once each one has 4 titles. If any are short, it lists them instead.
-- **Group Stage:** Opens the groups that haven't voted yet. Once every group is closed, it starts the knockout and opens its first round, the same as `/bracket advance-knockout`. It never reopens a finished group; if groups are still voting or in a tiebreaker, it lists them
+- **Group Stage:** Opens the groups that haven't voted yet. Once every group is closed and every tiebreaker is settled, it builds the knockout bracket and opens its first round. It never reopens a finished group; if groups are still voting or in a tiebreaker, it lists them instead
+  - Knockout seeding: the top 2 from each group go through, plus the best third-place finishers (wildcards) up to the next power of 2, at most one per group. Group winners are placed first, so any byes go to them; runners-up and wildcards are shuffled in, and titles from the same group are kept apart in the first round where possible
+  - The start-of-knockout message lists the wildcards
 - **Knockout Stage:** Opens all matchups in the current round (Round of 32, Round of 16, Quarterfinals, Semifinals, Finals)
 - Automatically detects which phase the tournament is in
 - No need to remember phase-specific commands!
@@ -258,9 +282,8 @@ These intelligent commands automatically detect the tournament phase and perform
 
 **Notes:**
 - Simplifies tournament management - one command for all phases
-- For group stage, opens all groups that aren't already voting
-- For knockout stage, may require using `/bracket open-matchup` if there are too many matchups (>5) for one message
-- Bot will guide you if regional opening is needed
+- For knockout rounds with more than 5 matchups (Round of 32, Round of 16), it asks you to open them by region with `/bracket open-matchup region:1`-`4` instead
+- Nothing opens the next round automatically — run `/bracket open` after each close
 
 ---
 
@@ -274,7 +297,7 @@ These intelligent commands automatically detect the tournament phase and perform
 - `tiebreaker-duration` (optional, string): Duration for tiebreaker votes if needed
   - Format: `<number><unit>` where unit is m (minutes), h (hours), or d (days)
   - Examples: "1h", "30m", "2h"
-  - Default: 1h if not specified
+  - Default: the tournament's default tiebreaker duration from the [setup form](./import), else 1h
   - Range: 5m minimum, 7d maximum
 
 **What It Does:**
@@ -313,7 +336,7 @@ Open specific groups for voting.
 - `duration` (optional, string): Voting duration
   - Format: `<number><unit>` where unit is m (minutes), h (hours), or d (days)
   - Examples: "24h", "3d", "45m", "12h"
-  - Default: 24h if not specified
+  - Default: the tournament's default voting duration from the [setup form](./import), else 24h
   - Range: 5m minimum, 30d maximum
 
 **Example Usage:**
@@ -393,7 +416,7 @@ Close group voting and calculate results. Automatically creates tiebreaker votes
 - `tiebreaker-duration` (optional, string): Duration for tiebreaker votes if needed
   - Format: `<number><unit>` where unit is m (minutes), h (hours), or d (days)
   - Examples: "1h", "30m", "2h"
-  - Default: 1h if not specified
+  - Default: the tournament's default tiebreaker duration from the [setup form](./import), else 1h
   - Range: 5m minimum, 7d maximum
 
 **Example Usage:**
@@ -405,58 +428,14 @@ Close group voting and calculate results. Automatically creates tiebreaker votes
 ```
 
 **Notes:**
-- Calculates point totals for each title (3 points for 1st choice, 2 for 2nd)
+- Counts each title's votes; each voter's two picks count one vote each
 - Determines 1st, 2nd, and 3rd place in each group
 - **Automatically creates tiebreaker votes** if 1st or 2nd place ties detected
 - Posts results to channel showing final standings
 - Groups must be open before they can be closed
-- Cannot reopen groups after closing
+- `/bracket open` never reopens a closed group
 - Tiebreaker winners are automatically applied to final standings
-- Use `/bracket advance-knockout` after all groups are closed
-
----
-
-### `/bracket advance-knockout`
-
-Generate the knockout bracket from group results and automatically start voting.
-
-**Who Can Use:** Admin/Mod only
-
-**Parameters:**
-- `duration` (optional): How long voting stays open (e.g., "24h", "3d", "45m")
-  - Default: 24 hours if not specified
-  - Min: 5 minutes (5m)
-  - Max: 30 days (30d)
-
-**Example Usage:**
-```
-/bracket advance-knockout
-/bracket advance-knockout duration:"48h"
-/bracket advance-knockout duration:"3d"
-```
-
-**What It Does:**
-1. Calculates wildcards from 3rd place finishers
-2. Generates complete knockout bracket structure
-3. **Automatically opens voting** for the first round with specified duration
-4. Sends announcement with voting buttons for all matchups
-5. Stores message IDs for auto-close scheduler
-
-**Notes:**
-- All groups must be closed before advancing
-- Automatically seeds based on group results:
-  - All 1st place finishers advance
-  - All 2nd place finishers advance
-  - Wildcards fill remaining spots (best 3rd place by points)
-- Creates bracket structure based on total participants:
-  - 16 titles: Round of 16 → Quarterfinals → Semifinals → Finals
-  - 24 titles: Round of 16 (with byes or wildcards)
-  - 32 titles: Full Round of 32 bracket
-- Seeding uses serpentine pattern for fairness
-- **Voting starts immediately** - no separate command needed to open the first round
-- Once knockout begins, cannot edit tournament
-- Use `/bracket view` to see the bracket visualization
-- Voting will auto-close when deadline is reached
+- After all groups are closed (and tiebreakers settled), run `/bracket open` to start the knockout
 
 ---
 
@@ -475,34 +454,29 @@ Rebuild the knockout bracket from group results. Use this to fix bracket structu
 
 **Notes:**
 - Rebuilds the entire knockout bracket from the group stage's closed results — seeding, wildcards, and matchups are all recalculated from scratch
-- Useful if the bracket structure looks wrong after `/bracket advance-knockout`, or after manually correcting group results
+- Useful if the bracket structure looks wrong after `/bracket open` starts the knockout, or after manually correcting group results
 - Any in-progress knockout voting is discarded and replaced by the freshly regenerated bracket
-- All groups must still be closed for this to succeed (same requirement as `/bracket advance-knockout`)
-
----
-
-## Knockout Commands
-
-These commands manage the single-elimination knockout rounds. Matchups are identified by regional labels (e.g., "1A", "2B").
-
-### Regional Label System
-
-Matchups in the knockout bracket are identified by regional labels:
-- **Region 1**: Left side of bracket
-- **Region 2**: Right side of bracket
-- **Letters (A, B, C, D...)**: Position within region
-
-**Examples:**
-- Round of 16: "1A" through "1D" (left), "2A" through "2D" (right)
-- Quarterfinals: "1A", "1B" (left), "2A", "2B" (right)
-- Semifinals: "1A" (left), "2A" (right)
-- Finals: "Finals" (no region)
+- Groups tournaments only. All groups must still be closed for this to succeed
 
 ---
 
 ## Knockout Commands
 
 These commands manage the knockout/elimination phase where titles face off head-to-head. Use these for **granular control** when you need to open/close specific matchups or regions.
+
+### Regional Label System
+
+Each knockout round is split into **4 regions**, March Madness style. A matchup's label is its region number (1-4) plus a letter for its position within the region:
+
+| Round | Matchups | Labels |
+|-------|----------|--------|
+| Round of 32 | 16 | 1A–1D, 2A–2D, 3A–3D, 4A–4D |
+| Round of 16 | 8 | 1A, 1B, 2A, 2B, 3A, 3B, 4A, 4B |
+| Quarterfinals | 4 | 1A, 2A, 3A, 4A |
+| Semifinals | 2 | 1A, 3A |
+| Finals | 1 | Finals |
+
+`/bracket status` and the button pickers show each matchup's label.
 
 ::: tip Use Smart Commands
 For streamlined management, use `/bracket open` and `/bracket close` instead - they automatically detect the tournament phase and perform the right action!
@@ -515,30 +489,38 @@ Open matchup(s) for voting with text input or interactive buttons.
 **Who Can Use:** Admin/Mod only
 
 **Parameters:**
-- `matchup` (optional, string): Matchup ID(s) using regional labels. Leave blank to select from buttons.
+- `region` (optional, integer 1-4): Open every matchup in that region of the current round
+- `matchup` (optional, string): Matchup ID(s) using regional labels. Leave blank (and `region` blank) to select from buttons.
   - Single: "1A", "2B", "Finals"
-  - Multiple: "1A,1B,2C" (comma-separated)
-- `duration` (optional, string): Voting duration (default: 24h, range: 5m-30d)
+  - Multiple: "1A,1B,3A" (comma-separated)
+- `duration` (optional, string): Voting duration, 5m-30d. Default: the tournament's default voting duration from the [setup form](./import), else 24h
 
 **Example Usage:**
 
-**Interactive mode (no matchup parameter):**
+**Interactive mode (no matchup or region):**
 ```
 /bracket open-matchup duration:"24h"
 ```
-→ Shows buttons for all pending matchups. Click button(s) to open them.
+→ If the round has more than 5 matchups, shows one button per region. Otherwise shows a button for each pending matchup. Click button(s) to open them.
+
+**Region mode:**
+```
+/bracket open-matchup region:1
+/bracket open-matchup region:2 duration:"48h"
+```
+→ Opens every matchup in that region. This is how Round of 32 and Round of 16 are opened, since `/bracket open` won't open more than 5 matchups at once.
 
 **Text mode (single matchup):**
 ```
 /bracket open-matchup matchup:"1A"
-/bracket open-matchup matchup:"2C" duration:"24h"
+/bracket open-matchup matchup:"2B" duration:"24h"
 /bracket open-matchup matchup:"Finals" duration:"48h"
 ```
 
 **Text mode (multiple matchups):**
 ```
-/bracket open-matchup matchup:"1A,1B,1C" duration:"24h"
-/bracket open-matchup matchup:"2A,2B,2C,2D"
+/bracket open-matchup matchup:"1A,1B" duration:"24h"
+/bracket open-matchup matchup:"2A,2B,3A,3B"
 ```
 
 **Features:**
@@ -547,6 +529,7 @@ Open matchup(s) for voting with text input or interactive buttons.
 - **Visual selection** - Buttons show matchup label and movie titles
 - **Batch processing** - Each matchup processed individually with success/error tracking
 - **Regional labels** - Use "1A", "2B" format for easy identification
+- **Region opening** - Open a whole region (1-4) at once
 
 **Notes:**
 - Use regional labels: "1A", "2B", etc.
@@ -559,6 +542,7 @@ Open matchup(s) for voting with text input or interactive buttons.
   - Managing voting flow
   - Opening multiple matchups quickly
 - See `/bracket status` to find matchup IDs
+- Only matchups that haven't been voted on are opened. Ones already voting keep their votes, decided ones keep their results, and the reply lists both
 
 ---
 
@@ -571,11 +555,11 @@ Close matchup(s) and advance winner(s) with text input or interactive buttons. A
 **Parameters:**
 - `matchup` (optional, string): Matchup ID(s) using regional labels. Leave blank to select from buttons.
   - Single: "1A", "2B", "Finals"
-  - Multiple: "1A,1B,2C" (comma-separated)
+  - Multiple: "1A,1B,3A" (comma-separated)
 - `tiebreaker-duration` (optional, string): Duration for tiebreaker votes if needed
   - Format: `<number><unit>` where unit is m (minutes), h (hours), or d (days)
   - Examples: "1h", "30m", "2h"
-  - Default: 1h if not specified
+  - Default: the tournament's default tiebreaker duration from the [setup form](./import), else 1h
   - Range: 5m minimum, 7d maximum
 
 **Example Usage:**
@@ -590,14 +574,14 @@ Close matchup(s) and advance winner(s) with text input or interactive buttons. A
 **Text mode (single matchup):**
 ```
 /bracket close-matchup matchup:"1A"
-/bracket close-matchup matchup:"2C" tiebreaker-duration:"2h"
+/bracket close-matchup matchup:"2B" tiebreaker-duration:"2h"
 /bracket close-matchup matchup:"Finals" tiebreaker-duration:"30m"
 ```
 
 **Text mode (multiple matchups):**
 ```
-/bracket close-matchup matchup:"1A,1B,1C"
-/bracket close-matchup matchup:"2A,2B,2C,2D" tiebreaker-duration:"1h"
+/bracket close-matchup matchup:"1A,1B"
+/bracket close-matchup matchup:"2A,2B,3A,3B" tiebreaker-duration:"1h"
 ```
 
 **Features:**
@@ -663,7 +647,7 @@ Resolve an active tiebreaker — either by tallying the current votes (default) 
 
 ### `/bracket extend-voting`
 
-Extend or change voting deadline for groups or knockout rounds.
+Set a new voting deadline for a group or the current knockout round.
 
 **Who Can Use:** Admin/Mod only
 
@@ -671,11 +655,11 @@ Extend or change voting deadline for groups or knockout rounds.
 - `type` (required, choice): Voting type to extend
   - `group` - Group Stage Voting
   - `knockout` - Knockout Round Voting
-- `duration` (required, string): Duration to ADD (e.g., "24h", "3d", "45m")
-  - Adds this much time to current deadline
+- `duration` (required, string): New time left, counted from now (e.g., "24h", "3d", "45m")
+  - The new deadline is now + `duration`. It replaces the current deadline rather than adding to it
   - Format: `<number><unit>` where unit is m, h, or d
   - Range: 5m minimum, 30d maximum
-- `group` (optional, string): Group letter (only for group voting)
+- `group` (required for group voting, string): Group letter
 
 **Example Usage:**
 ```
@@ -685,12 +669,12 @@ Extend or change voting deadline for groups or knockout rounds.
 ```
 
 **Notes:**
-- For group voting: extends specific group's deadline
-- For knockout voting: extends all open matchups in current round
-- Duration is ADDED to current deadline (not replaced)
+- For group voting: sets one group's deadline
+- For knockout voting: sets the deadline of every open matchup in the current round
+- The new deadline is now + `duration`, replacing the old one. `duration:"12h"` on a group with 20h left shortens it to 12h
 - Useful when participation is low or more time is needed
 - Cannot extend closed/completed voting
-- Updates voting messages with new deadline
+- The original voting messages aren't edited; the reply shows the new deadline
 
 ---
 
@@ -779,6 +763,7 @@ List all groups and the titles in each one. In a straight bracket (no groups), i
 
 **Notes:**
 - Shows every group's titles, in the order they were added
+- In a straight bracket, shows every title as one numbered list
 - The numbers are the `position` that `manage-titles action:"Remove Title"` takes
 - Marks each group as voting-open or closed
 - Useful during setup to see which groups still need titles before voting can begin
@@ -787,7 +772,7 @@ List all groups and the titles in each one. In a straight bracket (no groups), i
 
 ### `/bracket view`
 
-View visual bracket representation (knockout phase only).
+Draw the tournament as an image.
 
 **Who Can Use:** Everyone
 
@@ -799,24 +784,22 @@ View visual bracket representation (knockout phase only).
 ```
 
 **Notes:**
-- Only available during knockout phase
-- Generates text-based bracket visualization
-- Shows all rounds with matchup results
-- Indicates open/closed/pending matchups
-- Updates as tournament progresses
-- Large brackets may be truncated - use `/bracket status` for full details
+- During the knockout (and after it ends): a PNG bracket tree with every round, winners highlighted, and the champion once there is one
+- Before the knockout: a PNG overview of the tournament's groups and titles
+- Generated fresh each time, so it reflects the current state
+- Use `/bracket status` for live vote counts
 
 ---
 
 ### `/bracket export`
 
-Export tournament results in JSON or Markdown format.
+Export the tournament's lineup and settings (JSON) or its results (Markdown).
 
 **Who Can Use:** Everyone
 
 **Parameters:**
 - `format` (required, choice): Export format
-  - `json` - Complete tournament data structure
+  - `json` - Lineup and settings in the [setup form](./import)'s import format
   - `markdown` - Formatted results for announcements
 
 **Example Usage:**
@@ -826,11 +809,9 @@ Export tournament results in JSON or Markdown format.
 ```
 
 **JSON Export:**
-- Complete tournament data structure
-- All groups, matchups, votes, and metadata
-- Perfect for archival or data analysis
-- Can be imported back into bot (future feature)
-- Includes voter IDs, timestamps, and full history
+- The setup form's import format: the title lineup (with ids filled in) and the tournament's settings
+- No votes and no voter ids
+- Upload it through `/bracket setup-link` to run the same tournament again
 
 **Markdown Export:**
 - Formatted results ready to paste
@@ -872,8 +853,7 @@ Export tournament results in JSON or Markdown format.
 - Archive completed tournaments
 - Share results in announcements
 - Create tournament history documentation
-- Analyze voting patterns and participation
-- Backup tournament data
+- Re-run a tournament with the same lineup (JSON)
 
 ---
 
@@ -933,141 +913,110 @@ Cancel the tournament and delete all data.
 
 ## Tournament Size Examples
 
-### Example 1: Small Tournament (16 participants)
+### Example 1: Straight Bracket (8–32 titles)
 
 **Setup:**
 ```
-/bracket create name:"Quick Horror Tournament" groups:4
+/bracket create name:"Quick Horror Showdown" max-titles:8
+/bracket create name:"Summer Movie Madness" max-titles:32
 ```
+*(or set it up in one go with `/bracket setup-link` and the [setup form](./import))*
 
 **Configuration:**
-- **Groups:** 4 groups (A, B, C, D)
-- **Titles per group:** 4
-- **Total participants:** 16
-- **Knockout structure:** Round of 16 → Quarterfinals → Semifinals → Finals
-- **Wildcards:** All group winners + all 2nd place + best 3rd place titles
+- **Groups:** None
+- **Titles:** up to `max-titles`; empty slots become byes (e.g., 12 titles in a 16 bracket gives 4 byes)
+- **Knockout structure:** 8 titles start at Quarterfinals, 16 at Round of 16, 32 at Round of 32
+- **Seeding:** Random by default; Ordered (list order, 1 v N, byes to top seeds) via the setup form
+- **Start:** `/bracket open` builds the bracket and opens round one
 
 **Best for:**
-- Quick tournaments
+- Quick tournaments and weekend events
 - Testing the system
 - Smaller communities
-- Weekend events
 
 **Timeline estimate:**
-- Setup: 1-2 hours
+- 8 titles: 3 rounds, about 3–6 days
+- 32 titles: 5 rounds, about 1–2 weeks
+
+---
+
+### Example 2: Small Groups Tournament (16 titles, 4 groups)
+
+**Setup:**
+```
+/bracket create name:"Quick Horror Tournament" max-titles:36
+/bracket resize groups:4
+```
+*`/bracket create` makes 9–12 groups; resize during setup, or use the [setup form](./import).*
+
+**Configuration:**
+- **Groups:** 4 groups (A-D) of 4
+- **Advance:** Top 2 from each group = 8
+- **Wildcards:** None needed
+- **Knockout structure:** Quarterfinals → Semifinals → Finals
+
+**Timeline estimate:**
 - Group voting: 24-48 hours
-- Knockout rounds: 3-5 days (24-48h per round)
+- Knockout rounds: 3-5 days
 - **Total:** ~1 week
 
 ---
 
-### Example 2: Medium Tournament (24 participants)
+### Example 3: Medium Groups Tournament (32 titles, 8 groups)
 
 **Setup:**
 ```
-/bracket create name:"Community Choice Awards" groups:6
+/bracket create name:"Community Choice Awards" max-titles:36
+/bracket resize groups:8
 ```
 
 **Configuration:**
-- **Groups:** 6 groups (A-F)
-- **Titles per group:** 4
-- **Total participants:** 24
+- **Groups:** 8 groups (A-H) of 4
+- **Advance:** Top 2 from each group = 16
+- **Wildcards:** None needed
 - **Knockout structure:** Round of 16 → Quarterfinals → Semifinals → Finals
-- **Wildcards:** 8 wildcards advance to Round of 16 with group winners
-
-**Best for:**
-- Balanced tournament size
-- Good group diversity
-- Active communities
-- Monthly events
 
 **Timeline estimate:**
-- Setup: 2-3 hours
-- Group voting: 2-3 days
-- Knockout rounds: 4-6 days
+- Group voting: 2-4 days
+- Knockout rounds: 4-8 days
 - **Total:** 1-2 weeks
 
 ---
 
-### Example 3: Standard Tournament (32 participants)
+### Example 4: Large Groups Tournament (40 titles, 10 groups)
 
 **Setup:**
 ```
-/bracket create name:"Summer Movie Madness" groups:8
-```
-*(or just use default: `/bracket create name:"Summer Movie Madness"`)*
-
-**Configuration:**
-- **Groups:** 8 groups (A-H)
-- **Titles per group:** 4
-- **Total participants:** 32
-- **Knockout structure:** Round of 32 → Round of 16 → Quarterfinals → Semifinals → Finals
-- **Wildcards:** All winners + all 2nd place + best 3rd place fill Round of 32
-
-**Best for:**
-- Full-featured tournaments
-- Most common size
-- Standard competition format
-- Major community events
-
-**Timeline estimate:**
-- Setup: 2-4 hours
-- Group voting: 3-4 days
-- Knockout rounds: 5-7 days (may include Round of 32)
-- **Total:** 2-3 weeks
-
----
-
-### Example 4: Large Tournament (40 participants)
-
-**Setup:**
-```
-/bracket create name:"Ultimate Showdown" groups:10
+/bracket create name:"Ultimate Showdown" max-titles:40
 ```
 
 **Configuration:**
-- **Groups:** 10 groups (A-J)
-- **Titles per group:** 4
-- **Total participants:** 40
-- **Knockout structure:** Round of 32 → Round of 16 → Quarterfinals → Semifinals → Finals
-- **Wildcards:** Complex selection to fill 32 spots
-
-**Best for:**
-- Large communities
-- High participation events
-- Extensive title variety
-- Quarterly championships
+- **Groups:** 10 groups (A-J) of 4
+- **Advance:** Top 2 from each group = 20
+- **Wildcards:** Best 10 third-place finishers = 30 total
+- **Knockout structure:** Round of 32 (2 byes, to group winners) → Round of 16 → Quarterfinals → Semifinals → Finals
 
 **Timeline estimate:**
-- Setup: 3-5 hours
 - Group voting: 4-5 days
 - Knockout rounds: 6-8 days
 - **Total:** 2-3 weeks
 
 ---
 
-### Example 5: Maximum Tournament (48 participants)
+### Example 5: Maximum Groups Tournament (48 titles, 12 groups)
 
 **Setup:**
 ```
-/bracket create name:"Epic Community Championship" groups:12
+/bracket create name:"Epic Community Championship" max-titles:48
 ```
 
 **Configuration:**
-- **Groups:** 12 groups (A-L)
-- **Titles per group:** 4
-- **Total participants:** 48
+- **Groups:** 12 groups (A-L) of 4
+- **Advance:** Top 2 from each group = 24
+- **Wildcards:** Best 8 third-place finishers = 32 total
 - **Knockout structure:** Round of 32 → Round of 16 → Quarterfinals → Semifinals → Finals
-- **Wildcards:** Extensive wildcard system fills all spots
-
-**Best for:**
-- Epic community events
-- Maximum variety
-- Year-end championships
-- Highly active servers
 
 **Timeline estimate:**
-- Setup: 4-6 hours
 - Group voting: 5-7 days
 - Knockout rounds: 7-10 days
 - **Total:** 3-4 weeks
@@ -1086,22 +1035,23 @@ The tournament bracket system supports a wide range of features and configuratio
 - **Books** - Powered by Google Books
 
 ### Flexible Structure
-- **4-12 groups** (16-48 total participants)
-- **Dynamic resizing** during setup phase
-- **Automatic seeding** based on group results
-- **Wildcard system** fills knockout bracket
+- **Straight bracket:** 2-32 titles, no groups
+- **Groups tournament:** 4-12 groups of 4 (16-48 titles), then a knockout
+- **Dynamic resizing** of the group count during setup
+- **Seeding:** random or ordered for straight brackets; from group results for groups tournaments
+- **Wildcard system** fills the knockout bracket
+- **Setup form** - set up a tournament from a CSV or JSON file, or by filling in a form (`/bracket setup-link`)
 
 ### Voting Options
-- **Group stage:** Vote for top 2 titles (weighted points)
+- **Group stage:** Pick your top 2 titles in each group
 - **Knockout stage:** Single-elimination voting
 - **Flexible deadlines:** 5 minutes to 30 days
-- **Vote extension** for any phase
-- **Private voting** via commands (group stage)
-- **Public voting** via reactions (knockout stage)
+- **Deadline extension** for any phase
+- **Button voting** throughout, through a personal voting dashboard (only you see your picks)
 
 ### Opening Strategies
-- **Entire round:** Open all matchups at once
-- **By region:** Open left or right bracket half
+- **Entire round:** Open all matchups at once (up to 5)
+- **By region:** Open one of the 4 regions
 - **Individual matchups:** Open one at a time for spotlight effect
 
 ### Customization
@@ -1109,6 +1059,7 @@ The tournament bracket system supports a wide range of features and configuratio
 - **Custom announcements** with banner images
 - **Regional identification** (1A, 2B labels) for clear bracket navigation
 - **Tournament naming** for branding
+- **Default voting and tiebreaker durations** set on the setup form
 
 ### Management Features
 - **Persistent storage** across bot restarts
@@ -1116,12 +1067,13 @@ The tournament bracket system supports a wide range of features and configuratio
 - **Status monitoring** at any time
 - **Automatic winner advancement**
 - **Bracket regeneration** for fixing issues
+- **JSON export** that can be re-imported through the setup form
 
 ### Visual Features
-- **AI-generated versus images** using DALL-E 3
-- **Text-based bracket visualization**
-- **Group standings** with point totals
-- **Live vote counts** during knockout rounds
+- **AI-generated versus images** with the separate [`/image`](../ai-images) command
+- **Bracket images** with `/bracket view`
+- **Group standings**
+- **Live vote counts** during voting
 
 ---
 
@@ -1131,39 +1083,34 @@ Understanding what the system cannot do helps set proper expectations:
 
 ### Tournament Configuration
 - ❌ **Cannot change tournament type** after first title is added
-  - Tournament type (movie/tv/game/book) is locked on first add-title
-- ❌ **Cannot edit tournament** after knockout begins
-  - No adding/removing titles once knockout phase starts
-- ❌ **Cannot add/remove groups** after titles are added to those groups
-- ❌ **Maximum 12 groups** (48 participants total)
-  - System is optimized for 4-12 group range
+  - Tournament type (movie/tv/game/boardgame/book) is locked by the first title added
+- ❌ **Cannot edit tournament** once voting begins
+  - No adding/removing titles after setup
+- ❌ **Cannot remove groups** that still have titles in them
+- ❌ **Maximum 12 groups** (48 titles) or 32 titles in a straight bracket
 - ❌ **Each group must have exactly 4 titles**
   - Cannot proceed with incomplete groups
 
 ### Voting Restrictions
-- ❌ **Cannot undo matchup votes** once matchup is closed
+- ❌ **Cannot undo a result** once a matchup is closed
   - Close-matchup is final - winner is locked in
-- ❌ **Cannot change group votes** after submission
-  - One vote per group per user, no edits
-- ❌ **Cannot reopen completed rounds**
-  - Once a round is closed, results are permanent
+- ❌ **Finished groups stay finished**
+  - `/bracket open` never reopens a closed group, and the knockout is seeded from its results
 - ❌ **Cannot vote after deadline**
   - Voting deadlines are enforced strictly
 
 ### Technical Limitations
-- ❌ **Voting requires Discord reaction permissions**
-  - Bot needs permission to add reactions and read reactions
 - ❌ **One active tournament per server** at a time
   - Cannot run multiple tournaments simultaneously
-- ❌ **Cannot restore deleted tournaments**
+- ❌ **Cannot restore cancelled tournaments**
   - Cancel is permanent - no recovery
 - ❌ **AI image generation has rate limits**
   - Per-user and per-server limits apply
   - Requires OpenAI API key configuration
 
 ### Bracket Structure
-- ❌ **Cannot manually seed matchups**
-  - Seeding is automatic based on group results
+- ❌ **Cannot hand-seed a groups tournament's knockout**
+  - Knockout seeding comes from group results (ordered seeding is for straight brackets only)
 - ❌ **Cannot modify knockout bracket structure**
   - Bracket format is determined by participant count
 - ❌ **Cannot skip knockout rounds**
@@ -1172,10 +1119,8 @@ Understanding what the system cannot do helps set proper expectations:
   - All groups must have 4 titles
 
 ### Data Management
-- ❌ **Cannot export tournament data**
-  - No built-in export to CSV/JSON
-- ❌ **Cannot import tournaments**
-  - Must create and populate manually
+- ❌ **Cannot import votes or results**
+  - The setup form imports a lineup and settings only; JSON export leaves out votes
 - ❌ **Cannot merge tournaments**
   - Each tournament is independent
 
@@ -1191,10 +1136,10 @@ Understanding what the system cannot do helps set proper expectations:
 ## Tips for Tournament Organizers
 
 ### Before Starting
-1. **Plan your size** - Decide on participant count (4-12 groups)
+1. **Plan your size** - Straight bracket (2-32 titles) or groups tournament (4-12 groups)
 2. **Announce in advance** - Build hype before creating tournament
 3. **Prepare title list** - Have titles ready to add quickly
-4. **Test with small tournament** - Practice with 4 groups first
+4. **Test with small tournament** - Practice with an 8-title straight bracket first
 
 ### During Setup
 1. **Use custom images** for better visual appeal
@@ -1210,7 +1155,7 @@ Understanding what the system cannot do helps set proper expectations:
 
 ### During Knockout
 1. **Create suspense** - Use `/bracket open-matchup` for spotlight matches
-2. **Use regions strategically** - Open left/right brackets separately
+2. **Use regions strategically** - Open the 4 regions separately with `/bracket open-matchup region:`
 3. **Generate hype images** - Use `/image matchup:"Title A vs Title B"` for key matchups
 4. **Post updates** - Share bracket progress with community
 

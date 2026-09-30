@@ -1,57 +1,46 @@
 ---
 title: Tips & Strategies - Tournament Brackets
-description: Expert strategies for managing tournament pacing, engagement, and utility commands including voting extensions, AI images, and tournament cancellation.
+description: Strategies for tournament pacing and engagement, plus utility commands for extending voting deadlines, matchup images, and cancelling a tournament.
 ---
 
 # Tips & Strategies
 
-**Master tournament management** with utility commands and expert strategies for pacing, engagement, and handling different tournament sizes. From extending voting deadlines to generating AI matchup images, these tools help you run smooth, engaging tournaments.
+Utility commands, plus ideas for pacing and keeping members engaged at different tournament sizes.
 
 ## Utility Commands
 
 ### Extend Voting Deadline
 
 ```
-/bracket extend-voting type:[group|knockout] duration:[time] group:[letter]
+/bracket extend-voting type:<group|knockout> duration:<time> group:<letter>
 ```
 
 **Parameters:**
 
-- `type` (required) - Which voting type to extend
-  - `group` - Extend group stage voting
-  - `knockout` - Extend current knockout round voting
-- `duration` (required) - Additional time to add to deadline
-  - Format: Number + unit (m=minutes, h=hours, d=days)
-  - Examples: "5m", "2h", "24h", "3d", "7d"
-  - Range: 5 minutes to 30 days
-- `group` (optional) - Group letter (required only when type is "group")
-  - Examples: "A", "B", "C"
+- `type` (required)
+  - `group` - A group in the group stage
+  - `knockout` - Every open matchup in the current knockout round
+- `duration` (required) - The new time left, from now. 5m to 30d. Examples: `30m`, `12h`, `2d`.
+- `group` (required when `type` is `group`) - The group letter, e.g., `A`
 
 **Who can use:** Administrators and Moderators only
 
-**Features:**
+**How it works:**
 
-- **Extend active voting** after it's already opened
-- **Group voting:** Extend specific groups by letter
-- **Knockout voting:** Extends all matchups in current round
-- **Shows updated deadline** with time remaining and exact timestamp
-- **Flexible adjustments** - Add more time if voting is slow or members request it
-- **No limit** on how many times you can extend (as long as deadline stays within 5m-30d range)
+- The new deadline is **now + `duration`**. It replaces the old deadline rather than adding to it, so `duration:12h` on a group with 20h left shortens it to 12h.
+- Group voting is extended one group at a time.
+- Knockout voting is extended for every open matchup in the current round at once.
+- You can run it as many times as you like.
+- The original voting messages aren't edited; the reply shows the new deadline.
 
 **Examples:**
 
 ```
-# Extend Group A voting by 24 hours
+# Group A closes 24 hours from now
 /bracket extend-voting type:group duration:24h group:A
 
-# Extend Group B voting by 2 days
-/bracket extend-voting type:group duration:2d group:B
-
-# Extend current knockout round by 12 hours
+# Every open matchup in this round closes 12 hours from now
 /bracket extend-voting type:knockout duration:12h
-
-# Add just 30 more minutes to knockout round
-/bracket extend-voting type:knockout duration:30m
 ```
 
 **Output:**
@@ -59,122 +48,28 @@ description: Expert strategies for managing tournament pacing, engagement, and u
 ```
 ✅ Extended voting for Group A
 
-⏰ New deadline: 1d 12h
-📅 Exact time: 6/28/2026, 11:30:00 PM
+⏰ New deadline: 1d
+📅 Exact time: 6/28/2026, 11:30 PM
 ```
-
-**Use Cases:**
-
-- Members request more time due to busy schedules
-- Voting participation is lower than expected
-- Want to align deadline with specific time (e.g., end of weekend)
-- Technical issues delayed announcement
-- Community engagement warrants extended discussion period
 
 **Requirements:**
 
-- **For groups:** Group must be currently open for voting
-- **For knockout:** Tournament must be in knockout phase with active voting
-- New deadline must be between 5 minutes and 30 days from now
-
-**Tips:**
-
-- Can extend multiple times if needed
-- Each extension adds time from NOW (not from original deadline)
-- Extension applies to all matchups in current knockout round
-- For groups, must extend each group individually
-- Original messages are not edited, but tournament data updates
+- **Groups:** the group must be open for voting.
+- **Knockout:** the tournament must be in the knockout with at least one matchup open.
 
 ---
 
-### Generate AI Matchup Image
+### Matchup Images
+
+Versus images for matchups are made with the separate `/image` command, not `/bracket`:
 
 ```
-/bracket image [title1:"Title A"] [title2:"Title B"] [prompt:"details"]
-/bracket image [matchup:"Title A vs Title B"]
+/image matchup:"The Thing vs Alien"
+/image title1:"Godzilla" title2:"King Kong"
+/image
 ```
 
-**Parameters:**
-
-- `title1` (optional) - First title for freeform generation (validates through APIs)
-- `title2` (optional) - Second title for freeform generation (validates through APIs)
-- `matchup` (optional) - Tournament matchup to visualize (e.g., "The Thing vs Alien")
-- `prompt` (optional) - Additional details for image generation (e.g., "set in space with stars")
-
-**Who can use:** All server members (subject to rate limits)
-
-**Features:**
-
-- **Smart Search Validation** - Automatically searches TMDB, RAWG, BGG, and Google Books to validate titles
-- **Custom Prompt Details** - Add specific style/setting instructions
-- **Cross-Type Support** - Compare movies vs games, TV shows vs books, etc.
-- **Freeform generation** - Create AI images for ANY two titles, anytime!
-- **Works without tournament** - No need for active tournament or knockout phase
-- **Tournament support** - Still works with active tournament matchups
-- Generates AI-powered "vs" poster mashups using OpenAI
-- Creates dramatic split-screen compositions with bold VS text
-- **Strict Layout** - Title 1 always on left, VS center, Title 2 always on right
-- Wide format (1792x1024) perfect for epic showdowns
-- Standard quality ($0.04 per image, cost shown in embed)
-- Cinematic style with high contrast and dramatic lighting
-- **Rate Limited** - Default: 5-min cooldown, 10/day per user, 50/day per server
-- **Requires OpenAI API key** configuration
-
-**Freeform Generation:**
-
-```
-/bracket image title1:"Godzilla" title2:"King Kong"
-/bracket image title1:"The Exorcist" title2:"The Shining"
-/bracket image title1:"Breaking Bad" title2:"The Wire"
-```
-
-**With Custom Prompt Details:**
-
-```
-/bracket image title1:"Alien" title2:"The Thing" prompt:"in deep space with stars"
-/bracket image title1:"Batman" title2:"Spider-Man" prompt:"cyberpunk city at night"
-```
-
-**Cross-Type Mashups:**
-
-```
-/bracket image title1:"Halo" title2:"Star Wars"  # Game vs Movie
-/bracket image title1:"Dune" title2:"Dune"  # Book vs Movie (auto-detects types)
-```
-
-**Tournament Matchup:**
-
-```
-/bracket image matchup:"The Thing vs Alien"
-```
-
-**Help Menu:**
-
-```
-/bracket image
-```
-
-Shows: Available tournament matchups (if any) + freeform generation syntax
-
-**Smart Search Process:**
-
-1. **Validation:** Bot searches TMDB (movies/TV), RAWG (games), BGG (board games), Google Books
-2. **Disambiguation:** If multiple matches found, shows selection menu (like `/movie` command)
-3. **Rich Context:** Uses metadata (overview, type) to create better prompts
-4. **Generation:** Creates cinematic prompt for OpenAI (takes 2-3 minutes)
-5. **Result:** Returns epic poster mashup image with embed
-
-**Rate Limiting:**
-
-- **Default:** 5-minute cooldown, 10 images/user/day, 50 images/server/day
-- **Admins:** Bypass cooldown by default (still subject to daily limits)
-- **Whitelist:** Server admins can grant unlimited access to contributors
-- **Configurable:** All limits adjustable via `/eggshen-config-ai ai-images`
-
-See [AI Image Generation](/commands/ai-images.md) for full documentation on rate limits and configuration.
-
-**Example Prompt Generated:**
-> "Epic movie poster mashup: 'The Thing' versus 'Alien'. Split screen composition with dramatic lighting, cinematic style, high contrast. Left side represents The Thing, right side represents Alien. Bold 'VS' text in the center. Movie poster aesthetic, professional design, 4K quality."
+`/image` with no options lists the active tournament's current matchups. It needs an OpenAI API key and has per-user and per-server limits. See [AI Image Generation](/commands/ai-images) for all options, limits, and configuration.
 
 ---
 
@@ -184,169 +79,150 @@ See [AI Image Generation](/commands/ai-images.md) for full documentation on rate
 /bracket cancel
 ```
 
-**Parameters:** None
-
 **Who can use:** Administrators and Moderators only
 
-**Features:**
+- Ends the active tournament right away. It can't be undone.
+- Clears the tournament's votes and voting stats.
+- Lets you create a new tournament.
 
-- Immediately cancels the active tournament
-- Cannot be undone
-- Allows starting a new tournament
-- All data is preserved in JSON (status: "cancelled")
+**When to use:**
 
-**Example:**
-
-```
-/bracket cancel
-```
-
-**When to Use:**
-
-- Tournament stalled with no participation
-- Need to start over with different movies
-- Technical issues or format changes needed
+- The tournament stalled with no participation
+- You want to start over with different titles or a different format
 
 ---
 
 ## Pacing Strategies
 
-### Fast-Paced Tournaments (1-2 Weeks)
+### Fast (1–2 Weeks)
 
 **Best for:** Active communities, live events, quick competitions
 
-**Group Stage:**
-- Open 4-8 groups at once with 24h voting
-- Close groups next day and immediately open next batch
-- Complete group stage in 2-3 days
+**Group stage:**
+- `/bracket open duration:24h` to open every group at once
+- `/bracket close` the next day
+- Done in 1–2 days
 
-**Knockout Stage:**
-- Use `/bracket open-knockout` for entire rounds
-- 24h voting per round
-- Close and advance daily
-- Complete knockouts in 5-7 days
+**Knockout:**
+- `/bracket open` and `/bracket close` for each round, 24h voting
+- Round of 32 and Round of 16 are opened by region: run `/bracket open-matchup region:1` through `region:4` together
+- Done in 5–7 days
 
-**Example Timeline:**
-- Day 1-3: Group stage (all 8 groups)
-- Day 4: Round of 16
-- Day 5: Quarterfinals
-- Day 6: Semifinals
-- Day 7: Finals
+**Example timeline (8 groups):**
+- Days 1–2: Group stage
+- Day 3: Round of 16
+- Day 4: Quarterfinals
+- Day 5: Semifinals
+- Day 6: Finals
 
 ---
 
-### Medium-Paced Tournaments (2-4 Weeks)
+### Medium (2–4 Weeks)
 
-**Best for:** Most Discord communities, balanced engagement
+**Best for:** Most Discord communities
 
-**Group Stage:**
-- Open 4 groups at a time with 24-48h voting
-- Stagger opening to maintain consistent activity
-- Complete group stage in 1 week
+**Group stage:**
+- Open 4 groups at a time with `/bracket open-groups groups:A,B,C,D duration:48h`
+- Stagger the batches to keep steady activity
+- Done in about a week
 
-**Knockout Stage:**
-- Use `/bracket open-region` to split rounds across days
-- Open Region 1 (left) Monday, Region 2 (right) Wednesday
-- 48h voting periods
-- Complete knockouts in 2 weeks
+**Knockout:**
+- Split big rounds across days by region: `/bracket open-matchup region:1` Monday, `region:2` Tuesday, and so on
+- 48h voting
+- Done in about 2 weeks
 
-**Example Timeline:**
+**Example timeline:**
 - Week 1: Group stage (4 groups every 2 days)
-- Week 2: Round of 16 (split by region)
-- Week 3: Quarterfinals + Semifinals
-- Week 4: Finals (48-72h voting)
+- Week 2: Round of 16 (region by region)
+- Week 3: Quarterfinals and Semifinals
+- Week 4: Finals (48–72h voting)
 
 ---
 
-### Slow-Paced Tournaments (1-2 Months)
+### Slow (1–2 Months)
 
 **Best for:** Building anticipation, feature-focused events
 
-**Group Stage:**
-- Open 2 groups at a time with 2-3 day voting
-- Allow extended discussion periods
-- Complete group stage in 2-3 weeks
+**Group stage:**
+- Open 2 groups at a time with 2–3 day voting
+- Done in 2–3 weeks
 
-**Knockout Stage:**
-- Use `/bracket open-matchup` for individual matchups
-- Feature one "match of the week"
-- 3-7 day voting periods
-- Build hype around each battle
+**Knockout:**
+- `/bracket open-matchup matchup:1A duration:3d` to feature one or two matchups at a time
+- 3–7 day voting
+- Build a "match of the week" around each one
 
-**Example Timeline:**
-- Weeks 1-3: Group stage (2 groups every 3 days)
-- Weeks 4-5: Round of 16 (1-2 matchups per week)
-- Weeks 6-7: Quarterfinals + Semifinals
+**Example timeline:**
+- Weeks 1–3: Group stage (2 groups every 3 days)
+- Weeks 4–5: Round of 16 (1–2 matchups a week)
+- Weeks 6–7: Quarterfinals and Semifinals
 - Week 8: Finals (7-day voting)
 
 ---
 
-## Managing Different Tournament Sizes
+## Choosing a Size
 
-### Small Tournaments (16 entries - 4 groups)
+### Straight Bracket (2–32 titles)
 
 **Structure:**
-- 4 groups of 4 entries each
-- Top 2 advance = 8 entries
-- No wildcards needed (already power of 2)
-- Start at Quarterfinals
-
-**Advantages:**
-- Quick to set up
-- Easy to manage
-- Good for testing or themed mini-tournaments
+- No groups; head-to-head from round one
+- 8 titles start at the Quarterfinals, 16 at the Round of 16, 32 at the Round of 32
+- A bracket that isn't full gives byes (e.g., 12 titles in a 16 bracket: 4 byes)
 
 **Tips:**
-- Open all groups at once
-- Can complete in under a week
-- Perfect for monthly recurring tournaments
+- 8 or 16 titles is a good weekend or monthly event.
+- Want the favorites kept apart until late? Use **Ordered** seeding in the [setup form](./import): list order is seed order, 1 meets the lowest seed, and byes go to the top seeds. Otherwise seeding is random.
 
 ---
 
-### Medium Tournaments (32 entries - 8 groups)
+### Small Groups Tournament (4 groups, 16 titles)
 
 **Structure:**
-- 8 groups of 4 entries each
-- Top 2 advance = 16 entries
-- No wildcards needed (already power of 2)
-- Start at Round of 16
+- 4 groups of 4
+- Top 2 go through = 8 titles
+- No wildcards needed
+- Knockout starts at the Quarterfinals
 
-**Advantages:**
-- Balanced size for most communities
-- 2-3 week tournament feels substantial
-- Enough variety without overwhelming voters
+`/bracket create` makes groups tournaments of 9–12 groups; use `/bracket resize groups:4` during setup to shrink one, or set it up with the [setup form](./import).
 
 **Tips:**
-- Open 4 groups per day (2 batches)
-- Use regional opening for knockouts
-- Sweet spot for engagement
+- Open all groups at once.
+- Can finish in under a week.
 
 ---
 
-### Large Tournaments (48 entries - 12 groups)
+### Medium Groups Tournament (8 groups, 32 titles)
 
 **Structure:**
-- 12 groups of 4 entries each
-- Top 2 advance = 24 entries
-- Best 8 third-place = 8 wildcards
-- Total 32 entries starting at Round of 32
-
-**Advantages:**
-- Epic scale for special events
-- Showcases wide variety of content
-- Wildcards add drama and second chances
+- 8 groups of 4
+- Top 2 go through = 16 titles
+- No wildcards needed
+- Knockout starts at the Round of 16
 
 **Tips:**
-- Open 4 groups at a time (3 batches)
-- Extend deadlines to 48h for group stage
-- Use mix of region and individual matchup opening
-- Plan for 3-4 week timeline minimum
-- Consider this your flagship annual tournament
+- Open 4 groups per day (2 batches).
+- Open the Round of 16 by region.
+
+---
+
+### Large Groups Tournament (12 groups, 48 titles)
+
+**Structure:**
+- 12 groups of 4
+- Top 2 go through = 24 titles
+- Best 8 third-place finishers = 8 wildcards
+- 32 titles start at the Round of 32
+
+**Tips:**
+- Open 4 groups at a time (3 batches).
+- Use 48h voting for the group stage.
+- Mix region and single-matchup opening in the knockout.
+- Plan for 3–4 weeks.
 
 **Challenges:**
-- Requires more admin attention
+- Needs more admin attention
 - Risk of voter fatigue
-- Need consistent promotion
+- Needs steady promotion
 
 ---
 
@@ -354,43 +230,39 @@ See [AI Image Generation](/commands/ai-images.md) for full documentation on rate
 
 ### Keep Members Involved
 
-**During Group Stage:**
+**During the group stage:**
 - Announce when new groups open
-- Post reminders 6-12h before close
+- Post reminders 6–12h before close
 - Share interesting voting trends
-- Encourage discussion in chat
 
-**During Knockout Stage:**
+**During the knockout:**
 - Build hype for marquee matchups
-- Share `/bracket view` bracket images
+- Share `/bracket view` images
 - Highlight close votes
-- Create prediction threads
+- Start prediction threads
 
-### Use AI Images Strategically
+### Use Matchup Images
 
-**When to Generate:**
+**When:**
 - Key matchups (semifinals, finals)
-- Upset potential matchups
+- Possible upsets
 - Community-requested battles
-- Social media promotion
 
 **Tips:**
-- Use custom `prompt` parameter for themed aesthetics
-- Generate images before matchup opens
-- Share in announcement channels
-- Save images for tournament recap posts
+- Add a `prompt` to `/image` for a themed look
+- Make the image before the matchup opens
+- Save images for a recap post
 
-### Leverage Regional Labels
+### Use the Regions
 
-**Build Narratives:**
-- "Region 1 (left) is the bracket of death"
-- "Region 2 has all the underdogs"
+**Build narratives:**
+- "Region 3 is the bracket of death"
+- "Region 4 has all the underdogs"
 - "1A is the match of the week"
 
-**Create Rivalries:**
-- Left side vs right side predictions
-- Region champions discussions
-- Track which region performs better
+**Create rivalries:**
+- Predict which region's winner takes the title
+- Track which region performs best
 
 ---
 
@@ -398,16 +270,16 @@ See [AI Image Generation](/commands/ai-images.md) for full documentation on rate
 
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
-| `/bracket extend-voting` | Add time to active voting | Low participation, requests for more time |
-| `/bracket image` | Generate AI matchup poster | Hype key battles, social promotion |
-| `/bracket cancel` | End tournament immediately | Stalled tournament, need to restart |
-| `/bracket status` | Check tournament progress | Regular monitoring, troubleshooting |
-| `/bracket my-votes` | View member's voting status | Help members track their votes |
+| `/bracket extend-voting` | Set a new deadline | Low turnout, requests for more time |
+| `/image matchup:` | Versus image for a matchup | Hype key battles |
+| `/bracket cancel` | End the tournament | Stalled tournament, need to restart |
+| `/bracket status` | Check progress | Regular monitoring |
+| `/bracket my-votes` | A member's own votes | Help members track their votes |
 
 ---
 
 **Related Pages:**
-- [← Back to Brackets Overview](index.md)
-- [Tournament Setup →](setup.md)
-- [Knockout Rounds →](knockout.md)
-- [All Commands →](/commands/)
+- [← Back to Brackets Overview](./)
+- [Tournament Setup →](./setup)
+- [Knockout Rounds →](./knockout)
+- [Command Reference →](./commands)

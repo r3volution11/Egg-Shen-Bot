@@ -21,117 +21,111 @@ head:
 
 # Tournament Bracket System
 
-**Host comprehensive tournaments** in your Discord server for movies, TV shows, video games, board games, or books! Features a complete group stage with smart search integration, wildcard system, and single-elimination knockout bracket. Perfect for any entertainment community running a bracket-style competition, like "The Ultimate Horror Cup" or similar events.
+Run a bracket tournament in your Discord server for movies, TV shows, video games, board games, or books. Members vote with buttons; the bot tallies votes, settles ties, and moves winners on to the next round.
 
 ## Quick FAQ
 
-**Q: How many entries can participate in a tournament?**  
-A: Specific valid sizes only, to ensure clean tournament structures:
-- **Bracket Mode**: 2, 4, 8, 16, or 32 entries (powers of 2 for balanced brackets)
-- **Group Stage Mode**: 36, 40, 44, or 48 entries (multiples of 4 for complete groups)
+**Q: What shapes of tournament are there?**  
+A: Two:
+- **Straight bracket** - 2 to 32 titles, no groups. Head-to-head matchups from round one.
+- **Groups tournament** - 4 to 12 groups of exactly 4 titles. Members vote in groups first, then the qualifiers go into a knockout.
 
-The bot only allows these specific values to prevent awkward structures like incomplete groups or brackets with excessive byes.
+**Q: How do I choose?**  
+A: With `max-titles` when you create the tournament. 2, 4, 8, 16, or 32 makes a straight bracket; 36, 40, 44, or 48 makes a groups tournament with 9–12 groups. You can change the group count later with `/bracket resize` (4–12). A straight bracket doesn't have to be full: with 12 titles in a 16-title bracket, 4 titles get byes.
 
-**Q: How do I choose which mode to use?**  
-A: You don't! Just specify the max number of titles when creating (`/bracket create max-titles:16`). The bot automatically detects the best tournament structure based on size. Discord shows a dropdown with labeled options like "8 titles (Quarterfinals)" or "36 titles (9 groups)".
+**Q: Do I have to add titles one at a time?**  
+A: No. The [setup form](./import) lets you set up a whole tournament by uploading a CSV or JSON file, or by filling it in. Run `/bracket setup-link` to get a private link to it.
 
 **Q: What types of tournaments can I run?**  
-A: Movies, TV shows, video games, board games, or books. Each tournament must be a single type (can't mix movies and TV shows in the same tournament).
+A: Movies, TV shows, video games, board games, or books. Each tournament is a single type.
 
-**Q: How does the search integration work?**  
-A: When adding entries with `/bracket manage-titles action:"Add Title"`, the bot searches TMDB (movies/TV), RAWG (video games), BoardGameGeek (board games), or Google Books. If it finds a single match, it's added automatically. If multiple matches are found, you'll see a selection menu (just like `/movie` or `/tv`) where you can choose the exact title you want.
+**Q: How does the search work?**  
+A: `/bracket manage-titles action:add` searches TMDB (movies/TV), RAWG (games), BoardGameGeek (board games), or Google Books. One match is added right away. Several matches show a menu so you can pick the right one.
 
 **Q: Who can create and manage tournaments?**  
-A: Only server administrators and moderators can create, manage, and advance tournaments. All members can vote.
+A: Server administrators and moderators. Everyone can vote.
 
 **Q: How do wildcards work?**  
-A: After group stage, the top 2 from each group advance automatically. Then the system calculates how many third-place finishers are needed to reach the next power of 2 (4, 8, 16, or 32), capped at one per group since each group only has one third-place finisher. For example: 12 groups = 24 direct + 8 wildcards = 32 total; 9 groups = 18 direct + 9 wildcards = 27 total. When the field doesn't fill the bracket exactly (27 of 32 slots, say), the remaining slots become byes — the highest finishers advance through round 1 without a vote.
+A: Groups tournaments only. The top 2 from each group go through. The best third-place finishers then fill the knockout up to the next power of 2 (4, 8, 16, or 32), at most one per group. For example: 12 groups = 24 + 8 wildcards = 32; 9 groups = 18 + 9 wildcards = 27. Leftover slots (5 of 32 in that case) become byes, and the group winners get them.
 
 **Q: What happens if there's a tie?**  
-A: The bot automatically creates a short tiebreaker voting round (default 1 hour, configurable). A voting embed is posted with a button for each tied option — members click a button to cast their vote and can change it any time before the deadline. Live vote counts update in the embed as votes come in. When the deadline passes, the scheduler automatically tallies votes and resolves the tie (random fallback if nobody voted). Admins can also end a tiebreaker early with `/bracket resolve-tiebreaker` — leave the `winner` blank to resolve by current votes, or specify a number to manually override.
+A: The bot starts a short tiebreaker vote (1 hour by default) with a button for each tied option. At the deadline it counts the votes and resolves the tie, picking at random if nobody voted. Admins can settle one early with `/bracket resolve-tiebreaker`: leave `winner` blank to go by the current votes, or give a number to choose the winner.
 
 **Q: Can users change their votes?**  
-A: Yes! Users can change their votes anytime before the group or matchup is closed.
+A: Yes, any time before the group or matchup closes.
 
-**Q: Can we run multiple tournaments at once?**  
-A: No, only one tournament can be active per server at a time. You must cancel or complete the current tournament before starting a new one.
+**Q: Can we run more than one tournament at once?**  
+A: No. One tournament per server. Cancel or finish the current one before starting another.
 
 ---
 
 ## 🚀 Quick Start Guide
 
-**Want to run your first tournament? Here's a complete walkthrough from creation to crowning a champion!**
+This walks through a small straight bracket from creation to a champion. For a groups tournament, see [Setup & Group Stage](./setup).
 
-### Step 1: Create Tournament (Admin Only)
-
-```
-/bracket create name:Horror Movie Showdown groups:4
-```
-
-✅ Tournament created! Only you can see this message. Continue setup privately.
-
-### Step 2: Add 4 Titles to Each Group (Admin Only)
-
-**Group A:**
-```
-/bracket manage-titles action:"Add Title" group:A type:movie title:The Thing
-/bracket manage-titles action:"Add Title" group:A type:movie title:Alien
-/bracket manage-titles action:"Add Title" group:A type:movie title:The Exorcist
-/bracket manage-titles action:"Add Title" group:A type:movie title:The Shining
-```
-
-**Repeat for Groups B, C, D** with different movies.
-
-💡 **Tip:** If multiple matches appear, you'll see a dropdown menu to select the exact title you want (just like `/movie`).
-
-### Step 3: Announce Tournament (Admin Only)
+### Step 1: Create the Tournament (Admin Only)
 
 ```
-/bracket announce message:🎬 Horror Movie Tournament starts NOW! Vote for your favorites!
+/bracket create name:"Horror Movie Showdown" max-titles:8
 ```
 
-📢 Now everyone can see the tournament exists!
+✅ Only you can see the reply, so you can set up privately.
 
-### Step 4: Open Groups for Voting (Admin Only)
+::: tip Setting up many titles?
+Instead of Steps 1–2, run `/bracket setup-link` and use the [setup form](./import) to upload a CSV or JSON file or fill the tournament in.
+:::
+
+### Step 2: Add Titles (Admin Only)
 
 ```
-/bracket open-groups groups:A,B,C,D duration:24h
+/bracket manage-titles action:add type:movie title:"The Thing"
+/bracket manage-titles action:add title:"Alien"
+/bracket manage-titles action:add title:"The Exorcist"
+/bracket manage-titles action:add title:"The Shining"
 ```
 
-🗳️ Members can now vote! They'll see a balanced 2x2 grid of all groups.
+Add up to 8. `type` is only needed on the first one.
 
-**→ [Learn more about setup and group voting](./setup)**
+💡 **Tip:** If several matches come up, pick the right one from the menu. Check what you've added with `/bracket list-groups`.
+
+### Step 3: Announce the Tournament (Admin Only)
+
+```
+/bracket announce message:"🎬 Horror Movie Showdown starts NOW! Vote for your favorites!"
+```
+
+📢 Now everyone can see it.
+
+### Step 4: Open Round One (Admin Only)
+
+```
+/bracket open duration:24h
+```
+
+The bot builds the bracket (random seeding by default) and opens the first round.
+
+**→ [Learn more about setup, seeding, and groups](./setup)**
 
 ### Step 5: Members Vote (Everyone)
 
-Click the **"Start Voting"** button on the voting message to see your options!
+Click **Start Voting** on the voting message to get your personal voting dashboard.
 
-**How voting works:**
-- Click 2 buttons to select your favorites in each group
-- Your selections are saved instantly
-- You can change your votes anytime before voting closes
+![Personal Voting Dashboard](/images/examples/tournaments/voting-dashboard.png)
+*Personal voting dashboard tracks your progress and streak*
 
-Check your voting status: `/bracket my-votes`
+- Pick one title in each matchup.
+- Your choices are saved right away and you can change them before voting closes.
+- Check your votes any time with `/bracket my-votes`.
 
-### Step 6: Close Group Voting (Admin Only)
-
-```
-/bracket close-groups groups:A,B,C,D
-```
-
-📊 Results calculated! Top 2 from each group advance. Best 3rd place finishers become wildcards.
-
-💡 **Tip:** Add `tiebreaker-duration:30m` if you want faster tiebreaker rounds!
-
-### Step 7: Advance to Knockout (Admin Only)
+### Step 6: Close the Round (Admin Only)
 
 ```
-/bracket advance-knockout
+/bracket close
 ```
 
-🏆 Knockout bracket generated!
+The bot closes every open matchup in the round and moves the winners on. Ties start a short tiebreaker vote. Voting also closes by itself at the deadline.
 
-**Check tournament status anytime:**
+**Check progress any time:**
 
 ```
 /bracket status
@@ -140,69 +134,20 @@ Check your voting status: `/bracket my-votes`
 ![Tournament Status](/images/examples/tournaments/tournament-status.png)
 *Tournament status showing active knockout voting with live vote counts*
 
-### Step 8: Open Knockout Round (Admin Only)
+### Step 7: Repeat for Each Round
 
-**🆕 Use the smart command (recommended):**
-
-```
-/bracket open duration:24h
-```
-
-The bot automatically detects which round you're in and opens all matchups!
-
-**Or use granular control for specific matchups:**
+Open → Vote → Close, until the final:
 
 ```
-# Open specific matchups
-/bracket open-matchup matchup:1A,1B,2A duration:24h
-
-# Leave matchup parameter blank for interactive button selection
-/bracket open-matchup duration:24h
-```
-
-💡 **Regional Labels:** Matchups use labels like **1A, 1B, 2C, 2D** for easy reference across 4 regions.
-
-**→ [Learn about knockout rounds and regional system](./knockout)**
-
-### Step 9: Members Vote on Matchups (Everyone)
-
-Click the **"Start Voting"** button to get your personal voting dashboard.
-
-![Personal Voting Dashboard](/images/examples/tournaments/voting-dashboard.png)
-*Personal voting dashboard tracks your progress and streak*
-
-**What you'll see:**
-- 🗳️ All open matchups with buttons to vote
-- 🔥 Your voting streak and total votes
-- 💜 Purple buttons show your current selections
-- ⚡ Real-time updates as you vote
-- 📊 Live standings visible to everyone
-
-### Step 10: Close Voting & Advance Winners (Admin Only)
-
-**🆕 Use the smart command (recommended):**
-
-```
+/bracket open
 /bracket close
 ```
 
-The bot automatically detects which round you're in, closes all matchups, and advances winners!
+For finer control, open or close single matchups with `/bracket open-matchup` and `/bracket close-matchup`.
 
-**Or use granular control for specific matchups:**
+**→ [Learn about knockout rounds and regions](./knockout)**
 
-```
-/bracket close-matchup matchup:1A,2B
-```
-
-🏁 Winners auto-advance to next round! Ties automatically create short tiebreaker votes.
-
-### Step 11: Repeat for Each Round
-
-Continue the cycle: Open → Vote → Close → Auto-Advance
-
-**Rounds progress:** Round of 16 → Quarterfinals → Semifinals → Finals
-
-### Step 12: Champion Crowned! 🏆
+### Step 8: Champion Crowned! 🏆
 
 ```
 🏆 Tournament Complete!
@@ -216,19 +161,17 @@ Congratulations! 🎉
 ## 💡 Pro Tips
 
 **Timing & Pacing:**
-- Use `duration:48h` for slower-paced tournaments
-- Use `duration:1h` for live events
-- Open matchups individually or by region for dramatic pacing
+- Use `duration:48h` for slower tournaments and `duration:1h` for live events.
+- Open matchups one at a time or by region for drama.
 
 **Keep Members Engaged:**
-- Announce when new groups/rounds open
-- Remind members to check `/bracket my-votes`
-- Share `/bracket view` to show visual bracket
+- Announce when new groups or rounds open.
+- Remind members to check `/bracket my-votes`.
+- Share `/bracket view` to show the bracket as an image.
 
 **Manage Efficiently:**
-- Use `/bracket status` to check progress anytime
-- Use `/bracket list-groups` for simple text overview
-- Open 4 groups at a time to avoid overwhelming voters
+- `/bracket status` shows progress and live vote counts.
+- `/bracket list-groups` gives a plain numbered list of titles.
 
 **→ [See more tips and advanced features](./tips)**
 
@@ -236,22 +179,31 @@ Congratulations! 🎉
 
 ## Tournament Structure
 
-### Phase 1: Group Stage
+### Straight Bracket
 
-- **4-12 groups** (A through L) with 4 entries each
-- Smart search integration with selection menus
-- Members vote for top 2 in each group
-- Top 2 advance automatically + wildcards if needed
+- 2 to 32 titles, no groups
+- `/bracket open` builds the bracket and opens round one
+- Seeding is random by default, or ordered (your list order) through the [setup form](./import)
+
+### Groups Tournament
+
+**Phase 1: Group Stage**
+- 4–12 groups (A through L), exactly 4 titles each
+- Members pick their top 2 in each group
+- Top 2 go through, plus wildcards if needed
+
+**Phase 2: Knockout**
+- `/bracket open` starts it once every group is closed
+- Continues like a straight bracket
 
 **→ [Complete setup guide](./setup)**
 
-### Phase 2: Knockout Bracket
+### Knockout Rounds (both shapes)
 
-- **Single-elimination tournament** starting at Round of 32 (or smaller)
-- **Regional organization**: Left side (Region 1), Right side (Region 2)
-- **Flexible opening**: Open entire round, by region, or individual matchups
-- Winners automatically advance to next round
-- Rounds: Round of 32 → Round of 16 → Quarterfinals → Semifinals → Finals
+- Single elimination: Round of 32 → Round of 16 → Quarterfinals → Semifinals → Finals
+- Matchups are labeled by region (1A, 2B, …) across 4 regions
+- Open a whole round, one region, or single matchups
+- Winners move on automatically
 
 **→ [Complete knockout guide](./knockout)**
 
@@ -259,30 +211,31 @@ Congratulations! 🎉
 
 ## Key Features
 
-✅ **Smart Search Integration** - TMDB, RAWG, BGG, and Google Books with selection menus  
-✅ **Flexible Voting** - Customizable durations (5 minutes to 30 days)  
-✅ **Regional System** - Organize matchups by left/right sides with clear labels  
-✅ **Auto-Advancement** - Winners automatically populate next round  
-✅ **Visual Brackets** - Generate beautiful PNG bracket images  
-✅ **AI Images** - Generate custom matchup vs images with OpenAI  
-✅ **Deadline Tracking** - Shows time remaining on all voting embeds  
-✅ **Voting Dashboard** - Members can check their voting status anytime  
-✅ **Granular Control** - Open/close entire rounds, regions, or individual matchups  
+✅ **Search Integration** - TMDB, RAWG, BGG, and Google Books with selection menus  
+✅ **Setup Form** - Upload a CSV or JSON file, or fill in a form  
+✅ **Flexible Voting** - Durations from 5 minutes to 30 days  
+✅ **Regions** - Matchups labeled by region for easy reference  
+✅ **Auto-Advancement** - Winners fill the next round automatically  
+✅ **Visual Brackets** - `/bracket view` draws the bracket as an image  
+✅ **Deadline Tracking** - Every voting message shows time remaining  
+✅ **Voting Dashboard** - Members see which matchups they've voted in  
+✅ **Granular Control** - Open or close whole rounds, regions, or single matchups  
 
 ---
 
 ## Documentation
 
-- **[Setup & Group Stage](./setup)** - Create tournaments, add titles, manage group voting
-- **[Knockout Rounds](./knockout)** - Regional system, opening options, managing knockout bracket
-- **[Command Reference](./commands)** - Complete list of all bracket commands
-- **[Tips & Strategies](./tips)** - Advanced features, AI images, pacing strategies
+- **[Setup & Group Stage](./setup)** - Create tournaments, add titles, run the group stage
+- **[Setup Form](./import)** - Set up a tournament from a CSV or JSON file
+- **[Knockout Rounds](./knockout)** - Regions, opening options, running the knockout
+- **[Command Reference](./commands)** - Every bracket command
+- **[Tips & Strategies](./tips)** - Pacing, extending deadlines, AI images
 
 ---
 
 ## Need Help?
 
-- Check [Command Reference](./commands) for specific command details
-- See [Tips & Strategies](./tips) for advanced workflows
-- Use `/bracket status` to check tournament progress anytime
-- Use `/bracket my-votes` to see your voting status
+- Check the [Command Reference](./commands) for command details
+- See [Tips & Strategies](./tips) for pacing ideas
+- Use `/bracket status` to check tournament progress
+- Use `/bracket my-votes` to see your own votes

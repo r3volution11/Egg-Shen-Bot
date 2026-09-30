@@ -1,506 +1,199 @@
 ---
 title: Knockout Rounds - Tournament Brackets
-description: Manage single-elimination knockout rounds with regional bracket system, flexible opening commands, and automatic advancement for Discord tournament brackets.
+description: Run single-elimination knockout rounds with the smart open and close commands, regional matchup labels, and automatic advancement.
 ---
 
 # Knockout Rounds
 
-**Advance winners through single-elimination rounds** from Round of 32 through Finals. Features a regional bracket system with flexible opening options - open entire rounds, specific regions, or individual matchups for maximum control over tournament pacing.
+Knockout rounds are single elimination, from Round of 32 through the Finals. A straight bracket is knockout from the start. A groups tournament reaches it when every group is closed and you run `/bracket open` (see [Starting the Knockout](./setup#starting-the-knockout)).
 
-## Regional Bracket System
+Most of the time you only need two commands:
 
-**The bracket uses a regional identification system** to organize matchups into left and right sides of the bracket. This makes it easier to reference specific matchups and manage voting by region.
+```
+/bracket open     # open the current round
+/bracket close    # close it and move the winners on
+```
 
-### Regional Labels
+For finer control, `/bracket open-matchup` and `/bracket close-matchup` work on single matchups or one region at a time.
 
-Each matchup has a **regional label** combining region number and letter:
-- **Region 1 (Left Side)**: Matchups labeled 1A, 1B, 1C, 1D...
-- **Region 2 (Right Side)**: Matchups labeled 2A, 2B, 2C, 2D...
+## Regional Labels
 
-**Examples by Round:**
-- **Round of 16** (8 matchups): Left = 1A-1D, Right = 2A-2D
-- **Quarterfinals** (4 matchups): Left = 1A-1B, Right = 2A-2B
-- **Semifinals** (2 matchups): Left = 1A, Right = 2A
-- **Finals**: No regional designation (just "Finals")
+Each round is split into **4 regions**, March Madness style. A matchup's label is its region number plus a letter:
 
-### Opening Options
+| Round | Matchups | Labels |
+|-------|----------|--------|
+| Round of 32 | 16 | 1A–1D, 2A–2D, 3A–3D, 4A–4D |
+| Round of 16 | 8 | 1A, 1B, 2A, 2B, 3A, 3B, 4A, 4B |
+| Quarterfinals | 4 | 1A, 2A, 3A, 4A |
+| Semifinals | 2 | 1A, 3A |
+| Finals | 1 | Finals |
 
-You have **multiple ways** to open knockout matchups:
-
-#### Round-Specific Commands (Recommended)
-
-**The easiest way** - use memorable commands for each round:
-
-- `/bracket open-quarters` - Open Quarterfinals (4 matchups)
-- `/bracket open-semis` - Open Semifinals (2 matchups)  
-- `/bracket open-finals` - Open Finals (1 matchup)
-
-**Benefits:**
-- Clear and memorable
-- Self-documenting (command name shows what round)
-- Bot suggests exact command after closing previous round
-- Same `duration` parameter as generic commands
-
-#### Generic Commands
-
-**Fallback option** - works for any round:
-
-1. **Entire Round**: `/bracket open-knockout` - Opens all matchups in current round
-2. **Single Matchup**: `/bracket open-matchup matchup:1A` - Opens one specific matchup
-
-#### Flexibility Benefits
-
-This flexibility allows you to:
-- Use round-specific commands for clarity (`/bracket open-finals`)
-- Open individual matchups for maximum drama (`/bracket open-matchup matchup:1A`)
-- Pace voting by opening matchups one at a time or all at once
+`/bracket status` shows the labels of open matchups. The button pickers described below show them too.
 
 ---
 
-## Round-Specific Opening Commands
+## Opening a Round
 
-### Open Quarterfinals
-
-```
-/bracket open-quarters duration:[time]
-```
-
-Opens all 4 Quarterfinal matchups (1A, 1B, 2A, 2B).
-
-**Same as:** `/bracket open-knockout` when in Quarterfinals round
-
-### Open Semifinals
+### `/bracket open`
 
 ```
-/bracket open-semis duration:[time]
+/bracket open duration:<time>
 ```
 
-Opens both Semifinal matchups (1A, 2A).
-
-**Same as:** `/bracket open-knockout` when in Semifinals round
-
-### Open Finals
-
-```
-/bracket open-finals duration:[time]
-```
-
-Opens the single Finals matchup.
-
-**Same as:** `/bracket open-knockout` when in Finals round
-
----
-
-## Open Knockout Round (Generic)
-
-```
-/bracket open-knockout duration:[time]
-```
+Opens every matchup in the current round that has both titles in place.
 
 **Parameters:**
+- `duration` (optional) - How long voting stays open, from 5m to 30d. Examples: `30m`, `24h`, `3d`.
 
-- `duration` (optional) - Voting duration (default: 24h, range: 5m-30d)
-  - Format: Number + unit (m=minutes, h=hours, d=days)
-  - Examples: "5m", "2h", "24h", "3d", "7d", "30d"
+If `duration` is left out, the bot uses the default voting duration set in the [setup form](./import). If the form didn't set one, the default is 24h.
 
 **Who can use:** Administrators and Moderators only
 
-**Features:**
-
-- Opens **all matchups** in current round for voting (both regions)
-- Creates interactive voting buttons for each matchup
-- **Customizable voting duration** (5 minutes to 30 days)
-- **Displays time remaining** and exact deadline in main embed
-- Shows real-time vote counts with regional labels
-- One vote per user per matchup (can change vote anytime)
-- Vote updates immediately when clicked
-
-**Requirements:**
-
-- Tournament must be in knockout phase
-- Current round matchups must have both participants ready
-- Cannot open if matchups already voting
+**Rounds with more than 5 matchups** (Round of 32, Round of 16) are too many for one voting session. `/bracket open` tells you to open them by region with `/bracket open-matchup` instead.
 
 **Examples:**
-
 ```
-# Default 24 hour voting for all matchups
-/bracket open-knockout
-
-# 2 day voting period for slower pace
-/bracket open-knockout duration:48h
-
-# Quick 30 minute round for live events
-/bracket open-knockout duration:30m
-
-# Week-long finals voting
-/bracket open-knockout duration:7d
+/bracket open
+/bracket open duration:48h
+/bracket open duration:30m
 ```
 
-**Output:**
+### How members vote
 
-```
-📊 Round of 16 Voting Open!
+The voting message has a **Start Voting** button. Clicking it opens a personal voting dashboard (only that member sees it):
 
-8 matchups are now open for voting.
-Vote for ONE title in each matchup below.
-
-⏰ Voting closes in: 23h 45m
-
-[For each matchup:]
-Round of 16 - Matchup 1A
-Movie A vs Movie B
-5 votes    vs    3 votes
-[Button: Movie A] [Button: Movie B]
-
-Round of 16 - Matchup 2A
-Movie C vs Movie D
-3 votes    vs    7 votes
-[Button: Movie C] [Button: Movie D]
-...
-
-Deadline: 6/27/2026, 11:00:00 PM
-```
-
-**User Experience:**
-
-- Members click buttons to vote for their choice
-- **Personal voting dashboard appears** (only visible to that user)
-- **Dashboard updates in real-time** showing all matchups with checkmarks (✅) for voted, (⬜) for not voted
-- **Track progress easily** - "3 of 8 voted" with color-coded status (Gray → Blue → Green)
-- **Perfect for large rounds** - See all your votes in Round of 32 (16 matchups), Round of 16 (8 matchups), etc.
-- Can change vote by clicking different button
-- Vote counts update in real-time on all messages
-- Clear deadline shown so members know when voting ends
+- Every open matchup, with a button for each title
+- A check mark next to each matchup already voted in
+- Choices save right away and can be changed until the matchup closes
 
 ![Personal Voting Dashboard](/images/examples/tournaments/voting-dashboard.png)
 *Personal voting dashboard with voting streak and stats*
 
-**Live Standings:**
-- Real-time public leaderboard shows all matchup vote counts
-- Color-coded progress bars indicate vote percentages (green = winning, yellow = close, red = losing)
-- Updates automatically as votes come in
-- Visible to all members in the channel
+Live vote counts are visible to everyone:
 
 ![Live Tournament Standings](/images/examples/tournaments/live-standings.png)
 *Live standings with color-coded progress bars*
 
-**When to use:**
-- Fast-paced tournaments where all voting happens simultaneously
-- Simple management - one command opens entire round
-- Works best for active communities with high engagement
-
 ---
 
-## Open Region
+## Opening Part of a Round
+
+### `/bracket open-matchup`
 
 ```
-/bracket open-region region:[1 or 2] duration:[time]
+/bracket open-matchup matchup:<labels> duration:<time>
+/bracket open-matchup region:<1-4> duration:<time>
+/bracket open-matchup duration:<time>
 ```
 
 **Parameters:**
-
-- `region` (required) - Region number (1=left side, 2=right side)
-- `duration` (optional) - Voting duration (default: 24h, range: 5m-30d)
-  - Format: Number + unit (m=minutes, h=hours, d=days)
-  - Examples: "5m", "2h", "24h", "3d", "7d", "30d"
+- `matchup` (optional) - One label or several, comma-separated: `1A`, `2B,3A`, `Finals`
+- `region` (optional) - 1 to 4. Opens every matchup in that region of the current round.
+- `duration` (optional) - 5m to 30d. Same default as `/bracket open`.
 
 **Who can use:** Administrators and Moderators only
 
-**Features:**
+**With nothing but `duration`**, the bot shows buttons:
+- More than 5 matchups in the round: one button per region.
+- 5 or fewer: one button per pending matchup.
 
-- Opens **all matchups in one region** for voting
-- Perfect for **splitting rounds** across multiple days
-- Same voting interface as full-round opening
-- Creates suspense by releasing regions separately
-- **Customizable duration** per region
+Buttons expire after 15 minutes.
 
-**Use Cases:**
+#### Open by region
 
-- **Region-by-region pacing**: Open left side Monday, right side Wednesday
-- **Balanced scheduling**: Split workload across days
-- **Geographic theming**: "East Coast vs West Coast" narratives
-- **Build anticipation**: Keep one region hidden while the other votes
-
-**Examples:**
+Use this for Round of 32 and Round of 16, or to spread a round over several days:
 
 ```
-# Open all left side matchups
-/bracket open-region region:1 duration:24h
-
-# Open all right side matchups with 2-day voting
-/bracket open-region region:2 duration:48h
-
-# Quick 6-hour regional vote
-/bracket open-region region:1 duration:6h
+/bracket open-matchup region:1 duration:24h
+/bracket open-matchup region:2 duration:24h
 ```
 
-**Output:**
+::: warning
+Opening a region only opens its matchups that haven't been voted on yet. Matchups already voting keep their votes, and decided ones keep their results; the reply lists them.
+:::
+
+#### Open single matchups
 
 ```
-📊 Round of 16 - Region 1 Voting Open! (Left Side)
-
-4 matchups in Region 1 are now open for voting.
-
-⏰ Voting closes in: 23h 45m
-
-[Shows matchups 1A, 1B, 1C, 1D with voting buttons]
-
-Deadline: 6/27/2026, 11:00:00 PM
-```
-
-**Strategy Tips:**
-
-- Open Region 1 (left) on Monday, Region 2 (right) on Wednesday
-- Use different durations for each region if desired
-- Helps spread engagement throughout the week
-- Creates natural discussion points around each region
-
----
-
-## Open Individual Matchup
-
-```
-/bracket open-matchup matchup:[regional label] duration:[time]
-```
-
-**Parameters:**
-
-- `matchup` (required) - Regional matchup label (e.g., "1A", "2B", "1C")
-- `duration` (optional) - Voting duration (default: 24h, range: 5m-30d)
-  - Format: Number + unit (m=minutes, h=hours, d=days)
-  - Examples: "5m", "2h", "24h", "3d", "7d", "30d"
-
-**Who can use:** Administrators and Moderators only
-
-**Features:**
-
-- Opens a **single specific matchup** for voting (instead of entire round or region)
-- Creates interactive voting buttons for that matchup
-- **Perfect for pacing** - space out matchups over days
-- **Build suspense** - feature one matchup at a time
-- **Customizable duration** per matchup
-- Shows time remaining and deadline
-- Uses **regional labels** for easy identification
-
-**Use Cases:**
-
-- **One matchup per day**: Open 1A Monday, 1B Tuesday, 2A Wednesday, etc.
-- **Spotlight matchups**: Feature important matchups individually
-- **Flexible pacing**: Mix and match with full-round or regional opening
-- **Drama building**: Create anticipation for each battle
-- **Featured match**: Highlight "match of the week"
-
-**Examples:**
-
-```
-# Open specific left-side matchup
 /bracket open-matchup matchup:1A
+/bracket open-matchup matchup:1A,1B,2A duration:24h
+/bracket open-matchup matchup:Finals duration:3d
+```
 
-# Open specific right-side matchup with 3-day voting
-/bracket open-matchup matchup:2B duration:3d
+Good for a "match of the day", or for spacing out the semifinals and final.
 
-# Quick 6-hour vote for semifinals matchup
-/bracket open-matchup matchup:1A duration:6h
+---
+
+## Closing a Round
+
+### `/bracket close`
+
+```
+/bracket close tiebreaker-duration:<time>
+```
+
+Closes every open matchup in the current round and moves the winners into the next round.
+
+**Parameters:**
+- `tiebreaker-duration` (optional) - How long a tiebreaker vote runs, from 5m to 7d
+
+If `tiebreaker-duration` is left out, the bot uses the default set in the [setup form](./import). If the form didn't set one, the default is 1h.
+
+**Who can use:** Administrators and Moderators only
+
+**What happens:**
+- The title with more votes wins each matchup.
+- A tied matchup starts a tiebreaker vote. The winner moves on when it resolves, at its deadline or through `/bracket resolve-tiebreaker`.
+- When every matchup in the round is closed, the tournament moves to the next round. Run `/bracket open` to start it.
+- Closing the Finals ends the tournament and names the champion.
+
+Voting also closes by itself at the deadline, with a reminder posted beforehand.
+
+**Examples:**
+```
+/bracket close
+/bracket close tiebreaker-duration:30m
 ```
 
 **Output:**
-
 ```
-📊 Round of 16 - Matchup 1A Open! (Left Side)
+✅ Quarterfinals Closed
+Closed 4 matchups
 
-Voting is now open for this matchup.
-
-⏰ Voting closes in: 23h 45m
-
-Round of 16 - Region 1 - Matchup 1A
-Movie A vs Movie B
-0 votes    vs    0 votes
-[Button: Movie A] [Button: Movie B]
-
-Deadline: 6/27/2026, 11:00:00 PM
+🏆 Winners
+• 1A: The Thing (15 vs 8)
+• 2A: Alien (12 vs 11)
+...
 ```
-
-**Strategy Tips:**
-
-- Open high-profile matchups individually for maximum engagement
-- Use different durations to keep tournament dynamic
-- Great for "featured match of the day" approach
-- Combine with `/bracket announce` to spotlight important battles
-- Perfect for spacing out semifinals or finals voting
-
----
-
----
-
-## Round-Specific Closing Commands
-
-**Recommended approach** - use clear, self-documenting commands for each round:
-
-### Close Quarterfinals
-
-```
-/bracket close-quarters
-```
-
-Closes all Quarterfinal matchups and advances winners to Semifinals.
-
-**Output includes:** "Winners have advanced to Semifinals. Run `/bracket open-semis` to start voting!"
-
-### Close Semifinals
-
-```
-/bracket close-semis
-```
-
-Closes both Semifinal matchups and advances winners to Finals.
-
-**Output includes:** "Winners have advanced to Finals. Run `/bracket open-finals` to start voting!"
-
-### Close Finals
-
-```
-/bracket close-finals
-```
-
-Closes the Finals matchup and declares the tournament winner!
-
-**Output:** "🏆 Tournament Complete! [Winner] is the champion!"
-
-**Benefits of Round-Specific Commands:**
-- Clear command names show exactly what round you're closing
-- Bot suggests the next command to run after closing
-- Reduces confusion about tournament progression
-- Same functionality as generic `/bracket close-knockout`
 
 ![Round Complete Results](/images/examples/tournaments/round-complete.png)
 *Round completion results with winner announcements*
 
 ---
 
-## Close Knockout Round (Generic)
+### `/bracket close-matchup`
 
 ```
-/bracket close-knockout
+/bracket close-matchup matchup:<labels> tiebreaker-duration:<time>
+/bracket close-matchup
 ```
 
-**Parameters:** None
-
-**Who can use:** Administrators and Moderators only
-
-**Features:**
-
-- Closes all voting in current round
-- Determines winner for each matchup
-- **Automatically advances winners to next round**
-- **Auto-updates tournament phase** when round complete
-- Handles ties with random selection
-- Detects tournament completion (after finals)
-
-**Requirements:**
-
-- Tournament must be in knockout phase
-- At least one matchup must be in voting status
-
-**Output:**
-
-```
-🏁 Round of 16 Complete!
-
-8 matchups closed. Here are the winners:
-
-Matchup 1A
-Movie A (15 vs 8) defeats Movie B
-
-Matchup 1B
-Movie C (12 vs 11) defeats Movie D
-...
-
-Winners have advanced to Quarterfinals.
-Use /bracket open-knockout to start voting!
-```
-
-**After Finals:**
-
-```
-🏆 Tournament Complete!
-
-Movie Title is the champion!
-Congratulations! 🎉
-```
-
-**What Happens:**
-
-- All voting matchups in current round are closed
-- Winners determined (higher votes win, random if tied)
-- **Winners automatically populate next round matchups**
-- **Tournament phase advances** (e.g., Round of 16 → Quarterfinals)
-- If finals complete, tournament status changes to "completed"
-- Bracket visualization updates with results
-
----
-
-## Close Individual Matchup
-
-```
-/bracket close-matchup matchup:[regional label]
-```
+Closes one or more open matchups and moves their winners on.
 
 **Parameters:**
-
-- `matchup` (required) - Regional matchup label (e.g., "1A", "2B", "1C")
+- `matchup` (optional) - One label or several, comma-separated. Leave it out to pick from buttons showing each open matchup and its vote count.
+- `tiebreaker-duration` (optional) - 5m to 7d. Same default as `/bracket close`.
 
 **Who can use:** Administrators and Moderators only
 
-**Features:**
-
-- Closes a **single specific matchup** and determines winner
-- **Auto-advances winner** when matchup closes
-- Shows final vote counts
-- Indicates if winner was automatically placed in next round
-- Uses **regional labels** for easy identification
-
-**Requirements:**
-
-- Tournament must be in knockout phase
-- Specified matchup must be open for voting
-
 **Examples:**
-
 ```
-# Close specific left-side matchup
 /bracket close-matchup matchup:1A
-
-# Close specific right-side matchup
-/bracket close-matchup matchup:2B
+/bracket close-matchup matchup:1A,2A tiebreaker-duration:30m
+/bracket close-matchup
 ```
 
-**Output:**
-
-```
-🏁 Round of 16 - Matchup 1A Complete! (Left Side)
-
-Movie A wins!
-
-Movie A (15 votes) vs Movie B (8 votes)
-
-✅ Auto-Advanced
-Movie A has been placed in the next round matchup.
-```
-
-**When All Matchups Close:**
-
-If this was the last matchup in the current round:
-```
-All matchups complete! Tournament has advanced to Quarterfinals.
-```
-
-**Strategy:**
-
-- Close matchups individually as voting wraps up
-- Don't need to wait for entire round to finish
-- Winners automatically slot into next round structure
-- Flexible pacing keeps tournament moving
+When the last matchup of a round closes, the tournament moves to the next round.
 
 ---
 
@@ -510,79 +203,41 @@ All matchups complete! Tournament has advanced to Quarterfinals.
 /bracket status
 ```
 
-**Parameters:** None
+Shows the current phase, each open matchup's vote count and time left (⚠️ when under an hour), and how many matchups are done.
 
-**Who can use:** All server members
-
-**Features:**
-
-- Shows current tournament phase and status
-- Displays progress information
-- Lists open voting opportunities
-- Shows completion counts
-
-**Example Output (During Knockout):**
+**Who can use:** Everyone
 
 ```
 🏆 The Ultimate Horror Cup
-Status: knockout
-Phase: round_of_16
+Status: knockout | Phase: semifinals
 
-Round Of 16
-Single elimination bracket
+📊 Active Matchups:
 
-Open matchups: 3
-Completed: 5
+Matchup 1A - 15 votes
+⏰ 18h 32m
+  Leading: The Thing (9)
 ```
 
 ---
 
-## View Visual Bracket
+## View the Bracket
 
 ```
 /bracket view
 ```
 
-**Parameters:** None
+Draws the tournament as an image.
 
-**Who can use:** All server members
+**Who can use:** Everyone
 
-**Features:**
+- During the knockout: the bracket tree, with each round, winners highlighted, and the champion once there is one.
+- Before the knockout: an overview of the tournament's groups and titles.
 
-- Generates a **professional tournament bracket tree** (like March Madness)
-- **Proper matchup pairing** - Each matchup shows two participants grouped together with clear visual borders
-- **Minimum 1200px width** - Wide, spacious layout for optimal readability
-- **Landscape participant boxes** (240px × 50px) - Easy to scan and read
-- **Left-aligned text** - Natural reading flow with smart truncation
-- **Clear bracket tree structure** - Connector lines show tournament progression through rounds
-- **Visual matchup grouping** - Container borders make it obvious which titles are competing
-- Displays participant names with **winner highlighting** (green boxes with ✓)
-- Shows **champion trophy** (70px) when tournament complete
-- Discord dark theme styling
-- Generated on-demand as high-quality PNG image attachment
-- **Only available during knockout phase**
+---
 
-**Visual Elements:**
+## Fixing a Bracket
 
-- Round labels (Round of 32/16, Quarterfinals, Semifinals, Finals)
-- Grouped participant boxes with clear matchup pairing
-- Type indicators (W/R/WC for Winner/Runner-up/Wildcard)
-- Green highlighting for winners with checkmarks on the right
-- Trophy emoji and "CHAMPION" label for winner
-- Bracket connector lines showing progression to next rounds
-
-**Example:**
-
-```
-/bracket view
-```
-
-**Output:**
-
-- High-quality PNG image showing the full tournament bracket
-- All matchups organized by round
-- Current state with completed and pending matches
-- Easy to share for social media or server announcements
+Groups tournaments only: `/bracket regenerate` rebuilds the knockout bracket from the group results. Seeding, wildcards, and matchups are worked out again, and any knockout voting already under way is discarded.
 
 ---
 
@@ -590,19 +245,20 @@ Completed: 5
 
 | Command | Purpose | Who Can Use |
 |---------|---------|-------------|
-| `/bracket open-knockout` | Open all matchups in current round | Admins/Mods |
-| `/bracket open-region` | Open all matchups in one region (1 or 2) | Admins/Mods |
-| `/bracket open-matchup` | Open single matchup by regional label | Admins/Mods |
-| `/bracket close-knockout` | Close all matchups and advance winners | Admins/Mods |
-| `/bracket close-matchup` | Close single matchup and advance winner | Admins/Mods |
-| `/bracket status` | View tournament progress and open votes | Everyone |
-| `/bracket view` | Generate visual bracket tree image | Everyone |
-| Click button | Vote for title in matchup | Everyone |
+| `/bracket open` | Open the current round | Admins/Mods |
+| `/bracket close` | Close the current round and move winners on | Admins/Mods |
+| `/bracket open-matchup` | Open one region or specific matchups | Admins/Mods |
+| `/bracket close-matchup` | Close specific matchups | Admins/Mods |
+| `/bracket resolve-tiebreaker` | Settle a tiebreaker early | Admins/Mods |
+| `/bracket extend-voting` | Set a new deadline for the round | Admins/Mods |
+| `/bracket status` | Progress and live vote counts | Everyone |
+| `/bracket view` | Bracket image | Everyone |
+| Start Voting button | Vote in open matchups | Everyone |
 
 ---
 
 **Related Pages:**
-- [← Back to Brackets Overview](index.md)
-- [Tournament Setup →](setup.md)
-- [All Commands →](/commands/)
-- [Tips & Strategies →](tips.md)
+- [← Back to Brackets Overview](./)
+- [Tournament Setup →](./setup)
+- [Command Reference →](./commands)
+- [Tips & Strategies →](./tips)

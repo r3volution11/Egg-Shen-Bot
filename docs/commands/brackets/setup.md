@@ -1,178 +1,142 @@
 ---
 title: Setup & Group Stage - Tournament Brackets
-description: Create tournaments, add titles, and manage group stage voting from start to knockout bracket.
+description: Create a tournament, add titles, and run the group stage through to the knockout bracket.
 ---
 
 # Setup & Group Stage
 
-This guide covers everything from creating your first tournament through completing the group stage and advancing to knockouts.
+This page covers creating a tournament, adding titles, and running the group stage up to the start of the knockout.
+
+You can set up a tournament with the commands below, one title at a time, or all at once with the [setup form](./import). Run `/bracket setup-link` (Admins/Mods) to get a private link to the form, then upload a CSV or JSON file or fill it in.
+
+## Two Tournament Shapes
+
+| Shape | Titles | How it runs |
+|-------|--------|-------------|
+| **Straight bracket** | 2–32, no groups | Head-to-head matchups from round one |
+| **Groups tournament** | 4–12 groups of exactly 4 titles | Group voting, then a knockout |
+
+`/bracket create` picks the shape from `max-titles`: 2–32 makes a straight bracket, 36–48 makes a groups tournament.
+
+---
 
 ## Creating Your Tournament
 
 ### `/bracket create`
 
 ```
-/bracket create name:[tournament name] groups:[4-12]
+/bracket create name:<text> max-titles:<2|4|8|16|32|36|40|44|48>
 ```
 
 **Parameters:**
-- `name` (required) - Tournament name (e.g., "The Ultimate Horror Cup")
-- `groups` (optional) - Number of groups (4-12, default 8). Each group has 4 entries.
+- `name` (required) - Tournament name, up to 100 characters
+- `max-titles` (optional) - Default 32
+  - **2, 4, 8, 16, 32** - Straight bracket. This is the most titles it can hold; you can start with fewer.
+  - **36, 40, 44, 48** - Groups tournament with 9, 10, 11, or 12 groups
 
 **Who can use:** Administrators and Moderators only
 
-**Features:**
-- **Ephemeral response** - Only visible to the admin/moderator who created it (keeps channel clean)
-- **Use `/bracket announce`** when ready to share tournament with the entire server
-- Only one tournament per server at a time
-- Tournament enters "setup" phase
-- Flexible sizing: smaller tournaments for quick events, larger for epic competitions
-- Wildcards calculated automatically based on group count
-- Type determined by first `/bracket add-title` command
+**Notes:**
+- The reply is private (only you see it). Use `/bracket announce` when you're ready to tell the server.
+- Only one tournament per server at a time.
+- The tournament type (movie, TV, game, board game, book) is set by the first title you add.
 
 **Examples:**
 ```
-/bracket create name:Quick Horror Showdown groups:4
-/bracket create name:Monthly Movie Madness groups:8
-/bracket create name:The Ultimate Horror Cup groups:12
+/bracket create name:"Quick Horror Showdown" max-titles:8
+/bracket create name:"Monthly Movie Madness" max-titles:32
+/bracket create name:"The Ultimate Horror Cup" max-titles:48
 ```
 
 ---
 
-## Adding Titles
+## Adding and Removing Titles
 
-### `/bracket add-title`
+### `/bracket manage-titles`
 
 ```
-/bracket add-title group:[A-L] type:[movie/tv/game/boardgame/book] title:[title] image:[attachment]
+/bracket manage-titles action:add type:<movie|tv|game|boardgame|book> title:<text> group:<A-L> image:<attachment>
+/bracket manage-titles action:remove position:<number> group:<A-L>
 ```
 
 **Parameters:**
-- `group` (required) - Group letter (A through L)
-- `type` (required) - Tournament type: movie, tv, game, boardgame, or book
-- `title` (required) - Title to search for
-- `image` (optional) - Custom image file or URL to use instead of API poster
+- `action` (required) - `add` or `remove`
+- `group` (optional) - Group letter, A–L. Groups tournaments only; leave it out in a straight bracket. When adding to a groups tournament without one, the title goes into the first group with room.
+- `type` (optional) - Needed for the first title. After that, the tournament's type is used if you leave it out.
+- `title` (required when adding) - Title to search for
+- `position` (required when removing) - The title's number from `/bracket list-groups`
+- `image` (optional, adding only) - Custom image that replaces the poster or cover art
 
 **Who can use:** Administrators and Moderators only
 
-**Features:**
-- **Smart search integration**: Automatically searches TMDB, RAWG, BGG, or Google Books based on type
-- **Selection menu for precision**: When multiple matches found, shows dropdown menu to choose exact title
-- **Single result auto-add**: If only one match found, adds it immediately
-- **Custom images**: Optionally provide a custom image (upload file or paste URL) that overrides the API poster
-- **Metadata storage**: Stores IDs, years, poster URLs, and ratings
-- **Progress tracking**: Shows how many titles added (e.g., "2/4 titles")
-- **Duplicate prevention**: Won't let you add same title twice to a group
-- **Type validation**: Prevents mixing different types in same tournament
-- **Add 1-4 titles per group**: Flexible - add titles one at a time until group has 4
+**Adding:**
+- Searches TMDB (movies/TV), RAWG (games), BoardGameGeek (board games), or Google Books.
+- One match is added right away. Several matches show a menu so you can pick the right one.
+- Every group in a groups tournament needs exactly 4 titles before voting can start.
+
+**Removing:**
+- In a straight bracket, `/bracket list-groups` shows every title as one numbered list. Use that number as `position`, with no group.
+- In a groups tournament, `position` is 1–4 within the group, and `group` is required.
+- The titles after the removed one move up a number. Check `/bracket list-groups` again before removing another.
 
 **Examples:**
 ```
-/bracket add-title group:A type:movie title:The Exorcist
-/bracket add-title group:A type:movie title:Halloween
+# Straight bracket
+/bracket manage-titles action:add type:movie title:"The Thing"
+/bracket manage-titles action:add title:"Halloween"
+/bracket manage-titles action:remove position:7
 
-# With custom images
-/bracket add-title group:D type:movie title:Akira image:[upload file]
+# Groups tournament
+/bracket manage-titles action:add group:A type:movie title:"The Exorcist"
+/bracket manage-titles action:add group:D title:"Akira" image:[upload file]
+/bracket manage-titles action:remove group:A position:3
 ```
 
-**Tips:**
-- Run command 4 times to fill each group (one title at a time)
-- Can be more general with titles - selection menu lets you pick exact match
-- Progress indicator shows "1/4 titles", "2/4 titles", etc.
-- Use `image` parameter to provide your own images instead of relying on API posters
+Titles can only be added or removed during setup.
 
 ---
 
 ## Managing Setup
 
-### `/bracket remove-title`
-
-```
-/bracket remove-title group:[A-L] position:[1-4]
-```
-
-Remove a title from a group during setup phase.
-
-**Parameters:**
-- `group` (required) - Group letter (A through L)
-- `position` (required) - Position of title to remove (1-4)
-
-**Examples:**
-```
-/bracket remove-title group:A position:3
-```
-
----
-
 ### `/bracket resize`
 
 ```
-/bracket resize groups:[4-12]
+/bracket resize groups:<4-12>
 ```
 
-Expand or contract the tournament during setup phase.
+Change the number of groups in a groups tournament. Setup only.
 
-**Parameters:**
-- `groups` (required) - New number of groups (4-12)
-
-**Features:**
-- **Expanding (e.g., 8 → 12):** Adds new groups (I, J, K, L) for more titles
-- **Contracting (e.g., 8 → 6):** Removes groups if they're empty
-- **Smart validation:** Prevents data loss by blocking contraction if groups being removed have titles
-- **Only during setup:** Cannot resize once voting has started
+- **Expanding** (e.g., 9 → 12) adds empty groups.
+- **Contracting** (e.g., 12 → 8) only works if the groups being removed are empty. Move or remove their titles first.
 
 **Examples:**
 ```
-# Expand from 8 groups to 12 groups
 /bracket resize groups:12
-
-# Contract from 12 groups to 8
-/bracket resize groups:8
+/bracket resize groups:4
 ```
-
-**Use Cases:**
-- Tournament grows larger than initially planned
-- Want to reduce empty groups before starting
-- Need more groups after starting to add titles
 
 ---
 
 ### `/bracket announce`
 
 ```
-/bracket announce message:[custom message] image:[banner image]
+/bracket announce message:<text> image:<attachment>
 ```
 
-Share the tournament with your entire server.
+Post a public announcement of the tournament.
 
 **Parameters:**
-- `message` (optional) - Custom announcement message to the server
-- `image` (optional) - Tournament banner or promotional image
+- `message` (optional) - Your own announcement text
+- `image` (optional) - A banner image
 
 **Who can use:** Administrators and Moderators only
 
-**Features:**
-- **Public announcement** - Visible to entire server (unlike create which is ephemeral)
-- **Custom messaging** - Add your own hype text or instructions
-- **Tournament banner** - Upload or link to promotional images
-- **Auto-generated details** - Shows tournament type, groups, entry count, and current status
-
 **Examples:**
 ```
-# Simple announcement
 /bracket announce
-
-# With custom message
-/bracket announce message:🎬 The Ultimate Horror Tournament is HERE! Vote for your favorite scary movies and help crown the champion! 🏆
-
-# With custom message and banner
-/bracket announce message:🔥 Monthly Movie Madness starts NOW! image:[upload banner]
+/bracket announce message:"🎬 The Ultimate Horror Cup starts NOW! Vote for your favorites!"
+/bracket announce message:"🔥 Monthly Movie Madness starts NOW!" image:[upload banner]
 ```
-
-**When to Use:**
-- **After setup** - When all groups are filled and you're ready to start voting
-- **Voting opens** - To remind members when group voting begins
-- **Knockout phase** - To generate hype for playoff rounds
 
 ---
 
@@ -182,209 +146,159 @@ Share the tournament with your entire server.
 /bracket list-groups
 ```
 
-Display a simple text overview of all groups and their titles.
+A text list of the tournament's titles.
 
-**Features:**
-- Shows all groups with their 4 titles
-- Includes years and metadata
-- Quick text-based reference
-- No images - perfect for mobile or quick checks
+- **Straight bracket:** one numbered list of every title.
+- **Groups tournament:** each group with its titles numbered 1–4, marked as voting open or closed.
+
+The numbers are the `position` that `manage-titles action:remove` takes.
 
 ---
 
-## Group Stage Voting
+## Starting Voting
 
-### `/bracket open-groups`
+### `/bracket open`
 
 ```
-/bracket open-groups groups:[group letters] duration:[time]
+/bracket open duration:<time>
 ```
 
-Open groups for voting.
+`/bracket open` works out what comes next and opens it. From setup:
+
+- **Straight bracket:** builds the bracket and opens round one. This is how a straight bracket starts. If round one has more than 5 matchups, the bot builds the bracket and asks you to open it by region with [`/bracket open-matchup`](./knockout#open-by-region).
+- **Groups tournament:** opens every group, as long as each one has 4 titles. If any are short, it lists them instead.
 
 **Parameters:**
-- `groups` (required) - Comma-separated group letters (e.g., "A,B,C,D")
-- `duration` (optional) - Voting duration (default: 24h, range: 5m-30d)
-  - Format: Number + unit (m=minutes, h=hours, d=days)
-  - Examples: "5m", "2h", "24h", "3d", "7d", "30d"
+- `duration` (optional) - How long voting stays open, from 5m to 30d. Examples: `45m`, `24h`, `3d`.
+
+If `duration` is left out, the bot uses the default voting duration set in the [setup form](./import). If the form didn't set one, the default is 24h.
+
+### How a straight bracket is built
+
+The bracket is sized to the next power of 2 at or above the number of titles. Any empty slots become byes: those titles go through round one without a vote.
+
+Seeding decides who meets whom:
+
+- **Random** (the default): titles are shuffled.
+- **Ordered** (set in the [setup form](./import)): the order of your list is the seed order. Seed 1 meets the lowest seed, 2 meets the second-lowest, and so on, and byes go to the top seeds.
+
+After round one opens, continue with [Knockout Rounds](./knockout).
+
+---
+
+## Group Stage
+
+### Opening groups
+
+`/bracket open` opens every group that hasn't voted yet. To open only some groups, use `/bracket open-groups`:
+
+```
+/bracket open-groups groups:<letters> duration:<time>
+```
+
+**Parameters:**
+- `groups` (required) - Comma-separated letters, e.g., `A,B,C,D`
+- `duration` (optional) - 5m to 30d. Same default as `/bracket open`.
 
 **Who can use:** Administrators and Moderators only
 
-**Features:**
-- Open multiple groups at once
-- Posts embed showing all titles in each group with **balanced layout**:
-  - 4 or fewer groups: 2x2 grid
-  - 5-9 groups: 3 groups per row
-  - 10+ groups: 4 groups per row
-- **Customizable voting duration** (5 minutes to 30 days)
-- **Displays time remaining** and exact deadline in embed footer
-- Voting opens immediately
-- Members can vote for top 2 in each group
-
 **Examples:**
 ```
-# Default 24 hour voting period
-/bracket open-groups groups:A,B,C,D
+# Open everything that's ready
+/bracket open
 
-# 48 hour voting period
+# Open groups in waves
 /bracket open-groups groups:A,B,C,D duration:48h
-
-# Week-long voting
-/bracket open-groups groups:I,J,K,L duration:7d
+/bracket open-groups groups:E,F,G,H duration:48h
 ```
 
-**Recommended Strategy:**
-- Open 4 groups per day to maintain engagement
-- Default 24h works well for most communities
-- Use longer periods (48h-7d) for slower-paced tournaments
-- Use shorter periods (1h-6h) for live events
+### How members vote
 
-**Automatic Voting Closure:**
-- ⏰ **1-hour warning** - Bot sends reminder when <1 hour remaining
-- 🔒 **Auto-close at deadline** - Voting automatically closes when time expires
-- 📊 **Results posted** - Final vote counts and advancing titles announced
-- 🚫 **Buttons disabled** - Voting message updated to show CLOSED status
-- **No manual intervention needed** - Tournament progresses automatically
+The voting message has a **Start Voting** button.
 
-**Benefits:**
-- Consistent tournament pacing without admin monitoring
-- Members get advance warning to cast final votes
-- Immediate results when voting ends
-- Reduces admin workload
-
----
-
-## Group Stage Voting
-
-### How Members Vote
-
-When an admin opens groups with `/bracket open-groups`, the bot posts an interactive voting message with **buttons for each title**.
-
-**Voting Process:**
-1. Click the button for a title to select it (button turns green)
-2. You'll see a **blue confirmation embed** showing "✅ 1 of 2 Selected" with a reminder to pick one more
-3. Click a second title to complete your vote (2 selections required)
-4. You'll see a **green confirmation embed** showing both your selections
-5. Click a selected title again to deselect it
-6. You can change your votes anytime before voting closes
+1. Click **Start Voting**.
+2. Pick your top 2 titles in each open group. Selected buttons turn green.
+3. Click a selected title again to deselect it.
+4. You can change your picks any time before the group closes.
 
 ![First-Time Voter Welcome](/images/examples/tournaments/first-vote-welcome.png)
 *What first-time voters see when they start voting*
 
-**Features:**
-- ✅ **No commands needed** - just click buttons
-- ✅ **Visual feedback** - selected buttons highlight in green
-- ✅ **Confirmation embeds** - See your selection progress (1 of 2, 2 of 2) in color-coded embeds
-- ✅ **Real-time counts** - see vote totals update live
-- ✅ **Change anytime** - modify your selections before deadline
-- ✅ **Clear constraints** - can only select 2 titles per group
-- ✅ **Pro tip reminders** - Each confirmation reminds you that you can change votes
+Members can check their progress with `/bracket my-votes` (only they see the reply).
 
-**Example:**
-```
-Group A
-1. The Thing (15 votes)
-2. Alien (12 votes)
-3. Event Horizon (8 votes)
-4. The Fly (10 votes)
+### Deadlines
 
-[Button for each title - click 2 to vote]
-```
+- The bot posts a reminder before a group's deadline.
+- Voting closes automatically at the deadline, and results are posted.
+- Closing does not open the next step. Run `/bracket open` when you're ready.
+- Use `/bracket extend-voting type:group group:A duration:12h` to set a new deadline. See [Tips & Strategies](./tips#extend-voting-deadline).
 
 ---
 
-### `/bracket my-votes`
+### Closing groups
 
 ```
-/bracket my-votes
+/bracket close tiebreaker-duration:<time>
+/bracket close-groups groups:<letters> tiebreaker-duration:<time>
 ```
 
-See your voting status and history.
-
-**Features:**
-- Shows which groups you've voted in
-- Shows available votes remaining
-- Displays time remaining for open voting
-- Lists knockout matchup votes
-- **Ephemeral** - Only you can see your voting status
-
----
-
-### `/bracket close-groups`
-
-```
-/bracket close-groups groups:[group letters]
-```
-
-Close group voting and calculate results.
+`/bracket close` closes every group that is voting. `/bracket close-groups` closes only the ones you list.
 
 **Parameters:**
-- `groups` (required) - Comma-separated group letters to close
+- `groups` (`close-groups` only, required) - Comma-separated letters
+- `tiebreaker-duration` (optional) - How long a tiebreaker vote runs, from 5m to 7d
 
-**Who can use:** Administrators and Moderators only
+If `tiebreaker-duration` is left out, the bot uses the default set in the [setup form](./import), or 1h if the form didn't set one.
 
-**Features:**
-- Closes voting and calculates results
-- Determines top 2 and third place for each group
-- Random tiebreaker for tied positions
-- Posts results publicly with vote counts
-- Shows medals: 🥇 First, 🥈 Second, 🥉 Third
+**What happens:**
+- Each group's 1st, 2nd, and 3rd place are worked out and posted.
+- If places are tied, the bot starts a short tiebreaker vote with a button for each tied title. It resolves itself at the deadline, or an admin can settle it early with `/bracket resolve-tiebreaker`.
+- A closed group can't be reopened.
 
 **Examples:**
 ```
+/bracket close
+/bracket close tiebreaker-duration:30m
 /bracket close-groups groups:A,B,C,D
-/bracket close-groups groups:E,F,G,H,I,J,K,L
 ```
 
-**Results Display:**
+**Results display:**
 ```
-🏁 Group A, B, C, D Results
-
-Group A
-🥇 The Exorcist (45 votes)
-🥈 Halloween (38 votes)
-🥉 Night of the Living Dead (22 votes)
+🏁 Group A Results
+🥇 The Exorcist
+🥈 Halloween
+🥉 Night of the Living Dead
 ```
 
 ---
 
-## Advancing to Knockout
+## Starting the Knockout
 
-### `/bracket advance-knockout`
+When every group is closed and every tiebreaker is settled, run `/bracket open` again:
 
 ```
-/bracket advance-knockout
-/bracket advance-knockout duration:"48h"
+/bracket open
+/bracket open duration:48h
 ```
 
-Generate the knockout bracket from group results and automatically start voting.
+It builds the knockout bracket and opens its first round. If some groups are still voting or in a tiebreaker, it lists them instead.
 
-**Who can use:** Administrators and Moderators only
+**How the knockout is filled:**
+- The top 2 from each group go through.
+- The best third-place finishers fill the remaining spots, up to the next power of 2 (at most one per group). These are the wildcards.
+- Group winners are placed first, so any byes go to them. Runners-up and wildcards are shuffled in.
+- Titles from the same group are kept apart in the first round where possible.
 
-**Parameters:**
-- `duration` (optional): How long voting stays open (e.g., "24h", "3d", "45m")
-  - Default: 24 hours
-
-**Features:**
-- Calculates best third-place finishers (wildcards)
-- Generates Round of 32 (or smaller) matchups
-- Pairs group winners with non-winners from different groups
-- Randomized seeding for fairness
-- Posts wildcard announcement
-- **Automatically opens voting** with customizable duration
-- Sends voting buttons for all first-round matchups
-- **Full bracket tree generated** - All rounds created upfront with TBD placeholders
-
-**Requirements:**
-- All groups must be closed
-- Can only be used once per tournament
+| Groups | Top 2 | Wildcards | Knockout starts at |
+|--------|-------|-----------|--------------------|
+| 4 | 8 | 0 | Quarterfinals |
+| 8 | 16 | 0 | Round of 16 |
+| 9 | 18 | 9 | Round of 32 (5 byes) |
+| 12 | 24 | 8 | Round of 32 |
 
 **Output:**
 ```
-🏆 Round Of 16 - Knockout Stage Begins!
-
-16 matchups created • 32 titles remain
-The tournament advances to single elimination!
+🏆 Round Of 32 - Knockout Stage Begins!
 
 🗳️ Voting is now open!
 Vote for ONE title in each matchup below.
@@ -395,17 +309,9 @@ Vote for ONE title in each matchup below.
 1. The Thing (12 votes, Group E)
 2. Alien (11 votes, Group C)
 ...
-
-[Voting buttons for each matchup appear below]
 ```
 
-**What happens next:**
-- Voting starts immediately (no need for `/bracket open-knockout`)
-- Members vote by clicking buttons for each matchup
-- **Personal voting dashboard appears** for each member showing all matchups with checkmarks
-- Dashboard updates in real-time as they vote (✅ = voted, ⬜ = not voted)
-- Voting auto-closes when deadline is reached
-- Use `/bracket close-knockout` if you need to close early
+If the bracket looks wrong, `/bracket regenerate` rebuilds it from the group results. Any knockout voting already under way is discarded.
 
 **→ [Continue to Knockout Rounds](./knockout)**
 
@@ -415,18 +321,17 @@ Vote for ONE title in each matchup below.
 
 | Command | Purpose |
 |---------|---------|
-| `/bracket create` | Start new tournament |
-| `/bracket add-title` | Add title to group |
-| `/bracket remove-title` | Remove title from group |
-| `/bracket resize` | Change group count |
-| `/bracket announce` | Share tournament publicly |
-| `/bracket list-groups` | Text overview of groups |
-| `/bracket open-groups` | Start group voting (button-based) |
-| `/bracket my-votes` | Check voting status |
-| `/bracket close-groups` | Close voting and show results |
-| `/bracket advance-knockout` | Generate bracket + start voting |
-
-**Note:** Group voting is now button-based! Members vote by clicking buttons - no commands needed.
+| `/bracket setup-link` | Private link to the [setup form](./import) |
+| `/bracket create` | Start a new tournament |
+| `/bracket manage-titles` | Add or remove a title |
+| `/bracket resize` | Change the number of groups |
+| `/bracket announce` | Share the tournament publicly |
+| `/bracket list-groups` | Numbered list of titles |
+| `/bracket open` | Start voting, open the next groups, or start the knockout |
+| `/bracket open-groups` | Open specific groups |
+| `/bracket close` | Close every open group |
+| `/bracket close-groups` | Close specific groups |
+| `/bracket my-votes` | Check your own votes |
 
 ---
 

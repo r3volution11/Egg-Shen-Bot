@@ -420,6 +420,243 @@ describe('adding without the optional `type`', () => {
   });
 });
 
+describe('settings saved by the setup form', () => {
+  // The form stores these on the tournament; the commands must actually use
+  // them when their own option is left out, and a typed option must still win.
+  test('/bracket open uses the tournament\'s voting time when duration is left out', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Timed Cup', USER_ID, 4);
+    ['Alien', 'Aliens'].forEach((t, i) => bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i + 1, t, 1979 + i)));
+    const t = bracketManager.loadTournament(GUILD_ID);
+    t.votingDuration = '3d';
+    bracketManager.saveTournament(GUILD_ID, t);
+
+    const before = Date.now();
+    await execute(commandInteraction({ subcommand: 'open' }));
+
+    const deadline = bracketManager.loadTournament(GUILD_ID).knockoutBracket.find(m => m.status === 'voting').votingDeadline;
+    const threeDays = 3 * 24 * 60 * 60 * 1000;
+    expect(deadline - before).toBeGreaterThanOrEqual(threeDays - 1000);
+    expect(deadline - before).toBeLessThan(threeDays + 60 * 1000);
+  });
+
+  test('a typed duration still wins over the saved one', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Timed Cup', USER_ID, 4);
+    ['Alien', 'Aliens'].forEach((t, i) => bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i + 1, t, 1979 + i)));
+    const t = bracketManager.loadTournament(GUILD_ID);
+    t.votingDuration = '3d';
+    bracketManager.saveTournament(GUILD_ID, t);
+
+    const before = Date.now();
+    await execute(commandInteraction({ subcommand: 'open', strings: { duration: '1h' } }));
+
+    const deadline = bracketManager.loadTournament(GUILD_ID).knockoutBracket.find(m => m.status === 'voting').votingDeadline;
+    expect(deadline - before).toBeLessThan(2 * 60 * 60 * 1000);
+  });
+
+  test('/bracket announce posts the saved message and banner, and counts a straight bracket\'s titles', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Announce Cup', USER_ID, 8);
+    ['Alien', 'Aliens', 'Alien 3'].forEach((t, i) => bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i + 1, t, 1979 + i)));
+    const t = bracketManager.loadTournament(GUILD_ID);
+    t.announcement = { message: 'In space, no one can hear you vote.', imageUrl: 'https://img.example/banner.png' };
+    bracketManager.saveTournament(GUILD_ID, t);
+
+    const announce = commandInteraction({ subcommand: 'announce' });
+    await execute(announce);
+
+    const embed = announce.reply.mock.calls[0][0].embeds[0].toJSON();
+    expect(embed.description).toBe('In space, no one can hear you vote.');
+    expect(embed.image.url).toBe('https://img.example/banner.png');
+    const fields = Object.fromEntries(embed.fields.map(f => [f.name, f.value]));
+    expect(fields['Total Entries']).toBe('3 titles');
+    expect(fields.Format).toBe('Straight bracket');
+    expect(JSON.stringify(embed)).not.toContain('null');
+  });
+});
+
+describe('/bracket setup-link and export', () => {
+  const ORIGINAL_URL = process.env.PUBLIC_BOT_URL;
+  afterEach(() => {
+    if (ORIGINAL_URL === undefined) delete process.env.PUBLIC_BOT_URL;
+    else process.env.PUBLIC_BOT_URL = ORIGINAL_URL;
+  });
+
+  test('setup-link replies privately with a link whose token names this server and user', async () => {
+    process.env.PUBLIC_BOT_URL = 'https://bot.example';
+    const { verifySetupToken } = await import('../src/utils/tournamentSetupLinkToken.js');
+
+    const link = commandInteraction({ subcommand: 'setup-link' });
+    await execute(link);
+
+    const payload = link.reply.mock.calls[0][0];
+    expect(payload.ephemeral).toBe(true);
+    const url = new URL(payload.components[0].toJSON().components[0].url);
+    expect(url.origin + url.pathname).toBe('https://bot.example/tournament-setup');
+    expect(verifySetupToken(url.searchParams.get('token'))).toMatchObject({ valid: true, guildId: GUILD_ID, userId: USER_ID });
+  });
+
+  test('setup-link without PUBLIC_BOT_URL explains what to set instead of posting a broken link', async () => {
+    delete process.env.PUBLIC_BOT_URL;
+    const link = commandInteraction({ subcommand: 'setup-link' });
+    await execute(link);
+    expect(sentText(link)).toContain('PUBLIC_BOT_URL');
+    expect(link.reply.mock.calls[0][0].components).toBeUndefined();
+  });
+
+  test('export format:json is the import format, without voter ids', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Export Cup', USER_ID, 4);
+    ['Alien', 'Aliens'].forEach((t, i) => bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i + 1, t, 1979 + i)));
+    const t = bracketManager.loadTournament(GUILD_ID);
+    t.votes = { 'voter-555': {} };
+    bracketManager.saveTournament(GUILD_ID, t);
+
+    const exp = commandInteraction({ subcommand: 'export', strings: { format: 'json' } });
+    await execute(exp);
+
+    const file = exp.editReply.mock.calls[0][0].files[0];
+    const text = file.attachment.toString('utf8');
+    const parsed = JSON.parse(text);
+    expect(parsed).toMatchObject({ format: 'eggshen-tournament', version: 1, name: 'Export Cup', type: 'movie' });
+    expect(parsed.titles.map(x => x.title)).toEqual(['Alien', 'Aliens']);
+    expect(text).not.toContain('voter-555');
+  });
+
+  test('advance-knockout is gone from the command definition', async () => {
+    const { data } = await import('../src/commands/bracket.js');
+    const names = data.toJSON().options.map(o => o.name);
+    expect(names).not.toContain('advance-knockout');
+    expect(names.indexOf('setup-link')).toBe(names.indexOf('create') + 1);
+  });
+});
+
+describe('opening matchups never touches ones already voting or decided', () => {
+  // There were five separate "open a matchup" paths. Most reset whatever they
+  // were given: a live matchup lost its votes, and a decided one lost its
+  // result while its winner stayed seated in the next round.
+  function knockoutOf(n) {
+    bracketManager.createTournament(GUILD_ID, 'KO Cup', USER_ID, n <= 8 ? 8 : 16);
+    for (let i = 0; i < n; i++) bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i + 1, `M${i + 1}`, 1970 + i));
+    bracketManager.generateKnockoutBracket(GUILD_ID);
+    return bracketManager.loadTournament(GUILD_ID);
+  }
+  const round = (t) => t.knockoutBracket.filter(m => m.round === t.phase).sort((a, b) => a.position - b.position);
+
+  /** Decide a matchup for movie1 with one vote. */
+  function decide(matchupId) {
+    bracketManager.voteKnockout(GUILD_ID, 'voter-1', matchupId, 1);
+    return bracketManager.closeKnockoutMatchup(GUILD_ID, matchupId);
+  }
+
+  test('openKnockoutMatchups opens only fresh matchups and reports the rest', () => {
+    const t = knockoutOf(8);
+    const [a, b, c, d] = round(t);
+    bracketManager.openKnockoutMatchups(GUILD_ID, [a.id, b.id], null);
+    bracketManager.voteKnockout(GUILD_ID, 'voter-9', b.id, 2);
+    decide(a.id);
+
+    const result = bracketManager.openKnockoutMatchups(GUILD_ID, [a.id, b.id, c.id, d.id], null);
+
+    expect(result.opened.map(m => m.id)).toEqual([c.id, d.id]);
+    expect(result.alreadyOpen.map(m => m.id)).toEqual([b.id]);
+    expect(result.decided.map(m => m.id)).toEqual([a.id]);
+    const after = bracketManager.loadTournament(GUILD_ID);
+    const byId = (id) => after.knockoutBracket.find(m => m.id === id);
+    expect(byId(a.id)).toMatchObject({ status: 'closed', winner: expect.objectContaining({ title: a.movie1.title }) });
+    expect(byId(b.id).votes.movie2).toEqual(['voter-9']);
+  });
+
+  test('/bracket open after some matchups were decided keeps their results', async () => {
+    const t = knockoutOf(8);
+    const [a] = round(t);
+    bracketManager.openKnockoutMatchups(GUILD_ID, [a.id], null);
+    decide(a.id);
+    const winnerBefore = bracketManager.loadTournament(GUILD_ID).knockoutBracket.find(m => m.id === a.id).winner;
+
+    const open = commandInteraction({ subcommand: 'open', strings: { duration: '1h' } });
+    await execute(open);
+
+    const after = bracketManager.loadTournament(GUILD_ID);
+    const aAfter = after.knockoutBracket.find(m => m.id === a.id);
+    expect(aAfter.status).toBe('closed');
+    expect(aAfter.winner).toEqual(winnerBefore);
+    expect(after.knockoutResults[a.id]).toBeDefined();
+    expect(round(after).filter(m => m.status === 'voting')).toHaveLength(3);
+    expect(sentText(open)).not.toContain('1A,');
+  });
+
+  test('open-matchup region:N leaves live votes and decided results alone, and says so', async () => {
+    const t = knockoutOf(16);
+    const regionOne = round(t).slice(0, 2); // 8 matchups, 2 per region
+
+    await execute(commandInteraction({ subcommand: 'open-matchup', integers: { region: 1 }, strings: { duration: '1h' } }));
+    bracketManager.voteKnockout(GUILD_ID, 'voter-7', regionOne[1].id, 1);
+    decide(regionOne[0].id);
+
+    const again = commandInteraction({ subcommand: 'open-matchup', integers: { region: 1 }, strings: { duration: '1h' } });
+    await execute(again);
+
+    const after = bracketManager.loadTournament(GUILD_ID);
+    const byId = (id) => after.knockoutBracket.find(m => m.id === id);
+    expect(byId(regionOne[0].id).status).toBe('closed');
+    expect(byId(regionOne[0].id).winner).toBeTruthy();
+    expect(byId(regionOne[1].id).votes.movie1).toContain('voter-7');
+    const text = sentText(again);
+    expect(text).toContain('Nothing to open in Region 1');
+    expect(text).toContain('Already decided: 1A');
+    expect(text).toContain('Already open: 1B');
+  });
+
+  test('the region announcement shows line breaks, not a literal \\n', async () => {
+    knockoutOf(16);
+    const open = commandInteraction({ subcommand: 'open-matchup', integers: { region: 2 }, strings: { duration: '1h' } });
+    await execute(open);
+    const embed = open.editReply.mock.calls[0][0].embeds[0].toJSON();
+    expect(embed.description).not.toContain('\\n');
+    expect(embed.description).toContain('Opened matchups:');
+  });
+
+  test('open-matchup by label refuses a decided matchup', async () => {
+    const t = knockoutOf(8);
+    const [a] = round(t);
+    bracketManager.openKnockoutMatchups(GUILD_ID, [a.id], null);
+    decide(a.id);
+
+    const open = commandInteraction({ subcommand: 'open-matchup', strings: { matchup: '1A', duration: '1h' } });
+    await execute(open);
+
+    expect(sentText(open)).toContain('Matchup 1A is already decided');
+    expect(bracketManager.loadTournament(GUILD_ID).knockoutBracket.find(m => m.id === a.id).status).toBe('closed');
+  });
+});
+
+describe('tiebreaker times are 5m to 7d everywhere', () => {
+  test('/bracket close refuses 8d (it used to accept anything)', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Tie Cup', USER_ID, 4);
+    ['Alien', 'Aliens'].forEach((t, i) => bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i + 1, t, 1979 + i)));
+    await execute(commandInteraction({ subcommand: 'open', strings: { duration: '1h' } }));
+
+    const close = commandInteraction({ subcommand: 'close', strings: { 'tiebreaker-duration': '8d' } });
+    await execute(close);
+
+    expect(sentText(close)).toContain('between 5 minutes (5m) and 7 days (7d)');
+    expect(bracketManager.loadTournament(GUILD_ID).knockoutBracket.some(m => m.status === 'voting')).toBe(true);
+  });
+
+  test('close-groups refuses 8d too (it checked the 30-day voting limit)', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Tie Cup', USER_ID, 36);
+    const close = commandInteraction({ subcommand: 'close-groups', strings: { groups: 'A', 'tiebreaker-duration': '8d' } });
+    await execute(close);
+    expect(sentText(close)).toContain('7 days (7d)');
+  });
+
+  test('the setup form refuses an 8d tiebreaker', async () => {
+    const { validateSettings } = await import('../src/utils/tournamentImport.js');
+    expect(validateSettings({ tiebreakerDuration: '8d' })).toEqual([
+      expect.objectContaining({ field: 'tiebreakerDuration', message: 'Tiebreaker time must be between 5m and 7d.' }),
+    ]);
+    expect(validateSettings({ tiebreakerDuration: '7d' })).toEqual([]);
+  });
+});
+
 describe('/bracket list-groups in bracket mode', () => {
   test('shows the numbered list that removal uses', async () => {
     bracketManager.createTournament(GUILD_ID, 'List Cup', USER_ID, 8);

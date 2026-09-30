@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
@@ -46,6 +46,21 @@ export function loadTournament(guildId) {
  * never closes.
  */
 export const MAX_TOURNAMENT_NAME_LENGTH = 100;
+
+/**
+ * Remove a guild's tournament file. Used only to roll back a setup-form save
+ * that failed partway when there was no earlier tournament to restore.
+ */
+export function deleteTournament(guildId) {
+  const filePath = join(tournamentsDir, `${guildId}.json`);
+  try {
+    if (existsSync(filePath)) unlinkSync(filePath);
+    return true;
+  } catch (error) {
+    console.error('Error deleting tournament:', error);
+    return false;
+  }
+}
 
 /**
  * Save tournament data for a guild
@@ -292,19 +307,30 @@ function separateSameGroup(participants) {
  * @param {Array} participants - Ordered participants to seat (seeding already applied)
  * @returns {{matchups: Array, firstRoundMatchups: Array, startingRound: string}}
  */
-function buildBracketTree(participants) {
+function buildBracketTree(participants, { seeded = false } = {}) {
   const bracketSize = Math.pow(2, Math.ceil(Math.log2(participants.length)));
   const startingRound = getStartingRound(bracketSize);
   const numFirstRoundSlots = bracketSize / 2;
   const numByes = bracketSize - participants.length;
+  const layout = seeded ? standardSeedOrder(bracketSize) : null;
 
-  // Byes go to the participants seeded first, one per matchup, so no matchup
-  // ever has an empty movie1 slot.
+  // Unseeded: byes go to the participants listed first, one per matchup, so
+  // no matchup ever has an empty movie1 slot.
+  // Seeded: each slot takes the seeds the standard layout puts there. A seed
+  // past the participant count is a bye, and since the layout always puts
+  // the better seed first, movie1 is never empty there either.
   const firstRoundMatchups = [];
   let next = 0;
   for (let i = 0; i < numFirstRoundSlots; i++) {
-    const movie1 = participants[next++] || null;
-    const movie2 = i < numByes ? null : (participants[next++] || null);
+    let movie1;
+    let movie2;
+    if (layout) {
+      movie1 = participants[layout[2 * i] - 1] || null;
+      movie2 = participants[layout[2 * i + 1] - 1] || null;
+    } else {
+      movie1 = participants[next++] || null;
+      movie2 = i < numByes ? null : (participants[next++] || null);
+    }
     firstRoundMatchups.push({
       id: crypto.randomBytes(6).toString('hex'),
       round: startingRound,
@@ -345,6 +371,23 @@ function buildBracketTree(participants) {
   }
 
   return { matchups: allMatchups, firstRoundMatchups, startingRound };
+}
+
+/**
+ * The standard seeded layout for a bracket of `size` slots, as seed numbers in
+ * first-round order: 8 gives [1, 8, 4, 5, 2, 7, 3, 6]. Each pair sums to
+ * size + 1 (best meets worst), and seeds 1 and 2 land in opposite halves, so
+ * the top two can only meet in the final.
+ * @param {number} size - A power of two
+ * @returns {number[]}
+ */
+export function standardSeedOrder(size) {
+  let order = [1];
+  while (order.length < size) {
+    const doubled = order.length * 2;
+    order = order.flatMap(seed => [seed, doubled + 1 - seed]);
+  }
+  return order;
 }
 
 /**
@@ -1581,9 +1624,11 @@ function generateInitialBracket(guildId) {
     return { success: false, error: 'Need at least 2 titles to generate bracket' };
   }
   
-  // Shuffle titles for random seeding, then seat every one of them.
-  const participants = shuffle(tournament.titles);
-  const { matchups: allMatchups, firstRoundMatchups, startingRound } = buildBracketTree(participants);
+  // Ordered seeding (set by the setup form) takes the list as seed order;
+  // anything else is the long-standing random shuffle.
+  const seeded = tournament.seeding === 'ordered';
+  const participants = seeded ? [...tournament.titles] : shuffle(tournament.titles);
+  const { matchups: allMatchups, firstRoundMatchups, startingRound } = buildBracketTree(participants, { seeded });
 
   tournament.knockoutBracket = allMatchups;
   tournament.status = 'knockout';
@@ -1774,36 +1819,55 @@ export function regenerateKnockoutBracket(guildId) {
 }
 
 /**
- * Open knockout matchup for voting
+ * The one way knockout matchups get opened for voting — used by `/bracket
+ * open`, `open-matchup` (by label and by region) and the region/matchup
+ * buttons.
+ *
+ * Only a matchup nobody has voted on yet is opened. There used to be five
+ * copies of this with different rules, and most "reopened" whatever they were
+ * given: a matchup already voting lost its votes, and a decided one lost its
+ * result while its winner stayed seated in the next round — leaving the
+ * bracket inconsistent. Now those are reported back instead of touched.
+ *
+ * @param {string} guildId
+ * @param {string[]} matchupIds
+ * @param {number|null} deadline - ms timestamp, or null for no deadline
+ * @returns {{success: false, error: string} | {success: true, tournament, opened: Array, alreadyOpen: Array, decided: Array, missing: string[]}}
  */
-export function openKnockoutMatchup(guildId, matchupId) {
+export function openKnockoutMatchups(guildId, matchupIds, deadline = null) {
   const tournament = loadTournament(guildId);
   if (!tournament || tournament.status !== 'knockout') {
     return { success: false, error: 'Tournament not in knockout phase' };
   }
-  
-  const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
-  if (!matchup) {
-    return { success: false, error: 'Matchup not found' };
+
+  const opened = [];
+  const alreadyOpen = [];
+  const decided = [];
+  const missing = [];
+  const now = Date.now();
+
+  for (const id of matchupIds) {
+    const matchup = tournament.knockoutBracket.find(m => m.id === id);
+    if (!matchup || !matchup.movie1 || !matchup.movie2) {
+      missing.push(id);
+    } else if (matchup.status === 'voting') {
+      alreadyOpen.push(matchup);
+    } else if (matchup.status === 'closed' || matchup.status === 'tiebreaker' || matchup.winner || tournament.knockoutResults?.[matchup.id]) {
+      decided.push(matchup);
+    } else {
+      matchup.status = 'voting';
+      matchup.votingOpened = now;
+      matchup.votingStarted = now; // For smart warning timing
+      if (deadline) matchup.votingDeadline = deadline;
+      matchup.votes = { movie1: [], movie2: [] };
+      opened.push(matchup);
+    }
   }
-  
-  // Reset matchup state (clears previous votes and results if reopening)
-  matchup.status = 'voting';
-  matchup.votingStarted = Date.now();
-  matchup.votes = { movie1: [], movie2: [] };
-  delete matchup.winner;
-  delete matchup.votingClosed;
-  delete matchup.votes1Count;
-  delete matchup.votes2Count;
-  
-  // Remove from knockout results if it was previously closed
-  if (tournament.knockoutResults && tournament.knockoutResults[matchupId]) {
-    delete tournament.knockoutResults[matchupId];
+
+  if (opened.length > 0 && !saveTournament(guildId, tournament)) {
+    return { success: false, error: 'Failed to save' };
   }
-  
-  return saveTournament(guildId, tournament)
-    ? { success: true, tournament, matchup }
-    : { success: false, error: 'Failed to save' };
+  return { success: true, tournament, opened, alreadyOpen, decided, missing };
 }
 
 /**
@@ -1828,32 +1892,12 @@ export function openKnockoutRound(guildId, round, deadline = null) {
     return { success: false, error: 'No matchups ready for voting in this round' };
   }
   
-  // Open matchups for voting
-  roundMatchups.forEach(m => {
-    m.status = 'voting';
-    m.votingOpened = Date.now();
-    m.votingStarted = Date.now(); // For smart warning timing
-    if (deadline) {
-      m.votingDeadline = deadline;
-    }
-    // Reset votes (clears previous votes if reopening)
-    m.votes = { movie1: [], movie2: [] };
-    
-    // Clear previous results if reopening
-    delete m.winner;
-    delete m.votingClosed;
-    delete m.votes1Count;
-    delete m.votes2Count;
-    
-    // Remove from knockout results if it was previously closed
-    if (tournament.knockoutResults && tournament.knockoutResults[m.id]) {
-      delete tournament.knockoutResults[m.id];
-    }
-  });
-  
-  return saveTournament(guildId, tournament)
-    ? { success: true, tournament, matchups: roundMatchups }
-    : { success: false, error: 'Failed to save' };
+  const result = openKnockoutMatchups(guildId, roundMatchups.map(m => m.id), deadline);
+  if (!result.success) return result;
+  if (result.opened.length === 0) {
+    return { success: false, error: 'Every matchup in this round is already open or decided' };
+  }
+  return { success: true, tournament: result.tournament, matchups: result.opened };
 }
 
 /**

@@ -1,0 +1,42 @@
+/* Page-specific rules only — colors, cards, tables and form controls come
+   from the vendored Bootstrap theme. */
+
+.col-num { width: 3rem; }
+.col-year { width: 6.5rem; }
+.col-group { width: 5.5rem; }
+.col-match { width: 14rem; }
+.col-actions { width: 7rem; }
+
+.match-poster {
+    width: 36px;
+    height: 54px;
+    object-fit: cover;
+    border-radius: 3px;
+    flex-shrink: 0;
+    background: var(--bs-secondary-bg);
+}
+
+.row-image-url {
+    font-size: 0.8rem;
+}
+
+/* Bootstrap sizes <legend> like a heading; this one is a field label */
+#seeding-fieldset legend {
+    font-size: 1rem;
+}
+
+tr.row-error > td {
+    background-color: rgba(var(--bs-danger-rgb), 0.12);
+}
+
+.row-message {
+    font-size: 0.8rem;
+}
+
+/* Phones: stack the table into cards rather than scroll sideways */
+@media (max-width: 640px) {
+    #titles-table thead { display: none; }
+    #titles-table tr { display: block; border-bottom: 1px solid var(--bs-border-color); padding: 0.5rem 0; }
+    #titles-table td { display: block; border: 0; padding: 0.25rem 0; width: auto; }
+    #titles-table td.col-num { font-weight: 600; }
+}

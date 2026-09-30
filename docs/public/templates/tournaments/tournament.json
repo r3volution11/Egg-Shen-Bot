@@ -1,0 +1,19 @@
+{
+  "format": "eggshen-tournament",
+  "version": 1,
+  "name": "October Horror Showdown",
+  "type": "movie",
+  "seeding": "ordered",
+  "votingDuration": "24h",
+  "tiebreakerDuration": "1h",
+  "announcement": {
+    "message": "Horror classics, one winner. Voting opens Friday!",
+    "imageUrl": ""
+  },
+  "titles": [
+    { "title": "The Thing", "year": 1982, "id": 1091 },
+    { "title": "Halloween", "year": 1978 },
+    { "title": "Alien", "year": 1979 },
+    { "title": "The Exorcist", "year": 1973 }
+  ]
+}

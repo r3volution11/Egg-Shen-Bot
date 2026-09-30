@@ -2,6 +2,8 @@ import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuild
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, getTypeLabel } from '../utils/bracketTitles.js';
+import { parseDuration, isValidDuration, isValidTiebreakerDuration, buildExport, DEFAULT_VOTING_DURATION, DEFAULT_TIEBREAKER_DURATION } from '../utils/tournamentImport.js';
+import { signSetupToken, SETUP_LINK_TTL_MS } from '../utils/tournamentSetupLinkToken.js';
 import { loadGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 import { config } from '../config.js';
 
@@ -11,37 +13,20 @@ const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L
 export const customImageCache = new Map();
 
 /**
- * Parse duration string (e.g., "24h", "3d", "45m") to milliseconds
- * @param {string} durationStr - Duration string
- * @returns {number|null} Duration in milliseconds, or null if invalid
+ * The voting time to use when `duration` is left out: the tournament's own
+ * default (set on the setup form), else 24h.
  */
-function parseDuration(durationStr) {
-  if (!durationStr) return null;
-  
-  const match = durationStr.match(/^(\d+)([mhd])$/i);
-  if (!match) return null;
-  
-  const value = parseInt(match[1]);
-  const unit = match[2].toLowerCase();
-  
-  const multipliers = {
-    'm': 60 * 1000,        // minutes
-    'h': 60 * 60 * 1000,   // hours
-    'd': 24 * 60 * 60 * 1000  // days
-  };
-  
-  return value * multipliers[unit];
+function votingDurationFor(interaction) {
+  return interaction.options.getString('duration')
+    || bracketManager.loadTournament(interaction.guildId)?.votingDuration
+    || DEFAULT_VOTING_DURATION;
 }
 
-/**
- * Validate duration is within allowed range (5 minutes to 30 days)
- * @param {number} durationMs - Duration in milliseconds
- * @returns {boolean}
- */
-function isValidDuration(durationMs) {
-  const MIN_DURATION = 5 * 60 * 1000; // 5 minutes
-  const MAX_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
-  return durationMs >= MIN_DURATION && durationMs <= MAX_DURATION;
+/** Same for `tiebreaker-duration`: the tournament's default, else 1h. */
+function tiebreakerDurationFor(interaction) {
+  return interaction.options.getString('tiebreaker-duration')
+    || bracketManager.loadTournament(interaction.guildId)?.tiebreakerDuration
+    || DEFAULT_TIEBREAKER_DURATION;
 }
 
 /**
@@ -236,6 +221,11 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('setup-link')
+      .setDescription('Private link to set up the tournament on the web, from a CSV/JSON file (Admin/Mod only)')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('manage-titles')
       .setDescription('Add or remove titles from groups (Admin/Mod only)')
       .addStringOption(option =>
@@ -361,17 +351,6 @@ export const data = new SlashCommandBuilder()
         option
           .setName('tiebreaker-duration')
           .setDescription('Duration for tiebreaker votes if needed (e.g., "1h", "30m", "2h") - Default: 1h')
-          .setRequired(false)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('advance-knockout')
-      .setDescription('Generate knockout bracket from group results (Admin/Mod only)')
-      .addStringOption(option =>
-        option
-          .setName('duration')
-          .setDescription('How long voting stays open (e.g., "24h", "3d", "45m") - Default: 24h')
           .setRequired(false)
       )
   )
@@ -546,7 +525,7 @@ export async function execute(interaction) {
   }
 
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'manage-titles', 'resize', 'edit-name', 'announce', 'open', 'close', 'open-groups', 'close-groups', 'advance-knockout', 'regenerate', 'resolve-tiebreaker', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
+  const requiresAdmin = ['create', 'setup-link', 'manage-titles', 'resize', 'edit-name', 'announce', 'open', 'close', 'open-groups', 'close-groups', 'regenerate', 'resolve-tiebreaker', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
@@ -567,6 +546,9 @@ export async function execute(interaction) {
         break;
       case 'create':
         await handleCreate(interaction);
+        break;
+      case 'setup-link':
+        await handleSetupLink(interaction);
         break;
       case 'manage-titles':
         await handleManageTitles(interaction);
@@ -591,9 +573,6 @@ export async function execute(interaction) {
         break;
       case 'close-groups':
         await handleCloseGroups(interaction);
-        break;
-      case 'advance-knockout':
-        await handleAdvanceKnockout(interaction);
         break;
       case 'regenerate':
         await handleRegenerate(interaction);
@@ -670,7 +649,7 @@ async function handleHelp(interaction) {
         value:
           '1️⃣ `/bracket create name:"Tournament Name" max-titles:32`\n' +
           '2️⃣ Bot auto-selects bracket or group mode based on size\n' +
-          '3️⃣ `/bracket manage-titles action:add` - Add titles\n' +
+          '3️⃣ `/bracket manage-titles action:add` - Add titles, or `/bracket setup-link` to upload a file\n' +
           '4️⃣ `/bracket announce` - Announce to members\n' +
           '5️⃣ `/bracket open` - Smart command opens next round\n' +
           '6️⃣ Members vote using buttons!\n' +
@@ -736,7 +715,7 @@ async function handleHelp(interaction) {
         name: '⚙️ Admin Commands',
         value:
           '• `/bracket manage-titles` - Add/remove titles\n' +
-          '• `/bracket advance-knockout` - Start knockout phase\n' +
+          '• `/bracket setup-link` - Set up from a CSV/JSON file on the web\n' +
           '• `/bracket extend-voting` - Add more time\n' +
           '• `/bracket resolve-tiebreaker` - Manually resolve ties\n' +
           '• `/bracket export` - Save results (JSON/Markdown)\n' +
@@ -764,7 +743,7 @@ async function handleHelp(interaction) {
           '• **Search integration:** Bot auto-searches when adding titles\n' +
           '• **Custom images:** Upload your own when adding titles\n' +
           '• **AI images:** Generate matchup images with `/bracket image`\n' +
-          '• **Export options:** Markdown for Discord, JSON for archiving',
+          '• **Export options:** Markdown for Discord, JSON for a backup you can re-import',
         inline: false
       },
       {
@@ -786,6 +765,48 @@ async function handleHelp(interaction) {
     .setFooter({ text: `Full documentation: ${config.docsUrl.replace(/^https?:\/\//, '')}/commands/brackets` });
   
   await interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
+/**
+ * A private link to the setup form, where a tournament can be built from an
+ * uploaded CSV/JSON file or filled in by hand. Ephemeral: the link is a
+ * credential for this server's tournament until it expires.
+ */
+async function handleSetupLink(interaction) {
+  if (!process.env.PUBLIC_BOT_URL) {
+    await interaction.reply({
+      content: '❌ `PUBLIC_BOT_URL` is not set on this bot, so a working link can\'t be built. Set it in `.env` to the bot\'s public address (for example `https://yourdomain.com`).',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  let token;
+  try {
+    token = signSetupToken({ guildId: interaction.guildId, userId: interaction.user.id });
+  } catch (error) {
+    await interaction.reply({ content: `❌ ${error.message}`, ephemeral: true });
+    return;
+  }
+
+  const url = `${process.env.PUBLIC_BOT_URL}/tournament-setup?token=${token}`;
+  const button = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setLabel('Open Tournament Setup').setStyle(ButtonStyle.Link).setURL(url).setEmoji('🏆')
+  );
+
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  const running = tournament && !['setup', 'completed', 'cancelled'].includes(tournament.status);
+  const minutes = Math.round(SETUP_LINK_TTL_MS / 60000);
+
+  await interaction.reply({
+    content:
+      `🔒 This link is just for you and works for ${minutes} minutes. Anyone you give it to can change this server's tournament setup.\n` +
+      (running
+        ? `\n"${tournament.name}" is already voting, so the form can only download a backup of it.`
+        : '\nUpload a CSV or JSON file, or fill the form in by hand. You can keep editing until voting opens.'),
+    components: [button],
+    ephemeral: true,
+  });
 }
 
 async function handleCreate(interaction) {
@@ -1223,33 +1244,45 @@ async function handleAnnounce(interaction) {
     return;
   }
   
-  // Count filled groups
+  // A straight bracket has no groups: count its titles instead. This used
+  // to show "(null groups)" and 0 entries for every straight bracket.
+  const isBracket = tournament.mode === 'bracket';
   const filledGroups = Object.keys(tournament.groups).filter(
     key => tournament.groups[key].movies && tournament.groups[key].movies.length === 4
   ).length;
-  
   const totalGroups = tournament.groupCount;
-  const allowedGroupLetters = 'ABCDEFGHIJKL'.slice(0, tournament.groupCount);
+  const allowedGroupLetters = 'ABCDEFGHIJKL'.slice(0, tournament.groupCount || 0);
+  const titleCount = isBracket
+    ? tournament.titles.length
+    : Object.values(tournament.groups).reduce((sum, g) => sum + (g.movies?.length || 0), 0);
+  
+  // The setup form can save a default message and banner; typed options win
+  const message = customMessage || tournament.announcement?.message;
+  const imageUrl = imageAttachment?.url || tournament.announcement?.imageUrl;
   
   // Build announcement embed
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle(`🏆 ${tournament.name}`)
     .setDescription(
-      customMessage || 
+      message || 
       `A new tournament has been created! Get ready to vote for your favorites.`
     )
     .addFields(
       { name: 'Tournament Type', value: tournament.type ? getTypeLabel(tournament.type) : 'Not set yet', inline: true },
-      { name: 'Groups', value: `${allowedGroupLetters.split('').join(', ')} (${totalGroups} groups)`, inline: true },
-      { name: 'Total Entries', value: `${filledGroups * 4} titles`, inline: true }
+      isBracket
+        ? { name: 'Format', value: 'Straight bracket', inline: true }
+        : { name: 'Groups', value: `${allowedGroupLetters.split('').join(', ')} (${totalGroups} groups)`, inline: true },
+      { name: 'Total Entries', value: `${titleCount} titles`, inline: true }
     );
   
   // Add status based on phase
   if (tournament.status === 'setup') {
     embed.addFields({
       name: 'Status',
-      value: `⚙️ Setup Phase - ${filledGroups}/${totalGroups} groups filled`,
+      value: isBracket
+        ? `⚙️ Setup Phase - ${titleCount}/${tournament.maxTitles} titles added`
+        : `⚙️ Setup Phase - ${filledGroups}/${totalGroups} groups filled`,
       inline: false
     });
     embed.setFooter({ text: 'Voting will begin soon! Stay tuned for announcements.' });
@@ -1270,8 +1303,8 @@ async function handleAnnounce(interaction) {
   }
   
   // Add custom image if provided
-  if (imageAttachment) {
-    embed.setImage(imageAttachment.url);
+  if (imageUrl) {
+    embed.setImage(imageUrl);
   }
   
   // Send public announcement
@@ -1330,7 +1363,7 @@ async function handleOpenGroups(interaction) {
   
   const groupsStr = interaction.options.getString('groups');
   const groupIds = groupsStr.split(',').map(g => g.trim().toUpperCase());
-  const durationStr = interaction.options.getString('duration') || '24h';
+  const durationStr = votingDurationFor(interaction);
   
   // Parse and validate duration
   const durationMs = parseDuration(durationStr);
@@ -1435,7 +1468,7 @@ async function handleCloseGroups(interaction) {
   const groupIds = groupsStr.split(',').map(g => g.trim().toUpperCase());
   
   // Get tiebreaker duration (default to 1 hour)
-  const tiebreakerDurationStr = interaction.options.getString('tiebreaker-duration') || '1h';
+  const tiebreakerDurationStr = tiebreakerDurationFor(interaction);
   const tiebreakerDurationMs = parseDuration(tiebreakerDurationStr);
   
   if (!tiebreakerDurationMs) {
@@ -1443,7 +1476,7 @@ async function handleCloseGroups(interaction) {
     return;
   }
   
-  if (!isValidDuration(tiebreakerDurationMs)) {
+  if (!isValidTiebreakerDuration(tiebreakerDurationMs)) {
     await interaction.editReply('❌ Tiebreaker duration must be between 5 minutes (5m) and 7 days (7d)');
     return;
   }
@@ -1522,31 +1555,11 @@ async function handleCloseGroups(interaction) {
   await interaction.editReply({ embeds: [embed] });
 }
 
-async function handleAdvanceKnockout(interaction) {
-  await interaction.deferReply();
-  
-  // Get duration parameter (default to 24h if not specified)
-  const durationStr = interaction.options.getString('duration') || '24h';
-  
-  // Parse and validate duration
-  const durationMs = parseDuration(durationStr);
-  if (!durationMs) {
-    await interaction.editReply('❌ Invalid duration format. Use format like "24h", "3d", "45m"');
-    return;
-  }
-  
-  if (!isValidDuration(durationMs)) {
-    await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
-    return;
-  }
-
-  await startKnockout(interaction, durationMs);
-}
-
 /**
  * Seed the knockout from the finished group stage and open its first round.
- * Shared by `advance-knockout` and `/bracket open`, which reaches here once
- * every group is closed. The interaction must already be deferred.
+ * Reached from `/bracket open` once every group is closed (it replaced the
+ * separate `advance-knockout` subcommand). The interaction must already be
+ * deferred.
  */
 async function startKnockout(interaction, durationMs) {
   // Calculate wildcards
@@ -1764,7 +1777,7 @@ async function handleSmartOpen(interaction) {
     return;
   }
   
-  const durationStr = interaction.options.getString('duration') || '24h';
+  const durationStr = votingDurationFor(interaction);
   
   // Parse and validate duration
   const durationMs = parseDuration(durationStr);
@@ -1782,7 +1795,7 @@ async function handleSmartOpen(interaction) {
 
   // Starting from setup. Every add-title reply tells people to run
   // `/bracket open` here, but this used to reject the setup status outright,
-  // leaving `advance-knockout` as the only (undocumented) way to start.
+  // leaving the since-removed `advance-knockout` as the only way to start.
   let bracketJustGenerated = false;
   if (tournament.status === 'setup' && tournament.mode === 'bracket') {
     const generated = bracketManager.generateKnockoutBracket(interaction.guildId);
@@ -1904,7 +1917,7 @@ async function handleSmartOpen(interaction) {
       .setColor(0x00FF00)
       .setTitle(`📊 ${roundName} - Voting Opened!`)
       .setDescription(
-        `**Opened matchups:** ${currentRoundMatchups.map(m => getRegionalLabel(m.position, tournament.phase)).join(', ')}\n\n` +
+        `**Opened matchups:** ${result.matchups.map(m => getRegionalLabel(m.position, tournament.phase)).join(', ')}\n\n` +
         `**📝 How to Vote:**\n` +
         `🔹 Click the "Start Voting" button below\n` +
         `🔹 Choose ONE winner from each matchup\n` +
@@ -1940,11 +1953,16 @@ async function handleSmartClose(interaction) {
     return;
   }
   
-  const tiebreakerDurationStr = interaction.options.getString('tiebreaker-duration') || '1h';
+  const tiebreakerDurationStr = tiebreakerDurationFor(interaction);
   const tiebreakerDurationMs = parseDuration(tiebreakerDurationStr);
   
   if (!tiebreakerDurationMs) {
     await interaction.editReply('❌ Invalid tiebreaker duration format. Use format like "1h", "30m", "2h"');
+    return;
+  }
+  
+  if (!isValidTiebreakerDuration(tiebreakerDurationMs)) {
+    await interaction.editReply('❌ Tiebreaker duration must be between 5 minutes (5m) and 7 days (7d)');
     return;
   }
   
@@ -2310,44 +2328,39 @@ async function openRegionMatchups(interaction, tournament, regionNum, durationMs
     return;
   }
   
-  // Open all matchups in this region
-  for (const matchup of regionMatchups) {
-    matchup.status = 'voting';
-    matchup.votingOpened = Date.now();
-    matchup.votingStarted = Date.now();
-    matchup.votingDeadline = deadline;
-    
-    // Reset votes (clears previous votes if reopening)
-    matchup.votes = { movie1: [], movie2: [] };
-    
-    // Clear previous results if reopening
-    delete matchup.winner;
-    delete matchup.votingClosed;
-    delete matchup.votes1Count;
-    delete matchup.votes2Count;
-    
-    // Remove from knockout results if it was previously closed
-    if (tournament.knockoutResults && tournament.knockoutResults[matchup.id]) {
-      delete tournament.knockoutResults[matchup.id];
-    }
+  // Opens only matchups nobody has voted on. This used to reset every
+  // matchup in the region — wiping live votes and undoing decided results.
+  const result = bracketManager.openKnockoutMatchups(interaction.guildId, regionMatchups.map(m => m.id), deadline);
+  if (!result.success) {
+    await interaction.editReply(`❌ ${result.error}`);
+    return;
   }
-  
-  bracketManager.saveTournament(interaction.guildId, tournament);
+  const label = (m) => getRegionalLabel(m.position, tournament.phase);
+  const skipped = [
+    result.alreadyOpen.length ? `Already open: ${result.alreadyOpen.map(label).join(', ')}` : '',
+    result.decided.length ? `Already decided: ${result.decided.map(label).join(', ')}` : '',
+  ].filter(Boolean).join('\n');
+  if (result.opened.length === 0) {
+    await interaction.editReply(`❌ Nothing to open in Region ${regionNum}.\n\n${skipped}`);
+    return;
+  }
+  const openedMatchups = result.opened;
   
   const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   const timeRemaining = formatTimeRemaining(deadline);
   
   const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle(`📊 ${roundName} - Region ${regionNum} - ${regionMatchups.length} Matchups Opened!`)
+    .setTitle(`📊 ${roundName} - Region ${regionNum} - ${openedMatchups.length} Matchups Opened!`)
     .setDescription(
-      `**Opened matchups:** ${regionMatchups.map(m => getRegionalLabel(m.position, tournament.phase)).join(', ')}\\n\\n` +
-      `**📝 How to Vote:**\\n` +
-      `🔹 Click the "Start Voting" button below\\n` +
-      `🔹 You'll get your own personal voting dashboard\\n` +
-      `🔹 Your choices are saved instantly\\n` +
-      `🔹 Only you can see your selections\\n\\n` +
-      `⏰ **Voting closes in:** ${timeRemaining}\\n` +
+      `**Opened matchups:** ${openedMatchups.map(label).join(', ')}\n\n` +
+      (skipped ? `${skipped}\n\n` : '') +
+      `**📝 How to Vote:**\n` +
+      `🔹 Click the "Start Voting" button below\n` +
+      `🔹 You'll get your own personal voting dashboard\n` +
+      `🔹 Your choices are saved instantly\n` +
+      `🔹 Only you can see your selections\n\n` +
+      `⏰ **Voting closes in:** ${timeRemaining}\n` +
       `💡 **Tip:** You can change your votes anytime!`
     )
     .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
@@ -2548,7 +2561,7 @@ async function handleOpenMatchup(interaction) {
   
   const regionParam = interaction.options.getInteger('region');
   const matchupInput = interaction.options.getString('matchup');
-  const durationStr = interaction.options.getString('duration') || '24h';
+  const durationStr = votingDurationFor(interaction);
   
   // Parse and validate duration
   const durationMs = parseDuration(durationStr);
@@ -2565,7 +2578,7 @@ async function handleOpenMatchup(interaction) {
   const tournament = bracketManager.loadTournament(interaction.guildId);
   
   if (!tournament || tournament.status !== 'knockout') {
-    await interaction.editReply('❌ No knockout bracket found. Use `/bracket advance-knockout` first.');
+    await interaction.editReply('❌ No knockout bracket yet. Close every group, then run `/bracket open` to start the knockout.');
     return;
   }
   
@@ -2621,40 +2634,27 @@ async function handleOpenMatchup(interaction) {
       continue;
     }
     
-    if (matchup.status === 'voting') {
-      errors.push(`⚠️ Matchup ${matchupLabel} already open`);
-      continue;
-    }
-    
-    // Open this specific matchup
-    matchup.status = 'voting';
-    matchup.votingOpened = Date.now();
-    matchup.votingStarted = Date.now(); // For smart warning timing
-    matchup.votingDeadline = deadline;
-    
-    // Reset votes (clears previous votes if reopening)
-    matchup.votes = { movie1: [], movie2: [] };
-    
-    // Clear previous results if reopening
-    delete matchup.winner;
-    delete matchup.votingClosed;
-    delete matchup.votes1Count;
-    delete matchup.votes2Count;
-    
-    // Remove from knockout results if it was previously closed
-    if (tournament.knockoutResults && tournament.knockoutResults[matchup.id]) {
-      delete tournament.knockoutResults[matchup.id];
-    }
-    
     openedMatchups.push({ label: matchupLabel, matchup });
   }
+  
+  // Open through the shared path, which leaves matchups already voting or
+  // decided untouched. This used to reopen a decided matchup — deleting its
+  // result while its winner stayed seated in the next round.
+  const labelById = new Map(openedMatchups.map(o => [o.matchup.id, o.label]));
+  const result = bracketManager.openKnockoutMatchups(interaction.guildId, openedMatchups.map(o => o.matchup.id), deadline);
+  if (!result.success) {
+    await interaction.editReply(`❌ ${result.error}`);
+    return;
+  }
+  result.alreadyOpen.forEach(m => errors.push(`⚠️ Matchup ${labelById.get(m.id)} already open`));
+  result.decided.forEach(m => errors.push(`⚠️ Matchup ${labelById.get(m.id)} is already decided`));
+  openedMatchups.length = 0;
+  result.opened.forEach(m => openedMatchups.push({ label: labelById.get(m.id), matchup: m }));
   
   if (openedMatchups.length === 0) {
     await interaction.editReply(`❌ No matchups were opened.\n\n${errors.join('\n')}`);
     return;
   }
-  
-  bracketManager.saveTournament(interaction.guildId, tournament);
   
   const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   const timeRemaining = formatTimeRemaining(deadline);
@@ -2668,8 +2668,6 @@ async function handleOpenMatchup(interaction) {
     
     // Get regional label for display
     const regionalLabel = getRegionalLabel(position, tournament.phase);
-    const regionNum = parseInt(matchupLabel[0]);
-    const regionName = regionNum === 1 ? 'Left Side' : 'Right Side';
     
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
@@ -2763,7 +2761,7 @@ async function handleCloseMatchup(interaction) {
   const tournament = bracketManager.loadTournament(interaction.guildId);
   
   // Get tiebreaker duration (default to 1 hour)
-  const tiebreakerDurationStr = interaction.options.getString('tiebreaker-duration') || '1h';
+  const tiebreakerDurationStr = tiebreakerDurationFor(interaction);
   const tiebreakerDurationMs = parseDuration(tiebreakerDurationStr);
   
   if (!tiebreakerDurationMs) {
@@ -2771,7 +2769,7 @@ async function handleCloseMatchup(interaction) {
     return;
   }
   
-  if (!isValidDuration(tiebreakerDurationMs)) {
+  if (!isValidTiebreakerDuration(tiebreakerDurationMs)) {
     await interaction.editReply('❌ Tiebreaker duration must be between 5 minutes (5m) and 7 days (7d)');
     return;
   }
@@ -2895,12 +2893,10 @@ async function handleCloseMatchup(interaction) {
   // Single matchup closed
   if (successes.length === 1) {
     const s = successes[0];
-    const regionNum = parseInt(matchupLabels[0][0]);
-    const regionName = regionNum === 1 ? 'Left Side' : 'Right Side';
     
     const embed = new EmbedBuilder()
       .setColor(0x00FF00)
-      .setTitle(`🏁 ${roundName} - Matchup ${s.label} Complete! (${regionName})`)
+      .setTitle(`🏁 ${roundName} - Matchup ${s.label} Complete!`)
       .setDescription(
         `**${s.winner}** wins!\n\n` +
         `**${s.movie1}** (${s.votes1} votes) vs **${s.movie2}** (${s.votes2} votes)`
@@ -3206,13 +3202,16 @@ async function handleExport(interaction) {
   }
   
   if (format === 'json') {
-    // Export as JSON
-    const jsonData = JSON.stringify(tournament, null, 2);
+    // The setup form's import format: lineup and settings, re-importable with
+    // /bracket setup-link. It used to dump the stored tournament whole —
+    // which couldn't be imported, and put every voter's Discord id in a
+    // public channel (export isn't admin-only).
+    const jsonData = JSON.stringify(buildExport(tournament), null, 2);
     const buffer = Buffer.from(jsonData, 'utf-8');
-    const attachment = new AttachmentBuilder(buffer, { name: `${tournament.name.replace(/\s+/g, '_')}_export.json` });
-    
+    const attachment = new AttachmentBuilder(buffer, { name: `${tournament.name.replace(/\s+/g, '_')}_backup.json` });
+
     await interaction.editReply({
-      content: `📦 **${tournament.name}** - JSON Export`,
+      content: `📦 **${tournament.name}** - lineup and settings. Upload it to \`/bracket setup-link\` to run it again.`,
       files: [attachment]
     });
     

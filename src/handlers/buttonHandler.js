@@ -1483,32 +1483,18 @@ async function handleOpenMatchupButton(interaction) {
     return;
   }
   
-  if (matchup.status === 'voting') {
-    await interaction.followUp({
-      content: '⚠️ This matchup is already open for voting.',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
-  
-  if (matchup.status === 'closed') {
-    await interaction.followUp({
-      content: '❌ This matchup has already been closed.',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
-  
-  // Open the matchup
+  // The shared path refuses matchups already voting or decided
   const deadline = Date.now() + parseInt(durationMs);
-  matchup.status = 'voting';
-  matchup.votingOpened = Date.now();
-  matchup.votingDeadline = deadline;
-  if (!matchup.votes) {
-    matchup.votes = { movie1: [], movie2: [] };
+  const result = bracketManager.openKnockoutMatchups(interaction.guild.id, [matchup.id], deadline);
+  if (!result.success || result.opened.length === 0) {
+    await interaction.followUp({
+      content: !result.success ? `❌ ${result.error}`
+        : result.alreadyOpen.length ? '⚠️ This matchup is already open for voting.'
+        : '❌ This matchup has already been decided.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
   }
-  
-  bracketManager.saveTournament(interaction.guild.id, tournament);
   
   // Format time remaining helper
   function formatTimeRemaining(deadline) {
@@ -1785,17 +1771,19 @@ async function handleOpenRegionButton(interaction) {
     return;
   }
   
-  // Open all matchups in this region
-  for (const matchup of regionMatchups) {
-    matchup.status = 'voting';
-    matchup.votingOpened = Date.now();
-    matchup.votingDeadline = deadline;
-    if (!matchup.votes) {
-      matchup.votes = { movie1: [], movie2: [] };
-    }
+  // Opens only matchups nobody has voted on. This used to set every matchup
+  // in the region to voting — reopening decided ones, and extending live ones.
+  const result = bracketManager.openKnockoutMatchups(interaction.guild.id, regionMatchups.map(m => m.id), deadline);
+  if (!result.success || result.opened.length === 0) {
+    await interaction.followUp({
+      content: result.success
+        ? `❌ Nothing to open in Region ${regionNum}: every matchup there is already open or decided.`
+        : `❌ ${result.error}`,
+      flags: MessageFlags.Ephemeral
+    });
+    return;
   }
-  
-  bracketManager.saveTournament(interaction.guild.id, tournament);
+  const openedInRegion = result.opened;
   
   // Format time remaining helper
   function formatTimeRemaining(deadline) {
@@ -1835,14 +1823,13 @@ async function handleOpenRegionButton(interaction) {
   
   const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   const timeRemaining = formatTimeRemaining(deadline);
-  const regionName = regionNum === 1 ? 'Left Side' : 'Right Side';
   
   // Send main announcement to channel
   const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle(`📊 ${roundName} - Region ${regionNum} Voting Open! (${regionName})`)
+    .setTitle(`📊 ${roundName} - Region ${regionNum} Voting Open!`)
     .setDescription(
-      `**${regionMatchups.length} matchup${regionMatchups.length !== 1 ? 's' : ''}** in Region ${regionNum} are now open for voting.\n\n` +
+      `**${openedInRegion.length} matchup${openedInRegion.length !== 1 ? 's' : ''}** in Region ${regionNum} are now open for voting.\n\n` +
       `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
       `⏰ **Voting closes in:** ${timeRemaining}`
     )
@@ -1850,8 +1837,8 @@ async function handleOpenRegionButton(interaction) {
   
   await interaction.channel.send({ embeds: [mainEmbed] });
   
-  // Send each matchup as a separate message with its own buttons
-  for (const matchup of regionMatchups) {
+  // Send each newly opened matchup as a separate message with its own buttons
+  for (const matchup of openedInRegion) {
     const votes1 = matchup.votes.movie1.length;
     const votes2 = matchup.votes.movie2.length;
     const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
@@ -1900,7 +1887,7 @@ async function handleOpenRegionButton(interaction) {
   
   // Send confirmation to button clicker
   await interaction.followUp({
-    content: `✅ Opened Region ${regionNum} (${regionName}) for voting!`,
+    content: `✅ Opened Region ${regionNum} for voting!`,
     flags: MessageFlags.Ephemeral
   });
 }

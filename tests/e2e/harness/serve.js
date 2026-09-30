@@ -25,6 +25,11 @@ const REPO_ROOT = path.join(__dirname, '../../..');
 const PORT = process.env.E2E_PORT || 3000;
 
 process.env.NODE_ENV = process.env.NODE_ENV || 'test'; // non-production: secure:false cookies, enables the rate-limit reset route
+// The specs sign links in their own process, so both sides need the same
+// secret. Without a default here, event-image-crop.spec.js failed on any
+// machine that didn't happen to have EVENT_CROP_LINK_SECRET set.
+process.env.TOURNAMENT_SETUP_LINK_SECRET = process.env.TOURNAMENT_SETUP_LINK_SECRET || 'e2e-tournament-setup-secret';
+process.env.EVENT_CROP_LINK_SECRET = process.env.EVENT_CROP_LINK_SECRET || 'e2e-crop-link-secret';
 
 async function main() {
   await writeFixtureGuildConfigs(ALL_GUILDS);

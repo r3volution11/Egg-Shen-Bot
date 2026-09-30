@@ -19,6 +19,7 @@ import { fetchImageUrl } from '../utils/fetchImageUrl.js';
 import { loadQuotes, addQuote, updateQuote, deleteQuote, replaceAllQuotes } from '../utils/movieQuotesStore.js';
 import { loadPending, approvePending, rejectPending } from '../utils/pendingQuotesStore.js';
 import { consumeQuotesAdminLinkToken, peekQuotesAdminLinkToken } from '../utils/quotesAdminLinkToken.js';
+import { registerTournamentSetupRoutes } from './tournamentSetupRoutes.js';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -1323,6 +1324,9 @@ export function createApiServer(client) {
       res.sendStatus(204);
     });
   }
+
+  // Tournament setup form (/bracket setup-link) — its own module
+  registerTournamentSetupRoutes(app, client);
 
   // 404 handler
   app.use((req, res) => {
