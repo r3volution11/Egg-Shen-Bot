@@ -5,6 +5,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.41.2 - 2026-09-30
+
+### Fixed
+- **Adding a title without choosing a `type` no longer fails silently.** `type` is optional on `/bracket manage-titles` because removing titles doesn't need it, but leaving it out when adding crashed the command before it could reply, so nothing happened at all. This showed up in the server's error log three times. After the first title, the tournament's type is now used automatically; before it, the bot asks you to choose one
+- **`/bracket open` moves the group stage forward instead of reopening finished groups.** It opened every group that wasn't currently voting, which included groups already closed with results. So once the group stage was over, "open the next round" reopened finished voting instead of starting the knockout. It now opens only groups that haven't voted yet. When every group is closed, it starts the knockout and opens its first round. If groups are still voting or waiting on a tiebreaker, it names them and changes nothing
+
+### Developer
+- The knockout start now lives in `startKnockout`, shared by `advance-knockout` and `/bracket open`, so the two can't drift apart
+- Five more tests in `tests/bracket-mode-setup.test.js`. The three for `/bracket open` failed against the old code before the fix. Each fix was also checked by removing it and watching its test fail. No command definition changed. Suite: 105 files, 1459 tests
+
 ## 2.41.1 - 2026-09-29
 
 ### Fixed
