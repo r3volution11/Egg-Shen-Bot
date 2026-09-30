@@ -1,11 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
-import { searchMovies, searchTVShows, getMovieAlternativeTitles, getTVAlternativeTitles } from '../services/tmdbService.js';
-import { searchGames } from '../services/rawgService.js';
-import { searchBoardGames } from '../services/bggService.js';
-import { searchBooks } from '../services/googleBooksService.js';
-import { hybridSearch } from '../services/aiService.js';
+import { searchTitleCandidates, buildEntryFromResult, getTypeLabel } from '../utils/bracketTitles.js';
 import { loadGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 import { config } from '../config.js';
 
@@ -278,10 +274,11 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption(option =>
         option
           .setName('position')
-          .setDescription('Position to remove (1-4, required for removing)')
+          .setDescription('Number to remove, from /bracket list-groups (required for removing)')
           .setRequired(false)
           .setMinValue(1)
-          .setMaxValue(4)
+          // 32, not 4: bracket mode numbers its whole list; groups mode validates 1-4 itself
+          .setMaxValue(32)
       )
       .addAttachmentOption(option =>
         option
@@ -908,23 +905,7 @@ async function handleAddTitle(interaction) {
   // Search for the title using the appropriate API
   let results = [];
   try {
-    switch (type) {
-      case 'movie':
-        results = await hybridSearch(title, searchMovies, 'movie', getMovieAlternativeTitles);
-        break;
-      case 'tv':
-        results = await hybridSearch(title, searchTVShows, 'tv', getTVAlternativeTitles);
-        break;
-      case 'game':
-        results = await searchGames(title);
-        break;
-      case 'boardgame':
-        results = await searchBoardGames(title);
-        break;
-      case 'book':
-        results = await searchBooks(title);
-        break;
-    }
+    results = await searchTitleCandidates(type, title);
   } catch (error) {
     console.error(`[Bracket] Error searching for "${title}" (${type}):`, error);
     await interaction.editReply({
@@ -953,7 +934,7 @@ async function handleAddTitle(interaction) {
     }
     
     const result = bracketManager.addTitle(interaction.guildId, group, type, entry);
-    
+
     if (!result.success) {
       await interaction.editReply({
         content: `❌ ${result.error}`,
@@ -961,48 +942,8 @@ async function handleAddTitle(interaction) {
       });
       return;
     }
-    
-    // Success - show what was added and progress
-    const embed = new EmbedBuilder()
-      .setColor(0x00FF00);
-    
-    if (tournament.mode === 'bracket') {
-      embed
-        .setTitle(`✅ Added to Tournament`)
-        .setDescription(`**${entry.title}**${entry.year ? ` (${entry.year})` : ''}`)
-        .addFields(
-          { name: 'Type', value: getTypeLabel(type), inline: true },
-          { name: 'Progress', value: `${result.titleCount}/${tournament.maxTitles} titles`, inline: true }
-        );
-      
-      if (result.titleCount < tournament.maxTitles) {
-        embed.setFooter({ text: `Add ${tournament.maxTitles - result.titleCount} more title(s) or use /bracket open to start` });
-      } else {
-        embed.setFooter({ text: `All titles added! Use /bracket open to generate bracket` });
-      }
-    } else {
-      embed
-        .setTitle(`✅ Added to Group ${group}`)
-        .setDescription(`**${entry.title}**${entry.year ? ` (${entry.year})` : ''}`)
-        .addFields(
-          { name: 'Type', value: getTypeLabel(type), inline: true },
-          { name: 'Group Progress', value: `${result.titleCount}/4 titles`, inline: true }
-        );
-      
-      if (result.titleCount < 4) {
-        embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group}` });
-      } else {
-        embed.setFooter({ text: `Group ${group} is complete! Add more groups or use /bracket open to start` });
-      }
-    }
-    
-    // Use custom image if provided, otherwise use API poster
-    const imageUrl = entry.customImageUrl || entry.posterUrl;
-    if (imageUrl) {
-      embed.setThumbnail(imageUrl);
-    }
-    
-    await interaction.editReply({ embeds: [embed] });
+
+    await interaction.editReply({ embeds: [buildTitleAddedEmbed(tournament, group, entry, result.titleCount)] });
     return;
   }
   
@@ -1047,11 +988,13 @@ async function handleAddTitle(interaction) {
   
   const row = new ActionRowBuilder().addComponents(selectMenu);
   
+  // In bracket mode `group` is only a placeholder, so don't show it
+  const target = tournament.mode === 'bracket' ? 'the Tournament' : `Group ${group}`;
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
-    .setTitle(`🏆 Select Title for Group ${group}`)
+    .setTitle(`🏆 Select Title for ${target}`)
     .setDescription(`Found ${results.length} ${getTypeLabel(type).toLowerCase()} matching "${title}". Select the correct one to add to the bracket.`)
-    .setFooter({ text: `Adding to Group ${group} • ${getTypeLabel(type)}` });
+    .setFooter({ text: `Adding to ${target} • ${getTypeLabel(type)}` });
   
   await interaction.editReply({
     embeds: [embed],
@@ -1074,19 +1017,51 @@ async function handleRemoveTitle(interaction) {
     return;
   }
   
-  // Check if group has titles
-  const groupData = tournament.groups[group];
-  if (!groupData || groupData.movies.length === 0) {
+  if (!position) {
     await interaction.reply({
-      content: `❌ Group ${group} has no titles to remove.`,
+      content: '❌ Choose a `position` to remove. `/bracket list-groups` shows each title\'s number.',
       ephemeral: true,
     });
     return;
   }
-  
+
+  if (tournament.mode === 'bracket') {
+    const result = bracketManager.removeTitle(guildId, null, position);
+    if (!result.success) {
+      await interaction.reply({ content: `❌ ${result.error}`, ephemeral: true });
+      return;
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setTitle('🗑️ Removed from Tournament')
+      .setDescription(`**${result.removedTitle.title}**${result.removedTitle.year ? ` (${result.removedTitle.year})` : ''}`)
+      .addFields({ name: 'Progress', value: `${result.titleCount}/${tournament.maxTitles} titles`, inline: true })
+      // Later titles shift up one, so a second removal by the old number would hit the wrong one
+      .setFooter({ text: 'Titles after it moved up one position — check /bracket list-groups before removing another' });
+
+    const imageUrl = result.removedTitle.customImageUrl || result.removedTitle.posterUrl;
+    if (imageUrl) {
+      embed.setThumbnail(imageUrl);
+    }
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    return;
+  }
+
+  // Check if group has titles
+  const groupData = tournament.groups[group];
+  if (!groupData || groupData.movies.length === 0) {
+    await interaction.reply({
+      content: group ? `❌ Group ${group} has no titles to remove.` : '❌ Choose the `group` to remove a title from.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   // Remove the title
-  const result = bracketManager.removeGroupTitle(guildId, group, position);
-  
+  const result = bracketManager.removeTitle(guildId, group, position);
+
   if (!result.success) {
     await interaction.reply({
       content: `❌ ${result.error}`,
@@ -1094,7 +1069,7 @@ async function handleRemoveTitle(interaction) {
     });
     return;
   }
-  
+
   // Success - show what was removed and current progress
   const embed = new EmbedBuilder()
     .setColor(0xFF0000)
@@ -1290,124 +1265,52 @@ async function handleAnnounce(interaction) {
 }
 
 /**
- * Search for a title using the appropriate service based on type
- * Returns: { status: 'found'|'none', entry: {...}, count: number }
- * Note: When multiple results are found, returns the first (best) match
+ * The confirmation shown after a title is added — shared by the direct add
+ * here and the multi-result picker in selectHandler.js, which used to build
+ * its own and said "Group A" even in bracket mode.
  */
-async function searchForTitle(title, type) {
-  try {
-    let results = [];
-    
-    switch (type) {
-      case 'movie':
-        results = await searchMovies(title);
-        break;
-      case 'tv':
-        results = await searchTVShows(title);
-        break;
-      case 'game':
-        results = await searchGames(title);
-        break;
-      case 'boardgame':
-        results = await searchBoardGames(title);
-        break;
-      case 'book':
-        results = await searchBooks(title);
-        break;
-    }
-    
-    if (!results || results.length === 0) {
-      return { status: 'none', entry: null, count: 0 };
-    }
-    
-    // Take the first (best) result - APIs return results sorted by relevance
-    const result = results[0];
-    const entry = buildEntryFromResult(result, type);
-    
-    return { status: 'found', entry, count: results.length };
-  } catch (error) {
-    console.error(`[Bracket] Error searching for "${title}" (${type}):`, error);
-    return { status: 'none', entry: null, count: 0 };
-  }
-}
-
-/**
- * Build a tournament entry object from a search result
- */
-function buildEntryFromResult(result, type) {
-  const entry = {
-    type,
-    title: result.title || result.name || result.Name || result.volumeInfo?.title || 'Unknown',
-    id: null,
-    year: null,
-    posterUrl: null,
-    metadata: {},
-  };
+export function buildTitleAddedEmbed(tournament, group, entry, titleCount) {
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setDescription(`**${entry.title}**${entry.year ? ` (${entry.year})` : ''}`);
   
-  // Extract type-specific data
-  if (type === 'movie') {
-    entry.id = result.id;
-    entry.year = result.release_date?.split('-')[0];
-    entry.posterUrl = result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null;
-    entry.metadata = {
-      overview: result.overview,
-      vote_average: result.vote_average,
-    };
-  } else if (type === 'tv') {
-    entry.id = result.id;
-    entry.year = result.first_air_date?.split('-')[0];
-    entry.posterUrl = result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null;
-    entry.metadata = {
-      overview: result.overview,
-      vote_average: result.vote_average,
-    };
-  } else if (type === 'game') {
-    entry.id = result.id;
-    entry.year = result.released?.split('-')[0];
-    entry.posterUrl = result.background_image;
-    entry.metadata = {
-      rating: result.rating,
-      platforms: result.platforms?.map(p => p.platform.name),
-    };
-  } else if (type === 'boardgame') {
-    entry.id = result.id;
-    entry.year = result.YearPublished;
-    entry.posterUrl = result.thumbnail;
-    entry.metadata = {
-      minPlayers: result.MinPlayers,
-      maxPlayers: result.MaxPlayers,
-    };
-  } else if (type === 'book') {
-    entry.id = result.id;
-    entry.year = result.volumeInfo?.publishedDate?.split('-')[0];
-    entry.posterUrl = result.volumeInfo?.imageLinks?.thumbnail;
-    entry.metadata = {
-      authors: result.volumeInfo?.authors,
-      pageCount: result.volumeInfo?.pageCount,
-    };
+  if (tournament.mode === 'bracket') {
+    embed
+      .setTitle('✅ Added to Tournament')
+      .addFields(
+        { name: 'Type', value: getTypeLabel(entry.type), inline: true },
+        { name: 'Progress', value: `${titleCount}/${tournament.maxTitles} titles`, inline: true }
+      );
+    
+    if (titleCount < tournament.maxTitles) {
+      embed.setFooter({ text: `Add ${tournament.maxTitles - titleCount} more title(s) or use /bracket open to start` });
+    } else {
+      embed.setFooter({ text: 'All titles added! Use /bracket open to generate the bracket' });
+    }
+  } else {
+    embed
+      .setTitle(`✅ Added to Group ${group}`)
+      .addFields(
+        { name: 'Type', value: getTypeLabel(entry.type), inline: true },
+        { name: 'Group Progress', value: `${titleCount}/4 titles`, inline: true }
+      );
+    
+    if (titleCount < 4) {
+      embed.setFooter({ text: `Add ${4 - titleCount} more title(s) to Group ${group}` });
+    } else {
+      embed.setFooter({ text: `Group ${group} is complete! Fill every group, then use /bracket open to start` });
+    }
   }
   
-  return entry;
+  // Use custom image if provided, otherwise use API poster
+  const imageUrl = entry.customImageUrl || entry.posterUrl;
+  if (imageUrl) {
+    embed.setThumbnail(imageUrl);
+  }
+  
+  return embed;
 }
 
-/**
- * Get human-readable label for type
- */
-function getTypeLabel(type) {
-  const labels = {
-    movie: 'Movies',
-    tv: 'TV Shows',
-    game: 'Video Games',
-    boardgame: 'Board Games',
-    book: 'Books',
-  };
-  return labels[type] || type;
-}
-
-/**
- * Search for a title across ALL APIs (universal search)
- * Returns: { status: 'found'|'multiple'|'none', entry: {...}, results: [], count: number }
- */
 async function handleOpenGroups(interaction) {
   await interaction.deferReply();
   
@@ -1830,8 +1733,8 @@ async function handleRegenerate(interaction) {
  */
 async function handleSmartOpen(interaction) {
   await interaction.deferReply();
-  
-  const tournament = bracketManager.loadTournament(interaction.guildId);
+
+  let tournament = bracketManager.loadTournament(interaction.guildId);
   
   if (!tournament) {
     await interaction.editReply('❌ No tournament found. Create one with `/bracket create` first.');
@@ -1853,7 +1756,35 @@ async function handleSmartOpen(interaction) {
   }
   
   const deadline = Date.now() + durationMs;
-  
+
+  // Starting from setup. Every add-title reply tells people to run
+  // `/bracket open` here, but this used to reject the setup status outright,
+  // leaving `advance-knockout` as the only (undocumented) way to start.
+  let bracketJustGenerated = false;
+  if (tournament.status === 'setup' && tournament.mode === 'bracket') {
+    const generated = bracketManager.generateKnockoutBracket(interaction.guildId);
+    if (!generated.success) {
+      await interaction.editReply(`❌ ${generated.error}`);
+      return;
+    }
+    tournament = generated.tournament;
+    bracketJustGenerated = true;
+  } else if (tournament.status === 'setup') {
+    // A group with fewer than 4 titles would open with a lopsided vote
+    const incomplete = 'ABCDEFGHIJKL'.slice(0, tournament.groupCount).split('')
+      .map(id => ({ id, count: tournament.groups[id]?.movies?.length || 0 }))
+      .filter(g => g.count < 4);
+    if (incomplete.length > 0) {
+      await interaction.editReply(
+        `❌ Every group needs 4 titles before voting can open.\n\n` +
+        `**Not full yet:** ${incomplete.map(g => `${g.id} (${g.count}/4)`).join(', ')}`
+      );
+      return;
+    }
+    // Only routes into the branch below; openGroupVoting persists the status
+    tournament.status = 'group_stage';
+  }
+
   // Auto-detect phase
   if (tournament.status === 'group_stage') {
     // Open all groups that aren't already open
@@ -1912,7 +1843,9 @@ async function handleSmartOpen(interaction) {
       const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       const matchupsPerRegion = Math.ceil(currentRoundMatchups.length / 4);
       await interaction.editReply(
-        `❌ **${roundName} has ${currentRoundMatchups.length} matchups** - too many for one voting session.\n\n` +
+        (bracketJustGenerated
+          ? `✅ **Bracket generated!** ${roundName} has ${currentRoundMatchups.length} matchups - too many for one voting session.\n\n`
+          : `❌ **${roundName} has ${currentRoundMatchups.length} matchups** - too many for one voting session.\n\n`) +
         `This round will be split into 4 regions with ~${matchupsPerRegion} matchup${matchupsPerRegion !== 1 ? 's' : ''} each.\n` +
         `Use \`/bracket open-matchup\` with no parameters to select which region to open.\n\n` +
         `💡 **Tip:** Open regions one at a time to manage voting flow!`
@@ -2098,7 +2031,10 @@ async function handleStatus(interaction) {
       { name: 'Creator', value: `<@${tournament.creatorId}>`, inline: true }
     );
   
-  if (tournament.status === 'setup') {
+  if (tournament.status === 'setup' && tournament.mode === 'bracket') {
+    embed.setDescription(`Tournament is being set up.\n\n**Titles Added:** ${tournament.titles.length}/${tournament.maxTitles}`);
+
+  } else if (tournament.status === 'setup') {
     const groupsAdded = Object.keys(tournament.groups).length;
     const totalTitles = Object.values(tournament.groups).reduce((sum, g) => sum + (g.movies?.length || 0), 0);
     embed.setDescription(`Tournament is being set up.\n\n**Groups Added:** ${groupsAdded}/${tournament.groupCount}\n**Titles Added:** ${totalTitles}`);
@@ -2191,10 +2127,25 @@ async function handleListGroups(interaction) {
     return;
   }
   
+  // Bracket mode has no groups — its titles are one numbered list, and those
+  // numbers are what `manage-titles action:remove position:` expects
+  if (tournament.mode === 'bracket') {
+    const titles = tournament.titles || [];
+    const embed = new EmbedBuilder()
+      .setColor(0x0099FF)
+      .setTitle(`🏆 ${tournament.name} - Titles`)
+      .setDescription(titles.length === 0
+        ? '*No titles added yet*'
+        : titles.map((t, i) => `${i + 1}. ${t.title}${t.year ? ` (${t.year})` : ''}`).join('\n'))
+      .setFooter({ text: `${titles.length}/${tournament.maxTitles} titles` });
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
   const embed = new EmbedBuilder()
     .setColor(0x0099FF)
     .setTitle(`🏆 ${tournament.name} - Groups`);
-  
+
   // Get all group letters that exist
   const groupLetters = Object.keys(tournament.groups).sort();
   

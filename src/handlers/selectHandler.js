@@ -253,95 +253,27 @@ export async function handleSelectInteraction(interaction) {
     }
     
     const value = interaction.values[0];
-    const [, group, type, id] = value.split('_');
+    // Google Books ids can contain "_", so the id is everything after the type
+    const [, group, type, ...idParts] = value.split('_');
+    const id = idParts.join('_');
     
     try {
-      const { EmbedBuilder } = await import('discord.js');
-      const { addGroupTitle } = await import('../utils/bracketManager.js');
-      const { customImageCache } = await import('../commands/bracket.js');
+      const { addTitle } = await import('../utils/bracketManager.js');
+      const { fetchEntryById } = await import('../utils/bracketTitles.js');
+      const { customImageCache, buildTitleAddedEmbed } = await import('../commands/bracket.js');
       
       // Retrieve custom image from cache if it was provided
       const cacheKey = `${interaction.user.id}_${group}`;
       const customImage = customImageCache.get(cacheKey);
       
-      // Fetch the selected result to get full details
-      let result = null;
-      let entry = null;
-      
-      if (type === 'movie') {
-        const { getMovieDetails } = await import('../services/tmdbService.js');
-        console.log(`[Bracket Selection] Fetching movie details for ID: ${id}`);
-        result = await getMovieDetails(parseInt(id));
-        console.log(`[Bracket Selection] Movie details received:`, result?.title || 'No title');
-        entry = {
-          type: 'movie',
-          title: result.title,
-          id: result.id,
-          year: result.release_date?.split('-')[0],
-          posterUrl: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null,
-          metadata: {
-            overview: result.overview,
-            vote_average: result.vote_average,
-          },
-        };
-      } else if (type === 'tv') {
-        const { getTVShowDetails } = await import('../services/tmdbService.js');
-        console.log(`[Bracket Selection] Fetching TV show details for ID: ${id}`);
-        result = await getTVShowDetails(parseInt(id));
-        console.log(`[Bracket Selection] TV show details received:`, result?.name || 'No name');
-        entry = {
-          type: 'tv',
-          title: result.name,
-          id: result.id,
-          year: result.first_air_date?.split('-')[0],
-          posterUrl: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null,
-          metadata: {
-            overview: result.overview,
-            vote_average: result.vote_average,
-          },
-        };
-      } else if (type === 'game') {
-        const { getGameDetails } = await import('../services/rawgService.js');
-        result = await getGameDetails(parseInt(id));
-        entry = {
-          type: 'game',
-          title: result.name,
-          id: result.id,
-          year: result.released?.split('-')[0],
-          posterUrl: result.background_image,
-          metadata: {
-            rating: result.rating,
-            platforms: result.platforms?.map(p => p.platform.name),
-          },
-        };
-      } else if (type === 'boardgame') {
-        const { getBoardGameDetails } = await import('../services/bggService.js');
-        result = await getBoardGameDetails(id);
-        entry = {
-          type: 'boardgame',
-          title: result.name,
-          id: result.id,
-          year: result.yearPublished,
-          posterUrl: result.thumbnail,
-          metadata: {
-            minPlayers: result.minPlayers,
-            maxPlayers: result.maxPlayers,
-          },
-        };
-      } else if (type === 'book') {
-        const { getBookDetails } = await import('../services/googleBooksService.js');
-        result = await getBookDetails(id);
-        entry = {
-          type: 'book',
-          title: result.title,
-          id: result.id,
-          year: result.publishedDate?.split('-')[0],
-          posterUrl: result.thumbnail,
-          metadata: {
-            authors: result.authors,
-            pageCount: result.pageCount,
-          },
-        };
+      const entry = await fetchEntryById(type, id);
+      if (!entry) {
+        await interaction.editReply({
+          content: '❌ Could not load that title. Please try again.',
+          embeds: [],
+          components: [],
+        });
+        return;
       }
       
       // Add custom image if it was provided
@@ -349,8 +281,9 @@ export async function handleSelectInteraction(interaction) {
         entry.customImageUrl = customImage;
       }
       
-      // Add the title to the bracket
-      const addResult = addGroupTitle(interaction.guildId, group, type, entry);
+      // addTitle, not addGroupTitle: it routes by mode. Calling the groups-only
+      // function here made every pick fail in bracket mode ("Invalid group").
+      const addResult = addTitle(interaction.guildId, group, type, entry);
       
       // Clean up custom image from cache
       customImageCache.delete(cacheKey);
@@ -364,38 +297,10 @@ export async function handleSelectInteraction(interaction) {
         return;
       }
       
-      // Success - show what was added
-      const getTypeLabel = (t) => ({
-        movie: 'Movies',
-        tv: 'TV Shows',
-        game: 'Video Games',
-        boardgame: 'Board Games',
-        book: 'Books',
-      }[t] || t);
-      
-      const embed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle(`✅ Added to Group ${group}`)
-        .setDescription(`**${entry.title}**${entry.year ? ` (${entry.year})` : ''}`)
-        .addFields(
-          { name: 'Type', value: getTypeLabel(type), inline: true },
-          { name: 'Group Progress', value: `${addResult.titleCount}/4 titles`, inline: true }
-        );
-      
-      // Use custom image if provided, otherwise use API poster
-      const imageUrl = entry.customImageUrl || entry.posterUrl;
-      if (imageUrl) {
-        embed.setThumbnail(imageUrl);
-      }
-      
-      if (addResult.titleCount < 4) {
-        embed.setFooter({ text: `Add ${4 - addResult.titleCount} more title(s) to Group ${group} with /bracket manage-titles action:add` });
-      } else {
-        embed.setFooter({ text: `Group ${group} is complete! Add more groups or use /bracket open-groups to start voting.` });
-      }
+      const embed = buildTitleAddedEmbed(addResult.tournament, group, entry, addResult.titleCount);
       
       // Delete the selection menu and post the result
-      console.log(`[Bracket Selection] Successfully added ${entry.title} to Group ${group}`);
+      console.log(`[Bracket Selection] Successfully added ${entry.title} (${addResult.tournament.mode} mode)`);
       await interaction.editReply({
         content: null,
         embeds: [embed],

@@ -133,13 +133,13 @@ Create a new tournament bracket. The bot automatically selects the best tourname
 
 ### `/bracket manage-titles`
 
-Add or remove titles from tournament groups. This unified command replaces the old `add-title` and `remove-title` commands.
+Add or remove titles during setup. This unified command replaces the old `add-title` and `remove-title` commands.
 
 **Parameters:**
 - `action` (required, choice): Action to perform
-  - `Add Title` - Add a new title to a group
-  - `Remove Title` - Remove a title from a group
-- `group` (required, choice): Group letter (A-L)
+  - `Add Title` - Add a new title
+  - `Remove Title` - Remove a title
+- `group` (optional, choice): Group letter (A-L). Groups mode only — leave it out in a straight bracket (2–32 titles). When adding in groups mode without one, the title goes into the first group with room.
 - `type` (optional, choice): Tournament type (required when adding)
   - `movie` - Movies (searches TMDB)
   - `tv` - TV Shows (searches TMDB)
@@ -147,7 +147,7 @@ Add or remove titles from tournament groups. This unified command replaces the o
   - `boardgame` - Board Games (searches BoardGameGeek)
   - `book` - Books (searches Google Books)
 - `title` (optional, string): Title to search for (required when adding)
-- `position` (optional, integer): Position to remove (1-4, required when removing)
+- `position` (optional, integer): The title's number from `/bracket list-groups` (required when removing). 1–4 within a group, or 1–32 in a straight bracket.
 - `image` (optional, attachment): Custom image (for adding only, overrides API poster)
 
 **Example Usage (Adding):**
@@ -162,15 +162,18 @@ Add or remove titles from tournament groups. This unified command replaces the o
 ```
 /bracket manage-titles action:"Remove Title" group:A position:2
 /bracket manage-titles action:"Remove Title" group:D position:4
+/bracket manage-titles action:"Remove Title" position:7
 ```
 
+The last example is a straight bracket, which has no groups.
+
 **Notes:**
-- **Adding:** Searches the selected API for matching titles, returns up to 5 results
+- **Adding:** Searches the selected API. One match is added right away; several show a menu to pick the right one
 - **Adding:** Custom images override the default poster/cover art
 - **Adding:** Each group must have exactly 4 titles before voting can begin
 - **Adding:** Tournament type is set on first title added and cannot be changed
-- **Removing:** Positions are numbered 1-4 based on display order
-- **Removing:** Shifts remaining titles up in position
+- **Removing:** Use the numbers `/bracket list-groups` shows
+- **Removing:** Shifts remaining titles up in position, so check `/bracket list-groups` again before removing a second one
 - Cannot manage titles after group voting begins
 
 ---
@@ -239,6 +242,8 @@ These intelligent commands automatically detect the tournament phase and perform
   - Range: 5m minimum, 30d maximum
 
 **What It Does:**
+- **Setup, straight bracket:** Builds the bracket and opens the first round. This is how a straight bracket starts.
+- **Setup, groups mode:** Opens every group, once each one has 4 titles. If any are short, it lists them instead.
 - **Group Stage:** Opens all closed groups for voting
 - **Knockout Stage:** Opens all matchups in the current round (Round of 32, Round of 16, Quarterfinals, Semifinals, Finals)
 - Automatically detects which phase the tournament is in
@@ -761,7 +766,7 @@ Completed: 6 matchups
 
 ### `/bracket list-groups`
 
-List all groups and the titles in each one.
+List all groups and the titles in each one. In a straight bracket (no groups), it lists every title as one numbered list instead.
 
 **Who Can Use:** Everyone
 
@@ -774,6 +779,7 @@ List all groups and the titles in each one.
 
 **Notes:**
 - Shows every group's titles, in the order they were added
+- The numbers are the `position` that `manage-titles action:"Remove Title"` takes
 - Marks each group as voting-open or closed
 - Useful during setup to see which groups still need titles before voting can begin
 

@@ -682,6 +682,15 @@ function addTitleToBracket(guildId, type, entry) {
     return { success: false, error: 'Tournament not in setup phase' };
   }
   
+  // Set the type on *this* copy. addTitle checks it on its own copy, which is
+  // never saved, so without this bracket mode never stored a type and let
+  // movies and games mix.
+  if (!tournament.type) {
+    tournament.type = type;
+  } else if (tournament.type !== type) {
+    return { success: false, error: `Tournament type mismatch. This tournament is for ${tournament.type}s, but you're trying to add ${type}s.` };
+  }
+
   // Check if at max titles
   if (tournament.titles.length >= tournament.maxTitles) {
     return { success: false, error: `Tournament is at maximum capacity (${tournament.maxTitles} titles)` };
@@ -773,6 +782,40 @@ export function addGroupTitle(guildId, groupId, type, entry) {
   
   return saveTournament(guildId, tournament) 
     ? { success: true, tournament, group, titleCount: group.movies.length } 
+    : { success: false, error: 'Failed to save' };
+}
+
+/**
+ * Remove a title from the tournament (auto-detects mode), mirroring addTitle.
+ * Bracket mode keeps its titles in `titles[]`, not `groups` — reading only
+ * groups is why removal used to be impossible there.
+ * @param {string} guildId - Guild ID
+ * @param {string} groupId - Group ID (A-L) for group mode, ignored for bracket mode
+ * @param {number} position - 1-based position (within the group, or the whole list)
+ * @returns {Object} Result with success/error
+ */
+export function removeTitle(guildId, groupId, position) {
+  const tournament = loadTournament(guildId);
+  if (!tournament || tournament.status !== 'setup') {
+    return { success: false, error: 'Tournament not in setup phase' };
+  }
+
+  if (tournament.mode !== 'bracket') {
+    return removeGroupTitle(guildId, groupId, position);
+  }
+
+  const arrayIndex = position - 1;
+  if (!Number.isInteger(arrayIndex) || arrayIndex < 0 || arrayIndex >= tournament.titles.length) {
+    return { success: false, error: `Invalid title number. The tournament has ${tournament.titles.length} title(s)` };
+  }
+
+  const [removedTitle] = tournament.titles.splice(arrayIndex, 1);
+  tournament.titles.forEach((t, idx) => {
+    t.index = idx;
+  });
+
+  return saveTournament(guildId, tournament)
+    ? { success: true, tournament, removedTitle, titleCount: tournament.titles.length }
     : { success: false, error: 'Failed to save' };
 }
 
