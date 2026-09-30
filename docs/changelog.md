@@ -5,6 +5,36 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.42.0 - 2026-09-30
+
+### Added
+- **Set up a whole tournament from a file.** `/bracket setup-link` gives an admin or mod a private link, good for an hour, to a web form. Upload a CSV or JSON file, or fill it in, and the form looks up every title the same way `/bracket manage-titles` does. Each match shows its poster; titles with several matches (remakes, sequels) get a menu to pick from, and anything not found can be fixed on the page. Nothing is saved until you press Create. The form stays editable until voting opens, and saving again replaces the lineup, after listing what will be removed
+- **Templates to start from**: a straight-bracket CSV, a groups CSV and a JSON file with every setting, downloadable from the new [Setup Form & Templates](/commands/brackets/import) page
+- **Ordered seeding.** A straight bracket can now be seeded from your list instead of shuffled: the first title is seed 1, round one pairs best with worst, seeds 1 and 2 can only meet in the final, and byes go to the top seeds. Random stays the default
+- **Saved defaults.** The form can set a tournament's voting time and tiebreaker time, used whenever `duration` or `tiebreaker-duration` is left out, and an announcement message and banner that `/bracket announce` uses when you don't type one
+
+### Changed
+- **`/bracket export format:json` is now a backup you can re-import.** It produces the setup form's format: the lineup and settings, with every title's id so nothing needs searching again. It used to dump the stored tournament whole, which couldn't be imported and included every voter's Discord ID in a public channel. The Markdown export is unchanged
+- **`/bracket advance-knockout` is gone.** `/bracket open` does the same job: once every group is closed, it starts the knockout
+- **Rewrote the tournament docs.** The setup, knockout and tips pages described commands that no longer exist (`add-title`, `open-quarters`, `open-region` and others) and regions that don't match the bot. They now match what `/bracket` actually does
+
+### Fixed
+- **Opening knockout matchups could undo results and wipe live votes.** `/bracket open`, `open-matchup` (by label or `region`) and the region and matchup buttons each had their own way of opening matchups, and most reset whatever they were given. A matchup already voting lost its votes. A decided one lost its result, while its winner stayed in the next round, so the bracket no longer agreed with itself. All five now share one rule: only matchups nobody has voted on are opened, and the reply lists any that were already open or decided
+- **Tiebreaker times are 5 minutes to 7 days, as the messages always said.** `close-groups` and `close-matchup` actually allowed up to 30 days, and `/bracket close` checked no limit at all
+- **Region announcements** showed a literal `\n` instead of line breaks
+- **"Left Side" / "Right Side"** no longer appears in matchup and region messages. The bracket has four regions, which the labels (1A, 2B…) already show
+- **`/bracket announce` in a straight bracket** showed "(null groups)" and "0 titles". It now shows the format and the real title count
+
+### Developer
+- New `src/utils/tournamentImport.js`: parsing, rules, matching (through `bracketTitles.js`), saving and export for the format. Everything is checked before anything is written, and a failed save puts back what was there. `parseDuration`/`isValidDuration` moved here from `bracket.js`
+- New `src/api/tournamentSetupRoutes.js`, registered from `server.js`. The guild always comes from the link's token; the page sends only ids, and entries come from the bot's own lookups; saving re-checks the person is still an admin or mod
+- New `src/utils/tournamentSetupLinkToken.js`: HMAC-signed and verified on every request, not single-use, since setting up is a session. Uses `TOURNAMENT_SETUP_LINK_SECRET` when set, otherwise a key derived from `DISCORD_TOKEN`, so self-hosted bots need no new configuration
+- `bracketManager`: `standardSeedOrder`, seeded `buildBracketTree`, and `deleteTournament` (rollback only)
+- **Command definition changed** (`setup-link` added, `advance-knockout` removed): run `deploy-commands`. `/bracket` is 7269 of 8000 bytes
+- `bracketManager.openKnockoutMatchups` is now the only way matchups open. The unused `openKnockoutMatchup` is gone, and `openKnockoutRound` goes through the new function. `isValidTiebreakerDuration` sits beside `isValidDuration`
+- The e2e harness sets a test `EVENT_CROP_LINK_SECRET`, so `event-image-crop.spec.js` no longer fails on machines without one
+- New tests: `tests/tournament-import.test.js` (parses the shipped templates), `tests/tournament-setup-routes.test.js`, `tests/bracket-open-buttons.test.js`, more in `tests/bracket-mode-setup.test.js`, and a Playwright spec, `tests/e2e/tournament-setup.spec.js`. The browser test caught a real bug: editing a title and pressing Find matches did nothing, because the table re-rendered on blur and moved the button out from under the click. Seventeen mutations, one per safeguard, each fail their test. Suite: 108 files, 1523 tests; Playwright: 25
+
 ## 2.41.2 - 2026-09-30
 
 ### Fixed
