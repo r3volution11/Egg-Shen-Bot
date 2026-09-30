@@ -325,6 +325,101 @@ describe('tournament type in bracket mode', () => {
   });
 });
 
+describe('/bracket open during the group stage opens the next round', () => {
+  // It used to open every group not currently voting, which included groups
+  // already closed with results. So once the group stage was over, "open the
+  // next round" reopened finished groups instead of starting the knockout.
+  function fullGroupStage() {
+    bracketManager.createTournament(GUILD_ID, 'Group Cup', USER_ID, 36);
+    bracketManager.resizeTournament(GUILD_ID, 4);
+    for (const g of 'ABCD') {
+      for (let i = 0; i < 4; i++) bracketManager.addTitle(GUILD_ID, g, 'movie', movie(`${g}${i}`, `${g}${i}`, 2000));
+    }
+  }
+
+  function voteNoTies(groupIds) {
+    for (const g of groupIds) {
+      bracketManager.voteGroupStage(GUILD_ID, 'v1', g, [0, 1]);
+      bracketManager.voteGroupStage(GUILD_ID, 'v2', g, [0, 1]);
+      bracketManager.voteGroupStage(GUILD_ID, 'v3', g, [0, 2]);
+    }
+  }
+
+  test('opens only groups that have not voted yet, never a closed one', async () => {
+    fullGroupStage();
+    bracketManager.openGroupVoting(GUILD_ID, ['A', 'B']);
+    voteNoTies(['A', 'B']);
+    bracketManager.closeGroupVoting(GUILD_ID, ['A', 'B']);
+
+    const open = commandInteraction({ subcommand: 'open' });
+    await execute(open);
+
+    const saved = bracketManager.loadTournament(GUILD_ID);
+    expect(saved.groups.A.status).toBe('closed');
+    expect(saved.groups.B.status).toBe('closed');
+    expect(saved.groups.C.votingOpen).toBe(true);
+    expect(saved.groups.D.votingOpen).toBe(true);
+    expect(sentText(open)).toContain('C, D');
+  });
+
+  test('once every group is closed, it starts the knockout', async () => {
+    fullGroupStage();
+    bracketManager.openGroupVoting(GUILD_ID, ['A', 'B', 'C', 'D']);
+    voteNoTies(['A', 'B', 'C', 'D']);
+    bracketManager.closeGroupVoting(GUILD_ID, ['A', 'B', 'C', 'D']);
+
+    const open = commandInteraction({ subcommand: 'open', strings: { duration: '1h' } });
+    await execute(open);
+
+    const saved = bracketManager.loadTournament(GUILD_ID);
+    expect(saved.status).toBe('knockout');
+    expect(Object.values(saved.groups).every(g => g.status === 'closed')).toBe(true);
+    const roundOne = saved.knockoutBracket.filter(m => m.round === saved.phase && m.movie1 && m.movie2);
+    expect(roundOne.length).toBeGreaterThan(0);
+    expect(roundOne.every(m => m.status === 'voting')).toBe(true);
+  });
+
+  test('while groups are still voting, it says so and changes nothing', async () => {
+    fullGroupStage();
+    bracketManager.openGroupVoting(GUILD_ID, ['A', 'B', 'C', 'D']);
+
+    const open = commandInteraction({ subcommand: 'open' });
+    await execute(open);
+
+    const saved = bracketManager.loadTournament(GUILD_ID);
+    expect(saved.status).toBe('group_stage');
+    expect(sentText(open)).toContain('/bracket close');
+  });
+});
+
+describe('adding without the optional `type`', () => {
+  // Production logged this crashing three times: no type meant no search,
+  // then building the "not found" message threw, so the user got no reply.
+  test('before any title: asks for a type instead of crashing', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Type Cup', USER_ID, 8);
+
+    const add = commandInteraction({ subcommand: 'manage-titles', strings: { action: 'add', title: 'Alien' } });
+    await execute(add);
+
+    expect(sentText(add)).toContain('Choose a `type`');
+    expect(mockHybridSearch).not.toHaveBeenCalled();
+    expect(bracketManager.loadTournament(GUILD_ID).titles).toHaveLength(0);
+  });
+
+  test("after the first title: uses the tournament's type", async () => {
+    bracketManager.createTournament(GUILD_ID, 'Type Cup', USER_ID, 8);
+    bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(1, 'Alien', 1979));
+    mockHybridSearch.mockResolvedValue([{ id: 679, title: 'Aliens', release_date: '1986-07-18' }]);
+
+    const add = commandInteraction({ subcommand: 'manage-titles', strings: { action: 'add', title: 'Aliens' } });
+    await execute(add);
+
+    expect(mockHybridSearch).toHaveBeenCalledWith('Aliens', expect.any(Function), 'movie', expect.any(Function));
+    const saved = bracketManager.loadTournament(GUILD_ID);
+    expect(saved.titles.map(t => t.title)).toEqual(['Alien', 'Aliens']);
+  });
+});
+
 describe('/bracket list-groups in bracket mode', () => {
   test('shows the numbered list that removal uses', async () => {
     bracketManager.createTournament(GUILD_ID, 'List Cup', USER_ID, 8);

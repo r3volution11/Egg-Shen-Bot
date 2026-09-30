@@ -863,16 +863,30 @@ async function handleAddTitle(interaction) {
   await interaction.deferReply({ ephemeral: true });
   
   let group = interaction.options.getString('group');
-  const type = interaction.options.getString('type');
   const title = interaction.options.getString('title');
   const imageAttachment = interaction.options.getAttachment('image');
   const customImage = imageAttachment?.url;
-  
+
   // Check if tournament exists
   const tournament = bracketManager.loadTournament(interaction.guildId);
   if (!tournament || tournament.status !== 'setup') {
     await interaction.editReply({
       content: '❌ No tournament in setup phase. Create one with `/bracket create` first.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  // `type` and `title` are optional in the schema because removal shares this
+  // subcommand. Leaving out `type` used to crash with no reply at all (seen in
+  // production). After the first title the tournament's type is fixed anyway,
+  // so fall back to it.
+  const type = interaction.options.getString('type') || tournament.type;
+  if (!type || !title) {
+    await interaction.editReply({
+      content: !title
+        ? '❌ Choose a `title` to search for.'
+        : '❌ Choose a `type` (movie, TV, game, board game or book). The first title sets it for the whole tournament; after that you can leave it out.',
       ephemeral: true,
     });
     return;
@@ -1525,7 +1539,16 @@ async function handleAdvanceKnockout(interaction) {
     await interaction.editReply('❌ Duration must be between 5 minutes (5m) and 30 days (30d)');
     return;
   }
-  
+
+  await startKnockout(interaction, durationMs);
+}
+
+/**
+ * Seed the knockout from the finished group stage and open its first round.
+ * Shared by `advance-knockout` and `/bracket open`, which reaches here once
+ * every group is closed. The interaction must already be deferred.
+ */
+async function startKnockout(interaction, durationMs) {
   // Calculate wildcards
   const wildcardsResult = bracketManager.calculateWildcards(interaction.guildId);
   if (!wildcardsResult.success) {
@@ -1787,16 +1810,30 @@ async function handleSmartOpen(interaction) {
 
   // Auto-detect phase
   if (tournament.status === 'group_stage') {
-    // Open all groups that aren't already open
-    const closedGroups = Object.entries(tournament.groups)
-      .filter(([_, g]) => g.status === 'closed' || !g.votingOpen)
+    // "Open the next round": groups that haven't voted yet, then the knockout.
+    // This used to select every group not currently voting — including ones
+    // already closed with results — so after the group stage it reopened
+    // finished groups instead of moving on.
+    const groups = Object.entries(tournament.groups);
+    const closedGroups = groups
+      .filter(([_, g]) => !g.votingOpen && g.status !== 'closed' && g.status !== 'tiebreaker')
       .map(([id, _]) => id);
-    
+
     if (closedGroups.length === 0) {
-      await interaction.editReply('❌ All groups are already open for voting.');
+      const unfinished = groups
+        .filter(([_, g]) => g.status !== 'closed')
+        .map(([id, g]) => `${id}${g.status === 'tiebreaker' ? ' (tiebreaker)' : ''}`);
+      if (unfinished.length > 0) {
+        await interaction.editReply(
+          `❌ Nothing new to open. Still in progress: ${unfinished.join(', ')}\n\n` +
+          `Close them with \`/bracket close\` (and settle any tiebreakers), then run \`/bracket open\` again to start the knockout.`
+        );
+        return;
+      }
+      await startKnockout(interaction, durationMs);
       return;
     }
-    
+
     const result = bracketManager.openGroupVoting(interaction.guildId, closedGroups, deadline);
     
     if (!result.success) {

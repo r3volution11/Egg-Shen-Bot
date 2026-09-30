@@ -140,7 +140,7 @@ Add or remove titles during setup. This unified command replaces the old `add-ti
   - `Add Title` - Add a new title
   - `Remove Title` - Remove a title
 - `group` (optional, choice): Group letter (A-L). Groups mode only — leave it out in a straight bracket (2–32 titles). When adding in groups mode without one, the title goes into the first group with room.
-- `type` (optional, choice): Tournament type (required when adding)
+- `type` (optional, choice): Tournament type. Needed for the first title; after that the tournament's type is used if you leave it out
   - `movie` - Movies (searches TMDB)
   - `tv` - TV Shows (searches TMDB)
   - `game` - Video Games (searches RAWG)
@@ -244,7 +244,7 @@ These intelligent commands automatically detect the tournament phase and perform
 **What It Does:**
 - **Setup, straight bracket:** Builds the bracket and opens the first round. This is how a straight bracket starts.
 - **Setup, groups mode:** Opens every group, once each one has 4 titles. If any are short, it lists them instead.
-- **Group Stage:** Opens all closed groups for voting
+- **Group Stage:** Opens the groups that haven't voted yet. Once every group is closed, it starts the knockout and opens its first round, the same as `/bracket advance-knockout`. It never reopens a finished group; if groups are still voting or in a tiebreaker, it lists them
 - **Knockout Stage:** Opens all matchups in the current round (Round of 32, Round of 16, Quarterfinals, Semifinals, Finals)
 - Automatically detects which phase the tournament is in
 - No need to remember phase-specific commands!
