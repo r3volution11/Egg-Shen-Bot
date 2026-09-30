@@ -5,6 +5,22 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.41.1 - 2026-09-29
+
+### Fixed
+- **Picking a title from the search menu works in a straight bracket.** When adding a title matched more than one result, choosing the right one from the menu always failed with "Invalid group", because the menu handler only knew how to add to groups. In a tournament of 2–32 titles, which has no groups, that meant any title with a remake, a sequel or a common name could not be added at all. Only titles with exactly one match got in
+- **You can remove titles from a straight bracket.** `/bracket manage-titles action:"Remove Title"` only looked inside groups, so in a straight bracket every title was stuck once added. Give it the title's number from `/bracket list-groups`; there's no group to choose
+- **`/bracket list-groups` and `/bracket status` show a straight bracket's titles.** Both only counted groups, so during setup they reported an empty tournament however many titles had been added. `list-groups` now shows one numbered list, and those numbers are what removal takes
+- **`/bracket open` starts the tournament.** Every "title added" reply says to run it, but it refused anything still in setup. For a straight bracket it now builds the bracket and opens the first round. In groups mode it opens every group, once each one has its 4 titles; if any are short, it says which ones instead of opening a lopsided vote
+- **A straight bracket keeps to one type.** The first title is supposed to fix a tournament as movies, TV, games, board games or books, but in a straight bracket that choice was never saved. You could mix movies with video games, and `/bracket announce` showed the type as "Not set yet"
+
+### Developer
+- Title lookup for tournaments now lives in one place, `src/utils/bracketTitles.js`: searching, building an entry from a search result, and building one from a picked id. The command and the menu handler both use it. The menu used to have its own copy, which is how it came to call the groups-only `addGroupTitle`. The setup form planned next will use the same module
+- New `bracketManager.removeTitle`, which works in either mode like `addTitle` does. `buildTitleAddedEmbed` is shared too, so the menu no longer says "Added to Group A" in a straight bracket
+- The menu handler now keeps the whole id after the type. Google Books ids can contain `_`, and splitting on it cut them short
+- `manage-titles position` now accepts up to 32 (was 4); groups mode still checks for 1–4 itself. **This changes the command definition**, so run `deploy-commands`. `/bracket` is now 7385 of 8000 bytes
+- New `tests/bracket-mode-setup.test.js` (11 tests). The picker test has the real command build the menu, then feeds that menu's own value to the real handler. Each fix was checked by breaking it and watching its test fail. Suite: 105 files, 1454 tests
+
 ## 2.41.0 - 2026-09-26
 
 ### Added
