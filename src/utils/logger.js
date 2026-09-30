@@ -369,7 +369,10 @@ export function getLogStats() {
 cleanOldLogs();
 
 // Schedule daily cleanup (24 hours)
-setInterval(cleanOldLogs, 24 * 60 * 60 * 1000);
+// unref(): housekeeping must not keep the process alive on its own. The bot
+// stays up regardless (its Discord connection does that); without this,
+// merely importing this module left Jest unable to exit.
+setInterval(cleanOldLogs, 24 * 60 * 60 * 1000).unref();
 
 // Log system startup
 logSystem('Logger initialized', {

@@ -21,21 +21,40 @@ const activeTimers = new Map();
 // same real one — unset in production, where the default applies.
 const TIMERS_FILE = process.env.ACTIVE_TIMERS_FILE || path.join(__dirname, '../../active_timers.json');
 
-/**
- * Save active timers to disk
- */
-async function saveTimers() {
+// Saves run one at a time. Callers fire saveTimers() without awaiting it, so
+// a start followed quickly by a pause used to launch two overlapping
+// writeFile calls on the same file — which can interleave and leave it
+// truncated, losing every timer on the next restart. Writes are now chained,
+// and go to a temp file that is renamed into place (atomic), so the file on
+// disk is always one complete save.
+let saveChain = Promise.resolve();
+
+async function writeTimersFile(json) {
   try {
-    const timersData = {};
-    for (const [channelId, timer] of activeTimers.entries()) {
-      // Exclude autoStopTimeout which can't be serialized
-      const { autoStopTimeout, ...serializableTimer } = timer;
-      timersData[channelId] = serializableTimer;
-    }
-    await fs.writeFile(TIMERS_FILE, JSON.stringify(timersData, null, 2), 'utf8');
+    const tmpFile = `${TIMERS_FILE}.tmp`;
+    await fs.writeFile(tmpFile, json, 'utf8');
+    await fs.rename(tmpFile, TIMERS_FILE);
   } catch (error) {
     console.error('Error saving timers:', error);
   }
+}
+
+/**
+ * Save active timers to disk, queued behind any save already running.
+ * The state is captured now, at the call — not when the write gets its
+ * turn — so each save records the moment it was asked for.
+ * @returns {Promise<void>} Resolves once this save is on disk
+ */
+function saveTimers() {
+  const timersData = {};
+  for (const [channelId, timer] of activeTimers.entries()) {
+    // Exclude autoStopTimeout which can't be serialized
+    const { autoStopTimeout, ...serializableTimer } = timer;
+    timersData[channelId] = serializableTimer;
+  }
+  const json = JSON.stringify(timersData, null, 2);
+  saveChain = saveChain.then(() => writeTimersFile(json));
+  return saveChain;
 }
 
 /**
@@ -43,6 +62,8 @@ async function saveTimers() {
  * @returns {Map} - Map of channelId to timer data for channels that had active timers
  */
 export async function loadTimers() {
+  // Never read while a save is still being written
+  await saveChain;
   try {
     const data = await fs.readFile(TIMERS_FILE, 'utf8');
     const timersData = JSON.parse(data);
@@ -523,6 +544,12 @@ export function getAllTimers() {
  * Clear all timers (for testing/admin purposes)
  */
 export function clearAllTimers() {
+  // Cancel pending auto-stops too. Emptying the map alone left each
+  // setTimeout scheduled — it fired later against a timer that no longer
+  // existed, and kept the process (a Jest worker, in practice) alive.
+  for (const timer of activeTimers.values()) {
+    if (timer.autoStopTimeout) clearTimeout(timer.autoStopTimeout);
+  }
   activeTimers.clear();
 }
 

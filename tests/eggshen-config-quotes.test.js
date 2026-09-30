@@ -205,6 +205,20 @@ describe('/eggshen-config-quotes admin-link', () => {
     expect(interaction.lastReply.ephemeral).toBe(true);
   });
 
+  test('uses this server\'s own bot URL when it has one', async () => {
+    process.env.QUOTES_ADMIN_SECRET = 'test-secret';
+    process.env.PUBLIC_BOT_URL = 'https://live.example';
+    const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
+    await saveGuildConfig(GUILD_ID, { website: { botUrl: 'https://dev.example' } });
+    const interaction = makeInteraction({ subcommand: 'admin-link' });
+
+    await execute(interaction);
+
+    const button = interaction.lastReply.components[0].components[0];
+    expect(button.data.url).toMatch(/^https:\/\/dev\.example\/quotes-admin\?token=/);
+    await saveGuildConfig(GUILD_ID, {});
+  });
+
   test('errors when QUOTES_ADMIN_SECRET is not configured', async () => {
     delete process.env.QUOTES_ADMIN_SECRET;
     process.env.PUBLIC_BOT_URL = 'https://example.com';

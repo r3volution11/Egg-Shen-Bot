@@ -255,6 +255,43 @@ describe('Event Request System', () => {
       expect(sentEmbed.data.thumbnail.url).toBe('https://example.com/poster.png');
     });
 
+    test('the Crop Image link uses this server\'s own bot URL, not PUBLIC_BOT_URL', async () => {
+      // One bot serves a test server and a live one on different domains;
+      // each server's links must go to its own domain.
+      const originalUrl = process.env.PUBLIC_BOT_URL;
+      const originalSecret = process.env.EVENT_CROP_LINK_SECRET;
+      process.env.PUBLIC_BOT_URL = 'https://live.example';
+      process.env.EVENT_CROP_LINK_SECRET = 'test-crop-secret';
+      try {
+        const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
+        await saveGuildConfig('900000000000000099', {
+          eventRequests: { enabled: true, moderationChannel: '123456789' },
+          website: { botUrl: 'https://dev.example' },
+        });
+
+        const request = await import('supertest');
+        const response = await request.default(app)
+          .post('/api/event-request')
+          .send({
+            guildId: '900000000000000099',
+            title: 'Friday Night Movie',
+            description: 'A movie night',
+            channelId: 'voice123',
+            startTime: new Date(Date.now() + 86400000).toISOString(),
+            submitterUsername: 'TestUser',
+            submitterDiscordId: '123456789',
+          });
+
+        expect(response.status).toBe(200);
+        const rows = mockChannel.send.mock.calls[0][0].components.map(r => r.toJSON());
+        const cropUrl = rows.flatMap(r => r.components).find(c => c.label === 'Crop Image')?.url;
+        expect(cropUrl).toMatch(/^https:\/\/dev\.example\/crop\//);
+      } finally {
+        if (originalUrl === undefined) delete process.env.PUBLIC_BOT_URL; else process.env.PUBLIC_BOT_URL = originalUrl;
+        if (originalSecret === undefined) delete process.env.EVENT_CROP_LINK_SECRET; else process.env.EVENT_CROP_LINK_SECRET = originalSecret;
+      }
+    });
+
     test('an uploaded image is attached to the moderation message and shown as a thumbnail', async () => {
       const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
       await saveGuildConfig('900000000000000099', {

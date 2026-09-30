@@ -59,7 +59,7 @@ This shows your configured Form URL and reminds you to set `GUILD_ID` in `public
 
 Submitters can attach a cover image to their event request (upload or a pasted URL), with an in-browser crop step so most images look right by default. Moderators can also crop or replace the image directly from a "Crop Image" link button on the request in Discord — no need to leave Discord and no login required, since the link is signed and tied to that one request.
 
-This link is generated using `PUBLIC_BOT_URL` (the bot API's own externally-reachable base URL — **not** the same as `FORM_URL`, which is where the separately-hosted form lives) and signed with `EVENT_CROP_LINK_SECRET`:
+This link is generated using the server's `/eggshen-config-website bot-url` if set, otherwise `PUBLIC_BOT_URL` (the bot API's own externally-reachable base URL — **not** the same as `FORM_URL`, which is where the separately-hosted form lives) and signed with `EVENT_CROP_LINK_SECRET`:
 
 ```env
 EVENT_CROP_LINK_SECRET=your_generated_secret_here
@@ -185,7 +185,7 @@ Run `npm run deploy:domain <label>` (or `npm run deploy:domain -- --all`) after 
 **Adding a new domain, or cutting an existing one over to `domains.json`**, once it has its own entry there:
 
 1. Point that domain's nginx `root` at `domains/<label>/` (generated above) instead of `public/`.
-2. Proxy `/api/`, `/crop/`, `/crop-assets/`, `/quotes-admin/`, `/quotes-assets/`, and `/shared-assets/` (the compiled Bootstrap CSS/JS the crop and quotes-admin pages share — see "Customizing the Look" below) to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part.
+2. Proxy `/api/`, `/crop/`, `/crop-assets/`, `/quotes-admin/`, `/quotes-assets/`, `/tournament-setup` (an exact match — see the tournament [setup form docs](docs/commands/brackets/import.md)), `/tournament-setup-assets/`, and `/shared-assets/` (the compiled Bootstrap CSS/JS the crop, quotes-admin and tournament-setup pages share — see "Customizing the Look" below) to the **same** bot process — no second bot, no second `.env`, no backend code changes needed for this part.
 3. Its own SSL certificate (`certbot --nginx -d your-new-domain.com`, once DNS for it points at the server).
 4. `ALLOWED_ORIGINS` in `.env` updated to a comma-separated list including every domain (already supported — `cors()`'s `origin` option is built directly from `ALLOWED_ORIGINS.split(',')`): `ALLOWED_ORIGINS=https://yourdomain.com,https://your-new-domain.com`.
 5. Both callback URLs registered in the Discord Developer Portal (OAuth2 → Redirects): `https://yourdomain.com/api/auth/discord/callback` **and** `https://your-new-domain.com/api/auth/discord/callback`. The bot itself derives which one to use per-request from the actual incoming domain (not a single static `OAUTH_REDIRECT_URI`), so a login started on either domain correctly lands back on that same domain — `OAUTH_REDIRECT_URI`/`FORM_URL` in `.env` only matter as a fallback for requests where the domain can't be determined (shouldn't happen behind nginx).

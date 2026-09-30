@@ -22,6 +22,9 @@ const userVotingDashboards = new Map();
 const publicLeaderboards = new Map();
 
 // Clean up old dashboard entries (older than 1 hour) every 10 minutes
+// unref(): housekeeping must not keep the process alive on its own. The bot
+// stays up regardless (its Discord connection does that); without this,
+// merely importing this module left Jest unable to exit.
 setInterval(() => {
   const oneHourAgo = Date.now() - (60 * 60 * 1000);
   for (const [key, value] of userVotingDashboards.entries()) {
@@ -34,7 +37,7 @@ setInterval(() => {
       publicLeaderboards.delete(key);
     }
   }
-}, 10 * 60 * 1000);
+}, 10 * 60 * 1000).unref();
 
 export async function handleButtonInteraction(interaction) {
   const startTime = Date.now();

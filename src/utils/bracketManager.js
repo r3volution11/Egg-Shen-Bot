@@ -622,6 +622,8 @@ export function resizeTournament(guildId, newGroupCount) {
   
   const oldGroupCount = tournament.groupCount;
   tournament.groupCount = newGroupCount;
+  // Keep capacity in step: it used to stay at the created size (e.g. 36)
+  tournament.maxTitles = newGroupCount * 4;
   
   // Count how many groups have titles
   const filledGroups = Object.keys(tournament.groups).filter(
@@ -1662,7 +1664,7 @@ export function generateKnockoutBracket(guildId) {
   if (closedGroups < totalGroups) {
     return { 
       success: false, 
-      error: `Cannot advance to knockout: Only ${closedGroups} of ${totalGroups} groups have been closed. Close all groups first with \`/bracket close-group\`.` 
+      error: `Cannot advance to knockout: Only ${closedGroups} of ${totalGroups} groups have been closed. Close them with \`/bracket close\` or \`/bracket close-groups\`.` 
     };
   }
   

@@ -71,6 +71,7 @@ jest.unstable_mockModule('../src/utils/embedBuilder.js', () => ({ createDetailed
 jest.unstable_mockModule('../src/utils/statsTracker.js', () => ({ trackSearch: jest.fn() }));
 jest.unstable_mockModule('../src/api/server.js', () => ({ saveEventChannelSelections: jest.fn() }));
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getPublicBotUrl: (c) => (c?.website?.botUrl || process.env.PUBLIC_BOT_URL || '').replace(/\/+$/, '') || null,
   canUseCommand: jest.fn().mockResolvedValue(true),
   isAdmin: jest.fn().mockReturnValue(true),
   loadGuildConfig: jest.fn().mockResolvedValue({ maxSearchResults: 20 }),
@@ -494,6 +495,18 @@ describe('/bracket setup-link and export', () => {
     expect(verifySetupToken(url.searchParams.get('token'))).toMatchObject({ valid: true, guildId: GUILD_ID, userId: USER_ID });
   });
 
+  test('setup-link uses this server\'s own bot URL when it has one', async () => {
+    process.env.PUBLIC_BOT_URL = 'https://live.example';
+    const { loadGuildConfig } = await import('../src/utils/guildConfig.js');
+    loadGuildConfig.mockResolvedValueOnce({ website: { botUrl: 'https://dev.example/' } });
+
+    const link = commandInteraction({ subcommand: 'setup-link' });
+    await execute(link);
+
+    const url = new URL(link.reply.mock.calls[0][0].components[0].toJSON().components[0].url);
+    expect(url.origin).toBe('https://dev.example');
+  });
+
   test('setup-link without PUBLIC_BOT_URL explains what to set instead of posting a broken link', async () => {
     delete process.env.PUBLIC_BOT_URL;
     const link = commandInteraction({ subcommand: 'setup-link' });
@@ -654,6 +667,22 @@ describe('tiebreaker times are 5m to 7d everywhere', () => {
       expect.objectContaining({ field: 'tiebreakerDuration', message: 'Tiebreaker time must be between 5m and 7d.' }),
     ]);
     expect(validateSettings({ tiebreakerDuration: '7d' })).toEqual([]);
+  });
+});
+
+describe('small corrections', () => {
+  test('resize keeps capacity in step with the group count', () => {
+    bracketManager.createTournament(GUILD_ID, 'Resize Cup', USER_ID, 36);
+    expect(bracketManager.resizeTournament(GUILD_ID, 5).success).toBe(true);
+    expect(bracketManager.loadTournament(GUILD_ID)).toMatchObject({ groupCount: 5, maxTitles: 20 });
+  });
+
+  test('starting the knockout too early names commands that exist', () => {
+    bracketManager.createTournament(GUILD_ID, 'Early Cup', USER_ID, 36);
+    const result = bracketManager.generateKnockoutBracket(GUILD_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('`/bracket close`');
+    expect(result.error).not.toContain('close-group`');
   });
 });
 

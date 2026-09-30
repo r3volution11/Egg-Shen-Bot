@@ -45,6 +45,9 @@ const blockedUsers = new Map();
 /**
  * Clean up old timestamps periodically (runs every 5 minutes)
  */
+// unref(): housekeeping must not keep the process alive on its own. The bot
+// stays up regardless (its Discord connection does that); without this,
+// merely importing this module left Jest unable to exit.
 setInterval(() => {
   const now = Date.now();
   const maxAge = 5 * 60 * 1000; // 5 minutes
@@ -132,7 +135,7 @@ setInterval(() => {
       userCooldowns.delete(guildId);
     }
   }
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000).unref();
 
 /**
  * Check if user has administrator or moderator permissions

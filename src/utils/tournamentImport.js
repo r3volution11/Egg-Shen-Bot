@@ -508,7 +508,6 @@ export function saveImportedTournament(guildId, { settings, rows, creatorId }) {
   }
 
   const tournament = bracketManager.loadTournament(guildId);
-  if (plan.mode === 'groups') tournament.maxTitles = plan.groupCount * GROUP_SIZE;
   tournament.seeding = settings.seeding === 'ordered' ? 'ordered' : 'random';
   tournament.votingDuration = settings.votingDuration || DEFAULT_VOTING_DURATION;
   tournament.tiebreakerDuration = settings.tiebreakerDuration || DEFAULT_TIEBREAKER_DURATION;

@@ -20,7 +20,25 @@ Instead of adding titles one command at a time, you can set up a whole tournamen
 Until voting opens, run `/bracket setup-link` again to reopen the form with everything filled in. Saving replaces the lineup; the form lists any titles that will be removed and asks first. Once voting has started, the form is read-only, but it can still download a backup.
 
 ::: tip Self-hosting
-The link uses `PUBLIC_BOT_URL`, the address your bot's web server is reachable at. If it isn't set, `/bracket setup-link` tells you so instead of posting a broken link.
+The link uses this server's [bot URL](../configuration#bot-url) if one is set, otherwise the bot's `PUBLIC_BOT_URL`: the address the bot's web server is reachable at. If neither is set, `/bracket setup-link` tells you so instead of posting a broken link.
+
+Behind nginx or another reverse proxy, forward the form's two paths to the bot, next to your existing `/api/` block. Without them the proxy serves your website's own page instead, and the form never loads:
+
+```nginx
+location = /tournament-setup {
+    proxy_pass http://localhost:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location /tournament-setup-assets/ {
+    proxy_pass http://localhost:3000;
+    proxy_set_header Host $host;
+}
+```
+
+The page also uses `/shared-assets/`, which you already forward if the crop or quotes-admin pages work.
 :::
 
 ## Templates

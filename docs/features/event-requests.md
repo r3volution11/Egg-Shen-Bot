@@ -401,7 +401,7 @@ The Edit form also includes **Start Time (UTC)** and **End Time (UTC, optional)*
 
 ### Cropping or Replacing the Image
 
-Every event request in the moderation channel shows a **🖼️ Crop Image** link button alongside Approve/Edit/Deny (if `PUBLIC_BOT_URL` and `EVENT_CROP_LINK_SECRET` are configured — see [setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md)). Clicking it opens a small page — no login needed, the link itself is what authorizes you — where you can:
+Every event request in the moderation channel shows a **🖼️ Crop Image** link button alongside Approve/Edit/Deny (if a bot address — this server's [bot URL](../commands/configuration#bot-url), or the bot's `PUBLIC_BOT_URL` — and `EVENT_CROP_LINK_SECRET` are configured — see [setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md)). Clicking it opens a small page — no login needed, the link itself is what authorizes you — where you can:
 - Adjust the framing of whatever image the submitter already provided
 - Upload a completely different image and crop that instead
 - Add an image to a request that didn't have one at all

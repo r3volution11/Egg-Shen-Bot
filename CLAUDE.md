@@ -110,6 +110,20 @@ Run it in isolation, then run the full suite a few times. If a *different*
 test fails each run and each passes alone, it is cross-file interference, not
 a real defect. `npm test -- --runInBand` confirms it.
 
+Two causes already found and fixed — check they haven't come back before
+hunting further:
+
+- **A request reaching another program.** supertest's `listen(0)` binds
+  every address; on macOS another app already holding that port on
+  127.0.0.1 then receives the request (a 400/404 the route can't produce,
+  a reset, a 15s hang). `tests/jest.setup.js` pins supertest to 127.0.0.1;
+  `tests/supertest-loopback.test.js` guards it.
+- **A timer or file write outliving its test.** A module-level
+  `setInterval` keeps a worker alive ("failed to exit gracefully"), and a
+  fire-and-forget write races the next read. Housekeeping timers are
+  `unref()`'d; `timerManager` queues its saves. Measure over many runs — at
+  one failure in ten, a single clean run proves nothing.
+
 ---
 
 ## Discord limits that have actually caused bugs here

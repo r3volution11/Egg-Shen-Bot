@@ -337,6 +337,21 @@ describe('/timer stop while paused', () => {
 });
 
 describe('paused timer survives a simulated bot restart', () => {
+  test('back-to-back changes are all on disk before a reload reads them', async () => {
+    // Saves used to be fire-and-forget: start + pause launched two
+    // overlapping writes, and a reload could read the file missing or half
+    // written — which is how this suite's restart test failed intermittently.
+    startTimer('channel-2', 'starter-user', 'starter-user', 'Race', 60);
+    pauseTimer('channel-2');
+    startTimer('channel-3', 'starter-user', 'starter-user', 'Other', 30);
+
+    clearAllTimers();
+    await loadTimers();
+
+    expect(getTimerStatus('channel-2')).toMatchObject({ paused: true });
+    expect(getTimerStatus('channel-3')).not.toBeNull();
+  });
+
   test('restoreTimerTimeouts does not auto-stop or reschedule a paused timer', async () => {
     startTimer('channel-1', 'starter-user', 'starter-user', '', 60);
     await execute(makeInteraction({ subcommand: 'pause', userId: 'starter-user' }));

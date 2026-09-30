@@ -21,7 +21,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Keep it independent from `DISCORD_CLIENT_SECRET`/`DISCORD_TOKEN`/`EVENT_CROP_LINK_SECRET` so it can be rotated on its own. If `QUOTES_ADMIN_SECRET` isn't set, `/quotes-admin`'s API returns a clear "not configured" error and the page can't be used — the Discord-side commands (`/eggshen-config-quotes`, `/quote`, `/suggest-quote`) work regardless, since they're gated by Discord permissions, not this secret.
 
-`/eggshen-config-quotes admin-link` (see below) also needs `PUBLIC_BOT_URL` set to your bot's public URL (e.g. `https://yourdomain.com`) — it's the same variable the event-request crop-image link already uses, so if that feature is already configured, nothing more to do here.
+`/eggshen-config-quotes admin-link` (see below) also needs an address for the bot: the server's own `/eggshen-config-website bot-url`, or `PUBLIC_BOT_URL` (e.g. `https://yourdomain.com`) for every server without one. The event-request crop-image link uses the same address, so if that feature is already configured, nothing more to do here.
 
 ## Reverse Proxy Requirement (self-hosting behind nginx/Apache/etc.)
 

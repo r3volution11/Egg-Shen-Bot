@@ -43,3 +43,57 @@ fallback('GUILD_WATCHLISTS_DIR', path.join(workerDir, 'guild_watchlists'));
 fallback('GUILD_POLLS_DIR', path.join(workerDir, 'guild_polls'));
 fallback('GUILD_STATS_DIR', path.join(workerDir, 'guild_stats'));
 fallback('GUILD_WATCH_HISTORY_DIR', path.join(workerDir, 'guild_watch_history'));
+
+/**
+ * Make supertest's servers listen on 127.0.0.1, not on every address.
+ *
+ * supertest starts each app with listen(0), which binds every address, then
+ * connects to 127.0.0.1:<port>. On macOS the wildcard bind succeeds even
+ * when another program already holds that port on 127.0.0.1 specifically —
+ * and then the request reaches THAT program. Editors, password managers and
+ * the like keep dozens of such ports open, so roughly one full run in ten
+ * failed somewhere: a 400 or 404 the route can't produce, a reset
+ * connection, or a 15s hang, in a different test each time.
+ *
+ * Listening on 127.0.0.1 explicitly lets the OS hand out only ports free on
+ * that address. That bind is asynchronous (Node resolves the host first),
+ * while supertest reads the port synchronously, so the URL gets a
+ * placeholder port that end() fills in once the server is listening.
+ * Tests don't change. Written against supertest 7.
+ */
+import tls from 'tls';
+import SupertestTest from 'supertest/lib/test.js';
+
+const testProto = SupertestTest.prototype;
+if (!testProto.__listensOnLoopback) {
+  const PLACEHOLDER = '127.0.0.1:0';
+
+  testProto.serverAddress = function serverAddress(app, path) {
+    const protocol = app instanceof tls.Server ? 'https' : 'http';
+    if (app.address()) return `${protocol}://127.0.0.1:${app.address().port}${path}`;
+
+    this._server = app; // supertest closes this after the response
+    this._listening = new Promise((resolve, reject) => {
+      app.once('error', reject);
+      app.listen(0, '127.0.0.1', resolve);
+    });
+    return `${protocol}://${PLACEHOLDER}${path}`;
+  };
+
+  const end = testProto.end;
+  testProto.end = function endOnceListening(fn) {
+    const listening = this._listening;
+    if (!listening) return end.call(this, fn);
+    this._listening = null;
+    listening.then(
+      () => {
+        this.url = this.url.replace(PLACEHOLDER, `127.0.0.1:${this.app.address().port}`);
+        end.call(this, fn);
+      },
+      (error) => fn(error),
+    );
+    return this;
+  };
+
+  testProto.__listensOnLoopback = true;
+}

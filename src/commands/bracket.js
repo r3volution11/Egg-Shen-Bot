@@ -4,7 +4,7 @@ import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, getTypeLabel } from '../utils/bracketTitles.js';
 import { parseDuration, isValidDuration, isValidTiebreakerDuration, buildExport, DEFAULT_VOTING_DURATION, DEFAULT_TIEBREAKER_DURATION } from '../utils/tournamentImport.js';
 import { signSetupToken, SETUP_LINK_TTL_MS } from '../utils/tournamentSetupLinkToken.js';
-import { loadGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
+import { loadGuildConfig, isAdmin, canUseCommand, getPublicBotUrl } from '../utils/guildConfig.js';
 import { config } from '../config.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
@@ -773,9 +773,12 @@ async function handleHelp(interaction) {
  * credential for this server's tournament until it expires.
  */
 async function handleSetupLink(interaction) {
-  if (!process.env.PUBLIC_BOT_URL) {
+  // This server's own address when it has one, so a test server's links
+  // go to its test site (see getPublicBotUrl)
+  const botUrl = getPublicBotUrl(await loadGuildConfig(interaction.guildId));
+  if (!botUrl) {
     await interaction.reply({
-      content: '❌ `PUBLIC_BOT_URL` is not set on this bot, so a working link can\'t be built. Set it in `.env` to the bot\'s public address (for example `https://yourdomain.com`).',
+      content: '❌ No address is set for links to this bot, so a working link can\'t be built. Set one with `/eggshen-config-website bot-url`, or `PUBLIC_BOT_URL` in `.env`.',
       ephemeral: true,
     });
     return;
@@ -789,7 +792,7 @@ async function handleSetupLink(interaction) {
     return;
   }
 
-  const url = `${process.env.PUBLIC_BOT_URL}/tournament-setup?token=${token}`;
+  const url = `${botUrl}/tournament-setup?token=${token}`;
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setLabel('Open Tournament Setup').setStyle(ButtonStyle.Link).setURL(url).setEmoji('🏆')
   );

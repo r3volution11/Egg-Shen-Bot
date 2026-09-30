@@ -19,6 +19,7 @@
 import { describe, test, expect, jest, beforeAll, beforeEach } from '@jest/globals';
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
+  getPublicBotUrl: (c) => (c?.website?.botUrl || process.env.PUBLIC_BOT_URL || '').replace(/\/+$/, '') || null,
   loadGuildConfig: jest.fn().mockResolvedValue({}),
   isAdmin: jest.fn().mockReturnValue(false),
   isModerator: jest.fn().mockReturnValue(false),

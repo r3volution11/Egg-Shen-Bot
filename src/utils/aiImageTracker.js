@@ -334,6 +334,9 @@ function formatDuration(seconds) {
 /**
  * Clean up old data periodically
  */
+// unref(): housekeeping must not keep the process alive on its own. The bot
+// stays up regardless (its Discord connection does that); without this,
+// merely importing this module left Jest unable to exit.
 setInterval(() => {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -365,4 +368,4 @@ setInterval(() => {
       }
     }
   }
-}, 5 * 60 * 1000); // Run every 5 minutes
+}, 5 * 60 * 1000).unref(); // Run every 5 minutes

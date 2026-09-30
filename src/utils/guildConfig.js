@@ -227,6 +227,27 @@ export async function saveGuildConfig(guildId, config) {
 }
 
 /**
+ * The address links the bot posts for this server should use: the crop
+ * page, the tournament setup form, the quotes admin page.
+ *
+ * Per server (`/eggshen-config-website bot-url`), so one bot can serve a
+ * test server on one domain and a live server on another, and testing takes
+ * the same path the live server does. Falls back to PUBLIC_BOT_URL, which
+ * used to be the only option — every server's links went to one domain.
+ *
+ * Separate from `website.url` on purpose: that is where the event-request
+ * form is hosted, which for a self-hosted bot can be a static site that
+ * doesn't forward anything to the bot.
+ *
+ * @param {object} guildConfig
+ * @returns {string|null} Origin with no trailing slash, or null if neither is set
+ */
+export function getPublicBotUrl(guildConfig) {
+  const url = guildConfig?.website?.botUrl || process.env.PUBLIC_BOT_URL || '';
+  return url ? url.replace(/\/+$/, '') : null;
+}
+
+/**
  * Extra minutes to allow per episode in a multi-episode watch party.
  *
  * Normalized rather than read directly: configs written before this key

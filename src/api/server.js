@@ -3,7 +3,7 @@ import cors from 'cors';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
-import { loadGuildConfig } from '../utils/guildConfig.js';
+import { loadGuildConfig, getPublicBotUrl } from '../utils/guildConfig.js';
 import {
   saveUploadedImage,
   saveOriginalImage,
@@ -1180,9 +1180,11 @@ export function createApiServer(client) {
 
       // Create approval buttons
       let cropImageButton = null;
-      if (process.env.PUBLIC_BOT_URL) {
+      // This server's own address when it has one (see getPublicBotUrl)
+      const botUrl = getPublicBotUrl(guildConfig);
+      if (botUrl) {
         try {
-          const cropUrl = `${process.env.PUBLIC_BOT_URL}/crop/${requestId}?token=${signCropToken(requestId)}`;
+          const cropUrl = `${botUrl}/crop/${requestId}?token=${signCropToken(requestId)}`;
           cropImageButton = new ButtonBuilder()
             .setLabel('Crop Image')
             .setStyle(ButtonStyle.Link)
@@ -1284,11 +1286,14 @@ export function createApiServer(client) {
       // Save to disk
       await saveEventRequests();
 
-      // Clean up old requests after 7 days
+      // Clean up old requests after 7 days. unref(): this must not keep the
+      // process alive by itself (it held every test run open for a week's
+      // timeout); loadEventRequests drops anything past 7 days on startup
+      // anyway, so a restart loses nothing.
       setTimeout(async () => {
         global.eventRequests.delete(requestId);
         await saveEventRequests();
-      }, 7 * 24 * 60 * 60 * 1000);
+      }, 7 * 24 * 60 * 60 * 1000).unref();
       
       res.json({ 
         success: true, 

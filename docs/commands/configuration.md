@@ -820,6 +820,33 @@ Shows your form URL and reminds you to configure `GUILD_ID` in your web deployme
 
 ---
 
+### Website Group
+
+`/eggshen-config-website` sets how this server's web pages look and where the bot's links point. Administrators and moderators only.
+
+| Command | What it does |
+| --- | --- |
+| `/eggshen-config-website view` | Shows this server's website URL, bot URL and theme |
+| `/eggshen-config-website url url:<address>` | Where this server's event request form is hosted |
+| `/eggshen-config-website bot-url url:<address>` | The address used in links the bot posts in this server |
+| `/eggshen-config-website theme name:<theme>` | The color theme for this server's pages |
+
+#### Bot URL
+
+```
+/eggshen-config-website bot-url url:https://dev.yourdomain.com
+```
+
+Links the bot posts in this server (the tournament [setup form](./brackets/import), the moderator crop page, the quotes admin page) use this address. Servers without one use the bot's `PUBLIC_BOT_URL`. Run it with no `url` to go back to that.
+
+Set it when one bot serves several servers on different domains, such as a test server and a live one. Each server's links then go to its own site, so testing takes the same path as the live server.
+
+The address has to forward the bot's pages (see the [setup form](./brackets/import) for the reverse-proxy paths). When you set it, the bot checks that it reaches this bot and that the setup form's path is forwarded, and warns you if not.
+
+This is separate from `url`, which is where the event request form lives. If you self-host, that can be a static site that doesn't forward anything to the bot.
+
+---
+
 ## Other Admin Commands
 
 ### View Statistics

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
+import { loadGuildConfig, saveGuildConfig, isAdmin, getPublicBotUrl } from '../utils/guildConfig.js';
 import { loadQuotes, addQuote, updateQuote, deleteQuote } from '../utils/movieQuotesStore.js';
 import { signQuotesAdminLinkToken } from '../utils/quotesAdminLinkToken.js';
 
@@ -243,15 +243,15 @@ export async function execute(interaction) {
       });
       return;
     }
-    if (!process.env.PUBLIC_BOT_URL) {
+    const config = await loadGuildConfig(guildId);
+    const botUrl = getPublicBotUrl(config);
+    if (!botUrl) {
       await interaction.reply({
-        content: '❌ `PUBLIC_BOT_URL` is not set on this server, so a working link can\'t be built. Set it in `.env` to your bot\'s public URL (e.g. `https://yourdomain.com`).',
+        content: '❌ No address is set for links to this bot, so a working link can\'t be built. Set one with `/eggshen-config-website bot-url`, or `PUBLIC_BOT_URL` in `.env`.',
         ephemeral: true,
       });
       return;
     }
-
-    const config = await loadGuildConfig(guildId);
     const theme = config.website?.theme || 'default';
 
     let token;
@@ -262,7 +262,7 @@ export async function execute(interaction) {
       return;
     }
 
-    const url = `${process.env.PUBLIC_BOT_URL}/quotes-admin?token=${token}`;
+    const url = `${botUrl}/quotes-admin?token=${token}`;
     const button = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setLabel('Open Quotes Admin').setStyle(ButtonStyle.Link).setURL(url).setEmoji('🎬')
     );

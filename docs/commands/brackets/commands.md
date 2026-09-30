@@ -145,7 +145,7 @@ Get a private link to the web setup form, where you can set up a whole tournamen
 - On the form, upload a CSV or JSON file, or fill the tournament in by hand
 - The setup can be edited on the form until voting opens
 - The form can also save seeding (straight brackets), default voting and tiebreaker durations, and an announcement message and banner
-- The bot needs `PUBLIC_BOT_URL` set to its public address, or it can't build the link
+- The link uses this server's [bot URL](../configuration#bot-url) if set, else the bot's `PUBLIC_BOT_URL`; with neither, it says what to set instead
 - A `/bracket export format:json` file can be uploaded here to run a tournament again
 
 See [Setup Form](./import) for the file format and details.
