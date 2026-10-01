@@ -5,6 +5,26 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.44.0 - 2026-10-01
+
+### Added
+- **Pick matchups from a list.** `/bracket open-matchup`'s `matchup` now suggests the current round's matchups that haven't been voted on yet, with both titles (`2A · Halloween vs Scream`); `/bracket close-matchup` suggests the ones voting now. Type a label or part of a title to narrow it, and after a comma the list suggests the next one
+- **A live countdown** on every ballot and in the live standings: "closes in 2 hours", kept current by Discord. `/bracket status` still lists every open matchup's time left, for anyone
+
+### Changed
+- **Opening the next matchup closes earlier ones.** Any matchup in the round still voting, other than the ones being opened, closes first, exactly as its deadline would: winner announced, tie sent to a tiebreaker vote. The reply lists what closed. Before, earlier matchups stayed open until their own deadline, so in a round run one matchup at a time people could keep changing votes on matchups that had moved on. To keep several voting together, open them together
+
+### Fixed
+- **Knockout ties got stuck forever.** Closing a tied matchup created its tiebreaker and then, in the same step, saved over it, so the matchup sat in "tiebreaker" with nothing to vote on and the round could never finish. Tiebreakers are kept now, and the scheduler repairs any matchup already stuck that way by giving it a new tiebreaker vote
+- **A tie closed by the deadline posted no tiebreaker vote.** Only group-stage ties got one. Knockout ties now post theirs in the matchup's channel
+- **Deadline results and warnings weren't posted for matchups opened by command.** `/bracket open` and `/bracket open-matchup` never recorded which channel voting was in, so when a deadline passed the matchup closed silently: no result, no one-hour warning. Group stages opened with `/bracket open` had the same problem. The channel is recorded now
+
+### Developer
+- `bracketManager.openKnockoutMatchups`, `openKnockoutRound` and `openGroupVoting` take the channel and record it (without overwriting one already set)
+- `tournamentScheduler.closeMatchupsNow(guild, ids)` closes matchups through the deadline path (`autoCloseMatchup`, which now returns a summary and posts knockout tiebreakers), used by every open path. `repairOrphanedKnockoutTiebreakers` runs each pass; `checkVotingDeadlines(client)` is exported so a test can run a real pass. `bracketManager.recreateKnockoutTiebreaker` creates and links in one save
+- `/bracket` gained autocomplete on two options. **Command definition changed: run `deploy-commands`.** `/bracket` is 7272 of 8000 bytes
+- New `tests/bracket-matchup-flow.test.js` drives the round with a fake channel to see what's posted; every fix was mutation-checked. Suite: 112 files, 1555 tests
+
 ## 2.43.1 - 2026-09-30
 
 ### Fixed
