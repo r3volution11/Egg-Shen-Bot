@@ -8,523 +8,187 @@ Track bot usage and community viewing patterns with built-in statistics.
 
 ## Overview
 
-Egg Shen Bot tracks various statistics about bot usage and community activity. These statistics help server administrators understand how their community interacts with the bot and what content is popular.
+Egg Shen Bot keeps a per-server count of how its lookup and logging commands are used: which movies, shows and episodes people look up, how often `/random`, `/similar` and watch-history logging are used, and who uses the bot most. Statistics are per server and never shared between servers.
 
-## Available Statistics
+There are two commands for viewing them:
 
-### Server Statistics
+| Command | Who can use it | Reply |
+|---------|----------------|-------|
+| `/stats` | Everyone | Public in the channel |
+| `/eggshen-stats` | Administrators, Manage Server, or Moderators | Visible only to you |
 
-View overall server statistics:
+## Server Statistics
 
 ```
-/stats server
+/stats [filter] [type]
 ```
 
-Shows:
-- Total commands executed
-- Unique users who have used bot
-- Most popular commands
-- Total searches performed
-- Watch parties hosted
-- Watch history entries
-- Uptime and performance metrics
+**Options:**
+- `filter` - Time period: `filter:all-time` (default), `filter:month`, `filter:week`, or `filter:today`
+- `type` - `type:server` (default) or `type:personal`
+
+The server view shows:
+- **Total searches** - every tracked command use in the period
+- **🎬 Top Movies** - the 10 most looked-up movies
+- **📺 Top TV Shows** - the 10 most looked-up shows
+- **🎞️ Top Episodes** - the 10 most looked-up episodes
+- **🎮 Other Commands** - counts for 🎲 Random, 📝 Watched (watch history logs), and 🔍 Similar
+- **👥 Most Active Users** - the top 10 users, each with a breakdown
 
 **Example Output:**
 ```
-📊 Server Statistics
+📊 Movie Night Club Stats - All Time
+Total searches: 1,247
 
-Commands Used: 1,247
-Active Users: 156
-Watch Parties: 43
-History Entries: 38
+🎬 Top Movies
+1. The Matrix (1999) (23×)
+2. Big Trouble in Little China (1986) (19×)
 
-Most Used Commands:
-1. /movie (487)
-2. /tv (356)
-3. /timer start (89)
-4. /watched list (67)
-5. /game (45)
+📺 Top TV Shows
+1. Breaking Bad (2008) (34×)
+
+🎮 Other Commands
+🎲 Random: 45 • 📝 Watched: 38 • 🔍 Similar: 21
+
+👥 Most Active Users
+1. MovieFan: 87 (45M/28S/4E/6R/4W)
+2. FilmBuff: 64 (30M/20S/14W)
+
+M=Movies S=Shows E=Episodes R=Random W=Watched Si=Similar
 ```
 
-### User Statistics
+Sections with nothing to show are left out. Other tracked lookups (games, board games, books, soundtracks, recommendations, watchlist) count toward the total and each user's total, but don't get a section of their own.
 
-View statistics for a specific user:
+## Personal Statistics
 
 ```
-/stats user [@user]
+/stats type:personal
 ```
 
-**Parameters:**
-- `user` (optional) - User to check stats for (defaults to yourself)
+Shows your own activity for the chosen period: total commands used, plus movies, TV shows and episodes searched, random commands, watch history logs, and similar searches.
 
-Shows:
-- Commands used by that user
-- Favorite command types
-- Watch parties participated in
-- Watch history contributions
-- First bot interaction date
+There is no option to look up another member's personal stats; the server view's **Most Active Users** list is the only place other people's activity appears.
 
 **Example:**
 ```
-/stats user @MovieFan
-
-📊 MovieFan's Statistics
-
-Total Commands: 87
-Watch Parties Attended: 12
-History Entries Saved: 8
-Member Since: June 1, 2026
-
-Top Commands:
-1. /movie (45)
-2. /tv (28)
-3. /timer start (14)
+/stats type:personal filter:month
 ```
 
-### Watch Party Statistics
-
-Track watch party activity:
+## Admin Statistics
 
 ```
-/stats watch-parties
+/eggshen-stats [filter]
 ```
 
-Shows:
-- Total watch parties hosted
-- Most active channels for watch parties
-- Average party duration
-- Most popular content watched
-- Most active watch party hosts
-- Busiest days/times for watch parties
+The same server statistics as `/stats`, but restricted to Administrators, users with Manage Server, and Moderators, and shown only to the person who ran it. Use it to check activity without posting the numbers in a channel. `filter` takes the same values as `/stats`.
 
-**Example:**
-```
-📺 Watch Party Statistics
+## Time Periods
 
-Total Parties: 43
-Average Duration: 2h 15m
-Most Active Channel: #movie-night
+| Value | Covers |
+|-------|--------|
+| `all-time` | Everything since stats began (or since the last clear) — the default |
+| `month` | The last month |
+| `week` | The last 7 days |
+| `today` | Since midnight (bot server's time) |
 
-Top Hosts:
-1. @MovieFan (14 parties)
-2. @FilmBuff (11 parties)
-3. @TVAddict (9 parties)
-
-Most Watched:
-1. The Matrix (3 times)
-2. Breaking Bad (8 episodes)
-3. The Office (12 episodes)
-```
-
-### Content Statistics
-
-See what content is most popular:
-
-```
-/stats content
-```
-
-Shows:
-- Most searched movies
-- Most searched TV shows
-- Most searched games
-- Trending searches this week
-- Content added to watch history most
-
-**Example:**
-```
-🎬 Content Statistics
-
-Top Movies:
-1. The Matrix (23 searches)
-2. Inception (19 searches)
-3. Interstellar (17 searches)
-
-Top TV Shows:
-1. Breaking Bad (34 searches)
-2. The Office (28 searches)
-3. Stranger Things (25 searches)
-
-Top Games:
-1. The Legend of Zelda (15 searches)
-2. God of War (12 searches)
-3. Elden Ring (11 searches)
-```
-
-### Rate Limit Statistics
-
-View rate limiting effectiveness:
-
-```
-/stats rate-limits
-```
-
-**Required Permissions:**
-- Moderate Members permission
-- OR Administrator
-
-Shows:
-- Total rate limit violations
-- Users with most violations
-- Average violations per day
-- Auto-bans triggered
-- Manual cooldowns applied
-- False positive rate (estimated)
-
-**Example:**
-```
-🛡️ Rate Limit Statistics
-
-Total Violations: 47
-Auto-Bans: 3
-Manual Cooldowns: 8
-Average per Day: 2.3
-
-Top Violators:
-1. @SpammyUser (12 violations)
-2. @OverUser (8 violations)
-3. @ExcitedUser (6 violations)
-
-Status: Rate limiting effective ✅
-```
-
-## Statistics Time Ranges
-
-Most statistics commands support time range parameters:
-
-```
-/stats server [range]
-/stats content [range]
-/stats watch-parties [range]
-```
-
-**Available Ranges:**
-- `today` - Last 24 hours
-- `week` - Last 7 days
-- `month` - Last 30 days
-- `year` - Last 365 days
-- `all` - All-time (default)
-
-**Examples:**
-```
-/stats server week
-/stats content month
-/stats watch-parties year
-```
-
-## Statistics Reset
-
-**Administrator only** - Reset server statistics:
-
-```
-/stats reset [type]
-```
-
-**Parameters:**
-- `type` (optional) - Specific stat type to reset (server, content, watch-parties, rate-limits)
-
-**Without type:** Resets ALL statistics (requires confirmation)
-
-**Warning:** This cannot be undone!
-
-**Use Cases:**
-- Fresh start after testing
-- Annual statistics reset
-- Clearing old data after server restructure
-
-## Data Tracked
-
-### Command Usage
-
-For each command:
-- Command name
-- User who ran it
-- Timestamp
-- Channel used in
-- Success/failure status
-- Response time
-
-### Watch Parties
-
-For each watch party:
-- Host user ID
-- Start time and duration
-- Channel ID
-- Attendee count (approximate)
-- Content watched
-- Whether saved to history
-
-### Search Activity
-
-For each search:
-- Search type (movie/tv/game)
-- Query terms
-- Results found
-- Selection made
-- User who searched
-- Timestamp
-
-### Rate Limiting
-
-For each violation:
-- User ID
-- Violation type
-- Timestamp
-- Action taken (cooldown/ban)
-- Command attempted
-
-## Privacy Considerations
-
-### What's Public
-
-Viewable by all server members:
-- Server-wide statistics
-- Watch party statistics
-- Content popularity statistics
-- Own user statistics
-
-### What's Restricted
-
-Viewable only by moderators:
-- Rate limit statistics
-- Individual user violations
-- Abuse patterns
-- Other users' detailed stats
-
-### What's Private
-
-Only administrators can:
-- Reset statistics
-- Export raw data
-- View deleted user stats
-- Access full audit logs
-
-## Integration with Other Features
-
-### Watch History
-
-Watch history contributes to statistics:
-- Content popularity rankings
-- Watch party frequency
-- Most active hosts
-- Channel activity levels
-
-See [Watch History](/features/watch-history) for details.
-
-### Rate Limiting
-
-Rate limiting data feeds statistics:
-- Violation tracking
-- Abuse patterns
-- System effectiveness
-- User behavior analysis
-
-See [Rate Limiting](/features/rate-limiting) for details.
-
-### Moderation
-
-Moderation actions tracked in stats:
-- Manual cooldowns applied
-- Bans removed
-- Whitelist mode usage
-- History entries removed
-
-See [Moderation Tools](/features/moderation-tools) for details.
-
-## Statistics Dashboard
-
-View a comprehensive dashboard:
-
-```
-/stats dashboard
-```
-
-Shows overview of all statistics in one place:
-- Server snapshot
-- Recent activity
-- Trending content
-- Watch party calendar
-- System health
-- Quick links to detailed stats
-
-**Great for:**
-- Weekly check-ins
-- Moderator reviews
-- Community updates
-- Server health monitoring
+The dated views are rebuilt from a rolling log of recent activity kept for about 35 days, so `month` is the furthest back a dated filter can reach. `all-time` uses running totals and is not affected by that window.
 
 ## Leaderboards
 
-View community leaderboards:
+There is no separate leaderboard command. The **👥 Most Active Users** section of `/stats` (or `/eggshen-stats`) is the bot's usage leaderboard: the top 10 users by tracked command use, with a per-category breakdown, for whichever `filter` period you pick.
+
+For tournament standings, see [Tournaments](/guides/tournaments/).
+
+## Configuring Statistics
+
+Administrators control tracking with `/eggshen-config stats`:
 
 ```
-/leaderboard [type]
+/eggshen-config stats toggle setting:<setting> enabled:<true|false>
 ```
 
-**Types:**
-- `commands` - Most commands used
-- `searches` - Most searches performed
-- `watch-parties` - Most watch parties hosted
-- `contributions` - Most watch history entries saved
+**Settings:**
+- `setting:enabled` - Turn statistics tracking on or off overall
+- `setting:trackMovies` - Track movie lookups
+- `setting:trackShows` - Track TV show lookups
+- `setting:trackEpisodes` - Track episode lookups
+- `setting:trackGames` - Track video game lookups
+- `setting:trackBoardGames` - Track board game lookups
+- `setting:trackBooks` - Track book lookups
 
 **Example:**
 ```
-/leaderboard watch-parties
-
-🏆 Watch Party Hosts Leaderboard
-
-🥇 @MovieFan - 14 parties
-🥈 @FilmBuff - 11 parties  
-🥉 @TVAddict - 9 parties
-4️⃣ @GamerTag - 7 parties
-5️⃣ @SeriesFan - 6 parties
+/eggshen-config stats toggle setting:trackEpisodes enabled:false
 ```
 
-## Export Statistics
-
-**Administrator only** - Export statistics data:
+### Clearing Statistics
 
 ```
-/stats export [format]
+/eggshen-config stats clear
 ```
 
-**Formats:**
-- `csv` - Comma-separated values
-- `json` - JavaScript Object Notation
-- `txt` - Plain text report
+Clears **all** statistics for the server. There is no per-category reset.
 
-**Use Cases:**
-- Annual reports
-- Backup before reset
-- External analysis
-- Community newsletters
+⚠️ **Cannot be undone!**
 
-**Example:**
-```
-/stats export csv
-→ Generates and sends stats.csv file
-```
+## Data Tracked
 
-## Statistics API
+Each tracked command use records:
+- The kind of lookup (movie, TV, episode, random, watched, similar, and so on)
+- The title and year, when there is one
+- The user's ID and username
+- A timestamp
 
-For advanced users, statistics are available via internal API:
+Alongside that, the bot keeps running totals per title and per user. Statistics are stored as one JSON file per server.
 
-```javascript
-// Example API usage (bot developers only)
-const stats = require('./utils/statsTracker');
+**Not tracked:** command response times, failures, channels, rate-limit violations, or watch party attendance.
 
-// Get server stats
-const serverStats = stats.getServerStats(guildId);
+## Integration with Watch History
 
-// Track custom event
-stats.trackEvent('custom_event', { userId, data });
+Every entry logged to watch history, whether through `/watched add` or a timer, counts as a **Watched** use: it shows up in the 📝 Watched count, in the **W** column of the user breakdown, and in **Watch History Logs** in personal stats.
 
-// Get user stats
-const userStats = stats.getUserStats(guildId, userId);
-```
-
-See [API Reference](/api/reference) for full documentation.
+To see what was actually watched, use `/watched history` — see [Watch History](/features/watch-history).
 
 ## Best Practices
 
 ### For Server Administrators
 
-1. **Regular Reviews**
-   - Check statistics weekly
-   - Monitor trending content
-   - Track user engagement
-   - Identify bot issues early
+1. **Check In Regularly**
+   - Use `/eggshen-stats filter:week` for a private weekly look
+   - Spot which titles your community keeps coming back to
+   - Use the data to plan watch parties and events
 
-2. **Community Engagement**
-   - Share interesting stats with community
-   - Celebrate milestones
-   - Run contests based on leaderboards
-   - Use data to plan events
+2. **Share With the Community**
+   - Run `/stats filter:month` in a channel to post the month's highlights
+   - Celebrate your most active members
 
-3. **Performance Monitoring**
-   - Track response times
-   - Monitor error rates
-   - Check resource usage
-   - Optimize based on data
-
-### For Moderators
-
-1. **Abuse Monitoring**
-   - Review rate limit stats regularly
-   - Check for unusual patterns
-   - Identify repeat violators
-   - Verify moderation effectiveness
-
-2. **User Support**
-   - Help users understand their stats
-   - Explain leaderboards
-   - Clarify data privacy
-   - Address statistics questions
+3. **Fresh Starts**
+   - Use `/eggshen-config stats clear` after testing the bot, or to start a new season
 
 ### For Community Members
 
-1. **Track Your Activity**
-   - Check your own stats
-   - See your ranking
-   - Monitor your watch parties
-   - View your contributions
-
-2. **Discover Content**
-   - Check trending searches
-   - See popular movies/shows
-   - Find active watch parties
-   - Join community activities
+- Check your own activity with `/stats type:personal`
+- See what's popular in the server with `/stats`
 
 ## Troubleshooting
 
 ### Statistics not updating
 
 **Check:**
-- Bot has database access
-- Commands completing successfully
-- No database errors in logs
+- Tracking hasn't been turned off with `/eggshen-config stats toggle`
+- The specific category (movies, shows, episodes) is still enabled
+- The command completed successfully
 
-**Solution:**
-- Wait a few minutes (stats cache)
-- Check mod logs for errors
-- Restart bot if necessary
-
-### Incorrect numbers
+### Numbers look wrong
 
 **Common Causes:**
-- Statistics cache not refreshed
-- Timezone differences
-- Date range confusion
-- Recent reset
+- A different `filter` than you expected — the default is `all-time`
+- `today` counts from midnight on the bot server's clock, which may not be your timezone
+- Statistics were cleared recently
 
-**Solution:**
-- Wait for cache refresh (5 minutes)
-- Check date range parameter
-- Verify timezone settings
+### Can't use `/eggshen-stats`
 
-### Can't view statistics
-
-**Check:**
-- Command permissions
-- Bot permissions in channel
-- Server configuration
-
-**Solution:**
-- Verify you can use bot commands
-- Check channel permissions
-- Ask administrator for access
-
-### Export not working
-
-**Check:**
-- Administrator permission
-- File attachment permission
-- Data size limits
-
-**Solution:**
-- Verify admin role
-- Check bot can send files
-- Try smaller date range
+It requires Administrator, Manage Server, or Moderator permissions. Everyone can use `/stats`.
 
 ## Future Enhancements
 
@@ -532,11 +196,8 @@ Potential future features:
 
 - Real-time statistics dashboard web interface
 - Automated weekly/monthly reports
-- Advanced analytics and visualizations
-- Predictive trending analysis
-- Integration with external analytics tools
-- Custom statistic tracking
+- Statistics export
+- Watch party statistics (durations, hosts, channels)
 - Historical data comparison
-- Benchmark against other servers
 
 Submit feature requests on [GitHub Issues](https://github.com/r3volution11/Egg-Shen-Bot/issues)!

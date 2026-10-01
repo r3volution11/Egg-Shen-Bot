@@ -20,7 +20,7 @@ The bot uses a 7-layer rate limiting system:
 2. **Guild-Wide Limits** - Protects server resources
 3. **Pattern Detection** - Identifies abuse automatically
 4. **Abuse Logging** - Tracks violations for review
-5. **Auto-Ban Thresholds** - Automatic temporary bans
+5. **Auto-Ban Thresholds** - Flags repeat offenders for moderator review (the bot never bans anyone itself)
 6. **Manual Cooldowns** - Moderator override controls
 7. **Whitelist Mode** - Emergency lockdown capability
 
@@ -37,19 +37,19 @@ Track and analyze bot usage patterns:
 ### ⚡ Quick Actions
 
 Moderators can take immediate action:
-- Apply manual cooldowns
-- Remove auto-bans
-- Whitelist trusted users
-- Enable emergency mode
+- Apply and lift manual cooldowns
+- Clear a user's rate limits
+- Whitelist trusted users and roles
+- Enable emergency whitelist mode
 
-### 📝 Comprehensive Logging
+### 📝 Violation Tracking
 
-All moderation events are logged:
-- Rate limit violations
-- Auto-ban triggers
-- Manual moderator actions
-- Watch history changes
-- Configuration updates
+The bot keeps track of:
+- Rate limit violations per user (`/eggshen-config-watch-party rate-limit abuse-log`)
+- Users over the auto-ban threshold (`/eggshen-config-moderation moderation auto-ban-list`)
+- Suspicious multi-user activity (`/eggshen-config-watch-party rate-limit suspicious-activity`)
+
+Violation history is held in memory, so it resets when the bot restarts.
 
 ## Moderation Workflow
 
@@ -58,7 +58,7 @@ All moderation events are logged:
 The bot automatically handles most abuse:
 
 ```
-User spams commands → Cooldown applied → Logged to mod channel
+User spams commands → Rate limit blocks the command → Violation recorded
 ```
 
 No moderator action required for routine violations.
@@ -68,10 +68,10 @@ No moderator action required for routine violations.
 The system watches for abuse patterns:
 
 ```
-Repeated violations → Auto-ban triggered → Moderator notified
+Repeated violations → User flagged as over the auto-ban threshold → Shown in auto-ban-list
 ```
 
-Moderators can review and adjust as needed.
+Moderators review flagged users and decide whether to take action (Discord timeout or ban). Configure the threshold with `/eggshen-config-moderation moderation auto-ban-threshold count:<5-100> hours:<1-168>` and turn it on with `/eggshen-config-moderation moderation auto-ban-toggle enabled:true`.
 
 ### 3. Manual Intervention
 
@@ -97,20 +97,15 @@ See [Moderation Commands](/commands/moderation) for full details.
 - Users with Manage Guild permission
 - Users with Moderate Members permission
 
-### Moderation Commands
-- Moderate Members permission
-- OR Administrator
-
-### Configuration Commands
+### Moderation and Configuration Commands
+`/eggshen-config-moderation` and `/eggshen-config-watch-party` require any one of:
 - Administrator
-- OR Manage Server permission
+- Manage Server
+- Moderate Members
+- Kick Members
+- Ban Members
 
-### Advanced Moderation
-- Administrator only:
-  - Remove watch history
-  - Remove auto-bans
-  - Enable whitelist mode
-  - Reset configuration
+Most moderation features (whitelist, manual cooldowns, auto-ban threshold) only work after you enable them with `/eggshen-config-moderation moderation toggle enabled:true`. Rate limiting and abuse logging work either way.
 
 ## Abuse Prevention Strategies
 
@@ -169,19 +164,19 @@ Whitelist Mode: Ready for raids
 **Situation:** User legitimately using bot but triggering cooldowns
 
 **Solution:**
-1. Check abuse patterns (`/abuse-patterns @user`)
+1. Check their violations (`/eggshen-config-watch-party rate-limit abuse-log`)
 2. Verify legitimate use
-3. Add to whitelist if power user
-4. OR increase server rate limits
+3. Clear their current limits (`/eggshen-config-watch-party rate-limit clear user:<user>`)
+4. Raise server limits if needed (`/eggshen-config-watch-party rate-limit global max-requests:<1-100> window-seconds:<1-3600>`)
 
 ### Scenario: Intentional Abuse
 
 **Situation:** User deliberately spamming to disrupt
 
 **Actions:**
-1. Auto-cooldown triggers (automatic)
-2. Review violation history (`/ban-status @user`)
-3. Apply manual cooldown if needed (`/cooldown add`)
+1. Rate limiting blocks the spam (automatic)
+2. Review violation history (`/eggshen-config-watch-party rate-limit abuse-log` and `/eggshen-config-moderation moderation auto-ban-list`)
+3. Apply a manual cooldown if needed (`/eggshen-config-moderation moderation user-cooldown user:<user> duration:<1-10080 minutes> reason:<text>`)
 4. Discord timeout or ban if persistent
 
 ### Scenario: Raid or Bot Attack
@@ -189,22 +184,28 @@ Whitelist Mode: Ready for raids
 **Situation:** Multiple accounts spamming simultaneously
 
 **Emergency Response:**
-1. Enable whitelist mode (`/whitelist-mode enable`)
-2. Review abuse logs (`/abuse-log`)
-3. Report to Discord Trust & Safety
-4. Ban attacking accounts
-5. Disable whitelist mode when clear
+1. Make sure your trusted roles are whitelisted (`/eggshen-config-moderation moderation whitelist-add-role role:<role>`)
+2. Enable whitelist mode (`/eggshen-config-moderation moderation whitelist-toggle enabled:true`)
+3. Review abuse logs (`/eggshen-config-watch-party rate-limit abuse-log`) and suspicious activity (`/eggshen-config-watch-party rate-limit suspicious-activity`)
+4. Report to Discord Trust & Safety
+5. Ban attacking accounts
+6. Disable whitelist mode when clear (`/eggshen-config-moderation moderation whitelist-toggle enabled:false`)
 
-### Scenario: False Positive Ban
+To catch this earlier next time, turn on `/eggshen-config-watch-party rate-limit guild-wide enabled:true` and `/eggshen-config-watch-party rate-limit pattern-detection enabled:true`.
 
-**Situation:** Legitimate user auto-banned incorrectly
+### Scenario: Legitimate User Blocked
+
+**Situation:** A legitimate user is flagged in the auto-ban list or stuck under a cooldown
+
+The bot never bans anyone on its own, so there is no auto-ban to undo. Instead:
 
 **Resolution:**
-1. Review user's abuse patterns
-2. Check if genuine mistake
-3. Remove auto-ban (`/ban-remove @user`)
-4. Add to whitelist temporarily
-5. Apologize and explain
+1. Review their violations (`/eggshen-config-watch-party rate-limit abuse-log`)
+2. Check if it was a genuine mistake
+3. Lift any manual cooldown (`/eggshen-config-moderation moderation user-cooldown-remove user:<user>`)
+4. Clear their rate limits (`/eggshen-config-watch-party rate-limit clear user:<user>`)
+5. If whitelist mode is on, add them (`/eggshen-config-moderation moderation whitelist-add-user user:<user>`)
+6. Apologize and explain
 
 ## Integration with Watch History
 
@@ -215,11 +216,6 @@ Watch history has special moderation features:
 - Prevents random users from polluting history
 - Public accountability (saved by username shown)
 
-### Removal Powers
-- Only administrators can remove entries
-- Prevents casual deletion
-- Maintains server history integrity
-
 ### Audit Trail
 - All saves logged with username
 - Timestamp and channel recorded
@@ -229,18 +225,24 @@ See [Watch History](/features/watch-history) for more details.
 
 ## Moderation Commands Quick Reference
 
-| Command | Permission | Purpose |
-|---------|-----------|---------|
-| `/cooldown add` | Moderate Members | Apply manual cooldown |
-| `/cooldown remove` | Moderate Members | Lift cooldown early |
-| `/cooldown list` | Moderate Members | View active cooldowns |
-| `/ban-status` | Moderate Members | Check user ban status |
-| `/ban-remove` | Administrator | Remove auto-ban |
-| `/abuse-log` | Moderate Members | View abuse logs |
-| `/abuse-patterns` | Moderate Members | Analyze user behavior |
-| `/watched remove` | Administrator | Remove history entry |
-| `/whitelist-mode` | Administrator | Emergency lockdown |
-| `/whitelist add/remove` | Administrator | Manage whitelist |
+All of these require Administrator, Manage Server, Moderate Members, Kick Members, or Ban Members.
+
+| Command | Purpose |
+|---------|---------|
+| `/eggshen-config-moderation moderation toggle enabled:<true/false>` | Turn moderation features on or off |
+| `/eggshen-config-moderation moderation user-cooldown user:<user> duration:<minutes> reason:<text>` | Apply manual cooldown |
+| `/eggshen-config-moderation moderation user-cooldown-remove user:<user>` | Lift cooldown early |
+| `/eggshen-config-moderation moderation user-cooldown-list` | View active cooldowns |
+| `/eggshen-config-moderation moderation auto-ban-toggle enabled:<true/false>` | Turn auto-ban flagging on or off |
+| `/eggshen-config-moderation moderation auto-ban-threshold count:<5-100> hours:<1-168>` | Set the flagging threshold |
+| `/eggshen-config-moderation moderation auto-ban-list` | View users over the threshold |
+| `/eggshen-config-moderation moderation whitelist-toggle enabled:<true/false>` | Emergency lockdown |
+| `/eggshen-config-moderation moderation whitelist-add-role role:<role>` / `whitelist-add-user user:<user>` | Add to whitelist |
+| `/eggshen-config-moderation moderation whitelist-remove-role role:<role>` / `whitelist-remove-user user:<user>` | Remove from whitelist |
+| `/eggshen-config-moderation moderation whitelist-list` | View whitelist |
+| `/eggshen-config-watch-party rate-limit abuse-log` | View violations by user |
+| `/eggshen-config-watch-party rate-limit suspicious-activity` | View detected multi-user patterns |
+| `/eggshen-config-watch-party rate-limit clear user:<user>` | Reset a user's rate limits |
 
 Full documentation: [Moderation Commands](/commands/moderation)
 
@@ -254,7 +256,7 @@ Full documentation: [Moderation Commands](/commands/moderation)
 - Use progressive discipline
 - Adjust limits for server size
 - Whitelist known power users
-- Keep mod logs channel active
+- Check `/eggshen-config-moderation moderation auto-ban-list` regularly
 
 ### ❌ Don't
 
@@ -309,19 +311,9 @@ Review these monthly:
 
 **Solutions:**
 - Decrease rate limit thresholds
-- Enable abuse logging if disabled
+- Enable guild-wide limits and pattern detection
 - Lower auto-ban threshold
 - Add more moderators to monitor
-
-### Mod Logs Too Noisy
-
-**Symptoms:** Too many notifications, hard to find important events
-
-**Solutions:**
-- Adjust what gets logged
-- Create separate channels for different log types
-- Use Discord notification settings
-- Filter by keyword
 
 ## Support
 

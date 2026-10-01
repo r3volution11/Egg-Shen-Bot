@@ -105,7 +105,7 @@ export async function execute(interaction) {
         justWatch: getJustWatchUrl(tmdb.title, 'movie'),
       };
       
-      if (statsConfig.enabled && statsConfig.trackMovies) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const year = tmdb.release_date?.split('-')[0];
         await trackSearch(
           interaction.guildId,

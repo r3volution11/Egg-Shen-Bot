@@ -66,15 +66,12 @@ export async function execute(interaction) {
     if (results.length === 1) {
       const { getGameDetails } = await import('../services/rawgService.js');
       const { createGameDetailedEmbed } = await import('../utils/embedBuilder.js');
-      const { getStatsConfig } = await import('../utils/guildConfig.js');
       const { trackSearch } = await import('../utils/statsTracker.js');
       
       const gameId = results[0].id;
       const game = await getGameDetails(gameId);
       
-      const statsConfig = await getStatsConfig(interaction.guildId);
-      
-      if (statsConfig.enabled && statsConfig.trackGames) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const year = game.released?.split('-')[0];
         await trackSearch(
           interaction.guildId,

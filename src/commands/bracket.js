@@ -10,6 +10,10 @@ import { closeMatchupsNow } from '../utils/tournamentScheduler.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
+// Subcommands only admins and moderators can run. Exported so /eggshen-ask
+// can say when an answer needs one, from the same list that enforces it.
+export const ADMIN_SUBCOMMANDS = ['create', 'setup-link', 'manage-titles', 'resize', 'edit-name', 'announce', 'open', 'close', 'open-groups', 'close-groups', 'regenerate', 'resolve-tiebreaker', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
+
 // Temporary storage for custom images during selection process
 export const customImageCache = new Map();
 
@@ -617,7 +621,7 @@ export async function execute(interaction) {
   }
 
   // Check admin/mod permissions for management commands
-  const requiresAdmin = ['create', 'setup-link', 'manage-titles', 'resize', 'edit-name', 'announce', 'open', 'close', 'open-groups', 'close-groups', 'regenerate', 'resolve-tiebreaker', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
+  const requiresAdmin = ADMIN_SUBCOMMANDS;
   if (requiresAdmin.includes(subcommand)) {
     const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
     const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);

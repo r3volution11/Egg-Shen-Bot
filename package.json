@@ -1,6 +1,6 @@
 {
   "name": "egg-shen-bot",
-  "version": "2.45.0",
+  "version": "2.46.0",
   "description": "Egg Shen - Discord bot for searching movies, TV shows, games, and board games with ratings from multiple services",
   "main": "src/index.js",
   "type": "module",
@@ -46,7 +46,8 @@
     "express-rate-limit": "^8.5.2",
     "fast-xml-parser": "^5.9.0",
     "letterboxd-retriever": "^1.1.0",
-    "multer": "^2.3.0"
+    "multer": "^2.3.0",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

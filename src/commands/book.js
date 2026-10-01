@@ -54,15 +54,12 @@ export async function execute(interaction) {
     if (results.length === 1) {
       const { getBookDetails } = await import('../services/googleBooksService.js');
       const { createBookDetailedEmbed } = await import('../utils/embedBuilder.js');
-      const { getStatsConfig } = await import('../utils/guildConfig.js');
       const { trackSearch } = await import('../utils/statsTracker.js');
       
       const bookId = results[0].id;
       const book = await getBookDetails(bookId);
       
-      const statsConfig = await getStatsConfig(interaction.guildId);
-      
-      if (statsConfig.enabled && statsConfig.trackBooks) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const year = book.publishedDate?.split('-')[0];
         await trackSearch(
           interaction.guildId,

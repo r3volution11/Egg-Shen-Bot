@@ -136,53 +136,43 @@ Anyone can add entries manually using `/watched add`, subject to rate limiting.
 - Moderators can verify and save legitimate entries
 - Maintains history accuracy
 
-### Who Can Remove History?
+### Can Entries Be Removed?
 
-**Only Administrators** can remove watch history entries:
-
-```
-/watched remove <id>
-```
-
-This restriction prevents:
-- Casual deletion of server records
-- Loss of community history
-- Disputes about what was watched
+**Not from Discord.** There is currently no command or button that removes or edits a watch history entry — `/watched` only has `add` and `history`. History is stored per server in `guild_watch_history/<server id>_history.json`, so on a self-hosted instance the person running the bot can edit that file directly if an entry must go.
 
 ## Commands
 
 ### View Watch History
 
 ```
-/watched list [limit]
+/watched history [filter] [limit]
 ```
 
-Shows recent watch history:
-- Last 10 entries (default)
-- Up to 50 entries with limit parameter
-- Titles with TMDB links and ratings
-- Dates and channels
-- Who saved each entry
-- Notes from viewers
+Shows the server's most recent entries, newest first:
+- Last 10 entries by default; `limit` accepts 1–25
+- `filter:all` (default), `filter:movie`, or `filter:tv`
+- Title, year, and a 🎬/📺 type icon
+- Who saved each entry, the date, and the channel (for timer-logged entries)
+- Notes, if any were added
 
-**Example:**
+**Examples:**
 ```
-/watched list 25
+/watched history limit:25
+/watched history filter:movie limit:25
 ```
-Shows last 25 entries.
 
 ### Manual Entry
 
 ```
-/watched add type:<movie|tv> title:<text> notes:<text>
+/watched add title:<text> notes:<text> private:<true|false>
 ```
 
 Add to watch history without using a timer:
 
 **Parameters:**
-- `type` - "movie" or "tv"
-- `title` - Title to search for
-- `notes` - Optional notes about the viewing (optional)
+- `title` (required) - Title to search for. The bot searches **both** movies and TV shows, so there is no type option — if more than one result matches, you pick the right one from a menu
+- `notes` (optional) - Notes about the viewing
+- `private` (optional) - `private:true` shows the confirmation only to you; default is public
 
 **Use Cases:**
 - Retroactive logging of past watch parties
@@ -191,24 +181,8 @@ Add to watch history without using a timer:
 
 **Example:**
 ```
-/watched add type:movie title:Big Trouble in Little China notes:First watch for half the group!
+/watched add title:Big Trouble in Little China notes:First watch for half the group!
 ```
-
-### Remove Entry
-
-```
-/watched remove id:<number>
-```
-
-**Administrator only** - Remove an entry from watch history.
-
-Get the ID from `/watched list`, then:
-
-```
-/watched remove id:42
-```
-
-⚠️ **Cannot be undone!**
 
 ### Check Timer Status
 
@@ -234,7 +208,7 @@ Track your weekly or monthly watch parties:
 
 Review history before next party to avoid repeats:
 ```
-/watched list
+/watched history
 ```
 
 ### Movie Marathons
@@ -256,21 +230,21 @@ All saved to history with marathon context
 
 ### TV Show Tracking
 
-Track episode-by-episode progress:
+Log each viewing of a show, using `notes` to record which episode it was:
 
 ```
-/watched add type:tv title:Breaking Bad S01E01 notes:Pilot episode - hooked!
-/watched add type:tv title:Breaking Bad S01E02 notes:Still excellent
+/watched add title:Breaking Bad notes:S01E01 - Pilot episode, hooked!
+/watched add title:Breaking Bad notes:S01E02 - Still excellent
 ```
 
-Or use timers for each episode viewing.
+The entry is saved against the show itself (TMDB search matches the title, so put the episode in the notes rather than the title). Or use timers for each episode viewing.
 
 ### Community Recommendations
 
 See what the community has watched and enjoyed:
 
 ```
-/watched list
+/watched history
 ```
 
 Browse recent watches, read notes from other viewers, and discover new content.
@@ -292,11 +266,13 @@ See the [Configuration Guide](/configuration#watch-party-configuration) for deta
 Check history before suggesting:
 
 ```
-/watched list 50
-→ Search for title
+/watched history limit:25
+→ Look for the title
 → See if watched recently
 → Choose something new
 ```
+
+Narrow it with `filter:movie` or `filter:tv` to see further back within one type.
 
 ## Data Tracked
 
@@ -367,13 +343,11 @@ All other data (channel, date, user) automatically captured.
 
 ## Statistics Integration
 
-Watch history contributes to server statistics:
+Each entry logged to watch history (by `/watched add` or a timer) is counted in server statistics:
 
-- Total watches tracked
-- Most watched titles
-- Active watch party channels
-- Most active watch party organizers
-- Watch frequency trends
+- The **📝 Watched** count under "Other Commands" in `/stats`
+- The **W** column of each user's breakdown in "Most Active Users"
+- **📝 Watch History Logs** in `/stats type:personal`
 
 See [Statistics](/features/statistics) for more details.
 
@@ -387,9 +361,8 @@ See [Statistics](/features/statistics) for more details.
    - Post guidelines in server rules
 
 2. **Moderate Appropriately**
-   - Review history periodically
-   - Remove duplicate entries
-   - Ensure accuracy
+   - Review history periodically with `/watched history`
+   - Ensure accuracy (entries can't be removed from Discord, so ask hosts to double-check the title they pick)
 
 3. **Encourage Usage**
    - Promote watch parties
@@ -481,18 +454,14 @@ If users want **private tracking**, they should use external services.
 ### Wrong information saved
 
 **Solution:**
-- Administrator can remove entry: `/watched remove <id>`
-- Re-add with correct information
-- Add note explaining correction
+- Re-add with correct information using `/watched add`, with a note explaining the correction
+- Entries can't be removed from Discord; on a self-hosted instance the bot's operator can delete the wrong entry from `guild_watch_history/<server id>_history.json`
 
-### History showing 404 error
-
-**Issue:** History list page not rendering
+### History not showing
 
 **Solution:**
-- Use `/watched list` command instead
-- Check bot permissions
-- Verify database connection
+- Use `/watched history` (try `filter:all` and a larger `limit`)
+- Check the bot can send embeds in the channel
 
 ## Future Enhancements
 

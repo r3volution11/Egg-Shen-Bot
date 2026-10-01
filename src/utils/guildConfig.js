@@ -302,6 +302,17 @@ export function getAutoDetectMode(guildConfig) {
  * @param {object} guildConfig
  * @returns {boolean}
  */
+/**
+ * Whether /eggshen-ask may use AI to write its answers on this server — its
+ * own switch (/eggshen-config-ai ai-ask), separate from AI announcement text.
+ * Defaults to on, like getAiTextEnabled; it still needs the bot's OpenAI key,
+ * and without it answers come from docs search alone. Only an explicit false
+ * turns it off (no config migrations).
+ */
+export function getAiAskEnabled(guildConfig) {
+  return guildConfig?.aiAsk?.enabled !== false;
+}
+
 export function getAiTextEnabled(guildConfig) {
   return guildConfig?.aiText?.enabled !== false;
 }

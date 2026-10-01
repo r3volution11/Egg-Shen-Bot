@@ -572,6 +572,117 @@ export async function generateAnnouncementText({ segments, tone, customTone, tim
   }
 }
 
+export const EMBEDDING_MODEL = 'text-embedding-3-small';
+export const EMBEDDING_DIMENSIONS = 256;
+
+/**
+ * Embed texts for semantic search (/eggshen-ask). 256 dimensions is plenty
+ * to tell docs sections apart and keeps the on-disk cache small.
+ * @param {string[]} texts
+ * @returns {Promise<number[][]|null>} one vector per text, or null on failure
+ */
+export async function embedTexts(texts) {
+  if (!isOpenAIAvailable() || texts.length === 0) return null;
+  try {
+    const vectors = [];
+    for (let i = 0; i < texts.length; i += 100) {
+      const response = await openaiApi.post('/embeddings', {
+        model: EMBEDDING_MODEL,
+        dimensions: EMBEDDING_DIMENSIONS,
+        input: texts.slice(i, i + 100).map(t => String(t).slice(0, 6000)),
+      });
+      const batch = (response.data?.data || []).sort((a, b) => a.index - b.index).map(d => d.embedding);
+      if (batch.length !== Math.min(100, texts.length - i)) return null;
+      vectors.push(...batch);
+    }
+    return vectors;
+  } catch (error) {
+    console.error('Embedding error:', error.response?.data || error.message);
+    return null;
+  }
+}
+
+/**
+ * Answer a "how do I…" question about the bot from its own documentation, for
+ * /eggshen-ask.
+ *
+ * The model only sees what it's given: the docs sections closest to the
+ * question, and a catalog of the bot's real commands (generated from their
+ * live definitions). It's told to answer from those alone and to say
+ * NOT_COVERED rather than guess. docsAnswer.js then checks every command it
+ * names against the real ones, so an invented command is never shown.
+ *
+ * Follows generateAnnouncementText's contract: null on any failure, and the
+ * caller falls back to showing the best docs section as written.
+ *
+ * @param {object} params
+ * @param {string} params.question
+ * @param {Array<{page, heading, url, text}>} params.sections - best match first
+ * @param {string[]} params.catalogLines - "/bracket open [duration, matchups] — …"
+ * @returns {Promise<{text: string, sources: number[]} | {notCovered: true} | null>}
+ */
+export async function answerFromDocs({ question, sections, catalogLines }) {
+  if (!isOpenAIAvailable()) {
+    return null;
+  }
+
+  const excerpts = sections
+    .map((s, i) => `[${i + 1}] ${s.page} › ${s.heading}\n${String(s.text).slice(0, 1500)}`)
+    .join('\n\n');
+
+  const prompt = [
+    `Question from a Discord member: ${question}`,
+    '',
+    'Documentation excerpts:',
+    excerpts || '(none matched)',
+    '',
+    'Every command the bot has, with its options:',
+    catalogLines.join('\n'),
+    '',
+    'Words used here:',
+    '- A "tournament" or "bracket" is the /bracket command. Its entrants are "titles" (movies, shows, games, board games or books); people often call them "teams".',
+    '- A "matchup" is one head-to-head vote between two titles in a tournament. It is not an image.',
+    '',
+    'Rules:',
+    '- Answer only from the excerpts and the command list. Never invent a command, option or feature.',
+    '- Give the exact command(s) in backticks, with options as name:value, e.g. `/bracket open matchups:1`. Use option values in the form the excerpts show; if unsure of a value, leave the option out.',
+    '- Copy commands from the excerpts as written, values included. Don\'t change a value to fit the question (an excerpt\'s `max-titles:36` stays 36), and don\'t combine steps from different setups.',
+    '- Include only the options the task needs; leave optional ones out unless the question asks about them.',
+    '- Write any placeholder in angle brackets, e.g. `type:<potion type>`, never bare. Never write an option list like `[groups, duration]` in a command.',
+    '- Prefer the simplest way that fully answers the question.',
+    '- Be brief: under 120 words. Use a numbered list only for several steps.',
+    '- If the excerpts and command list do not answer the question, reply with exactly: NOT_COVERED',
+    '- End with a line: SOURCES: the numbers of the excerpts you used, comma-separated, or none.',
+  ].join('\n');
+
+  try {
+    const response = await openaiApi.post('/chat/completions', {
+      model: CHAT_MODEL,
+      messages: [
+        { role: 'system', content: "You are Egg Shen Bot's help desk. You explain how to use the bot in Discord, accurately and briefly, using only the documentation and command list you are given." },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 400,
+      temperature: 0.2,
+    });
+
+    const raw = response.data.choices?.[0]?.message?.content?.trim();
+    if (!raw) return null;
+    if (/^NOT_COVERED\b/.test(raw)) return { notCovered: true };
+
+    const sourcesLine = raw.match(/\n?SOURCES:\s*(.*)\s*$/i);
+    const text = (sourcesLine ? raw.slice(0, sourcesLine.index) : raw).trim();
+    if (!text) return null;
+    const sources = sourcesLine
+      ? [...sourcesLine[1].matchAll(/\d+/g)].map(m => Number(m[0])).filter(n => n >= 1 && n <= sections.length)
+      : [];
+    return { text, sources };
+  } catch (error) {
+    console.error('Docs answer error:', error.response?.data || error.message);
+    return null;
+  }
+}
+
 /**
  * Re-rank recommendation candidates against a server's actual taste, and say
  * why each pick fits.

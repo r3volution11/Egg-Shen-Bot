@@ -85,42 +85,42 @@ npm start
 ## See It In Action
 
 ### Search Movies
-Type `/movie title:Inception` and get:
+Type `/movie query:Inception` and get:
 - **Ratings**: IMDb 8.8, Letterboxd 4.3, Trakt 90%, RT 87%
 - **Where to Watch**: Comprehensive streaming platforms (TMDB + Watchmode) - includes free services like Tubi, Pluto TV, and Freevee
 - **Details**: Runtime, release date, genres, cast, overview
 - **Links**: IMDb, TMDB, Letterboxd, Trakt, JustWatch
 
 ### Search TV Shows
-Type `/tv title:Breaking Bad` to see:
+Type `/tv query:Breaking Bad` to see:
 - **Ratings** from all major services
 - **Episode count**: 5 seasons, 62 episodes
 - **Status**: Whether show is ongoing or ended
 - **Streaming platforms** in your region
 
 ### ⭐ Browse Full Seasons (Unique!)
-Type `/episode-list title:Breaking Bad season:3` to get the **entire season at a glance**:
+Type `/episode-list series:Breaking Bad season:3` to get the **entire season at a glance**:
 - **All episodes** in one view with titles, ratings, and air dates
 - **Find the best episodes** by comparing IMDb and Trakt ratings side-by-side
 - **Plan your binge** by seeing which episodes are must-watch vs. skippable
 - **No other Discord bot does this!** Perfect for planning watch parties or catching up on shows
 
 ### Find Specific Episodes
-Type `/episode title:Breaking Bad Pilot` for:
+Type `/episode show:Breaking Bad episode:Pilot` for:
 - **Episode-specific** ratings and information
 - **Season and episode number**
 - **Air date** and runtime
 - **Synopsis** without spoilers
 
 ### Video Games
-Type `/game title:The Last of Us` to discover:
+Type `/game query:The Last of Us` to discover:
 - **Ratings** from Metacritic and RAWG
 - **Release date** and platforms
 - **Genres** and developer info
 - **Similar games** based on your search
 
 ### Board Games
-Type `/boardgame title:Catan` for:
+Type `/boardgame query:Catan` for:
 - **BoardGameGeek rating** and rank
 - **Player count** and playtime
 - **Age recommendation**
@@ -240,7 +240,7 @@ Type `/potion give user:@Friend type:health` to send magical potions with fun po
 
 ### Tournaments & Social
 - `/bracket` - Full tournament system: group stages, knockout brackets, wildcards, tiebreakers
-- `/survey create` / `/list` / `/results` / `/close` / `/delete` - Polls with up to 10 options, live results, and optional auto-close
+- `/survey create` / `list` / `results` / `close` / `delete` - Polls with up to 10 options, live results, and optional auto-close
 - `/potion give` - Give magical potions to users (13 types: helpful & harmful)
 - `/potion responses` - Manage custom potion responses (admin/mod only)
 - 78+ pop culture references from horror, comedy, fantasy, and games
@@ -264,7 +264,7 @@ Type `/potion give user:@Friend type:health` to send magical potions with fun po
 - **Rate limiting** with configurable guild-wide limits
 - **Pattern detection** for coordinated abuse
 - **Temporary cooldowns** and whitelist mode
-- **Auto-ban thresholds** with admin notifications
+- **Auto-ban thresholds** that flag repeat offenders for moderators
 - **Statistics tracking** for command usage and popular content
 
 ## Why Choose Egg Shen Bot?

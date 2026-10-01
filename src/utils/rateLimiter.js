@@ -160,6 +160,11 @@ function hasModeratorPermissions(member) {
   return moderatorPermissions.some(perm => member.permissions.has(perm));
 }
 
+// Said to someone past the auto-ban threshold. It used to add "Server
+// moderators have been notified", but nothing notifies them: going over is
+// only recorded, for `/eggshen-config-moderation moderation auto-ban-list`.
+const THRESHOLD_WARNING = '\n\n⚠️ **Warning:** You have gone over this server\'s limit for rate-limit violations. Moderators can see who has.';
+
 /**
  * Check if a user is rate limited for a specific command
  * @param {string} guildId - Guild ID
@@ -258,7 +263,7 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
       
       // Check auto-ban threshold
       const exceededThreshold = checkAutoBanThreshold(guildId, userId, config);
-      const warningMessage = exceededThreshold ? '\n\n⚠️ **Warning:** You have exceeded the abuse threshold. Server moderators have been notified.' : '';
+      const warningMessage = exceededThreshold ? THRESHOLD_WARNING : '';
       
       return {
         limited: true,
@@ -311,7 +316,7 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
     
     // Check auto-ban threshold
     const exceededThreshold = checkAutoBanThreshold(guildId, userId, config);
-    const warningMessage = exceededThreshold ? '\n\n⚠️ **Warning:** You have exceeded the abuse threshold. Server moderators have been notified.' : '';
+    const warningMessage = exceededThreshold ? THRESHOLD_WARNING : '';
     
     return {
       limited: true,

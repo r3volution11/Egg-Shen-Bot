@@ -47,7 +47,7 @@ Enable this to allow moderators to bypass rate limits.
 
 Most moderation is handled through configuration settings:
 
-- **Rate Limiting:** `/eggshen-config-watch-party rate-limit` - See [Configuration](/commands/configuration#rate-limit-group)
+- **Rate Limiting:** the `rate-limit` group of `/eggshen-config-watch-party` (e.g. `/eggshen-config-watch-party rate-limit view`) - See [Configuration](/commands/configuration#rate-limit-group)
 - **Command Toggles:** `/eggshen-config commands toggle` - Enable/disable commands for users
 - **Statistics:** `/eggshen-stats` - View usage patterns and potential abuse
 

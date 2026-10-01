@@ -165,7 +165,7 @@ You should see:
 Test that everything works:
 
 ```
-/movie title:The Matrix
+/movie query:The Matrix
 /eggshen-help
 ```
 

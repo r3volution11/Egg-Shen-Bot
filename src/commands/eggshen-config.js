@@ -159,7 +159,10 @@ export const data = new SlashCommandBuilder()
                 { name: 'All Stats Tracking', value: 'enabled' },
                 { name: 'Movie Tracking', value: 'trackMovies' },
                 { name: 'TV Show Tracking', value: 'trackShows' },
-                { name: 'Episode Tracking', value: 'trackEpisodes' }
+                { name: 'Episode Tracking', value: 'trackEpisodes' },
+                { name: 'Game Tracking', value: 'trackGames' },
+                { name: 'Board Game Tracking', value: 'trackBoardGames' },
+                { name: 'Book Tracking', value: 'trackBooks' }
               )
           )
           .addBooleanOption(option =>
@@ -290,7 +293,13 @@ export async function execute(interaction) {
     const statsStatus = `${config.stats.enabled ? '✅' : '❌'} **Overall Tracking:** ${config.stats.enabled ? 'Enabled' : 'Disabled'}\n` +
       `${config.stats.trackMovies ? '✅' : '❌'} **Movies:** ${config.stats.trackMovies ? 'Enabled' : 'Disabled'}\n` +
       `${config.stats.trackShows ? '✅' : '❌'} **TV Shows:** ${config.stats.trackShows ? 'Enabled' : 'Disabled'}\n` +
-      `${config.stats.trackEpisodes ? '✅' : '❌'} **Episodes:** ${config.stats.trackEpisodes ? 'Enabled' : 'Disabled'}`;
+      `${config.stats.trackEpisodes ? '✅' : '❌'} **Episodes:** ${config.stats.trackEpisodes ? 'Enabled' : 'Disabled'}\n` +
+      // Added later: a config written before these keys lacks them, and
+      // unset means tracked (as statsTracker reads it), so only `false` is off
+      ['trackGames', 'trackBoardGames', 'trackBooks'].map((key, i) => {
+        const on = config.stats[key] !== false;
+        return `${on ? '✅' : '❌'} **${['Games', 'Board Games', 'Books'][i]}:** ${on ? 'Enabled' : 'Disabled'}`;
+      }).join('\n');
 
     const commandsStatus = `${config.commandPermissions.enabled ? '✅' : '❌'} **All Commands:** ${config.commandPermissions.enabled ? 'Enabled' : 'Disabled'}\n` +
       `${config.commandPermissions.movie ? '✅' : '❌'} **/movie:** ${config.commandPermissions.movie ? 'Enabled' : 'Disabled'}\n` +
@@ -483,6 +492,9 @@ export async function execute(interaction) {
         trackMovies: 'Movie tracking',
         trackShows: 'TV show tracking',
         trackEpisodes: 'Episode tracking',
+        trackGames: 'Game tracking',
+        trackBoardGames: 'Board game tracking',
+        trackBooks: 'Book tracking',
       }[setting];
 
       const statusText = enabled ? 'enabled' : 'disabled';

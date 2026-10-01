@@ -102,10 +102,7 @@ async function searchAndDisplaySoundtrack(interaction, result, isPrivate = false
   const { trackSearch } = await import('../utils/statsTracker.js');
   
   // Track the search in statistics
-  const guildConfig = await loadGuildConfig(interaction.guildId);
-  const statsConfig = guildConfig?.stats;
-  
-  if (statsConfig?.enabled) {
+  { // trackSearch applies the server's stats switches itself (unset = on)
     await trackSearch(
       interaction.guildId,
       interaction.user.id,

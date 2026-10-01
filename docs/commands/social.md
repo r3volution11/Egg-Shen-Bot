@@ -245,7 +245,7 @@ Give magical potions to other users with pop culture references!
 ### Give a Potion
 
 ```
-/potion user:[user] type:[potion-type]
+/potion give user:[user] type:[potion-type]
 ```
 
 **Potion Types:**
@@ -260,9 +260,9 @@ Give magical potions to other users with pop culture references!
 
 **Examples:**
 ```
-/potion user:@Alice type:Health
-/potion user:@Bob type:Confusion
-/potion user:@Charlie type:Mana
+/potion give user:@Alice type:Health
+/potion give user:@Bob type:Confusion
+/potion give user:@Charlie type:Mana
 ```
 
 **Sample Responses:**
@@ -277,7 +277,7 @@ Server administrators can customize potion responses and themes via `/eggshen-co
 
 ## Status Quote Commands
 
-The bot rotates its Discord status once an hour through a list of short quotes, each optionally tagged with a title (movie/show/game/etc.) and an author (character or real person). See [`QUOTES_ADMIN_SETUP.md`](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/QUOTES_ADMIN_SETUP.md) for how server admins manage that list (`/quotes-admin` web page or `/eggshen-config-quotes`).
+The bot rotates its Discord status once an hour through a list of short quotes, each optionally tagged with a title (movie/show/game/etc.) and an author (character or real person). See [`QUOTES_ADMIN_SETUP.md`](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/QUOTES_ADMIN_SETUP.md) for how server admins manage that list (the quotes-admin web page, opened with a one-click link from `/eggshen-config-quotes admin-link`, or the other `/eggshen-config-quotes` subcommands).
 
 ### Post a Random Quote
 
@@ -351,7 +351,7 @@ If both `title` and `author` are given, a quote matching *either* one is returne
 **Solution:** Make sure the survey is still active. Check with `/survey list`. If closed, votes are disabled.
 
 **Problem:** Survey command doesn't appear  
-**Solution:** Check if it's enabled: `/eggshen-config view` and look at Command Permissions section.
+**Solution:** Check if it's enabled: `/eggshen-config settings view` and look at the Command Permissions section.
 
 **Problem:** Can't close someone else's survey  
 **Solution:** Only the creator, admins, or moderators can manage surveys. Regular users can only vote.

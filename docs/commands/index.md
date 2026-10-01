@@ -52,7 +52,8 @@ Egg Shen Bot provides comprehensive slash commands for searching media, hosting 
 Search for movies with comprehensive ratings and links.
 
 **Options:**
-- `title` (required) - Movie title to search for
+- `query` (required) - Movie title to search for
+- `private` - Only show the result to you (default: false)
 
 **Features:**
 - Ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes
@@ -63,7 +64,7 @@ Search for movies with comprehensive ratings and links.
 
 **Example:**
 ```
-/movie title:The Matrix
+/movie query:The Matrix
 ```
 
 [Learn more →](/commands/search#movie)
@@ -74,7 +75,8 @@ Search for movies with comprehensive ratings and links.
 Search for TV shows with ratings and episode information.
 
 **Options:**
-- `title` (required) - TV show title to search for
+- `query` (required) - TV show title to search for (optionally include an episode name)
+- `private` - Only show the result to you (default: false)
 
 **Features:**
 - Similar to movies but for TV shows
@@ -84,7 +86,7 @@ Search for TV shows with ratings and episode information.
 
 **Example:**
 ```
-/tv title:Breaking Bad
+/tv query:Breaking Bad
 ```
 
 [Learn more →](/commands/search#tv)
@@ -95,9 +97,9 @@ Search for TV shows with ratings and episode information.
 Search for specific TV show episodes.
 
 **Options:**
-- `title` (required) - TV show title
-- `season` (required) - Season number
-- `episode` (required) - Episode number
+- `show` (required) - TV show name
+- `episode` (required) - Episode title (e.g. `Sandkings`) or number (e.g. `s3e11`, `3x11`)
+- `private` - Only show the result to you (default: false)
 
 **Features:**
 - Episode-specific ratings
@@ -107,7 +109,7 @@ Search for specific TV show episodes.
 
 **Example:**
 ```
-/episode title:The Last of Us season:1 episode:1
+/episode show:The Last of Us episode:s1e1
 ```
 
 [Learn more →](/commands/search#episode)
@@ -118,8 +120,9 @@ Search for specific TV show episodes.
 View all episodes from a complete season.
 
 **Options:**
-- `title` (required) - TV show title
+- `series` (required) - TV series name
 - `season` (required) - Season number
+- `private` - Only show the result to you (default: false)
 
 **Features:**
 - Compact multi-column layout
@@ -129,7 +132,7 @@ View all episodes from a complete season.
 
 **Example:**
 ```
-/episode-list title:Breaking Bad season:5
+/episode-list series:Breaking Bad season:5
 ```
 
 [Learn more →](/commands/search#episode-list)
@@ -140,7 +143,8 @@ View all episodes from a complete season.
 Search for video games or board games.
 
 **Options:**
-- `title` (required) - Game title to search for
+- `query` (required) - Game title to search for
+- `private` - Only show the result to you (default: false)
 
 **Features:**
 - Video game support via RAWG API
@@ -151,8 +155,8 @@ Search for video games or board games.
 
 **Example:**
 ```
-/game title:The Last of Us
-/game title:Wingspan
+/game query:The Last of Us
+/game query:Wingspan
 ```
 
 [Learn more →](/commands/search#game)
@@ -278,7 +282,7 @@ Log and view server watch party history.
 
 **Subcommands:**
 - `/watched add` - Manually log a watch party (options: `title`, `notes`, `private` — keep the confirmation to yourself instead of posting it to the channel, default: false)
-- `/watched history` - View server watch history
+- `/watched history` - View server watch history (options: `filter` — `all`, `movie`, `tv`; `limit` — 1-25, default 10)
 
 **Features:**
 - Server-level watch tracking
@@ -290,7 +294,7 @@ Log and view server watch party history.
 **Example:**
 ```
 /watched add title:Hereditary notes:Annual horror night!
-/watched history filter:movies limit:20
+/watched history filter:movie limit:20
 ```
 
 [Learn more →](/commands/watch-party#watched)
@@ -451,6 +455,16 @@ Find similar content recommendations.
 
 ---
 
+### `/eggshen-ask`
+Ask how to do something in plain words, and get the exact commands to run, answered from this documentation. Private unless you add `public:true`. See [Ask the Bot](./ask).
+
+**Example:**
+```
+/eggshen-ask question:how do I run a tournament one matchup at a time?
+```
+
+---
+
 ### `/eggshen-help`
 Display comprehensive bot help with complete command list — tailored to what's actually enabled on the server it's run in.
 
@@ -584,16 +598,16 @@ Give magical potions to other users with fun pop culture references!
 
 **Examples:**
 ```
-/potion user:@Friend type:health
+/potion give user:@Friend type:health
 → "🧃 @You tosses @Friend an Estus Flask. 'Praise the sun!' 💚 +100 HP"
 
-/potion user:@Friend type:weakness
+/potion give user:@Friend type:weakness
 → "🫠 @You gives @Friend a potion that tastes like regret. Their muscles turn to jelly! 💔 -75 STR"
 
-/potion user:@Friend type:curse
+/potion give user:@Friend type:curse
 → "👹 @You 'accidentally' gives @Friend the Cursed Videotape Juice. Seven days... 📼 CURSED (The Ring)"
 
-/potion user:@Friend type:love
+/potion give user:@Friend type:love
 → "💘 @You hands @Friend Cupid's arrow in liquid form. 'As you wish.' 💕 +95 CHARM (Princess Bride)"
 ```
 
@@ -605,7 +619,8 @@ Give magical potions to other users with fun pop culture references!
 View server statistics (Admin/Moderator only).
 
 **Options:**
-- `filter` - all-time, this-month, this-week, today
+- `filter` - `all-time`, `month`, `week`, `today`
+- `type` - `server` or `personal`
 
 **Features:**
 - Command usage statistics
@@ -615,7 +630,7 @@ View server statistics (Admin/Moderator only).
 
 **Example:**
 ```
-/stats filter:this-month
+/stats filter:month
 ```
 
 [Learn more →](/features/statistics)
@@ -629,7 +644,7 @@ Comprehensive server configuration (Admin/Moderator only), split across 5 comman
 
 - `/eggshen-config` - settings, stats, commands, notifications
 - `/eggshen-config-watch-party` - watch party channels, rate limiting
-- `/eggshen-config-ai` - AI image generation limits and permissions
+- `/eggshen-config-ai` - AI image limits and permissions, AI announcement text, and AI answers for `/eggshen-ask`
 - `/eggshen-config-moderation` - whitelist, cooldowns, auto-ban
 - `/eggshen-config-events` - event request system
 
@@ -658,14 +673,14 @@ View bot logs and diagnostics (Admin only).
 ```
 /eggshen-logs stats
 /eggshen-logs errors count:20
-/eggshen-logs category:command count:10
+/eggshen-logs category category:command count:10
 ```
 
 [Learn more →](/features/logging)
 
 ---
 
-### `/help`
+### `/eggshen-help`
 Display help information and available commands.
 
 ---
@@ -680,7 +695,7 @@ Display help information and available commands.
 | **Fun & Social** | `/survey`, `/potion` |
 | **Statistics** | `/stats` |
 | **Configuration** | `/eggshen-config`, `/eggshen-config-watch-party`, `/eggshen-config-ai`, `/eggshen-config-moderation`, `/eggshen-config-events` |
-| **Help** | `/help` |
+| **Help** | `/eggshen-help` |
 
 ## Command Permissions
 

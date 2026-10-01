@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getStatsConfig } from './guildConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -100,10 +101,32 @@ export function pruneSearches(searches) {
   return recent.length > MAX_SEARCH_ROWS ? recent.slice(-MAX_SEARCH_ROWS) : recent;
 }
 
+// The per-type switches in `/eggshen-config stats toggle`; every other type
+// (random, watched, similar, game…) follows the master switch alone
+const TYPE_SWITCH = {
+  movie: 'trackMovies', tv: 'trackShows', episode: 'trackEpisodes',
+  // In the config, though not (yet) a choice in the command
+  game: 'trackGames', boardgame: 'trackBoardGames', book: 'trackBooks',
+};
+
 /**
- * Track a search event
+ * Is tracking on for this type in this server? Checked here, inside
+ * trackSearch, rather than by each caller: only /movie, /tv and /episode
+ * checked, so with tracking off /random, /watched, /similar and the rest
+ * kept recording. Unset means on (configs predating a key lack it).
+ */
+async function isTracked(guildId, type) {
+  const settings = await getStatsConfig(guildId);
+  if (settings?.enabled === false) return false;
+  const typeSwitch = TYPE_SWITCH[type];
+  return !(typeSwitch && settings?.[typeSwitch] === false);
+}
+
+/**
+ * Track a search event — unless the server has tracking off for it
  */
 export async function trackSearch(guildId, userId, username, type, title, year = null) {
+  if (!(await isTracked(guildId, type))) return;
   const stats = await loadGuildStats(guildId);
   
   // Increment total searches

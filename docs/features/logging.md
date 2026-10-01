@@ -116,7 +116,7 @@ Options:
 #### View Category Logs
 
 ```
-/eggshen-logs category:command count:10
+/eggshen-logs category category:command count:10
 ```
 
 Shows recent log entries for a specific category:
@@ -259,8 +259,8 @@ The logging system captures critical errors that can cause crashes:
 ## Best Practices
 
 1. **Check logs after crashes** - Use `/eggshen-logs errors` to see what happened before the crash
-2. **Monitor performance** - Use `/eggshen-logs category:performance` to identify slow operations
-3. **Review system logs** - Use `/eggshen-logs category:system` to see startup/shutdown events
+2. **Monitor performance** - Use `/eggshen-logs category category:performance` to identify slow operations
+3. **Review system logs** - Use `/eggshen-logs category category:system` to see startup/shutdown events
 4. **Keep logs archived** - Download important logs before they're auto-deleted (30 days)
 5. **Watch for patterns** - Recurring errors may indicate systemic issues
 

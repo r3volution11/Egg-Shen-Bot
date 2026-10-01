@@ -68,7 +68,7 @@ Set custom limits for specific commands:
 
 **Example use cases:**
 - Stricter limits for heavy commands (`/episode-list`)
-- Looser limits for simple commands (`/help`)
+- Looser limits for simple commands (`/eggshen-help`)
 - Different limits based on server size
 
 ### Remove Command Override
@@ -395,7 +395,7 @@ Moderator bypass: Enabled
 **Solutions:**
 1. Enable guild-wide limiting
 2. Lower pattern detection threshold
-3. Enable auto-ban notifications
+3. Turn on the auto-ban threshold and check `/eggshen-config-moderation moderation auto-ban-list` for repeat offenders
 4. Apply manual cooldowns to offenders
 
 ### False positives in pattern detection

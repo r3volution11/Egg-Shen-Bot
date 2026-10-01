@@ -158,6 +158,17 @@ This reports two separate things, because both have to be true for AI text to ru
 
 If you're self-hosting and the key isn't configured, announcements fall back to the plain template no matter what this is set to. See the [API Keys Guide](/api-keys) for how to get one.
 
+## AI Answers for /eggshen-ask
+
+[`/eggshen-ask`](/commands/ask) can write its answers with AI, from the docs and the bot's real commands. It has its own switch, separate from announcement text, and is enabled by default. With it off, `/eggshen-ask` shows the best-matching section of the docs as written.
+
+```
+/eggshen-config-ai ai-ask feature-toggle enabled:false
+/eggshen-config-ai ai-ask view
+```
+
+Like announcement text, it also needs the bot to have an OpenAI API key; `view` shows both.
+
 ::: tip Separate from AI images
 This is independent of `/eggshen-config-ai ai-images feature-toggle`. Text costs a tiny fraction of what an image does, so you can run one without the other.
 :::
@@ -311,9 +322,9 @@ View whitelist:
 /eggshen-config-moderation moderation whitelist-list
 ```
 
-### Auto-Ban Notifications
+### Auto-Ban Threshold
 
-Enable notifications when users trigger auto-ban thresholds:
+Track users who break rate limits too often. Someone who goes over the threshold is warned in their reply, and shows up in `/eggshen-config-moderation moderation auto-ban-list`. Nobody is banned automatically, and moderators aren't sent a message; check the list.
 
 ```
 /eggshen-config-moderation moderation auto-ban-toggle enabled:<true/false>

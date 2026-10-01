@@ -16,6 +16,8 @@ faq:
     a: A round moves on only when every matchup in it has closed. If one is waiting on a tiebreaker, the next round opens after that. Run `/bracket status` to see what's still open.
   - q: How many titles can a tournament have?
     a: A straight bracket holds 2 to 32 titles. A groups tournament holds 16 to 48, in 4 to 12 groups of 4.
+  - q: How do I set up a tournament with 16 titles?
+    a: 'As a straight bracket: run `/bracket create name:"Movie Cup" max-titles:16`, add each title with `/bracket manage-titles action:add type:movie title:Alien` (no `group` needed in a straight bracket; the [setup form](/commands/brackets/import) adds them all at once), then `/bracket open matchups:4`. The first round has 8 matchups and a ballot holds 5, so it opens in parts: run `/bracket open matchups:4` again to close those four and open the other four. For 4 groups of 4 instead, see the [groups tournament guide](/guides/tournaments/groups).'
   - q: Can a tournament use TV shows, games, board games or books?
     a: Yes. A tournament holds one type of title. The first title you add sets it, or you choose it in the setup form.
   - q: How do I start over?

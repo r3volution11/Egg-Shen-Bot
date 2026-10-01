@@ -34,6 +34,7 @@ const sidebar = [
     text: 'Commands',
     items: [
       { text: 'Overview', link: '/commands/' },
+      { text: 'Ask the Bot', link: '/commands/ask' },
       { text: 'Search Commands', link: '/commands/search' },
       {
         text: 'Tournament Brackets',

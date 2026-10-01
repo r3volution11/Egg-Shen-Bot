@@ -755,7 +755,7 @@ export async function handleSelectInteraction(interaction) {
       };
       
       // Track episode search
-      if (statsConfig.enabled && statsConfig.trackEpisodes) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const episodeTitle = `${episode.show.name} - ${episode.name}`;
         await trackSearch(
           guildId,
@@ -801,7 +801,7 @@ export async function handleSelectInteraction(interaction) {
       };
       
       // Track movie search
-      if (statsConfig.enabled && statsConfig.trackMovies) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const year = tmdb.release_date?.split('-')[0];
         await trackSearch(
           guildId,
@@ -839,7 +839,7 @@ export async function handleSelectInteraction(interaction) {
       };
       
       // Track TV show search
-      if (statsConfig.enabled && statsConfig.trackShows) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const year = tmdb.first_air_date?.split('-')[0];
         await trackSearch(
           guildId,
@@ -861,7 +861,7 @@ export async function handleSelectInteraction(interaction) {
       const game = await getGameDetails(id);
       
       // Track game search
-      if (statsConfig.enabled && statsConfig.trackGames) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const year = game.released?.split('-')[0];
         await trackSearch(
           guildId,
@@ -883,7 +883,7 @@ export async function handleSelectInteraction(interaction) {
       const boardGame = await getBoardGameDetails(id);
       
       // Track board game search
-      if (statsConfig.enabled && statsConfig.trackBoardGames) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         await trackSearch(
           guildId,
           interaction.user.id,
@@ -904,7 +904,7 @@ export async function handleSelectInteraction(interaction) {
       const book = await getBookDetails(id);
       
       // Track book search
-      if (statsConfig.enabled && statsConfig.trackBooks) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const year = book.publishedDate?.split('-')[0];
         await trackSearch(
           guildId,

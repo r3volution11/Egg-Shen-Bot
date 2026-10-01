@@ -24,6 +24,7 @@ jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
   isAdmin: jest.fn().mockReturnValue(false),
   isModerator: jest.fn().mockReturnValue(false),
   canUseCommand: jest.fn().mockReturnValue(true),
+  getStatsConfig: jest.fn().mockResolvedValue({ enabled: true }), // statsTracker reads it
 }));
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({

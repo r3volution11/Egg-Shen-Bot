@@ -172,7 +172,7 @@ export async function execute(interaction) {
         justWatch: getJustWatchUrl(episode.show.name, 'tv'),
       };
       
-      if (statsConfig.enabled && statsConfig.trackEpisodes) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const episodeTitle = `${episode.show.name} - ${episode.name}`;
         await trackSearch(
           interaction.guildId,

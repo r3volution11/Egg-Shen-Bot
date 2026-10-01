@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { loadGuildConfig, saveGuildConfig, isAdmin, getAiTextEnabled } from '../utils/guildConfig.js';
+import { loadGuildConfig, saveGuildConfig, isAdmin, getAiTextEnabled, getAiAskEnabled } from '../utils/guildConfig.js';
 import { isOpenAIAvailable } from '../services/aiService.js';
 import { getGuildImageStats, getUserImageStats, resetUserImageUsage, resetGuildImageUsage } from '../utils/aiImageTracker.js';
 
@@ -171,6 +171,27 @@ export const data = new SlashCommandBuilder()
         subcommand
           .setName('view')
           .setDescription('Show whether AI announcement text is enabled and available')
+      )
+  )
+  .addSubcommandGroup(group =>
+    group
+      .setName('ai-ask')
+      .setDescription('Configure AI-written answers for /eggshen-ask')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('feature-toggle')
+          .setDescription('Enable or disable AI-written /eggshen-ask answers on this server')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Enable or disable AI-written answers')
+              .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('view')
+          .setDescription('Show whether AI answers for /eggshen-ask are enabled and available')
       )
   );
 
@@ -575,6 +596,50 @@ export async function execute(interaction) {
       content: `✅ AI-written announcement text **${enabled ? 'enabled' : 'disabled'}** on this server.${note}`,
       ephemeral: true,
     });
+
+  } else if (group === 'ai-ask' && subcommand === 'feature-toggle') {
+    const enabled = interaction.options.getBoolean('enabled');
+
+    const config = await loadGuildConfig(guildId);
+    if (!config.aiAsk) config.aiAsk = {};
+    config.aiAsk.enabled = enabled;
+    await saveGuildConfig(guildId, config);
+
+    // As with ai-text: the switch is the server's, the API key the operator's
+    const available = isOpenAIAvailable();
+    const note = enabled
+      ? (available
+        ? '\n\n✨ `/eggshen-ask` will write answers from the docs, with the exact commands to run.'
+        : '\n\n⚠️ No OpenAI API key is configured on this bot, so `/eggshen-ask` will still show the best-matching docs section. Ask whoever hosts the bot to set `OPENAI_API_KEY`.')
+      : '\n\n📖 `/eggshen-ask` will show the best-matching docs section as written, with links.';
+
+    await interaction.reply({
+      content: `✅ AI-written \`/eggshen-ask\` answers **${enabled ? 'enabled' : 'disabled'}** on this server.${note}`,
+      ephemeral: true,
+    });
+
+  } else if (group === 'ai-ask' && subcommand === 'view') {
+    const config = await loadGuildConfig(guildId);
+    const enabled = getAiAskEnabled(config);
+    const available = isOpenAIAvailable();
+
+    const embed = new EmbedBuilder()
+      .setColor(enabled && available ? 0x57F287 : 0xFEE75C)
+      .setTitle('🤔 AI Answers for /eggshen-ask')
+      .addFields(
+        { name: 'This server', value: enabled ? '✅ Enabled' : '🚫 Disabled', inline: true },
+        { name: 'API key on this bot', value: available ? '✅ Configured' : '❌ Not configured', inline: true },
+        {
+          name: 'What happens now',
+          value: enabled && available
+            ? 'AI writes each answer from the docs and the bot\'s real commands. Any command it names is checked before it\'s shown.'
+            : 'Answers show the best-matching docs section as written, with links.',
+          inline: false,
+        }
+      )
+      .setFooter({ text: 'Change with /eggshen-config-ai ai-ask feature-toggle' });
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
 
   } else if (group === 'ai-text' && subcommand === 'view') {
     const config = await loadGuildConfig(guildId);

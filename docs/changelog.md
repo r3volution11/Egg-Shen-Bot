@@ -9,6 +9,30 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.46.0 - 2026-10-01
+
+### Added
+- **`/eggshen-ask`: ask the bot how to do something, in your own words.** "How do I run a tournament one matchup at a time?" gets the exact commands to run, answered from the bot's own documentation (every command page, feature page and guide), with links to the pages it came from. Answers are private; add `public:true` to post one for the channel. If a command in the answer is for admins and moderators only, it says so. See [Ask the Bot](/commands/ask)
+- **Every command in an answer is checked against the bot's real commands** before anyone sees it, down to the option names. An answer naming a command that doesn't exist is thrown away for the matching docs section as written
+- **`/eggshen-config-ai ai-ask`** turns AI-written answers on or off (on by default), separately from AI announcement text. With it off, or without an OpenAI key, `/eggshen-ask` shows the best-matching docs section instead
+- `/eggshen-help` now points to `/eggshen-ask`
+- A [tournament FAQ answer](/guides/tournaments/faq#how-do-i-set-up-a-tournament-with-16-titles) for setting up 16 titles
+- **`/eggshen-config stats toggle` can now switch off game, board game and book tracking** (`setting:trackGames`, `trackBoardGames`, `trackBooks`), alongside movies, shows and episodes. `/eggshen-config settings view` shows them too
+
+### Fixed
+- **The docs showed commands that don't exist, or with the wrong options.** Getting Started's first examples used `/movie title:` (it's `query:`), and the same went for `/tv`, `/game`, `/book`, `/episode` and `/episode-list`. Other pages described `/notifications …`, `/leaderboard`, `/watched list` and `/watched remove`, `/cooldown`, `/ban-status`, `/whitelist-mode` and `/timer schedule`, none of which exist. Every page now shows real commands with their real options, and describes only what the bot does. The [Notifications](/features/notifications) and [Statistics](/features/statistics) pages were rewritten, and the [API Reference](/api/reference) for self-hosters now matches the real code: function names, settings structure, stored data and handler templates
+- **Going over the auto-ban threshold said "Server moderators have been notified."** Nothing notified them. The warning now says what happens: moderators can see who's over the limit with `/eggshen-config-moderation moderation auto-ban-list`. The docs no longer say auto-ban bans anyone either; it flags people for moderators
+- **Turning stats tracking off didn't stop most commands recording.** `/eggshen-config stats toggle setting:enabled enabled:false` was honored by `/movie`, `/tv`, `/episode`, `/game`, `/boardgame` and `/book`, but `/random`, `/watched`, `/similar`, `/recommend`, `/watchlist`, `/soundtrack` and timers kept counting. Now nothing is recorded while it's off
+- **Book lookups were never counted in stats** on servers set up before book tracking existed: their settings lacked the switch, and `/book` read a missing switch as off. A missing switch now counts as on, as it was meant to
+
+### Developer
+- `src/utils/docsIndex.js` splits `docs/**/*.md` into sections by heading (plus frontmatter `howto` steps and `faq` entries) and ranks them with BM25, synonyms and light stemming. With AI on, it blends in OpenAI embeddings (`text-embedding-3-small`, 256 dimensions; 65% semantic, 35% keyword), cached in `docs_embeddings.json` (gitignored, written atomically, re-embedding only changed sections). The changelog and self-hosting pages are left out
+- `src/utils/docsAnswer.js` builds a catalog of every command path and option from the live definitions, gives it to `answerFromDocs` (`gpt-4o-mini`) with the top 8 sections, and validates the answer: strictly in code spans and blocks, leniently in prose, ignoring URLs
+- The checker also catches option values the definitions pin down (choices, number ranges, booleans), reads only lowercase `name:` as an option (so `label:The Lord of the Rings: The Fellowship` is one value), keeps balanced quotes (`time:"8:00 PM EST"`), and corrects `\bracket` to `/bracket`. The model sees full option details for the commands its excerpts show
+- `trackSearch` checks the stats switches itself, so a new caller can't forget to; the per-command checks (which read a missing switch as off) are gone (`tests/stats-tracking-switch.test.js`)
+- `tests/docs-commands.test.js` runs that checker over every docs page, so the docs can't show a command or option the bot doesn't have. Its allow-list holds only URL paths and syntax patterns
+- New dependency: `yaml`. **Command definitions changed (new command, `eggshen-config-ai` group): run `deploy-commands`.** Suite: 116 files, 1597 tests
+
 ## 2.45.0 - 2026-10-01
 
 ### Added

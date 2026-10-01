@@ -53,7 +53,7 @@ export async function execute(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle('🧙 Egg Shen Bot - Complete Command List')
-    .setDescription('Your mystical guide to movies, TV shows, games, music, books, and more!\n\n💡 **Tip:** Some commands have detailed help - try `/bracket help`.');
+    .setDescription('Your mystical guide to movies, TV shows, games, music, books, and more!\n\n💡 **Not sure how to do something?** Ask in your own words: `/eggshen-ask question:how do I start a watch party timer?`');
 
   const moviesAndTV = buildCategory([
     { enabled: movieAllowed, line: '**🎥 /movie** - Search for movies with ratings' },

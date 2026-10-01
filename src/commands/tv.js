@@ -103,7 +103,7 @@ export async function execute(interaction) {
         justWatch: getJustWatchUrl(tmdb.name, 'tv'),
       };
       
-      if (statsConfig.enabled && statsConfig.trackShows) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         const year = tmdb.first_air_date?.split('-')[0];
         await trackSearch(
           interaction.guildId,

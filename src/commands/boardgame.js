@@ -66,15 +66,12 @@ export async function execute(interaction) {
     if (results.length === 1) {
       const { getBoardGameDetails } = await import('../services/bggService.js');
       const { createBoardGameDetailedEmbed } = await import('../utils/embedBuilder.js');
-      const { getStatsConfig } = await import('../utils/guildConfig.js');
       const { trackSearch } = await import('../utils/statsTracker.js');
       
       const gameId = results[0].id;
       const game = await getBoardGameDetails(gameId);
       
-      const statsConfig = await getStatsConfig(interaction.guildId);
-      
-      if (statsConfig.enabled && statsConfig.trackBoardGames) {
+      { // trackSearch applies the server's stats switches itself (unset = on)
         await trackSearch(
           interaction.guildId,
           interaction.user.id,

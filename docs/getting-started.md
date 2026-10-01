@@ -213,11 +213,11 @@ Customize emojis for each service.
 Try these commands in your server:
 
 ```
-/movie title:The Matrix
-/tv title:Breaking Bad
-/episode title:The Last of Us season:1 episode:1
-/game title:The Last of Us
-/book title:The Hobbit
+/movie query:The Matrix
+/tv query:Breaking Bad
+/episode show:The Last of Us episode:s1e1
+/game query:The Last of Us
+/book query:The Hobbit
 /timer start label:Movie Night
 ```
 

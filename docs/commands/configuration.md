@@ -175,6 +175,9 @@ Statistics tracking configuration.
 - `trackMovies` - Track movie searches
 - `trackShows` - Track TV show searches
 - `trackEpisodes` - Track episode searches
+- `trackGames` - Track video game searches
+- `trackBoardGames` - Track board game searches
+- `trackBooks` - Track book searches
 
 **Example:**
 ```
@@ -212,6 +215,7 @@ Enable or disable specific commands for regular users.
 - `soundtrack` - Soundtrack search command
 - `survey` - Poll/survey command
 - `bracket` - Tournament bracket command
+- `watchlist` - Watchlist command
 
 **Note:** Admins and moderators can always use commands regardless of these settings. `/eggshen-help` automatically reflects these settings — a disabled command (and its whole category, if every command in it is disabled) won't appear in the help list for regular users.
 
@@ -232,7 +236,7 @@ Configure bot restart and system notifications.
 /eggshen-config notifications toggle setting:restartAnnouncements enabled:<true/false>
 ```
 
-When enabled, bot announces when it restarts to configured channels.
+When enabled, after a restart the bot posts a notice in each channel that had a running timer. (Timers are restored either way.)
 
 **Example:**
 ```
@@ -662,10 +666,10 @@ Discord invite link displayed on the form. Leave empty to hide.
 #### Set Website URL
 
 ```
-/eggshen-config-events event-requests website-url url:https://yourdomain.com
+/eggshen-config-website url url:https://yourdomain.com
 ```
 
-The URL where your event request form is hosted.
+The URL where your event request form is hosted is set with `/eggshen-config-website url` (see `/eggshen-config-website view` for the current value).
 
 ::: warning
 After setting the website URL, you must also copy `public/config.example.js` to `public/config.js` on your web server and set `GUILD_ID` there. See the [Event Requests Setup Guide](../features/event-requests.md) for deployment instructions.
@@ -877,7 +881,7 @@ View bot usage statistics (admin/moderator only).
 ```
 /eggshen-logs stats
 /eggshen-logs errors count:[1-50]
-/eggshen-logs category:[category] count:[1-50]
+/eggshen-logs category category:[category] count:[1-50]
 ```
 
 View bot logs and diagnostics (admin only).
@@ -900,7 +904,7 @@ View bot logs and diagnostics (admin only).
 ```
 /eggshen-logs stats
 /eggshen-logs errors count:20
-/eggshen-logs category:command count:10
+/eggshen-logs category category:command count:10
 ```
 
 **💡 See [Logging System](../features/logging.md) for complete documentation on log levels, file formats, rotation, and troubleshooting.**

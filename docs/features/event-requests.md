@@ -162,11 +162,11 @@ Use `/eggshen-config-events event-requests` commands in your Discord server:
 /eggshen-config-events event-requests toggle enabled:true
 ```
 
-**2. Configure required settings:**
+**2. Configure required settings** (the website URL is set with `/eggshen-config-website`, not an `event-requests` subcommand):
 ```
 /eggshen-config-events event-requests moderation-channel channel:#event-requests
 /eggshen-config-events event-requests server-name name:"Your Server Name"
-/eggshen-config-events event-requests website-url url:https://yourdomain.com
+/eggshen-config-website url url:https://yourdomain.com
 ```
 
 **3. Optional settings:**
@@ -228,10 +228,10 @@ This name appears on the event request form.
 ### Set Website URL
 
 ```
-/eggshen-config-events event-requests website-url url:https://yourdomain.com
+/eggshen-config-website url url:https://yourdomain.com
 ```
 
-The website where your event request form is hosted.
+The website where your event request form is hosted. This lives on `/eggshen-config-website` (not under `event-requests`) because the same site URL is shared by other web features; check it with `/eggshen-config-website view`.
 
 ### Set Invite Link (Optional)
 
@@ -544,7 +544,7 @@ Don't forget to add `http://localhost:3000/api/auth/discord/callback` to Discord
 /eggshen-config-events event-requests toggle enabled:true
 /eggshen-config-events event-requests moderation-channel channel:#test-events
 /eggshen-config-events event-requests server-name name:"Test Server"
-/eggshen-config-events event-requests website-url url:http://localhost:PORT
+/eggshen-config-website url url:http://localhost:PORT
 
 # Check configuration
 /eggshen-config-events event-requests view
