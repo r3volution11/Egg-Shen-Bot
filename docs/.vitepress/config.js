@@ -1,4 +1,80 @@
 import { defineConfig } from 'vitepress'
+import { buildPageHead } from './seo.js'
+
+const sidebar = [
+  {
+    text: 'Introduction',
+    items: [
+      { text: 'Getting Started', link: '/getting-started' },
+      { text: 'Installation', link: '/installation' },
+      { text: 'API Keys Guide', link: '/api-keys' },
+      { text: 'Configuration', link: '/configuration' }
+    ]
+  },
+  {
+    text: 'Guides',
+    items: [
+      {
+        text: 'Tournament Quick Guides',
+        link: '/guides/tournaments/',
+        collapsed: false,
+        items: [
+          { text: 'Movie Night Bracket', link: '/guides/tournaments/movie-night' },
+          { text: 'One Matchup at a Time', link: '/guides/tournaments/one-at-a-time' },
+          { text: '32-Title Bracket', link: '/guides/tournaments/big-bracket' },
+          { text: 'Groups Tournament', link: '/guides/tournaments/groups' },
+          { text: 'From a Spreadsheet', link: '/guides/tournaments/from-a-spreadsheet' },
+          { text: 'Seeded Bracket', link: '/guides/tournaments/seeded' },
+          { text: 'Tournament FAQ', link: '/guides/tournaments/faq' }
+        ]
+      }
+    ]
+  },
+  {
+    text: 'Commands',
+    items: [
+      { text: 'Overview', link: '/commands/' },
+      { text: 'Search Commands', link: '/commands/search' },
+      {
+        text: 'Tournament Brackets',
+        collapsed: false,
+        items: [
+          { text: 'Overview & Quick Start', link: '/commands/brackets/' },
+          { text: 'Setup & Group Stage', link: '/commands/brackets/setup' },
+          { text: 'Setup Form & Templates', link: '/commands/brackets/import' },
+          { text: 'Knockout Rounds', link: '/commands/brackets/knockout' },
+          { text: 'Command Reference', link: '/commands/brackets/commands' },
+          { text: 'Tips & Strategies', link: '/commands/brackets/tips' }
+        ]
+      },
+      { text: 'AI Image Generation', link: '/commands/ai-images' },
+      { text: 'Watch Parties', link: '/commands/watch-party' },
+      { text: 'Social Commands', link: '/commands/social' },
+      { text: 'Admin Configuration', link: '/commands/configuration' },
+      { text: 'Moderation', link: '/commands/moderation' }
+    ]
+  },
+  {
+    text: 'Features',
+    items: [
+      { text: 'Logging System', link: '/features/logging' },
+      { text: 'Rate Limiting', link: '/features/rate-limiting' },
+      { text: 'Moderation Tools', link: '/features/moderation-tools' },
+      { text: 'Watch History', link: '/features/watch-history' },
+      { text: 'Statistics', link: '/features/statistics' },
+      { text: 'Notifications', link: '/features/notifications' },
+      { text: 'Event Requests', link: '/features/event-requests' }
+    ]
+  },
+  {
+    text: 'Reference',
+    items: [
+      { text: 'API Reference', link: '/api/reference' },
+      { text: 'Changelog', link: '/changelog' },
+      { text: 'Acknowledgements', link: '/acknowledgements' }
+    ]
+  }
+]
 
 export default defineConfig({
   title: 'Egg Shen Bot',
@@ -8,6 +84,12 @@ export default defineConfig({
   sitemap: {
     hostname: 'https://eggshenbot.com'
   },
+
+  // Real "Updated" dates on each page, and dateModified in its structured data
+  lastUpdated: true,
+
+  // Per-page canonical URL, social tags and schema.org JSON-LD (see seo.js)
+  transformHead: (ctx) => buildPageHead(ctx, sidebar),
   
   head: [
     // Favicons
@@ -82,14 +164,10 @@ export default defineConfig({
     ['meta', { name: 'keywords', content: 'Discord bot, movie bot, TV show bot, watch party, Discord entertainment, movie ratings, IMDb, Trakt, Letterboxd, TMDB, video game bot, board game bot' }],
     ['meta', { name: 'author', content: 'Egg Shen Bot' }],
     ['meta', { name: 'robots', content: 'index, follow' }],
-    ['link', { rel: 'canonical', href: 'https://eggshenbot.com/' }],
     
     // OpenGraph Tags for Social Media
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:site_name', content: 'Egg Shen Bot' }],
-    ['meta', { property: 'og:title', content: 'Egg Shen Bot - Your Discord Movie & TV Companion' }],
-    ['meta', { property: 'og:description', content: 'Discord bot for searching movies, TV shows, games, and hosting watch parties with comprehensive ratings from IMDb, Letterboxd, Trakt, and more.' }],
-    ['meta', { property: 'og:url', content: 'https://eggshenbot.com/' }],
     ['meta', { property: 'og:image', content: 'https://eggshenbot.com/og-image.jpg' }],
     ['meta', { property: 'og:image:width', content: '1200' }],
     ['meta', { property: 'og:image:height', content: '630' }],
@@ -97,54 +175,8 @@ export default defineConfig({
     
     // Twitter Card Tags
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'Egg Shen Bot - Your Discord Movie & TV Companion' }],
-    ['meta', { name: 'twitter:description', content: 'Discord bot for searching movies, TV shows, games, and hosting watch parties with comprehensive ratings from IMDb, Letterboxd, Trakt, and more.' }],
     ['meta', { name: 'twitter:image', content: 'https://eggshenbot.com/og-image.jpg' }],
-    ['meta', { name: 'twitter:image:alt', content: 'Egg Shen Bot Logo' }],
-    
-    // Schema.org JSON-LD for SoftwareApplication
-    ['script', { type: 'application/ld+json' }, JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'SoftwareApplication',
-      'name': 'Egg Shen Bot',
-      'description': 'Discord bot for searching movies, TV shows, games, and hosting watch parties with comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, and BoardGameGeek',
-      'url': 'https://eggshenbot.com/',
-      'applicationCategory': 'CommunicationApplication',
-      'operatingSystem': 'Discord',
-      'offers': {
-        '@type': 'Offer',
-        'price': '0',
-        'priceCurrency': 'USD'
-      },
-      'screenshot': 'https://eggshenbot.com/og-image.jpg',
-      'aggregateRating': {
-        '@type': 'AggregateRating',
-        'ratingValue': '5',
-        'ratingCount': '1',
-        'bestRating': '5',
-        'worstRating': '1'
-      },
-      'author': {
-        '@type': 'Organization',
-        'name': 'Egg Shen Bot',
-        'url': 'https://eggshenbot.com/'
-      },
-      'softwareVersion': '1.0.0',
-      'datePublished': '2024-01-01',
-      'releaseNotes': 'https://eggshenbot.com/changelog',
-      'installUrl': 'https://eggshenbot.com/getting-started',
-      'featureList': [
-        'Movie and TV show search with TMDB integration',
-        'Video game search with RAWG integration',
-        'Board game search with BoardGameGeek integration',
-        'Comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic',
-        'Watch party timer management',
-        'Server-level watch history tracking',
-        'Advanced rate limiting and moderation tools',
-        'Statistics tracking',
-        'Per-server configuration'
-      ]
-    })]
+    ['meta', { name: 'twitter:image:alt', content: 'Egg Shen Bot Logo' }]
   ],
   
   themeConfig: {
@@ -166,66 +198,13 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Getting Started', link: '/getting-started' },
+      { text: 'Guides', link: '/guides/tournaments/' },
       { text: 'Commands', link: '/commands/' },
       { text: 'Features', link: '/features/rate-limiting' },
       { text: 'GitHub', link: 'https://github.com/r3volution11/Egg-Shen-Bot' }
     ],
     
-    sidebar: [
-      {
-        text: 'Introduction',
-        items: [
-          { text: 'Getting Started', link: '/getting-started' },
-          { text: 'Installation', link: '/installation' },
-          { text: 'API Keys Guide', link: '/api-keys' },
-          { text: 'Configuration', link: '/configuration' }
-        ]
-      },
-      {
-        text: 'Commands',
-        items: [
-          { text: 'Overview', link: '/commands/' },
-          { text: 'Search Commands', link: '/commands/search' },
-          {
-            text: 'Tournament Brackets',
-            collapsed: false,
-            items: [
-              { text: 'Overview & Quick Start', link: '/commands/brackets/' },
-              { text: 'Setup & Group Stage', link: '/commands/brackets/setup' },
-              { text: 'Setup Form & Templates', link: '/commands/brackets/import' },
-              { text: 'Knockout Rounds', link: '/commands/brackets/knockout' },
-              { text: 'Command Reference', link: '/commands/brackets/commands' },
-              { text: 'Tips & Strategies', link: '/commands/brackets/tips' }
-            ]
-          },
-          { text: 'AI Image Generation', link: '/commands/ai-images' },
-          { text: 'Watch Parties', link: '/commands/watch-party' },
-          { text: 'Social Commands', link: '/commands/social' },
-          { text: 'Admin Configuration', link: '/commands/configuration' },
-          { text: 'Moderation', link: '/commands/moderation' }
-        ]
-      },
-      {
-        text: 'Features',
-        items: [
-          { text: 'Logging System', link: '/features/logging' },
-          { text: 'Rate Limiting', link: '/features/rate-limiting' },
-          { text: 'Moderation Tools', link: '/features/moderation-tools' },
-          { text: 'Watch History', link: '/features/watch-history' },
-          { text: 'Statistics', link: '/features/statistics' },
-          { text: 'Notifications', link: '/features/notifications' },
-          { text: 'Event Requests', link: '/features/event-requests' }
-        ]
-      },
-      {
-        text: 'Reference',
-        items: [
-          { text: 'API Reference', link: '/api/reference' },
-          { text: 'Changelog', link: '/changelog' },
-          { text: 'Acknowledgements', link: '/acknowledgements' }
-        ]
-      }
-    ],
+    sidebar,
     
     socialLinks: [
       { icon: 'github', link: 'https://github.com/r3volution11/Egg-Shen-Bot' }

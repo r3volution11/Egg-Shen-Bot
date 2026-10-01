@@ -1,3 +1,7 @@
+---
+description: "Configure Egg Shen Bot for your Discord server with /eggshen-config: administrative controls, defaults and customisation options."
+---
+
 # Configuration
 
 Configure Egg Shen Bot for your Discord server with powerful administrative controls and customization options.

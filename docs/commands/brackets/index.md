@@ -23,6 +23,10 @@ head:
 
 Run a bracket tournament in your Discord server for movies, TV shows, video games, board games, or books. Members vote with buttons; the bot tallies votes, settles ties, and moves winners on to the next round.
 
+::: tip New to tournaments?
+The [Tournament Quick Guides](/guides/tournaments/) walk through the most popular setups in a few steps each: a [movie night bracket](/guides/tournaments/movie-night), [one matchup at a time](/guides/tournaments/one-at-a-time), a [32-title bracket](/guides/tournaments/big-bracket) and a [groups tournament](/guides/tournaments/groups).
+:::
+
 ## Quick FAQ
 
 **Q: What shapes of tournament are there?**  

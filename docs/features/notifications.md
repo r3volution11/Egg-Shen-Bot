@@ -1,3 +1,7 @@
+---
+description: "Notifications from Egg Shen Bot that keep your Discord community up to date on releases and upcoming watch parties."
+---
+
 # Notifications
 
 Stay updated with new releases, trending content, and watch party reminders.

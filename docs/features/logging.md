@@ -1,3 +1,7 @@
+---
+description: "How Egg Shen Bot logs events, errors and performance metrics to help diagnose crashes, slowdowns and other production issues."
+---
+
 # Logging System
 
 Egg Shen Bot includes a comprehensive Drupal watchdog-style logging system that captures all bot events, errors, and performance metrics. This system is designed to diagnose production issues like crashes, high CPU usage, and other problems that may occur.

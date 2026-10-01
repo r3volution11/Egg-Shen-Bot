@@ -1,3 +1,7 @@
+---
+description: "Generate AI images in Discord with Egg Shen Bot: freeform prompts, images from a message, and versus battle images comparing two titles."
+---
+
 # AI Image Generation
 
 Egg Shen can generate AI-powered images using OpenAI's latest image generation API. One command handles freeform prompts, generating from a Discord message, and "versus" battle images comparing two titles — with built-in rate limiting to control costs.

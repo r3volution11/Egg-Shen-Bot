@@ -1,3 +1,7 @@
+---
+description: "Admin commands for configuring Egg Shen Bot per Discord server: settings, stats, command access, notifications, watch parties, rate limits, AI and event requests."
+---
+
 # Admin Configuration
 
 Administrative commands for configuring and managing Egg Shen Bot in your server.

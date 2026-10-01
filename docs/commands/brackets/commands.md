@@ -1,5 +1,6 @@
 ---
 title: Command Reference
+description: "Every /bracket tournament command and option in Egg Shen Bot, organised by tournament phase, with examples."
 ---
 
 # Bracket Command Reference
@@ -262,6 +263,8 @@ These intelligent commands automatically detect the tournament phase and perform
   - Examples: "24h", "3d", "45m", "12h"
   - Default: the tournament's default voting duration from the [setup form](./import), else 24h
   - Range: 5m minimum, 30d maximum
+
+- `matchups` (optional, integer 1-5): In a knockout round, open only the next N matchups, in bracket order. `matchups:1` runs the tournament one matchup at a time; run it again to open the next. Earlier matchups still voting close first. When a round has nothing left to open, its last matchups close and the next round's first ones open. From setup, it builds the bracket first. See [One matchup at a time](/guides/tournaments/one-at-a-time)
 
 **What It Does:**
 - **Setup, straight bracket:** Builds the bracket and opens the first round. This is how a straight bracket starts. Seeding is random by default, or ordered (list order = seed order, 1 v N, byes to top seeds) if chosen on the [setup form](./import). If round one has more than 5 matchups, it builds the bracket and asks you to open it by region with `/bracket open-matchup`

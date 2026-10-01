@@ -1,3 +1,7 @@
+---
+description: "Moderation commands for Egg Shen Bot: managing rate limits, blocking abuse and keeping bot use healthy in your Discord server."
+---
+
 # Moderation Commands
 
 Tools for moderating bot usage and maintaining server health.

@@ -84,10 +84,13 @@ describe('Discord slash command size limit', () => {
   });
 
   test('/bracket has not grown since it was last measured', () => {
-    // /bracket sits at ~91% with only a few hundred bytes free. Anything added
-    // to it should be a conscious decision, so pin the ceiling.
+    // /bracket sits at ~93% with under 600 bytes free. Anything added to it
+    // should be a conscious decision, so pin the ceiling.
+    // Raised 7400 → 7432 for 2.45.0's `open matchups:<1-5>` (one matchup at a
+    // time; the only way to pace a small bracket). The next addition should
+    // probably split the command instead.
     const bracket = commands.find(c => c.name === 'bracket');
     expect(bracket).toBeDefined();
-    expect(bracket.bytes).toBeLessThanOrEqual(7400);
+    expect(bracket.bytes).toBeLessThanOrEqual(7432);
   });
 });

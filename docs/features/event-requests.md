@@ -1,3 +1,7 @@
+---
+description: "Let members request watch-party events through a web form; moderators approve them in Discord and the bot creates the Scheduled Event."
+---
+
 # Event Requests
 
 Allow your community to submit watch party event requests through a web form! Server moderators can approve or deny submissions, and approved events are automatically created as Discord Scheduled Events.

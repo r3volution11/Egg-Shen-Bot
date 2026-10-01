@@ -1,3 +1,7 @@
+---
+description: "Track Egg Shen Bot usage and your Discord community's viewing patterns with built-in per-server statistics."
+---
+
 # Statistics
 
 Track bot usage and community viewing patterns with built-in statistics.

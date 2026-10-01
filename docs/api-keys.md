@@ -1,3 +1,7 @@
+---
+description: "How to get every API key Egg Shen Bot uses - TMDB, OMDb, Trakt, RAWG, BoardGameGeek, Google Books and more - with free tiers and approval times."
+---
+
 # API Keys Guide
 
 Complete guide for obtaining all API keys needed for Egg Shen Bot.

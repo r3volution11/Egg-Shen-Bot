@@ -230,6 +230,100 @@ describe('opened matchups record their channel', () => {
   });
 });
 
+describe('/bracket open matchups:N — one (or a few) at a time', () => {
+  const voting = () => bracketManager.loadTournament(GUILD_ID).knockoutBracket.filter(m => m.status === 'voting');
+  async function openNext(n = 1, guild = fakeGuild()) {
+    const i = slash('open', { strings: { duration: '1h' }, guild });
+    i.options.getInteger = (name) => (name === 'matchups' ? n : null);
+    await execute(i);
+    return i;
+  }
+  const embedText = (i) => JSON.stringify(i.editReply.mock.calls.at(-1)[0]?.embeds?.[0]?.toJSON?.() || {});
+
+  test('a whole 8-title bracket runs one matchup at a time, from setup to champion', async () => {
+    bracketManager.createTournament(GUILD_ID, 'One By One', ADMIN, 8);
+    for (let i = 1; i <= 8; i++) bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i));
+
+    const seen = [];
+    for (let step = 0; step < 7; step++) {
+      const reply = await openNext(1);
+      const open = voting();
+      expect(open).toHaveLength(1); // never more than one at a time
+      seen.push(`${open[0].round}:${open[0].position}`);
+      bracketManager.voteKnockout(GUILD_ID, 'u1', open[0].id, 1); // first title always wins
+      if (step === 0) expect(embedText(reply)).toContain('3 more in this round');
+    }
+    expect(seen).toEqual(['quarterfinals:0', 'quarterfinals:1', 'quarterfinals:2', 'quarterfinals:3', 'semifinals:0', 'semifinals:1', 'finals:0']);
+
+    const last = await openNext(1);
+    const t = bracketManager.loadTournament(GUILD_ID);
+    expect(t.status).toBe('completed');
+    // Random seeding shuffles the bracket, so check against the stored champion
+    expect(last.editReply.mock.calls.at(-1)[0]).toContain(`Champion: **${t.champion.title}**`);
+  });
+
+  test('matchups:2 opens two in order and closes the previous pair', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Pairs', ADMIN, 8);
+    for (let i = 1; i <= 8; i++) bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i));
+    await openNext(2);
+    expect(voting().map(m => m.position)).toEqual([0, 1]);
+    await openNext(2);
+    expect(voting().map(m => m.position)).toEqual([2, 3]);
+  });
+
+  test('a tie at the end of a round waits for its tiebreaker instead of moving on', async () => {
+    bracketManager.createTournament(GUILD_ID, 'Tie Wait', ADMIN, 4);
+    for (let i = 1; i <= 4; i++) bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i));
+    await openNext(1);
+    bracketManager.voteKnockout(GUILD_ID, 'u1', voting()[0].id, 1);
+    await openNext(1);
+    const second = voting()[0];
+    bracketManager.voteKnockout(GUILD_ID, 'u1', second.id, 1);
+    bracketManager.voteKnockout(GUILD_ID, 'u2', second.id, 2);
+
+    const reply = await openNext(1);
+    expect(reply.editReply.mock.calls.at(-1)[0]).toContain('Waiting on the tiebreaker for');
+    expect(bracketManager.loadTournament(GUILD_ID).phase).toBe('semifinals');
+  });
+});
+
+describe('a group stage too big for one ballot', () => {
+  async function finishGroups(groupCount) {
+    bracketManager.createTournament(GUILD_ID, 'Big Groups', ADMIN, 36);
+    bracketManager.resizeTournament(GUILD_ID, groupCount);
+    const letters = 'ABCDEFGHIJKL'.slice(0, groupCount).split('');
+    for (const g of letters) for (let i = 0; i < 4; i++) bracketManager.addTitle(GUILD_ID, g, 'movie', movie(g.charCodeAt(0) * 10 + i));
+    bracketManager.openGroupVoting(GUILD_ID, letters);
+    for (const g of letters) {
+      bracketManager.voteGroupStage(GUILD_ID, 'v1', g, [0, 1]);
+      bracketManager.voteGroupStage(GUILD_ID, 'v2', g, [0, 1]);
+      bracketManager.voteGroupStage(GUILD_ID, 'v3', g, [0, 2]);
+    }
+    bracketManager.closeGroupVoting(GUILD_ID, letters);
+  }
+
+  test('6 groups: /bracket open builds the 8-matchup knockout but opens none, and says how', async () => {
+    await finishGroups(6);
+    const open = slash('open', { strings: { duration: '1h' } });
+    await execute(open);
+
+    const t = bracketManager.loadTournament(GUILD_ID);
+    expect(t.status).toBe('knockout');
+    expect(t.knockoutBracket.filter(m => m.status === 'voting')).toHaveLength(0);
+    expect(open.editReply.mock.calls.at(-1)[0]).toContain('/bracket open matchups:1');
+  });
+
+  test('6 groups: /bracket open matchups:3 builds it and opens the first three', async () => {
+    await finishGroups(6);
+    const open = slash('open', { strings: { duration: '1h' } });
+    open.options.getInteger = (name) => (name === 'matchups' ? 3 : null);
+    await execute(open);
+
+    const t = bracketManager.loadTournament(GUILD_ID);
+    expect(t.knockoutBracket.filter(m => m.status === 'voting').map(m => m.position)).toEqual([0, 1, 2]);
+  });
+});
+
 describe('matchup suggestions', () => {
   function ask(subcommand, value) {
     const respond = jest.fn();

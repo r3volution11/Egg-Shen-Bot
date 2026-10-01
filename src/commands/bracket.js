@@ -426,6 +426,14 @@ export const data = new SlashCommandBuilder()
           .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
           .setRequired(false)
       )
+      .addIntegerOption(option =>
+        option
+          .setName('matchups')
+          .setDescription('Knockout: open just the next N matchups, in order (1 = one at a time)')
+          .setRequired(false)
+          .setMinValue(1)
+          .setMaxValue(5)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -1648,7 +1656,7 @@ async function handleCloseGroups(interaction) {
  * separate `advance-knockout` subcommand). The interaction must already be
  * deferred.
  */
-async function startKnockout(interaction, durationMs) {
+async function startKnockout(interaction, durationMs, { openCount = null } = {}) {
   // Calculate wildcards
   const wildcardsResult = bracketManager.calculateWildcards(interaction.guildId);
   if (!wildcardsResult.success) {
@@ -1667,6 +1675,27 @@ async function startKnockout(interaction, durationMs) {
   const totalParticipants = bracketResult.matchups.length * 2;
   const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   const wildcardsCount = wildcardsResult.wildcards.length;
+
+  if (openCount) {
+    await openNextMatchups(interaction, openCount, Date.now() + durationMs);
+    return;
+  }
+
+  // A ballot shows at most 5 matchups. Opening a bigger first round whole
+  // (6+ groups give 8 or 16 matchups) left every voter with "Too many
+  // matchups open" — so build it, and let the admin open it in parts.
+  const playable = bracketResult.matchups.filter(m => m.movie1 && m.movie2).length;
+  if (playable > 5) {
+    await interaction.editReply(
+      `✅ **Knockout bracket built:** ${roundName}, ${playable} matchups` +
+      (wildcardsCount ? ` (including ${wildcardsCount} wildcard${wildcardsCount === 1 ? '' : 's'})` : '') + `.\n\n` +
+      `A ballot holds up to 5 matchups, so open them a few at a time:\n` +
+      `• \`/bracket open matchups:1\`: one at a time, in order\n` +
+      `• \`/bracket open matchups:4\`: four at once\n` +
+      `• \`/bracket open-matchup region:1\`: one region (${Math.ceil(playable / 4)} matchups)`
+    );
+    return;
+  }
   
   // Automatically open voting for first round with specified duration
   const deadline = Date.now() + durationMs;
@@ -1852,6 +1881,81 @@ async function handleRegenerate(interaction) {
 }
 
 /**
+ * `/bracket open matchups:N`: open the next N matchups of the knockout round,
+ * in bracket order — "one at a time" is matchups:1, run again for each.
+ * Earlier matchups still voting close first (as with every open). When the
+ * round has nothing left to open, its last matchups close, which advances
+ * the bracket, and the next round's first matchups open.
+ *
+ * Without this, a small bracket couldn't be run one matchup at a time:
+ * `/bracket open` opened its whole first round, and open-matchup only works
+ * once a bracket exists.
+ */
+async function openNextMatchups(interaction, count, deadline) {
+  const unopened = (t) => t.knockoutBracket
+    .filter(m => m.round === t.phase && m.movie1 && m.movie2 && m.status === 'pending' && !m.winner)
+    .sort((a, b) => a.position - b.position);
+
+  let tournament = bracketManager.loadTournament(interaction.guildId);
+  let pending = unopened(tournament);
+  const notes = [];
+
+  if (pending.length === 0) {
+    // Round fully opened: close what's still voting so the bracket advances
+    const closed = await closeEarlierMatchups(interaction, []);
+    if (closed) notes.push(closed);
+    tournament = bracketManager.loadTournament(interaction.guildId);
+    if (tournament.status === 'completed') {
+      const champion = tournament.champion || tournament.winner;
+      await interaction.editReply([...notes, `🏆 **${tournament.name}** is over. Champion: **${champion?.title || 'unknown'}**`].join('\n\n'));
+      return;
+    }
+    pending = unopened(tournament);
+    if (pending.length === 0) {
+      const ties = tournament.knockoutBracket.filter(m => m.round === tournament.phase && m.status === 'tiebreaker');
+      await interaction.editReply([...notes, ties.length
+        ? `⏳ Waiting on the tiebreaker for ${ties.map(m => getRegionalLabel(m.position, m.round)).join(', ')} before the next round can open.`
+        : '❌ Nothing left to open in this round.'].join('\n\n'));
+      return;
+    }
+  }
+
+  const next = pending.slice(0, count);
+  const closedNow = await closeEarlierMatchups(interaction, next.map(m => m.id));
+  if (closedNow) notes.push(closedNow);
+
+  const result = bracketManager.openKnockoutMatchups(interaction.guildId, next.map(m => m.id), deadline, interaction.channelId);
+  if (!result.success || result.opened.length === 0) {
+    await interaction.editReply([...notes, `❌ ${result.error || 'Nothing could be opened.'}`].join('\n\n'));
+    return;
+  }
+
+  tournament = result.tournament;
+  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const left = unopened(tournament).length;
+  const lines = result.opened.map(m => `**${getRegionalLabel(m.position, m.round)}** · ${m.movie1.title} vs ${m.movie2.title}`);
+
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`📊 ${roundName} - ${result.opened.length === 1 ? 'Matchup' : 'Matchups'} Open!`)
+    .setDescription(
+      `${lines.join('\n')}\n\n` +
+      `**📝 How to Vote:** click "Start Voting" below and pick one title per matchup.\n\n` +
+      `⏰ **Voting closes** <t:${Math.floor(deadline / 1000)}:R>`
+    )
+    .setFooter({ text: left > 0 ? `${left} more in this round • /bracket open matchups:${count} opens the next` : 'Last of this round • /bracket open matchups:1 moves on to the next round' });
+
+  const startVotingButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`start_knockout_voting_${tournament.phase}`)
+      .setLabel('🗳️ Start Voting')
+      .setStyle(ButtonStyle.Success)
+  );
+
+  await interaction.editReply({ content: notes.join('\n\n') || undefined, embeds: [embed], components: [startVotingButton] });
+}
+
+/**
  * Smart open - auto-detects tournament phase and opens next appropriate round
  */
 async function handleSmartOpen(interaction) {
@@ -1908,6 +2012,13 @@ async function handleSmartOpen(interaction) {
     tournament.status = 'group_stage';
   }
 
+  // `matchups:N` paces a knockout round: the next N matchups in order
+  const matchupsWanted = interaction.options.getInteger('matchups');
+  if (matchupsWanted && tournament.status === 'knockout') {
+    await openNextMatchups(interaction, matchupsWanted, deadline);
+    return;
+  }
+
   // Auto-detect phase
   if (tournament.status === 'group_stage') {
     // "Open the next round": groups that haven't voted yet, then the knockout.
@@ -1930,7 +2041,7 @@ async function handleSmartOpen(interaction) {
         );
         return;
       }
-      await startKnockout(interaction, durationMs);
+      await startKnockout(interaction, durationMs, { openCount: matchupsWanted });
       return;
     }
 
@@ -1986,9 +2097,10 @@ async function handleSmartOpen(interaction) {
         (bracketJustGenerated
           ? `✅ **Bracket generated!** ${roundName} has ${currentRoundMatchups.length} matchups - too many for one voting session.\n\n`
           : `❌ **${roundName} has ${currentRoundMatchups.length} matchups** - too many for one voting session.\n\n`) +
-        `This round will be split into 4 regions with ~${matchupsPerRegion} matchup${matchupsPerRegion !== 1 ? 's' : ''} each.\n` +
-        `Use \`/bracket open-matchup\` with no parameters to select which region to open.\n\n` +
-        `💡 **Tip:** Open regions one at a time to manage voting flow!`
+        `A ballot holds up to 5 matchups, so open them a few at a time:\n` +
+        `• \`/bracket open matchups:1\`: one at a time, in order\n` +
+        `• \`/bracket open matchups:4\`: four at once\n` +
+        `• \`/bracket open-matchup region:1\`: one region (~${matchupsPerRegion} matchup${matchupsPerRegion !== 1 ? 's' : ''})`
       );
       return;
     }

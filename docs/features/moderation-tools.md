@@ -1,3 +1,7 @@
+---
+description: "Built-in moderation tools in Egg Shen Bot that keep movie, TV and gaming Discord servers safe and spam-free."
+---
+
 # Moderation Tools
 
 Comprehensive moderation features to keep your Discord server safe and spam-free.

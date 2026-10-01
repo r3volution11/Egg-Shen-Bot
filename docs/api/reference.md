@@ -1,3 +1,7 @@
+---
+description: "Technical reference for developers extending Egg Shen Bot: its Node.js and discord.js v14 architecture, modules, services and data files."
+---
+
 # API Reference
 
 Technical reference for developers working with or extending Egg Shen Bot.

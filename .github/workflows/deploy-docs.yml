@@ -47,6 +47,12 @@ jobs:
       - name: Build documentation
         run: npm run docs:build
 
+      # Fails the deploy if any page loses its own canonical URL, its social
+      # tags or its schema.org data, or if HowTo/FAQ markup describes text the
+      # page doesn't show (scripts/check-structured-data.js)
+      - name: Check SEO and structured data
+        run: npm run docs:check
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

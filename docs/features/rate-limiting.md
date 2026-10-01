@@ -1,3 +1,7 @@
+---
+description: "How Egg Shen Bot's layered rate limiting prevents abuse, channel flooding and coordinated spam while keeping things smooth for everyone else."
+---
+
 # Rate Limiting & Anti-Abuse
 
 Egg Shen Bot includes a comprehensive multi-layered rate limiting system to prevent abuse, channel flooding, and coordinated attacks while maintaining a smooth experience for legitimate users.

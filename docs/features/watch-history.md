@@ -1,3 +1,7 @@
+---
+description: "Keep a server-wide record of the movies, shows and episodes your Discord community watches together during watch parties."
+---
+
 # Watch History
 
 Track what your Discord community watches together with server-wide watch history.

@@ -246,3 +246,31 @@
   background-color: var(--vp-c-brand-soft);
 }
 
+
+/* Quick steps box at the top of a guide (components/QuickSteps.vue) */
+.quick-steps {
+  margin: 16px 0 24px;
+  padding: 12px 20px 4px;
+  border-left: 4px solid var(--vp-c-brand-1);
+  border-radius: 8px;
+  background-color: var(--vp-c-brand-soft);
+}
+
+.quick-steps .quick-steps-title {
+  margin: 4px 0 8px;
+  font-weight: 600;
+}
+
+.quick-steps .quick-steps-time {
+  font-weight: 400;
+  color: var(--vp-c-text-2);
+}
+
+.quick-steps ol {
+  margin: 0 0 8px;
+}
+
+/* FAQ entries (components/FaqList.vue) */
+.faq-list .faq-item h3 {
+  margin-top: 28px;
+}
