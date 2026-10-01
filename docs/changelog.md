@@ -1,9 +1,32 @@
+---
+description: "Every release of Egg Shen Bot, newest first: new features, changes and fixes for the Discord movie, TV and watch-party bot."
+---
+
 # Changelog
 
 All notable changes to Egg Shen Bot will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.45.0 - 2026-10-01
+
+### Added
+- **Tournament Quick Guides** on eggshenbot.com: [movie night bracket](/guides/tournaments/movie-night), [one matchup at a time](/guides/tournaments/one-at-a-time), [32-title bracket](/guides/tournaments/big-bracket), [groups tournament](/guides/tournaments/groups), [set up from a spreadsheet](/guides/tournaments/from-a-spreadsheet), [seeded bracket](/guides/tournaments/seeded) and a [tournament FAQ](/guides/tournaments/faq). Each starts with a short "Quick steps" box, then tips, then the details
+- **`/bracket open matchups:<1-5>`** opens just the next N matchups of a knockout round, in bracket order. `matchups:1` runs a tournament one matchup at a time: run it again to close the current matchup and open the next, and at the end of a round it moves on to the next. From setup it builds the bracket first. This was the only way to pace a small bracket (8 titles or fewer), whose whole round `/bracket open` would otherwise open at once
+- **Search engines and AI assistants can read the docs properly.** Every page now carries schema.org structured data: the site, its author, the bot itself, the page and its breadcrumbs. The guides add step-by-step `HowTo` data and the FAQ adds `FAQPage`, drawn from the same text readers see
+
+### Fixed
+- **Every docs page told search engines it was the home page.** One site-wide canonical tag, along with the social-preview URL, pointed every page at `https://eggshenbot.com/`. Search engines could treat the whole site as duplicates of the home page and leave the rest out of results. Each page now names itself
+- **The old structured data included a self-made 5-star rating**, which Google's guidelines treat as spam and can penalise. It's gone, and the version number it reported (stuck at 1.0.0) is now the real one
+- **Fifteen docs pages had no description**, so search results and link previews fell back to a generic one. Each has its own now
+- **A finished group stage with 6 or more groups left voters unable to vote.** `/bracket open` opened the knockout's whole first round, 8 or 16 matchups, and a ballot holds 5, so everyone got "Too many matchups open". It now builds the knockout and asks you to open it in parts (`matchups:` or `region:`); `/bracket open matchups:4` builds and opens the first four in one step
+
+### Developer
+- `docs/.vitepress/seo.js` builds each page's canonical URL, social tags and JSON-LD `@graph` through `transformHead`. `<QuickSteps />` and `<FaqList />` (in `docs/.vitepress/theme/`) display a page's `howto` and `faq` frontmatter, the same data the JSON-LD uses, so markup can't describe text the page doesn't show
+- `npm run docs:check` (`scripts/check-structured-data.js`) runs in the docs deploy and fails it if a page loses its own canonical URL, its social tags or its JSON-LD, if any rating reappears, or if a HowTo step or FAQ answer isn't in the page's visible text. Mutation-checked against all three
+- `lastUpdated: true`: pages show real "Updated" dates and carry `dateModified`
+- `/bracket` is 7432 of 8000 bytes; `command-size-limit.test.js`'s ceiling was raised deliberately, with a note to split the command next time. **Command definition changed: run `deploy-commands`.** Suite: 112 files, 1560 tests
 
 ## 2.44.0 - 2026-10-01
 

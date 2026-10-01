@@ -1,6 +1,6 @@
 {
   "name": "egg-shen-bot",
-  "version": "2.44.0",
+  "version": "2.45.0",
   "description": "Egg Shen - Discord bot for searching movies, TV shows, games, and board games with ratings from multiple services",
   "main": "src/index.js",
   "type": "module",
@@ -17,6 +17,7 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
+    "docs:check": "node scripts/check-structured-data.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js tests/services",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
