@@ -102,6 +102,8 @@ const SYNONYMS = {
   team: 'title', teams: 'title', entrant: 'title', entrants: 'title', contestant: 'title', contestants: 'title', movie: 'title', movies: 'title',
   // The stemmer makes "spamming" "spamm"; the docs say "spam"
   spamming: 'spam', spammer: 'spam', spammers: 'spam', flood: 'spam', flooding: 'spam',
+  // "a matchup with 2 titles" should meet "just two titles, one versus one"
+  1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', only: 'just',
   competition: 'tournament', contest: 'tournament', bracket: 'tournament',
   begin: 'open', start: 'open', starting: 'open', launch: 'open',
   end: 'close', finish: 'close', stop: 'close',

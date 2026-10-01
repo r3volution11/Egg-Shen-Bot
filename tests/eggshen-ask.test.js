@@ -107,6 +107,22 @@ describe('the docs index', () => {
     expect(docsIndex.searchDocs('how do I stop the timer')[0].text).toContain('/timer stop');
   });
 
+  test('a 16-team setup question finds an answer that gives both ways', () => {
+    // It used to give only the commands: the FAQ mentioned the setup form in
+    // passing, without /bracket setup-link, so the answer left it out
+    const top = docsIndex.searchDocs('How do I set up a 16 team tournament?')[0];
+    expect(top.heading).toBe('How do I set up a tournament with 16 titles?');
+    expect(top.text).toContain('/bracket setup-link');
+    expect(top.text).toContain('/bracket create');
+  });
+
+  test('"open a matchup with only 2 titles" finds the matchup answer, not tournament setup', () => {
+    // A live answer read "2 titles" as a two-title tournament and gave setup steps
+    const top = docsIndex.searchDocs('How do i Open a matchup with only 2 titles?')[0];
+    expect(top.heading).toBe('How do I open a matchup with just two titles, one versus one?');
+    expect(top.text).toContain('/bracket open matchups:1');
+  });
+
   test('keyword search finds the right FAQ', () => {
     expect(docsIndex.searchDocs('why does my ballot show several matchups')[0].heading).toBe('Why does my ballot show several matchups?');
   });
@@ -161,6 +177,8 @@ describe('the command checker', () => {
   test('a backslash for the slash is corrected, then checked like any other', () => {
     const fixed = docsAnswer.fixSlashes('1. Run `\\bracket open matchups:1`.\n2. Then `\\tournament go`, not C:\\bracket', catalog);
     expect(fixed).toBe('1. Run `/bracket open matchups:1`.\n2. Then `\\tournament go`, not C:\\bracket');
+    // A space inside the backticks, as a live answer had
+    expect(docsAnswer.fixSlashes('Run ` /bracket open-matchup` now', catalog)).toBe('Run `/bracket open-matchup` now');
     expect(check(fixed).unknown).toEqual([]);
   });
 

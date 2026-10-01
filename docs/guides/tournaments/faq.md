@@ -4,6 +4,8 @@ description: Answers to common questions about running and voting in Egg Shen Bo
 faq:
   - q: Why does my ballot show several matchups?
     a: Each row on the ballot is a separate head-to-head vote, one title against one title. Several rows means several matchups are open at once. To show one at a time, an admin opens them with `/bracket open matchups:1`.
+  - q: How do I open a matchup with just two titles, one versus one?
+    a: Every matchup already is one title against one title. To open just the next one, an admin runs `/bracket open matchups:1`. To open a particular one, use `/bracket open-matchup` and pick it from the list, which shows each matchup's two titles. Opening a matchup closes any earlier one in the round that's still voting.
   - q: How do I see how much time is left?
     a: The ballot and the live standings show a countdown. Anyone can also run `/bracket status` to see every open matchup and its time left, or `/bracket my-votes` for their own votes.
   - q: Can I change my vote?
@@ -17,7 +19,7 @@ faq:
   - q: How many titles can a tournament have?
     a: A straight bracket holds 2 to 32 titles. A groups tournament holds 16 to 48, in 4 to 12 groups of 4.
   - q: How do I set up a tournament with 16 titles?
-    a: 'As a straight bracket: run `/bracket create name:"Movie Cup" max-titles:16`, add each title with `/bracket manage-titles action:add type:movie title:Alien` (no `group` needed in a straight bracket; the [setup form](/commands/brackets/import) adds them all at once), then `/bracket open matchups:4`. The first round has 8 matchups and a ballot holds 5, so it opens in parts: run `/bracket open matchups:4` again to close those four and open the other four. For 4 groups of 4 instead, see the [groups tournament guide](/guides/tournaments/groups).'
+    a: 'There are two ways. **From a spreadsheet** (quickest for a list): run `/bracket setup-link`, fill in the [straight-bracket CSV](/templates/tournaments/straight-bracket.csv) with your 16 titles, upload it on the form, check the matches and create the tournament. See [set up from a spreadsheet](/guides/tournaments/from-a-spreadsheet). **With commands:** run `/bracket create name:"Movie Cup" max-titles:16`, then add each title with `/bracket manage-titles action:add type:movie title:Alien` (no `group` needed in a straight bracket). Either way, open voting with `/bracket open matchups:4`: the first round has 8 matchups and a ballot holds 5, so it opens in parts. Run `/bracket open matchups:4` again to close those four and open the other four. For 4 groups of 4 instead, see the [groups tournament guide](/guides/tournaments/groups).'
   - q: Can a tournament use TV shows, games, board games or books?
     a: Yes. A tournament holds one type of title. The first title you add sets it, or you choose it in the setup form.
   - q: How do I start over?

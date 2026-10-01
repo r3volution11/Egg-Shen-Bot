@@ -9,6 +9,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.46.1 - 2026-10-01
+
+### Fixed
+- **`/eggshen-ask` gave only one way to do things that have two.** Asking how to set up a 16-team tournament listed the commands but never mentioned the setup form (`/bracket setup-link`), which is quicker for a list of titles. Answers now give the main way and mention the other in a line. The [Tournament FAQ](/guides/tournaments/faq#how-do-i-set-up-a-tournament-with-16-titles) answer for 16 titles now describes both
+- **`/eggshen-ask` answered questions nobody asked.** "How do I open a matchup with only 2 titles?" got instructions for creating a two-title tournament. Every matchup already is one title against one title, so it now answers with `/bracket open matchups:1` or `/bracket open-matchup`, without setup steps. The [Tournament FAQ](/guides/tournaments/faq#how-do-i-open-a-matchup-with-just-two-titles-one-versus-one) answers it too
+
+### Developer
+- `answerFromDocs`'s prompt asks for an alternative way in one line when the excerpts show one, and only for the task asked; it no longer adds steps before the one asked about, and its glossary says every matchup is one title against one title. Checked against the live model: setup questions lead with `/bracket setup-link`, matchup questions get the matchup commands, single-command questions are unchanged
+- Keyword search treats 1–5 as their words and "only" as "just". `fixSlashes` also removes a space inside backticks before a command
+- `eggshen-ask.test.js` checks that the 16-title FAQ names both ways and that the two-title matchup question finds its answer. No command definitions changed, so no `deploy-commands`
+
 ## 2.46.0 - 2026-10-01
 
 ### Added

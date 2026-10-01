@@ -255,7 +255,10 @@ function catalogHasSub(catalog, name, word) {
  */
 export function fixSlashes(text, catalog) {
   const names = new Set([...catalog.paths.keys()].map(p => p.split(' ')[0].slice(1)));
-  return String(text).replace(/(^|[\s`'"*>(])\\([a-z][a-z0-9-]*)(?=[\s`'"*]|$)/gm,
+  return String(text)
+    // And "` /bracket open`", a space inside the backticks, to "`/bracket open`"
+    .replace(/`[ \t]+(?=[\\/][a-z])/g, '`')
+    .replace(/(^|[\s`'"*>(])\\([a-z][a-z0-9-]*)(?=[\s`'"*]|$)/gm,
     (whole, lead, name) => (names.has(name) ? `${lead}/${name}` : whole));
 }
 
