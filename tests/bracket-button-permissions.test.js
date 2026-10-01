@@ -74,9 +74,12 @@ const MANAGEMENT_BUTTONS = [
   ['open_matchup_abc123_3600000', 'open matchups'],
   ['close_matchup_abc123', 'close matchups'],
   ['open_region_1_3600000', 'open a whole region'],
-  ['start_group_voting_A,B', 'start group voting'],
-  ['start_knockout_voting_round_of_16', 'start knockout voting'],
 ];
+
+// "Start Voting" only shows the clicker their own ballot, so it must stay
+// open to everyone. The 2026-09-16 fix put these in the list above, which
+// left everyone but admins and mods unable to vote.
+const VOTER_BUTTONS = ['start_group_voting_A,B', 'start_knockout_voting_round_of_16'];
 
 describe('tournament management buttons reject non-managers', () => {
   test.each(MANAGEMENT_BUTTONS)('%s is refused for a regular member', async (customId) => {
@@ -85,6 +88,17 @@ describe('tournament management buttons reject non-managers', () => {
     await handleButtonInteraction(interaction);
 
     expect(wasRefused(interaction)).toBe(true);
+  });
+});
+
+describe('voting buttons are open to everyone', () => {
+  test.each(VOTER_BUTTONS)('%s is not refused for a regular member', async (customId) => {
+    const interaction = makeInteraction(customId, { admin: false, mod: false });
+
+    await handleButtonInteraction(interaction);
+
+    const said = [...interaction.reply.mock.calls, ...interaction.followUp.mock.calls].map(c => c[0]?.content || '').join('\n');
+    expect(said).not.toContain('Only administrators and moderators');
   });
 });
 

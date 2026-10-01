@@ -1873,7 +1873,10 @@ async function handleSmartOpen(interaction) {
     
     const startVotingButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId('start_group_voting')
+        // The handler routes on the `start_group_voting_` prefix and reads the
+        // groups after it; a bare 'start_group_voting' matched nothing, so this
+        // button failed for everyone.
+        .setCustomId(`start_group_voting_${closedGroups.join(',')}`)
         .setLabel('🗳️ Start Voting')
         .setStyle(ButtonStyle.Success)
     );
@@ -3088,14 +3091,14 @@ async function handleMyVotes(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0x4EC5ED)
     .setTitle(`📊 Your Voting Status`)
-    .setDescription(`**${status.tournament.name}**\\nPhase: ${status.tournament.phase.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}\\n`);
+    .setDescription(`**${status.tournament.name}**\nPhase: ${status.tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\n`);
   
   // Group votes cast
   if (status.groupVotes.length > 0) {
     const groupText = status.groupVotes.map(v => {
       const timeLeft = formatTime(v.timeRemaining);
-      return `**Group ${v.group}** - Voted for #${v.choices[0].position} (${v.choices[0].title}) and #${v.choices[1].position} (${v.choices[1].title})\\n⏰ ${timeLeft} remaining`;
-    }).join('\\n\\n');
+      return `**Group ${v.group}** - Voted for #${v.choices[0].position} (${v.choices[0].title}) and #${v.choices[1].position} (${v.choices[1].title})\n⏰ ${timeLeft} remaining`;
+    }).join('\n\n');
     
     embed.addFields({ 
       name: `✅ Groups Voted (${status.groupVotes.length})`, 
@@ -3109,11 +3112,11 @@ async function handleMyVotes(interaction) {
     const availText = status.availableGroupVotes.map(v => {
       const timeLeft = formatTime(v.timeRemaining);
       return `**Group ${v.group}** - ⏰ ${timeLeft} remaining`;
-    }).join('\\n');
+    }).join('\n');
     
     embed.addFields({ 
       name: `🗳️ Groups Available (${status.availableGroupVotes.length})`, 
-      value: availText + '\\n\\nClick the buttons on the group voting message to vote',
+      value: availText + '\n\nClick the buttons on the group voting message to vote',
       inline: false 
     });
   }
@@ -3121,10 +3124,10 @@ async function handleMyVotes(interaction) {
   // Knockout votes cast
   if (status.knockoutVotes.length > 0) {
     const knockoutText = status.knockoutVotes.map(v => {
-      const roundName = v.round.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
+      const roundName = v.round.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       const timeLeft = formatTime(v.timeRemaining);
-      return `**${roundName} #${v.position}** - Voted for **${v.votedFor}** vs ${v.opponent}\\n⏰ ${timeLeft} remaining`;
-    }).join('\\n\\n');
+      return `**${roundName} #${v.position}** - Voted for **${v.votedFor}** vs ${v.opponent}\n⏰ ${timeLeft} remaining`;
+    }).join('\n\n');
     
     embed.addFields({ 
       name: `✅ Knockout Votes Cast (${status.knockoutVotes.length})`, 
@@ -3136,14 +3139,14 @@ async function handleMyVotes(interaction) {
   // Available knockout votes
   if (status.availableKnockoutVotes.length > 0) {
     const availKnockoutText = status.availableKnockoutVotes.map(v => {
-      const roundName = v.round.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
+      const roundName = v.round.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       const timeLeft = formatTime(v.timeRemaining);
-      return `**${roundName} #${v.position}** - ${v.movie1} vs ${v.movie2}\\n⏰ ${timeLeft} remaining`;
-    }).join('\\n\\n');
+      return `**${roundName} #${v.position}** - ${v.movie1} vs ${v.movie2}\n⏰ ${timeLeft} remaining`;
+    }).join('\n\n');
     
     embed.addFields({ 
       name: `🗳️ Knockout Matchups Available (${status.availableKnockoutVotes.length})`, 
-      value: availKnockoutText + '\\n\\nClick buttons on matchup messages to vote', 
+      value: availKnockoutText + '\n\nClick buttons on matchup messages to vote', 
       inline: false 
     });
   }
@@ -3152,7 +3155,7 @@ async function handleMyVotes(interaction) {
   if (status.groupVotes.length === 0 && status.availableGroupVotes.length === 0 && 
       status.knockoutVotes.length === 0 && status.availableKnockoutVotes.length === 0) {
     embed.setDescription(
-      `**${status.tournament.name}**\\nPhase: ${status.tournament.phase.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}\\n\\n` +
+      `**${status.tournament.name}**\nPhase: ${status.tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\n\n` +
       `No voting currently available. Check back when admins open voting!`
     );
   }

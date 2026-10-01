@@ -359,7 +359,7 @@ export async function execute(interaction) {
       config.eventRequests.allowedTextChannels = ids;
       await saveGuildConfig(guildId, config);
       await interaction.reply({
-        content: `✅ ${ids.length} text channel(s) set as allowed for event requests.\\n\\nChannels: ${ids.map(id => `<#${id}>`).join(', ')}`,
+        content: `✅ ${ids.length} text channel(s) set as allowed for event requests.\n\nChannels: ${ids.map(id => `<#${id}>`).join(', ')}`,
         ephemeral: true
       });
     }
@@ -384,7 +384,7 @@ export async function execute(interaction) {
       config.eventRequests.allowedVoiceChannels = ids;
       await saveGuildConfig(guildId, config);
       await interaction.reply({
-        content: `✅ ${ids.length} voice/stage channel(s) set as allowed for event requests.\\n\\nChannels: ${ids.map(id => `<#${id}>`).join(', ')}`,
+        content: `✅ ${ids.length} voice/stage channel(s) set as allowed for event requests.\n\nChannels: ${ids.map(id => `<#${id}>`).join(', ')}`,
         ephemeral: true
       });
     }

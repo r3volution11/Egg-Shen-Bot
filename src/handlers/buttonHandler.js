@@ -858,7 +858,9 @@ export async function handleButtonInteraction(interaction) {
  * Sends user a personal voting dashboard with all open groups
  */
 async function handleStartGroupVoting(interaction) {
-  if (!await ensureTournamentManager(interaction, 'start group voting')) return;
+  // No manager check: this only shows the clicker their own ballot. The
+  // 2026-09-16 permissions fix gated it with the management buttons, which
+  // left everyone but admins and mods unable to vote.
 
   const groupIdsStr = interaction.customId.replace('start_group_voting_', '');
   const groupIds = groupIdsStr.split(',');
@@ -1165,7 +1167,7 @@ async function handleKnockoutVote(interaction) {
   // Safety check: Discord has a 5 ActionRow limit
   if (currentRoundMatchups.length > 5) {
     await interaction.reply({
-      content: `❌ **Too many matchups open** (${currentRoundMatchups.length})\\n\\nAsk an admin to close some matchups and reopen by region.`,
+      content: `❌ **Too many matchups open** (${currentRoundMatchups.length})\n\nAsk an admin to close some matchups and reopen by region.`,
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -1195,23 +1197,7 @@ async function handleKnockoutVote(interaction) {
     .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
     .setTimestamp();
   
-  for (const m of currentRoundMatchups) {
-    const regionalLabel = getRegionalLabel(m.position, currentRound);
-    const vote = userVotes[m.id];
-    
-    const button1 = new ButtonBuilder()
-      .setCustomId(`knockout_vote_${m.id}_1`)
-      .setLabel(`${regionalLabel}: ${m.movie1.title.length > 50 ? m.movie1.title.substring(0, 47) + '...' : m.movie1.title}`)
-      .setStyle(vote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-    
-    const button2 = new ButtonBuilder()
-      .setCustomId(`knockout_vote_${m.id}_2`)
-      .setLabel(`${regionalLabel}: ${m.movie2.title.length > 50 ? m.movie2.title.substring(0, 47) + '...' : m.movie2.title}`)
-      .setStyle(vote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-    
-    const row = new ActionRowBuilder().addComponents(button1, button2);
-    components.push(row);
-  }
+  components.push(...buildKnockoutBallotRows(currentRoundMatchups, currentRound, userVotes));
   
   // Update user's personal voting dashboard
   await interaction.update({
@@ -1287,7 +1273,8 @@ async function handleKnockoutVote(interaction) {
  * Handle "Start Voting" button click - sends personal voting dashboard to user
  */
 async function handleStartKnockoutVoting(interaction) {
-  if (!await ensureTournamentManager(interaction, 'start knockout voting')) return;
+  // No manager check: this only shows the clicker their own ballot (see
+  // handleStartGroupVoting). Voting is for everyone.
 
   // Extract round from customId (e.g., 'start_knockout_voting_round_of_32' -> 'round_of_32')
   const round = interaction.customId.replace('start_knockout_voting_', '');
@@ -1324,7 +1311,7 @@ async function handleStartKnockoutVoting(interaction) {
   // Discord has a 5 ActionRow limit - enforce it
   if (votingMatchups.length > 5) {
     await interaction.reply({
-      content: `❌ **Too many matchups open** (${votingMatchups.length})\\n\\nDiscord limits voting dashboards to 5 matchups at a time.\\nAsk an admin to close some matchups and reopen by region instead.`,
+      content: `❌ **Too many matchups open** (${votingMatchups.length})\n\nDiscord limits voting dashboards to 5 matchups at a time.\nAsk an admin to close some matchups and reopen by region instead.`,
       flags: MessageFlags.Ephemeral
     });
     return;
@@ -1358,25 +1345,7 @@ async function handleStartKnockoutVoting(interaction) {
   
   console.log(`[Knockout Dashboard] Round: ${round}, Creating dashboard for ${votingMatchups.length} matchups`);
   
-  for (const matchup of votingMatchups) {
-    // Get regional label
-    const regionalLabel = getRegionalLabel(matchup.position, round);
-    const userVote = userVotes[matchup.id];
-    
-    const button1 = new ButtonBuilder()
-      .setCustomId(`knockout_vote_${matchup.id}_1`)
-      .setLabel(`${regionalLabel}: ${matchup.movie1.title.length > 45 ? matchup.movie1.title.substring(0, 42) + '...' : matchup.movie1.title}`)
-      .setStyle(userVote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-    
-    const button2 = new ButtonBuilder()
-      .setCustomId(`knockout_vote_${matchup.id}_2`)
-      .setLabel(`${regionalLabel}: ${matchup.movie2.title.length > 45 ? matchup.movie2.title.substring(0, 42) + '...' : matchup.movie2.title}`)
-      .setStyle(userVote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary);
-    
-    // Create one row per matchup
-    const row = new ActionRowBuilder().addComponents(button1, button2);
-    components.push(row);
-  }
+  components.push(...buildKnockoutBallotRows(votingMatchups, round, userVotes));
   
   console.log(`[Knockout Dashboard] Created ${components.length} component rows`);
   
@@ -1961,6 +1930,52 @@ function buildVotingDashboard(group, groupId, userVotes) {
 }
 
 /**
+ * Regional label for a knockout matchup ("1A" … "4D", or "Finals").
+ */
+function knockoutLabel(position, round) {
+  const roundSizes = { round_of_32: 16, round_of_16: 8, quarterfinals: 4, semifinals: 2, finals: 1 };
+  if (round === 'finals') return 'Finals';
+  const totalMatchups = roundSizes[round];
+  if (!totalMatchups) return String(position + 1);
+  const matchupsPerRegion = totalMatchups / 4;
+  const region = Math.floor(position / matchupsPerRegion) + 1;
+  const letter = String.fromCharCode(65 + (position % matchupsPerRegion));
+  return `${region}${letter}`;
+}
+
+/**
+ * The ballot's button rows: one matchup per row, with a disabled "vs"
+ * between the two titles. Rows of two plain buttons read as a column of
+ * titles facing another column (people saw four open matchups as "4 versus
+ * 4"), so each row now says it is one head-to-head vote. Used both when the
+ * ballot opens and when it is redrawn after a vote, so the two can't drift.
+ */
+function buildKnockoutBallotRows(matchups, round, userVotes) {
+  const name = (title) => (title.length > 45 ? title.substring(0, 42) + '...' : title);
+  return [...matchups]
+    .sort((a, b) => a.position - b.position)
+    .map((m) => {
+      const label = knockoutLabel(m.position, round);
+      const vote = userVotes[m.id];
+      return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`knockout_vote_${m.id}_1`)
+          .setLabel(`${label} · ${name(m.movie1.title)}`)
+          .setStyle(vote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(`knockout_vs_${m.id}`)
+          .setLabel('vs')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(true),
+        new ButtonBuilder()
+          .setCustomId(`knockout_vote_${m.id}_2`)
+          .setLabel(`${label} · ${name(m.movie2.title)}`)
+          .setStyle(vote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary),
+      );
+    });
+}
+
+/**
  * Build a visual knockout voting dashboard showing all matchups in current round
  * @param {Object} tournament - Tournament data
  * @param {string} currentRound - Current round name
@@ -2038,7 +2053,7 @@ function buildKnockoutVotingDashboard(tournament, currentRound, matchups, userId
  * @param {Object} client - Discord client (for bot avatar)
  * @returns {EmbedBuilder} Public leaderboard embed
  */
-function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups, client = null) {
+export function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups, client = null) {
   const roundName = currentRound.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   
   // Count total votes across all matchups
@@ -2096,9 +2111,13 @@ function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups, clie
     let leader2 = votes2 > votes1 ? ' 🔥' : '';
     const tie = votes1 === votes2 && votes1 > 0 ? ' 🤝' : '';
     
-    description += `**${regionalLabel}**\n`;
+    // Both titles get their bar and count. The second one's bar used to be
+    // built but never printed, so a matchup voted 0–2 read as "0 votes" with
+    // the leader showing only a 🔥 — votes for the second title looked lost.
+    description += `**${regionalLabel}**${tie}\n`;
     description += `${title1}${leader1}\n${bar1}\n`;
-    description += `${title2}${leader2}${tie}\n\n`;
+    description += `vs\n`;
+    description += `${title2}${leader2}\n${bar2}\n\n`;
   });
   
   description += `📈 **Total votes:** ${totalVotes}`;
