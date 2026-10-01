@@ -5,6 +5,19 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.43.1 - 2026-09-30
+
+### Fixed
+- **Members can vote again.** Since a permissions fix on 2026-09-16, the "Start Voting" buttons that open your ballot were limited to admins and moderators, so everyone else was told "Only administrators and moderators can start knockout voting." Those buttons only show you your own ballot, so they're open to everyone again; the buttons that *manage* a tournament stay admin/mod-only
+- **The group stage's "Start Voting" button from `/bracket open` did nothing.** It was posted under a name the bot doesn't listen for, so Discord showed "This interaction failed." It now opens your ballot
+- **Live standings now show both titles' votes.** Each matchup showed a vote bar for its first title only; the second title showed its name and a 🔥 or 🤝, never a count. So a matchup voted 0–2 read as "0 votes", and votes for the second title looked lost. They were always counted; now both bars are shown, with "vs" between them
+- **Ballots read as head-to-head matchups.** Each matchup was a row of two buttons, so four open matchups looked like four titles facing four others. Each row now has a grey "vs" between its two titles: `[1A · Terrifier 2] (vs) [1A · I Know What You Did…]`
+- **`/bracket my-votes`** showed literal `\n` throughout, and its round names weren't capitalized. Two event-request channel confirmations had the same `\n` problem
+
+### Developer
+- One ballot builder, `buildKnockoutBallotRows`, for both opening and redrawing the ballot (they were two copies). `buildPublicKnockoutLeaderboard` is exported for tests
+- New `tests/bracket-voting-ballot.test.js` drives voting as a regular member: the real `/bracket open` posts the button, and its own customId goes to the real handler. `bracket-button-permissions.test.js` had encoded the bug (it expected members to be refused from Start Voting); it now asserts the opposite. Each fix was mutation-checked. Suite: 111 files, 1541 tests
+
 ## 2.43.0 - 2026-09-30
 
 ### Added
