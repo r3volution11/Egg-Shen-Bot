@@ -155,6 +155,7 @@ interface GuildConfig {
     allowUserChannelSelection: boolean; allowVoiceRequests: boolean;
     allowedTextChannels: string[]; allowedVoiceChannels: string[];
     announceDecisions: boolean;
+    announcementChannel: string | null; // null = off, 'event' = the event's own channel, else a channel ID
   };
   quoteSuggestions: { moderationChannel: string | null; maxPendingPerUser: number };
   potionResponses: Record<string, string[]>;

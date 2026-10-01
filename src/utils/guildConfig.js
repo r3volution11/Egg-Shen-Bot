@@ -167,6 +167,7 @@ const defaultConfig = {
     allowedTextChannels: [], // Array of channel IDs users can select for text location (empty = all text channels)
     allowedVoiceChannels: [], // Array of channel IDs users can select for voice (empty = all voice/stage channels)
     announceDecisions: true, // Post a new message to the moderation channel when a request is approved/denied, in addition to editing the original request embed in place
+    announcementChannel: null, // Where approved events are announced to members: null = off, 'event' = the event's own text channel, else a channel ID. Read via getAnnouncementChannelSetting()
   },
   quoteSuggestions: {
     moderationChannel: null, // Channel ID where /suggest-quote submissions are sent for approval (null = no Discord notification, still reviewable via /quotes-admin)

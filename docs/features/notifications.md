@@ -55,6 +55,7 @@ For every option, see [Watch Party Commands](/commands/watch-party#announcements
 These belong to other features but are worth knowing about:
 
 - **Event request decisions**: `/eggshen-config-events event-requests announce-decisions enabled:true` posts a new message in the moderation channel whenever a request is approved or denied. See [Event Requests](/features/event-requests).
+- **Approved events, for members**: `/eggshen-config-events event-requests announcement-channel` posts a **📅 New watch party** message in the event's own channel or a channel you pick. Off by default. See [Event Requests](/features/event-requests#announcing-approved-events-to-members).
 - **Auto-ban threshold warnings**: `/eggshen-config-moderation moderation auto-ban-toggle enabled:true` adds a warning to the rate-limit reply when a user goes past the violation threshold. Set the threshold with `/eggshen-config-moderation moderation auto-ban-threshold count:<5-100> hours:<1-168>` (`hours` defaults to 24). Nothing is posted to moderators. To see who is over the threshold, run `/eggshen-config-moderation moderation auto-ban-list`. Moderation has to be enabled first. See [Moderation Tools](/features/moderation-tools).
 
 ## Troubleshooting

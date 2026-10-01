@@ -122,6 +122,33 @@ describe('createScheduledEventFromRequest', () => {
     );
   });
 
+  // The location field already shows the channel on the event card; a
+  // "📍 Location" line in the description repeated it right underneath.
+  test('a text event description is just the submitted description, with no location line', async () => {
+    const guild = makeGuild();
+    const requestData = makeRequestData({ channelId: 'text-1' });
+
+    await createScheduledEventFromRequest({
+      guild, requestId: 'req-1', requestData, approvalType: 'full',
+    });
+
+    expect(guild.scheduledEvents.create.mock.calls[0][0].description).toBe('Watching a movie together');
+  });
+
+  // A voice event's location is the voice channel, so the text channel
+  // appears nowhere else — that one is still worth stating.
+  test('a voice event description still names the text coordination channel', async () => {
+    const guild = makeGuild();
+    const requestData = makeRequestData({ channelId: 'text-1', voiceChannelId: 'voice-1' });
+
+    await createScheduledEventFromRequest({
+      guild, requestId: 'req-1', requestData, approvalType: 'both',
+    });
+
+    expect(guild.scheduledEvents.create.mock.calls[0][0].description)
+      .toBe('Watching a movie together\n\n💬 Coordination: <#text-1>');
+  });
+
   test('falls back to the guild name when the selected channel is not in cache', async () => {
     const guild = makeGuild();
     const requestData = makeRequestData({ channelId: 'deleted-channel' });

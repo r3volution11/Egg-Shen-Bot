@@ -1,5 +1,12 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChannelType, PermissionFlagsBits } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
+import { ANNOUNCE_IN_EVENT_CHANNEL, getAnnouncementChannelSetting } from '../utils/eventRequestApproval.js';
+
+function describeAnnouncementSetting(setting) {
+  if (!setting) return '❌ Off';
+  if (setting === ANNOUNCE_IN_EVENT_CHANNEL) return "📍 The event's own channel";
+  return `<#${setting}>`;
+}
 
 export const data = new SlashCommandBuilder()
   .setName('eggshen-config-events')
@@ -78,6 +85,29 @@ export const data = new SlashCommandBuilder()
               .setName('enabled')
               .setDescription('Post an announcement message on approve/deny?')
               .setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('announcement-channel')
+          .setDescription('Where members see a new-watch-party post when a request is approved')
+          .addStringOption(option =>
+            option
+              .setName('where')
+              .setDescription('Where to post the announcement')
+              .setRequired(true)
+              .addChoices(
+                { name: "The event's own channel", value: 'event' },
+                { name: 'A specific channel', value: 'channel' },
+                { name: 'Off', value: 'off' },
+              )
+          )
+          .addChannelOption(option =>
+            option
+              .setName('channel')
+              .setDescription('The channel to post in (only for "A specific channel")')
+              .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+              .setRequired(false)
           )
       )
       .addSubcommand(subcommand =>
@@ -170,6 +200,11 @@ export async function execute(interaction) {
         {
           name: 'Announce Approve/Deny',
           value: eventConfig.announceDecisions !== false ? '✅ Yes' : '❌ No',
+          inline: true
+        },
+        {
+          name: 'Public Announcement',
+          value: describeAnnouncementSetting(getAnnouncementChannelSetting(eventConfig)),
           inline: true
         },
         {
@@ -320,6 +355,50 @@ export async function execute(interaction) {
         : '❌ Approving/denying a request will only update the original request message — no separate announcement will be posted.',
       ephemeral: true
     });
+
+  } else if (group === 'event-requests' && subcommand === 'announcement-channel') {
+    const where = interaction.options.getString('where');
+    const channel = interaction.options.getChannel('channel');
+
+    if (where === 'channel' && !channel) {
+      await interaction.reply({
+        content: '❌ Pick a `channel` too, or choose "The event\'s own channel".',
+        ephemeral: true
+      });
+      return;
+    }
+
+    const setting = where === 'off' ? null
+      : where === 'event' ? ANNOUNCE_IN_EVENT_CHANNEL
+      : channel.id;
+
+    const config = await loadGuildConfig(guildId);
+    if (!config.eventRequests) {
+      config.eventRequests = {};
+    }
+    config.eventRequests.announcementChannel = setting;
+    await saveGuildConfig(guildId, config);
+
+    let content;
+    if (!setting) {
+      content = '❌ Approved events will no longer be announced to members. The moderation channel is unaffected.';
+    } else if (setting === ANNOUNCE_IN_EVENT_CHANNEL) {
+      content = "✅ Approved events will be announced in the event's own text channel — wherever the watch party takes place.\n\nThe bot needs **Send Messages** in each of those channels; if it can't post, the approving moderator is told.";
+    } else {
+      content = `✅ Approved events will be announced in ${channel}.`;
+      // Warn now rather than at the first approval: a channel the bot can't
+      // post in otherwise only surfaces when a moderator approves something.
+      const me = interaction.guild?.members?.me;
+      const perms = me && channel.permissionsFor?.(me);
+      if (perms && !perms.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+        content += `\n\n⚠️ The bot can't currently post in ${channel} — give it **View Channel** and **Send Messages** there.`;
+      }
+    }
+    if (where !== 'channel' && channel) {
+      content += `\n\n(The \`channel\` option only applies to "A specific channel", so it was ignored.)`;
+    }
+
+    await interaction.reply({ content, ephemeral: true });
 
   } else if (group === 'event-requests' && subcommand === 'allow-user-channel-selection') {
     const allow = interaction.options.getBoolean('allow');

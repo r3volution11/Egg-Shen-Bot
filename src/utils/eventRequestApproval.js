@@ -132,10 +132,13 @@ export async function createScheduledEventFromRequest({ guild, requestId, reques
     eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') +
       `💬 Coordination: ${channelMention}`;
   } else {
+    // No "📍 Location" line in the description here: the event's location
+    // field below already shows the channel, on the event card and in the
+    // event itself, so the description line just repeated it. A voice event
+    // keeps its "💬 Coordination" line above because that text channel
+    // appears nowhere else — the event's location is the voice channel.
     const textChannel = guild.channels.cache.get(requestData.channelId);
-    const channelMention = textChannel ? `<#${textChannel.id}>` : 'the server';
-    eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') +
-      `📍 Location: ${channelMention}`;
+    eventConfig.description = requestData.description || undefined;
     eventConfig.entityType = 3;
     // Discord's External-event location is a plain string, not a real
     // channel link (entityType 2/voice is the only type Discord renders as
@@ -245,4 +248,101 @@ export async function postApprovalAnnouncement(channel, { guildId, outcome, titl
   } catch (error) {
     console.error('[EventRequest] Failed to post approval/denial announcement:', error.message);
   }
+}
+
+/** Sentinel for eventRequests.announcementChannel: "post in the event's own text channel". */
+export const ANNOUNCE_IN_EVENT_CHANNEL = 'event';
+
+/**
+ * Normalizes eventRequests.announcementChannel. There are no config
+ * migrations, so a guild configured before this key existed simply lacks
+ * it — that (and anything unrecognized) reads as "off", which is also the
+ * default: existing servers keep exactly the behavior they had.
+ * @returns {null | 'event' | string} null = off, 'event' = the event's own channel, else a channel ID
+ */
+export function getAnnouncementChannelSetting(eventConfig) {
+  const value = eventConfig?.announcementChannel;
+  if (typeof value !== 'string' || value === '') return null;
+  return value;
+}
+
+/**
+ * Posts the public "new watch party" announcement for an approved request.
+ *
+ * Separate from postApprovalAnnouncement on purpose: that one is a
+ * moderator-facing decision log ("approved by X") in the moderation channel,
+ * which regular members usually can't see. This one is for the audience,
+ * so it goes to a channel they can — either a fixed one, or the event's own
+ * text channel (where the watch party happens).
+ *
+ * The event URL is in message `content`, not an embed, because Discord only
+ * unfurls an event link into the RSVP card ("Interested") from content —
+ * masked onto the text, so the card shows without a raw URL above it. The
+ * submitter is credited by mention with pings suppressed — announcing an
+ * event shouldn't notify the person who asked for it a second time.
+ *
+ * Never throws: the event already exists by now, so a failed announcement
+ * must not read as a failed approval. The result is returned so the
+ * moderator's reply can say whether it went out — a missing Send Messages
+ * permission in the target channel is otherwise invisible.
+ *
+ * @returns {Promise<{status: 'off'} | {status: 'posted', channelId: string} | {status: 'failed', channelId: string|null, error: string}>}
+ */
+export async function postPublicEventAnnouncement({ guild, requestData, scheduledEvent }) {
+  let setting;
+  try {
+    const config = await loadGuildConfig(guild.id);
+    setting = getAnnouncementChannelSetting(config.eventRequests);
+  } catch (error) {
+    // Fail closed here, unlike the mod log: a public post nobody configured
+    // is worse than a missing one.
+    console.error('[EventRequest] Failed to load guild config for public announcement:', error.message);
+    return { status: 'off' };
+  }
+  if (!setting) return { status: 'off' };
+
+  const channelId = setting === ANNOUNCE_IN_EVENT_CHANNEL ? requestData.channelId : setting;
+  if (!channelId) {
+    return { status: 'failed', channelId: null, error: 'the event has no text channel' };
+  }
+
+  try {
+    const channel = guild.channels.cache.get(channelId)
+      ?? await guild.channels.fetch?.(channelId).catch(() => null);
+    if (!channel?.isTextBased?.()) {
+      return { status: 'failed', channelId, error: 'channel not found or not a text channel' };
+    }
+
+    // The card shows the title, time and location, so the text doesn't.
+    const requestedBy = requestData.submitterDiscordId ? ` Requested by <@${requestData.submitterDiscordId}>` : '';
+    const content = `📅 [New watch party!](${scheduledEvent.url})${requestedBy}`;
+
+    await channel.send({ content, allowedMentions: { parse: [] } });
+    return { status: 'posted', channelId };
+  } catch (error) {
+    console.error(`[EventRequest] Failed to post public announcement in ${channelId}:`, error.message);
+    return { status: 'failed', channelId, error: error.message };
+  }
+}
+
+/**
+ * The approving moderator's reply. Deliberately bare: Discord unfurls the
+ * event link into a card that already shows the title, time, image,
+ * description and location, so restating any of that above it (plus a raw
+ * event ID and URL nobody acts on) was just noise. The link is masked onto
+ * the success line itself — the card still unfurls from it, without a long
+ * URL printed in the message.
+ */
+export function buildEventCreatedReply(headline, scheduledEvent, publicAnnouncement) {
+  return `✅ [${headline}](${scheduledEvent.url})${describePublicAnnouncement(publicAnnouncement)}`;
+}
+
+/** One line for the approving moderator's reply describing the public announcement, or '' when it's off. */
+export function describePublicAnnouncement(result) {
+  if (result.status === 'posted') return `\n📣 Announced in <#${result.channelId}>`;
+  if (result.status === 'failed') {
+    const where = result.channelId ? ` in <#${result.channelId}>` : '';
+    return `\n⚠️ Couldn't post the announcement${where}: ${result.error}`;
+  }
+  return '';
 }

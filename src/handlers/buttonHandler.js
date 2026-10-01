@@ -5,7 +5,7 @@ import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
-import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } from '../utils/eventRequestApproval.js';
+import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postPublicEventAnnouncement, buildEventCreatedReply } from '../utils/eventRequestApproval.js';
 import { formatUtcForInput, TIME_INPUT_PLACEHOLDER } from '../utils/eventTimeInput.js';
 import { getTimerStatus } from '../utils/timerManager.js';
 import { isAdmin } from '../utils/guildConfig.js';
@@ -389,7 +389,7 @@ export async function handleButtonInteraction(interaction) {
         // the deny_event_modal_ submission path in index.js instead.)
         const guild = interaction.guild;
 
-        const { scheduledEvent, useVoiceChannel } = await createScheduledEventFromRequest({
+        const { scheduledEvent } = await createScheduledEventFromRequest({
           guild, requestId, requestData, approvalType,
         });
 
@@ -412,9 +412,9 @@ export async function handleButtonInteraction(interaction) {
           actorTag: interaction.user.tag,
           scheduledEvent,
         });
-        const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
+        const publicAnnouncement = await postPublicEventAnnouncement({ guild, requestData, scheduledEvent });
         await interaction.editReply({
-          content: `✅ Event created successfully as ${eventTypeText}!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`
+          content: buildEventCreatedReply('Event created successfully!', scheduledEvent, publicAnnouncement)
         });
 
         const duration = Date.now() - startTime;
@@ -493,7 +493,7 @@ export async function handleButtonInteraction(interaction) {
         await interaction.deferUpdate();
 
         const guild = interaction.guild;
-        const { scheduledEvent, useVoiceChannel } = await createScheduledEventFromRequest({
+        const { scheduledEvent } = await createScheduledEventFromRequest({
           guild, requestId, requestData, approvalType: approvalTypeForSelection,
         });
 
@@ -520,13 +520,9 @@ export async function handleButtonInteraction(interaction) {
           actorTag: interaction.user.tag,
           scheduledEvent,
         });
-        const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
-        const channelInfo = useVoiceChannel
-          ? `📍 Text: <#${textChannelId}>\n🔊 Voice: <#${voiceChannelId}>`
-          : `📍 Location: <#${textChannelId}>`;
-
+        const publicAnnouncement = await postPublicEventAnnouncement({ guild, requestData, scheduledEvent });
         await interaction.editReply({
-          content: `✅ Event created successfully as ${eventTypeText}!\n**${requestData.title}**\n\n${channelInfo}\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`,
+          content: buildEventCreatedReply('Event created successfully!', scheduledEvent, publicAnnouncement),
           components: []
         });
 
@@ -1394,6 +1390,25 @@ async function handleStartKnockoutVoting(interaction) {
 }
 
 /**
+ * The admin selector buttons (open a matchup, open a region, close a
+ * matchup) answer privately. They used to send every message with
+ * followUp() without answering the click first — Discord refuses a followUp
+ * before an answer, so each press ended in "An error occurred" (and a member
+ * pressing one got that instead of "admins only"). Now each handler answers
+ * first with deferReply(); the first message fills in that answer, the rest
+ * follow it. Each handler's messages are private notes to whoever pressed.
+ */
+const answeredClicks = new WeakSet();
+async function privateNote(interaction, payload) {
+  const { flags, ...body } = payload;
+  if (!answeredClicks.has(interaction)) {
+    answeredClicks.add(interaction);
+    return interaction.editReply(body);
+  }
+  return interaction.followUp({ ...body, flags: MessageFlags.Ephemeral });
+}
+
+/**
  * Gate a tournament-management button behind the same admin/mod check its
  * slash command uses.
  *
@@ -1417,7 +1432,7 @@ async function ensureTournamentManager(interaction, action) {
 
   if (allowed) return true;
 
-  await interaction.followUp({
+  await privateNote(interaction, {
     content: `❌ Only administrators and moderators can ${action}.`,
     flags: MessageFlags.Ephemeral,
   });
@@ -1428,6 +1443,7 @@ async function ensureTournamentManager(interaction, action) {
  * Handle open matchup button clicks from interactive selector
  */
 async function handleOpenMatchupButton(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   if (!await ensureTournamentManager(interaction, 'open matchups for voting')) return;
 
   // Parse button customId: open_matchup_{matchupId}_{durationMs}
@@ -1440,7 +1456,7 @@ async function handleOpenMatchupButton(interaction) {
   const tournament = bracketManager.loadTournament(interaction.guild.id);
   
   if (!tournament || tournament.status !== 'knockout') {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: '❌ Tournament not in knockout phase.',
       flags: MessageFlags.Ephemeral
     });
@@ -1451,7 +1467,7 @@ async function handleOpenMatchupButton(interaction) {
   const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
   
   if (!matchup) {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: '❌ Matchup not found.',
       flags: MessageFlags.Ephemeral
     });
@@ -1463,7 +1479,7 @@ async function handleOpenMatchupButton(interaction) {
   await closeEarlierMatchupsFromButton(interaction, [matchup.id]);
   const result = bracketManager.openKnockoutMatchups(interaction.guild.id, [matchup.id], deadline, interaction.channelId);
   if (!result.success || result.opened.length === 0) {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: !result.success ? `❌ ${result.error}`
         : result.alreadyOpen.length ? '⚠️ This matchup is already open for voting.'
         : '❌ This matchup has already been decided.',
@@ -1561,7 +1577,7 @@ async function handleOpenMatchupButton(interaction) {
   );
   
   // Send confirmation to button clicker
-  await interaction.followUp({
+  await privateNote(interaction, {
     content: `✅ Opened matchup ${regionalLabel} for voting!`,
     flags: MessageFlags.Ephemeral
   });
@@ -1571,6 +1587,7 @@ async function handleOpenMatchupButton(interaction) {
  * Handle close matchup button clicks from interactive selector
  */
 async function handleCloseMatchupButton(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   if (!await ensureTournamentManager(interaction, 'close matchups')) return;
 
   // Parse button customId: close_matchup_{matchupId}
@@ -1583,7 +1600,7 @@ async function handleCloseMatchupButton(interaction) {
   const tournament = bracketManager.loadTournament(interaction.guild.id);
   
   if (!tournament || tournament.status !== 'knockout') {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: '❌ Tournament not in knockout phase.',
       flags: MessageFlags.Ephemeral
     });
@@ -1594,7 +1611,7 @@ async function handleCloseMatchupButton(interaction) {
   const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
   
   if (!matchup) {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: '❌ Matchup not found.',
       flags: MessageFlags.Ephemeral
     });
@@ -1602,7 +1619,7 @@ async function handleCloseMatchupButton(interaction) {
   }
   
   if (matchup.status !== 'voting') {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: '⚠️ This matchup is not currently open for voting.',
       flags: MessageFlags.Ephemeral
     });
@@ -1639,7 +1656,7 @@ async function handleCloseMatchupButton(interaction) {
   const result = bracketManager.closeKnockoutMatchup(interaction.guild.id, matchup.id);
   
   if (!result.success) {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: `❌ Failed to close matchup: ${result.error}`,
       flags: MessageFlags.Ephemeral
     });
@@ -1686,7 +1703,7 @@ async function handleCloseMatchupButton(interaction) {
   await interaction.channel.send({ embeds: [embed] });
   
   // Send confirmation to button clicker
-  await interaction.followUp({
+  await privateNote(interaction, {
     content: `✅ Closed matchup ${regionalLabel}!`,
     flags: MessageFlags.Ephemeral
   });
@@ -1696,6 +1713,7 @@ async function handleCloseMatchupButton(interaction) {
  * Handle open region button clicks from interactive selector
  */
 async function handleOpenRegionButton(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   if (!await ensureTournamentManager(interaction, 'open matchups for voting')) return;
 
   // Parse button customId: open_region_{region}_{durationMs}
@@ -1709,7 +1727,7 @@ async function handleOpenRegionButton(interaction) {
   const tournament = bracketManager.loadTournament(interaction.guild.id);
   
   if (!tournament || tournament.status !== 'knockout') {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: '❌ Tournament not in knockout phase.',
       flags: MessageFlags.Ephemeral
     });
@@ -1724,7 +1742,7 @@ async function handleOpenRegionButton(interaction) {
   );
   
   if (currentRoundMatchups.length === 0) {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: `❌ No matchups ready for ${tournament.phase.replace(/_/g, ' ')}.`,
       flags: MessageFlags.Ephemeral
     });
@@ -1740,7 +1758,7 @@ async function handleOpenRegionButton(interaction) {
   });
   
   if (regionMatchups.length === 0) {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: `❌ No matchups found in Region ${regionNum}.`,
       flags: MessageFlags.Ephemeral
     });
@@ -1752,7 +1770,7 @@ async function handleOpenRegionButton(interaction) {
   await closeEarlierMatchupsFromButton(interaction, regionMatchups.map(m => m.id));
   const result = bracketManager.openKnockoutMatchups(interaction.guild.id, regionMatchups.map(m => m.id), deadline, interaction.channelId);
   if (!result.success || result.opened.length === 0) {
-    await interaction.followUp({
+    await privateNote(interaction, {
       content: result.success
         ? `❌ Nothing to open in Region ${regionNum}: every matchup there is already open or decided.`
         : `❌ ${result.error}`,
@@ -1863,7 +1881,7 @@ async function handleOpenRegionButton(interaction) {
   }
   
   // Send confirmation to button clicker
-  await interaction.followUp({
+  await privateNote(interaction, {
     content: `✅ Opened Region ${regionNum} for voting!`,
     flags: MessageFlags.Ephemeral
   });
@@ -1958,7 +1976,7 @@ async function closeEarlierMatchupsFromButton(interaction, keepIds) {
       ? `${label}: tied — tiebreaker vote posted`
       : `${label}: **${c.winner?.title}** wins ${Math.max(c.votes1, c.votes2)}–${Math.min(c.votes1, c.votes2)}`;
   });
-  await interaction.followUp({
+  await privateNote(interaction, {
     content: `🔒 Voting closed on the earlier matchup${closed.length === 1 ? '' : 's'}:\n${lines.join('\n')}`,
     flags: MessageFlags.Ephemeral,
   });

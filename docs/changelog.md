@@ -9,6 +9,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.47.0 - 2026-10-01
+
+### Added
+- **Announce approved events where members can see them.** The approve/deny message goes to the moderation channel, which members usually can't see, so approved watch parties were never announced to them. `/eggshen-config-events event-requests announcement-channel` now posts a **📅 New watch party!** message, either in the event's own channel (where the watch party takes place) or in a channel you pick. Discord shows the event card with its **Interested** button, and the submitter is credited without being pinged. Off by default. If the bot can't post there, the event is still created and the approving moderator is told why. See [Event Requests](/features/event-requests#announcing-approved-events-to-members)
+
+### Changed
+- **Approving a request now replies with just "✅ Event created successfully!"** above the event card. It no longer repeats the title, location, event type, event ID and URL that the card already shows
+- **Text-channel events no longer repeat their location in the description.** The event already shows the channel as its location. Voice events still name their text channel, which appears nowhere else
+
+### Developer
+- `postPublicEventAnnouncement` (`eventRequestApproval.js`) runs after every approval path (Approve buttons, the channel picker, saving an edit) and returns whether it posted, for the moderator's reply. New key `eventRequests.announcementChannel`: `null` = off, `'event'` = the event's own channel, else a channel ID, read through `getAnnouncementChannelSetting()`
+- The approval reply and the announcement put the event link behind masked link text; Discord still unfurls the card from it
+- `tests/eventPublicAnnouncement.test.js` sets the option through the real config command, then approves through the real button handler. New subcommand, so `deploy-commands` is needed
+
 ## 2.46.1 - 2026-10-01
 
 ### Fixed

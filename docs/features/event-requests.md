@@ -439,6 +439,18 @@ This is on by default. To turn it off (only the original request message updates
 /eggshen-config-events event-requests announce-decisions enabled:false
 ```
 
+### Announcing Approved Events to Members
+
+The decision message above goes to the moderation channel, which members usually can't see. To also post a **📅 New watch party** message where they can, pick a destination:
+```
+/eggshen-config-events event-requests announcement-channel where:The event's own channel
+/eggshen-config-events event-requests announcement-channel channel:#watch-parties where:A specific channel
+```
+
+**The event's own channel** posts in the text channel where the watch party takes place. The post links the event (so Discord shows its card with the **Interested** button) and credits the submitter without pinging them. It's off by default; `where:Off` turns it back off.
+
+If the bot can't post there (usually a missing **Send Messages** permission), the event is still created, and the approving moderator's reply says the announcement failed and why.
+
 ::: tip Moderator Permissions
 Only members with **Manage Events** permission or Administrator/Moderator roles can approve/deny/edit requests.
 :::

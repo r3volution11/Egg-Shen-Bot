@@ -466,7 +466,7 @@ client.on('interactionCreate', async (interaction) => {
 
       const requestData = global.eventRequests.get(requestId);
 
-      const { applyEventTimeEdits, createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement } = await import('./utils/eventRequestApproval.js');
+      const { applyEventTimeEdits, createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postPublicEventAnnouncement, buildEventCreatedReply } = await import('./utils/eventRequestApproval.js');
 
       // Validate time first, before any requestData writes at all — a
       // rejected time edit must leave requestData completely untouched
@@ -602,7 +602,7 @@ client.on('interactionCreate', async (interaction) => {
 
       try {
         const approvalType = requestData.voiceChannelId ? 'both' : 'full';
-        const { scheduledEvent, useVoiceChannel } = await createScheduledEventFromRequest({
+        const { scheduledEvent } = await createScheduledEventFromRequest({
           guild: interaction.guild,
           requestId,
           requestData,
@@ -625,9 +625,9 @@ client.on('interactionCreate', async (interaction) => {
           actorTag: interaction.user.tag,
           scheduledEvent,
         });
-        const eventTypeText = useVoiceChannel ? 'voice channel event' : 'text-only event';
+        const publicAnnouncement = await postPublicEventAnnouncement({ guild: interaction.guild, requestData, scheduledEvent });
         await interaction.editReply({
-          content: `✅ Updated and approved as ${eventTypeText}!\n**${requestData.title}**\n\nEvent ID: ${scheduledEvent.id}\nEvent URL: ${scheduledEvent.url}`,
+          content: buildEventCreatedReply('Updated and approved!', scheduledEvent, publicAnnouncement),
         });
       } catch (error) {
         console.error('[EventRequest] Error auto-approving edited request:', error);

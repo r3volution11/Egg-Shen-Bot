@@ -717,6 +717,22 @@ Control whether approving or denying a request posts a new message to the modera
 - Only the original request message updates (title, color, buttons)
 - No separate announcement is posted
 
+#### Announce Approved Events to Members
+
+```
+/eggshen-config-events event-requests announcement-channel where:The event's own channel
+/eggshen-config-events event-requests announcement-channel channel:#watch-parties where:A specific channel
+/eggshen-config-events event-requests announcement-channel where:Off
+```
+
+The moderation channel is usually hidden from regular members, so the approve/deny message above never reaches them. This setting posts a separate **📅 New watch party** message where members can see it when a request is approved:
+
+- **The event's own channel**: the text channel the watch party takes place in (the one the submitter or approving moderator picked)
+- **A specific channel**: always the same channel, such as `#announcements`
+- **Off** (default): nothing is posted outside the moderation channel
+
+The post links the event, so Discord shows its card with the **Interested** button, and credits the submitter without pinging them. It applies to every way a request gets approved. The bot needs **Send Messages** in the target channel; if the post fails, the event is still created and the approving moderator's reply says why.
+
 #### Allow User Channel Selection (Simple vs Advanced Mode)
 
 ```
