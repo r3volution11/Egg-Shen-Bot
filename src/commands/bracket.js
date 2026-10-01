@@ -6,6 +6,7 @@ import { parseDuration, isValidDuration, isValidTiebreakerDuration, buildExport,
 import { signSetupToken, SETUP_LINK_TTL_MS } from '../utils/tournamentSetupLinkToken.js';
 import { loadGuildConfig, isAdmin, canUseCommand, getPublicBotUrl } from '../utils/guildConfig.js';
 import { config } from '../config.js';
+import { closeMatchupsNow } from '../utils/tournamentScheduler.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -116,6 +117,43 @@ function buildTiebreakerButtons(tiebreaker) {
  * @param {string} round - Round name
  * @returns {string} Regional label
  */
+/**
+ * Close the current round's matchups that are still voting — except
+ * `keepIds`, the ones about to open — exactly as their deadline would.
+ *
+ * Opening the next matchup ends voting on earlier ones (Doug, 2026-10-01).
+ * Before, they stayed open until their own deadline, so with one matchup
+ * opened after another people could keep changing votes on matchups that
+ * had, as far as everyone could see, moved on.
+ *
+ * @returns {Promise<string>} A note for the reply, or '' if nothing closed
+ */
+async function closeEarlierMatchups(interaction, keepIds = []) {
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  if (!tournament || tournament.status !== 'knockout') return '';
+  const keep = new Set(keepIds);
+  const ids = tournament.knockoutBracket
+    .filter(m => m.round === tournament.phase && m.status === 'voting' && !keep.has(m.id))
+    .map(m => m.id);
+  if (ids.length === 0) return '';
+
+  // Results and tiebreakers are posted in each matchup's channel; a stand-in
+  // guild just means nowhere to post (tests, or a guild not cached)
+  const guild = interaction.guild || { id: interaction.guildId, channels: { fetch: async () => null } };
+  const closed = await closeMatchupsNow(guild, ids);
+  if (closed.length === 0) return '';
+
+  const lines = closed.map(c => {
+    const m = tournament.knockoutBracket.find(x => x.id === c.id);
+    const label = getRegionalLabel(m.position, m.round);
+    if (c.tied) return `${label}: tied — tiebreaker vote posted`;
+    const high = Math.max(c.votes1, c.votes2);
+    const low = Math.min(c.votes1, c.votes2);
+    return `${label}: **${c.winner?.title}** wins ${high}–${low}`;
+  });
+  return `🔒 Voting closed on the earlier matchup${closed.length === 1 ? '' : 's'}:\n${lines.join('\n')}`;
+}
+
 function getRegionalLabel(position, round) {
   // Finals has no region
   if (round === 'finals') {
@@ -415,8 +453,9 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('matchup')
-          .setDescription('Matchup ID (e.g., "1A", "2B", "1A,1B,1C") - Leave blank to select from buttons')
+          .setDescription('Matchup(s) to open — pick from the list, or type several: "1A,1B"')
           .setRequired(false)
+          .setAutocomplete(true)
       )
       .addStringOption(option =>
         option
@@ -432,8 +471,9 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('matchup')
-          .setDescription('Matchup ID(s) - Single: "1A" or Multiple: "1A,1B,2C". Leave blank to select from buttons')
+          .setDescription('Matchup(s) to close — pick from the list, or type several: "1A,1B"')
           .setRequired(false)
+          .setAutocomplete(true)
       )
       .addStringOption(option =>
         option
@@ -509,6 +549,50 @@ export const data = new SlashCommandBuilder()
       .setName('cancel')
       .setDescription('Cancel the tournament (Admin/Mod only)')
   );
+
+/**
+ * Suggestions for open-matchup / close-matchup's `matchup`: nobody remembers
+ * "2C". Opening lists the current round's matchups nobody has voted on yet;
+ * closing lists the ones voting now; each shows both titles. A typed comma
+ * list keeps working — suggestions complete its last entry.
+ */
+export async function autocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  if (focused.name !== 'matchup') return interaction.respond([]);
+
+  const subcommand = interaction.options.getSubcommand();
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  if (!tournament || tournament.status !== 'knockout') return interaction.respond([]);
+
+  const wanted = subcommand === 'close-matchup'
+    ? (m) => m.status === 'voting'
+    : (m) => m.status === 'pending' && !m.winner;
+
+  const typed = String(focused.value || '');
+  const parts = typed.split(',');
+  const last = parts.pop().trim().toLowerCase();
+  const already = new Set(parts.map(p => p.trim().toUpperCase()).filter(Boolean));
+  const prefix = parts.length ? `${parts.map(p => p.trim()).join(',')},` : '';
+
+  const short = (t) => (t.length > 30 ? `${t.slice(0, 29)}…` : t);
+  const choices = tournament.knockoutBracket
+    .filter(m => m.round === tournament.phase && m.movie1 && m.movie2 && wanted(m))
+    .sort((a, b) => a.position - b.position)
+    .map(m => ({ m, label: getRegionalLabel(m.position, m.round) }))
+    // "2" or "2b" is a label being typed — matching titles too would offer
+    // every matchup with a 2 in a title; anything else searches titles
+    .filter(({ m, label }) => !already.has(label.toUpperCase())
+      && (!last || (/^[1-4][a-h]?$/.test(last) || last.startsWith('fin')
+        ? label.toLowerCase().startsWith(last)
+        : m.movie1.title.toLowerCase().includes(last) || m.movie2.title.toLowerCase().includes(last))))
+    .slice(0, 25)
+    .map(({ m, label }) => ({
+      name: `${prefix}${label} · ${short(m.movie1.title)} vs ${short(m.movie2.title)}`.slice(0, 100),
+      value: `${prefix}${label}`.slice(0, 100),
+    }));
+
+  return interaction.respond(choices);
+}
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -1382,7 +1466,7 @@ async function handleOpenGroups(interaction) {
   
   const deadline = Date.now() + durationMs;
   
-  const result = bracketManager.openGroupVoting(interaction.guildId, groupIds, deadline);
+  const result = bracketManager.openGroupVoting(interaction.guildId, groupIds, deadline, interaction.channelId);
   
   if (!result.success) {
     await interaction.editReply(`❌ ${result.error}`);
@@ -1586,7 +1670,7 @@ async function startKnockout(interaction, durationMs) {
   
   // Automatically open voting for first round with specified duration
   const deadline = Date.now() + durationMs;
-  const openResult = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline);
+  const openResult = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline, interaction.channelId);
   
   if (!openResult.success) {
     // If opening voting fails, still show bracket was created
@@ -1850,7 +1934,7 @@ async function handleSmartOpen(interaction) {
       return;
     }
 
-    const result = bracketManager.openGroupVoting(interaction.guildId, closedGroups, deadline);
+    const result = bracketManager.openGroupVoting(interaction.guildId, closedGroups, deadline, interaction.channelId);
     
     if (!result.success) {
       await interaction.editReply(`❌ ${result.error}`);
@@ -1909,7 +1993,8 @@ async function handleSmartOpen(interaction) {
       return;
     }
     
-    const result = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline);
+    const closedNote = await closeEarlierMatchups(interaction);
+    const result = bracketManager.openKnockoutRound(interaction.guildId, tournament.phase, deadline, interaction.channelId);
     
     if (!result.success) {
       await interaction.editReply(`❌ ${result.error}`);
@@ -1939,7 +2024,7 @@ async function handleSmartOpen(interaction) {
         .setStyle(ButtonStyle.Success)
     );
     
-    await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
+    await interaction.editReply({ content: closedNote || undefined, embeds: [mainEmbed], components: [startVotingButton] });
     
   } else {
     await interaction.editReply(`❌ Tournament is in "${tournament.status}" phase. Cannot open voting.`);
@@ -2336,7 +2421,8 @@ async function openRegionMatchups(interaction, tournament, regionNum, durationMs
   
   // Opens only matchups nobody has voted on. This used to reset every
   // matchup in the region — wiping live votes and undoing decided results.
-  const result = bracketManager.openKnockoutMatchups(interaction.guildId, regionMatchups.map(m => m.id), deadline);
+  const closedNote = await closeEarlierMatchups(interaction, regionMatchups.map(m => m.id));
+  const result = bracketManager.openKnockoutMatchups(interaction.guildId, regionMatchups.map(m => m.id), deadline, interaction.channelId);
   if (!result.success) {
     await interaction.editReply(`❌ ${result.error}`);
     return;
@@ -2378,7 +2464,7 @@ async function openRegionMatchups(interaction, tournament, regionNum, durationMs
       .setStyle(ButtonStyle.Success)
   );
   
-  await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
+  await interaction.editReply({ content: closedNote || undefined, embeds: [mainEmbed], components: [startVotingButton] });
 }
 
 /**
@@ -2647,7 +2733,8 @@ async function handleOpenMatchup(interaction) {
   // decided untouched. This used to reopen a decided matchup — deleting its
   // result while its winner stayed seated in the next round.
   const labelById = new Map(openedMatchups.map(o => [o.matchup.id, o.label]));
-  const result = bracketManager.openKnockoutMatchups(interaction.guildId, openedMatchups.map(o => o.matchup.id), deadline);
+  const closedNote = await closeEarlierMatchups(interaction, openedMatchups.map(o => o.matchup.id));
+  const result = bracketManager.openKnockoutMatchups(interaction.guildId, openedMatchups.map(o => o.matchup.id), deadline, interaction.channelId);
   if (!result.success) {
     await interaction.editReply(`❌ ${result.error}`);
     return;
@@ -2714,7 +2801,7 @@ async function handleOpenMatchup(interaction) {
         .setStyle(ButtonStyle.Success)
     );
   
-    await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
+    await interaction.editReply({ content: closedNote || undefined, embeds: [mainEmbed], components: [startVotingButton] });
     
     // Users vote via personal dashboard - no individual matchup card needed
     
@@ -2750,7 +2837,7 @@ async function handleOpenMatchup(interaction) {
       .setStyle(ButtonStyle.Success)
   );
   
-  await interaction.editReply({ embeds: [mainEmbed], components: [startVotingButton] });
+  await interaction.editReply({ content: closedNote || undefined, embeds: [mainEmbed], components: [startVotingButton] });
   
   // Users vote via personal dashboard - no individual matchup cards needed
   // Prevents channel flooding with one card per matchup

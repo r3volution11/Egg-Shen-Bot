@@ -9,6 +9,7 @@ import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventReques
 import { formatUtcForInput, TIME_INPUT_PLACEHOLDER } from '../utils/eventTimeInput.js';
 import { getTimerStatus } from '../utils/timerManager.js';
 import { isAdmin } from '../utils/guildConfig.js';
+import { closeMatchupsNow } from '../utils/tournamentScheduler.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -1191,7 +1192,8 @@ async function handleKnockoutVote(interaction) {
       `Vote for ONE title in each matchup below.\n` +
       `Your selections are shown in **purple**.\n\n` +
       `💡 Click any button to cast or change your vote!\n\n` +
-      statsText
+      statsText +
+      (ballotClosesLine(currentRoundMatchups) ? `\n\n${ballotClosesLine(currentRoundMatchups)}` : '')
     )
     .setThumbnail(interaction.client.user.displayAvatarURL())
     .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
@@ -1334,7 +1336,8 @@ async function handleStartKnockoutVoting(interaction) {
       `Vote for ONE title in each matchup below.\n` +
       `Your selections are shown in **purple**.\n\n` +
       `💡 Click any button to cast or change your vote!\n\n` +
-      statsText
+      statsText +
+      (ballotClosesLine(votingMatchups) ? `\n\n${ballotClosesLine(votingMatchups)}` : '')
     )
     .setThumbnail(interaction.client.user.displayAvatarURL())
     .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
@@ -1457,7 +1460,8 @@ async function handleOpenMatchupButton(interaction) {
   
   // The shared path refuses matchups already voting or decided
   const deadline = Date.now() + parseInt(durationMs);
-  const result = bracketManager.openKnockoutMatchups(interaction.guild.id, [matchup.id], deadline);
+  await closeEarlierMatchupsFromButton(interaction, [matchup.id]);
+  const result = bracketManager.openKnockoutMatchups(interaction.guild.id, [matchup.id], deadline, interaction.channelId);
   if (!result.success || result.opened.length === 0) {
     await interaction.followUp({
       content: !result.success ? `❌ ${result.error}`
@@ -1745,7 +1749,8 @@ async function handleOpenRegionButton(interaction) {
   
   // Opens only matchups nobody has voted on. This used to set every matchup
   // in the region to voting — reopening decided ones, and extending live ones.
-  const result = bracketManager.openKnockoutMatchups(interaction.guild.id, regionMatchups.map(m => m.id), deadline);
+  await closeEarlierMatchupsFromButton(interaction, regionMatchups.map(m => m.id));
+  const result = bracketManager.openKnockoutMatchups(interaction.guild.id, regionMatchups.map(m => m.id), deadline, interaction.channelId);
   if (!result.success || result.opened.length === 0) {
     await interaction.followUp({
       content: result.success
@@ -1927,6 +1932,49 @@ function buildVotingDashboard(group, groupId, userVotes) {
   }
   
   return { embed, components: rows };
+}
+
+/**
+ * Close the round's still-voting matchups except `keepIds` before new ones
+ * open, and tell the admin which — the button twin of bracket.js's
+ * closeEarlierMatchups (opening the next matchup ends voting on earlier ones).
+ */
+async function closeEarlierMatchupsFromButton(interaction, keepIds) {
+  const bracketManager = await import('../utils/bracketManager.js');
+  const tournament = bracketManager.loadTournament(interaction.guild.id);
+  if (!tournament || tournament.status !== 'knockout') return;
+  const keep = new Set(keepIds);
+  const ids = tournament.knockoutBracket
+    .filter(m => m.round === tournament.phase && m.status === 'voting' && !keep.has(m.id))
+    .map(m => m.id);
+  if (ids.length === 0) return;
+
+  const closed = await closeMatchupsNow(interaction.guild, ids);
+  if (closed.length === 0) return;
+  const lines = closed.map(c => {
+    const m = tournament.knockoutBracket.find(x => x.id === c.id);
+    const label = knockoutLabel(m.position, m.round);
+    return c.tied
+      ? `${label}: tied — tiebreaker vote posted`
+      : `${label}: **${c.winner?.title}** wins ${Math.max(c.votes1, c.votes2)}–${Math.min(c.votes1, c.votes2)}`;
+  });
+  await interaction.followUp({
+    content: `🔒 Voting closed on the earlier matchup${closed.length === 1 ? '' : 's'}:\n${lines.join('\n')}`,
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+/**
+ * "⏰ Voting closes in 2 hours" for a ballot — a Discord timestamp, so it
+ * counts down live with no edits. People had no way to see time left once
+ * the announcement scrolled away. Several deadlines → the soonest one.
+ */
+function ballotClosesLine(matchups) {
+  const deadlines = matchups.map(m => m.votingDeadline).filter(Boolean);
+  if (deadlines.length === 0) return '';
+  const soonest = Math.floor(Math.min(...deadlines) / 1000);
+  const allSame = deadlines.every(d => Math.floor(d / 1000) === soonest);
+  return allSame ? `⏰ Voting closes <t:${soonest}:R>` : `⏰ First matchup closes <t:${soonest}:R>`;
 }
 
 /**
@@ -2114,7 +2162,8 @@ export function buildPublicKnockoutLeaderboard(tournament, currentRound, matchup
     // Both titles get their bar and count. The second one's bar used to be
     // built but never printed, so a matchup voted 0–2 read as "0 votes" with
     // the leader showing only a 🔥 — votes for the second title looked lost.
-    description += `**${regionalLabel}**${tie}\n`;
+    const closes = matchup.votingDeadline ? ` · closes <t:${Math.floor(matchup.votingDeadline / 1000)}:R>` : '';
+    description += `**${regionalLabel}**${tie}${closes}\n`;
     description += `${title1}${leader1}\n${bar1}\n`;
     description += `vs\n`;
     description += `${title2}${leader2}\n${bar2}\n\n`;

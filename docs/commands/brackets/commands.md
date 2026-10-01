@@ -490,9 +490,9 @@ Open matchup(s) for voting with text input or interactive buttons.
 
 **Parameters:**
 - `region` (optional, integer 1-4): Open every matchup in that region of the current round
-- `matchup` (optional, string): Matchup ID(s) using regional labels. Leave blank (and `region` blank) to select from buttons.
+- `matchup` (optional, string): The matchup(s) to open. Start typing and pick from the list: it shows the current round's matchups that haven't been voted on yet, with both titles (`2A · Halloween vs Scream`). Type a label or part of a title to narrow it. Leave blank (and `region` blank) to select from buttons.
   - Single: "1A", "2B", "Finals"
-  - Multiple: "1A,1B,3A" (comma-separated)
+  - Multiple: "1A,1B,3A" (comma-separated). After a comma, the list suggests the next one
 - `duration` (optional, string): Voting duration, 5m-30d. Default: the tournament's default voting duration from the [setup form](./import), else 24h
 
 **Example Usage:**
@@ -522,6 +522,8 @@ Open matchup(s) for voting with text input or interactive buttons.
 /bracket open-matchup matchup:"1A,1B" duration:"24h"
 /bracket open-matchup matchup:"2A,2B,3A,3B"
 ```
+
+**Opening the next matchup closes earlier ones.** Any matchup in the round that's still voting, and isn't one you're opening now, closes first, exactly as its deadline would: the winner is announced, and a tie gets a tiebreaker vote. The reply lists what closed. So when you run a round one matchup at a time, votes on earlier matchups can't keep changing. To have several matchups voting at once, open them together (`matchup:"1A,1B"` or `region:1`).
 
 **Features:**
 - **Interactive buttons** - Leave matchup blank to see all pending matchups as buttons
@@ -553,7 +555,7 @@ Close matchup(s) and advance winner(s) with text input or interactive buttons. A
 **Who Can Use:** Admin/Mod only
 
 **Parameters:**
-- `matchup` (optional, string): Matchup ID(s) using regional labels. Leave blank to select from buttons.
+- `matchup` (optional, string): The matchup(s) to close. Pick from the list, which shows the matchups voting now, with both titles; or type several, comma-separated. Leave blank to select from buttons
   - Single: "1A", "2B", "Finals"
   - Multiple: "1A,1B,3A" (comma-separated)
 - `tiebreaker-duration` (optional, string): Duration for tiebreaker votes if needed

@@ -171,6 +171,16 @@ Closed 4 matchups
 
 ---
 
+### Opening the next matchup closes earlier ones
+
+When you open matchups, any others in the round still voting close first, exactly as their deadline would: winners are announced, and ties get a tiebreaker vote. Running a round one matchup at a time (`/bracket open-matchup matchup:1A`, then `1B`, …) therefore always has exactly one matchup voting, and earlier votes are locked in. To keep several voting together, open them in one go: `matchup:"1A,1B"`, or `region:1`.
+
+The `matchup` option suggests the current round's matchups that haven't been voted on yet, with both titles, so you don't need to remember labels.
+
+### How much time is left?
+
+Ballots and the live standings show a countdown ("closes in 2 hours") that Discord keeps up to date. Anyone can also run `/bracket status` to see every open matchup and its time left, or `/bracket my-votes` for their own votes.
+
 ### `/bracket close-matchup`
 
 ```

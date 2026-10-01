@@ -88,8 +88,21 @@ export function shutdown() {
 /**
  * Check all tournaments for expired voting deadlines
  */
-async function checkVotingDeadlines() {
-  if (!client) return;
+// Exported, with the client injectable, so a test can run one real pass.
+// The per-guild checks read the module's `client`, so a passed one stands in
+// for the length of the pass.
+export async function checkVotingDeadlines(discordClient = client) {
+  if (!discordClient) return;
+  const previous = client;
+  client = discordClient;
+  try {
+    await runDeadlineChecks();
+  } finally {
+    client = previous;
+  }
+}
+
+async function runDeadlineChecks() {
   
   try {
     const files = readdirSync(tournamentsDir).filter(f => f.endsWith('.json'));
@@ -348,6 +361,8 @@ async function checkKnockoutDeadlines(guildId, tournament, now) {
   try {
     const guild = await client.guilds.fetch(guildId).catch(() => null);
     if (!guild) return;
+
+    await repairOrphanedKnockoutTiebreakers(guild, tournament);
     
     // Group warnings by deadline time and channel to consolidate messages
     const warningsByDeadline = new Map(); // key: `${channelId}_${deadline}`, value: [matchups]
@@ -567,10 +582,12 @@ async function autoCloseMatchup(guild, tournament, matchup) {
       await updateVotingMessageClosed(guild, matchup, matchup.id, 'matchup');
     }
     
-    // A tie opens a tiebreaker instead of deciding a winner — the tiebreaker
-    // vote is posted by its own path, so there are no results to announce yet.
+    // A tie opens a tiebreaker instead of deciding a winner. Nothing else
+    // posts its vote (the old comment here said something did; nothing did),
+    // so do it now, where the matchup's voters are.
     if (result.tiebreakerCreated) {
-      return;
+      await postKnockoutTiebreaker(guild, tournament, matchup, result.tiebreaker);
+      return { id: matchup.id, tied: true, tiebreaker: result.tiebreaker };
     }
 
     // Re-read the matchup from the saved tournament: closeKnockoutMatchup
@@ -580,6 +597,13 @@ async function autoCloseMatchup(guild, tournament, matchup) {
 
     // Post results notification
     await postMatchupResults(guild, tournament, closedMatchup);
+    const summary = {
+      id: matchup.id,
+      tied: false,
+      winner: closedMatchup.winner,
+      votes1: closedMatchup.votes1Count ?? 0,
+      votes2: closedMatchup.votes2Count ?? 0,
+    };
 
     // A finished tournament can seed the watchlist with its champion.
     if (result.tournament?.status === 'completed') {
@@ -593,8 +617,93 @@ async function autoCloseMatchup(guild, tournament, matchup) {
         });
       }
     }
+    return summary;
   } catch (error) {
     console.error(`[TournamentScheduler] Error auto-closing matchup ${matchup.id}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Close knockout matchups now, exactly as their deadline would: decide the
+ * winner, open (and post) a tiebreaker on a tie, advance, announce. Used when
+ * an admin opens the next matchups — earlier ones still voting close then,
+ * so votes on them can't keep changing.
+ * @param {import('discord.js').Guild} guild
+ * @param {string[]} matchupIds - only those still voting are closed
+ * @returns {Promise<Array<{id, tied, winner?, votes1?, votes2?, tiebreaker?}>>}
+ */
+export async function closeMatchupsNow(guild, matchupIds) {
+  const summaries = [];
+  for (const id of matchupIds) {
+    const tournament = bracketManager.loadTournament(guild.id);
+    const matchup = tournament?.knockoutBracket?.find(m => m.id === id);
+    if (!matchup || matchup.status !== 'voting') continue;
+    sentWarnings.delete(`${guild.id}_matchup_${id}`);
+    const summary = await autoCloseMatchup(guild, tournament, matchup);
+    if (summary) summaries.push(summary);
+  }
+  return summaries;
+}
+
+/**
+ * Post the vote for a knockout tiebreaker, in the matchup's channel, and
+ * store the message so the auto-resolver can update it when it closes.
+ * @returns {Promise<boolean>} whether it was posted
+ */
+async function postKnockoutTiebreaker(guild, tournament, matchup, tiebreaker) {
+  try {
+    const channel = matchup.messageChannelId
+      ? await guild.channels.fetch(matchup.messageChannelId).catch(() => null)
+      : null;
+    if (!channel) return false;
+
+    const embed = new EmbedBuilder()
+      .setColor('#FFAA00')
+      .setTitle(`🔀 Tiebreaker: ${getMatchupTitle(matchup)}`)
+      .setDescription(
+        `**${tournament.name}**\n\n` +
+        `${matchup.movie1.title} and ${matchup.movie2.title} tied. Click a button below to break it!`
+      )
+      .addFields({ name: '⏰ Closes', value: `<t:${Math.floor(tiebreaker.deadline / 1000)}:R>`, inline: true })
+      .setFooter({ text: `Tiebreaker ID: ${tiebreaker.id}` })
+      .setTimestamp();
+
+    const row = new ActionRowBuilder().addComponents(
+      tiebreaker.tiedOptions.map((opt, i) =>
+        new ButtonBuilder()
+          .setCustomId(`tiebreaker_vote_${tiebreaker.id}_${i}`)
+          .setLabel(opt.title.length > 80 ? `${opt.title.substring(0, 77)}...` : opt.title)
+          .setStyle(ButtonStyle.Primary)
+      )
+    );
+
+    const msg = await channel.send({ embeds: [embed], components: [row] });
+    bracketManager.storeTiebreakerMessage(guild.id, tiebreaker.id, channel.id, msg.id);
+    return true;
+  } catch (error) {
+    console.error('[TournamentScheduler] Error posting knockout tiebreaker:', error);
+    return false;
+  }
+}
+
+/**
+ * A matchup marked "tiebreaker" whose tiebreaker doesn't exist can never
+ * finish — closeKnockoutMatchup used to delete the tiebreaker it had just
+ * created. Give such a matchup a fresh tiebreaker and post it, so a
+ * tournament stuck that way recovers on its own.
+ */
+export async function repairOrphanedKnockoutTiebreakers(guild, tournament) {
+  const live = new Set((tournament.tiebreakers || []).map(t => t.id));
+  for (const matchup of tournament.knockoutBracket || []) {
+    if (matchup.status !== 'tiebreaker' || live.has(matchup.tiebreakerId)) continue;
+    const repaired = bracketManager.recreateKnockoutTiebreaker(guild.id, matchup.id);
+    if (!repaired.success) continue;
+    logger.notice(logger.LogCategory.SCHEDULER, 'Recreated a lost knockout tiebreaker', {
+      guildId: guild.id,
+      matchupId: matchup.id,
+    });
+    await postKnockoutTiebreaker(guild, repaired.tournament, repaired.matchup, repaired.tiebreaker);
   }
 }
 

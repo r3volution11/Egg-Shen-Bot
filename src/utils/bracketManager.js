@@ -909,7 +909,13 @@ export function removeGroupTitle(guildId, groupId, titleIndex) {
 /**
  * Open voting for specific groups
  */
-export function openGroupVoting(guildId, groupIds, deadline = null) {
+/**
+ * @param {string|null} [channelId] - Where voting happens. Recorded (when a
+ *   group has none yet) so the deadline scheduler can post warnings and
+ *   results there; `/bracket open` never recorded one, so its groups closed
+ *   silently.
+ */
+export function openGroupVoting(guildId, groupIds, deadline = null, channelId = null) {
   const tournament = loadTournament(guildId);
   if (!tournament) {
     return { success: false, error: 'No tournament found' };
@@ -922,6 +928,9 @@ export function openGroupVoting(guildId, groupIds, deadline = null) {
       tournament.groups[groupId].votingStarted = Date.now();
       if (deadline) {
         tournament.groups[groupId].votingDeadline = deadline;
+      }
+      if (channelId && !tournament.groups[groupId].votingMessageChannelId) {
+        tournament.groups[groupId].votingMessageChannelId = channelId;
       }
     }
   });
@@ -1244,6 +1253,31 @@ export function createTiebreaker(guildId, groupId, position, tiedOptions, durati
   return saveTournament(guildId, tournament)
     ? { success: true, tiebreaker, tournament }
     : { success: false, error: 'Failed to save tiebreaker' };
+}
+
+/**
+ * Give a knockout matchup stuck in "tiebreaker" a new tiebreaker, when the
+ * one it points at no longer exists (lost to the closeKnockoutMatchup save
+ * bug). Created and linked in one save, so the two can't disagree again.
+ * @returns {{success: true, tournament, matchup, tiebreaker} | {success: false, error}}
+ */
+export function recreateKnockoutTiebreaker(guildId, matchupId, durationMs = 60 * 60 * 1000) {
+  const created = createTiebreaker(guildId, matchupId, 'knockout', null, durationMs);
+  if (!created.success) return created;
+
+  const tournament = created.tournament;
+  const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
+  const tiebreaker = tournament.tiebreakers.find(t => t.id === created.tiebreaker.id);
+  if (!matchup || matchup.status !== 'tiebreaker') {
+    tournament.tiebreakers = tournament.tiebreakers.filter(t => t.id !== tiebreaker.id);
+    saveTournament(guildId, tournament);
+    return { success: false, error: 'Matchup is not waiting on a tiebreaker' };
+  }
+  tiebreaker.tiedOptions = [matchup.movie1, matchup.movie2];
+  matchup.tiebreakerId = tiebreaker.id;
+  return saveTournament(guildId, tournament)
+    ? { success: true, tournament, matchup, tiebreaker }
+    : { success: false, error: 'Failed to save' };
 }
 
 /**
@@ -1834,9 +1868,12 @@ export function regenerateKnockoutBracket(guildId) {
  * @param {string} guildId
  * @param {string[]} matchupIds
  * @param {number|null} deadline - ms timestamp, or null for no deadline
+ * @param {string|null} [channelId] - Where voting happens, recorded on each
+ *   opened matchup so the deadline scheduler can post its warning and result.
+ *   Matchups opened by command never recorded one, so they closed silently.
  * @returns {{success: false, error: string} | {success: true, tournament, opened: Array, alreadyOpen: Array, decided: Array, missing: string[]}}
  */
-export function openKnockoutMatchups(guildId, matchupIds, deadline = null) {
+export function openKnockoutMatchups(guildId, matchupIds, deadline = null, channelId = null) {
   const tournament = loadTournament(guildId);
   if (!tournament || tournament.status !== 'knockout') {
     return { success: false, error: 'Tournament not in knockout phase' };
@@ -1861,6 +1898,7 @@ export function openKnockoutMatchups(guildId, matchupIds, deadline = null) {
       matchup.votingOpened = now;
       matchup.votingStarted = now; // For smart warning timing
       if (deadline) matchup.votingDeadline = deadline;
+      if (channelId && !matchup.messageChannelId) matchup.messageChannelId = channelId;
       matchup.votes = { movie1: [], movie2: [] };
       opened.push(matchup);
     }
@@ -1875,7 +1913,7 @@ export function openKnockoutMatchups(guildId, matchupIds, deadline = null) {
 /**
  * Open knockout round for voting
  */
-export function openKnockoutRound(guildId, round, deadline = null) {
+export function openKnockoutRound(guildId, round, deadline = null, channelId = null) {
   const tournament = loadTournament(guildId);
   if (!tournament || tournament.status !== 'knockout') {
     return { success: false, error: 'Tournament not in knockout phase' };
@@ -1894,7 +1932,7 @@ export function openKnockoutRound(guildId, round, deadline = null) {
     return { success: false, error: 'No matchups ready for voting in this round' };
   }
   
-  const result = openKnockoutMatchups(guildId, roundMatchups.map(m => m.id), deadline);
+  const result = openKnockoutMatchups(guildId, roundMatchups.map(m => m.id), deadline, channelId);
   if (!result.success) return result;
   if (result.opened.length === 0) {
     return { success: false, error: 'Every matchup in this round is already open or decided' };
@@ -1990,7 +2028,15 @@ export function closeKnockoutMatchup(guildId, matchupId, tiebreakerDurationMs = 
     if (result.success) {
       matchup.status = 'tiebreaker';
       matchup.tiebreakerId = result.tiebreaker.id;
-      
+      // createTiebreaker saved its own copy; this one was loaded before the
+      // tiebreaker existed, so saving it as-is deleted the tiebreaker. Every
+      // knockout tie was left stuck in "tiebreaker" with nothing to vote on.
+      // (closeGroupVoting had the same bug and the same fix.)
+      if (!tournament.tiebreakers) tournament.tiebreakers = [];
+      if (!tournament.tiebreakers.some(t => t.id === result.tiebreaker.id)) {
+        tournament.tiebreakers.push(result.tiebreaker);
+      }
+
       if (!saveTournament(guildId, tournament)) {
         return { success: false, error: 'Failed to save tiebreaker' };
       }
