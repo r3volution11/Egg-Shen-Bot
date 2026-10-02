@@ -23,7 +23,10 @@ let schedulerInterval = null;
 const CHECK_INTERVAL = 60 * 1000; // Check every 1 minute
 
 // Track warnings sent so we don't spam
-const sentWarnings = new Map(); // key: `${guildId}_${groupId/matchupId}`, value: timestamp
+// key: `${guildId}_${groupId/matchupId}`, value: timestamp. Memory alone was
+// lost on a restart, so a matchup inside its warning window was warned again;
+// each warning is also saved on the group or matchup (markWarningSent).
+const sentWarnings = new Map();
 
 /**
  * Calculate when to send warning based on total voting duration
@@ -148,6 +151,7 @@ async function checkTiebreakerDeadlines(guildId, tournament, now) {
 
     for (const tiebreaker of tournament.tiebreakers) {
       if (tiebreaker.status !== 'active') continue;
+      if (!tiebreaker.messageId && await postUnpostedTiebreaker(guild, tiebreaker, now)) continue;
       if (now <= tiebreaker.deadline) continue;
 
       await autoResolveTiebreaker(guild, tiebreaker);
@@ -159,6 +163,39 @@ async function checkTiebreakerDeadlines(guildId, tournament, now) {
       error: error.message
     });
   }
+}
+
+// How long a new tiebreaker is left to whoever created it to post its vote
+// (a command or the deadline close, within seconds) before the scheduler
+// steps in. Without the wait, both could post it.
+const UNPOSTED_TIEBREAKER_GRACE_MS = 2 * 60 * 1000;
+
+/**
+ * A tiebreaker whose vote was never posted — the bot stopped between
+ * deciding the tie and posting it — can't be voted on, and would be decided
+ * at random when it expired. Post it now, with its full voting time again
+ * from now, since no one has had a chance to vote.
+ * @returns {Promise<boolean>} whether it was posted (then it isn't resolved this pass)
+ */
+async function postUnpostedTiebreaker(guild, tiebreaker, now) {
+  if (now - (tiebreaker.createdAt || 0) < UNPOSTED_TIEBREAKER_GRACE_MS) return false;
+
+  const restarted = bracketManager.restartTiebreakerClock(guild.id, tiebreaker.id);
+  if (!restarted) return false;
+  const { tournament, tiebreaker: fresh } = restarted;
+
+  let posted = false;
+  if (fresh.position === 'knockout') {
+    const matchup = tournament.knockoutBracket?.find(m => m.id === fresh.groupId);
+    if (matchup) posted = await postKnockoutTiebreaker(guild, tournament, matchup, fresh);
+  } else if (tournament.groups?.[fresh.groupId]) {
+    await postGroupTiebreakerNotice(guild, tournament, fresh.groupId, [{ tiebreaker: fresh, position: fresh.position }]);
+    posted = !!bracketManager.loadTournament(guild.id)?.tiebreakers?.find(t => t.id === fresh.id)?.messageId;
+  }
+  if (posted) {
+    logger.notice(logger.LogCategory.SCHEDULER, 'Posted a tiebreaker vote that was never posted', { guildId: guild.id, tiebreakerId: fresh.id });
+  }
+  return posted;
 }
 
 /**
@@ -320,7 +357,8 @@ async function checkGroupDeadlines(guildId, tournament, now) {
       if (
         now_time < group.votingDeadline && // Voting still open
         elapsedTime >= warningTime && // Time to warn
-        !sentWarnings.has(warningKey) // Haven't warned yet
+        !sentWarnings.has(warningKey) && // Haven't warned yet...
+        group.warnedForDeadline !== group.votingDeadline // ...even before a restart
       ) {
         const channelId = group.votingMessageChannelId;
         if (channelId) {
@@ -330,6 +368,7 @@ async function checkGroupDeadlines(guildId, tournament, now) {
           }
           warningsByDeadline.get(key).groups.push(groupId);
           sentWarnings.set(warningKey, now_time);
+          bracketManager.markWarningSent(guildId, { groupId });
         }
       }
       
@@ -381,7 +420,8 @@ async function checkKnockoutDeadlines(guildId, tournament, now) {
       if (
         now_time < matchup.votingDeadline && // Voting still open
         elapsedTime >= warningTime && // Time to warn
-        !sentWarnings.has(warningKey) // Haven't warned yet
+        !sentWarnings.has(warningKey) && // Haven't warned yet...
+        matchup.warnedForDeadline !== matchup.votingDeadline // ...even before a restart
       ) {
         const channelId = matchup.messageChannelId;
         if (channelId) {
@@ -391,6 +431,7 @@ async function checkKnockoutDeadlines(guildId, tournament, now) {
           }
           warningsByDeadline.get(key).matchups.push(matchup);
           sentWarnings.set(warningKey, now_time);
+          bracketManager.markWarningSent(guildId, { matchupId: matchup.id });
         }
       }
       

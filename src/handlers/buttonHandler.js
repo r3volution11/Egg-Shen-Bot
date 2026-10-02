@@ -1299,13 +1299,21 @@ async function handleKnockoutVote(interaction) {
   // posted for an earlier one, far up the channel. Edits don't notify or
   // move, so voters couldn't tell their vote had counted. A new set of open
   // matchups now gets a new card, under its post; the old card stays as the
-  // earlier matchup's record. (Kept in memory: after a restart the next vote
-  // posts a fresh card, which is the right place for it anyway.)
+  // earlier matchup's record.
   const openSet = currentRoundMatchups.map(m => m.id).sort().join(',');
-  const leaderboardKey = `${interaction.guild.id}_knockout_${currentRound}_${openSet}`;
-  const existingLeaderboard = publicLeaderboards.get(leaderboardKey);
+  const cardKey = `${currentRound}_${openSet}`;
+  const leaderboardKey = `${interaction.guild.id}_knockout_${cardKey}`;
+  // Remembered in memory and saved with the tournament: memory alone was lost
+  // on a restart, and the next vote posted a second card for the same matchups
+  const existingLeaderboard = publicLeaderboards.get(leaderboardKey)
+    || bracketManager.getLiveStandingsCard(interaction.guild.id, cardKey);
   const leaderboardEmbed = buildPublicKnockoutLeaderboard(tournament, currentRound, currentRoundMatchups, interaction.client);
-  
+  const remember = (message) => {
+    const ref = { messageId: message.id, channelId: interaction.channelId, timestamp: Date.now() };
+    publicLeaderboards.set(leaderboardKey, ref);
+    bracketManager.recordLiveStandingsCard(interaction.guild.id, cardKey, ref);
+  };
+
   try {
     if (existingLeaderboard) {
       // Try to update existing leaderboard
@@ -1313,27 +1321,18 @@ async function handleKnockoutVote(interaction) {
         const channel = await interaction.client.channels.fetch(existingLeaderboard.channelId);
         const message = await channel.messages.fetch(existingLeaderboard.messageId);
         await message.edit({ embeds: [leaderboardEmbed] });
+        publicLeaderboards.set(leaderboardKey, existingLeaderboard);
         console.log(`[ButtonHandler] Updated public knockout leaderboard for round ${currentRound}`);
       } catch (fetchError) {
-        // Leaderboard message no longer exists, remove from cache and create new one
+        // Leaderboard message no longer exists: post a new one
         console.log(`[ButtonHandler] Public leaderboard not found, creating new one for round ${currentRound}`);
         publicLeaderboards.delete(leaderboardKey);
-        const newLeaderboard = await interaction.channel.send({ embeds: [leaderboardEmbed] });
-        publicLeaderboards.set(leaderboardKey, {
-          messageId: newLeaderboard.id,
-          channelId: interaction.channelId,
-          timestamp: Date.now()
-        });
+        remember(await interaction.channel.send({ embeds: [leaderboardEmbed] }));
       }
     } else {
-      // First vote in this round - create new public leaderboard
+      // First vote on these matchups - create new public leaderboard
       console.log(`[ButtonHandler] Creating first public knockout leaderboard for round ${currentRound}`);
-      const newLeaderboard = await interaction.channel.send({ embeds: [leaderboardEmbed] });
-      publicLeaderboards.set(leaderboardKey, {
-        messageId: newLeaderboard.id,
-        channelId: interaction.channelId,
-        timestamp: Date.now()
-      });
+      remember(await interaction.channel.send({ embeds: [leaderboardEmbed] }));
     }
   } catch (leaderboardError) {
     console.error('[ButtonHandler] Error managing public knockout leaderboard:', leaderboardError);

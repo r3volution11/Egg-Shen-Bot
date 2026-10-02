@@ -141,7 +141,8 @@ export class Sim {
     for (const dir of dirs) {
       if (!fs.existsSync(dir)) continue;
       for (const name of fs.readdirSync(dir)) {
-        if (name === `${this.guildId}.json` || name.startsWith(`${this.guildId}_`)) fs.unlinkSync(path.join(dir, name));
+        // <id>.json and its .bak/.tmp/.damaged-* siblings, <id>_watchlist.json…
+        if (name.startsWith(`${this.guildId}.`) || name.startsWith(`${this.guildId}_`)) fs.unlinkSync(path.join(dir, name));
       }
     }
   }

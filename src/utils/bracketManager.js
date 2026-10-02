@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, renameSync, copyFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
@@ -16,7 +16,13 @@ if (!existsSync(tournamentsDir)) {
 }
 
 /**
- * Load tournament data for a guild
+ * Load tournament data for a guild.
+ *
+ * A file that won't parse is recovered from the backup saveTournament keeps
+ * (the version before the last save), and the damaged one is kept aside.
+ * This used to return null — "no tournament" — so a file cut off by a kill
+ * mid-write lost the tournament outright, and `/bracket create` would then
+ * overwrite it. One damaged file also made every scheduler pass log an error.
  */
 export function loadTournament(guildId) {
   const filePath = join(tournamentsDir, `${guildId}.json`);
@@ -24,11 +30,23 @@ export function loadTournament(guildId) {
     return null;
   }
   try {
-    const data = readFileSync(filePath, 'utf8');
-    return JSON.parse(data);
+    return JSON.parse(readFileSync(filePath, 'utf8'));
   } catch (error) {
-    console.error('Error loading tournament:', error);
-    return null;
+    const backupPath = `${filePath}.bak`;
+    try {
+      const restored = JSON.parse(readFileSync(backupPath, 'utf8'));
+      renameSync(filePath, `${filePath}.damaged-${Date.now()}`);
+      copyFileSync(backupPath, filePath);
+      console.warn(`[BracketManager] Tournament file for ${guildId} was damaged (${error.message}); restored the previous save`);
+      return restored;
+    } catch {
+      // Nothing to recover from. Keep the damaged file aside for a person to
+      // look at, rather than leave it to fail every scheduler pass or be
+      // silently overwritten by the next /bracket create
+      console.error(`[BracketManager] Tournament file for ${guildId} is damaged and has no usable backup; moved aside:`, error.message);
+      try { renameSync(filePath, `${filePath}.damaged-${Date.now()}`); } catch { /* already gone */ }
+      return null;
+    }
   }
 }
 
@@ -54,7 +72,10 @@ export const MAX_TOURNAMENT_NAME_LENGTH = 100;
 export function deleteTournament(guildId) {
   const filePath = join(tournamentsDir, `${guildId}.json`);
   try {
-    if (existsSync(filePath)) unlinkSync(filePath);
+    // The backup too, or a damaged-file recovery could bring it back
+    for (const f of [filePath, `${filePath}.bak`, `${filePath}.tmp`]) {
+      if (existsSync(f)) unlinkSync(f);
+    }
     return true;
   } catch (error) {
     console.error('Error deleting tournament:', error);
@@ -75,12 +96,69 @@ export function saveTournament(guildId, tournament) {
     if (typeof tournament?.name === 'string' && tournament.name.length > MAX_TOURNAMENT_NAME_LENGTH) {
       tournament.name = tournament.name.slice(0, MAX_TOURNAMENT_NAME_LENGTH);
     }
-    writeFileSync(filePath, JSON.stringify(tournament, null, 2));
+    // Write a new file and swap it in: a rename can't be left half-done, so
+    // a kill mid-save leaves either the old version or the new one, never a
+    // file cut off partway. The version being replaced is kept as .bak, for
+    // loadTournament to recover from if the file is damaged anyway.
+    const tmpPath = `${filePath}.tmp`;
+    writeFileSync(tmpPath, JSON.stringify(tournament, null, 2));
+    if (existsSync(filePath)) copyFileSync(filePath, `${filePath}.bak`);
+    renameSync(tmpPath, filePath);
     return true;
   } catch (error) {
     console.error('Error saving tournament:', error);
     return false;
   }
+}
+
+/**
+ * Record that a group or matchup was warned its voting closes soon, for the
+ * deadline it has now — so a restart doesn't warn again, while an extended
+ * deadline still gets its own warning. Loads and saves in one synchronous
+ * step, so it can't overwrite a vote saved in between.
+ * @param {string} guildId
+ * @param {{groupId?: string, matchupId?: string}} target
+ */
+export function markWarningSent(guildId, { groupId, matchupId }) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) return false;
+  const target = groupId
+    ? tournament.groups?.[groupId]
+    : tournament.knockoutBracket?.find(m => m.id === matchupId);
+  if (!target) return false;
+  target.warnedForDeadline = target.votingDeadline;
+  return saveTournament(guildId, tournament);
+}
+
+/**
+ * The Live Standings card for a set of open knockout matchups, saved with the
+ * tournament so a restart updates the same card instead of posting another.
+ * Synchronous load-and-save, so it can't overwrite a vote saved in between.
+ * @param {string} key - `${round}_${sorted open matchup ids}`
+ */
+export function getLiveStandingsCard(guildId, key) {
+  return loadTournament(guildId)?.liveStandings?.[key] || null;
+}
+
+export function recordLiveStandingsCard(guildId, key, { channelId, messageId }) {
+  const tournament = loadTournament(guildId);
+  if (!tournament) return false;
+  tournament.liveStandings = { ...(tournament.liveStandings || {}), [key]: { channelId, messageId } };
+  return saveTournament(guildId, tournament);
+}
+
+/**
+ * Give a tiebreaker its full voting time again, from now — for one whose
+ * vote was never posted, so no one could vote. Synchronous load-and-save.
+ * @returns {{tournament, tiebreaker} | null}
+ */
+export function restartTiebreakerClock(guildId, tiebreakerId) {
+  const tournament = loadTournament(guildId);
+  const tiebreaker = tournament?.tiebreakers?.find(t => t.id === tiebreakerId);
+  if (!tiebreaker || tiebreaker.status !== 'active') return null;
+  const duration = Math.max(tiebreaker.deadline - (tiebreaker.createdAt || tiebreaker.deadline), 5 * 60 * 1000);
+  tiebreaker.deadline = Date.now() + duration;
+  return saveTournament(guildId, tournament) ? { tournament, tiebreaker } : null;
 }
 
 /**

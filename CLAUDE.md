@@ -194,6 +194,15 @@ Other hard-won Discord behavior:
   `||` would swallow a deliberate `false`.
 - **Commands are auto-discovered** from `src/commands/`. Drop the file in; no
   manifest. Add it to `src/commands/help.js` by hand, though.
+- **Tournament state that must survive a restart goes in the tournament
+  file, not a module `Map`.** Deploys restart the bot mid-vote. Memory-only
+  state is how a restart re-sent "closing soon" warnings and posted duplicate
+  standings cards. Write it with a synchronous load-modify-save helper in
+  `bracketManager.js` (`markWarningSent`, `recordLiveStandingsCard`); never
+  save a tournament object loaded before an `await`, or you overwrite votes
+  saved in between. `saveTournament` writes atomically and keeps a `.bak`
+  that `loadTournament` recovers from. `tests/tournament-sim-restarts.test.js`
+  restarts the bot at the bad moments.
 - **Comments explain *why*.** The codebase is dense with them and they have
   repeatedly prevented re-breaking something. Match that.
 

@@ -9,6 +9,21 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.49.2 - 2026-10-01
+
+### Fixed
+Tournaments now ride out a bot restart (a deploy, a crash, the server rebooting) mid-vote.
+- **A tournament could be lost if the bot stopped while saving it.** A save cut off partway left a damaged file that read as "no tournament", and the next `/bracket create` would have replaced it. Saves can no longer be left half-done, and the previous save is kept to recover from. One damaged file also made every scheduled check log an error
+- **A tie whose tiebreaker vote never got posted** — the bot stopped in between — couldn't be voted on, and was decided at random when it ran out. The bot now posts it, with its full voting time from then
+- **"Voting closing soon" warnings were sent again** after a restart
+- **A restart started a second Live Standings card** for matchups already being voted on
+- A voting deadline that passes while the bot is down closes as soon as it's back, results and all (now tested)
+
+### Developer
+- `saveTournament` writes `<id>.json.tmp` and renames it over the file, keeping the previous version as `.bak`; `loadTournament` recovers a file that won't parse from `.bak` and keeps the damaged one as `.damaged-<time>` (also when there's no backup). `deleteTournament` removes the `.bak`/`.tmp` too
+- Restart-surviving state lives in the tournament file, written by synchronous load-and-save helpers so they can't overwrite a vote saved in between: `markWarningSent` (`warnedForDeadline` on the group or matchup, so an extended deadline still warns), `recordLiveStandingsCard`/`getLiveStandingsCard` (`liveStandings`), `restartTiebreakerClock`. The scheduler posts an active tiebreaker with no `messageId` after a 2-minute grace (`postUnpostedTiebreaker`)
+- `tests/tournament-sim-restarts.test.js` restarts the bot at each of these moments, each seen failing first; the simulator's cleanup now removes every file of a scenario's server. CLAUDE.md records the rule. No command definitions changed, so no `deploy-commands`
+
 ## 2.49.1 - 2026-10-01
 
 ### Fixed

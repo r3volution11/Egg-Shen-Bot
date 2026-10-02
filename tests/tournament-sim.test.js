@@ -20,7 +20,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import { loadSim, finishSim, clock, favorite, restartBot } from './harness/tournamentSim.js';
+import { loadSim, finishSim, clock, favorite } from './harness/tournamentSim.js';
 
 let Sim;
 let mods;
@@ -523,33 +523,6 @@ describe('/bracket extend-voting', () => {
     await sim.passDeadlines();
     expect(sim.openMatchups()).toHaveLength(0);
     expect(sim.tournament().phase).toBe('semifinals');
-  });
-});
-
-describe('the bot restarts mid-tournament', () => {
-  test('voting carries on: old ballots still work, the scheduler closes the round, the tournament finishes', async () => {
-    const sim = new Sim('sim-restart');
-    await straightBracket(sim, 'Restart Cup', 8, 'movie', HORROR_8);
-    await sim.bracket('admin', 'open', { duration: '1d' });
-    await sim.everyoneVotes(favorite, sim.voters.slice(0, 3));
-    const ballot = await sim.openBallot('voter4');
-
-    await restartBot();
-
-    // A ballot opened before the restart still votes
-    const [m] = sim.openMatchups();
-    await sim.voteMatchup('voter4', ballot, m.id, favorite(m));
-    expect(sim.tournament().votes.voter4[m.id]).toBe(favorite(m));
-    await sim.everyoneVotes(favorite, sim.voters.slice(3));
-
-    for (let n = 0; n < 3 && sim.tournament().status !== 'completed'; n++) {
-      if (n > 0) {
-        await sim.bracket('admin', 'open', { duration: '1d' });
-        await sim.everyoneVotes(favorite);
-      }
-      await sim.passDeadlines();
-    }
-    expect(sim.tournament().champion.title).toBe('Alien');
   });
 });
 
