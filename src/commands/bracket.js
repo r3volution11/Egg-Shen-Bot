@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { setTitleThumbnail } from '../utils/tournamentUI.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, completeEntry, getTypeLabel } from '../utils/bracketTitles.js';
@@ -1810,6 +1811,7 @@ async function handleResolveTiebreaker(interaction) {
         .setColor(0x808080)
         .setTitle(`🔒 Tiebreaker Closed: ${tiebreaker.position === 'knockout' ? 'Knockout Matchup' : `Group ${tiebreaker.groupId} — ${tiebreaker.position} place`}`)
         .setDescription(`**Winner: ${winner.title}**\n\nResolution: ${resolutionMethod}`);
+      setTitleThumbnail(closedEmbed, winner);
       const disabledRows = buildTiebreakerButtons(tiebreaker).map(row => {
         const newRow = new ActionRowBuilder();
         row.components.forEach(btn => newRow.addComponents(ButtonBuilder.from(btn).setDisabled(true)));
@@ -1841,6 +1843,7 @@ async function handleResolveTiebreaker(interaction) {
       { name: '⚖️ Resolution Method', value: resolutionMethod, inline: true }
     )
     .setTimestamp();
+  setTitleThumbnail(embed, winner);
 
   if (voteDetails) {
     embed.addFields({ name: '📊 Vote Breakdown', value: voteDetails, inline: false });
@@ -3055,6 +3058,7 @@ async function handleCloseMatchup(interaction) {
     successes.push({
       label: regionalLabel,
       winner: updatedMatchup.winner.title,
+      winnerEntry: updatedMatchup.winner,
       movie1: updatedMatchup.movie1.title,
       movie2: updatedMatchup.movie2.title,
       votes1,
@@ -3113,6 +3117,7 @@ async function handleCloseMatchup(interaction) {
         `**${s.winner}** wins!\n\n` +
         `**${s.movie1}** (${s.votes1} votes) vs **${s.movie2}** (${s.votes2} votes)`
       );
+    setTitleThumbnail(embed, s.winnerEntry);
     
     if (s.autoAdvanced) {
       embed.addFields({

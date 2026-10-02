@@ -169,6 +169,8 @@ Closed 4 matchups
 ![Round Complete Results](/images/examples/tournaments/round-complete.png)
 *Round completion results with winner announcements*
 
+Each matchup's result card shows the winner's poster as a small thumbnail in its corner. Tiebreaker results and `/bracket close-matchup` show it too.
+
 ---
 
 ### Opening the next matchup closes earlier ones

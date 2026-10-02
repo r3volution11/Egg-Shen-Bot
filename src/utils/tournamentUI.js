@@ -299,3 +299,24 @@ export function createLeaderboardEntry(rank, title, votes, maxVotes, maxTitleLen
   
   return `${rankEmoji} ${paddedTitle} ${bar} ${votes}`;
 }
+
+/**
+ * Puts a title's poster on a result embed as its thumbnail — the smallest
+ * image an embed can carry (a small square in the top-right corner), so a
+ * result card gains a recognizable cover without becoming a big image post.
+ * One thumbnail per embed, so it's the winner's.
+ *
+ * Skipped when there's no usable image: older tournaments and some sources
+ * (board games before their details load) have posterUrl null, and Discord
+ * rejects the whole message for a thumbnail that isn't an http(s) URL.
+ * @param {import('discord.js').EmbedBuilder} embed
+ * @param {{ posterUrl?: string|null }|null|undefined} title
+ * @returns the embed, for chaining
+ */
+export function setTitleThumbnail(embed, title) {
+  const url = title?.posterUrl;
+  if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+    embed.setThumbnail(url);
+  }
+  return embed;
+}

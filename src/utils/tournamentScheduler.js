@@ -6,6 +6,7 @@
 
 import * as bracketManager from './bracketManager.js';
 import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
+import { setTitleThumbnail } from './tournamentUI.js';
 import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -272,6 +273,7 @@ async function autoResolveTiebreaker(guild, tiebreaker) {
               .setDescription(`**Winner: ${winner.title}**${wasRandom ? ' *(random — no votes cast)*' : ''}\n\n${optionsText}`)
               .setFooter({ text: `Tiebreaker ID: ${tiebreaker.id}` })
               .setTimestamp();
+            setTitleThumbnail(closedEmbed, winner);
 
             const disabledButtons = msg.components.flatMap(row =>
               row.components.map(btn =>
@@ -311,6 +313,7 @@ async function autoResolveTiebreaker(guild, tiebreaker) {
               (wasRandom ? '*No votes were cast — winner selected randomly.*' : `Resolved by vote tally.`)
             )
             .setTimestamp();
+          setTitleThumbnail(embed, winner);
 
           await channel.send({ embeds: [embed] });
         }
@@ -958,6 +961,7 @@ async function postMatchupResults(guild, tournament, matchup) {
       )
       .setFooter({ text: `Total votes: ${votesA + votesB}` })
       .setTimestamp();
+    setTitleThumbnail(embed, winner);
     
     await channel.send({ embeds: [embed] });
     

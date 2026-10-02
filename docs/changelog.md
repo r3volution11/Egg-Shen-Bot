@@ -9,6 +9,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.50.1 - 2026-10-02
+
+### Changed
+- **Tournament result cards show the winner's poster.** Each matchup's result, the **Matchup Complete!** reply from `/bracket close-matchup`, and tiebreaker results now carry the winning title's poster as a small thumbnail in the corner, so you can tell who won at a glance. The summary for several matchups closed at once is unchanged, since it names more than one winner. Titles without a poster show none
+
+### Developer
+- `setTitleThumbnail(embed, title)` (`tournamentUI.js`) sets the thumbnail only for an http(s) `posterUrl`, since Discord rejects the whole message for anything else
+- `tests/tournament-result-thumbnails.test.js` runs tournaments through the simulator and checks each posted card's thumbnail is that winner's own poster. No command definitions changed, so no `deploy-commands`
+
 ## 2.50.0 - 2026-10-02
 
 ### Added

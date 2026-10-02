@@ -320,7 +320,7 @@ These intelligent commands automatically detect the tournament phase and perform
 - Simplifies tournament management - one command for all phases
 - Automatically detects and creates tiebreakers for tied votes
 - Advances tournament to next phase when appropriate
-- Shows detailed results with winners and vote counts
+- Shows detailed results with winners and vote counts, with the winner's poster as a small thumbnail on each matchup's result card
 
 ---
 
