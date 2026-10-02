@@ -21,6 +21,8 @@ export async function execute(interaction) {
     bracketAllowed,
     quoteAllowed,
     suggestQuoteAllowed,
+    potionAllowed,
+    foodfightAllowed,
     guildConfig,
   ] = await Promise.all([
     canUseCommand(interaction.guildId, interaction.member, 'movie'),
@@ -34,6 +36,8 @@ export async function execute(interaction) {
     canUseCommand(interaction.guildId, interaction.member, 'bracket'),
     canUseCommand(interaction.guildId, interaction.member, 'quote'),
     canUseCommand(interaction.guildId, interaction.member, 'suggestQuote'),
+    canUseCommand(interaction.guildId, interaction.member, 'potion'),
+    canUseCommand(interaction.guildId, interaction.member, 'foodfight'),
     loadGuildConfig(interaction.guildId),
   ]);
 
@@ -97,14 +101,22 @@ export async function execute(interaction) {
     embed.addFields({ name: '🏆 Tournaments & Polls', value: tournamentsAndPolls, inline: false });
   }
 
-  // /potion isn't gated by aiImages at all (it's flavor-text responses, not
-  // real image generation), so it stays visible even when /image is hidden.
   const aiImageGeneration = buildCategory([
     { enabled: imageAllowed, line: '**🎨 /image** - Generate AI images: freeform, from a message, or a versus battle between two titles' },
-    { enabled: true, line: '**🧪 /potion** - Give someone a mystical potion with a flavorful response' },
   ]);
   if (aiImageGeneration) {
     embed.addFields({ name: '🎨 AI Image Generation', value: aiImageGeneration, inline: false });
+  }
+
+  // /potion used to sit under AI Image Generation; it's flavor text, not
+  // image generation, so it lives here with /foodfight, each behind its own
+  // command switch
+  const funAndGames = buildCategory([
+    { enabled: potionAllowed, line: '**🧪 /potion** - Give someone, a role or @everyone a mystical potion' },
+    { enabled: foodfightAllowed, line: '**🥧 /foodfight** - Throw food at someone, a role or @everyone' },
+  ]);
+  if (funAndGames) {
+    embed.addFields({ name: '🎉 Fun & Games', value: funAndGames, inline: false });
   }
 
   const quotes = buildCategory([

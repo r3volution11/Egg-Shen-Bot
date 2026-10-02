@@ -327,6 +327,17 @@ function slashOptions({ subcommand = null, group = null, values = {}, focused = 
     getChannel: (name) => get(name),
     getUser: (name) => get(name),
     getFocused: (full = false) => (full ? focused : focused?.value ?? ''),
+    // A Mentionable or User option's value is given as { user, member } or
+    // { role }; get() returns it the way discord.js resolves it
+    get: (name) => {
+      const v = get(name);
+      if (v == null) return null;
+      return v && typeof v === 'object' && ('user' in v || 'role' in v || 'member' in v) ? { name, ...v } : { name, value: v };
+    },
+    getMentionable: (name) => {
+      const v = get(name);
+      return v?.member || v?.user || v?.role || null;
+    },
     data: Object.entries(values).map(([name, value]) => ({ name, value })),
   };
 }

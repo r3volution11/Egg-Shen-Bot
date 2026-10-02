@@ -57,6 +57,8 @@ const defaultConfig = {
     quote: true,
     suggestQuote: true,
     watchlist: true,
+    potion: true,
+    foodfight: true,
   },
   notifications: {
     restartAnnouncements: false, // Send announcements when bot restarts with active timers

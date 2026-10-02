@@ -476,7 +476,8 @@ Display comprehensive bot help with complete command list — tailored to what's
 - Games & Entertainment: game, boardgame, book, soundtrack
 - Random & Discovery: random with filters
 - Tournaments & Polls: bracket, survey
-- AI Image Generation: image, potion
+- AI Image Generation: image
+- Fun & Games: potion, foodfight
 - Watch Party Tools: timer, watchparty, stats
 - Admin commands shown conditionally for moderators
 - Links to full documentation at eggshenbot.com
@@ -560,22 +561,22 @@ Create interactive polls and surveys with up to 10 options and real-time vote tr
 ---
 
 ### `/potion`
-Give magical potions to other users with fun pop culture references!
+Give magical potions with fun pop culture references, to a member, a whole role, or @everyone.
 
 **Options:**
-- `user` (required) - The user to give the potion to
+- `user` (required) - Who gets it: a member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `type` (required) - Type of potion (Health, Mana, Strength, Speed, Invisibility, Luck, Confusion, Love, Poison, Energy, Weakness, Curse, Slow)
 
 **Features:**
 - 13 different potion types (helpful & harmful!)
-- 78+ unique responses with references to:
+- 85 built-in responses with references to:
   - Horror: Get Out, Midsommar, The Stuff, Poltergeist
   - Comedy: Army of Darkness, Shaun of the Dead, Hot Fuzz, It's Always Sunny
   - Fantasy: LOTR, Harry Potter, The Witcher, Princess Bride
   - Games: Dark Souls, Skyrim, Zelda, Mario
   - Modern: Everything Everywhere All At Once, Deadpool, Twin Peaks
 - Prevents giving potions to bots
-- Public messages with user mentions
+- Public messages; a member is pinged, a role or @everyone isn't
 
 **Available Potion Types:**
 
@@ -612,6 +613,25 @@ Give magical potions to other users with fun pop culture references!
 ```
 
 **Note:** This is a fun, cosmetic command with no actual game mechanics. Perfect for adding personality and playful banter to your server!
+
+---
+
+### `/foodfight`
+Start a food fight, after the classic BBS door game: throw food at a member, a whole role, or @everyone. Each throw hits, misses, or backfires on the thrower.
+
+**Options (`throw`):**
+- `target` (required) - A member, a role, or @everyone. A role or @everyone is shown but not pinged
+- `food` (optional) - Cream pie, spaghetti, pudding, mashed potatoes, Jell-O, meatloaf, creamed corn, tapioca, pizza, taco, fish sticks or split pea soup. Leave it out for a random one
+
+**Admin/Mod:** `/foodfight lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{thrower}` and `{target}`.
+
+**Examples:**
+```
+/foodfight throw target:@Friend food:pie
+/foodfight throw target:@everyone
+```
+
+See [Social Commands › Food Fight](./social#food-fight).
 
 ---
 
@@ -692,7 +712,7 @@ Display help information and available commands.
 | **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
 | **Watch Parties** | `/timer`, `/watched` |
 | **Discovery** | `/random`, `/similar`, `/soundtrack` |
-| **Fun & Social** | `/survey`, `/potion` |
+| **Fun & Social** | `/survey`, `/potion`, `/foodfight` |
 | **Statistics** | `/stats` |
 | **Configuration** | `/eggshen-config`, `/eggshen-config-watch-party`, `/eggshen-config-ai`, `/eggshen-config-moderation`, `/eggshen-config-events` |
 | **Help** | `/eggshen-help` |

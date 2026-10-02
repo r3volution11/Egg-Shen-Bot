@@ -1,11 +1,11 @@
 ---
 title: Social Commands - Egg Shen Bot
-description: Interactive social features including surveys/polls, magical potions, and status quotes for entertainment-focused Discord communities.
+description: Interactive social features including surveys/polls, magical potions, food fights, and status quotes for entertainment-focused Discord communities.
 ---
 
 # Social Commands
 
-**Add fun and interactive elements** to your entertainment Discord community with surveys, polls, playful social interactions, and status quotes.
+**Add fun and interactive elements** to your entertainment Discord community with surveys, polls, potions, food fights, and status quotes.
 
 ## Quick FAQ
 
@@ -23,6 +23,12 @@ A: Yes! Click a different button to switch your vote. In multiple-vote mode, cli
 
 **Q: Are survey results stored permanently?**  
 A: Yes, all surveys are stored in JSON files per-server and persist even if the bot restarts.
+
+**Q: Can I give a potion or throw food at a whole role, or everyone?**  
+A: Yes. Pick a member, a role, or @everyone as the target. A role or @everyone shows in the message but nobody gets a notification; only a member you pick is pinged.
+
+**Q: Can I turn off /potion or /foodfight?**  
+A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`). Admins and moderators can always use them.
 
 **Q: Can a survey close itself automatically?**  
 A: Yes! Set `duration:[minutes]` when creating it (`/survey create ... duration:120` for 2 hours). Without it, a survey stays open until someone runs `/survey close`.
@@ -240,12 +246,12 @@ This is useful if your server already has a preferred polling bot (like top.gg o
 
 ## Potion Command
 
-Give magical potions to other users with pop culture references!
+Give magical potions with pop culture references, to a member, a whole role, or @everyone.
 
 ### Give a Potion
 
 ```
-/potion give user:[user] type:[potion-type]
+/potion give user:<member, role, or @everyone> type:<potion-type>
 ```
 
 **Potion Types:**
@@ -253,16 +259,16 @@ Give magical potions to other users with pop culture references!
 - **Harmful:** Confusion, Poison, Weakness, Curse, Slow
 
 **Features:**
-- Pop culture references from movies, TV shows, video games, and more
+- 85 built-in responses with references from movies, TV shows, video games, and more
 - Themed responses based on genre (Horror, Comedy, Fantasy, Sci-Fi, Gaming, Action, Classics, Animation, Drama)
-- Public messages visible to all channel members
-- Purely for fun - no actual game mechanics
+- Posted publicly. A member you pick is pinged; a role or @everyone is shown but not pinged
+- Purely for fun: no actual game mechanics
 
 **Examples:**
 ```
-/potion give user:@Alice type:Health
-/potion give user:@Bob type:Confusion
-/potion give user:@Charlie type:Mana
+/potion give user:@Alice type:health
+/potion give user:@Movie Club type:confusion
+/potion give user:@everyone type:luck
 ```
 
 **Sample Responses:**
@@ -270,8 +276,58 @@ Give magical potions to other users with pop culture references!
 - *"🍯 Charlie gives Dave a flask of miruvor. The elvish cordial burns with an inner fire! 💚 +75 HP (Elrond's recipe)"*
 - *"🧃 Eve tosses Frank an Estus Flask. 'Praise the sun!' 💚 +100 HP (Don't you dare go hollow)"*
 
-**Customization:**
-Server administrators can customize potion responses and themes via `/eggshen-config`. See [Configuration](/commands/configuration) for details.
+### Custom Responses and Themes (Admin/Mod)
+
+```
+/potion responses add type:health response:{giver} hands {receiver} a juice box. 💚 +5 HP
+/potion responses list type:health
+/potion responses remove type:health index:1
+/potion responses reset type:health
+/potion theme set themes:horror,comedy
+```
+
+A response needs both `{giver}` and `{receiver}`. Your own responses are used alongside the built-in ones; themes narrow which built-in ones are used.
+
+---
+
+## Food Fight
+
+Start a food fight, after the classic BBS door game. Throw food at a member, a whole role, or @everyone, and the bot says what happened: a hit, a miss, or a throw that backfires on you.
+
+### Throw Food
+
+```
+/foodfight throw target:<member, role, or @everyone> food:[food]
+```
+
+Leave out `food` and the bot grabs whatever's on the tray.
+
+**Foods:** 🥧 Cream Pie, 🍝 Spaghetti, 🍮 Pudding, 🥔 Mashed Potatoes, 🟩 Jell-O, 🍖 Meatloaf, 🌽 Creamed Corn, 🥣 Tapioca, 🍕 Pizza, 🌮 Taco, 🐟 Fish Sticks, 🥬 Split Pea Soup
+
+**Examples:**
+```
+/foodfight throw target:@Alice food:pie
+/foodfight throw target:@Moderators
+/foodfight throw target:@everyone food:pea-soup
+```
+
+**Sample lines:**
+- *"🥧 @Alice winds up like a Three Stooges short and lands a cream pie square on @Bob. Nyuk nyuk nyuk."*
+- *"🍕 "Cowabunga!" @Alice launches a pizza at @Bob like a Ninja Turtle."*
+- *"🐟 @Alice throws a fish stick at @Bob, and it boomerangs back. @Alice needs a bigger boat."*
+
+Posted publicly. A member you hit is pinged; a role or @everyone is shown but not pinged. Bots dodge everything.
+
+### Your Own Lines (Admin/Mod)
+
+```
+/foodfight lines add food:pie line:{thrower} hurls a key lime pie at {target}!
+/foodfight lines list food:pie
+/foodfight lines remove food:pie number:1
+/foodfight lines reset food:pie
+```
+
+A line needs both `{thrower}` and `{target}`. Your lines are used alongside the 72 built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
 
 ---
 
@@ -362,7 +418,10 @@ If both `title` and `author` are given, a quote matching *either* one is returne
 ### Potion issues
 
 **Problem:** Potion responses are repetitive  
-**Solution:** Administrators can add custom potion responses via `/eggshen-config`. The bot has many built-in responses that rotate.
+**Solution:** Administrators can add their own with `/potion responses add`, used alongside the 85 built-in ones.
+
+**Problem:** A role or @everyone didn't get a notification  
+**Solution:** That's on purpose: /potion and /foodfight show a role or @everyone without pinging anyone, so a game doesn't notify a whole server. Pick a member to ping them.
 
 ---
 

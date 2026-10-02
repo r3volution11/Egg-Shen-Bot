@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
-import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
+import { loadGuildConfig, saveGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
+import { resolveSocialTarget, allowedMentionsFor } from '../utils/socialTarget.js';
 
 // Available potion themes
 const POTION_THEMES = {
@@ -138,11 +139,13 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('give')
-      .setDescription('Give a magical potion to another user')
-      .addUserOption(option =>
+      .setDescription('Give a potion to someone, a role, or @everyone')
+      // Mentionable, not User: a User option can't pick @everyone or a role.
+      // Still named `user` so it reads the same as before.
+      .addMentionableOption(option =>
         option
           .setName('user')
-          .setDescription('The user to give the potion to')
+          .setDescription('A member, a role, or @everyone')
           .setRequired(true)
       )
       .addStringOption(option =>
@@ -376,6 +379,11 @@ export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
   const subcommandGroup = interaction.options.getSubcommandGroup();
 
+  if (!await canUseCommand(interaction.guildId, interaction.member, 'potion')) {
+    await interaction.reply({ content: '❌ /potion is turned off on this server.', ephemeral: true });
+    return;
+  }
+
   // Handle /potion give (available to everyone)
   if (subcommand === 'give') {
     await handleGivePotion(interaction);
@@ -441,12 +449,12 @@ export async function execute(interaction) {
  * Handle /potion give - Give a potion to another user
  */
 async function handleGivePotion(interaction) {
-  const targetUser = interaction.options.getUser('user');
+  const target = resolveSocialTarget(interaction, 'user');
   const potionType = interaction.options.getString('type');
   const giver = interaction.user;
 
   // Don't allow giving potions to bots
-  if (targetUser.bot) {
+  if (!target || target.isBot) {
     await interaction.reply({
       content: '❌ Bots are immune to potions! They run on ones and zeros, not magic.',
       ephemeral: true,
@@ -472,13 +480,12 @@ async function handleGivePotion(interaction) {
   // Replace placeholders
   const finalMessage = responseText
     .replace(/{giver}/g, `<@${giver.id}>`)
-    .replace(/{receiver}/g, `<@${targetUser.id}>`);
+    .replace(/{receiver}/g, target.mention);
 
-  // Send the potion message publicly
-  // Use Set to avoid duplicate user IDs if someone gives a potion to themselves
+  // Public; pings the giver and a member receiver, never a role or @everyone
   await interaction.reply({
     content: finalMessage,
-    allowedMentions: { users: [...new Set([giver.id, targetUser.id])] },
+    allowedMentions: allowedMentionsFor(giver.id, target),
   });
 }
 
@@ -574,8 +581,10 @@ async function handleListResponses(interaction) {
   }
 
   message += `**Default Responses (${defaultResponses.length}):**\n`;
-  defaultResponses.slice(0, 3).forEach((resp, index) => {
-    const preview = resp.length > 100 ? resp.substring(0, 100) + '...' : resp;
+  defaultResponses.slice(0, 3).forEach((resp) => {
+    // Defaults are { text, themes }; reading them as strings listed "[object Object]"
+    const text = resp.text ?? resp;
+    const preview = text.length > 100 ? text.substring(0, 100) + '...' : text;
     message += `• ${preview}\n`;
   });
   if (defaultResponses.length > 3) {

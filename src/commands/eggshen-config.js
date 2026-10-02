@@ -203,7 +203,9 @@ export const data = new SlashCommandBuilder()
                 { name: 'Survey Command', value: 'survey' },
                 { name: 'Soundtrack Command', value: 'soundtrack' },
                 { name: 'Bracket Command', value: 'bracket' },
-                { name: 'Watchlist Command', value: 'watchlist' }
+                { name: 'Watchlist Command', value: 'watchlist' },
+                { name: 'Potion Command', value: 'potion' },
+                { name: 'Food Fight Command', value: 'foodfight' }
               )
           )
           .addBooleanOption(option =>
@@ -535,15 +537,22 @@ export async function execute(interaction) {
     const success = await updateCommandPermission(guildId, setting, enabled);
 
     if (success) {
+      // Every toggle choice: a missing one printed "**undefined** has been…"
       const settingDisplayName = {
         enabled: 'All commands (master switch)',
         movie: '/movie command',
         tv: '/tv command',
         episode: '/episode command',
+        game: '/game command',
+        boardgame: '/boardgame command',
+        book: '/book command',
         survey: '/survey command',
         soundtrack: '/soundtrack command',
         bracket: '/bracket command',
-      }[setting];
+        watchlist: '/watchlist command',
+        potion: '/potion command',
+        foodfight: '/foodfight command',
+      }[setting] || setting;
 
       const statusText = enabled ? 'enabled' : 'disabled';
       const emoji = enabled ? '✅' : '❌';

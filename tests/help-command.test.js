@@ -201,17 +201,27 @@ describe('/eggshen-help with the master switch disabled', () => {
 });
 
 describe('/eggshen-help and AI image visibility', () => {
-  test('disabling aiImages hides only /image, keeps /potion visible in the same category', async () => {
+  test('disabling aiImages hides /image; /potion and /foodfight stay, under Fun & Games', async () => {
     const config = await loadGuildConfig(GUILD_ID);
     config.aiImages = { enabled: false, permissions: 'everyone' };
     await saveGuildConfig(GUILD_ID, config);
 
     const embed = await runHelpAndGetEmbed(makeInteraction());
-    const value = fieldValue(embed, '🎨 AI Image Generation');
+    expect(fieldValue(embed, '🎨 AI Image Generation')).toBeUndefined();
+    const fun = fieldValue(embed, '🎉 Fun & Games');
+    expect(fun).toContain('/potion');
+    expect(fun).toContain('/foodfight');
+  });
 
-    expect(value).toBeDefined();
-    expect(value).not.toContain('/image');
-    expect(value).toContain('/potion');
+  test('switching /foodfight off hides it from members', async () => {
+    const config = await loadGuildConfig(GUILD_ID);
+    config.commandPermissions = { ...config.commandPermissions, foodfight: false };
+    await saveGuildConfig(GUILD_ID, config);
+
+    const embed = await runHelpAndGetEmbed(makeInteraction({ isAdmin: false }));
+    const fun = fieldValue(embed, '🎉 Fun & Games');
+    expect(fun).toContain('/potion');
+    expect(fun).not.toContain('/foodfight');
   });
 });
 

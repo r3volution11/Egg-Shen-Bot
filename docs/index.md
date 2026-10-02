@@ -67,7 +67,7 @@ features:
 
   - icon: 🎪
     title: Social & Fun
-    details: Polls with up to 10 options and live results, potions with 78+ pop culture references, soundtrack search on iTunes and Spotify, and a rotating status of movie quotes your members can suggest.
+    details: Food fights and magic potions aimed at anyone, a whole role, or @everyone. Polls with up to 10 options and live results, soundtrack search on iTunes and Spotify, and a rotating status of movie quotes your members can suggest.
 
   - icon: 🛡️
     title: Moderation
@@ -255,7 +255,10 @@ Your own `message` always posts exactly as written. Leave it out and, if your se
 The bot's status rotates through movie and TV quotes. Post one in chat with `/quote` (filter by `title` or `author`), and members can suggest new ones with `/suggest-quote` for a moderator to approve.
 
 **Fun Social Interactions**  
-Type `/potion give user:@Friend type:health` to send magical potions with fun pop culture references! Choose from 13 potion types - helpful (Health, Mana, Strength, Speed, Love) or harmful (Poison, Weakness, Curse, Slow) - with 78+ unique responses featuring references to LOTR, Harry Potter, Dark Souls, Get Out, The Ring, and more. Admins can add custom responses!
+Type `/potion give user:@Friend type:health` to send magical potions with fun pop culture references! Choose from 13 potion types - helpful (Health, Mana, Strength, Speed, Love) or harmful (Poison, Weakness, Curse, Slow) - with 85 built-in responses featuring references to LOTR, Harry Potter, Dark Souls, Get Out, The Ring, and more. Admins can add custom responses!
+
+**Food Fight**  
+Like the classic BBS door game: `/foodfight throw target:@Friend food:pie` lands a cream pie, a spaghetti strike, or a pea soup barrage on a member, a whole role, or @everyone. Each throw hits, misses, or backfires, with 72 built-in lines from the Three Stooges to The Exorcist. A role or @everyone is shown, never pinged.
 
 ## Features at a Glance
 
@@ -293,9 +296,11 @@ Type `/potion give user:@Friend type:health` to send magical potions with fun po
 ### Tournaments & Social
 - `/bracket` - Full tournament system: group stages, knockout brackets, wildcards, tiebreakers
 - `/survey create` / `list` / `results` / `close` / `delete` - Polls with up to 10 options, live results, and optional auto-close
-- `/potion give` - Give magical potions to users (13 types: helpful & harmful)
+- `/potion give` - Give magical potions to a member, a role, or @everyone (13 types: helpful & harmful)
 - `/potion responses` - Manage custom potion responses (admin/mod only)
-- 78+ pop culture references from horror, comedy, fantasy, and games
+- 85 pop culture references from horror, comedy, fantasy, and games
+- `/foodfight throw` - Throw food at a member, a role, or @everyone: 12 foods, 72 lines
+- `/foodfight lines` - Add your server's own food fight lines (admin/mod only)
 - `/quote` - Post a movie or TV quote; `/suggest-quote` - suggest one for the bot's status rotation
 
 ### AI Image Generation

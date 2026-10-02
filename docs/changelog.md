@@ -9,6 +9,24 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.50.0 - 2026-10-02
+
+### Added
+- **`/foodfight`**: start a food fight, after the classic BBS door game. `/foodfight throw target:@Friend food:pie` lands a cream pie, spaghetti, pea soup or nine other foods on someone, and the bot says how it went: a hit, a miss, or a throw that backfires on you. 72 built-in lines from the Three Stooges to The Exorcist; leave out `food` for whatever's on the tray. Admins add their own lines with `/foodfight lines`. See [Food Fight](/commands/social#food-fight)
+- **Potions and food fights can target a whole role, or @everyone.** Pick a member, a role or @everyone. A role or @everyone shows in the message without pinging anyone; a member is pinged as before
+- **`/potion` and `/foodfight` can be switched off** with `/eggshen-config commands toggle` (`setting:potion`, `setting:foodfight`)
+
+### Fixed
+- **`/potion responses list` showed "[object Object]"** for every built-in response instead of its text
+- **`/eggshen-config commands toggle` said "undefined has been disabled"** for games, board games, books and the watchlist. Every setting now names itself
+- `/eggshen-help` listed `/potion` under AI Image Generation; it's now under **Fun & Games** with `/foodfight`
+- The docs said potions had "78+" responses (there are 85) and that custom responses were set with `/eggshen-config` (it's `/potion responses`)
+
+### Developer
+- `src/utils/socialTarget.js`: `resolveSocialTarget` reads a Mentionable option through `options.get()` (`.user`/`.member` or `.role`; @everyone is the role whose id is the server's), and `allowedMentionsFor` sends `{ parse: [], users: [actor, member target] }`, so roles and @everyone never ping. `/potion give user:` is now a Mentionable option (same name)
+- `/foodfight` keeps its food choices in one `FOODS` array shared by every subcommand (4127 bytes; `/potion`, which repeats its 13 choices five times, is at 5980). Server lines live in `foodfightLines`, read through `getFoodfightLines`. New `commandPermissions` keys `potion` and `foodfight`, absent = on
+- `tests/foodfight.test.js` drives `/foodfight`, `/potion` and the toggle through the fake Discord, whose options now support `get()`/`getMentionable()`; it asserts the exact `allowedMentions`. **Command definitions changed: run `deploy-commands`**
+
 ## 2.49.4 - 2026-10-01
 
 ### Documentation
