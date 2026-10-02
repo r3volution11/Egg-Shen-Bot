@@ -1,6 +1,6 @@
 ---
 title: Social Commands - Egg Shen Bot
-description: Interactive social features including surveys/polls, magical potions, food fights, and status quotes for entertainment-focused Discord communities.
+description: Interactive social features including surveys/polls, magical potions, food fights, horror-movie fates, and status quotes for entertainment-focused Discord communities.
 ---
 
 # Social Commands
@@ -24,11 +24,11 @@ A: Yes! Click a different button to switch your vote. In multiple-vote mode, cli
 **Q: Are survey results stored permanently?**  
 A: Yes, all surveys are stored in JSON files per-server and persist even if the bot restarts.
 
-**Q: Can I give a potion or throw food at a whole role, or everyone?**  
+**Q: Can I give a potion, throw food, or deal a fate to a whole role, or everyone?**  
 A: Yes. Pick a member, a role, or @everyone as the target. A role or @everyone shows in the message but nobody gets a notification; only a member you pick is pinged.
 
-**Q: Can I turn off /potion or /foodfight?**  
-A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`). Admins and moderators can always use them.
+**Q: Can I turn off /potion, /foodfight or /doom?**  
+A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`, `setting:doom`). Admins and moderators can always use them.
 
 **Q: Can a survey close itself automatically?**  
 A: Yes! Set `duration:[minutes]` when creating it (`/survey create ... duration:120` for 2 hours). Without it, a survey stays open until someone runs `/survey close`.
@@ -328,6 +328,47 @@ Posted publicly. A member you hit is pinged; a role or @everyone is shown but no
 ```
 
 A line needs both `{thrower}` and `{target}`. Your lines are used alongside the 72 built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
+
+---
+
+## Doom
+
+Deal someone a horror-movie fate: a zombie bite, a monkey's paw, a cursed tape. It's horror-comedy, so things go wrong for the victim, backfire on whoever did the dooming, or occasionally end in a narrow escape. Aim it at a member, a whole role, or @everyone.
+
+### Deal a Fate
+
+```
+/doom fate target:<member, role, or @everyone> trope:[trope]
+```
+
+Leave out `trope` and fate decides.
+
+**Tropes:** 🧟 Zombie, 🐒 Monkey's Paw, 🪓 Slasher, 😈 Possession, 📼 Cursed Tape, 🪆 Haunted Doll, 🧛 Vampire, 🐺 Werewolf, 🤡 Killer Clown, 📖 Necronomicon, 🔮 Ouija Board, 🪞 Bloody Mary
+
+**Examples:**
+```
+/doom fate target:@Alice trope:zombie
+/doom fate target:@Camp Counselors trope:slasher
+/doom fate target:@everyone
+```
+
+**Sample lines:**
+- *"🧟 @Bob gets bitten, turns, and immediately eats @Alice. Somebody should have aimed for the head."*
+- *"🐒 @Alice gives @Bob a monkey's paw. @Bob wishes for a million dollars. One finger curls. A million pennies fall from the sky."*
+- *"🪓 @Bob says "I'll be right back." @Alice nods slowly. @Bob is not right back."*
+
+Posted publicly. A member you doom is pinged; a role or @everyone is shown but not pinged. Bots are already undead.
+
+### Your Own Lines (Admin/Mod)
+
+```
+/doom lines add trope:zombie line:{user} serves {target} brain casserole!
+/doom lines list trope:zombie
+/doom lines remove trope:zombie number:1
+/doom lines reset trope:zombie
+```
+
+A line needs both `{user}` and `{target}`. Your lines are used alongside the 72 built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
 
 ---
 

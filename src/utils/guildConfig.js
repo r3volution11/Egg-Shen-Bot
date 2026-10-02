@@ -59,6 +59,7 @@ const defaultConfig = {
     watchlist: true,
     potion: true,
     foodfight: true,
+    doom: true,
   },
   notifications: {
     restartAnnouncements: false, // Send announcements when bot restarts with active timers

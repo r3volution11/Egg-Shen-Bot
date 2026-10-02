@@ -211,6 +211,18 @@ describe('/eggshen-help and AI image visibility', () => {
     const fun = fieldValue(embed, '🎉 Fun & Games');
     expect(fun).toContain('/potion');
     expect(fun).toContain('/foodfight');
+    expect(fun).toContain('/doom');
+  });
+
+  test('switching /doom off hides it from members', async () => {
+    const config = await loadGuildConfig(GUILD_ID);
+    config.commandPermissions = { ...config.commandPermissions, doom: false };
+    await saveGuildConfig(GUILD_ID, config);
+
+    const embed = await runHelpAndGetEmbed(makeInteraction({ isAdmin: false }));
+    const fun = fieldValue(embed, '🎉 Fun & Games');
+    expect(fun).toContain('/foodfight');
+    expect(fun).not.toContain('/doom');
   });
 
   test('switching /foodfight off hides it from members', async () => {

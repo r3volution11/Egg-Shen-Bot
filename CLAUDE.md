@@ -156,8 +156,11 @@ Other hard-won Discord behavior:
   already looking at the channel. If something must be noticed, send a *new*
   message.
 - **Mentions inside an embed never ping.** Only message `content` does.
-- **Subcommands render in registration order** and cannot be reordered per
-  invocation. Order them by what you want people to reach for first.
+- **Don't count on subcommand order.** `/foodfight` registered `throw`
+  first and Discord still listed its four `lines …` admin entries ahead of
+  it: the picker sorts a command's subcommands (group ones included)
+  alphabetically. Name the one people reach for first so it sorts first —
+  `/doom fate` sorts ahead of `/doom lines`.
 - **A public message's buttons are clickable by everyone.** A command's
   permission check does *not* protect the buttons it posts — gate the handler.
   See `ensureTournamentManager` in `src/handlers/buttonHandler.js`.

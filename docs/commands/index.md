@@ -477,7 +477,7 @@ Display comprehensive bot help with complete command list — tailored to what's
 - Random & Discovery: random with filters
 - Tournaments & Polls: bracket, survey
 - AI Image Generation: image
-- Fun & Games: potion, foodfight
+- Fun & Games: potion, foodfight, doom
 - Watch Party Tools: timer, watchparty, stats
 - Admin commands shown conditionally for moderators
 - Links to full documentation at eggshenbot.com
@@ -635,6 +635,25 @@ See [Social Commands › Food Fight](./social#food-fight).
 
 ---
 
+### `/doom`
+Deal someone, a whole role, or @everyone a horror-movie fate: horror-comedy that dooms the target, backfires on you, or ends in a narrow escape.
+
+**Options (`fate`):**
+- `target` (required) - A member, a role, or @everyone. A role or @everyone is shown but not pinged
+- `trope` (optional) - Zombie, monkey's paw, slasher, possession, cursed tape, haunted doll, vampire, werewolf, killer clown, Necronomicon, Ouija board or Bloody Mary. Leave it out and fate decides
+
+**Admin/Mod:** `/doom lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{user}` and `{target}`.
+
+**Examples:**
+```
+/doom fate target:@Friend trope:monkey-paw
+/doom fate target:@everyone
+```
+
+See [Social Commands › Doom](./social#doom).
+
+---
+
 ### `/stats`
 View server statistics (Admin/Moderator only).
 
@@ -712,7 +731,7 @@ Display help information and available commands.
 | **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
 | **Watch Parties** | `/timer`, `/watched` |
 | **Discovery** | `/random`, `/similar`, `/soundtrack` |
-| **Fun & Social** | `/survey`, `/potion`, `/foodfight` |
+| **Fun & Social** | `/survey`, `/potion`, `/foodfight`, `/doom` |
 | **Statistics** | `/stats` |
 | **Configuration** | `/eggshen-config`, `/eggshen-config-watch-party`, `/eggshen-config-ai`, `/eggshen-config-moderation`, `/eggshen-config-events` |
 | **Help** | `/eggshen-help` |

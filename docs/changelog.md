@@ -9,6 +9,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.51.0 - 2026-10-02
+
+### Added
+- **`/doom`**: deal someone a horror-movie fate. `/doom fate target:@Friend trope:zombie` picks from 12 tropes — zombie, monkey's paw, slasher, possession, cursed tape, haunted doll, vampire, werewolf, killer clown, Necronomicon, Ouija board, Bloody Mary — and the bot says how it went: the victim gets theirs, the plan backfires, or someone narrowly escapes. 72 built-in horror-comedy lines from Evil Dead to The Ring; leave out `trope` and fate decides. Like `/foodfight`, it can target a member, a whole role or @everyone (roles and @everyone are shown, never pinged), admins add their own lines with `/doom lines`, and it can be switched off with `/eggshen-config commands toggle setting:doom`. See [Doom](/commands/social#doom)
+
+### Developer
+- `src/commands/doom.js` is built like `foodfight.js` (one `TROPES` list for every option, `doomLines` in the server config via `getDoomLines`, `src/utils/socialTarget.js` for targets) and is 4320 bytes. Its main subcommand is `fate` because Discord lists subcommands alphabetically — `/foodfight`'s `lines` entries show before `throw` — and a test guards that `fate` sorts first. CLAUDE.md's note that subcommands render in registration order is corrected
+- `tests/doom.test.js` drives `/doom` and the toggle through the fake Discord and asserts the exact `allowedMentions`. **New command: run `deploy-commands`**
+
 ## 2.50.1 - 2026-10-02
 
 ### Changed

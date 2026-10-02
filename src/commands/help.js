@@ -23,6 +23,7 @@ export async function execute(interaction) {
     suggestQuoteAllowed,
     potionAllowed,
     foodfightAllowed,
+    doomAllowed,
     guildConfig,
   ] = await Promise.all([
     canUseCommand(interaction.guildId, interaction.member, 'movie'),
@@ -38,6 +39,7 @@ export async function execute(interaction) {
     canUseCommand(interaction.guildId, interaction.member, 'suggestQuote'),
     canUseCommand(interaction.guildId, interaction.member, 'potion'),
     canUseCommand(interaction.guildId, interaction.member, 'foodfight'),
+    canUseCommand(interaction.guildId, interaction.member, 'doom'),
     loadGuildConfig(interaction.guildId),
   ]);
 
@@ -114,6 +116,7 @@ export async function execute(interaction) {
   const funAndGames = buildCategory([
     { enabled: potionAllowed, line: '**🧪 /potion** - Give someone, a role or @everyone a mystical potion' },
     { enabled: foodfightAllowed, line: '**🥧 /foodfight** - Throw food at someone, a role or @everyone' },
+    { enabled: doomAllowed, line: '**🪓 /doom** - Deal someone, a role or @everyone a horror-movie fate' },
   ]);
   if (funAndGames) {
     embed.addFields({ name: '🎉 Fun & Games', value: funAndGames, inline: false });

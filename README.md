@@ -39,7 +39,7 @@ Coordinate viewing events with built-in timers, watch history tracking, and serv
 Let your community submit watch party requests through a web form with Discord OAuth. Moderators approve or deny requests, and approved events are automatically created as Discord Scheduled Events. **[→ Event Request Setup](https://r3volution11.github.io/Egg-Shen-Bot/features/event-requests)**
 
 ### �🎮 Social & Fun
-Interactive polls, AI image generation, magic potions, food fights, and soundtrack search to engage your community. **[→ Social Commands](https://r3volution11.github.io/Egg-Shen-Bot/commands/social)** | **[→ AI Images](https://r3volution11.github.io/Egg-Shen-Bot/commands/ai-images)**
+Interactive polls, AI image generation, magic potions, food fights, horror-movie fates, and soundtrack search to engage your community. **[→ Social Commands](https://r3volution11.github.io/Egg-Shen-Bot/commands/social)** | **[→ AI Images](https://r3volution11.github.io/Egg-Shen-Bot/commands/ai-images)**
 
 ### 📺 Streaming & Links
 See where to stream, rent, or buy with TMDB + Watchmode integration. Direct links to IMDb, Letterboxd, Trakt, and more.
@@ -64,7 +64,7 @@ Customize permissions, toggle rating services, set region preferences, and confi
 - **[Search Commands](https://r3volution11.github.io/Egg-Shen-Bot/commands/search)** - `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`, `/random`, `/similar`
 - **[Tournament Brackets](https://r3volution11.github.io/Egg-Shen-Bot/commands/brackets/)** - Complete bracket system guide with setup, knockout, and tips
 - **[Watch Party](https://r3volution11.github.io/Egg-Shen-Bot/commands/watch-party)** - `/timer`, `/watched`, `/announce`
-- **[Social Commands](https://r3volution11.github.io/Egg-Shen-Bot/commands/social)** - `/potion`, `/foodfight`, `/survey`, `/soundtrack`
+- **[Social Commands](https://r3volution11.github.io/Egg-Shen-Bot/commands/social)** - `/potion`, `/foodfight`, `/doom`, `/survey`, `/soundtrack`
 - **[AI Images](https://r3volution11.github.io/Egg-Shen-Bot/commands/ai-images)** - `/image`
 - **[Configuration](https://r3volution11.github.io/Egg-Shen-Bot/commands/configuration)** - `/eggshen-config`
 - **[Moderation](https://r3volution11.github.io/Egg-Shen-Bot/commands/moderation)** - `/eggshen-restart`, `/eggshen-stats`

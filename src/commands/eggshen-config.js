@@ -205,7 +205,8 @@ export const data = new SlashCommandBuilder()
                 { name: 'Bracket Command', value: 'bracket' },
                 { name: 'Watchlist Command', value: 'watchlist' },
                 { name: 'Potion Command', value: 'potion' },
-                { name: 'Food Fight Command', value: 'foodfight' }
+                { name: 'Food Fight Command', value: 'foodfight' },
+                { name: 'Doom Command', value: 'doom' }
               )
           )
           .addBooleanOption(option =>
@@ -552,6 +553,7 @@ export async function execute(interaction) {
         watchlist: '/watchlist command',
         potion: '/potion command',
         foodfight: '/foodfight command',
+        doom: '/doom command',
       }[setting] || setting;
 
       const statusText = enabled ? 'enabled' : 'disabled';
