@@ -612,3 +612,81 @@ describe('tournaments started before 2.47.0', () => {
     expect(list.find(e => e.title === 'Alien')?.type).toBe('movie');
   });
 });
+
+describe('each voter sees their own avatar on their ballot', () => {
+  const avatarOf = (ballot) => ballot.embeds[0].toJSON().thumbnail?.url;
+
+  test('knockout ballots, when opened and after each vote; group ballots too', async () => {
+    const sim = new Sim('sim-avatars', { voters: 2 });
+    // voter3 has a server avatar, which wins over their account one
+    sim.discord.addUser('voter3', { guildAvatar: 'https://cdn.example/guild/voter3.png' });
+    sim.voters.push('voter3');
+
+    await straightBracket(sim, 'Faces', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    for (const v of sim.voters) {
+      const ballot = await sim.openBallot(v);
+      const want = v === 'voter3' ? 'https://cdn.example/guild/voter3.png' : `https://cdn.example/${v}.png`;
+      expect(avatarOf(ballot)).toBe(want);
+      const [m] = sim.openMatchups();
+      await sim.voteMatchup(v, ballot, m.id, 1); // redrawn after the vote
+      expect(avatarOf(ballot)).toBe(want);
+      const myVotes = await sim.bracket(v, 'my-votes');
+      expect(avatarOf(myVotes.reply)).toBe(want);
+    }
+
+    const groups = new Sim('sim-avatars-groups', { voters: 2 });
+    await openGroups(groups);
+    const ballot = await groups.openBallot('voter2');
+    expect(avatarOf(ballot)).toBe('https://cdn.example/voter2.png');
+    await groups.click('voter2', ballot, 'group_vote_A_0');
+    expect(avatarOf(ballot)).toBe('https://cdn.example/voter2.png');
+  });
+});
+
+describe('Live Standings follow the matchup being voted on', () => {
+  const standings = (sim) => sim.channel.posted.filter(m => /Live Standings/.test(m.embeds[0]?.toJSON().title || ''));
+
+  for (const how of ['/bracket open matchups:1', '/bracket open-matchup']) {
+    test(`one matchup at a time with ${how}: each new matchup's votes get a new card, below it`, async () => {
+      // Seen live 2026-10-02: in a round run one matchup at a time, votes on
+      // the new matchup edited the card posted for an earlier one, far up
+      // the channel. Edits don't notify or move, so voters couldn't tell
+      // their vote counted.
+      const sim = new Sim(`sim-standings-${how.includes('matchups') ? 'open' : 'open-matchup'}`);
+      await straightBracket(sim, 'Standings', 16, 'movie', HORROR_16);
+      if (how.includes('matchups')) await sim.bracket('admin', 'open', { matchups: 1, duration: '1d' });
+      else {
+        await sim.bracket('admin', 'open', { duration: '1d' }); // builds the 8-matchup round, opens none
+        await sim.bracket('admin', 'open-matchup', { matchup: '1A', duration: '1d' });
+      }
+      await sim.everyoneVotes(favorite);
+      const [first] = standings(sim);
+      expect(first).toBeTruthy();
+      const firstText = first.text;
+
+      if (how.includes('matchups')) await sim.bracket('admin', 'open', { matchups: 1, duration: '1d' });
+      else await sim.bracket('admin', 'open-matchup', { matchup: '1B', duration: '1d' });
+      const newMatchupPost = sim.votingPost();
+      await sim.everyoneVotes(favorite);
+
+      const cards = standings(sim);
+      expect(cards).toHaveLength(2);
+      const latest = cards[1];
+      // The new card comes after the new matchup's post, where voters are
+      expect(sim.channel.posted.indexOf(latest)).toBeGreaterThan(sim.channel.posted.indexOf(newMatchupPost));
+      const [current] = sim.openMatchups();
+      expect(latest.text).toContain(current.movie1.title);
+      // ...and the earlier card still shows the earlier matchup, untouched
+      expect(first.text).toBe(firstText);
+    });
+  }
+
+  test('votes on the same open matchups keep updating one card', async () => {
+    const sim = new Sim('sim-standings-same');
+    await straightBracket(sim, 'One Card', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    await sim.everyoneVotes(favorite);
+    expect(standings(sim)).toHaveLength(1);
+  });
+});

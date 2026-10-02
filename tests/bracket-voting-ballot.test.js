@@ -53,7 +53,7 @@ function slash(subcommand, { strings = {}, userId = ADMIN } = {}) {
     guildId: GUILD_ID,
     guild: { id: GUILD_ID },
     channelId: 'channel-1',
-    user: { id: userId, username: userId },
+    user: { id: userId, username: userId, displayAvatarURL: () => `https://cdn.example/${userId}.png` },
     member: member({ admin: userId === ADMIN }),
     options: {
       getSubcommand: () => subcommand,
@@ -80,7 +80,7 @@ function click(customId, userId = MEMBER) {
     channelId: 'channel-1',
     channel: { messages: { fetch: jest.fn().mockRejectedValue(new Error('no message')) }, send: jest.fn().mockResolvedValue({ id: 'm' }) },
     client: { user: { displayAvatarURL: () => null } },
-    user: { id: userId, username: userId },
+    user: { id: userId, username: userId, displayAvatarURL: () => `https://cdn.example/${userId}.png` },
     member: member({ admin: userId === ADMIN }),
     // The click comes from the voter's own (ephemeral) ballot; a vote from a
     // public post gets a new private ballot instead of an update

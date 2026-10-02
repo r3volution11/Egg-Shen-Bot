@@ -161,12 +161,14 @@ export class FakeGuild {
  * permission; a plain member holds none. Code asks with both string names
  * ('Administrator') and bigint flags (PermissionFlagsBits.Administrator).
  */
-export function fakeMember(user, { admin = false, permissions = [] } = {}) {
+export function fakeMember(user, { admin = false, permissions = [], guildAvatar = null, nickname = null } = {}) {
   const held = new Set(permissions.map(p => (typeof p === 'bigint' ? p : PermissionFlagsBits[p])));
   return {
     user,
     id: user.id,
-    displayName: user.username,
+    displayName: nickname || user.username,
+    // As GuildMember: the server avatar if set, else the account's
+    displayAvatarURL: () => guildAvatar || user.displayAvatarURL(),
     roles: { cache: new Map() },
     permissions: {
       has(flag) {
@@ -369,9 +371,9 @@ export class FakeDiscord {
     return this.ephemerals.get(userId);
   }
 
-  addUser(id, { admin = false, permissions = [] } = {}) {
+  addUser(id, { admin = false, permissions = [], guildAvatar = null, nickname = null } = {}) {
     const user = { id, username: id, displayAvatarURL: () => `https://cdn.example/${id}.png` };
-    const member = fakeMember(user, { admin, permissions });
+    const member = fakeMember(user, { admin, permissions, guildAvatar, nickname });
     this.users.set(id, { user, member });
     return user;
   }

@@ -45,6 +45,10 @@ If earlier matchups stayed open, people could keep changing their votes on match
 
 This is the only way to run a small bracket (8 titles or fewer) one matchup at a time. Plain `/bracket open` would open the whole round together.
 
+### Live standings
+
+Each matchup gets its own live standings card, posted under it with the first vote and updated as people vote. Earlier matchups' cards stay where they were, showing their final tallies.
+
 ### Time left
 
 The ballot and the live standings show a countdown that Discord keeps updated. `/bracket status` lists every open matchup and its time left, for anyone.

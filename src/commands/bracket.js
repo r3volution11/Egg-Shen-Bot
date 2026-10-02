@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuild
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, completeEntry, getTypeLabel } from '../utils/bracketTitles.js';
+import { avatarOf } from '../utils/personCard.js';
 import { parseDuration, isValidDuration, isValidTiebreakerDuration, buildExport, DEFAULT_VOTING_DURATION, DEFAULT_TIEBREAKER_DURATION } from '../utils/tournamentImport.js';
 import { signSetupToken, SETUP_LINK_TTL_MS } from '../utils/tournamentSetupLinkToken.js';
 import { loadGuildConfig, isAdmin, canUseCommand, getPublicBotUrl } from '../utils/guildConfig.js';
@@ -3296,6 +3297,7 @@ async function handleMyVotes(interaction) {
   const embed = new EmbedBuilder()
     .setColor(0x4EC5ED)
     .setTitle(`📊 Your Voting Status`)
+    .setThumbnail(avatarOf(interaction))
     .setDescription(`**${status.tournament.name}**\nPhase: ${status.tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\n`);
   
   // Group votes cast

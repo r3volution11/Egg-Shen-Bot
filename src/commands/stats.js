@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { getStats } from '../utils/statsTracker.js';
+import { avatarOf, nameOf } from '../utils/personCard.js';
 
 export const data = new SlashCommandBuilder()
   .setName('stats')
@@ -56,7 +57,9 @@ export async function execute(interaction) {
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle(`📊 Your Stats - ${filterTitles[filter]}`)
+        // Posted for the channel to see, so it says whose stats these are
+        .setTitle(`📊 ${nameOf(interaction)}'s Stats - ${filterTitles[filter]}`)
+        .setThumbnail(avatarOf(interaction))
         .setDescription(`**Total Commands Used: ${userStats.totalSearches}**`)
         .addFields(
           {

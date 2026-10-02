@@ -391,7 +391,7 @@ describe('time left is always visible', () => {
       guild: { id: GUILD_ID },
       channelId: CHANNEL_ID,
       client: { user: { displayAvatarURL: () => null } },
-      user: { id: 'member-1', username: 'member' },
+      user: { id: 'member-1', username: 'member', displayAvatarURL: () => 'https://cdn.example/member-1.png' },
       member: { permissions: { has: () => false } },
       reply: jest.fn().mockResolvedValue({ id: 'ballot' }),
       followUp: jest.fn(),

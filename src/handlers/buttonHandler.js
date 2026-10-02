@@ -11,6 +11,8 @@ import { getTimerStatus } from '../utils/timerManager.js';
 import { isAdmin, loadGuildConfig, getPublicBotUrl } from '../utils/guildConfig.js';
 import { signCropToken } from '../utils/cropLinkToken.js';
 import { closeMatchupsNow } from '../utils/tournamentScheduler.js';
+// A ballot is private, so it shows the voter's face, not the bot's
+import { avatarOf } from '../utils/personCard.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
 // For group stage: Key format: `${guildId}_${userId}_group_${groupId}`
@@ -944,7 +946,7 @@ async function handleStartGroupVoting(interaction) {
       `Your selections are shown in **purple**.\n\n` +
       `💡 Click any button to cast or change your vote!`
     )
-    .setThumbnail(interaction.client.user.displayAvatarURL())
+    .setThumbnail(avatarOf(interaction))
     .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
     .setTimestamp();
   
@@ -1247,7 +1249,7 @@ async function handleKnockoutVote(interaction) {
       statsText +
       (ballotClosesLine(currentRoundMatchups) ? `\n\n${ballotClosesLine(currentRoundMatchups)}` : '')
     )
-    .setThumbnail(interaction.client.user.displayAvatarURL())
+    .setThumbnail(avatarOf(interaction))
     .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
     .setTimestamp();
   
@@ -1291,8 +1293,16 @@ async function handleKnockoutVote(interaction) {
     return `${region}${letter}`;
   }
   
-  // Update or create public "All Votes" leaderboard
-  const leaderboardKey = `${interaction.guild.id}_knockout_${currentRound}`;
+  // Update or create public "All Votes" leaderboard. One card per set of
+  // open matchups, not per round: with a round run one matchup at a time
+  // (open matchups:1, open-matchup), votes on the new matchup edited the card
+  // posted for an earlier one, far up the channel. Edits don't notify or
+  // move, so voters couldn't tell their vote had counted. A new set of open
+  // matchups now gets a new card, under its post; the old card stays as the
+  // earlier matchup's record. (Kept in memory: after a restart the next vote
+  // posts a fresh card, which is the right place for it anyway.)
+  const openSet = currentRoundMatchups.map(m => m.id).sort().join(',');
+  const leaderboardKey = `${interaction.guild.id}_knockout_${currentRound}_${openSet}`;
   const existingLeaderboard = publicLeaderboards.get(leaderboardKey);
   const leaderboardEmbed = buildPublicKnockoutLeaderboard(tournament, currentRound, currentRoundMatchups, interaction.client);
   
@@ -1399,7 +1409,7 @@ async function handleStartKnockoutVoting(interaction) {
       statsText +
       (ballotClosesLine(votingMatchups) ? `\n\n${ballotClosesLine(votingMatchups)}` : '')
     )
-    .setThumbnail(interaction.client.user.displayAvatarURL())
+    .setThumbnail(avatarOf(interaction))
     .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
     .setTimestamp();
   

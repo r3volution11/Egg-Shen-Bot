@@ -9,6 +9,19 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.49.1 - 2026-10-01
+
+### Fixed
+- **Live Standings stopped appearing under new matchups.** In a round run one matchup at a time (`/bracket open matchups:1` or `/bracket open-matchup`), votes on the new matchup updated the card posted for an earlier one, far up the channel. Edited messages don't notify or move, so voters couldn't see that their vote counted. Each new matchup now gets its own card, under it; earlier cards stay as those matchups' final tallies. See [One Matchup at a Time](/guides/tournaments/one-at-a-time#live-standings)
+
+### Changed
+- **Your voting dashboard shows your avatar**, not the bot's: your server avatar if you've set one, otherwise your account's. Only you see your dashboard, so everyone sees their own. `/bracket my-votes` shows it too
+- **`/stats type:My Stats` names whose stats they are**: "📊 Sam's Stats", with that person's avatar. It's posted in the channel, where "Your Stats" didn't say whose
+
+### Developer
+- The public knockout leaderboard is keyed by the set of open matchups, not the round (`buttonHandler.js`). Kept in memory, so after a restart the next vote posts a fresh card
+- `src/utils/personCard.js`: `avatarOf` (member's server avatar, else the account's) and `nameOf`. Simulator scenarios cover each voter's own avatar, `my-votes`, and a new standings card per matchup through both ways of opening one at a time; `tests/stats-personal-card.test.js` covers `/stats`. The fake Discord's members now have `displayAvatarURL()` and nicknames, as discord.js members do. No command definitions changed, so no `deploy-commands`
+
 ## 2.49.0 - 2026-10-01
 
 ### Fixed
