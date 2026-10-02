@@ -18,7 +18,7 @@ import { PermissionFlagsBits } from 'discord.js';
 import { loadGuildConfig } from '../utils/guildConfig.js';
 import { config } from '../config.js';
 import * as bracketManager from '../utils/bracketManager.js';
-import { fetchEntryById, searchTitleCandidates, buildEntryFromResult, TITLE_TYPES } from '../utils/bracketTitles.js';
+import { fetchEntryById, searchTitleCandidates, buildEntryFromResult, completeEntry, TITLE_TYPES } from '../utils/bracketTitles.js';
 import {
   parseImportFile, resolveRows, saveImportedTournament, buildExport,
   MAX_ROWS, GROUP_LETTERS,
@@ -257,6 +257,9 @@ export function registerTournamentSetupRoutes(app, client) {
         entry = await fetchEntryById(type, id).catch(() => null);
         if (entry) remember(guildId, type, entry);
       }
+      // A pick from a list of search results lacks what search doesn't
+      // return (a board game's image); fill it in before it's stored
+      if (entry) entry = await completeEntry(entry);
       resolved.push({
         entry: entry || null,
         group: String(r?.group ?? '').trim().toUpperCase(),

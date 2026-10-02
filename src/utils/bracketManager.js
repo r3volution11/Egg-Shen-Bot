@@ -458,6 +458,10 @@ function propagateWinners(tournament, round) {
  * Determine starting knockout round based on total participants
  */
 function getStartingRound(participantCount) {
+  // Two titles are just a final. Starting them in the semifinals built no
+  // final after it, so a 2-title tournament closed its only matchup into a
+  // final that didn't exist and never finished.
+  if (participantCount <= 2) return 'finals';
   if (participantCount <= 4) return 'semifinals';
   if (participantCount <= 8) return 'quarterfinals';
   if (participantCount <= 16) return 'round_of_16';
@@ -1715,14 +1719,17 @@ export function generateKnockoutBracket(guildId) {
   // Seat EVERY qualifier: group winners, runners-up, and wildcards.
   // Winners are seeded first so that any byes (when the field is not a power
   // of 2) go to the strongest finishers.
+  // How each qualified goes in `qualifiedAs`. It used to overwrite `type`,
+  // which is the title's media type: a groups champion then had type
+  // 'winner', and the watchlist turned it away as an unsupported type.
   const groupResults = Object.values(tournament.groupResults);
   const winners = groupResults
     .filter(r => r.first)
-    .map(r => ({ ...r.first, type: 'winner' }));
+    .map(r => ({ ...r.first, qualifiedAs: 'winner' }));
   const runnersUp = groupResults
     .filter(r => r.second)
-    .map(r => ({ ...r.second, type: 'runnerup' }));
-  const wildcards = (tournament.wildcards || []).map(w => ({ ...w, type: 'wildcard' }));
+    .map(r => ({ ...r.second, qualifiedAs: 'runnerup' }));
+  const wildcards = (tournament.wildcards || []).map(w => ({ ...w, qualifiedAs: 'wildcard' }));
 
   const nonWinners = shuffle([...runnersUp, ...wildcards]);
   const participants = separateSameGroup([...winners, ...nonWinners]);
@@ -1820,11 +1827,11 @@ export function regenerateKnockoutBracket(guildId) {
   const groupResults = Object.values(tournament.groupResults);
   const winners = groupResults
     .filter(r => r.first)
-    .map(r => ({ ...r.first, type: 'winner' }));
+    .map(r => ({ ...r.first, qualifiedAs: 'winner' }));
   const runnersUp = groupResults
     .filter(r => r.second)
-    .map(r => ({ ...r.second, type: 'runnerup' }));
-  const wildcards = wildcardsResult.wildcards.map(w => ({ ...w, type: 'wildcard' }));
+    .map(r => ({ ...r.second, qualifiedAs: 'runnerup' }));
+  const wildcards = wildcardsResult.wildcards.map(w => ({ ...w, qualifiedAs: 'wildcard' }));
 
   const nonWinners = shuffle([...runnersUp, ...wildcards]);
   const participants = separateSameGroup([...winners, ...nonWinners]);

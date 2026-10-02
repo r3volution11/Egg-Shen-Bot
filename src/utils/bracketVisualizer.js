@@ -571,12 +571,16 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
   
   ctx.fillText(displayText, x + 10 * scale, y + height / 2);
   
-  // Type indicator (winner/runnerup/wildcard) - small label on left
-  if (movie.type) {
+  // How it qualified from the groups (winner/runner-up/wildcard) - small
+  // label on left. This read `type`, which every title has (its media type),
+  // so straight-bracket titles were all labelled "WC". Tournaments started
+  // before `qualifiedAs` existed still carry it in `type`.
+  const qualified = movie.qualifiedAs || (['winner', 'runnerup', 'wildcard'].includes(movie.type) ? movie.type : null);
+  if (qualified) {
     ctx.fillStyle = isWinner ? COLORS.background : COLORS.textMuted;
     ctx.font = `bold ${(FONT_SIZE - 2) * scale}px Arial, sans-serif`;
     ctx.textAlign = 'left';
-    const typeLabel = movie.type === 'winner' ? 'W' : movie.type === 'runnerup' ? 'R' : 'WC';
+    const typeLabel = qualified === 'winner' ? 'W' : qualified === 'runnerup' ? 'R' : 'WC';
     ctx.fillText(typeLabel, x + 5 * scale, y + 12 * scale);
   }
   

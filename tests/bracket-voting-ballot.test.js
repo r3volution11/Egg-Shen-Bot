@@ -82,7 +82,9 @@ function click(customId, userId = MEMBER) {
     client: { user: { displayAvatarURL: () => null } },
     user: { id: userId, username: userId },
     member: member({ admin: userId === ADMIN }),
-    message: { embeds: [], edit: jest.fn().mockResolvedValue(undefined) },
+    // The click comes from the voter's own (ephemeral) ballot; a vote from a
+    // public post gets a new private ballot instead of an update
+    message: { embeds: [], edit: jest.fn().mockResolvedValue(undefined), flags: { has: () => true } },
     deferUpdate: jest.fn().mockResolvedValue(undefined),
     deferReply: jest.fn().mockResolvedValue(undefined),
     reply: jest.fn().mockResolvedValue({ id: 'ballot-1' }),

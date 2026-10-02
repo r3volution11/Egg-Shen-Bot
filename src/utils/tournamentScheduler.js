@@ -553,7 +553,7 @@ async function autoCloseGroup(guild, tournament, groupId, group) {
 /**
  * Auto-close a matchup and post results
  */
-async function autoCloseMatchup(guild, tournament, matchup) {
+async function autoCloseMatchup(guild, tournament, matchup, tiebreakerDurationMs = undefined) {
   try {
     console.log(`[TournamentScheduler] Auto-closing matchup ${matchup.id} for guild ${guild.id}`);
     
@@ -566,7 +566,7 @@ async function autoCloseMatchup(guild, tournament, matchup) {
     });
     
     // Close the matchup
-    const result = bracketManager.closeKnockoutMatchup(guild.id, matchup.id);
+    const result = bracketManager.closeKnockoutMatchup(guild.id, matchup.id, tiebreakerDurationMs);
     if (!result.success) {
       console.error(`[TournamentScheduler] Failed to close matchup ${matchup.id}:`, result.error);
       logger.error(logger.LogCategory.SCHEDULER, `Failed to close matchup ${matchup.id}`, {
@@ -628,19 +628,22 @@ async function autoCloseMatchup(guild, tournament, matchup) {
  * Close knockout matchups now, exactly as their deadline would: decide the
  * winner, open (and post) a tiebreaker on a tie, advance, announce. Used when
  * an admin opens the next matchups — earlier ones still voting close then,
- * so votes on them can't keep changing.
+ * so votes on them can't keep changing — and by every manual close
+ * (/bracket close, the Close button), which used to close matchups on their
+ * own and never posted a tie's tiebreaker vote.
  * @param {import('discord.js').Guild} guild
  * @param {string[]} matchupIds - only those still voting are closed
+ * @param {{tiebreakerDurationMs?: number}} [options] - default: 1 hour
  * @returns {Promise<Array<{id, tied, winner?, votes1?, votes2?, tiebreaker?}>>}
  */
-export async function closeMatchupsNow(guild, matchupIds) {
+export async function closeMatchupsNow(guild, matchupIds, { tiebreakerDurationMs } = {}) {
   const summaries = [];
   for (const id of matchupIds) {
     const tournament = bracketManager.loadTournament(guild.id);
     const matchup = tournament?.knockoutBracket?.find(m => m.id === id);
     if (!matchup || matchup.status !== 'voting') continue;
     sentWarnings.delete(`${guild.id}_matchup_${id}`);
-    const summary = await autoCloseMatchup(guild, tournament, matchup);
+    const summary = await autoCloseMatchup(guild, tournament, matchup, tiebreakerDurationMs);
     if (summary) summaries.push(summary);
   }
   return summaries;

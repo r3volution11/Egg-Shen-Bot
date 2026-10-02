@@ -90,6 +90,16 @@ the menu, then feed **its own option value** back into the real handler. That
 shape is what caught the truncation bug; unit-testing each half in isolation
 would not have.
 
+**Tournaments have a simulator** (`tests/harness/tournamentSim.js`): whole
+tournaments through the real `/bracket` command, handlers and scheduler,
+against a fake Discord as strict as the real one (answer once, never follow
+up first, never leave a click unanswered) and real recorded API data. Its
+first run found eight bugs that ~130 piecemeal tournament tests had missed.
+Add a scenario to `tests/tournament-sim.test.js` for any tournament change,
+and run `npm run test:fuzz` (random action sequences, not in `npm test`)
+after touching the flow. New titles need recording once:
+`SIM_RECORD=1 npm test -- tests/tournament-sim.test.js`.
+
 ### Test isolation
 
 `tests/jest.setup.js` gives each worker its own scratch directory and points

@@ -1253,11 +1253,19 @@ async function handleKnockoutVote(interaction) {
   
   components.push(...buildKnockoutBallotRows(currentRoundMatchups, currentRound, userVotes));
   
-  // Update user's personal voting dashboard
-  await interaction.update({
-    embeds: [embed],
-    components: components
-  });
+  // Update user's personal voting dashboard. Matchups opened from the admin
+  // buttons are posted publicly with these same vote buttons; update() there
+  // replaced the public post, for everyone, with one voter's "Only you can
+  // see this" ballot. A vote from a public post gets its own private ballot.
+  const onPublicPost = !interaction.message?.flags?.has?.(MessageFlags.Ephemeral);
+  if (onPublicPost) {
+    await interaction.reply({ embeds: [embed], components, flags: MessageFlags.Ephemeral });
+  } else {
+    await interaction.update({
+      embeds: [embed],
+      components: components
+    });
+  }
   
   // Helper function to get regional label
   function getRegionalLabel(position, round) {
@@ -1708,60 +1716,28 @@ async function handleCloseMatchupButton(interaction) {
   
   const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
   
-  // Close this matchup
-  const result = bracketManager.closeKnockoutMatchup(interaction.guild.id, matchup.id);
-  
-  if (!result.success) {
-    await privateNote(interaction, {
-      content: `❌ Failed to close matchup: ${result.error}`,
-      flags: MessageFlags.Ephemeral
-    });
+  // Close exactly as the deadline would: closeMatchupsNow posts the result
+  // (or, on a tie, the tiebreaker vote) where the matchup was voted on, and
+  // adds a champion to the watchlist. Closing it here on its own crashed on a
+  // tie (the tie result has no tournament) and never posted the tiebreaker.
+  const [closed] = await closeMatchupsNow(interaction.guild, [matchup.id]);
+  if (!closed) {
+    await privateNote(interaction, { content: `❌ Couldn't close matchup ${regionalLabel}. Try again.` });
     return;
   }
-  
-  const updatedTournament = result.tournament;
-  const updatedMatchup = updatedTournament.knockoutBracket.find(m => m.id === matchup.id);
-  
-  const votes1 = updatedMatchup.votes.movie1.length;
-  const votes2 = updatedMatchup.votes.movie2.length;
-  const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  
-  // Post result to channel
-  const embed = new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle(`🏁 ${roundName} - Matchup ${regionalLabel} Complete!`)
-    .setDescription(
-      `**${updatedMatchup.winner.title}** wins!\n\n` +
-      `**${updatedMatchup.movie1.title}** (${votes1} votes) vs **${updatedMatchup.movie2.title}** (${votes2} votes)`
-    );
-  
-  if (result.autoAdvanced) {
-    embed.addFields({
-      name: '✅ Auto-Advanced',
-      value: `${updatedMatchup.winner.title} has been placed in the next round matchup.`
-    });
+  if (closed.tied) {
+    await privateNote(interaction, { content: `⚖️ Matchup ${regionalLabel} tied — a tiebreaker vote has been posted.` });
+    return;
   }
-  
-  // Check if all matchups in round are closed
-  const reloadedTournament = bracketManager.loadTournament(interaction.guild.id);
-  const roundMatchups = reloadedTournament.knockoutBracket.filter(m => m.round === tournament.phase);
-  const allClosed = roundMatchups.every(m => m.status === 'closed');
-  
-  if (allClosed) {
-    if (reloadedTournament.phase !== tournament.phase) {
-      const nextRoundName = reloadedTournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      embed.setFooter({ text: `All matchups complete! Tournament has advanced to ${nextRoundName}.` });
-    } else if (reloadedTournament.status === 'completed') {
-      embed.setFooter({ text: '🏆 Tournament complete! Check /bracket status for champion.' });
-    }
-  }
-  
-  await interaction.channel.send({ embeds: [embed] });
-  
-  // Send confirmation to button clicker
+
+  const after = bracketManager.loadTournament(interaction.guild.id);
+  const next = after.status === 'completed'
+    ? `\n🏆 That was the final: **${closed.winner.title}** is champion!`
+    : after.phase !== tournament.phase
+      ? `\nAll matchups complete — on to the ${after.phase.replace(/_/g, ' ')}.`
+      : '';
   await privateNote(interaction, {
-    content: `✅ Closed matchup ${regionalLabel}!`,
-    flags: MessageFlags.Ephemeral
+    content: `✅ Closed matchup ${regionalLabel}: **${closed.winner.title}** wins ${Math.max(closed.votes1, closed.votes2)}–${Math.min(closed.votes1, closed.votes2)}.${next}`,
   });
 }
 

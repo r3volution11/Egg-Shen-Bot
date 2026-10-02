@@ -35,7 +35,11 @@ export async function addChampionToWatchlist(guildId, tournament) {
     }
 
     // The watchlist is TMDb-backed; other tournament types have no entry there.
-    if (champion.type !== 'movie' && champion.type !== 'tv') {
+    // A groups champion from a tournament started before 2.47.0 has its
+    // media type overwritten with how it qualified ('winner'); the
+    // tournament's own type says what it is.
+    const type = ['movie', 'tv'].includes(champion.type) ? champion.type : tournament.type;
+    if (type !== 'movie' && type !== 'tv') {
       return { added: false, reason: 'unsupported type' };
     }
     if (!champion.id && !champion.tmdbId) {
@@ -46,7 +50,7 @@ export async function addChampionToWatchlist(guildId, tournament) {
       guildId,
       {
         tmdbId: champion.tmdbId || champion.id,
-        type: champion.type,
+        type,
         title: champion.title,
         year: champion.year || null,
         posterUrl: champion.customImageUrl || champion.posterUrl || null,

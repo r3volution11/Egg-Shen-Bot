@@ -62,9 +62,12 @@ function makeInteraction(customId, { admin = false, mod = false } = {}) {
   };
 }
 
-/** Did the handler refuse with the admin/mod message? */
+/**
+ * Did the handler refuse with the admin/mod message? These buttons now
+ * answer the click first (deferReply), so the first message is an editReply.
+ */
 function wasRefused(interaction) {
-  return interaction.followUp.mock.calls.some(c =>
+  return [...interaction.editReply.mock.calls, ...interaction.followUp.mock.calls].some(c =>
     typeof c[0]?.content === 'string' &&
     c[0].content.includes('Only administrators and moderators')
   );
@@ -97,7 +100,7 @@ describe('voting buttons are open to everyone', () => {
 
     await handleButtonInteraction(interaction);
 
-    const said = [...interaction.reply.mock.calls, ...interaction.followUp.mock.calls].map(c => c[0]?.content || '').join('\n');
+    const said = [...interaction.reply.mock.calls, ...interaction.editReply.mock.calls, ...interaction.followUp.mock.calls].map(c => c[0]?.content || '').join('\n');
     expect(said).not.toContain('Only administrators and moderators');
   });
 });

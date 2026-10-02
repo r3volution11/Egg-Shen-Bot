@@ -70,7 +70,9 @@ function decide(matchupId) {
 }
 
 const load = (id) => bracketManager.loadTournament(GUILD_ID).knockoutBracket.find(m => m.id === id);
-const followUpText = (i) => i.followUp.mock.calls.map(c => c[0]?.content || '').join('\n');
+// What the button told the admin privately: it answers the click first
+// (deferReply), so its first message is an editReply, the rest followUps
+const followUpText = (i) => [...i.editReply.mock.calls, ...i.followUp.mock.calls].map(c => c[0]?.content || '').join('\n');
 
 describe('open_region_ button', () => {
   test('opens only the region\'s fresh matchups, leaving a decided one decided', async () => {

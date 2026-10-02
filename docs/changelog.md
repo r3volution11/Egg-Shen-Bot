@@ -9,6 +9,24 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.49.0 - 2026-10-01
+
+### Fixed
+Found by a new simulator that runs whole tournaments through the bot (see Developer).
+- **A 2-title tournament could never finish.** Its only matchup started as a "semifinal" with no final after it, so closing it never crowned a champion. Two titles are now simply a final
+- **Ties closed with `/bracket close` never got a tiebreaker vote**, so the matchup sat waiting with nothing to vote on, and a group-stage tie closed that way answered "An error occurred". A tie closed with the **Close** button crashed. Every way of closing now posts the tiebreaker vote and the results, exactly as the deadline does. `/bracket close`'s `tiebreaker-duration` is now respected for knockout ties
+- **The admin buttons from `/bracket open-matchup` and `/bracket close-matchup`** (open a matchup, open a region, close a matchup) answered every press with "An error occurred", and a member pressing one got that instead of "admins only". They now answer properly. (This fix went out with 2.47.0's code; it's listed here)
+- **Voting on a matchup posted from those buttons replaced the public post, for everyone, with that voter's private ballot.** A vote there now opens the voter's own ballot and leaves the post alone
+- **A groups tournament's champion never reached the watchlist** with `/eggshen-config-watch-party watchlist settings auto-add-champion:true`. How a title qualified (group winner, runner-up, wildcard) overwrote what it was (a movie). Tournaments already under way are fixed too
+- **Board games and books had no year, cover or authors** on the setup form, and when `/bracket manage-titles` found exactly one match. Board game and book pick-lists showed no years either, so "Catan" listed dozens of editions with nothing to tell them apart
+- **The bracket image labelled every title "WC" (wildcard) in a straight bracket.** Only titles that qualified from groups carry a W, R or WC label now
+
+### Developer
+- **Tournament simulator** (`tests/harness/`): the real `/bracket` command, button and select handlers and scheduler, against a fake Discord as strict as discord.js (answer once, no followUp before an answer, no click left unanswered), with real TMDB/RAWG/BGG/Google Books responses recorded once (`tests/fixtures/tournament-http.json`, keys stripped; `SIM_RECORD=1` to add titles). It checks after every action that stored votes agree, no ballot needs more than 5 matchups, no public message shows a private ballot, and nothing answers "An error occurred". `tests/tournament-sim.test.js`: 25 scenarios covering bracket and groups, 2–32 titles, commands and the setup form, every title type, every way of opening and closing, ties, deadlines, extensions, seeding and a bot restart. `SIM_REPORT=<dir>` writes what each scenario posted as HTML
+- **`npm run test:fuzz`**: seeded random tournaments (stale ballots, admin commands mid-vote, time passing, buttons pressed out of turn), every invariant checked after each action, then finished. Not part of `npm test`. 400 runs of 150 actions came back clean after these fixes
+- Manual closes go through `tournamentScheduler.closeMatchupsNow`, which takes `{ tiebreakerDurationMs }`. Knockout entries keep their media `type` and record `qualifiedAs`; `addChampionToWatchlist` falls back to the tournament's type for older data. `completeEntry` (`bracketTitles.js`) fetches a board game's details for its image once one is settled on. `getStartingRound(2)` is `'finals'`
+- The fakes in `bracket-open-buttons`, `bracket-button-permissions` and `bracket-voting-ballot` tests now read the admin's reply from `editReply` and mark ballots ephemeral. No command definitions changed, so no `deploy-commands`
+
 ## 2.48.0 - 2026-10-01
 
 ### Added

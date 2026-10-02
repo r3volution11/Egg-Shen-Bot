@@ -14,7 +14,7 @@
  */
 
 import * as bracketManager from './bracketManager.js';
-import { TITLE_TYPES, searchTitleCandidates, buildEntryFromResult, fetchEntryById, getTypeLabel } from './bracketTitles.js';
+import { TITLE_TYPES, searchTitleCandidates, buildEntryFromResult, completeEntry, fetchEntryById, getTypeLabel } from './bracketTitles.js';
 import { stripTrailingYear } from './episodeRangeParser.js';
 
 export const IMPORT_FORMAT = 'eggshen-tournament';
@@ -410,11 +410,12 @@ export async function resolveRow(type, row) {
   if (!results.length) return { status: 'none' };
 
   const candidates = results.slice(0, MAX_CANDIDATES).map(r => buildEntryFromResult(r, type));
-  if (candidates.length === 1) return { status: 'matched', entry: candidates[0] };
+  // A settled match gets what search lacks (a board game's image)
+  if (candidates.length === 1) return { status: 'matched', entry: await completeEntry(candidates[0]) };
 
   if (row.year) {
     const sameYear = candidates.filter(c => String(c.year) === row.year);
-    if (sameYear.length === 1) return { status: 'matched', entry: sameYear[0] };
+    if (sameYear.length === 1) return { status: 'matched', entry: await completeEntry(sameYear[0]) };
     if (sameYear.length > 1) {
       return { status: 'choose', candidates: [...sameYear, ...candidates.filter(c => String(c.year) !== row.year)] };
     }

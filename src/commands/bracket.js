@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
-import { searchTitleCandidates, buildEntryFromResult, getTypeLabel } from '../utils/bracketTitles.js';
+import { searchTitleCandidates, buildEntryFromResult, completeEntry, getTypeLabel } from '../utils/bracketTitles.js';
 import { parseDuration, isValidDuration, isValidTiebreakerDuration, buildExport, DEFAULT_VOTING_DURATION, DEFAULT_TIEBREAKER_DURATION } from '../utils/tournamentImport.js';
 import { signSetupToken, SETUP_LINK_TTL_MS } from '../utils/tournamentSetupLinkToken.js';
 import { loadGuildConfig, isAdmin, canUseCommand, getPublicBotUrl } from '../utils/guildConfig.js';
@@ -1060,7 +1060,7 @@ async function handleAddTitle(interaction) {
   
   // If only one result, add it directly
   if (results.length === 1) {
-    const entry = buildEntryFromResult(results[0], type);
+    const entry = await completeEntry(buildEntryFromResult(results[0], type));
     
     // Apply custom image if provided
     if (customImage) {
@@ -1097,15 +1097,14 @@ async function handleAddTitle(interaction) {
   // Create selection menu with bracket context
   const options = limitedResults.map((result) => {
     const displayTitle = result.title || result.name || result.Name || result.volumeInfo?.title;
-    let year = null;
-    if (result.release_date) year = result.release_date.split('-')[0];
-    else if (result.first_air_date) year = result.first_air_date.split('-')[0];
-    else if (result.released) year = result.released.split('-')[0];
-    else if (result.YearPublished) year = result.YearPublished;
-    else if (result.volumeInfo?.publishedDate) year = result.volumeInfo.publishedDate.split('-')[0];
+    // The year as buildEntryFromResult reads it. This read raw-API names
+    // (`YearPublished`, `volumeInfo.publishedDate`) the services don't
+    // return, so board game and book lists showed no years — and "Catan"
+    // lists dozens of editions and spin-offs.
+    const year = buildEntryFromResult(result, type).year;
     
     const yearStr = year ? ` (${year})` : '';
-    const overview = result.overview || result.volumeInfo?.description || 'No description';
+    const overview = result.overview || result.description || 'No description';
     const truncatedOverview = overview.length > 97 ? overview.substring(0, 97) + '...' : overview;
     
     return {
@@ -2198,8 +2197,11 @@ async function handleSmartClose(interaction) {
       .setDescription(`Closed groups: ${votingGroups.join(', ')}`);
     
     if (result.tiebreakersCreated && result.tiebreakersCreated.length > 0) {
+      // Each entry is { groupId, position, tiebreaker }: reading tb.tiedOptions
+      // threw after the groups had closed, so the admin saw an error and no
+      // tiebreaker vote was ever posted
       const tiebreakerText = result.tiebreakersCreated
-        .map(tb => `• Group ${tb.groupId} ${tb.position} place: ${tb.tiedOptions.map(o => o.title).join(' vs ')}`)
+        .map(tb => `• Group ${tb.groupId} ${tb.position} place: ${tb.tiebreaker.tiedOptions.map(o => o.title).join(' vs ')}`)
         .join('\n');
       embed.addFields({
         name: '⚖️ Tiebreakers Created',
@@ -2209,6 +2211,12 @@ async function handleSmartClose(interaction) {
     }
     
     await interaction.editReply({ embeds: [embed] });
+
+    // Post each tiebreaker's vote, as /bracket close-groups does
+    for (const { tiebreaker } of result.tiebreakersCreated || []) {
+      const msg = await interaction.followUp({ embeds: [buildTiebreakerVotingEmbed(tiebreaker)], components: buildTiebreakerButtons(tiebreaker) });
+      bracketManager.storeTiebreakerMessage(interaction.guildId, tiebreaker.id, interaction.channelId, msg.id);
+    }
     
   } else if (tournament.status === 'knockout') {
     // Close all voting matchups in current round
@@ -2221,24 +2229,18 @@ async function handleSmartClose(interaction) {
       return;
     }
     
-    const results = [];
-    const tiebreakersCreated = [];
-    
-    for (const matchup of votingMatchups) {
-      const result = bracketManager.closeKnockoutMatchup(interaction.guildId, matchup.id, tiebreakerDurationMs);
-      if (result.success) {
-        if (result.tiebreakerCreated && result.tiebreaker) {
-          tiebreakersCreated.push(result.tiebreaker);
-        } else {
-          results.push({
-            matchup,
-            winner: result.winner,
-            votes1: matchup.votes.movie1.length,
-            votes2: matchup.votes.movie2.length
-          });
-        }
-      }
-    }
+    // Close exactly as the deadline would. Closing each matchup here on its
+    // own posted no tiebreaker vote for a tie, so it sat waiting forever,
+    // and skipped the results post and the champion's watchlist entry.
+    const guild = interaction.guild || { id: interaction.guildId, channels: { fetch: async () => null } };
+    const closed = await closeMatchupsNow(guild, votingMatchups.map(m => m.id), { tiebreakerDurationMs });
+    const results = closed.filter(c => !c.tied).map(c => ({
+      matchup: votingMatchups.find(m => m.id === c.id),
+      winner: c.winner,
+      votes1: c.votes1,
+      votes2: c.votes2,
+    }));
+    const tiebreakersCreated = closed.filter(c => c.tied).map(c => c.tiebreaker);
     
     const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     const embed = new EmbedBuilder()

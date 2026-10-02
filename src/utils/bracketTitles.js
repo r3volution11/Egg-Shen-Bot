@@ -44,10 +44,13 @@ export async function searchTitleCandidates(type, query) {
 }
 
 /**
- * Build a tournament entry from a *search* result. Search and details
- * responses differ in shape for board games and books (e.g. BGG search has
- * `YearPublished`, details has `yearPublished`), hence the separate
- * `fetchEntryById` below.
+ * Build a tournament entry from a *search* result, as each service's search
+ * function returns it. This read raw-API field names (`YearPublished`,
+ * `volumeInfo.publishedDate`) for board games and books, but the services
+ * return their own flat shapes (`yearPublished`; `publishedDate`,
+ * `thumbnail`), so those entries had no year, cover or authors — on the
+ * setup form, and when /bracket manage-titles found exactly one match.
+ * BGG's search has no image at all: see completeEntry.
  */
 export function buildEntryFromResult(result, type) {
   const entry = {
@@ -72,13 +75,13 @@ export function buildEntryFromResult(result, type) {
     entry.posterUrl = result.background_image;
     entry.metadata = { rating: result.rating, platforms: result.platforms?.map(p => p.platform.name) };
   } else if (type === 'boardgame') {
-    entry.year = result.YearPublished;
-    entry.posterUrl = result.thumbnail;
-    entry.metadata = { minPlayers: result.MinPlayers, maxPlayers: result.MaxPlayers };
+    entry.year = result.yearPublished ?? null;
+    entry.posterUrl = result.thumbnail ?? null; // not in search results; completeEntry
+    entry.metadata = { minPlayers: result.minPlayers, maxPlayers: result.maxPlayers };
   } else if (type === 'book') {
-    entry.year = result.volumeInfo?.publishedDate?.split('-')[0];
-    entry.posterUrl = result.volumeInfo?.imageLinks?.thumbnail;
-    entry.metadata = { authors: result.volumeInfo?.authors, pageCount: result.volumeInfo?.pageCount };
+    entry.year = result.publishedDate?.split('-')[0] ?? null;
+    entry.posterUrl = result.thumbnail ?? null;
+    entry.metadata = { authors: result.authors, pageCount: result.pageCount };
   }
 
   return entry;
@@ -141,6 +144,25 @@ export async function fetchEntryById(type, id) {
     };
   }
   return null;
+}
+
+/**
+ * Fill in what a search result lacks, once a title is settled on. BGG's
+ * search returns no image, so a board game added from a search had none;
+ * its details lookup has it. Other types come back complete from search.
+ * Never fails: on any lookup error the entry is kept as it was.
+ * @param {Object} entry - from buildEntryFromResult
+ * @returns {Promise<Object>}
+ */
+export async function completeEntry(entry) {
+  if (!entry || entry.posterUrl || entry.type !== 'boardgame' || !entry.id) return entry;
+  try {
+    const details = await fetchEntryById(entry.type, entry.id);
+    return details ? { ...entry, ...details, customImageUrl: entry.customImageUrl } : entry;
+  } catch (error) {
+    console.error(`[BracketTitles] Couldn't complete ${entry.type} ${entry.id}:`, error.message);
+    return entry;
+  }
 }
 
 export function getTypeLabel(type) {

@@ -1,6 +1,6 @@
 {
   "name": "egg-shen-bot",
-  "version": "2.48.0",
+  "version": "2.49.0",
   "description": "Egg Shen - Discord bot for searching movies, TV shows, games, and board games with ratings from multiple services",
   "main": "src/index.js",
   "type": "module",
@@ -24,7 +24,8 @@
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "test:simulate": "node tests/simulate-tournament.js",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "test:fuzz": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testMatch '**/tests/fuzz/*.fuzz.js'"
   },
   "keywords": [
     "discord",
