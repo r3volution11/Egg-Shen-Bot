@@ -9,6 +9,13 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.49.3 - 2026-10-01
+
+### Documentation
+- **The [home page](/) covers everything the bot does now.** New: the server watchlist and `/recommend`, `/eggshen-ask`, status quotes, the tournament quick guides and setup form, one-matchup-at-a-time tournaments with live standings, and announcing approved event requests to members. The feature cards were rewritten so the strongest lead, and each links to its guide
+- **The home page's tournament example was wrong for its own size.** It created 16 titles and said `/bracket open` "opens round one", but a 16-title first round is 8 matchups, more than a ballot holds, so the bot asks to open it in parts. The example now uses 8 titles and explains opening in parts
+- **Feature card links showed as raw text**, brackets and all, instead of as links. Cards now use proper links
+
 ## 2.49.2 - 2026-10-01
 
 ### Fixed
