@@ -26,22 +26,31 @@
                 <img id="crop-target" alt="Event image to crop">
             </div>
 
+            <button type="button" id="save-btn" class="btn btn-success w-100 py-2 mb-4">Save Cropped Image</button>
+        </div>
+
+        <div id="empty-state" class="text-center text-secondary py-3" style="display:none;">
+            <p id="empty-state-text">This request doesn't have an image yet. Add one below.</p>
+        </div>
+
+        <!-- Same two ways in as the request form: a file, or a link fetched
+             by the bot. Either loads into the cropper above. -->
+        <div id="source-section" style="display:none;">
             <div class="mb-3">
-                <label for="replace-file" class="form-label">Or upload a different image</label>
-                <input type="file" class="form-control" id="replace-file" accept="image/png,image/jpeg,image/gif,image/webp">
+                <label for="source-file" class="form-label" id="source-file-label">Upload an image</label>
+                <input type="file" class="form-control" id="source-file" accept="image/png,image/jpeg,image/gif,image/webp">
+                <small class="form-text">PNG, JPEG, GIF, or WebP, max 8MB</small>
             </div>
-
-            <button type="button" id="save-btn" class="btn btn-success w-100 py-2">Save Cropped Image</button>
-            <div id="result-message" class="alert mt-3" style="display:none;"></div>
-        </div>
-
-        <div id="empty-state" class="text-center text-secondary py-4" style="display:none;">
-            <p>This request doesn't have an image yet.</p>
-            <div class="mb-3 mt-3 text-start">
-                <label for="upload-file" class="form-label">Upload an image to crop</label>
-                <input type="file" class="form-control" id="upload-file" accept="image/png,image/jpeg,image/gif,image/webp">
+            <div class="mb-3">
+                <label for="source-url" class="form-label">Or Image URL</label>
+                <div class="d-flex gap-2">
+                    <input type="url" class="form-control" id="source-url" placeholder="https://example.com/poster.jpg">
+                    <button type="button" id="fetch-url-btn" class="btn btn-secondary text-nowrap">Fetch &amp; Crop</button>
+                </div>
             </div>
         </div>
+
+        <div id="result-message" class="alert mt-3" style="display:none;"></div>
     </div>
 
     <script src="/shared-assets/bootstrap.min.js"></script>

@@ -57,7 +57,7 @@ This shows your configured Form URL and reminds you to set `GUILD_ID` in `public
 
 ## Moderator Image Cropping
 
-Submitters can attach a cover image to their event request (upload or a pasted URL), with an in-browser crop step so most images look right by default. Moderators can also crop or replace the image directly from a "Crop Image" link button on the request in Discord — no need to leave Discord and no login required, since the link is signed and tied to that one request.
+Submitters can attach a cover image to their event request (upload or a pasted URL), with an in-browser crop step so most images look right by default. Moderators can also crop or replace the image (upload a file or paste a URL) from a "Crop Image" button on the request in Discord. Clicking it gives that moderator a private, signed link tied to that one request, so no login is required.
 
 This link is generated using the server's `/eggshen-config-website bot-url` if set, otherwise `PUBLIC_BOT_URL` (the bot API's own externally-reachable base URL — **not** the same as `FORM_URL`, which is where the separately-hosted form lives) and signed with `EVENT_CROP_LINK_SECRET`:
 
@@ -73,7 +73,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Keep it independent from `DISCORD_CLIENT_SECRET`/`DISCORD_TOKEN` so it can be rotated on its own. If `EVENT_CROP_LINK_SECRET` or `PUBLIC_BOT_URL` isn't set, the "Crop Image" button is simply omitted from moderation-channel messages — everything else about the event request system works normally.
 
-Each crop link is single-use (one successful save) and expires after 30 minutes; a moderator can always generate a fresh one by reopening the request's Edit modal.
+Each crop link is single-use (one successful save) and expires after 30 minutes. It's signed when the moderator clicks **Crop Image**, not when the request arrives, so clicking the button again always gives a fresh one.
 
 ## Local Testing
 

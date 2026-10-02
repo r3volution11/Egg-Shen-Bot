@@ -255,13 +255,17 @@ describe('Event Request System', () => {
       expect(sentEmbed.data.thumbnail.url).toBe('https://example.com/poster.png');
     });
 
-    test('the Crop Image link uses this server\'s own bot URL, not PUBLIC_BOT_URL', async () => {
+    // The button used to be a link signed once at submission: it expired
+    // after 30 minutes and nothing renewed it, so most requests had no
+    // working way to crop. Now each click signs a fresh link.
+    test('Crop Image signs a fresh link on click, on this server\'s own bot URL, even hours after submission', async () => {
       // One bot serves a test server and a live one on different domains;
       // each server's links must go to its own domain.
       const originalUrl = process.env.PUBLIC_BOT_URL;
       const originalSecret = process.env.EVENT_CROP_LINK_SECRET;
       process.env.PUBLIC_BOT_URL = 'https://live.example';
       process.env.EVENT_CROP_LINK_SECRET = 'test-crop-secret';
+      const realNow = Date.now;
       try {
         const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
         await saveGuildConfig('900000000000000099', {
@@ -284,12 +288,54 @@ describe('Event Request System', () => {
 
         expect(response.status).toBe(200);
         const rows = mockChannel.send.mock.calls[0][0].components.map(r => r.toJSON());
-        const cropUrl = rows.flatMap(r => r.components).find(c => c.label === 'Crop Image')?.url;
-        expect(cropUrl).toMatch(/^https:\/\/dev\.example\/crop\//);
+        const cropButton = rows.flatMap(r => r.components).find(c => c.label === 'Crop Image');
+        expect(cropButton.url).toBeUndefined();
+        const requestId = cropButton.custom_id.replace('crop_event_', '');
+
+        // Two hours later — four times the link's lifetime.
+        Date.now = () => realNow() + 2 * 60 * 60 * 1000;
+
+        const { handleButtonInteraction } = await import('../src/handlers/buttonHandler.js');
+        const interaction = {
+          customId: cropButton.custom_id,
+          guildId: '900000000000000099',
+          guild: { id: '900000000000000099', name: 'Test Server' },
+          member: { permissions: { has: () => true } },
+          user: { id: 'mod-1', tag: 'Mod#0001' },
+          reply: jest.fn(),
+        };
+        await handleButtonInteraction(interaction);
+
+        const reply = interaction.reply.mock.calls[0][0];
+        expect(reply.flags).toBeTruthy(); // ephemeral: the link is just for whoever clicked
+        const link = reply.components[0].toJSON().components[0].url;
+        expect(link).toMatch(new RegExp(`^https://dev\\.example/crop/${requestId}\\?token=`));
+
+        const { verifyCropToken } = await import('../src/utils/cropLinkToken.js');
+        const token = new URL(link).searchParams.get('token');
+        expect(verifyCropToken(token, requestId).valid).toBe(true);
       } finally {
+        Date.now = realNow;
         if (originalUrl === undefined) delete process.env.PUBLIC_BOT_URL; else process.env.PUBLIC_BOT_URL = originalUrl;
         if (originalSecret === undefined) delete process.env.EVENT_CROP_LINK_SECRET; else process.env.EVENT_CROP_LINK_SECRET = originalSecret;
       }
+    });
+
+    test('Crop Image refuses non-moderators', async () => {
+      global.eventRequests = new Map([['req-x', { guildId: '900000000000000099', title: 't' }]]);
+      const { handleButtonInteraction } = await import('../src/handlers/buttonHandler.js');
+      const interaction = {
+        customId: 'crop_event_req-x',
+        guildId: '900000000000000099',
+        guild: { id: '900000000000000099', name: 'Test Server' },
+        member: { permissions: { has: () => false } },
+        user: { id: 'u-1', tag: 'User#0001' },
+        reply: jest.fn(),
+      };
+      await handleButtonInteraction(interaction);
+
+      expect(interaction.reply.mock.calls[0][0].content).toContain('Only moderators');
+      expect(interaction.reply.mock.calls[0][0].components).toBeUndefined();
     });
 
     test('an uploaded image is attached to the moderation message and shown as a thumbnail', async () => {

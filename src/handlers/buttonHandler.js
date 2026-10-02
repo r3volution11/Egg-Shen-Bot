@@ -8,7 +8,8 @@ import { saveEventRequests, saveEventChannelSelections } from '../api/server.js'
 import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postPublicEventAnnouncement, buildEventCreatedReply } from '../utils/eventRequestApproval.js';
 import { formatUtcForInput, TIME_INPUT_PLACEHOLDER } from '../utils/eventTimeInput.js';
 import { getTimerStatus } from '../utils/timerManager.js';
-import { isAdmin } from '../utils/guildConfig.js';
+import { isAdmin, loadGuildConfig, getPublicBotUrl } from '../utils/guildConfig.js';
+import { signCropToken } from '../utils/cropLinkToken.js';
 import { closeMatchupsNow } from '../utils/tournamentScheduler.js';
 
 // In-memory cache for tracking ephemeral voting dashboard messages per user
@@ -168,6 +169,57 @@ export async function handleButtonInteraction(interaction) {
     }
     
     // Handle event request edit (title/description) before approval/denial
+    // Signs a fresh crop link per click, shown only to the moderator who
+    // clicked. A link signed once at submission expired in 30 minutes and
+    // died after one save, leaving most requests with no way to crop.
+    if (interaction.customId.startsWith('crop_event_')) {
+      const requestId = interaction.customId.replace('crop_event_', '');
+
+      if (!interaction.member.permissions.has('ManageEvents') &&
+          !interaction.member.permissions.has('Administrator')) {
+        await interaction.reply({
+          content: '❌ Only moderators and administrators can change an event request\'s image.',
+          flags: MessageFlags.Ephemeral
+        });
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+        return;
+      }
+
+      if (!global.eventRequests || !global.eventRequests.has(requestId)) {
+        await interaction.reply({
+          content: '❌ This event request has expired or was already processed.',
+          flags: MessageFlags.Ephemeral
+        });
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+        return;
+      }
+
+      try {
+        const botUrl = getPublicBotUrl(await loadGuildConfig(interaction.guildId));
+        if (!botUrl) {
+          throw new Error('this server has no bot address set (see /eggshen-config-website bot-url)');
+        }
+        const cropUrl = `${botUrl}/crop/${requestId}?token=${signCropToken(requestId)}`;
+
+        await interaction.reply({
+          content: '🖼️ Upload an image, paste an image URL, or reframe the current one. This link is just for you, works for 30 minutes, and is used up by one save. Click **Crop Image** again for a new one.',
+          components: [new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setLabel('Open Crop Page').setStyle(ButtonStyle.Link).setURL(cropUrl)
+          )],
+          flags: MessageFlags.Ephemeral
+        });
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      } catch (error) {
+        console.error('[EventRequest] Failed to build crop link:', error.message);
+        await interaction.reply({
+          content: `❌ Couldn't create a crop link: ${error.message}`,
+          flags: MessageFlags.Ephemeral
+        });
+        logger.logButton(interaction.customId, interaction.user, interaction.guild, false, error);
+      }
+      return;
+    }
+
     if (interaction.customId.startsWith('edit_event_')) {
       const requestId = interaction.customId.replace('edit_event_', '');
 
@@ -223,6 +275,10 @@ export async function handleButtonInteraction(interaction) {
         .setLabel('Image URL (optional — overrides upload too)')
         .setStyle(TextInputStyle.Short)
         .setValue(requestData.imageUrl || '')
+        // An image set here is used as-is; only the crop page can frame it.
+        // The placeholder shows when there's no image yet — exactly when a
+        // moderator is most likely to paste one here instead.
+        .setPlaceholder('To upload or crop an image, use 🖼️ Crop Image instead')
         .setRequired(false);
 
       // Discord modals have no timezone-aware date/time picker (Discord's

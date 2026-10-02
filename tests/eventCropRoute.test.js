@@ -199,6 +199,47 @@ describe('GET /crop/:requestId/current-image', () => {
     expect(response.status).toBe(404);
   });
 
+  // A request whose image is a link has no file on disk. This used to 404,
+  // and the page told the moderator the request had no image.
+  test("loads the request's image link when no file is on disk, marked as not yet stored", async () => {
+    const request = await import('supertest');
+    const requestId = 'req-image-link';
+    seedRequest(requestId, { imageUrl: 'https://images.example.com/poster.png' });
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(Buffer.from('linked-poster-bytes'), { headers: { 'content-type': 'image/png' } })
+    );
+    const token = signCropToken(requestId);
+
+    try {
+      const response = await request.default(app).get(`/crop/${requestId}/current-image`).query({ token });
+
+      expect(fetchSpy).toHaveBeenCalledWith('https://images.example.com/poster.png');
+      expect(response.status).toBe(200);
+      expect(response.headers['content-type']).toContain('image/png');
+      expect(response.headers['x-image-source']).toBe('url');
+      expect(response.body.toString()).toBe('linked-poster-bytes');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  test("says the request's image link failed, rather than that there is no image", async () => {
+    const request = await import('supertest');
+    const requestId = 'req-image-deadlink';
+    seedRequest(requestId, { imageUrl: 'https://images.example.com/gone.png' });
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(new Response('nope', { status: 404 }));
+    const token = signCropToken(requestId);
+
+    try {
+      const response = await request.default(app).get(`/crop/${requestId}/current-image`).query({ token });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toMatch(/^The request's image link couldn't be loaded/);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   test('rejects an invalid token', async () => {
     const request = await import('supertest');
     const requestId = 'req-image-3';
@@ -471,5 +512,111 @@ describe('POST /api/event-request/upload-image', () => {
     expect(response.status).toBe(200);
     expect(response.body.imageToken).not.toBe('../../etc/passwd');
     expect(response.body.imageToken).toMatch(/^[0-9a-f]{32}$/);
+  });
+});
+
+describe('POST /crop/:requestId/fetch-image-url', () => {
+  test("returns the image as a data URL for the cropper, without using up the crop link's token", async () => {
+    const request = await import('supertest');
+    const requestId = 'req-fetch-1';
+    seedRequest(requestId);
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(Buffer.from('pasted-image'), { headers: { 'content-type': 'image/jpeg' } })
+    );
+    const token = signCropToken(requestId);
+
+    try {
+      const response = await request.default(app)
+        .post(`/crop/${requestId}/fetch-image-url`)
+        .send({ token, imageUrl: 'https://images.example.com/still.jpg' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.dataUrl).toBe(`data:image/jpeg;base64,${Buffer.from('pasted-image').toString('base64')}`);
+
+      // The same token still saves afterwards.
+      const save = await request.default(app)
+        .post(`/crop/${requestId}/save`)
+        .field('token', token)
+        .attach('image', Buffer.from('cropped'), { filename: 'crop.jpg', contentType: 'image/jpeg' });
+      expect(save.status).toBe(200);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  test('rejects an invalid token without fetching anything', async () => {
+    const request = await import('supertest');
+    seedRequest('req-fetch-2');
+    const fetchSpy = jest.spyOn(global, 'fetch');
+
+    try {
+      const response = await request.default(app)
+        .post('/crop/req-fetch-2/fetch-image-url')
+        .send({ token: 'garbage', imageUrl: 'https://images.example.com/still.jpg' });
+
+      expect(response.status).toBe(403);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  test('passes on why a URL could not be used', async () => {
+    const request = await import('supertest');
+    seedRequest('req-fetch-3');
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response('<html></html>', { headers: { 'content-type': 'text/html' } })
+    );
+
+    try {
+      const response = await request.default(app)
+        .post('/crop/req-fetch-3/fetch-image-url')
+        .send({ token: signCropToken('req-fetch-3'), imageUrl: 'https://example.com/page' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBeTruthy();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+});
+
+describe('cropping a request whose image is a link, end to end', () => {
+  test('the linked image is saved as the original, and the request switches from the link to the crop', async () => {
+    const request = await import('supertest');
+    const requestId = 'req-link-e2e';
+    seedRequest(requestId, { imageUrl: 'https://images.example.com/poster.png' });
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(Buffer.from('linked-poster-bytes'), { headers: { 'content-type': 'image/png' } })
+    );
+    const token = signCropToken(requestId);
+
+    try {
+      // What crop.js does: load the current image; since it came from the
+      // link, send those same bytes back as the original with the crop.
+      const current = await request.default(app).get(`/crop/${requestId}/current-image`).query({ token });
+      expect(current.headers['x-image-source']).toBe('url');
+
+      const save = await request.default(app)
+        .post(`/crop/${requestId}/save`)
+        .field('token', token)
+        .attach('image', Buffer.from('cropped-poster'), { filename: 'crop.jpg', contentType: 'image/jpeg' })
+        .attach('original', current.body, { filename: 'original', contentType: current.headers['content-type'] });
+      expect(save.status).toBe(200);
+
+      const requestData = global.eventRequests.get(requestId);
+      expect(requestData.imageUrl).toBeNull();
+      expect(requestData.hasUploadedImage).toBe(true);
+      expect(fs.readFileSync(await getOriginalImagePath(requestId)).toString()).toBe('linked-poster-bytes');
+
+      // A re-crop now starts from the stored original, with no fetch.
+      fetchSpy.mockClear();
+      const again = await request.default(app).get(`/crop/${requestId}/current-image`).query({ token: signCropToken(requestId) });
+      expect(again.body.toString()).toBe('linked-poster-bytes');
+      expect(again.headers['x-image-source']).toBeUndefined();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });

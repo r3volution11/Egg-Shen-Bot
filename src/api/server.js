@@ -14,7 +14,7 @@ import {
   recordEventDate,
   applyImageStatusToEmbed,
 } from '../utils/eventImageStore.js';
-import { signCropToken, verifyCropToken, consumeCropToken } from '../utils/cropLinkToken.js';
+import { verifyCropToken, consumeCropToken } from '../utils/cropLinkToken.js';
 import { fetchImageUrl } from '../utils/fetchImageUrl.js';
 import { loadQuotes, addQuote, updateQuote, deleteQuote, replaceAllQuotes } from '../utils/movieQuotesStore.js';
 import { loadPending, approvePending, rejectPending } from '../utils/pendingQuotesStore.js';
@@ -700,6 +700,22 @@ export function createApiServer(client) {
       // uploaded directly through this same crop page).
       const filePath = (await getOriginalImagePath(requestId)) || (await getImagePath(requestId));
       if (!filePath) {
+        // A request whose image is a link (pasted on the form, or set via
+        // the Edit modal) has no file on disk — this used to 404, and the
+        // page told the moderator the request had no image at all. Fetch
+        // the link instead so it loads into the cropper like any other.
+        // X-Image-Source tells the page these bytes aren't stored yet, so
+        // it sends them as the new original on save.
+        const eventRequest = global.eventRequests?.get(requestId);
+        if (eventRequest?.imageUrl) {
+          const fetched = await fetchImageUrl(eventRequest.imageUrl);
+          if (fetched.ok) {
+            res.set('X-Image-Source', 'url');
+            return res.type(fetched.contentType).send(fetched.buffer);
+          }
+          console.error(`[EventRequests] Crop page couldn't load the request's image link: ${fetched.error} (${eventRequest.imageUrl})`);
+          return res.status(404).json({ error: `The request's image link couldn't be loaded: ${fetched.error}` });
+        }
         return res.status(404).json({ error: 'No image uploaded for this request yet' });
       }
 
@@ -710,6 +726,29 @@ export function createApiServer(client) {
       console.error('[EventRequests] Error serving current crop image:', error);
       res.status(500).json({ error: 'Failed to load current image' });
     }
+  });
+
+  // The crop page's "Fetch & Crop" for a pasted image URL — the same
+  // URL-to-bytes bridge as /api/event-request/fetch-image-url on the request
+  // form, so a moderator can add or replace an image by link and still crop
+  // it. Gated by the crop token (verified, not consumed — only a save burns
+  // it) instead of the public form's per-IP limiter.
+  app.post('/crop/:requestId/fetch-image-url', async (req, res) => {
+    const { requestId } = req.params;
+    const { token, imageUrl } = req.body || {};
+
+    if (!verifyCropToken(token, requestId).valid) {
+      return res.status(403).json({ error: 'This crop link is invalid or has expired.' });
+    }
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      return res.status(400).json({ error: 'No image URL provided' });
+    }
+
+    const result = await fetchImageUrl(imageUrl);
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+    res.json({ dataUrl: `data:${result.contentType};base64,${result.buffer.toString('base64')}` });
   });
 
   // Saves a moderator's cropped image, replacing whatever image (if any)
@@ -1179,20 +1218,19 @@ export function createApiServer(client) {
       embed.setTimestamp();
 
       // Create approval buttons
+      // A regular button, not a link: the crop link is signed per click
+      // (crop_event_ in buttonHandler.js). It used to be a link signed once
+      // here, at submission — it expired after 30 minutes and died after
+      // one save, so by the time a moderator got to most requests the
+      // button opened "invalid or has expired" and nothing renewed it.
       let cropImageButton = null;
       // This server's own address when it has one (see getPublicBotUrl)
-      const botUrl = getPublicBotUrl(guildConfig);
-      if (botUrl) {
-        try {
-          const cropUrl = `${botUrl}/crop/${requestId}?token=${signCropToken(requestId)}`;
-          cropImageButton = new ButtonBuilder()
-            .setLabel('Crop Image')
-            .setStyle(ButtonStyle.Link)
-            .setEmoji('🖼️')
-            .setURL(cropUrl);
-        } catch (error) {
-          console.error('[EventRequests] Failed to build crop-image link (is EVENT_CROP_LINK_SECRET set?):', error.message);
-        }
+      if (getPublicBotUrl(guildConfig) && process.env.EVENT_CROP_LINK_SECRET) {
+        cropImageButton = new ButtonBuilder()
+          .setCustomId(`crop_event_${requestId}`)
+          .setLabel('Crop Image')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('🖼️');
       }
 
       let buttons;

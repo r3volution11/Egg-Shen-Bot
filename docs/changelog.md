@@ -9,6 +9,21 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.48.0 - 2026-10-01
+
+### Added
+- **Moderators can crop an image from a URL.** The crop page now has the request form's two ways in: upload a file, or paste an image URL and click **Fetch & Crop**. Either one works for adding an image to a request that has none, or for replacing one. See [Cropping or Replacing the Image](/features/event-requests#cropping-or-replacing-the-image)
+
+### Fixed
+- **The 🖼️ Crop Image button stopped working 30 minutes after a request arrived.** Its link was created once, when the request was submitted, expired after 30 minutes and was used up by one save, and nothing replaced it. Clicking **Crop Image** now gives the moderator a fresh private link every time. Requests already waiting keep their old link; new requests get the working button
+- **A request whose image was a link opened the crop page saying it had no image.** The linked image now loads into the cropper. If the link no longer works, the page says so
+- The Edit form's **Image URL** field now points to **Crop Image** for uploading or cropping, since an image set there is used without cropping
+
+### Developer
+- `crop_event_<requestId>` (`buttonHandler.js`) signs the crop token on click, for moderators only, replying ephemerally with a link button. The moderation message's button is a plain button and only appears when a bot URL and `EVENT_CROP_LINK_SECRET` are both set
+- `GET /crop/:id/current-image` falls back to fetching the request's `imageUrl` and marks it `X-Image-Source: url`, so the page sends those bytes as the new original on save. New `POST /crop/:id/fetch-image-url`, token-gated (verified, not consumed)
+- Tests: the crop button is clicked through the real handler two hours after submission and its token verified; route tests cover the link fallback and URL fetch, end to end through save. The crop page was also run in headless Chrome (link image, pasted URL, dead link). No command definitions changed, so no `deploy-commands`
+
 ## 2.47.0 - 2026-10-01
 
 ### Added

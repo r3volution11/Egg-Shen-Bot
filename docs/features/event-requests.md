@@ -405,15 +405,16 @@ The Edit form also includes **Start Time (UTC)** and **End Time (UTC, optional)*
 
 ### Cropping or Replacing the Image
 
-Every event request in the moderation channel shows a **🖼️ Crop Image** link button alongside Approve/Edit/Deny (if a bot address — this server's [bot URL](../commands/configuration#bot-url), or the bot's `PUBLIC_BOT_URL` — and `EVENT_CROP_LINK_SECRET` are configured — see [setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md)). Clicking it opens a small page — no login needed, the link itself is what authorizes you — where you can:
-- Adjust the framing of whatever image the submitter already provided
-- Upload a completely different image and crop that instead
+Every event request in the moderation channel shows a **🖼️ Crop Image** button alongside Approve/Edit/Deny (if a bot address — this server's [bot URL](../commands/configuration#bot-url), or the bot's `PUBLIC_BOT_URL` — and `EVENT_CROP_LINK_SECRET` are configured — see [setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md)). Clicking it gives you a private **Open Crop Page** link. The page needs no login (the link itself is what authorizes you), and has the same image options as the request form:
+- Adjust the framing of whatever image the submitter provided, whether they uploaded a file or pasted a URL
+- Upload a different image file and crop that instead
+- Paste an image URL and click **Fetch & Crop** to crop that instead
 - Add an image to a request that didn't have one at all
 
-The link is tied to that one request and works for about 30 minutes; clicking Edit again on the request generates a fresh one if it's expired. Once you save a crop, it becomes the image used when the request is approved — this is a separate, more visual alternative to typing a plain URL into the Edit modal's **Image URL** field, which still works too for a quick direct swap.
+Each link is just for you, works for 30 minutes, and is used up by one save. Click **Crop Image** again any time for a new one. Once you save a crop, it becomes the image used when the request is approved. The Edit button's **Image URL** field still works for a quick swap, but an image set there is used as-is, without cropping.
 
 ::: tip Cropping From the True Original
-The crop page always loads the submitter's original, uncropped upload — not their already-cropped result — so you can reframe it freely without compounding crops on top of crops. If you upload a different image instead, that becomes the new original for any future re-crop.
+The crop page always loads the submitter's original, uncropped image — not their already-cropped result — so you can reframe it freely without compounding crops on top of crops. If you upload or fetch a different image instead, that becomes the new original for any future re-crop.
 :::
 
 The moderation-channel embed shows a **🖼️ Image** field (`✅ Uploaded`, `🔗 Linked (URL)`, or `❌ None`) so you can see at a glance whether a request has an image before deciding whether to crop, override, or leave it as-is.
@@ -652,7 +653,8 @@ The bot exposes these endpoints for the event request system:
 | `/api/event-request/upload-image` | POST | Upload an event image ahead of submission (returns a token) |
 | `/api/event-request` | POST | Submit event request |
 | `/crop/:requestId` | GET | Moderator crop page (signed-token gated) |
-| `/crop/:requestId/current-image` | GET | The request's currently-attached image, for pre-loading the cropper |
+| `/crop/:requestId/current-image` | GET | The request's current image (its stored file, or its image link fetched), for pre-loading the cropper |
+| `/crop/:requestId/fetch-image-url` | POST | Fetch a pasted image URL for the cropper (signed token, not used up) |
 | `/crop/:requestId/save` | POST | Save a moderator's cropped image (single-use signed token) |
 
 ## Best Practices
