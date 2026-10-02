@@ -9,6 +9,12 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.49.4 - 2026-10-01
+
+### Documentation
+- **The [home page](/) has 12 feature cards**, which fill four rows of three; 10 left a short last row. New: **Whole Seasons at a Glance** (`/episode-list`) and **Discover Something New** (`/random` and `/similar`)
+- The home page said to run `/similar` "after searching for something". It takes its own `title:`; the example now shows that
+
 ## 2.49.3 - 2026-10-01
 
 ### Documentation

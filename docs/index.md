@@ -21,7 +21,11 @@ hero:
 features:
   - icon: 🎬
     title: Comprehensive Search
-    details: Search movies, TV shows, episodes, video games, board games, and books with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek, and Google Books, plus where to stream it (150+ services, including free ones like Tubi and Pluto TV). Browse a whole TV season at once with /episode-list.
+    details: Search movies, TV shows, episodes, video games, board games, and books with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek, and Google Books, plus where to stream it (150+ services, including free ones like Tubi and Pluto TV).
+
+  - icon: 📺
+    title: Whole Seasons at a Glance
+    details: /episode-list shows every episode of a season in one view, with titles, air dates, and IMDb and Trakt ratings side by side. Find the standout episodes, skip the filler, and plan the next binge or watch party.
 
   - icon: ⏱️
     title: Watch Parties
@@ -40,6 +44,10 @@ features:
     details: A shared server watchlist where members add titles and vote for what they want to watch next, and the bot picks tonight's movie. /recommend suggests new titles based on what your server has watched, and tournament champions can join the list automatically.
     link: /commands/watch-party#watchlist
     linkText: The watchlist
+
+  - icon: 🎲
+    title: Discover Something New
+    details: Can't decide? /random picks a movie, show, episode, game, board game, or book, filtered by genre, decade, rating, platform, or category. /similar finds titles like one you love, across every kind.
 
   - icon: 📅
     title: Event Requests
@@ -233,7 +241,7 @@ Titles are validated against TMDB, RAWG, BoardGameGeek, and Google Books before 
 Type `/random movie`, `/random tv`, or `/random book` to get random suggestions. Works with all content types: movies, TV shows, episodes, games, board games, and books. Filter by genre, decade, or minimum rating.
 
 **Find Similar Content**  
-Type `/similar` after searching for something to get personalized recommendations based on that content. Works across all media types.
+Type `/similar title:Alien` to find titles like one you love. It works for movies, TV shows, games, board games, and books; add `type:` when a title could be more than one.
 
 **Watch Party Timers**  
 Create a Discord scheduled event for a specific channel, then run `/timer start` in that channel. The bot automatically looks up your server's events, detects the event title linked to that channel, and sets up a timer with the correct runtime from TMDB or BoardGameGeek - no manual typing needed! If the detected title doesn't match anything cleanly, a **Search** button lets you retype it on the spot instead of starting under the wrong name. Multi-episode watch parties (e.g. "Tales from the Crypt S5E5-E8") are recognized automatically, with each episode's runtime summed into the total. Timers can be paused and resumed without losing elapsed time.
