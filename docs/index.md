@@ -231,7 +231,7 @@ Generate AI images without leaving Discord, in whichever of four modes fits the 
 - **Freeform**: `/image prompt:"a dragon flying over a medieval castle at sunset"`
 - **From a message**: `/image message:username` — turns a recent message's text into an image prompt
 - **Versus battle**: `/image title1:"The Thing" title2:"Alien"` — a split-screen matchup poster between any two titles (movies, TV, games, board games, or books — mix and match types)
-- **Tournament matchup**: `/image matchup:"The Thing vs Alien"` — generate straight from an active bracket matchup
+- **Tournament matchup**: `/image matchup:1A` — generate straight from a bracket matchup; start typing to pick from the list
 
 Titles are validated against TMDB, RAWG, BoardGameGeek, and Google Books before generating, so you get a real matchup poster, not a guess. Server admins can restrict access to mods/admins only and set daily generation limits.
 

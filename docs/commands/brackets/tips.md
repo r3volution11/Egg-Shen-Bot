@@ -64,10 +64,12 @@ Utility commands, plus ideas for pacing and keeping members engaged at different
 Versus images for matchups are made with the separate `/image` command, not `/bracket`:
 
 ```
-/image matchup:"The Thing vs Alien"
+/image matchup:1A
 /image title1:"Godzilla" title2:"King Kong"
 /image
 ```
+
+Start typing in `matchup:` to pick from this tournament's matchups, voting ones first.
 
 `/image` with no options lists the active tournament's current matchups. It needs an OpenAI API key and has per-user and per-server limits. See [AI Image Generation](/commands/ai-images) for all options, limits, and configuration.
 

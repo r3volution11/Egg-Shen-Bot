@@ -7,6 +7,7 @@ import { config } from '../config.js';
 import { canGenerateImage, recordImageGeneration } from '../utils/aiImageTracker.js';
 import { isTrueAdmin, isModerator } from '../utils/guildConfig.js';
 import * as bracketManager from '../utils/bracketManager.js';
+import { matchupLabel } from '../utils/tournamentUI.js';
 import { deliverResult } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
@@ -39,8 +40,9 @@ export const data = new SlashCommandBuilder()
   .addStringOption(option =>
     option
       .setName('matchup')
-      .setDescription('Generate from an active tournament matchup instead of searching (e.g., "1A")')
+      .setDescription('A tournament matchup: pick from the list, or type its label (e.g. "1A")')
       .setRequired(false)
+      .setAutocomplete(true)
   )
   .addBooleanOption(option =>
     option
@@ -115,14 +117,16 @@ export async function execute(interaction) {
 function buildHelpMessage(guildId) {
   let helpMessage = '🎨 **AI Image Generation**\n\n';
 
-  const tournament = bracketManager.loadTournament(guildId);
-  if (tournament && tournament.knockoutBracket && tournament.knockoutBracket.length > 0) {
-    const matchupList = tournament.knockoutBracket
-      .filter(m => m.movie1 && m.movie2)
-      .map((m, idx) => `${idx + 1}. **${m.movie1.title}** vs **${m.movie2.title}** (${m.round.replace(/_/g, ' ')})`)
-      .join('\n');
-
-    helpMessage += `**Tournament Matchups:**\n${matchupList}\n\n💡 Generate an image:\n\`/image matchup:"Movie A vs Movie B"\`\n\n`;
+  // The matchups worth drawing: open ones, then this round's upcoming ones,
+  // labelled the way people type them. It used to list every matchup ever
+  // played, numbered 1–16 — and typing a number searched the titles, so "1"
+  // picked whichever title happened to contain a 1.
+  const shown = tournamentMatchups(bracketManager.loadTournament(guildId))
+    .filter(c => c.state !== 'decided')
+    .slice(0, 10);
+  if (shown.length) {
+    helpMessage += `**Tournament Matchups:**\n${shown.map(c => `• **${c.label}** · ${c.m.movie1.title} vs ${c.m.movie2.title}${c.state === 'voting' ? ' · voting now' : ''}`).join('\n')}\n\n`;
+    helpMessage += `💡 Generate one: \`/image matchup:${shown[0].label}\` — or start typing in \`matchup:\` to pick from the list\n\n`;
   }
 
   helpMessage += '**Create a versus battle image with smart search:**\n`/image title1:"The Thing" title2:"Alien"`\n\n';
@@ -372,27 +376,9 @@ async function generateVersusFromMatchup(interaction, matchupInput, customPrompt
     return;
   }
 
-  if (!tournament.knockoutBracket || tournament.knockoutBracket.length === 0) {
-    await interaction.editReply('❌ No tournament matchups found. To generate a versus image, use: `/image title1:"Movie A" title2:"Movie B"`');
-    return;
-  }
-
-  const matchup = tournament.knockoutBracket.find(m => {
-    if (!m.movie1 || !m.movie2) return false;
-    const matchupStr = `${m.movie1.title} vs ${m.movie2.title}`.toLowerCase();
-    const reverseStr = `${m.movie2.title} vs ${m.movie1.title}`.toLowerCase();
-    const input = matchupInput.toLowerCase();
-    return (
-      matchupStr.includes(input) ||
-      reverseStr.includes(input) ||
-      (input.includes(m.movie1.title.toLowerCase()) && input.includes(m.movie2.title.toLowerCase()))
-    );
-  });
-
+  const { matchup, error } = findMatchup(tournament, matchupInput);
   if (!matchup) {
-    await interaction.editReply(
-      `❌ Could not find matchup: "${matchupInput}". Use \`/image\` without parameters to see available matchups, or use: \`/image title1:"Movie A" title2:"Movie B"\``
-    );
+    await interaction.editReply(`❌ ${error} Start typing in \`matchup:\` to pick from the list, or use: \`/image title1:"Movie A" title2:"Movie B"\``);
     return;
   }
 
@@ -409,9 +395,88 @@ async function generateVersusFromMatchup(interaction, matchupInput, customPrompt
     embedTitle: `🎨 ${firstTitle} vs ${secondTitle}`,
     filename: 'bracket-vs.png',
     recordType: 'bracket-image',
-    recordMeta: { title1: firstTitle, title2: secondTitle, customPrompt: customPrompt || null, matchup: matchupInput },
+    recordMeta: { title1: firstTitle, title2: secondTitle, customPrompt: customPrompt || null, matchup: matchupLabel(matchup.position, matchup.round) },
     isPrivate,
   });
+}
+
+const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarterfinals', 'semifinals', 'finals'];
+
+/**
+ * Every knockout matchup with both titles known, labelled, best first:
+ * voting now, then this round's upcoming ones, then everything else
+ * (decided ones last).
+ * @returns {Array<{m, label, state: 'voting'|'upcoming'|'decided'}>}
+ */
+function tournamentMatchups(tournament) {
+  if (!tournament?.knockoutBracket?.length) return [];
+  const rank = { voting: 0, upcoming: 1, decided: 2 };
+  return tournament.knockoutBracket
+    .filter(m => m.movie1 && m.movie2)
+    .map(m => ({
+      m,
+      label: matchupLabel(m.position, m.round),
+      state: m.status === 'voting' || m.status === 'tiebreaker' ? 'voting' : (m.status === 'closed' || m.winner ? 'decided' : 'upcoming'),
+    }))
+    .sort((a, b) => rank[a.state] - rank[b.state]
+      || (a.m.round === tournament.phase ? 0 : 1) - (b.m.round === tournament.phase ? 0 : 1)
+      || ROUND_ORDER.indexOf(b.m.round) - ROUND_ORDER.indexOf(a.m.round)
+      || a.m.position - b.m.position);
+}
+
+/**
+ * The matchup someone meant: a suggestion's id, a label ("1A", "Finals" —
+ * this round's first), or titles ("Alien vs The Thing", or one title). The
+ * old lookup only compared titles loosely, so the "1A" its own description
+ * suggested never matched, and short input matched any title containing it.
+ * @returns {{matchup, error?: string}}
+ */
+export function findMatchup(tournament, input) {
+  const all = tournamentMatchups(tournament);
+  if (!all.length) return { matchup: null, error: 'This tournament has no matchups yet.' };
+  const text = String(input).trim();
+  const lower = text.toLowerCase();
+
+  const byId = all.find(c => c.m.id === text);
+  if (byId) return { matchup: byId.m };
+
+  const byLabel = all
+    .filter(c => c.label.toLowerCase() === lower)
+    .sort((a, b) => (a.m.round === tournament.phase ? 0 : 1) - (b.m.round === tournament.phase ? 0 : 1));
+  if (byLabel.length) return { matchup: byLabel[0].m };
+
+  const sameTitle = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const pair = text.split(/\s+vs\.?\s+/i);
+  if (pair.length === 2) {
+    const hit = all.find(c => (sameTitle(c.m.movie1.title, pair[0]) && sameTitle(c.m.movie2.title, pair[1]))
+      || (sameTitle(c.m.movie1.title, pair[1]) && sameTitle(c.m.movie2.title, pair[0])));
+    if (hit) return { matchup: hit.m };
+  }
+  // One title: the best matchup it's in (voting now first)
+  const withTitle = all.find(c => sameTitle(c.m.movie1.title, text) || sameTitle(c.m.movie2.title, text));
+  if (withTitle) return { matchup: withTitle.m };
+
+  return { matchup: null, error: `No matchup "${text}".` };
+}
+
+/** Suggestions for `matchup`: voting now first, by label or title as typed. */
+export async function autocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  if (focused.name !== 'matchup') return interaction.respond([]);
+  const typed = String(focused.value || '').trim().toLowerCase();
+  const short = (t) => (t.length > 28 ? `${t.slice(0, 27)}…` : t);
+  const note = { voting: ' · voting now', upcoming: '', decided: ' · decided' };
+  const choices = tournamentMatchups(bracketManager.loadTournament(interaction.guildId))
+    // "1", "2b" or "fin" is a label being typed; anything else searches titles
+    .filter(c => !typed || (/^[1-4][a-h]?$|^fin/.test(typed)
+      ? c.label.toLowerCase().startsWith(typed)
+      : `${c.m.movie1.title} ${c.m.movie2.title}`.toLowerCase().includes(typed)))
+    .slice(0, 25)
+    .map(c => ({
+      name: `${c.label} · ${short(c.m.movie1.title)} vs ${short(c.m.movie2.title)}${note[c.state]}`.slice(0, 100),
+      value: c.m.id,
+    }));
+  return interaction.respond(choices);
 }
 
 async function generateFromMessage(interaction, messageInput, customPrompt, isPrivate = false) {

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { setTitleThumbnail } from '../utils/tournamentUI.js';
+import { setTitleThumbnail, matchupLabel } from '../utils/tournamentUI.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, completeEntry, getTypeLabel } from '../utils/bracketTitles.js';
@@ -160,31 +160,8 @@ async function closeEarlierMatchups(interaction, keepIds = []) {
   return `🔒 Voting closed on the earlier matchup${closed.length === 1 ? '' : 's'}:\n${lines.join('\n')}`;
 }
 
-function getRegionalLabel(position, round) {
-  // Finals has no region
-  if (round === 'finals') {
-    return 'Finals';
-  }
-  
-  // Determine total matchups in this round
-  const roundSizes = {
-    'round_of_32': 16,
-    'round_of_16': 8,
-    'quarterfinals': 4,
-    'semifinals': 2
-  };
-  
-  const totalMatchups = roundSizes[round];
-  if (!totalMatchups) return String(position + 1);
-  
-  // Divide into 4 regions (March Madness style)
-  const matchupsPerRegion = totalMatchups / 4;
-  const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
-  const positionInRegion = position % matchupsPerRegion;
-  const letter = String.fromCharCode(65 + positionInRegion); // A, B, C...
-  
-  return `${region}${letter}`;
-}
+// The "1A"/"2B"/"Finals" labels, shared with /image (see tournamentUI.js)
+const getRegionalLabel = matchupLabel;
 
 /**
  * Parse regional label to position (e.g., "1A" → 0, "3B" → 9 in Round of 16)

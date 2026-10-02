@@ -9,6 +9,19 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.51.1 - 2026-10-02
+
+### Fixed
+- **`/image matchup:` couldn't find tournament matchups.** Its own description said to type a label like "1A", but it only compared titles, so labels never matched. The list `/image` shows with no options numbered the matchups, but typing a number searched the titles, so "1" picked whichever title happened to contain a 1. Now:
+  - **Start typing in `matchup:` to pick from a list** of the tournament's matchups, voting ones first
+  - **Labels work**: `/image matchup:1A`, `/image matchup:Finals`, as in `/bracket open-matchup`
+  - Titles still work, in either order or one on its own, matched exactly rather than as fragments
+  - `/image` with no options lists this round's matchups by label, voting ones first, and leaves out decided ones
+
+### Developer
+- The "1A"/"Finals" label function moved from `bracket.js` to `tournamentUI.js` (`matchupLabel`), so `/bracket` and `/image` label matchups the same way. `image.js` gains `autocomplete` and `findMatchup` (suggestion id, label in this round first, exact titles)
+- `tests/image-matchup.test.js` drives `/image` through the fake Discord with `fetch` stubbed, reading the matchup chosen from the "Generating…" message. **Command definition changed (`matchup` autocompletes): run `deploy-commands`**
+
 ## 2.51.0 - 2026-10-02
 
 ### Added

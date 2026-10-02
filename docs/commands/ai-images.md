@@ -54,10 +54,12 @@ Searches TMDB, RAWG, BoardGameGeek, and Google Books to validate both titles exi
 ### Mode 4: From an Active Tournament Matchup
 
 ```
+/image matchup:1A
+/image matchup:Finals
 /image matchup:"The Thing vs Alien"
 ```
 
-If your server has an active [tournament bracket](./brackets/), generates a versus image directly from one of its matchups instead of searching from scratch. Running `/image` with no options at all lists the active tournament's current matchups, if any.
+If your server has a [tournament bracket](./brackets/) under way, generates a versus image straight from one of its matchups instead of searching from scratch. Start typing in `matchup:` and pick from the list (matchups voting now come first), or type a matchup's label such as `1A` or `Finals`, or its two titles. Running `/image` with no options lists this round's matchups by label, open ones first.
 
 ### Options
 
@@ -67,7 +69,7 @@ If your server has an active [tournament bracket](./brackets/), generates a vers
 | `message` | String | No | Username or message ID to generate from (Mode 2) |
 | `title1` | String | No* | First title for a versus battle (Mode 3) — provide with `title2` |
 | `title2` | String | No* | Second title for a versus battle (Mode 3) — provide with `title1` |
-| `matchup` | String | No | Tournament matchup to visualize (Mode 4) |
+| `matchup` | String | No | Tournament matchup to visualize (Mode 4): pick from the list, or type its label (`1A`, `Finals`) or titles |
 | `private` | Boolean | No | Only show the generated image to you instead of the whole channel (default: false) |
 
 *Provide exactly one of: `title1` + `title2` together, `matchup`, `message`, or `prompt` alone. Mixing modes (e.g. `title1` with `message`) returns an error asking you to pick one.

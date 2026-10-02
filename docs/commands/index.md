@@ -377,7 +377,7 @@ Generate AI images: freeform, from a Discord message, or a "versus" battle betwe
 /image message:username
 /image title1:Godzilla title2:King Kong
 /image title1:Alien title2:The Thing prompt:in deep space
-/image matchup:"The Thing vs Alien"
+/image matchup:1A
 ```
 
 [Learn more →](/commands/ai-images)

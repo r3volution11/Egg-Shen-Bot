@@ -320,3 +320,22 @@ export function setTitleThumbnail(embed, title) {
   }
   return embed;
 }
+
+/**
+ * A knockout matchup's label: "1A"–"4H" by region (March Madness style:
+ * each round split into 4 regions), or "Finals". The labels people type in
+ * /bracket open-matchup and /image matchup. Moved here from bracket.js so
+ * every command labels a matchup the same way.
+ * @param {number} position - the matchup's position in its round
+ * @param {string} round - e.g. 'round_of_32', 'finals'
+ */
+export function matchupLabel(position, round) {
+  if (round === 'finals') return 'Finals';
+  const roundSizes = { round_of_32: 16, round_of_16: 8, quarterfinals: 4, semifinals: 2 };
+  const totalMatchups = roundSizes[round];
+  if (!totalMatchups) return String(position + 1);
+  const matchupsPerRegion = totalMatchups / 4;
+  const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
+  const letter = String.fromCharCode(65 + (position % matchupsPerRegion)); // A, B, C...
+  return `${region}${letter}`;
+}
