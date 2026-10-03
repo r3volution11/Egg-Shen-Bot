@@ -16,7 +16,10 @@ Configuration is split across 5 top-level commands (kept under Discord's per-com
 /eggshen-config-ai <group> <subcommand> [parameters]               — ai-images
 /eggshen-config-moderation <group> <subcommand> [parameters]       — moderation
 /eggshen-config-events <group> <subcommand> [parameters]           — event-requests
+/eggshen-config-games <subcommand> [parameters]                     — game limits, game channels, score resets
 ```
+
+The game settings (`/eggshen-config-games`) are described on [Games & Scores](./games#game-settings-admin-mod).
 
 **Required Permissions (all 5 commands):**
 - Administrator
@@ -219,6 +222,7 @@ Enable or disable specific commands for regular users.
 - `potion` - Potion command
 - `foodfight` - Food fight command
 - `doom` - Doom command
+- `rescue` - Rescue command
 
 **Note:** Admins and moderators can always use commands regardless of these settings. `/eggshen-help` automatically reflects these settings — a disabled command (and its whole category, if every command in it is disabled) won't appear in the help list for regular users.
 

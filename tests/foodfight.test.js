@@ -12,6 +12,7 @@ import { describe, test, expect, jest, beforeAll, beforeEach, afterEach } from '
 import fs from 'fs';
 import path from 'path';
 import { FakeDiscord } from './harness/fakeDiscord.js';
+import { resetPlayLimits, deleteScores } from '../src/utils/gameScores.js';
 
 let foodfight;
 let potion;
@@ -30,6 +31,9 @@ let friend;
 beforeEach(() => {
   const file = path.join(process.env.GUILD_CONFIGS_DIR, `${GUILD}.json`);
   if (fs.existsSync(file)) fs.unlinkSync(file);
+  // These are games now: each test starts with no cooldowns and no scores
+  resetPlayLimits();
+  deleteScores(GUILD);
   discord = new FakeDiscord({ guildId: GUILD });
   discord.addUser('admin', { admin: true });
   discord.addUser('thrower');
@@ -52,6 +56,11 @@ async function run(command, userId, { subcommand, group = null, options = {} }) 
   return { message: i.replyMessage, payload, interaction: i };
 }
 
+/** The line itself; the points line follows it */
+const said = (message) => message.content.split('\n')[0];
+const THROWS = () => foodfight.ACTIONS.throw.lines;
+const fillThrow = (line) => line.text.replace(/{thrower}/g, '<@thrower>').replace(/{target}/g, '<@friend>');
+
 const throwAt = (target, food, userId = 'thrower') =>
   run(foodfight, userId, { subcommand: 'throw', options: { target, ...(food ? { food } : {}) } });
 
@@ -60,8 +69,7 @@ describe('/foodfight throw', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0);
     const { message, payload } = await throwAt(asMember(friend), 'pie');
     expect(message.ephemeralFor).toBeNull(); // public
-    expect(message.content).toBe(foodfight.DEFAULT_FOODFIGHT_LINES.pie[0]
-      .replace(/{thrower}/g, '<@thrower>').replace(/{target}/g, '<@friend>'));
+    expect(said(message)).toBe(fillThrow(THROWS().pie[0]));
     expect(payload.allowedMentions).toEqual({ parse: [], users: ['thrower', 'friend'] });
   });
 
@@ -94,22 +102,21 @@ describe('/foodfight throw', () => {
   test('the food chosen decides the line; no food picks one', async () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.999);
     const chosen = await throwAt(asMember(friend), 'meatloaf');
-    expect(chosen.message.content).toBe(foodfight.DEFAULT_FOODFIGHT_LINES.meatloaf.at(-1)
-      .replace(/{thrower}/g, '<@thrower>').replace(/{target}/g, '<@friend>'));
+    expect(said(chosen.message)).toBe(fillThrow(THROWS().meatloaf.at(-1)));
+    resetPlayLimits(); // the same player again, inside the cooldown
     // Unchosen: the last food on the menu, its last line
     const random = await throwAt(asMember(friend));
     const lastFood = foodfight.FOODS.at(-1).value;
-    expect(random.message.content).toBe(foodfight.DEFAULT_FOODFIGHT_LINES[lastFood].at(-1)
-      .replace(/{thrower}/g, '<@thrower>').replace(/{target}/g, '<@friend>'));
+    expect(said(random.message)).toBe(fillThrow(THROWS()[lastFood].at(-1)));
   });
 
   test('every built-in line names both the thrower and the target', () => {
-    for (const [food, lines] of Object.entries(foodfight.DEFAULT_FOODFIGHT_LINES)) {
-      for (const line of lines) {
-        expect(`${food}: ${line.includes('{thrower}') && line.includes('{target}')}`).toBe(`${food}: true`);
+    for (const [food, lines] of Object.entries(THROWS())) {
+      for (const { text } of lines) {
+        expect(`${food}: ${text.includes('{thrower}') && text.includes('{target}')}`).toBe(`${food}: true`);
       }
     }
-    expect(foodfight.FOODS.every(f => foodfight.DEFAULT_FOODFIGHT_LINES[f.value]?.length >= 5)).toBe(true);
+    expect(foodfight.FOODS.every(f => THROWS()[f.value]?.length >= 5)).toBe(true);
   });
 });
 
@@ -117,27 +124,27 @@ describe('/foodfight lines (this server\'s own)', () => {
   const lines = (sub, userId, options) => run(foodfight, userId, { subcommand: sub, group: 'lines', options });
 
   test('an added line is used by the next throw, and can be removed', async () => {
-    await lines('add', 'admin', { food: 'pie', line: '{thrower} hurls a key lime pie at {target}!' });
+    await lines('add', 'admin', { action: 'throw', food: 'pie', outcome: 'hit', line: '{thrower} hurls a key lime pie at {target}!' });
     jest.spyOn(Math, 'random').mockReturnValue(0); // custom lines come first
-    expect((await throwAt(asMember(friend), 'pie')).message.content).toBe('<@thrower> hurls a key lime pie at <@friend>!');
+    expect(said((await throwAt(asMember(friend), 'pie')).message)).toBe('<@thrower> hurls a key lime pie at <@friend>!');
 
     const listed = await lines('list', 'admin', { food: 'pie' });
-    expect(listed.message.content).toContain('1. {thrower} hurls a key lime pie at {target}!');
+    expect(listed.message.content).toContain('1. [hit] {thrower} hurls a key lime pie at {target}!');
 
     await lines('remove', 'admin', { food: 'pie', number: 1 });
-    expect((await throwAt(asMember(friend), 'pie')).message.content).toBe(foodfight.DEFAULT_FOODFIGHT_LINES.pie[0]
-      .replace(/{thrower}/g, '<@thrower>').replace(/{target}/g, '<@friend>'));
+    resetPlayLimits(); // the same player again, inside the cooldown
+    expect(said((await throwAt(asMember(friend), 'pie')).message)).toBe(fillThrow(THROWS().pie[0]));
   });
 
   test('a line without both placeholders is refused', async () => {
-    const r = await lines('add', 'admin', { food: 'pie', line: 'Pie everywhere!' });
+    const r = await lines('add', 'admin', { action: 'throw', food: 'pie', outcome: 'hit', line: 'Pie everywhere!' });
     expect(r.message.content).toMatch(/needs both/);
-    const listed = await lines('list', 'admin', { food: 'pie' });
+    const listed = await lines('list', 'admin', { action: 'throw', food: 'pie' });
     expect(listed.message.content).not.toContain('Pie everywhere!');
   });
 
   test('members can throw but not change the lines', async () => {
-    const r = await lines('add', 'thrower', { food: 'pie', line: '{thrower} pies {target}' });
+    const r = await lines('add', 'thrower', { action: 'throw', food: 'pie', outcome: 'hit', line: '{thrower} pies {target}' });
     expect(r.message.content).toMatch(/Only administrators and moderators/);
   });
 });
@@ -172,10 +179,12 @@ describe('/potion give: the same targets', () => {
   test('a member is pinged; a role and @everyone are shown, not pinged', async () => {
     expect((await give(asMember(friend))).payload.allowedMentions).toEqual({ parse: [], users: ['thrower', 'friend'] });
 
+    resetPlayLimits(); // the same player again, inside the cooldown
     const role = await give(ROLE);
     expect(role.message.content).toContain('<@&role-mods>');
     expect(role.payload.allowedMentions).toEqual({ parse: [], users: ['thrower'] });
 
+    resetPlayLimits();
     const everyone = await give(EVERYONE());
     expect(everyone.message.content).toContain('@everyone');
     expect(everyone.payload.allowedMentions).toEqual({ parse: [], users: ['thrower'] });

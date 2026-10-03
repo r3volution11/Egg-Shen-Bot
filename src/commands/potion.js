@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
-import { resolveSocialTarget, allowedMentionsFor } from '../utils/socialTarget.js';
+import { resolveSocialTarget } from '../utils/socialTarget.js';
+import { beginPlay, finishPlay, tagged, pick } from '../utils/gamePlay.js';
+import { POTION_LINES } from '../data/potionLines.js';
 
 // Available potion themes
 const POTION_THEMES = {
@@ -17,119 +19,9 @@ const POTION_THEMES = {
 
 // Default potion responses with pop culture, horror, and comedy references
 // Each response has text and themes array
-const DEFAULT_POTION_RESPONSES = {
-  health: [
-    { text: "🧪 {giver} hands {receiver} a suspicious red liquid. 'This... is my BOOMSTICK of healing!' 💚 +50 HP (Army of Darkness approved)", themes: ['horror', 'comedy', 'classics'] },
-    { text: "🍯 {giver} gives {receiver} a flask of miruvor. The elvish cordial burns with an inner fire! 💚 +75 HP (Elrond's recipe)", themes: ['fantasy'] },
-    { text: "🧃 {giver} tosses {receiver} an Estus Flask. 'Praise the sun!' 💚 +100 HP (Don't you dare go hollow)", themes: ['gaming'] },
-    { text: "🥤 {giver} slides {receiver} a Nuka-Cola Quantum. It glows ominously... 💚 +60 HP (What could go wrong?)", themes: ['gaming', 'scifi'] },
-    { text: "🍺 {giver} gives {receiver} a pint at the Winchester. 'Wait for all this to blow over.' 💚 +40 HP (Shaun of the Dead)", themes: ['horror', 'comedy'] },
-    { text: "💊 {giver} hands {receiver} the blue pill. 'Welcome back to the real world.' 💚 +80 HP (The Matrix)", themes: ['scifi', 'action', 'classics'] },
-    { text: "🏪 {giver} gives {receiver} a potion found in an empty mall. 'The whole place is ours!' 💚 +90 HP (Night of the Comet survivor)", themes: ['scifi', 'horror', 'classics'] },
-  ],
-  mana: [
-    { text: "✨ {giver} gives {receiver} a shimmering blue potion. 'Fly, you fools!' 💙 +100 MP (Gandalf's backup stash)", themes: ['fantasy'] },
-    { text: "🌟 {giver} hands {receiver} an Everything Bagel. Suddenly, everything makes sense... and also doesn't. 💙 +∞ MP (EEAAO)", themes: ['scifi', 'comedy', 'drama'] },
-    { text: "🔮 {giver} slides {receiver} a glowing purple drink. 'I put a spell on you!' 💙 +75 MP (Hocus Pocus certified)", themes: ['fantasy', 'comedy', 'horror'] },
-    { text: "🧙 {giver} gives {receiver} Felix Felicis. 'Liquid luck, my friend.' 💙 +50 MP (Slughorn's finest)", themes: ['fantasy'] },
-    { text: "🌙 {giver} hands {receiver} a Witch's Brew. 'Double, double toil and trouble!' 💙 +90 MP (Macbeth style)", themes: ['fantasy', 'drama'] },
-    { text: "⚗️ {giver} gives {receiver} a Cat potion. 'Toss a coin to your Witcher!' 💙 +85 MP (White Wolf approved)", themes: ['fantasy', 'gaming'] },
-  ],
-  strength: [
-    { text: "💪 {giver} gives {receiver} a vial of Red Bull. They grow wings... and also muscles? 🔴 +50 STR", themes: ['comedy'] },
-    { text: "🍺 {giver} hands {receiver} Butterbeer (spiked edition). 'FOR THE GREATER GOOD!' 🔴 +60 STR (Hot Fuzz energy)", themes: ['comedy', 'action'] },
-    { text: "🥩 {giver} tosses {receiver} some Fight Milk. 'CAW!' 🔴 +75 STR (For bodyguards, by bodyguards)", themes: ['comedy'] },
-    { text: "💉 {giver} gives {receiver} Captain America's super soldier serum. 'I can do this all day.' 🔴 +100 STR", themes: ['action'] },
-    { text: "🍖 {giver} hands {receiver} a Krabby Patty with jellyfish jelly. UNLIMITED POWER! 🔴 +85 STR", themes: ['animation'] },
-    { text: "🥤 {giver} gives {receiver} Popeye's spinach. *Toot toot!* 🔴 +70 STR", themes: ['animation', 'classics'] },
-    { text: "🔫 {giver} hands {receiver} a military-grade potion. 'Daddy would have gotten us Uzis.' 🔴 +95 STR (Night of the Comet)", themes: ['scifi', 'horror', 'classics'] },
-  ],
-  speed: [
-    { text: "⚡ {giver} gives {receiver} a Speed Potion. They become a blur! 💨 +100 SPD (Gotta go fast!)", themes: ['gaming'] },
-    { text: "☕ {giver} hands {receiver} a vial of pure espresso. They can now see time in slow motion. 💨 +80 SPD", themes: ['comedy'] },
-    { text: "🏃 {giver} gives {receiver} Dash's energy drink. 'That was totally wicked!' 💨 +90 SPD (Incredibles)", themes: ['animation', 'action'] },
-    { text: "⚡ {giver} tosses {receiver} a lightning bolt. 'Run, Barry, run!' 💨 +95 SPD (The Flash)", themes: ['action', 'scifi'] },
-    { text: "🌪️ {giver} gives {receiver} Sonic's chili dog... wait, that's not right. 💨 +75 SPD (Gotta go fast anyway)", themes: ['gaming'] },
-    { text: "💨 {giver} hands {receiver} Road Runner's secret formula. *MEEP MEEP* 💨 +85 SPD", themes: ['animation', 'classics'] },
-  ],
-  invisibility: [
-    { text: "👻 {giver} hands {receiver} an Invisibility Cloak. 'Mischief managed!' 👁️ Stealth +100 (Marauder's approved)", themes: ['fantasy'] },
-    { text: "🫥 {giver} gives {receiver} a vial of Nothing. They drink it and become... nothing. 👁️ Stealth +80 (The Invisible Man)", themes: ['horror', 'scifi', 'classics'] },
-    { text: "🌑 {giver} slides {receiver} a shadow potion. They become one with the darkness. 👁️ Stealth +90 (Literally Get Out)", themes: ['horror', 'drama'] },
-    { text: "🦇 {giver} hands {receiver} Dracula's mist form potion. 'Bleh bleh bleh!' 👁️ Stealth +85 (Hotel Transylvania)", themes: ['animation', 'comedy', 'horror'] },
-    { text: "👤 {giver} gives {receiver} a potion that smells like the Sunken Place. They disappear from perception... 👁️ Stealth +95", themes: ['horror', 'drama'] },
-    { text: "🎭 {giver} hands {receiver} a Predator cloaking device in potion form. *clicking sounds* 👁️ Stealth +100", themes: ['scifi', 'action', 'horror'] },
-  ],
-  luck: [
-    { text: "🍀 {giver} gives {receiver} Felix Felicis. Everything just... works out. 🎲 LUCK +100 (Harry Potter)", themes: ['fantasy'] },
-    { text: "🎰 {giver} hands {receiver} a four-leaf clover smoothie. The universe smiles upon them. 🎲 LUCK +80", themes: ['fantasy'] },
-    { text: "🌟 {giver} gives {receiver} an ancient talisman in liquid form. 'May the Force be with you.' 🎲 LUCK +90", themes: ['scifi', 'action', 'classics'] },
-    { text: "🎲 {giver} slides {receiver} D&D dice liquified. They just rolled a nat 20 on luck! 🎲 LUCK +95", themes: ['gaming', 'fantasy'] },
-    { text: "🐰 {giver} hands {receiver} a rabbit's foot potion. 'Feeling lucky, punk?' 🎲 LUCK +85 (Dirty Harry)", themes: ['action', 'classics'] },
-    { text: "✨ {giver} gives {receiver} Domino's probability manipulation... in potion form! 🎲 LUCK +100 (Deadpool 2)", themes: ['action', 'comedy'] },
-    { text: "☄️ {giver} hands {receiver} an anti-comet serum. They were in the steel basement when it happened. 🎲 LUCK +100 (Night of the Comet survivor)", themes: ['scifi', 'horror', 'classics'] },
-  ],
-  confusion: [
-    { text: "🌀 {giver} gives {receiver} a mystery potion. They suddenly can't remember why they walked into this room. 😵 -50 INT", themes: ['comedy'] },
-    { text: "🤪 {giver} hands {receiver} the Somebody's Been Drinking My Kool-Aid potion. Everything is sideways now. 😵 CONFUSED", themes: ['comedy'] },
-    { text: "🎪 {giver} gives {receiver} a potion from Willy Wonka's reject pile. Colors taste like sounds! 😵 -60 INT", themes: ['fantasy', 'classics'] },
-    { text: "🌈 {giver} slides {receiver} the Midsommar special. They're smiling but also crying but also dancing? 😵 -70 INT", themes: ['horror', 'drama'] },
-    { text: "🍄 {giver} hands {receiver} a Mario mushroom that went bad. They're now the size of confusion. 😵 -80 INT", themes: ['gaming'] },
-    { text: "📺 {giver} gives {receiver} a TV static potion. Their brain is now buffering... 😵 -75 INT (Poltergeist vibes)", themes: ['horror', 'classics'] },
-    { text: "🎮 {giver} hands {receiver} a potion that tastes like the '80s. They can only speak in valley girl. Like, totally! 😵 -65 INT (Night of the Comet)", themes: ['scifi', 'horror', 'comedy', 'classics'] },
-  ],
-  love: [
-    { text: "💖 {giver} gives {receiver} a Love Potion No. 9. Smooth jazz starts playing from nowhere... 💕 CHARM +100", themes: ['classics'] },
-    { text: "💘 {giver} hands {receiver} Cupid's arrow in liquid form. 'As you wish.' 💕 +95 CHARM (Princess Bride)", themes: ['fantasy', 'comedy', 'classics'] },
-    { text: "🌹 {giver} gives {receiver} the Enchantress's rose essence. 'Tale as old as time...' 💕 +90 CHARM (Beauty and the Beast)", themes: ['fantasy', 'animation'] },
-    { text: "💝 {giver} slides {receiver} a potion that smells like their soulmate. Red string appears! 💕 +85 CHARM (Kimi no Na wa)", themes: ['animation', 'fantasy', 'drama'] },
-    { text: "💗 {giver} hands {receiver} Eros's special blend. Greek gods are taking notes. 💕 +100 CHARM", themes: ['fantasy'] },
-    { text: "💓 {giver} gives {receiver} the Eternal Sunshine formula. Love without the pain! ...Or memory. 💕 +80 CHARM", themes: ['scifi', 'drama'] },
-  ],
-  poison: [
-    { text: "☠️ {giver} 'accidentally' gives {receiver} a bubbling green potion. 'Drink me,' it whispers... 💀 -50 HP (Whoops)", themes: ['fantasy'] },
-    { text: "🤢 {giver} hands {receiver} the milk from The Stuff. 'Are you eating it, or is it eating you?' 💀 -60 HP", themes: ['horror', 'classics'] },
-    { text: "🧪 {giver} gives {receiver} Joffrey's wine. Should've gone to the wedding... 💀 -75 HP (Game of Thrones)", themes: ['fantasy', 'drama'] },
-    { text: "🍷 {giver} slides {receiver} the Bride's special blend. 'My name is Inigo Montoya...' 💀 -80 HP (Revenge served cold)", themes: ['action', 'classics'] },
-    { text: "🫖 {giver} hands {receiver} the Get Out tea. 'Sink into the floor...' 💀 -90 HP (Sunken Place Special)", themes: ['horror', 'drama'] },
-    { text: "☕ {giver} gives {receiver} the Midsommar May Queen's brew. It's beautiful and terrifying. 💀 -70 HP", themes: ['horror', 'drama'] },
-    { text: "🔴 {giver} hands {receiver} a potion that shimmers like red dust. They start to disintegrate... 💀 -95 HP (Night of the Comet)", themes: ['scifi', 'horror', 'classics'] },
-  ],
-  weakness: [
-    { text: "🫠 {giver} gives {receiver} a potion that tastes like regret. Their muscles turn to jelly! 💔 -75 STR (Oof)", themes: ['comedy'] },
-    { text: "🦴 {giver} hands {receiver} the Reverse Spinach. Popeye would be so disappointed. 💔 -60 STR", themes: ['animation', 'comedy', 'classics'] },
-    { text: "😰 {giver} slides {receiver} Kryptonite smoothie. Superman feels your pain. 💔 -85 STR", themes: ['action'] },
-    { text: "🫥 {giver} gives {receiver} the Thanos Snap Protein Shake. Half their gains disappear... 💔 -100 STR (I don't feel so good)", themes: ['action', 'comedy'] },
-    { text: "🧻 {giver} hands {receiver} a wet noodle potion. All strength has left the chat. 💔 -70 STR", themes: ['comedy'] },
-    { text: "💀 {giver} gives {receiver} the opposite of Fight Milk. Now they're weak as a bird. 💔 -80 STR (Reverse CAW)", themes: ['comedy'] },
-    { text: "🧟 {giver} hands {receiver} comet zombie juice. Their eyes cloud over... 💔 -90 STR (Night of the Comet)", themes: ['scifi', 'horror', 'classics'] },
-  ],
-  curse: [
-    { text: "👹 {giver} 'accidentally' gives {receiver} the Cursed Videotape Juice. Seven days... 📼 CURSED (The Ring)", themes: ['horror'] },
-    { text: "🎃 {giver} hands {receiver} a potion that smells like ancient evil. 'You're my number one guy!' 👺 CURSED (Child's Play)", themes: ['horror', 'classics'] },
-    { text: "😈 {giver} gives {receiver} the Necronomicon elixir. 'Klaatu Barada Nik—cough' 👿 CURSED (Army of Darkness)", themes: ['horror', 'comedy', 'classics'] },
-    { text: "🕷️ {giver} slides {receiver} a spider-infused potion. Shelob sends her regards. 👺 CURSED (LOTR)", themes: ['fantasy'] },
-    { text: "🪦 {giver} hands {receiver} Pet Sematary soil water. Sometimes dead is better... 👹 CURSED (Stephen King)", themes: ['horror', 'classics'] },
-    { text: "🦇 {giver} gives {receiver} the Babadook's bedtime drink. 'You can't get rid of it!' 👿 CURSED", themes: ['horror'] },
-    { text: "☄️ {giver} hands {receiver} a potion made from comet tail dust. The sky is orange and everyone's gone... 👹 CURSED (Night of the Comet)", themes: ['scifi', 'horror', 'classics'] },
-  ],
-  slow: [
-    { text: "🐌 {giver} gives {receiver} anti-speed juice. They move like Internet Explorer loading. 🦥 -90 SPD", themes: ['comedy'] },
-    { text: "⏰ {giver} hands {receiver} a potion made of molasses and regret. Time to embrace the sloth life! 🦥 -80 SPD", themes: ['comedy'] },
-    { text: "🧊 {giver} slides {receiver} the Frozen Elsa Special. 'Let it go... slowly.' 🦥 -85 SPD (But why so slow?)", themes: ['animation', 'comedy'] },
-    { text: "🐢 {giver} gives {receiver} the opposite of Sonic. Gotta go... eventually. 🦥 -95 SPD", themes: ['gaming', 'comedy'] },
-    { text: "💤 {giver} hands {receiver} Zootopia sloth potion. 'What... do... you... call... a...' 🦥 -100 SPD (Flash Flash Hundred Yard Dash)", themes: ['animation', 'comedy'] },
-    { text: "🦕 {giver} gives {receiver} 'Ancient Slowing Draught'. They're stuck in slow-motion Matrix time. 🦥 -75 SPD", themes: ['scifi', 'action'] },
-  ],
-  energy: [
-    { text: "⚡ {giver} hands {receiver} a can of Slurm. 'It's highly addictive!' 🔋 +100 ENERGY (Futurama)", themes: ['animation', 'scifi', 'comedy'] },
-    { text: "🥤 {giver} gives {receiver} a Brawndo. 'It's got electrolytes!' 🔋 +85 ENERGY (Idiocracy)", themes: ['scifi', 'comedy'] },
-    { text: "☕ {giver} slides {receiver} Dale Cooper's black coffee. 'Damn fine energy boost!' 🔋 +90 ENERGY (Twin Peaks)", themes: ['drama', 'classics'] },
-    { text: "🔌 {giver} hands {receiver} pure Potterverse Pepper-Up Potion. Steam comes out of their ears! 🔋 +95 ENERGY", themes: ['fantasy'] },
-    { text: "⚡ {giver} gives {receiver} a lightning bolt from Zeus's energy drink line. 🔋 +100 ENERGY (Hercules approved)", themes: ['fantasy', 'animation'] },
-    { text: "🌩️ {giver} hands {receiver} Thor's pre-workout. 'Another!' 🔋 +100 ENERGY (Bring me Thanos!)", themes: ['action', 'fantasy'] },
-  ],
-};
+// Built-in responses, tagged with themes and an outcome (worked / backfired):
+// src/data/potionLines.js. /potion is a scored game (src/utils/gameScores.js).
+const DEFAULT_POTION_RESPONSES = POTION_LINES;
 
 const POTION_TYPES = ['health', 'mana', 'strength', 'speed', 'invisibility', 'luck', 'confusion', 'love', 'poison', 'energy', 'weakness', 'curse', 'slow'];
 
@@ -183,21 +75,17 @@ export const data = new SlashCommandBuilder()
               .setName('type')
               .setDescription('Potion type to add response to')
               .setRequired(true)
-              .addChoices(
-                { name: '💚 Health', value: 'health' },
-                { name: '💙 Mana', value: 'mana' },
-                { name: '🔴 Strength', value: 'strength' },
-                { name: '💨 Speed', value: 'speed' },
-                { name: '👁️ Invisibility', value: 'invisibility' },
-                { name: '🍀 Luck', value: 'luck' },
-                { name: '😵 Confusion', value: 'confusion' },
-                { name: '💕 Love', value: 'love' },
-                { name: '☠️ Poison', value: 'poison' },
-                { name: '⚡ Energy', value: 'energy' },
-                { name: '💔 Weakness', value: 'weakness' },
-                { name: '👹 Curse', value: 'curse' },
-                { name: '🦥 Slow', value: 'slow' },
-              )
+              // Autocomplete, not choices: four copies of the 13-type list
+              // were most of this command's size (Discord caps a command at
+              // 8000 bytes). See autocomplete() below.
+              .setAutocomplete(true)
+          )
+          .addStringOption(option =>
+            option
+              .setName('outcome')
+              .setDescription('What happens (scores points): it works, or it backfires on the giver')
+              .setRequired(true)
+              .addChoices({ name: 'Worked', value: 'worked' }, { name: 'Backfired', value: 'backfired' })
           )
           .addStringOption(option =>
             option
@@ -215,21 +103,10 @@ export const data = new SlashCommandBuilder()
               .setName('type')
               .setDescription('Potion type')
               .setRequired(true)
-              .addChoices(
-                { name: '💚 Health', value: 'health' },
-                { name: '💙 Mana', value: 'mana' },
-                { name: '🔴 Strength', value: 'strength' },
-                { name: '💨 Speed', value: 'speed' },
-                { name: '👁️ Invisibility', value: 'invisibility' },
-                { name: '🍀 Luck', value: 'luck' },
-                { name: '😵 Confusion', value: 'confusion' },
-                { name: '💕 Love', value: 'love' },
-                { name: '☠️ Poison', value: 'poison' },
-                { name: '⚡ Energy', value: 'energy' },
-                { name: '💔 Weakness', value: 'weakness' },
-                { name: '👹 Curse', value: 'curse' },
-                { name: '🦥 Slow', value: 'slow' },
-              )
+              // Autocomplete, not choices: four copies of the 13-type list
+              // were most of this command's size (Discord caps a command at
+              // 8000 bytes). See autocomplete() below.
+              .setAutocomplete(true)
           )
           .addIntegerOption(option =>
             option
@@ -248,21 +125,10 @@ export const data = new SlashCommandBuilder()
               .setName('type')
               .setDescription('Potion type to list')
               .setRequired(true)
-              .addChoices(
-                { name: '💚 Health', value: 'health' },
-                { name: '💙 Mana', value: 'mana' },
-                { name: '🔴 Strength', value: 'strength' },
-                { name: '💨 Speed', value: 'speed' },
-                { name: '👁️ Invisibility', value: 'invisibility' },
-                { name: '🍀 Luck', value: 'luck' },
-                { name: '😵 Confusion', value: 'confusion' },
-                { name: '💕 Love', value: 'love' },
-                { name: '☠️ Poison', value: 'poison' },
-                { name: '⚡ Energy', value: 'energy' },
-                { name: '💔 Weakness', value: 'weakness' },
-                { name: '👹 Curse', value: 'curse' },
-                { name: '🦥 Slow', value: 'slow' },
-              )
+              // Autocomplete, not choices: four copies of the 13-type list
+              // were most of this command's size (Discord caps a command at
+              // 8000 bytes). See autocomplete() below.
+              .setAutocomplete(true)
           )
       )
       .addSubcommand(subcommand =>
@@ -274,21 +140,10 @@ export const data = new SlashCommandBuilder()
               .setName('type')
               .setDescription('Potion type to reset')
               .setRequired(true)
-              .addChoices(
-                { name: '💚 Health', value: 'health' },
-                { name: '💙 Mana', value: 'mana' },
-                { name: '🔴 Strength', value: 'strength' },
-                { name: '💨 Speed', value: 'speed' },
-                { name: '👁️ Invisibility', value: 'invisibility' },
-                { name: '🍀 Luck', value: 'luck' },
-                { name: '😵 Confusion', value: 'confusion' },
-                { name: '💕 Love', value: 'love' },
-                { name: '☠️ Poison', value: 'poison' },
-                { name: '⚡ Energy', value: 'energy' },
-                { name: '💔 Weakness', value: 'weakness' },
-                { name: '👹 Curse', value: 'curse' },
-                { name: '🦥 Slow', value: 'slow' },
-              )
+              // Autocomplete, not choices: four copies of the 13-type list
+              // were most of this command's size (Discord caps a command at
+              // 8000 bytes). See autocomplete() below.
+              .setAutocomplete(true)
           )
       )
   )
@@ -372,7 +227,23 @@ async function getPotionResponses(guildId, potionType) {
   
   // Combine custom and filtered default responses
   // Note: Custom responses are always included regardless of themes
-  return [...customResponses.map(text => ({ text, themes: [] })), ...defaultResponses];
+  return [...tagged(customResponses, 'worked').map(r => ({ themes: [], ...r })), ...defaultResponses];
+}
+
+/** Potions that help the receiver; the rest hurt. Decides the points (gameScores.js). */
+const HELPFUL = new Set(['health', 'mana', 'strength', 'speed', 'invisibility', 'luck', 'love', 'energy']);
+const TYPE_NAMES = {
+  health: '💚 Health', mana: '💙 Mana', strength: '🔴 Strength', speed: '💨 Speed', invisibility: '👁️ Invisibility',
+  luck: '🍀 Luck', confusion: '😵 Confusion', love: '💕 Love', poison: '☠️ Poison', energy: '⚡ Energy',
+  weakness: '💔 Weakness', curse: '👹 Curse', slow: '🦥 Slow',
+};
+
+/** `type` suggestions for the responses subcommands */
+export async function autocomplete(interaction) {
+  const typed = String(interaction.options.getFocused() || '').toLowerCase();
+  return interaction.respond(Object.entries(TYPE_NAMES)
+    .filter(([value, name]) => !typed || value.includes(typed) || name.toLowerCase().includes(typed))
+    .map(([value, name]) => ({ name, value })));
 }
 
 export async function execute(interaction) {
@@ -401,6 +272,10 @@ export async function execute(interaction) {
       return;
     }
 
+    if (!TYPE_NAMES[interaction.options.getString('type')]) {
+      await interaction.reply({ content: `❌ Pick a potion type from the list: ${Object.keys(TYPE_NAMES).join(', ')}.`, ephemeral: true });
+      return;
+    }
     switch (subcommand) {
       case 'add':
         await handleAddResponse(interaction);
@@ -451,7 +326,6 @@ export async function execute(interaction) {
 async function handleGivePotion(interaction) {
   const target = resolveSocialTarget(interaction, 'user');
   const potionType = interaction.options.getString('type');
-  const giver = interaction.user;
 
   // Don't allow giving potions to bots
   if (!target || target.isBot) {
@@ -462,30 +336,21 @@ async function handleGivePotion(interaction) {
     return;
   }
 
-  // Get responses for the potion type
-  const responses = await getPotionResponses(interaction.guildId, potionType);
-  
-  if (!responses || responses.length === 0) {
-    await interaction.reply({
-      content: '❌ No responses configured for this potion type!',
-      ephemeral: true,
-    });
-    return;
-  }
+  const started = await beginPlay(interaction, 'potion');
+  if (!started) return;
 
-  // Pick a random response
-  const responseObj = responses[Math.floor(Math.random() * responses.length)];
-  const responseText = responseObj.text || responseObj; // Support both object and string formats
-  
-  // Replace placeholders
-  const finalMessage = responseText
-    .replace(/{giver}/g, `<@${giver.id}>`)
+  const response = pick(await getPotionResponses(interaction.guildId, potionType));
+  const text = response.text
+    .replace(/{giver}/g, `<@${interaction.user.id}>`)
     .replace(/{receiver}/g, target.mention);
 
-  // Public; pings the giver and a member receiver, never a role or @everyone
-  await interaction.reply({
-    content: finalMessage,
-    allowedMentions: allowedMentionsFor(giver.id, target),
+  await finishPlay(interaction, {
+    game: 'potion',
+    target,
+    text,
+    outcome: response.outcome || 'worked',
+    effect: HELPFUL.has(potionType) ? 'helpful' : 'harmful',
+    settings: started.settings,
   });
 }
 
@@ -514,11 +379,11 @@ async function handleAddResponse(interaction) {
     config.potionResponses[potionType] = [];
   }
 
-  config.potionResponses[potionType].push(response);
+  config.potionResponses[potionType].push({ text: response, outcome: interaction.options.getString('outcome') || 'worked' });
   await saveGuildConfig(interaction.guildId, config);
 
   await interaction.reply({
-    content: `✅ Added custom ${potionType} potion response!\n\nPreview: ${response.replace('{giver}', '@Giver').replace('{receiver}', '@Receiver')}`,
+    content: `✅ Added custom ${potionType} potion response (${interaction.options.getString('outcome') || 'worked'})!\n\nPreview: ${response.replace('{giver}', '@Giver').replace('{receiver}', '@Receiver')}`,
     ephemeral: true,
   });
 }
@@ -554,7 +419,7 @@ async function handleRemoveResponse(interaction) {
   await saveGuildConfig(interaction.guildId, config);
 
   await interaction.reply({
-    content: `✅ Removed custom ${potionType} potion response #${index}:\n\`\`\`${removed}\`\`\``,
+    content: `✅ Removed custom ${potionType} potion response #${index}:\n\`\`\`${removed.text ?? removed}\`\`\``,
     ephemeral: true,
   });
 }
@@ -573,9 +438,9 @@ async function handleListResponses(interaction) {
 
   if (customResponses.length > 0) {
     message += `**Custom Responses (${customResponses.length}):**\n`;
-    customResponses.forEach((resp, index) => {
-      const preview = resp.length > 100 ? resp.substring(0, 100) + '...' : resp;
-      message += `${index + 1}. ${preview}\n`;
+    tagged(customResponses, 'worked').forEach((resp, index) => {
+      const preview = resp.text.length > 100 ? resp.text.substring(0, 100) + '...' : resp.text;
+      message += `${index + 1}. [${resp.outcome}] ${preview}\n`;
     });
     message += '\n';
   }

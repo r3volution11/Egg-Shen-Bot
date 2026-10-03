@@ -147,6 +147,14 @@ export class FakeGuild {
       },
       cache: guild.channelMap,
     };
+    // As GuildMemberManager.fetch: a member of this server, or Unknown Member
+    this.members = {
+      async fetch(id) {
+        const u = guild.discord.users.get(id);
+        if (!u) throw Object.assign(new Error('Unknown Member'), { code: 10007 });
+        return u.member;
+      },
+    };
   }
 
   addChannel(id, name) {
@@ -369,8 +377,17 @@ export class FakeDiscord {
           return discord.guild.channels.fetch(id);
         },
       },
+      // Any Discord account, in the server or not (`formerUsers` have left)
+      users: {
+        async fetch(id) {
+          const u = discord.users.get(id)?.user || discord.formerUsers.get(id);
+          if (!u) throw Object.assign(new Error('Unknown User'), { code: 10013 });
+          return u;
+        },
+      },
     };
     this.users = new Map();
+    this.formerUsers = new Map();
   }
 
   log(event) {

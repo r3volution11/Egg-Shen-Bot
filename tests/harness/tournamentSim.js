@@ -135,9 +135,9 @@ export class Sim {
    * "reached the watchlist" because a previous run had put it there.
    */
   removeFiles() {
-    const dirs = ['GUILD_TOURNAMENTS_DIR', 'GUILD_CONFIGS_DIR', 'GUILD_WATCHLISTS_DIR', 'GUILD_STATS_DIR', 'GUILD_WATCH_HISTORY_DIR', 'GUILD_POLLS_DIR']
+    const dirs = ['GUILD_TOURNAMENTS_DIR', 'GUILD_CONFIGS_DIR', 'GUILD_WATCHLISTS_DIR', 'GUILD_STATS_DIR', 'GUILD_WATCH_HISTORY_DIR', 'GUILD_POLLS_DIR', 'GUILD_GAMES_DIR']
       .map(v => process.env[v]).filter(Boolean);
-    if (dirs.length < 6) throw new Error('Data folders must point at a scratch directory (tests/jest.setup.js)');
+    if (dirs.length < 7) throw new Error('Data folders must point at a scratch directory (tests/jest.setup.js)');
     for (const dir of dirs) {
       if (!fs.existsSync(dir)) continue;
       for (const name of fs.readdirSync(dir)) {

@@ -51,6 +51,7 @@ const sidebar = [
       { text: 'AI Image Generation', link: '/commands/ai-images' },
       { text: 'Watch Parties', link: '/commands/watch-party' },
       { text: 'Social Commands', link: '/commands/social' },
+      { text: 'Games & Scores', link: '/commands/games' },
       { text: 'Admin Configuration', link: '/commands/configuration' },
       { text: 'Moderation', link: '/commands/moderation' }
     ]

@@ -13,6 +13,7 @@ import { describe, test, expect, jest, beforeAll, beforeEach, afterEach } from '
 import fs from 'fs';
 import path from 'path';
 import { FakeDiscord } from './harness/fakeDiscord.js';
+import { resetPlayLimits, deleteScores } from '../src/utils/gameScores.js';
 
 let doom;
 let eggshenConfig;
@@ -29,6 +30,9 @@ let friend;
 beforeEach(() => {
   const file = path.join(process.env.GUILD_CONFIGS_DIR, `${GUILD}.json`);
   if (fs.existsSync(file)) fs.unlinkSync(file);
+  // /doom is a game now: each test starts with no cooldowns and no scores
+  resetPlayLimits();
+  deleteScores(GUILD);
   discord = new FakeDiscord({ guildId: GUILD });
   discord.addUser('admin', { admin: true });
   discord.addUser('doomer');
@@ -41,7 +45,7 @@ const asMember = (user) => ({ user, member: discord.who(user.id).member });
 const ROLE = { role: { id: 'role-campers', name: 'Camp Counselors' } };
 const EVERYONE = () => ({ role: { id: GUILD, name: '@everyone' } });
 const fill = (line, user = 'doomer', target = '<@friend>') =>
-  line.replace(/{user}/g, `<@${user}>`).replace(/{target}/g, target);
+  (line.text ?? line).replace(/{user}/g, `<@${user}>`).replace(/{target}/g, target);
 
 /** Run a command; returns { message, payload } — what was posted and what was sent */
 async function run(command, name, userId, { subcommand, group = null, options = {} }) {
@@ -53,6 +57,9 @@ async function run(command, name, userId, { subcommand, group = null, options = 
   return { message: i.replyMessage, payload };
 }
 
+/** The line itself; the points line follows it */
+const said = (message) => message.content.split('\n')[0];
+
 const fate = (target, trope, userId = 'doomer') =>
   run(doom, 'doom', userId, { subcommand: 'fate', options: { target, ...(trope ? { trope } : {}) } });
 const lines = (sub, userId, options) => run(doom, 'doom', userId, { subcommand: sub, group: 'lines', options });
@@ -62,7 +69,7 @@ describe('/doom fate', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0);
     const { message, payload } = await fate(asMember(friend), 'zombie');
     expect(message.ephemeralFor).toBeNull(); // public
-    expect(message.content).toBe(fill(doom.DEFAULT_DOOM_LINES.zombie[0]));
+    expect(said(message)).toBe(fill(doom.DEFAULT_DOOM_LINES.zombie[0]));
     expect(payload.allowedMentions).toEqual({ parse: [], users: ['doomer', 'friend'] });
   });
 
@@ -94,15 +101,16 @@ describe('/doom fate', () => {
 
   test('the trope chosen decides the line; no trope lets fate pick one', async () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.999);
-    expect((await fate(asMember(friend), 'monkey-paw')).message.content).toBe(fill(doom.DEFAULT_DOOM_LINES['monkey-paw'].at(-1)));
+    expect(said((await fate(asMember(friend), 'monkey-paw')).message)).toBe(fill(doom.DEFAULT_DOOM_LINES['monkey-paw'].at(-1)));
+    resetPlayLimits(); // the same player again, inside the cooldown
     const lastTrope = doom.TROPES.at(-1).value;
-    expect((await fate(asMember(friend))).message.content).toBe(fill(doom.DEFAULT_DOOM_LINES[lastTrope].at(-1)));
+    expect(said((await fate(asMember(friend))).message)).toBe(fill(doom.DEFAULT_DOOM_LINES[lastTrope].at(-1)));
   });
 
   test('every built-in line names both the user and the target; every trope has lines', () => {
     for (const [trope, list] of Object.entries(doom.DEFAULT_DOOM_LINES)) {
-      for (const line of list) {
-        expect(`${trope}: ${line.includes('{user}') && line.includes('{target}')}`).toBe(`${trope}: true`);
+      for (const { text } of list) {
+        expect(`${trope}: ${text.includes('{user}') && text.includes('{target}')}`).toBe(`${trope}: true`);
       }
     }
     expect(doom.TROPES.every(t => doom.DEFAULT_DOOM_LINES[t.value]?.length >= 5)).toBe(true);
@@ -117,25 +125,26 @@ describe('/doom fate', () => {
 
 describe('/doom lines (this server\'s own)', () => {
   test('an added line is used by the next fate, and can be removed', async () => {
-    await lines('add', 'admin', { trope: 'zombie', line: '{user} serves {target} brain casserole!' });
+    await lines('add', 'admin', { trope: 'zombie', outcome: 'doomed', line: '{user} serves {target} brain casserole!' });
     jest.spyOn(Math, 'random').mockReturnValue(0); // custom lines come first
-    expect((await fate(asMember(friend), 'zombie')).message.content).toBe('<@doomer> serves <@friend> brain casserole!');
+    expect(said((await fate(asMember(friend), 'zombie')).message)).toBe('<@doomer> serves <@friend> brain casserole!');
 
     const listed = await lines('list', 'admin', { trope: 'zombie' });
-    expect(listed.message.content).toContain('1. {user} serves {target} brain casserole!');
+    expect(listed.message.content).toContain('1. [doomed] {user} serves {target} brain casserole!');
 
     await lines('remove', 'admin', { trope: 'zombie', number: 1 });
-    expect((await fate(asMember(friend), 'zombie')).message.content).toBe(fill(doom.DEFAULT_DOOM_LINES.zombie[0]));
+    resetPlayLimits(); // the same player again, inside the cooldown
+    expect(said((await fate(asMember(friend), 'zombie')).message)).toBe(fill(doom.DEFAULT_DOOM_LINES.zombie[0]));
   });
 
   test('a line without both placeholders is refused', async () => {
-    const r = await lines('add', 'admin', { trope: 'zombie', line: 'Braaaains!' });
+    const r = await lines('add', 'admin', { trope: 'zombie', outcome: 'doomed', line: 'Braaaains!' });
     expect(r.message.content).toMatch(/needs both/);
     expect((await lines('list', 'admin', { trope: 'zombie' })).message.content).not.toContain('Braaaains!');
   });
 
   test('members can deal fates but not change the lines', async () => {
-    const r = await lines('add', 'doomer', { trope: 'zombie', line: '{user} bites {target}' });
+    const r = await lines('add', 'doomer', { trope: 'zombie', outcome: 'doomed', line: '{user} bites {target}' });
     expect(r.message.content).toMatch(/Only administrators and moderators/);
   });
 });

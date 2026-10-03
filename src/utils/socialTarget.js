@@ -35,7 +35,9 @@ export function resolveSocialTarget(interaction, optionName) {
 
   const user = option.user || option.member?.user;
   if (!user) return null;
-  return { kind: 'member', mention: `<@${user.id}>`, pingUserIds: [user.id], isBot: !!user.bot, name: user.username };
+  // The name people see in this server, for score lines and boards
+  const name = option.member?.displayName || option.member?.nickname || user.globalName || user.username;
+  return { kind: 'member', mention: `<@${user.id}>`, pingUserIds: [user.id], isBot: !!user.bot, name };
 }
 
 /**

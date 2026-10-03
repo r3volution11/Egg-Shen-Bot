@@ -9,6 +9,31 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.53.0 - 2026-10-02
+
+### Added
+- **The games keep score.** `/potion`, `/foodfight`, `/doom` and the new `/rescue` are games now: every play has an outcome, and each outcome gives or takes points from you and the member you picked, shown under the line (`🎯 Hit! Sam +3 (42 pts · 🔥 3 in a row) · Alex −1`). Aiming at a role, @everyone or yourself scores only you. Good plays in a row build a streak. See [Games & Scores](/commands/games)
+- **`/scoreboard`**: your points, or anyone's, with their avatar, total and rank, and for each game the points, plays, outcomes, what they received and their best streak. This month, this year or all time. Posted in the channel, or `private:true`
+- **`/leaderboard`**: the server's top 10 players, each with a small avatar, plus who got splatted, doomed, poisoned, healed, fed and rescued the most, and the best streak. By game and by month, year or all time
+- **`/rescue`**: `/doom`'s opposite. Save someone, a role or @everyone with a Final Girl, holy water, Ghostbusters, the boomstick, a salt circle, a silver bullet, sunrise, a getaway car, Van Helsing, the survival rules, garlic or the dog. Rescued, caught, or you sacrifice yourself for them. A rescue that works shields them from the next `/doom` for an hour: the doom is blocked and the shield used up. You can't rescue yourself. 300 lines
+- **`/foodfight feed`**: the kind half of a food fight. Tasty, gross, or spilled all over yourself. 181 lines
+- **Many more, and funnier, lines**: 300 food fight throws, 300 dooms and 339 potions, up from 72, 72 and 85. Still PG-13: some swearing, gross-out humor and cartoon gore, nothing hateful or sexual
+- **Limits so the games can't be farmed**: each game once every 20 seconds per person, 6 plays a minute across games, and the first 20 plays of each game a day score points (more still play, for fun)
+- **`/eggshen-config-games`** (Admin/Mod): change those limits and the shield's length, keep the games to certain channels or out of them (a thread counts as its channel), and reset scores for everyone, one game or one person. `/eggshen-config commands toggle` turns each game off, `rescue` included
+
+### Changed
+- Your server's own lines for `/foodfight`, `/doom`, `/rescue` and `/potion` take an `outcome`, which decides their points. Lines added before this count as a hit, a doom, a rescue or a potion that worked
+- `/foodfight lines` takes `action:throw` or `action:feed`
+- `/potion responses` picks the potion type from an autocomplete list
+- The bot's general per-command rate limit no longer applies to the games, which have their own; a per-command limit set for one of them still does
+
+### Developer
+- `src/utils/gameScores.js`: points table, per-server score file in `guild_games/` (`GUILD_GAMES_DIR`) with synchronous atomic load-modify-save, month/year/all-time periods in UTC, daily cap, streaks, shields, in-memory play limits, channel rules, leaderboard and resets. `gamePlay.js` runs one play (`beginPlay` → `finishPlay`); `gameBoards.js` holds what `/scoreboard` and `/leaderboard` share
+- Lines live in `src/data/` as `{ text, outcome }`, each set validated for placeholders, outcome mix, duplicates and a banned-terms list, and read through by hand
+- The leaderboard is one embed per player so each avatar can be an author icon (~24px); Discord's 10-embed limit makes it a top 10
+- `tests/game-scores.test.js` and `tests/game-commands.test.js` drive every row of the points table, caps, periods, shields, limits, channel rules and both boards through the real commands; each was mutation-checked (23 of 24 mutations caught; the miss is a cleanup sweep reads already ignore). The fake Discord gains `guild.members.fetch` and `client.users.fetch`
+- New commands and changed options: needs `deploy-commands`
+
 ## 2.52.0 - 2026-10-02
 
 ### Added

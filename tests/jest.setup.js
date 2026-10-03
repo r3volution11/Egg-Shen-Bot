@@ -43,6 +43,7 @@ fallback('GUILD_WATCHLISTS_DIR', path.join(workerDir, 'guild_watchlists'));
 fallback('GUILD_POLLS_DIR', path.join(workerDir, 'guild_polls'));
 fallback('GUILD_STATS_DIR', path.join(workerDir, 'guild_stats'));
 fallback('GUILD_WATCH_HISTORY_DIR', path.join(workerDir, 'guild_watch_history'));
+fallback('GUILD_GAMES_DIR', path.join(workerDir, 'guild_games'));
 
 /**
  * Make supertest's servers listen on 127.0.0.1, not on every address.

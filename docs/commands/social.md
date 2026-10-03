@@ -1,11 +1,13 @@
 ---
 title: Social Commands - Egg Shen Bot
-description: Interactive social features including surveys/polls, magical potions, food fights, horror-movie fates, and status quotes for entertainment-focused Discord communities.
+description: Interactive social features including surveys/polls, magical potions, food fights, horror-movie fates and rescues with points, and status quotes for entertainment-focused Discord communities.
 ---
 
 # Social Commands
 
-**Add fun and interactive elements** to your entertainment Discord community with surveys, polls, potions, food fights, and status quotes.
+**Add fun and interactive elements** to your entertainment Discord community with surveys, polls, potions, food fights, horror-movie fates and rescues, and status quotes.
+
+`/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, a `/scoreboard` and a `/leaderboard`. See **[Games & Scores](./games)** for how points, shields and limits work.
 
 ## Quick FAQ
 
@@ -24,11 +26,11 @@ A: Yes! Click a different button to switch your vote. In multiple-vote mode, cli
 **Q: Are survey results stored permanently?**  
 A: Yes, all surveys are stored in JSON files per-server and persist even if the bot restarts.
 
-**Q: Can I give a potion, throw food, or deal a fate to a whole role, or everyone?**  
-A: Yes. Pick a member, a role, or @everyone as the target. A role or @everyone shows in the message but nobody gets a notification; only a member you pick is pinged.
+**Q: Can I give a potion, throw food, deal a fate or rescue a whole role, or everyone?**  
+A: Yes. Pick a member, a role, or @everyone as the target. A role or @everyone shows in the message but nobody gets a notification; only a member you pick is pinged. Only you score points for those.
 
-**Q: Can I turn off /potion, /foodfight or /doom?**  
-A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`, `setting:doom`). Admins and moderators can always use them.
+**Q: Can I turn off /potion, /foodfight, /doom or /rescue?**  
+A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`, `setting:doom`, `setting:rescue`). Admins and moderators can always use them. To keep the games to certain channels, or out of them, use `/eggshen-config-games channels` ([Games & Scores](./games#where-games-can-be-played)).
 
 **Q: Can a survey close itself automatically?**  
 A: Yes! Set `duration:[minutes]` when creating it (`/survey create ... duration:120` for 2 hours). Without it, a survey stays open until someone runs `/survey close`.
@@ -259,10 +261,10 @@ Give magical potions with pop culture references, to a member, a whole role, or 
 - **Harmful:** Confusion, Poison, Weakness, Curse, Slow
 
 **Features:**
-- 85 built-in responses with references from movies, TV shows, video games, and more
+- 339 built-in responses with references from movies, TV shows, video games, and more
 - Themed responses based on genre (Horror, Comedy, Fantasy, Sci-Fi, Gaming, Action, Classics, Animation, Drama)
 - Posted publicly. A member you pick is pinged; a role or @everyone is shown but not pinged
-- Purely for fun: no actual game mechanics
+- Scores points: a helpful potion that works gives you +1 and them +2; a harmful one gives you +2 and them −2; a backfire costs you 2 ([Games & Scores](./games))
 
 **Examples:**
 ```
@@ -273,26 +275,26 @@ Give magical potions with pop culture references, to a member, a whole role, or 
 
 **Sample Responses:**
 - *"🧪 Alice hands Bob a suspicious red liquid. 'This... is my BOOMSTICK of healing!' 💚 +50 HP (Army of Darkness approved)"*
-- *"🍯 Charlie gives Dave a flask of miruvor. The elvish cordial burns with an inner fire! 💚 +75 HP (Elrond's recipe)"*
-- *"🧃 Eve tosses Frank an Estus Flask. 'Praise the sun!' 💚 +100 HP (Don't you dare go hollow)"*
+- *"🍷 Charlie gives Dave Joffrey's wedding wine. Should've skipped the reception... 💀 -75 HP (Game of Thrones)"*
+- *"🐒 Eve wishes on a Monkey's Paw for Frank's luck. A finger curls. Eve stubs every toe for a week. 💔 -60 LUCK"* (a backfire)
 
 ### Custom Responses and Themes (Admin/Mod)
 
 ```
-/potion responses add type:health response:{giver} hands {receiver} a juice box. 💚 +5 HP
+/potion responses add type:health outcome:worked response:{giver} hands {receiver} a juice box. 💚 +5 HP
 /potion responses list type:health
 /potion responses remove type:health index:1
 /potion responses reset type:health
 /potion theme set themes:horror,comedy
 ```
 
-A response needs both `{giver}` and `{receiver}`. Your own responses are used alongside the built-in ones; themes narrow which built-in ones are used.
+A response needs both `{giver}` and `{receiver}`, and an `outcome`: `worked` or `backfired`. Your own responses are used alongside the built-in ones; themes narrow which built-in ones are used.
 
 ---
 
 ## Food Fight
 
-Start a food fight, after the classic BBS door game. Throw food at a member, a whole role, or @everyone, and the bot says what happened: a hit, a miss, or a throw that backfires on you.
+Start a food fight, after the classic BBS door game. Throw food at a member, a whole role, or @everyone, and the bot says what happened: a hit, a miss, or a throw that backfires on you. Or be nice and feed them instead.
 
 ### Throw Food
 
@@ -312,22 +314,33 @@ Leave out `food` and the bot grabs whatever's on the tray.
 ```
 
 **Sample lines:**
-- *"🥧 @Alice winds up like a Three Stooges short and lands a cream pie square on @Bob. Nyuk nyuk nyuk."*
-- *"🍕 "Cowabunga!" @Alice launches a pizza at @Bob like a Ninja Turtle."*
-- *"🐟 @Alice throws a fish stick at @Bob, and it boomerangs back. @Alice needs a bigger boat."*
+- *"🥧 @Alice winds up like a Three Stooges short and plants a cream pie square on @Bob. Nyuk nyuk nyuk."* (a hit)
+- *"🐟 @Bob swats @Alice's fish stick aside with a pool noodle. Where did the pool noodle come from? Doesn't matter. Clean miss."*
+- *"🍝 @Alice grabs the spaghetti by the sauce end. Rookie. @Alice is marinara to the elbows and @Bob is laughing their ass off."* (a backfire)
 
-Posted publicly. A member you hit is pinged; a role or @everyone is shown but not pinged. Bots dodge everything.
+Posted publicly, with the points underneath: a hit is +3 for you and −1 for them; a miss −1 / +1; a backfire −2 / +2. A member you hit is pinged; a role or @everyone is shown but not pinged. Bots dodge everything. 300 built-in lines.
+
+### Feed Someone
+
+```
+/foodfight feed target:<member, role, or @everyone> food:[food]
+```
+
+The kind half of a food fight. It's tasty (+1 for you, +2 for them), gross (−1 each), or you spill it on yourself (−2 for you, +1 for them, who still gets fed). 181 built-in lines.
+
+- *"🍮 @Alice makes @Bob a flan so jiggly it waved hello. @Bob waved back, then ate it."*
 
 ### Your Own Lines (Admin/Mod)
 
 ```
-/foodfight lines add food:pie line:{thrower} hurls a key lime pie at {target}!
-/foodfight lines list food:pie
-/foodfight lines remove food:pie number:1
-/foodfight lines reset food:pie
+/foodfight lines add action:throw food:pie outcome:hit line:{thrower} hurls a key lime pie at {target}!
+/foodfight lines add action:feed food:pie outcome:tasty line:{feeder} bakes {target} a perfect pie.
+/foodfight lines list action:throw food:pie
+/foodfight lines remove action:throw food:pie number:1
+/foodfight lines reset action:throw food:pie
 ```
 
-A line needs both `{thrower}` and `{target}`. Your lines are used alongside the 72 built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
+A throw line needs both `{thrower}` and `{target}` and an outcome of `hit`, `miss` or `backfire`; a feed line needs `{feeder}` and `{target}` and `tasty`, `gross` or `spill`. Your lines are used alongside the built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
 
 ---
 
@@ -353,22 +366,60 @@ Leave out `trope` and fate decides.
 ```
 
 **Sample lines:**
-- *"🧟 @Bob gets bitten, turns, and immediately eats @Alice. Somebody should have aimed for the head."*
-- *"🐒 @Alice gives @Bob a monkey's paw. @Bob wishes for a million dollars. One finger curls. A million pennies fall from the sky."*
-- *"🪓 @Bob says "I'll be right back." @Alice nods slowly. @Bob is not right back."*
+- *"🪓 @Bob tries to call for help. No bars. One bar. Zero bars. @Alice cuts the landline anyway, purely for style points."* (doomed)
+- *"🧟 @Bob gets bitten, turns, and immediately eats @Alice. Somebody should have aimed for the head."* (backfired)
+- *"🔮 @Alice asks the spirits to haunt @Bob. The planchette spells "N-O-P-E," floats across the room, and bonks @Alice on the forehead every hour, on the hour."* (backfired)
 
-Posted publicly. A member you doom is pinged; a role or @everyone is shown but not pinged. Bots are already undead.
+Posted publicly, with the points underneath: doomed is +3 for you and −1 for them; an escape −1 / +2; a backfire −2 / +1. Someone recently saved with `/rescue` is shielded: the doom is blocked, nobody scores, and the shield is used up. A member you doom is pinged; a role or @everyone is shown but not pinged. Bots are already undead. 300 built-in lines.
 
 ### Your Own Lines (Admin/Mod)
 
 ```
-/doom lines add trope:zombie line:{user} serves {target} brain casserole!
+/doom lines add trope:zombie outcome:doomed line:{user} serves {target} brain casserole!
 /doom lines list trope:zombie
 /doom lines remove trope:zombie number:1
 /doom lines reset trope:zombie
 ```
 
-A line needs both `{user}` and `{target}`. Your lines are used alongside the 72 built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
+A line needs both `{user}` and `{target}`, and an outcome: `doomed`, `escaped` or `backfired`. Your lines are used alongside the built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
+
+---
+
+## Rescue
+
+`/doom`'s opposite: save someone from a horror movie. A Final Girl drags them out of the cabin, holy water, the boomstick, the dog that always survives. A rescue that works **shields** them from the next `/doom` for an hour.
+
+### Attempt a Rescue
+
+```
+/rescue attempt target:<member, role, or @everyone> trope:[trope]
+```
+
+Leave out `trope` and whatever works, works.
+
+**Tropes:** 🔪 Final Girl, 💧 Holy Water, 👻 Ghostbusters, 🔫 Boomstick, 🧂 Salt Circle, 🥈 Silver Bullet, 🌅 Sunrise, 🚗 Getaway Car, 🗡️ Van Helsing, 📜 Survival Rules, 🧄 Garlic, 🐕 The Dog
+
+**Outcomes:**
+- **Rescued:** +1 for you, +2 for them, and they're shielded.
+- **Caught:** you both get caught, −1 each.
+- **Sacrificed:** you save them and take the hit yourself: −2 for you, +3 for them, and they're shielded.
+
+**Sample lines:**
+- *"🗡️ @Alice beats the vampire in a staring contest, then stakes it while it's blinking. @Bob is saved, and slightly confused."*
+- *"🔪 @Alice tries to save @Bob, but they both trip over absolutely nothing while running from a guy who is walking. Both caught."*
+
+You can't rescue yourself ("Final Girls don't save themselves for points"), or a bot. Rescuing a role or @everyone scores only you and shields nobody. 300 built-in lines.
+
+### Your Own Lines (Admin/Mod)
+
+```
+/rescue lines add trope:the-dog outcome:rescued line:{user} follows the dog and drags {target} out the back door!
+/rescue lines list trope:the-dog
+/rescue lines remove trope:the-dog number:1
+/rescue lines reset trope:the-dog
+```
+
+A line needs both `{user}` and `{target}`, and an outcome: `rescued`, `caught` or `sacrificed`.
 
 ---
 
@@ -459,15 +510,19 @@ If both `title` and `author` are given, a quote matching *either* one is returne
 ### Potion issues
 
 **Problem:** Potion responses are repetitive  
-**Solution:** Administrators can add their own with `/potion responses add`, used alongside the 85 built-in ones.
+**Solution:** Administrators can add their own with `/potion responses add`, used alongside the 339 built-in ones.
 
 **Problem:** A role or @everyone didn't get a notification  
-**Solution:** That's on purpose: /potion and /foodfight show a role or @everyone without pinging anyone, so a game doesn't notify a whole server. Pick a member to ping them.
+**Solution:** That's on purpose: /potion, /foodfight, /doom and /rescue show a role or @everyone without pinging anyone, so a game doesn't notify a whole server. Pick a member to ping them.
+
+**Problem:** "⏳ cooldown" or "🎲 Games are played in…"  
+**Solution:** Each game can be played once every 20 seconds per person, and the games can be limited to certain channels. See [Games & Scores](./games#limits).
 
 ---
 
 ## Related Documentation
 
+- [Games & Scores](/commands/games) - Points, shields, scoreboards and game settings
 - [Configuration Commands](/commands/configuration) - Customize survey and potion settings
 - [Watch Party Commands](/commands/watch-party) - Host watch parties with timers
 - [Statistics](/features/statistics) - Track command usage

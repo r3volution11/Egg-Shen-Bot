@@ -67,7 +67,7 @@ features:
 
   - icon: 🎪
     title: Social & Fun
-    details: Food fights, horror-movie fates, and magic potions aimed at anyone, a whole role, or @everyone. Polls with up to 10 options and live results, soundtrack search on iTunes and Spotify, and a rotating status of movie quotes your members can suggest.
+    details: Food fights, horror-movie fates, rescues and magic potions are games with points, a scoreboard and a monthly leaderboard. Polls with up to 10 options and live results, soundtrack search on iTunes and Spotify, and a rotating status of movie quotes your members can suggest.
 
   - icon: 🛡️
     title: Moderation
@@ -255,13 +255,16 @@ Your own `message` always posts exactly as written. Leave it out and, if your se
 The bot's status rotates through movie and TV quotes. Post one in chat with `/quote` (filter by `title` or `author`), and members can suggest new ones with `/suggest-quote` for a moderator to approve.
 
 **Fun Social Interactions**  
-Type `/potion give user:@Friend type:health` to send magical potions with fun pop culture references! Choose from 13 potion types - helpful (Health, Mana, Strength, Speed, Love) or harmful (Poison, Weakness, Curse, Slow) - with 85 built-in responses featuring references to LOTR, Harry Potter, Dark Souls, Get Out, The Ring, and more. Admins can add custom responses!
+Type `/potion give user:@Friend type:health` to send magical potions with fun pop culture references! Choose from 13 potion types - helpful (Health, Mana, Strength, Speed, Love) or harmful (Poison, Weakness, Curse, Slow) - with 339 built-in responses featuring references to LOTR, Harry Potter, Dark Souls, The Ring, and more. Admins can add custom responses!
 
 **Food Fight**  
-Like the classic BBS door game: `/foodfight throw target:@Friend food:pie` lands a cream pie, a spaghetti strike, or a pea soup barrage on a member, a whole role, or @everyone. Each throw hits, misses, or backfires, with 72 built-in lines from the Three Stooges to The Exorcist. A role or @everyone is shown, never pinged.
+Like the classic BBS door game: `/foodfight throw target:@Friend food:pie` lands a cream pie, a spaghetti strike, or a pea soup barrage on a member, a whole role, or @everyone. Each throw hits, misses, or backfires, with 300 built-in lines from the Three Stooges to The Exorcist, or be nice with `/foodfight feed`. A role or @everyone is shown, never pinged.
 
 **Doom**  
-`/doom fate target:@Friend trope:zombie` deals a horror-movie fate: a zombie bite, a monkey's paw, a cursed tape, a killer clown, and eight more tropes. It's horror-comedy: the victim gets theirs, the plan backfires, or someone narrowly escapes, with 72 built-in lines from Evil Dead to The Ring.
+`/doom fate target:@Friend trope:zombie` deals a horror-movie fate: a zombie bite, a monkey's paw, a cursed tape, a killer clown, and eight more tropes. It's horror-comedy: the victim gets theirs, the plan backfires, or someone narrowly escapes, with 300 built-in lines from Evil Dead to The Ring.
+
+**Rescue, Points and the Leaderboard**  
+`/rescue attempt target:@Friend trope:final-girl` saves someone instead, and shields them from the next doom for an hour. Every potion, throw, meal, doom and rescue scores points: check yours with `/scoreboard`, and see who's winning this month with `/leaderboard`. [How scoring works →](/commands/games)
 
 ## Features at a Glance
 
@@ -301,11 +304,13 @@ Like the classic BBS door game: `/foodfight throw target:@Friend food:pie` lands
 - `/survey create` / `list` / `results` / `close` / `delete` - Polls with up to 10 options, live results, and optional auto-close
 - `/potion give` - Give magical potions to a member, a role, or @everyone (13 types: helpful & harmful)
 - `/potion responses` - Manage custom potion responses (admin/mod only)
-- 85 pop culture references from horror, comedy, fantasy, and games
-- `/foodfight throw` - Throw food at a member, a role, or @everyone: 12 foods, 72 lines
+- 339 pop culture references from horror, comedy, fantasy, and games
+- `/foodfight throw` / `feed` - Throw food at a member, a role, or @everyone, or feed them: 12 foods, 481 lines
 - `/foodfight lines` - Add your server's own food fight lines (admin/mod only)
-- `/doom fate` - Deal a member, a role, or @everyone a horror-movie fate: 12 tropes, 72 lines
+- `/doom fate` - Deal a member, a role, or @everyone a horror-movie fate: 12 tropes, 300 lines
 - `/doom lines` - Add your server's own doom lines (admin/mod only)
+- `/rescue attempt` - Save someone from a horror movie, and shield them from /doom: 12 tropes, 300 lines
+- `/scoreboard` / `/leaderboard` - Points in the games, by month, year and all time
 - `/quote` - Post a movie or TV quote; `/suggest-quote` - suggest one for the bot's status rotation
 
 ### AI Image Generation

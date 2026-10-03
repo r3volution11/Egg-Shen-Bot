@@ -174,6 +174,8 @@ const THRESHOLD_WARNING = '\n\n⚠️ **Warning:** You have gone over this serve
  * @param {string} commandArgs - Command arguments for pattern detection (optional)
  * @returns {Promise<{limited: boolean, retryAfter?: number, message?: string, guildWide?: boolean}>}
  */
+const GAME_COMMANDS = new Set(['potion', 'foodfight', 'doom', 'rescue']);
+
 export async function checkRateLimit(guildId, userId, commandName, member = null, commandArgs = '') {
   // Load guild config to get rate limit settings
   const config = await loadGuildConfig(guildId);
@@ -274,8 +276,13 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
     }
   }
   
-  // Get rate limit settings for this command (or use global default)
-  const commandLimits = config.rateLimits.commands?.[commandName] || config.rateLimits.global;
+  // Get rate limit settings for this command (or use global default). The
+  // social games have their own limits (gameScores.checkPlayLimit: each game
+  // once per 20s, a few plays a minute across them); the generic one-per-20s
+  // would stop someone sending a potion and then throwing food. An explicit
+  // per-command setting still applies.
+  const commandLimits = config.rateLimits.commands?.[commandName]
+    || (GAME_COMMANDS.has(commandName) ? null : config.rateLimits.global);
   
   if (!commandLimits) {
     return { limited: false };

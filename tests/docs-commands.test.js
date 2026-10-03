@@ -27,7 +27,7 @@ const DOCS = path.join(process.cwd(), 'docs');
  */
 const NOT_COMMANDS = {
   'features/event-requests.md': [/^\/(public|callbacks?)\b/],
-  'commands/configuration.md': [/^\/eggshen-config(-[a-z-]+)? <group> <subcommand>/],
+  'commands/configuration.md': [/^\/eggshen-config(-[a-z-]+)? (<group> )?<subcommand>/], // eggshen-config-games has no groups
   'commands/brackets/import.md': [/^\/tournament-setup \{/], // an nginx location block
 };
 

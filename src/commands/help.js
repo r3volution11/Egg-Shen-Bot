@@ -24,6 +24,7 @@ export async function execute(interaction) {
     potionAllowed,
     foodfightAllowed,
     doomAllowed,
+    rescueAllowed,
     guildConfig,
   ] = await Promise.all([
     canUseCommand(interaction.guildId, interaction.member, 'movie'),
@@ -40,6 +41,7 @@ export async function execute(interaction) {
     canUseCommand(interaction.guildId, interaction.member, 'potion'),
     canUseCommand(interaction.guildId, interaction.member, 'foodfight'),
     canUseCommand(interaction.guildId, interaction.member, 'doom'),
+    canUseCommand(interaction.guildId, interaction.member, 'rescue'),
     loadGuildConfig(interaction.guildId),
   ]);
 
@@ -117,9 +119,16 @@ export async function execute(interaction) {
     { enabled: potionAllowed, line: '**🧪 /potion** - Give someone, a role or @everyone a mystical potion' },
     { enabled: foodfightAllowed, line: '**🥧 /foodfight** - Throw food at someone, a role or @everyone' },
     { enabled: doomAllowed, line: '**🪓 /doom** - Deal someone, a role or @everyone a horror-movie fate' },
+    { enabled: rescueAllowed, line: '**🛟 /rescue** - Save someone from a horror movie, and shield them for a while' },
+  ]);
+  // The scores only mean something while at least one game is on
+  const anyGame = potionAllowed || foodfightAllowed || doomAllowed || rescueAllowed;
+  const scores = buildCategory([
+    { enabled: anyGame, line: '**📊 /scoreboard** - Your points in the games, or anyone else\'s' },
+    { enabled: anyGame, line: '**🏆 /leaderboard** - The server\'s top players this month, this year or all time' },
   ]);
   if (funAndGames) {
-    embed.addFields({ name: '🎉 Fun & Games', value: funAndGames, inline: false });
+    embed.addFields({ name: '🎉 Fun & Games', value: [funAndGames, scores].filter(Boolean).join('\n'), inline: false });
   }
 
   const quotes = buildCategory([

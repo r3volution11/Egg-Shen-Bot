@@ -477,7 +477,7 @@ Display comprehensive bot help with complete command list — tailored to what's
 - Random & Discovery: random with filters
 - Tournaments & Polls: bracket, survey
 - AI Image Generation: image
-- Fun & Games: potion, foodfight, doom
+- Fun & Games: potion, foodfight, doom, rescue, scoreboard, leaderboard
 - Watch Party Tools: timer, watchparty, stats
 - Admin commands shown conditionally for moderators
 - Links to full documentation at eggshenbot.com
@@ -569,14 +569,15 @@ Give magical potions with fun pop culture references, to a member, a whole role,
 
 **Features:**
 - 13 different potion types (helpful & harmful!)
-- 85 built-in responses with references to:
-  - Horror: Get Out, Midsommar, The Stuff, Poltergeist
-  - Comedy: Army of Darkness, Shaun of the Dead, Hot Fuzz, It's Always Sunny
+- 339 built-in responses with references to:
+  - Horror: Midsommar, The Stuff, Poltergeist, The Ring
+  - Comedy: Army of Darkness, Shaun of the Dead, Hot Fuzz
   - Fantasy: LOTR, Harry Potter, The Witcher, Princess Bride
   - Games: Dark Souls, Skyrim, Zelda, Mario
-  - Modern: Everything Everywhere All At Once, Deadpool, Twin Peaks
+  - Modern: Deadpool, Twin Peaks
 - Prevents giving potions to bots
 - Public messages; a member is pinged, a role or @everyone isn't
+- Scores points: helpful potions that work, harmful ones that work, and backfires each score differently ([Games & Scores](./games))
 
 **Available Potion Types:**
 
@@ -612,23 +613,26 @@ Give magical potions with fun pop culture references, to a member, a whole role,
 → "💘 @You hands @Friend Cupid's arrow in liquid form. 'As you wish.' 💕 +95 CHARM (Princess Bride)"
 ```
 
-**Note:** This is a fun, cosmetic command with no actual game mechanics. Perfect for adding personality and playful banter to your server!
+**Note:** Every potion scores points for you and the member you gave it to. See [Games & Scores](./games).
 
 ---
 
 ### `/foodfight`
-Start a food fight, after the classic BBS door game: throw food at a member, a whole role, or @everyone. Each throw hits, misses, or backfires on the thrower.
+Start a food fight, after the classic BBS door game: throw food at a member, a whole role, or @everyone, or feed them instead. Each throw hits, misses, or backfires on the thrower; each meal is tasty, gross, or spilled. Both score points ([Games & Scores](./games)).
 
 **Options (`throw`):**
 - `target` (required) - A member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `food` (optional) - Cream pie, spaghetti, pudding, mashed potatoes, Jell-O, meatloaf, creamed corn, tapioca, pizza, taco, fish sticks or split pea soup. Leave it out for a random one
 
-**Admin/Mod:** `/foodfight lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{thrower}` and `{target}`.
+**Options (`feed`):** the same `target` and `food`.
+
+**Admin/Mod:** `/foodfight lines add`, `list`, `remove` and `reset` manage your server's own lines for `action:throw` (with `{thrower}` and `{target}`) or `action:feed` (with `{feeder}` and `{target}`), each tagged with its outcome.
 
 **Examples:**
 ```
 /foodfight throw target:@Friend food:pie
 /foodfight throw target:@everyone
+/foodfight feed target:@Friend food:taco
 ```
 
 See [Social Commands › Food Fight](./social#food-fight).
@@ -636,13 +640,13 @@ See [Social Commands › Food Fight](./social#food-fight).
 ---
 
 ### `/doom`
-Deal someone, a whole role, or @everyone a horror-movie fate: horror-comedy that dooms the target, backfires on you, or ends in a narrow escape.
+Deal someone, a whole role, or @everyone a horror-movie fate: horror-comedy that dooms the target, backfires on you, or ends in a narrow escape. Scores points; someone shielded by a recent `/rescue` is safe ([Games & Scores](./games)).
 
 **Options (`fate`):**
 - `target` (required) - A member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `trope` (optional) - Zombie, monkey's paw, slasher, possession, cursed tape, haunted doll, vampire, werewolf, killer clown, Necronomicon, Ouija board or Bloody Mary. Leave it out and fate decides
 
-**Admin/Mod:** `/doom lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{user}` and `{target}`.
+**Admin/Mod:** `/doom lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{user}` and `{target}` and an outcome (doomed, escaped or backfired).
 
 **Examples:**
 ```
@@ -651,6 +655,53 @@ Deal someone, a whole role, or @everyone a horror-movie fate: horror-comedy that
 ```
 
 See [Social Commands › Doom](./social#doom).
+
+---
+
+### `/rescue`
+Save someone from a horror movie: a Final Girl, holy water, the boomstick, the dog. A rescue that works shields them from the next `/doom` for an hour.
+
+**Options (`attempt`):**
+- `target` (required) - A member, a role, or @everyone. You can't rescue yourself
+- `trope` (optional) - Final Girl, holy water, Ghostbusters, boomstick, salt circle, silver bullet, sunrise, getaway car, Van Helsing, survival rules, garlic or the dog
+
+**Admin/Mod:** `/rescue lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{user}` and `{target}` and an outcome (rescued, caught or sacrificed).
+
+**Examples:**
+```
+/rescue attempt target:@Friend trope:final-girl
+/rescue attempt target:@everyone
+```
+
+See [Social Commands › Rescue](./social#rescue).
+
+---
+
+### `/scoreboard`
+Points in the games, yours or anyone's: total and rank, and per game points, plays, outcomes, what they received and their best streak.
+
+**Options:** `user`, `game`, `period` (this month, this year, all time), `private`
+
+```
+/scoreboard
+/scoreboard user:@Friend period:month
+```
+
+See [Games & Scores › Scoreboard](./games#scoreboard).
+
+---
+
+### `/leaderboard`
+The server's top 10 players in the games, each with a small avatar, plus who received the most of everything.
+
+**Options:** `game`, `period` (this month, this year, all time), `private`
+
+```
+/leaderboard period:month
+/leaderboard game:doom
+```
+
+See [Games & Scores › Leaderboard](./games#leaderboard).
 
 ---
 
@@ -731,9 +782,9 @@ Display help information and available commands.
 | **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
 | **Watch Parties** | `/timer`, `/watched` |
 | **Discovery** | `/random`, `/similar`, `/soundtrack` |
-| **Fun & Social** | `/survey`, `/potion`, `/foodfight`, `/doom` |
+| **Fun & Social** | `/survey`, `/potion`, `/foodfight`, `/doom`, `/rescue`, `/scoreboard`, `/leaderboard` |
 | **Statistics** | `/stats` |
-| **Configuration** | `/eggshen-config`, `/eggshen-config-watch-party`, `/eggshen-config-ai`, `/eggshen-config-moderation`, `/eggshen-config-events` |
+| **Configuration** | `/eggshen-config`, `/eggshen-config-watch-party`, `/eggshen-config-ai`, `/eggshen-config-moderation`, `/eggshen-config-events`, `/eggshen-config-games` |
 | **Help** | `/eggshen-help` |
 
 ## Command Permissions
