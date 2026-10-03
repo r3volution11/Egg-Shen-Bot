@@ -9,6 +9,18 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.52.0 - 2026-10-02
+
+### Added
+- **The bracket after each matchup.** Whenever knockout matchups are decided, the bot posts the bracket image (as `/bracket view` draws it) under the results: **Bracket So Far**, then the **Final Bracket** with the champion. Matchups decided together, like a whole round at its deadline, get one image rather than one each. A tie posts its bracket once its tiebreaker decides it. Works however a matchup is decided: its deadline, `/bracket close`, `/bracket close-matchup`, the Close button, opening the next matchup, or a tiebreaker. See [View the Bracket](/commands/brackets/knockout#view-the-bracket)
+
+### Fixed
+- **A final decided with `/bracket close-matchup` or a tiebreaker didn't add the champion to the watchlist** (with `auto-add-champion` on). Only a final closed by its deadline did
+
+### Developer
+- `tournamentScheduler.js`: `postBracketUpdate(guild, channelId)` draws and posts the bracket; `postBracketAfter` calls it once per batch from the deadline loop and `closeMatchupsNow`, skipping ties. `afterKnockoutDecided` (bracket plus champion's watchlist entry) runs after `/bracket close-matchup` and both tiebreaker resolutions, which close matchups outside `autoCloseMatchup`
+- Simulator scenarios cover a round at its deadline (one image, after the results; the champion at the end), one matchup at a time, ties through both tiebreaker routes, and the final via close-matchup reaching the watchlist. No command definitions changed, so no `deploy-commands`
+
 ## 2.51.2 - 2026-10-02
 
 ### Fixed

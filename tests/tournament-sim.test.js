@@ -715,6 +715,25 @@ describe('the final, by its label', () => {
     expect(open()).toEqual(now);
   });
 
+  test('the final decided with /bracket close-matchup posts the final bracket and puts the champion on the watchlist', async () => {
+    // close-matchup closes matchups itself, not through the scheduler, and
+    // never added the champion to the watchlist
+    const sim = new Sim('sim-final-close-matchup');
+    await sim.configure(c => { c.watchlist = { ...(c.watchlist || {}), autoAddChampion: true }; });
+    await straightBracket(sim, 'Close It', 4, 'movie', HORROR_8.slice(0, 4));
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    await sim.everyoneVotes(favorite);
+    await sim.passDeadlines();
+    await sim.bracket('admin', 'open-matchup', { matchup: 'Finals', duration: '1d' });
+    await sim.everyoneVotes(favorite);
+    await sim.bracket('admin', 'close-matchup', { matchup: 'Finals' });
+
+    const finalPost = sim.channel.posted.filter(m => /— Final Bracket$/.test(m.embeds[0]?.toJSON().title || '')).pop();
+    expect(finalPost.embeds[0].toJSON().description).toBe('**Champion: Alien**');
+    const list = await mods.watchlist.getWatchlist(sim.guildId);
+    expect(list.map(e => e.title)).toContain('Alien');
+  });
+
   test('"Finals" before the final is refused, not taken as the first matchup', async () => {
     const sim = new Sim('sim-finals-early');
     await straightBracket(sim, 'Too Soon', 8, 'movie', HORROR_8);
@@ -723,5 +742,66 @@ describe('the final, by its label', () => {
     const r = await sim.bracket('admin', 'open-matchup', { matchup: 'Finals', duration: '1d' });
     expect(r.reply.text).toMatch(/Invalid label/);
     expect(sim.openMatchups().map(m => m.id)).toEqual(before);
+  });
+});
+
+describe('the bracket after each matchup', () => {
+  // Doug asked for it 2026-10-03: once matchups are decided, post the bracket
+  const bracketPosts = (sim) => sim.channel.posted.filter(m => /— (Bracket So Far|Final Bracket)$/.test(m.embeds[0]?.toJSON().title || ''));
+  const resultPosts = (sim) => sim.channel.posted.filter(m => /- Results$/.test(m.embeds[0]?.toJSON().title || ''));
+
+  test('a whole round closing at its deadline: one bracket image, after the results; the last shows the champion', async () => {
+    const sim = new Sim('sim-bracket-after-round');
+    await straightBracket(sim, 'Bracket Watch', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    await sim.everyoneVotes(favorite);
+    await sim.passDeadlines();
+
+    const [post] = bracketPosts(sim);
+    expect(bracketPosts(sim)).toHaveLength(1); // four matchups, one image
+    const json = post.embeds[0].toJSON();
+    expect(json.title).toBe('🏆 Bracket Watch — Bracket So Far');
+    expect(json.image.url).toBe('attachment://bracket.png');
+    expect(post.attachments.map(a => a.name)).toEqual(['bracket.png']);
+    const posted = sim.channel.posted;
+    expect(posted.indexOf(post)).toBeGreaterThan(Math.max(...resultPosts(sim).map(r => posted.indexOf(r))));
+
+    for (let n = 0; n < 2; n++) {
+      await sim.bracket('admin', 'open', { duration: '1d' });
+      await sim.everyoneVotes(favorite);
+      await sim.passDeadlines();
+    }
+    expect(bracketPosts(sim)).toHaveLength(3); // one per round
+    const final = bracketPosts(sim).at(-1).embeds[0].toJSON();
+    expect(final.title).toBe('🏆 Bracket Watch — Final Bracket');
+    expect(final.description).toBe('**Champion: Alien**');
+  });
+
+  test('one matchup at a time: a bracket image after each matchup is decided', async () => {
+    const sim = new Sim('sim-bracket-after-each');
+    await straightBracket(sim, 'Step by Step', 8, 'movie', HORROR_8);
+    for (let n = 1; n <= 3; n++) {
+      await sim.bracket('admin', 'open', { matchups: 1, duration: '1d' }); // closes the previous one
+      await sim.everyoneVotes(favorite);
+      expect(bracketPosts(sim)).toHaveLength(n - 1);
+    }
+  });
+
+  test('a tie posts no bracket until its tiebreaker decides it (scheduler, or /bracket resolve-tiebreaker)', async () => {
+    for (const how of ['deadline', 'resolve-tiebreaker']) {
+      const sim = new Sim(`sim-bracket-tie-${how}`, { voters: 4 });
+      await straightBracket(sim, 'Tied Up', 8, 'movie', HORROR_8);
+      await sim.bracket('admin', 'open', { matchups: 1, duration: '1d' });
+      await sim.everyoneVotes((m, v) => (['voter1', 'voter2'].includes(v) ? 1 : 2));
+      // The tie closes by its deadline, or by close-matchup: no bracket yet
+      if (how === 'deadline') await sim.passDeadlines();
+      else await sim.bracket('admin', 'close-matchup', { matchup: '1A' });
+      expect(bracketPosts(sim)).toHaveLength(0);
+
+      const tb = sim.tournament().tiebreakers.find(t => t.status === 'active');
+      if (how === 'deadline') await sim.passDeadlines();
+      else await sim.bracket('admin', 'resolve-tiebreaker', { 'tiebreaker-id': tb.id, winner: 1 });
+      expect(bracketPosts(sim)).toHaveLength(1);
+    }
   });
 });

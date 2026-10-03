@@ -239,7 +239,7 @@ Start typing in `matchup:` to pick from this tournament's matchups, voting ones 
 
 **During the knockout:**
 - Build hype for marquee matchups
-- Share `/bracket view` images
+- The bot posts the bracket after each decided matchup; share it, or draw it any time with `/bracket view`
 - Highlight close votes
 - Start prediction threads
 

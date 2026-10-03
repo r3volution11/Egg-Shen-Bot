@@ -792,6 +792,7 @@ Draw the tournament as an image.
 - During the knockout (and after it ends): a PNG bracket tree with every round, winners highlighted, and the champion once there is one
 - Before the knockout: a PNG overview of the tournament's groups and titles
 - Generated fresh each time, so it reflects the current state
+- The bot also posts it on its own whenever knockout matchups are decided (one image per batch)
 - Use `/bracket status` for live vote counts
 
 ---
@@ -1177,5 +1178,4 @@ Understanding what the system cannot do helps set proper expectations:
 - ❌ Setting too short voting periods
 - ❌ Not announcing tournament start
 - ❌ Closing voting too early (low participation)
-- ❌ Forgetting to use `/bracket view` to show progress
 - ❌ Not generating versus images for Finals

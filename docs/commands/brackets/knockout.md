@@ -245,6 +245,8 @@ Draws the tournament as an image.
 - During the knockout: the bracket tree, with each round, winners highlighted, and the champion once there is one.
 - Before the knockout: an overview of the tournament's groups and titles.
 
+**Posted for you as the tournament goes.** Whenever knockout matchups are decided, the bot posts the bracket as it now stands, under the results: **Bracket So Far**, then the **Final Bracket** with the champion. Matchups closing together (a whole round at its deadline) get one image, not one each. A tie posts its bracket once its tiebreaker decides it.
+
 ---
 
 ## Fixing a Bracket

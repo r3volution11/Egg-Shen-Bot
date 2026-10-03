@@ -171,7 +171,7 @@ Congratulations! 🎉
 **Keep Members Engaged:**
 - Announce when new groups or rounds open.
 - Remind members to check `/bracket my-votes`.
-- Share `/bracket view` to show the bracket as an image.
+- The bot posts the bracket as an image whenever matchups are decided; `/bracket view` draws it any time.
 
 **Manage Efficiently:**
 - `/bracket status` shows progress and live vote counts.

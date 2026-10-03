@@ -5,7 +5,8 @@
  */
 
 import * as bracketManager from './bracketManager.js';
-import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
+import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, AttachmentBuilder } from 'discord.js';
+import * as bracketVisualizer from './bracketVisualizer.js';
 import { setTitleThumbnail } from './tournamentUI.js';
 import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -320,6 +321,8 @@ async function autoResolveTiebreaker(guild, tiebreaker) {
       } catch (err) {
         console.error('[TournamentScheduler] Error posting tiebreaker result:', err);
       }
+      // A knockout tiebreaker decides a matchup: show where the winner went
+      if (tiebreaker.position === 'knockout') await afterKnockoutDecided(guild, channelId);
     }
 
   } catch (error) {
@@ -450,10 +453,13 @@ async function checkKnockoutDeadlines(guildId, tournament, now) {
       await sendConsolidatedMatchupWarning(guild, tournament, channelId, deadline, matchups);
     }
     
-    // Auto-close matchups individually
+    // Auto-close matchups individually, then show the bracket once
+    const closedNow = [];
     for (const matchup of matchupsToClose) {
-      await autoCloseMatchup(guild, tournament, matchup);
+      const summary = await autoCloseMatchup(guild, tournament, matchup);
+      if (summary) closedNow.push(summary);
     }
+    await postBracketAfter(guild, closedNow);
   } catch (error) {
     console.error(`[TournamentScheduler] Error checking knockout deadlines for guild ${guildId}:`, error);
   }
@@ -690,7 +696,74 @@ export async function closeMatchupsNow(guild, matchupIds, { tiebreakerDurationMs
     const summary = await autoCloseMatchup(guild, tournament, matchup, tiebreakerDurationMs);
     if (summary) summaries.push(summary);
   }
+  await postBracketAfter(guild, summaries);
   return summaries;
+}
+
+/**
+ * After knockout matchups are decided, post the bracket as it now stands
+ * (Doug asked for it 2026-10-03): once per batch, in the channel the first
+ * decided matchup was voted in — a whole round closing at its deadline gets
+ * one image, not one per matchup. A tie decides nothing yet, so it posts
+ * nothing; the tiebreaker posts the bracket when it resolves.
+ * @param {Array<{id, tied}>} summaries - from autoCloseMatchup
+ */
+async function postBracketAfter(guild, summaries) {
+  const decided = (summaries || []).filter(s => s && !s.tied);
+  if (decided.length === 0) return;
+  const tournament = bracketManager.loadTournament(guild.id);
+  const first = tournament?.knockoutBracket?.find(m => m.id === decided[0].id);
+  await postBracketUpdate(guild, first?.messageChannelId);
+}
+
+/**
+ * After a knockout matchup is decided outside autoCloseMatchup — by
+ * /bracket close-matchup or a resolved tiebreaker — do what autoCloseMatchup
+ * does after its own: post the bracket, and if that was the final, add the
+ * champion to the watchlist. Those paths never did the watchlist part, so a
+ * final decided there left the champion off it. Adding twice is harmless:
+ * the watchlist refuses a duplicate.
+ */
+export async function afterKnockoutDecided(guild, channelId) {
+  await postBracketUpdate(guild, channelId);
+  const tournament = bracketManager.loadTournament(guild.id);
+  if (tournament?.status === 'completed') {
+    const { addChampionToWatchlist } = await import('./watchlistIntegration.js');
+    await addChampionToWatchlist(guild.id, tournament);
+  }
+}
+
+/**
+ * Post the bracket image, as /bracket view draws it: "Bracket So Far", or
+ * the "Final Bracket" with its champion once the tournament is over.
+ * Decorative, so it never throws: a failed drawing just isn't posted.
+ * @returns {Promise<boolean>} whether it was posted
+ */
+export async function postBracketUpdate(guild, channelId) {
+  try {
+    if (!channelId) return false;
+    const tournament = bracketManager.loadTournament(guild.id);
+    if (!tournament?.knockoutBracket?.length) return false;
+    const channel = await guild.channels.fetch(channelId).catch(() => null);
+    if (!channel) return false;
+
+    const image = await bracketVisualizer.generateBracketImage(tournament);
+    const done = tournament.status === 'completed';
+    const champion = tournament.champion || tournament.winner;
+    const embed = new EmbedBuilder()
+      .setColor(done ? 0xFFD700 : 0x5865F2)
+      .setTitle(done ? `🏆 ${tournament.name} — Final Bracket` : `🏆 ${tournament.name} — Bracket So Far`)
+      .setDescription(done
+        ? `**Champion: ${champion?.title || 'TBD'}**`
+        : `**Now playing:** ${tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`)
+      .setImage('attachment://bracket.png')
+      .setTimestamp();
+    await channel.send({ embeds: [embed], files: [new AttachmentBuilder(image, { name: 'bracket.png' })] });
+    return true;
+  } catch (error) {
+    console.warn('[TournamentScheduler] Bracket image not posted:', error.message);
+    return false;
+  }
 }
 
 /**

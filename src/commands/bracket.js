@@ -8,7 +8,7 @@ import { parseDuration, isValidDuration, isValidTiebreakerDuration, buildExport,
 import { signSetupToken, SETUP_LINK_TTL_MS } from '../utils/tournamentSetupLinkToken.js';
 import { loadGuildConfig, isAdmin, canUseCommand, getPublicBotUrl } from '../utils/guildConfig.js';
 import { config } from '../config.js';
-import { closeMatchupsNow } from '../utils/tournamentScheduler.js';
+import { closeMatchupsNow, afterKnockoutDecided } from '../utils/tournamentScheduler.js';
 
 const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -1831,6 +1831,12 @@ async function handleResolveTiebreaker(interaction) {
   }
 
   await interaction.editReply({ embeds: [embed] });
+
+  // A knockout tiebreaker decides a matchup: the bracket, and a champion
+  if (tiebreaker.position === 'knockout') {
+    const guild = interaction.guild || { id: interaction.guildId, channels: { fetch: async () => null } };
+    await afterKnockoutDecided(guild, tiebreaker.messageChannelId || interaction.channelId);
+  }
 }
 
 async function handleRegenerate(interaction) {
@@ -3172,6 +3178,11 @@ async function handleCloseMatchup(interaction) {
     
     await interaction.editReply({ embeds: [embed] });
   }
+
+  // The bracket as it now stands, and the champion's watchlist entry if that
+  // was the final (closeMatchupsNow does both on its own path)
+  const guild = interaction.guild || { id: interaction.guildId, channels: { fetch: async () => null } };
+  await afterKnockoutDecided(guild, interaction.channelId);
 }
 
 async function handleExtendVoting(interaction) {

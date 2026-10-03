@@ -28,7 +28,7 @@ An 8-title bracket has three rounds: **quarterfinals** (4 matchups), **semifinal
 
 - **Short rounds work.** Voting can be as short as `5m`. Twenty minutes gives people time to see the ballot and vote.
 - **Ending a round early.** If everyone has voted, `/bracket close` ends it now, without waiting for the deadline.
-- **Showing the bracket.** `/bracket view` posts the bracket as an image, which is fun to share between rounds.
+- **Showing the bracket.** The bot posts the bracket as an image after each round, and `/bracket view` draws it any time.
 - **Checking time left.** Ballots show a live countdown, and anyone can run `/bracket status`.
 - **Fewer than 8 titles is fine.** With 6, the bracket still has 8 slots, and two titles skip round one (a bye).
 - **For a meaningful order,** choose Ordered seeding in the [setup form](/commands/brackets/import#seeding), so the strongest titles can only meet in the final. See [Seeded bracket](./seeded).
