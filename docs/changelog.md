@@ -9,6 +9,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.51.2 - 2026-10-02
+
+### Fixed
+- **The final of a tournament couldn't be opened by its label.** `/bracket open-matchup` suggested "Finals", then refused it as `Invalid label "FINALS"`, as did typing `matchup:Finals` the way the docs show. `/bracket close-matchup matchup:Finals` had the same problem. Both work now, in any case
+- **A failed `/bracket open-matchup` could end the vote in progress.** A mistyped label, or a matchup already open or already decided, opened nothing but still closed whatever was voting first. Matchups voting now are only closed when a new one really opens; the same goes for an old matchup button left in the channel
+- "Finals" typed during an earlier round is refused, rather than opening that round's first matchup
+
+### Developer
+- `parseRegionalLabel` (`bracket.js`) matched only `'Finals'`/`'finals'`, but every caller upper-cases the input. It now accepts any case, and only when the round is the final. `handleOpenMatchup` and `handleOpenMatchupButton` check that something will open before `closeEarlierMatchups`
+- Simulator scenarios: the final opened through `/bracket open-matchup`'s own suggestion and closed by label; labels and a stale button that open nothing leave voting alone. `npm run test:fuzz` now fails if a value the bot suggested is refused as an invalid label (6 of 60 runs failed on the old code). No command definitions changed, so no `deploy-commands`
+
 ## 2.51.1 - 2026-10-02
 
 ### Fixed

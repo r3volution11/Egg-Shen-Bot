@@ -663,3 +663,65 @@ describe('Live Standings follow the matchup being voted on', () => {
     expect(standings(sim)).toHaveLength(1);
   });
 });
+
+describe('the final, by its label', () => {
+  test('open-matchup offers "Finals"; picking it opens the final, and close-matchup Finals crowns the champion', async () => {
+    // Seen live 2026-10-03, at the end of a 32-title tournament: the
+    // suggestion "Finals" was refused as 'Invalid label "FINALS"' — the
+    // input is upper-cased, and the check only knew 'Finals'/'finals'
+    const sim = new Sim('sim-finals-label');
+    await straightBracket(sim, 'To the Final', 8, 'movie', HORROR_8);
+    for (let n = 0; n < 2; n++) {
+      await sim.bracket('admin', 'open', { duration: '1d' });
+      await sim.everyoneVotes(favorite);
+      await sim.passDeadlines();
+    }
+    expect(sim.tournament().phase).toBe('finals');
+
+    const [choice] = await sim.suggest('admin', 'open-matchup', 'matchup');
+    expect(choice.value).toBe('Finals');
+    await sim.bracket('admin', 'open-matchup', { matchup: choice.value, duration: '1d' });
+    expect(sim.openMatchups().map(m => m.round)).toEqual(['finals']);
+
+    await sim.everyoneVotes(favorite);
+    await sim.bracket('admin', 'close-matchup', { matchup: 'finals' });
+    expect(sim.tournament().status).toBe('completed');
+    expect(sim.tournament().champion.title).toBe('Alien');
+  });
+
+  test('a label that opens nothing leaves the matchups voting alone (by label, or a stale picker button)', async () => {
+    // 8 titles: quarterfinals 1A–4A, few enough for single-matchup buttons
+    const sim = new Sim('sim-open-nothing');
+    await straightBracket(sim, 'Keep Voting', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { matchups: 2, duration: '1d' }); // opens 1A and 2A
+    const open = () => sim.openMatchups().map(m => m.id).sort();
+    const both = open();
+    expect(both).toHaveLength(2);
+
+    // 1A is already open: nothing to do, and 2A keeps voting
+    const again = await sim.bracket('admin', 'open-matchup', { matchup: '1A', duration: '1d' });
+    expect(again.reply.text).toMatch(/already open/);
+    expect(open()).toEqual(both);
+
+    // A picker button left in the channel for a matchup that has since been
+    // decided: pressing it must not end the matchup voting now
+    const picker = await sim.bracket('admin', 'open-matchup', { duration: '1d' }); // buttons for 3A, 4A
+    const stale = picker.reply.allComponents.find(c => (c.customId || '').startsWith('open_matchup_'));
+    await sim.click('admin', picker.reply, stale.customId); // opens 3A, closing 1A and 2A
+    await sim.bracket('admin', 'open-matchup', { matchup: '4A', duration: '1d' }); // 4A opens, 3A closes: decided
+    const now = open();
+    expect(now).toHaveLength(1);
+    await sim.click('admin', picker.reply, stale.customId); // 3A again: decided
+    expect(open()).toEqual(now);
+  });
+
+  test('"Finals" before the final is refused, not taken as the first matchup', async () => {
+    const sim = new Sim('sim-finals-early');
+    await straightBracket(sim, 'Too Soon', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { matchups: 1, duration: '1d' }); // builds the quarterfinals, opens 1A
+    const before = sim.openMatchups().map(m => m.id);
+    const r = await sim.bracket('admin', 'open-matchup', { matchup: 'Finals', duration: '1d' });
+    expect(r.reply.text).toMatch(/Invalid label/);
+    expect(sim.openMatchups().map(m => m.id)).toEqual(before);
+  });
+});

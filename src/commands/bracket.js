@@ -170,7 +170,11 @@ const getRegionalLabel = matchupLabel;
  * @returns {number|null} Position or null if invalid
  */
 function parseRegionalLabel(label, round) {
-  if (label === 'Finals' || label === 'finals') return 0;
+  // Any case: every caller upper-cases the input first, so this used to see
+  // "FINALS", which matched neither 'Finals' nor 'finals' — the final could
+  // not be opened or closed by label, though the suggestions offered it.
+  // And only in the final: "Finals" during an earlier round meant 1A.
+  if (/^finals?$/i.test(String(label).trim())) return round === 'finals' ? 0 : null;
   
   const match = label.match(/^([1-4])([A-Z])$/i);
   if (!match) return null;
@@ -2832,6 +2836,17 @@ async function handleOpenMatchup(interaction) {
   // decided untouched. This used to reopen a decided matchup — deleting its
   // result while its winner stayed seated in the next round.
   const labelById = new Map(openedMatchups.map(o => [o.matchup.id, o.label]));
+  // Close the earlier matchups only if something new will open. This closed
+  // them first, so a typo ("Invalid label") or a matchup already open still
+  // ended whatever was voting, then said "No matchups were opened".
+  const openable = openedMatchups.filter(o => o.matchup.status === 'pending' && !o.matchup.winner);
+  if (openable.length === 0) {
+    for (const { label, matchup } of openedMatchups) {
+      errors.push(matchup.status === 'voting' ? `⚠️ Matchup ${label} already open` : `⚠️ Matchup ${label} is already decided`);
+    }
+    await interaction.editReply(`❌ No matchups were opened.\n\n${errors.join('\n')}`);
+    return;
+  }
   const closedNote = await closeEarlierMatchups(interaction, openedMatchups.map(o => o.matchup.id));
   const result = bracketManager.openKnockoutMatchups(interaction.guildId, openedMatchups.map(o => o.matchup.id), deadline, interaction.channelId);
   if (!result.success) {

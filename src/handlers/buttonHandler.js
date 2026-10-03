@@ -1547,7 +1547,15 @@ async function handleOpenMatchupButton(interaction) {
     return;
   }
   
-  // The shared path refuses matchups already voting or decided
+  // The shared path refuses matchups already voting or decided. Check first:
+  // closing the earlier matchups for a matchup that won't open ended their
+  // voting for nothing.
+  if (matchup.status !== 'pending' || matchup.winner) {
+    await privateNote(interaction, {
+      content: matchup.status === 'voting' ? '⚠️ This matchup is already open for voting.' : '❌ This matchup has already been decided.',
+    });
+    return;
+  }
   const deadline = Date.now() + parseInt(durationMs);
   await closeEarlierMatchupsFromButton(interaction, [matchup.id]);
   const result = bracketManager.openKnockoutMatchups(interaction.guild.id, [matchup.id], deadline, interaction.channelId);

@@ -129,7 +129,10 @@ async function randomAction(sim, r) {
         return '/bracket open-matchup (picker)';
       }
       const value = r.pick(suggestions).value;
-      await sim.bracket('admin', 'open-matchup', { matchup: value, duration: '1d' });
+      const picked = await sim.bracket('admin', 'open-matchup', { matchup: value, duration: '1d' });
+      // The bot suggested this value: it must accept it. "Finals" was
+      // offered and then refused as an invalid label, ending a tournament
+      expect(picked.reply.text).not.toMatch(/Invalid label/);
       return `/bracket open-matchup ${value}`;
     }
     if (choice === 2) {
@@ -140,7 +143,10 @@ async function randomAction(sim, r) {
         return '/bracket close-matchup (picker)';
       }
       const value = r.pick(suggestions).value;
-      await sim.bracket('admin', 'close-matchup', { matchup: value });
+      const picked = await sim.bracket('admin', 'close-matchup', { matchup: value });
+      // The bot suggested this value: it must accept it. "Finals" was
+      // offered and then refused as an invalid label, ending a tournament
+      expect(picked.reply.text).not.toMatch(/Invalid label/);
       return `/bracket close-matchup ${value}`;
     }
     if (choice === 3) {
