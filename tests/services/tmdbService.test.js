@@ -328,7 +328,21 @@ describe('getMovieWatchProviders / getTVWatchProviders', () => {
       flatrate: [{ provider_name: 'Netflix' }],
       rent: [],
       buy: [],
+      free: [],
     });
+  });
+
+  test('free and free-with-ads services are kept, in a list of their own', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { results: { US: {
+        flatrate: [{ provider_name: 'Shudder' }],
+        free: [{ provider_name: 'Hoopla' }],
+        ads: [{ provider_name: 'Tubi TV' }, { provider_name: 'The Roku Channel' }],
+      } } },
+    });
+    const result = await tmdbService.getMovieWatchProviders(1, 'US');
+    expect(result.flatrate).toEqual([{ provider_name: 'Shudder' }]);
+    expect(result.free.map(p => p.provider_name)).toEqual(['Hoopla', 'Tubi TV', 'The Roku Channel']);
   });
 
   test('returns null (not throw) on request failure', async () => {
@@ -371,6 +385,25 @@ describe('getUnifiedMovieWatchProviders / getUnifiedTVWatchProviders', () => {
     expect(result.flatrate[0]).toEqual({ provider_name: 'Netflix', logo: 'tmdb-logo.png' }); // TMDB's version kept
     expect(result.flatrate[1].provider_name).toBe('Hulu');
     expect(mockGetWatchmodeProviders).toHaveBeenCalledWith('tt0084787', 'US');
+  });
+
+  test('free services from both sources are merged into `free`; flatrate is left as it was', async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { results: { US: { flatrate: [{ provider_name: 'Shudder' }], ads: [{ provider_name: 'Tubi TV' }] } } },
+    });
+    mockGetWatchmodeProviders.mockResolvedValueOnce({
+      flatrate: [{ provider_name: 'Plex' }],
+      free: [{ provider_name: 'Plex' }, { provider_name: 'tubi tv' }],
+    });
+    const result = await tmdbService.getUnifiedMovieWatchProviders(1, 'tt1', 'US');
+    expect(result.flatrate.map(p => p.provider_name)).toEqual(['Shudder', 'Plex']);
+    expect(result.free.map(p => p.provider_name)).toEqual(['Tubi TV', 'Plex']);
+  });
+
+  test('only free services is still a result', async () => {
+    mockGet.mockResolvedValueOnce({ data: { results: { US: { ads: [{ provider_name: 'Tubi TV' }] } } } });
+    const result = await tmdbService.getUnifiedMovieWatchProviders(1, null, 'US');
+    expect(result.free.map(p => p.provider_name)).toEqual(['Tubi TV']);
   });
 
   test('skips the Watchmode call entirely when imdbId is falsy', async () => {

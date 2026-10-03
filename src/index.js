@@ -315,7 +315,10 @@ client.on('interactionCreate', async (interaction) => {
   
   // Handle modal submissions
   else if (interaction.isModalSubmit()) {
-    if (interaction.customId.startsWith('watched_modal_')) {
+    if (interaction.customId.startsWith('evguidance_')) {
+      const { handleGuidanceModal } = await import('./commands/eggshen-config-events.js');
+      await handleGuidanceModal(interaction);
+    } else if (interaction.customId.startsWith('watched_modal_')) {
       const [, , channelId, userId, encodedTitle] = interaction.customId.split('_');
       
       // Only allow the person who opened the modal

@@ -112,10 +112,29 @@ export function applyEventTimeEdits(requestData, startTimeInput, endTimeInput, n
  * @param {'full'|'both'|'text'} params.approvalType - 'both' creates a voice+text event, 'text'/'full' text-only
  * @returns {Promise<import('discord.js').GuildScheduledEvent>}
  */
+/**
+ * The streaming lines for the request's title (eventStreaming.js): the
+ * ones found at submit, or a fresh lookup if a moderator changed the title
+ * since. Null when switched off or the title isn't confidently known.
+ */
+async function streamingForRequest(guild, requestData) {
+  const { streamingTextFor, streamingLookupOn } = await import('./eventStreaming.js');
+  const config = await loadGuildConfig(guild.id);
+  if (!streamingLookupOn(config)) return null;
+  if (requestData.streaming && requestData.streaming.forTitle === requestData.title) {
+    return requestData.streaming.text;
+  }
+  const text = await streamingTextFor(requestData.title, config);
+  requestData.streaming = { forTitle: requestData.title, text };
+  return text;
+}
+
 export async function createScheduledEventFromRequest({ guild, requestId, requestData, approvalType }) {
+  const { buildEventDescription } = await import('./eventStreaming.js');
+  const streaming = await streamingForRequest(guild, requestData);
   const eventConfig = {
     name: requestData.title,
-    description: requestData.description || undefined,
+    description: buildEventDescription({ description: requestData.description, streaming }),
     scheduledStartTime: requestData.startTime,
     scheduledEndTime: requestData.endTime || undefined,
     privacyLevel: 2,
@@ -129,8 +148,11 @@ export async function createScheduledEventFromRequest({ guild, requestId, reques
 
     const textChannel = guild.channels.cache.get(requestData.channelId);
     const channelMention = textChannel ? `<#${textChannel.id}>` : 'the server';
-    eventConfig.description = (requestData.description ? requestData.description + '\n\n' : '') +
-      `💬 Coordination: ${channelMention}`;
+    eventConfig.description = buildEventDescription({
+      description: requestData.description,
+      streaming,
+      coordination: `💬 Coordination: ${channelMention}`,
+    });
   } else {
     // No "📍 Location" line in the description here: the event's location
     // field below already shows the channel, on the event card and in the
@@ -138,7 +160,6 @@ export async function createScheduledEventFromRequest({ guild, requestId, reques
     // keeps its "💬 Coordination" line above because that text channel
     // appears nowhere else — the event's location is the voice channel.
     const textChannel = guild.channels.cache.get(requestData.channelId);
-    eventConfig.description = requestData.description || undefined;
     eventConfig.entityType = 3;
     // Discord's External-event location is a plain string, not a real
     // channel link (entityType 2/voice is the only type Discord renders as

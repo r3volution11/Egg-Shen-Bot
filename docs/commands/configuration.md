@@ -839,6 +839,44 @@ Text and voice channel whitelists are **independent**. You can:
 - Allow all of both (default)
 :::
 
+#### Form Guidance
+
+```
+/eggshen-config-events event-requests guidance part:fields
+/eggshen-config-events event-requests guidance part:page
+```
+
+The helper text on your server's request form. Every form starts with sensible defaults: login is only used to check membership, check the Events tab first, add the year to the title, say where to watch it, schedule within 2 weeks, you'll be the host. Rewrite any of it for your server, such as "Keep it horror or horror-adjacent." under the title.
+
+Each opens a Discord form, filled in with what the form shows now:
+
+- `part:fields`: the text under **Event Title**, **Description**, **Event Image**, the **start date and time**, and **Frequency**
+- `part:page`: the **intro** at the top of the form and the **footer** at the bottom
+
+Empty a box to go back to the default, or type `none` to show nothing there. Lines starting with `•` or `-` become a list, `**bold**` is bold, and `https://` links can be clicked. Each server's text shows only on its own site. `/eggshen-config-events event-requests view` lists what you've changed.
+
+#### Where to Watch
+
+```
+/eggshen-config-events event-requests streaming
+/eggshen-config-events event-requests streaming services:Shudder, AMC+, Tubi, Plex
+/eggshen-config-events event-requests streaming services:default
+/eggshen-config-events event-requests streaming enabled:false
+```
+
+Each request's title is looked up for where it streams. Moderators see a **📺 Where to watch** line on the request, and approving adds it to the event's description, with a link to every other place to watch it:
+
+```
+📺 Streaming on Shudder, AMC+ and Tubi (free)
+More places to watch: https://www.themoviedb.org/movie/…/watch?locale=US
+```
+
+- **Only your services are named**, in the order you list them. The default is Shudder, AMC+, Tubi, Plex, Roku, Prime Video, Hulu, Peacock and Hoopla; `services:default` brings it back.
+- **Free services are marked (free).**
+- **It never guesses.** The title has to match one movie or show exactly (a year in brackets, like "Fargo (1996)", settles a tie), otherwise nothing is added and the moderators are told why.
+- If a moderator edits the title, approving looks it up again.
+- Uses your server's region (US by default). Watchmode, if configured, finds more services than TMDB alone.
+
 #### Get Configuration Summary
 
 ```

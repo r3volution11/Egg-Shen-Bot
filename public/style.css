@@ -27,3 +27,30 @@
         flex-direction: column;
     }
 }
+
+/* The form's guidance (renderGuidance in app.js): the helper text under
+   each field reads like any other hint; the intro and footer are boxes. */
+.site-guidance p,
+.site-guidance ul {
+    margin-bottom: 0.4em;
+}
+
+.site-guidance > :last-child {
+    margin-bottom: 0;
+}
+
+.site-guidance ul {
+    padding-left: 1.25em;
+}
+
+.site-guidance-block {
+    padding: 10px 14px;
+    background: var(--bs-tertiary-bg);
+    border-left: 3px solid var(--bs-primary);
+    border-radius: var(--bs-border-radius);
+}
+
+.site-guidance[hidden],
+#guidance-when-wrap[hidden] {
+    display: none;
+}

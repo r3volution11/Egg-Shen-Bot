@@ -115,6 +115,7 @@ export async function getWatchmodeProvidersByImdbId(imdbId, region = 'US') {
       flatrate: [],
       rent: [],
       buy: [],
+      free: [],
     };
 
     for (const source of sources) {
@@ -132,7 +133,10 @@ export async function getWatchmodeProvidersByImdbId(imdbId, region = 'US') {
       } else if (source.type === 'buy') {
         organized.buy.push(provider);
       } else if (source.type === 'free') {
+        // Still in flatrate, where /movie's "Stream" line has always shown
+        // free services; also in `free`, so they can be marked as free
         organized.flatrate.push(provider);
+        organized.free.push(provider);
       }
     }
 

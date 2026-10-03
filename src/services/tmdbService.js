@@ -480,6 +480,9 @@ export async function getMovieWatchProviders(movieId, region = 'US') {
       flatrate: providers.flatrate || [], // Streaming services
       rent: providers.rent || [], // Rental options
       buy: providers.buy || [], // Purchase options
+      // Free and free-with-ads (Tubi, The Roku Channel, Plex, Hoopla…),
+      // kept apart so a list can say which are free (eventStreaming.js)
+      free: [...(providers.free || []), ...(providers.ads || [])],
     };
   } catch (error) {
     console.error('TMDB movie watch providers error:', error.message);
@@ -507,6 +510,9 @@ export async function getTVWatchProviders(tvId, region = 'US') {
       flatrate: providers.flatrate || [], // Streaming services
       rent: providers.rent || [], // Rental options
       buy: providers.buy || [], // Purchase options
+      // Free and free-with-ads (Tubi, The Roku Channel, Plex, Hoopla…),
+      // kept apart so a list can say which are free (eventStreaming.js)
+      free: [...(providers.free || []), ...(providers.ads || [])],
     };
   } catch (error) {
     console.error('TMDB TV watch providers error:', error.message);
@@ -530,6 +536,7 @@ function mergeWatchProviders(tmdbProviders, watchmodeProviders) {
     flatrate: [],
     rent: [],
     buy: [],
+    free: [],
   };
 
   // Helper to normalize provider names for comparison
@@ -559,8 +566,13 @@ function mergeWatchProviders(tmdbProviders, watchmodeProviders) {
   addProviders(merged.rent, watchmodeProviders?.rent);
   addProviders(merged.buy, watchmodeProviders?.buy);
 
+  // Free services from both. (Watchmode's also stay in its flatrate, where
+  // /movie has always shown them — `free` only adds what's known to be free.)
+  addProviders(merged.free, tmdbProviders?.free);
+  addProviders(merged.free, watchmodeProviders?.free);
+
   // Return null if no providers found
-  if (merged.flatrate.length === 0 && merged.rent.length === 0 && merged.buy.length === 0) {
+  if (merged.flatrate.length === 0 && merged.rent.length === 0 && merged.buy.length === 0 && merged.free.length === 0) {
     return null;
   }
 

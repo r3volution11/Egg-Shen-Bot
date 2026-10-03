@@ -6,6 +6,7 @@ import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js
 import { hybridSearch, pickLandslideWinner, pickExactTitleMatch } from '../services/aiService.js';
 import { parseEpisodeRange, parseEventEpisodeRange, stripTrailingYear } from '../utils/episodeRangeParser.js';
 import { findEventForChannel, searchEventTitle, formatRuntime } from '../utils/scheduledEventLookup.js';
+import { resolveWatchTitle } from '../utils/watchTitle.js';
 
 /**
  * Resolve a multi-episode watch-party duration for a known show: fetch the
@@ -1272,26 +1273,12 @@ export async function execute(interaction) {
           };
         }
       } else {
-        const [movies, shows] = await Promise.all([
-          hybridSearch(searchLabel, searchMovies, 'movie', getMovieAlternativeTitles).catch(() => []),
-          hybridSearch(searchLabel, searchTVShows, 'tv', getTVAlternativeTitles).catch(() => []),
-        ]);
-
-        const exactMovie = pickExactTitleMatch(movies, searchLabel, searchYear);
-        const exactTV = pickExactTitleMatch(shows, searchLabel, searchYear);
-        const soleMovie = movies.length === 1 && shows.length === 0 ? movies[0] : null;
-        const soleTV = shows.length === 1 && movies.length === 0 ? shows[0] : null;
-
-        const winner = (exactMovie && !exactTV) ? { r: exactMovie, type: 'movie' }
-          : (exactTV && !exactMovie) ? { r: exactTV, type: 'tv' }
-          : soleMovie ? { r: soleMovie, type: 'movie' }
-          : soleTV ? { r: soleTV, type: 'tv' }
-          : null;
-
-        if (winner) {
+        // The same matcher the event-request streaming line uses
+        const match = await resolveWatchTitle(requested);
+        if (match) {
           resolved = {
-            label: winner.r.title || winner.r.name,
-            media: { tmdbId: winner.r.id, type: winner.type, episodeRange: null },
+            label: match.label,
+            media: { tmdbId: match.tmdbId, type: match.type, episodeRange: null },
           };
         }
       }

@@ -144,6 +144,30 @@ describe('Event Request System', () => {
       expect(response.body.config).toHaveProperty('websiteUrl');
     });
 
+    test('form guidance: the server\'s own text where it has some, the defaults elsewhere, null where hidden', async () => {
+      const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
+      const { DEFAULT_GUIDANCE } = await import('../src/utils/eventRequestGuidance.js');
+      await saveGuildConfig('900000000000000099', {
+        eventRequests: { enabled: true, guidance: { intro: '  Read this first.  ', footer: false, fields: { when: 'Within 2 weeks.' } } },
+      });
+      const request = await import('supertest');
+      const response = await request.default(app).get('/api/guild-config/900000000000000099');
+      expect(response.body.config.guidance).toEqual({
+        intro: 'Read this first.',
+        footer: null,
+        fields: { ...DEFAULT_GUIDANCE.fields, when: 'Within 2 weeks.' },
+      });
+    });
+
+    test('a server that never set guidance gets every default', async () => {
+      const { saveGuildConfig } = await import('../src/utils/guildConfig.js');
+      const { DEFAULT_GUIDANCE } = await import('../src/utils/eventRequestGuidance.js');
+      await saveGuildConfig('900000000000000099', { eventRequests: { enabled: true } });
+      const request = await import('supertest');
+      const response = await request.default(app).get('/api/guild-config/900000000000000099');
+      expect(response.body.config.guidance).toEqual(DEFAULT_GUIDANCE);
+    });
+
     test('should return 404 when event requests disabled', async () => {
       // No config saved — loadGuildConfig falls back to its real default,
       // which has eventRequests.enabled: false.

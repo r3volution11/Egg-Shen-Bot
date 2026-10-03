@@ -60,6 +60,32 @@ export const GUILD_NO_CONFIG = {
   config: null,
 };
 
+// A server with its own form guidance (eventRequests.guidance), like
+// Shudder's: its own text for some pieces, one hidden, one left to its
+// default — and one that tries to inject markup, which must show as text.
+export const GUILD_GUIDANCE = {
+  id: '900000000000000004',
+  name: 'Example Server With Guidance',
+  channels: [{ id: '900000000000000041', name: 'mod-queue', type: TEXT }],
+  memberIds: ['800000000000000001'],
+  config: {
+    enabled: true,
+    moderationChannel: '900000000000000041',
+    serverName: 'Example Server With Guidance',
+    allowUserChannelSelection: false,
+    guidance: {
+      intro: 'Login is only used to check you\'re a member.\n\n**Before requesting:**\n• Check the Events tab first.\n• Approved events use **#cineplex**.',
+      footer: '**Questions?** See https://example.com/faq.',
+      fields: {
+        title: 'Keep it horror. <img src=x onerror="window.__pwned=1">',
+        when: 'Schedule within 2 weeks.',
+        frequency: 'Ask a mod about recurring events.',
+        image: false, // hidden; description is left to its default
+      },
+    },
+  },
+};
+
 // A known-good "golden path" member present in every guild above.
 export const MEMBER_ID = '800000000000000001';
 export const MEMBER_USERNAME = 'e2e-test-user';
@@ -68,4 +94,4 @@ export const MEMBER_USERNAME = 'e2e-test-user';
 // not-a-member scenario.
 export const NON_MEMBER_ID = '800000000000009999';
 
-export const ALL_GUILDS = [GUILD_SIMPLE, GUILD_ADVANCED, GUILD_NO_CONFIG];
+export const ALL_GUILDS = [GUILD_SIMPLE, GUILD_ADVANCED, GUILD_NO_CONFIG, GUILD_GUIDANCE];

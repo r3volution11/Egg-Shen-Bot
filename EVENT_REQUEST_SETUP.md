@@ -167,6 +167,8 @@ Each Discord server's own settings still live in its own `guild_configs/<guildId
 /eggshen-config-website theme name:default
 ```
 
+Each server's guidance on its form (`/eggshen-config-events event-requests guidance`) and its where-to-watch services (`… streaming`) are per server too, so each domain shows its own server's advice; nothing is baked into the static files.
+
 `/eggshen-config-website theme` picks one of the named themes defined in `scripts/web-themes.json` (see "Customizing the Look" below) — it's what colors this guild's event-request form, and any crop/quotes-admin links generated from this guild (see below). Website settings (`url`/`theme`) live under their own `/eggshen-config-website` command rather than `/eggshen-config-events`, since they apply beyond just the event-request feature.
 
 **`scripts/domains.json`** is the manifest that ties it all together — one entry per domain/community, each naming the guild it's for, the theme it should use, and (optionally) a logo:

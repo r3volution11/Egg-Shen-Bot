@@ -9,6 +9,24 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.54.0 - 2026-10-03
+
+### Added
+- **Guidance on the event request form.** Every form now shows helper text under its fields, an intro and a footer: login only confirms membership, check the Events tab first, add the title's year, say where to watch it, schedule within 2 weeks, you'll be the host. Each server's admins and moderators can rewrite any of it for their own site with `/eggshen-config-events event-requests guidance`, which opens a Discord form filled in with what's shown now. Empty a box to go back to the default, or type `none` to hide it. See [Guidance on the Form](/features/event-requests#guidance-on-the-form)
+- **Where to watch, on every request.** Each request's title is looked up for where it streams. Moderators see "📺 Streaming on Shudder, AMC+ and Tubi (free)" on the request, and approving adds it to the event's description, with a link to every other place to watch it. Each server picks its own services and their order with `/eggshen-config-events event-requests streaming` (the default: Shudder, AMC+, Tubi, Plex, Roku, Prime Video, Hulu, Peacock and Hoopla), or switches it off. It never guesses: if the title doesn't match one movie or show exactly, nothing is added and moderators are told to add the year. See [Where to Watch](/commands/configuration#where-to-watch)
+
+### Fixed
+- **A request with a long description failed to submit.** Descriptions over Discord's 1,024-character limit made the whole request fail; the form now allows 800 characters, and the moderators' card and the event both stay within Discord's limits
+- The description box no longer suggests "(Shudder, AMC+, etc.)" on every server's form
+- The docs' frequency list was missing Daily
+
+### Developer
+- `src/utils/eventRequestGuidance.js`: `DEFAULT_GUIDANCE`, stored per piece as own text, `false` (hidden) or nothing (default); returned by `GET /api/guild-config/:guildId` as `guidance` and rendered by `public/app.js` with `textContent` only. The pop-up handlers live in `eggshen-config-events.js` so `server.js` doesn't import config-saving code
+- `src/utils/eventStreaming.js`: per-server services with an alias table (`AMC+` never matches `AMC`); looked up at submit (5 s limit) and stored as `requestData.streaming`, reused at approval unless the title was edited. `src/utils/watchTitle.js` (`resolveWatchTitle`) is the `/timer title` matcher, now shared, with a year that fits only one of a same-named movie and show settling it
+- TMDB's `free`/`ads` and Watchmode's `free` sources are kept in a new `free` list; `flatrate` is unchanged, so `/movie` and `/tv` look the same
+- `EVENT_STREAMING_LOOKUP=off` in `tests/jest.setup.js` and the e2e harness keeps tests off the real TMDB. The fake Discord emulates pop-ups (`showModal`, `modalSubmit`)
+- New subcommands and a rebuilt static form: needs `deploy-commands` and `deploy-domain-copy --all`
+
 ## 2.53.0 - 2026-10-02
 
 ### Added

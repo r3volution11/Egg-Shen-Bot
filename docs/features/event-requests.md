@@ -354,7 +354,8 @@ Text and voice whitelists are **independent**:
    - **Voice channel** (optional) - Check the box to add voice/stage channel
    - Start date and time (required)
    - End date and time (optional)
-   - Frequency (optional: Once, Weekly, Biweekly, Monthly)
+   - Frequency (optional: Once, Daily, Weekly, Biweekly, Monthly)
+   - Each field has a short note on what the server wants; a server can rewrite these for its own community
 4. **Click "Submit Request"**
 5. **Wait for moderator approval**
 
@@ -378,7 +379,7 @@ The form automatically detects and shows your own local timezone next to the tim
 
 When a request is submitted:
 
-1. **Request appears in moderation channel** with all details
+1. **Request appears in moderation channel** with all details, including **📺 Where to watch**: which of your server's streaming services carry the title (see [Where to Watch](#where-to-watch-on-each-request))
 2. **Shows location (text channel) and voice channel (if requested)**
 3. **Approval buttons vary based on request:**
    - **Text-only request**: ✅ Approve, ✏️ Edit, or ❌ Deny
@@ -486,8 +487,42 @@ The event request system is designed to be easily customized:
 
 1. **Set `GUILD_ID` in `public/config.js`** (copied from `public/config.example.js`) - Point to your Discord server
 2. **Configure server name and invite** - Use `/eggshen-config-events event-requests` commands
-3. **Customize styling** - Edit `public/style.css` to match your branding
-4. **Deploy to your domain** - Host on any web server (Apache, nginx, Netlify, Vercel, etc.)
+3. **Adjust the guidance** - the form comes with helper text under each field, an intro and a footer; `/eggshen-config-events event-requests guidance` rewrites any of it for your server (see below)
+4. **Customize styling** - Edit `public/style.css` to match your branding
+5. **Deploy to your domain** - Host on any web server (Apache, nginx, Netlify, Vercel, etc.)
+
+### Guidance on the Form
+
+Every form tells people what to expect before they request. The defaults cover it in general terms:
+
+- **Intro:** Discord login only confirms membership; check the Events tab first; moderators review every request
+- **Event title:** pick something that fits the server; add the release year
+- **Description:** say where to watch it; services most people have get more people joining
+- **Event image:** upload and crop a cover; moderators may adjust it
+- **Date & time:** schedule within the next 2 weeks; you'll be the host and start the countdown
+- **Frequency:** ask a moderator before setting up a recurring event
+- **Footer:** questions go to a moderator
+
+Rewrite any of it for your community:
+
+```
+/eggshen-config-events event-requests guidance part:page     ← the intro at the top, the footer at the bottom
+/eggshen-config-events event-requests guidance part:fields   ← the text under the title, description, image, date & time, and frequency
+```
+
+Each opens a Discord form, filled in with what the form shows now. Empty a box to go back to the default, or type `none` to show nothing there. Lines starting with `•` or `-` become a list, `**bold**` is bold, and `https://` links can be clicked. Guidance belongs to the server, so when one bot backs several sites, each site shows its own server's text.
+
+For example, a horror server might put "Keep it horror or horror-adjacent." under the title, and name the channels its events use in the intro.
+
+### Where to Watch, on Each Request
+
+Each request's title is looked up for where it streams, among the services your server cares about:
+
+```
+/eggshen-config-events event-requests streaming services:Shudder, AMC+, Tubi, Plex, Roku, Prime Video, Hulu, Peacock, Hoopla
+```
+
+Moderators see it on the request; approving adds it to the event's description, with a link to every other place to watch. Free services are marked "(free)". It never guesses: no exact match, no line. See [Configuration › Where to Watch](../commands/configuration#where-to-watch) for the details.
 
 ### Multiple Servers (Advanced)
 
@@ -501,6 +536,7 @@ Server 3: Deploy to bookclub.com with config.js → GUILD_ID = 'SERVER_3_ID'
 
 Each deployment is independent with its own:
 - Domain/subdomain
+- Guidance on the form and where-to-watch services (set per server in Discord)
 - `config.js` (gitignored, so a shared repo checkout never overwrites another deployment's Guild ID)
 - Custom branding and styling
 - Separate Discord OAuth configuration

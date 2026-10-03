@@ -1,6 +1,7 @@
-import { SlashCommandBuilder, EmbedBuilder, ChannelType, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChannelType, PermissionFlagsBits, MessageFlags } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import { ANNOUNCE_IN_EVENT_CHANNEL, getAnnouncementChannelSetting } from '../utils/eventRequestApproval.js';
+import { GUIDANCE_PARTS, describeGuidance, buildGuidanceModal, storedValueFor, storedGuidance, HIDE_WORD } from '../utils/eventRequestGuidance.js';
 
 function describeAnnouncementSetting(setting) {
   if (!setting) return '❌ Off';
@@ -145,6 +146,39 @@ export const data = new SlashCommandBuilder()
       )
       .addSubcommand(subcommand =>
         subcommand
+          .setName('guidance')
+          .setDescription('Write the advice shown on this server\'s request form (opens a form)')
+          .addStringOption(option =>
+            option
+              .setName('part')
+              .setDescription('Which part of the form')
+              .setRequired(true)
+              .addChoices(
+                { name: 'Under each field', value: 'fields' },
+                { name: 'Top and bottom of the page', value: 'page' },
+              )
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('streaming')
+          .setDescription('Where-to-watch line on requests: on/off and which services. No options: show it')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('Look up where each requested title streams')
+              .setRequired(false)
+          )
+          .addStringOption(option =>
+            option
+              .setName('services')
+              .setDescription('Comma-separated, in display order, e.g. "Shudder, AMC+, Tubi" — or "default"')
+              .setRequired(false)
+              .setMaxLength(400)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand
           .setName('get-link')
           .setDescription('Get the event request submission link for this server')
       )
@@ -224,6 +258,11 @@ export async function execute(interaction) {
           value: eventConfig.allowedVoiceChannels && eventConfig.allowedVoiceChannels.length > 0
             ? eventConfig.allowedVoiceChannels.map(id => `<#${id}>`).join(', ')
             : 'All voice/stage channels',
+          inline: false
+        },
+        {
+          name: 'Form Guidance',
+          value: describeGuidance(config),
           inline: false
         }
       );
@@ -468,6 +507,13 @@ export async function execute(interaction) {
       });
     }
 
+  } else if (group === 'event-requests' && subcommand === 'guidance') {
+    // A pop-up has to be the first answer, so nothing is deferred before it
+    await openGuidanceModal(interaction);
+
+  } else if (group === 'event-requests' && subcommand === 'streaming') {
+    await streamingSettings(interaction);
+
   } else if (group === 'event-requests' && subcommand === 'get-link') {
     const config = await loadGuildConfig(guildId);
     const eventConfig = config.eventRequests || {};
@@ -511,4 +557,91 @@ export async function execute(interaction) {
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
+}
+
+// ── form guidance (src/utils/eventRequestGuidance.js) ─────────────────────
+
+/** /eggshen-config-events event-requests guidance part:<page|fields> */
+export async function openGuidanceModal(interaction) {
+  const part = interaction.options.getString('part') === 'page' ? 'page' : 'fields';
+  const config = await loadGuildConfig(interaction.guildId);
+  await interaction.showModal(buildGuidanceModal(part, config));
+}
+
+/**
+ * The pop-up was submitted. A pop-up is its own interaction, so the admin
+ * check runs again. Only this part's pieces change. A box left as the
+ * default, or emptied, stores nothing (the default); "none" hides it.
+ */
+export async function handleGuidanceModal(interaction) {
+  if (!isAdmin(interaction.member)) {
+    await interaction.reply({ content: '❌ Only administrators and moderators can change the form guidance.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+  const part = interaction.customId === 'evguidance_page' ? 'page' : 'fields';
+  const config = await loadGuildConfig(interaction.guildId);
+  const guidance = structuredClone(config.eventRequests?.guidance || {});
+  guidance.fields = { ...(guidance.fields || {}) };
+  const changed = [];
+  for (const p of GUIDANCE_PARTS[part]) {
+    const value = storedValueFor(interaction.fields.getTextInputValue(p.key), p.key);
+    if (value === storedGuidance(config, p.key)) continue;
+    const target = part === 'page' ? guidance : guidance.fields;
+    if (value === undefined) delete target[p.key];
+    else target[p.key] = value;
+    changed.push(`${value === undefined ? '↩️' : value === false ? '🙈' : '✏️'} ${p.label}${value === undefined ? ': back to the default' : value === false ? ': hidden' : ''}`);
+  }
+
+  if (changed.length) {
+    config.eventRequests = { ...(config.eventRequests || {}), guidance };
+    await saveGuildConfig(interaction.guildId, config);
+  }
+  const site = config.website?.url;
+  await interaction.reply({
+    content: changed.length
+      ? `✅ Form guidance saved:\n${changed.join('\n')}${site ? `\n\nSee it on ${site}` : ''}\n-# Empty a box for the default text, or type "${HIDE_WORD}" to show nothing there.`
+      : 'Nothing changed.',
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+// ── where-to-watch line (src/utils/eventStreaming.js) ────────────────────
+
+/**
+ * /eggshen-config-events event-requests streaming [enabled] [services]
+ * Each server names its own services; "default" restores the list
+ * Shudder's was built from. A name the bot doesn't know is kept (it's still
+ * matched by its leading words) but flagged, in case it's a typo.
+ */
+async function streamingSettings(interaction) {
+  const { getStreamingSettings, parseServiceList, isKnownService } = await import('../utils/eventStreaming.js');
+  const enabled = interaction.options.getBoolean('enabled');
+  const servicesText = interaction.options.getString('services');
+  const config = await loadGuildConfig(interaction.guildId);
+  const before = getStreamingSettings(config);
+  const changed = enabled !== null || servicesText !== null;
+
+  if (changed) {
+    const services = servicesText !== null ? parseServiceList(servicesText) : before.services;
+    if (!services.length) {
+      await interaction.reply({ content: '❌ List at least one service, e.g. `services:Shudder, AMC+, Tubi`, or `services:default`.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+    config.eventRequests = {
+      ...(config.eventRequests || {}),
+      streaming: { enabled: enabled ?? before.enabled, services },
+    };
+    await saveGuildConfig(interaction.guildId, config);
+  }
+
+  const now = getStreamingSettings(config);
+  const unknown = now.services.filter(s => !isKnownService(s));
+  const lines = [
+    changed ? '✅ **Where-to-watch line saved**' : '📺 **Where-to-watch line**',
+    `• Looked up on each request: **${now.enabled ? 'yes' : 'no'}**`,
+    `• Services, in this order: ${now.services.join(', ')}`,
+    '-# Moderators see it on each request; approving adds it to the event\'s description, with a link to every other place to watch.',
+  ];
+  if (unknown.length) lines.push(`⚠️ Not a service I know: ${unknown.join(', ')}. It's still matched by name; check the spelling.`);
+  await interaction.reply({ content: lines.join('\n'), flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
 }

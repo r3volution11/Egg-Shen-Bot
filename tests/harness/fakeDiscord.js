@@ -219,7 +219,7 @@ class FakeInteraction {
   isButton() { return this.kind === 'button'; }
   isStringSelectMenu() { return this.kind === 'select'; }
   isChannelSelectMenu() { return false; }
-  isModalSubmit() { return false; }
+  isModalSubmit() { return this.kind === 'modal'; }
   isRepliable() { return this.kind !== 'autocomplete'; }
   inGuild() { return true; }
 
@@ -310,8 +310,17 @@ class FakeInteraction {
     return { id: this.id, interaction: this };
   }
 
-  async showModal() {
-    throw new Error('showModal: not emulated (nothing in the tournament flow uses modals)');
+  /**
+   * As Discord: a pop-up is a command's or button's first and only answer
+   * (it can't follow a reply or a defer). Recorded as `this.modal`, the
+   * JSON Discord would receive, so a test can submit its own fields back.
+   */
+  async showModal(modal) {
+    if (this.kind === 'modal' || this.kind === 'autocomplete') throw new Error(`showModal on a ${this.kind} interaction`);
+    if (this.answered()) this.fail('InteractionAlreadyReplied');
+    this.replied = true;
+    this.modal = typeof modal.toJSON === 'function' ? modal.toJSON() : modal;
+    this.discord.log({ kind: 'modal', channel: this.channel.id, to: this.user.id, via: this.label(), modal: this.modal });
   }
 }
 
@@ -419,6 +428,23 @@ export class FakeDiscord {
     i.commandName = commandName;
     i.subcommand = subcommand;
     i.options = slashOptions({ subcommand, group, values: options });
+    return i;
+  }
+
+  /**
+   * Submitting a pop-up: `values` maps each text input's customId to what
+   * was typed. Like Discord, a box left empty comes back as ''.
+   */
+  modalSubmit(userId, customId, values = {}) {
+    const { user, member } = this.who(userId);
+    const i = new FakeInteraction(this, { kind: 'modal', user, member, guild: this.guild, channel: this.channel });
+    i.customId = customId;
+    i.fields = {
+      getTextInputValue: (id) => {
+        if (!(id in values)) throw new Error(`No text input "${id}" in this pop-up`);
+        return values[id] ?? '';
+      },
+    };
     return i;
   }
 

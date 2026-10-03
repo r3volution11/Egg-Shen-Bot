@@ -556,6 +556,8 @@ async function loadGuildConfig() {
             } else {
                 inviteLinkElement.style.display = 'none';
             }
+
+            renderGuidance(guildConfig.guidance);
             
             // Show/hide channel selectors based on config
             const channelSelect = document.getElementById('channel');
@@ -584,6 +586,94 @@ async function loadGuildConfig() {
         console.error('Error loading guild config:', error);
         showGenericContent();
     }
+}
+
+/**
+ * The form's guidance: the helper text under each field, an intro and a
+ * footer. The API sends what this server shows — its own text, or the
+ * defaults (src/utils/eventRequestGuidance.js) — so each site gets its own
+ * server's advice. Each piece goes in its slot (#guidance-intro,
+ * #guidance-title, …); a piece the server hid leaves its slot hidden.
+ *
+ * Admin-written text, so it's built with textContent and never innerHTML.
+ * Supported: line breaks, lines starting "•" or "-" as a list, **bold**,
+ * and https:// links. Safe to call again: each slot is rebuilt.
+ */
+function renderGuidance(guidance) {
+    const slots = {
+        intro: guidance?.intro,
+        footer: guidance?.footer,
+        title: guidance?.fields?.title,
+        description: guidance?.fields?.description,
+        image: guidance?.fields?.image,
+        when: guidance?.fields?.when,
+        frequency: guidance?.fields?.frequency,
+    };
+    for (const [key, text] of Object.entries(slots)) {
+        const el = document.getElementById(`guidance-${key}`);
+        if (!el) continue;
+        el.replaceChildren();
+        // The date/time note sits in its own row; hide the row with it
+        const shown = key === 'when' ? document.getElementById('guidance-when-wrap') : el;
+        if (typeof text !== 'string' || !text.trim()) {
+            if (shown) shown.hidden = true;
+            continue;
+        }
+        el.append(...guidanceNodes(text));
+        if (shown) shown.hidden = false;
+    }
+}
+
+/** Plain text → paragraphs and lists of DOM nodes (see renderGuidance) */
+function guidanceNodes(text) {
+    const nodes = [];
+    let list = null;
+    let para = null;
+    for (const raw of text.split('\n')) {
+        const line = raw.trim();
+        const bullet = line.match(/^[•\-*]\s+(.*)$/);
+        if (bullet) {
+            para = null;
+            if (!list) { list = document.createElement('ul'); nodes.push(list); }
+            const li = document.createElement('li');
+            li.append(...inlineNodes(bullet[1]));
+            list.append(li);
+        } else if (!line) {
+            list = null;
+            para = null;
+        } else {
+            list = null;
+            if (para) para.append(document.createElement('br'));
+            else { para = document.createElement('p'); nodes.push(para); }
+            para.append(...inlineNodes(line));
+        }
+    }
+    return nodes;
+}
+
+/** **bold** and https:// links within one line; everything else is text */
+function inlineNodes(line) {
+    const out = [];
+    const pattern = /\*\*(.+?)\*\*|(https:\/\/[^\s<>"]+[^\s<>".,;:!?)])/g;
+    let at = 0;
+    for (const m of line.matchAll(pattern)) {
+        if (m.index > at) out.push(document.createTextNode(line.slice(at, m.index)));
+        if (m[1] !== undefined) {
+            const b = document.createElement('strong');
+            b.textContent = m[1];
+            out.push(b);
+        } else {
+            const a = document.createElement('a');
+            a.href = m[2];
+            a.textContent = m[2];
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            out.push(a);
+        }
+        at = m.index + m[0].length;
+    }
+    if (at < line.length) out.push(document.createTextNode(line.slice(at)));
+    return out;
 }
 
 // Show message when event requests are disabled

@@ -24,6 +24,7 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getEventRequestGuidance } from '../utils/eventRequestGuidance.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -271,7 +272,9 @@ export function createApiServer(client) {
           inviteUrl: eventRequestConfig.inviteUrl || null,
           websiteUrl: guildConfig.website?.url || null,
           allowUserChannelSelection: eventRequestConfig.allowUserChannelSelection === true,
-          allowVoiceRequests: eventRequestConfig.allowVoiceRequests !== false
+          allowVoiceRequests: eventRequestConfig.allowVoiceRequests !== false,
+          // This server's own advice for its form (eventRequestGuidance.js)
+          guidance: getEventRequestGuidance(guildConfig),
         }
       });
     } catch (error) {
@@ -1129,10 +1132,25 @@ export function createApiServer(client) {
         .addFields(
           {
             name: '📝 Description',
-            value: description || 'No description provided',
+            // Discord's field limit; past it the whole request used to fail
+            value: (description || 'No description provided').slice(0, 1024),
             inline: false
           }
         );
+
+      // Where the title streams, among this server's services, so mods see
+      // it before approving; approval adds it to the event's description
+      // (eventStreaming.js). Awaited, with a time limit, rather than edited
+      // in afterwards: no write racing the stored request.
+      const { streamingLookupOn, streamingTextFor } = await import('../utils/eventStreaming.js');
+      const streamingText = streamingLookupOn(guildConfig) ? await streamingTextFor(title, guildConfig) : null;
+      if (streamingLookupOn(guildConfig)) {
+        embed.addFields({
+          name: '📺 Where to watch',
+          value: streamingText || 'Couldn\'t identify the title, so nothing will be added. Including the year helps, e.g. "Tragedy Girls (2017)".',
+          inline: false
+        });
+      }
       
       // Add channel information based on what was provided
       if (channelId) {
@@ -1309,7 +1327,10 @@ export function createApiServer(client) {
         messageId: message.id,
         channelMessageId: moderationChannelId,
         hasUploadedImage: !!imageToken,
-        imageUrl: effectiveImageUrl
+        imageUrl: effectiveImageUrl,
+        // What the lookup found, and for which title: approval reuses it
+        // unless a moderator's edit changed the title
+        streaming: streamingLookupOn(guildConfig) ? { forTitle: title, text: streamingText } : null
       });
 
       // The image (if any) was uploaded under a placeholder token before

@@ -28,6 +28,9 @@
             </a>
         </div>
 
+        <!-- This server's own advice, if it has any (filled by app.js renderGuidance) -->
+        <div id="guidance-intro" class="site-guidance site-guidance-block mb-4" hidden></div>
+
         <!-- Login Section -->
         <div id="auth-section" class="mb-4">
             <button id="login-btn" class="btn btn-primary">
@@ -46,20 +49,21 @@
                 <label for="title" class="form-label">Event Title *</label>
                 <input type="text" class="form-control" id="title" name="title" required
                        placeholder="e.g., Tragedy Girls (2017)">
-                <small class="form-text">The name of your watch party event — including the release year in parentheses (e.g., "(2017)") helps the bot correctly identify the exact movie, show, or game</small>
+                <!-- Helper text under each field: the server's own, or the default (renderGuidance in app.js) -->
+                <div id="guidance-title" class="form-text site-guidance" hidden></div>
             </div>
 
             <div class="mb-3">
                 <label for="description" class="form-label">Description</label>
-                <textarea class="form-control" id="description" name="description" rows="4"
-                          placeholder="Details about the event, where to watch (Shudder, AMC+, etc.), and any other info..."></textarea>
-                <small class="form-text">Optional: Include where to find the content and any special notes</small>
+                <textarea class="form-control" id="description" name="description" rows="4" maxlength="800"
+                          placeholder="Details about the event, where to watch it, and any other info..."></textarea>
+                <div id="guidance-description" class="form-text site-guidance" hidden></div>
             </div>
 
             <div class="mb-3" id="image-picker-group">
                 <label for="event-image-file" class="form-label">Event Image</label>
                 <input type="file" class="form-control" id="event-image-file" name="eventImageFile" accept="image/png,image/jpeg,image/gif,image/webp">
-                <small class="form-text">Optional: Upload a cover image for the event (PNG, JPEG, GIF, or WebP, max 8MB)</small>
+                <div id="guidance-image" class="form-text site-guidance" hidden></div>
             </div>
 
             <div class="mb-3" id="image-url-group">
@@ -119,6 +123,9 @@
                     </select>
                     <small id="timezone-hint" class="form-text">Times shown in your local timezone.</small>
                 </div>
+                <div class="col-12 mb-3" id="guidance-when-wrap" hidden>
+                    <div id="guidance-when" class="form-text site-guidance"></div>
+                </div>
             </div>
 
             <div class="row">
@@ -144,7 +151,7 @@
                     <option value="Biweekly">Biweekly</option>
                     <option value="Monthly">Monthly</option>
                 </select>
-                <small class="form-text">Optional: For recurring events</small>
+                <div id="guidance-frequency" class="form-text site-guidance" hidden></div>
             </div>
 
             <!-- Captcha Placeholder -->
@@ -160,6 +167,8 @@
 
             <div id="form-message" class="alert mt-3" style="display:none;"></div>
         </form>
+
+        <div id="guidance-footer" class="site-guidance site-guidance-block mt-4" hidden></div>
 
         <footer class="text-center text-secondary mt-4 small">
             <p>Powered by <a href="https://eggshenbot.com" target="_blank">Egg Shen Bot</a></p>

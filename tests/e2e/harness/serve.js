@@ -30,6 +30,8 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'test'; // non-production: secure
 // machine that didn't happen to have EVENT_CROP_LINK_SECRET set.
 process.env.TOURNAMENT_SETUP_LINK_SECRET = process.env.TOURNAMENT_SETUP_LINK_SECRET || 'e2e-tournament-setup-secret';
 process.env.EVENT_CROP_LINK_SECRET = process.env.EVENT_CROP_LINK_SECRET || 'e2e-crop-link-secret';
+// No TMDB lookups for a submitted title's streaming services (eventStreaming.js)
+process.env.EVENT_STREAMING_LOOKUP = process.env.EVENT_STREAMING_LOOKUP || 'off';
 
 async function main() {
   await writeFixtureGuildConfigs(ALL_GUILDS);
