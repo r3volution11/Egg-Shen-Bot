@@ -16,6 +16,7 @@ import { jest, describe, test, expect, beforeAll, beforeEach, afterEach } from '
 import { Collection } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
+import { sessionCookieFor } from './harness/sessionCookie.js';
 
 process.env.OPENAI_API_KEY = '';
 
@@ -125,6 +126,16 @@ describe('looking a title up', () => {
     expect((await streaming.lookupEventStreaming('Fargo (1996)')).tmdbId).toBe(5);
   });
 
+  test('two films and a show by the same name: no guess (it used to pick the show); the year still settles it', async () => {
+    catalog({
+      movies: { Fargo: [movie(5, 'Fargo', '1996-03-08'), movie(9, 'Fargo', '1952-01-01')] },
+      shows: { Fargo: [show(6, 'Fargo', '2014-04-15')] },
+    });
+    expect(await streaming.lookupEventStreaming('Fargo')).toBeNull();
+    expect((await streaming.lookupEventStreaming('Fargo (2014)')).tmdbId).toBe(6);
+    expect((await streaming.lookupEventStreaming('Fargo (1952)')).tmdbId).toBe(9);
+  });
+
   test('several results and none exact: no guess', async () => {
     catalog({ movies: { 'Halloween': [movie(1, 'Halloween II'), movie(2, 'Halloween III')] } });
     expect(await streaming.lookupEventStreaming('Halloween')).toBeNull();
@@ -223,7 +234,7 @@ describe('submitting a request', () => {
 
   const submit = async (title, description = 'Bring snacks.') => {
     const request = (await import('supertest')).default;
-    return request(app).post('/api/event-request').send({
+    return request(app).post('/api/event-request').set('Cookie', sessionCookieFor('u1')).send({
       guildId: GUILD, title, description, startTime: new Date(Date.now() + 864e5).toISOString(),
       submitterUsername: 'u', submitterDiscordId: 'u1',
     });

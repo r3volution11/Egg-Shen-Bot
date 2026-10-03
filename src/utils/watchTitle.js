@@ -27,21 +27,22 @@ export async function resolveWatchTitle(title) {
     hybridSearch(query, searchTVShows, 'tv', getTVAlternativeTitles).catch(() => []),
   ]);
 
-  let exactMovie = pickExactTitleMatch(movies, query, year);
-  let exactTV = pickExactTitleMatch(shows, query, year);
-  // Both a movie and a show by that name ("Fargo"): a year that fits only
-  // one of them settles it
-  if (exactMovie && exactTV && year) {
-    if (yearOf(exactMovie) === String(year) && yearOf(exactTV) !== String(year)) exactTV = null;
-    else if (yearOf(exactTV) === String(year) && yearOf(exactMovie) !== String(year)) exactMovie = null;
-  }
+  // Every exact title match, movies and TV together. It's confident only
+  // when that's one title — or the year narrows it to one. Two films and a
+  // show all called "Fargo" is a question for a person, not a guess (it
+  // used to pick the show, since each list was checked on its own).
+  const exact = [
+    ...movies.filter(r => pickExactTitleMatch([r], query)).map(r => ({ r, type: 'movie' })),
+    ...shows.filter(r => pickExactTitleMatch([r], query)).map(r => ({ r, type: 'tv' })),
+  ];
+  const sameYear = year ? exact.filter(e => yearOf(e.r) === String(year)) : [];
   const soleMovie = movies.length === 1 && shows.length === 0 ? movies[0] : null;
   const soleTV = shows.length === 1 && movies.length === 0 ? shows[0] : null;
 
-  const winner = (exactMovie && !exactTV) ? { r: exactMovie, type: 'movie' }
-    : (exactTV && !exactMovie) ? { r: exactTV, type: 'tv' }
-    : soleMovie ? { r: soleMovie, type: 'movie' }
-    : soleTV ? { r: soleTV, type: 'tv' }
+  const winner = sameYear.length === 1 ? sameYear[0]
+    : exact.length === 1 ? exact[0]
+    : exact.length === 0 && soleMovie ? { r: soleMovie, type: 'movie' }
+    : exact.length === 0 && soleTV ? { r: soleTV, type: 'tv' }
     : null;
   if (!winner) return null;
 

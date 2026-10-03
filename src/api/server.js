@@ -25,6 +25,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getEventRequestGuidance } from '../utils/eventRequestGuidance.js';
+import { signSession, readSession, SESSION_COOKIE, SESSION_MAX_AGE_MS } from '../utils/sessionCookie.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -405,21 +406,21 @@ export function createApiServer(client) {
         return res.redirect(`${formUrl}?${errorParams.toString()}`);
       }
       
-      // Create a session token
-      const sessionToken = Buffer.from(JSON.stringify({
+      // A signed session (sessionCookie.js): who this is can't be forged
+      const sessionToken = signSession({
         userId: userData.id,
         username: userData.username,
         discriminator: userData.discriminator,
         avatar: userData.avatar,
         guildId,
-        timestamp: Date.now()
-      })).toString('base64');
+      });
       
       // Set cookie and redirect back to form
-      res.cookie('discord_session', sessionToken, {
+      res.cookie(SESSION_COOKIE, sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        sameSite: 'lax',
+        maxAge: SESSION_MAX_AGE_MS
       });
       
       // Redirect back to event request form
@@ -433,39 +434,27 @@ export function createApiServer(client) {
   
   // Get current session info
   app.get('/api/auth/session', (req, res) => {
-    const sessionCookie = req.cookies.discord_session;
-    
-    if (!sessionCookie) {
+    const session = readSession(req.cookies[SESSION_COOKIE]);
+    if (!session) {
+      // Missing, expired, or not signed by this bot (including every
+      // cookie from before signing): log in again
+      if (req.cookies[SESSION_COOKIE]) res.clearCookie(SESSION_COOKIE);
       return res.json({ authenticated: false });
     }
-    
-    try {
-      const session = JSON.parse(Buffer.from(sessionCookie, 'base64').toString());
-      
-      // Check if session is still valid (24 hours)
-      if (Date.now() - session.timestamp > 24 * 60 * 60 * 1000) {
-        res.clearCookie('discord_session');
-        return res.json({ authenticated: false });
+    res.json({
+      authenticated: true,
+      user: {
+        id: session.userId,
+        username: session.username,
+        discriminator: session.discriminator,
+        avatar: session.avatar
       }
-      
-      res.json({
-        authenticated: true,
-        user: {
-          id: session.userId,
-          username: session.username,
-          discriminator: session.discriminator,
-          avatar: session.avatar
-        }
-      });
-    } catch (error) {
-      res.clearCookie('discord_session');
-      res.json({ authenticated: false });
-    }
+    });
   });
   
   // Logout
   app.post('/api/auth/logout', (req, res) => {
-    res.clearCookie('discord_session');
+    res.clearCookie(SESSION_COOKIE);
     res.json({ success: true });
   });
   
@@ -624,13 +613,8 @@ export function createApiServer(client) {
     if (typeof title !== 'string' || title.trim().length < 2 || typeof guildId !== 'string') {
       return res.status(400).json({ error: 'A title and server are needed' });
     }
-    let session;
-    try {
-      session = JSON.parse(Buffer.from(req.cookies.discord_session || '', 'base64').toString());
-    } catch {
-      session = null;
-    }
-    if (!session?.userId || Date.now() - session.timestamp > 24 * 60 * 60 * 1000) {
+    const session = readSession(req.cookies[SESSION_COOKIE]);
+    if (!session) {
       return res.status(401).json({ error: 'Log in with Discord first' });
     }
     const { isMember } = await checkGuildMembership(guildId, session.userId);
@@ -1081,20 +1065,30 @@ export function createApiServer(client) {
         startTime,
         endTime,
         frequency,
-        submitterUsername,
-        submitterDiscordId,
         imageToken,
         imageUrl
       } = req.body;
+
+      // Who's asking comes from the signed login cookie, never the body:
+      // the form still sends a submitter id and name, but trusting them
+      // let anyone submit as any member
+      const session = readSession(req.cookies[SESSION_COOKIE]);
+      if (!session) {
+        return res.status(401).json({ error: 'Your login has expired. Log in with Discord again, then resubmit.' });
+      }
+      const submitterDiscordId = session.userId;
+      const submitterUsername = !session.discriminator || session.discriminator === '0'
+        ? session.username
+        : `${session.username}#${session.discriminator}`;
 
       // Get guild config for event requests
       const guildConfig = await loadGuildConfig(guildId);
       const eventRequestConfig = guildConfig.eventRequests || {};
 
       // Validate required fields (channelId is optional if users can't select channels)
-      if (!guildId || !title || !startTime || !submitterUsername || !submitterDiscordId) {
+      if (!guildId || !title || !startTime) {
         return res.status(400).json({
-          error: 'Missing required fields: guildId, title, startTime, submitterUsername, submitterDiscordId'
+          error: 'Missing required fields: guildId, title, startTime'
         });
       }
 

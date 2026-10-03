@@ -94,6 +94,10 @@ ALLOWED_ORIGINS=https://yourdomain.com
 # Powers the moderator "Crop Image" link button — see Moderator section below
 EVENT_CROP_LINK_SECRET=your_generated_secret_here
 PUBLIC_BOT_URL=https://yourdomain.com
+
+# Optional: signs the form's login cookie. Leave it out to derive one from
+# DISCORD_CLIENT_SECRET; set it to be able to sign everyone out on its own.
+SESSION_SECRET=your_generated_secret_here
 ```
 
 ::: tip Local Testing
@@ -477,7 +481,8 @@ Limits are scoped **per domain**, not just per IP — if you run a dev deploymen
 ## Security Features
 
 - ✅ Discord OAuth authentication (no passwords stored)
-- ✅ Session-based login (24-hour expiration)
+- ✅ Session-based login (24-hour expiration), with a signed cookie: it can't be edited or forged to claim another member
+- ✅ Requests are made as whoever is logged in; the form can't submit on someone else's behalf
 - ✅ HTTP-only secure cookies
 - ✅ CORS protection
 - ✅ Rate limiting

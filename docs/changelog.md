@@ -9,6 +9,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.55.1 - 2026-10-03
+
+### Security
+- **The event request form's login can no longer be forged.** The login cookie wasn't signed, so someone could write one claiming to be any member of the server, and a request's submitter was taken from what the form sent. The cookie is now signed by the bot, and a request is always made as whoever is actually logged in. Everyone signed in to the form will need to log in once more
+
+### Fixed
+- **"Fargo" was read as the TV show.** With two films and a show sharing a title, and no year given, the where-to-watch line and artwork suggestions picked the show. They now treat it as unclear (artwork offers all three; the where-to-watch line asks for the year), and a year still settles it
+
+### Developer
+- `src/utils/sessionCookie.js`: `signSession`/`readSession`, HMAC-SHA256 checked with `timingSafeEqual`, 24-hour expiry. Secret: `SESSION_SECRET`, else derived from `DISCORD_CLIENT_SECRET`, so existing installs need no new setting (see `.env.example`). `POST /api/event-request` takes the submitter from the session and returns 401 without one; `submitterDiscordId`/`submitterUsername` in the body are ignored
+- Tests sign cookies with `tests/harness/sessionCookie.js` (Jest) and `tests/e2e/fixtures/session-cookie.js` (Playwright); `tests/session-cookie.test.js` covers forged, tampered, expired and unsigned cookies and a spoofed submitter
+- `resolveWatchTitle` counts exact title matches across movies and TV together
+- No command or static form changes: restart only
+
 ## 2.55.0 - 2026-10-03
 
 ### Added

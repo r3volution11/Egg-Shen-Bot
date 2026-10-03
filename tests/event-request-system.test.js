@@ -21,6 +21,7 @@ import { jest } from '@jest/globals';
 import { Collection } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
+import { sessionCookieFor } from './harness/sessionCookie.js';
 
 // Cleanup below recursively deletes CONFIG_DIR, so this suite must own it —
 // jest.setup.js's directory is scoped per WORKER, and Jest reuses a worker
@@ -218,7 +219,7 @@ describe('Event Request System', () => {
 
       const request = await import('supertest');
       const response = await request.default(app)
-        .post('/api/event-request')
+        .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
         .send({
           guildId: '900000000000000099',
           title: 'Friday Night Movie',
@@ -243,7 +244,7 @@ describe('Event Request System', () => {
 
       const request = await import('supertest');
       const response = await request.default(app)
-        .post('/api/event-request')
+        .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
         .send({
           guildId: '900000000000000099',
           title: 'Friday Night Movie'
@@ -262,7 +263,7 @@ describe('Event Request System', () => {
 
       const request = await import('supertest');
       const response = await request.default(app)
-        .post('/api/event-request')
+        .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
         .send({
           guildId: '900000000000000099',
           title: 'Friday Night Movie',
@@ -299,7 +300,7 @@ describe('Event Request System', () => {
 
         const request = await import('supertest');
         const response = await request.default(app)
-          .post('/api/event-request')
+          .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
           .send({
             guildId: '900000000000000099',
             title: 'Friday Night Movie',
@@ -378,7 +379,7 @@ describe('Event Request System', () => {
       expect(imageToken).toBeTruthy();
 
       const response = await request.default(app)
-        .post('/api/event-request')
+        .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
         .send({
           guildId: '900000000000000099',
           title: 'Friday Night Movie',
@@ -403,7 +404,7 @@ describe('Event Request System', () => {
       // which has eventRequests.enabled: false.
       const request = await import('supertest');
       const response = await request.default(app)
-        .post('/api/event-request')
+        .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
         .send({
           guildId: '900000000000000099',
           title: 'Friday Night Movie',
@@ -481,7 +482,7 @@ describe('Event Request System', () => {
 
       // First request should succeed
       const response1 = await request.default(app)
-        .post('/api/event-request')
+        .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
         .set('Host', HOST)
         .send({
           guildId: '900000000000000099',
@@ -496,7 +497,7 @@ describe('Event Request System', () => {
 
       // Second request from same host+IP should be rate limited
       const response2 = await request.default(app)
-        .post('/api/event-request')
+        .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
         .set('Host', HOST)
         .send({
           guildId: '900000000000000099',

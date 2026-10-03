@@ -12,6 +12,7 @@
  */
 
 import { jest } from '@jest/globals';
+import { sessionCookieFor } from './harness/sessionCookie.js';
 
 jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
   getPublicBotUrl: (c) => (c?.website?.botUrl || process.env.PUBLIC_BOT_URL || '').replace(/\/+$/, '') || null,
@@ -79,14 +80,14 @@ describe('Event request rate limiting is scoped per domain', () => {
     const request = await import('supertest');
 
     const devResponse = await request.default(app)
-      .post('/api/event-request')
+      .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
       .set('Host', 'dev.example.com')
       .send(validPayload('Dev Domain Event'));
 
     expect(devResponse.status).toBe(200);
 
     const prodResponse = await request.default(app)
-      .post('/api/event-request')
+      .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
       .set('Host', 'example.com')
       .send(validPayload('Prod Domain Event'));
 
@@ -97,13 +98,13 @@ describe('Event request rate limiting is scoped per domain', () => {
     const request = await import('supertest');
 
     const first = await request.default(app)
-      .post('/api/event-request')
+      .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
       .set('Host', 'example.com')
       .send(validPayload('Event 1'));
     expect(first.status).toBe(200);
 
     const second = await request.default(app)
-      .post('/api/event-request')
+      .post('/api/event-request').set('Cookie', sessionCookieFor('123456789'))
       .set('Host', 'example.com')
       .send(validPayload('Event 2'));
     expect(second.status).toBe(429);

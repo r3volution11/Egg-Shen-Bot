@@ -32,10 +32,9 @@ The only thing stubbed out is the Discord connection itself:
   couple of made-up example guilds/channels/members (see `scenarios.js`). Built on
   discord.js's own `Collection` class (not a plain `Map`) and implements
   `guild.members.fetch()`, since `src/api/server.js` calls both.
-- **`tests/e2e/fixtures/session-cookie.js`** — forges the `discord_session` cookie
-  directly instead of driving real Discord OAuth (the cookie is unsigned base64 JSON,
-  not a JWT — see `src/api/server.js`'s `/api/auth/discord/callback` and
-  `/api/auth/session` handlers for the exact shape this matches).
+- **`tests/e2e/fixtures/session-cookie.js`** — signs a `discord_session` cookie the
+  way the bot does at login (`src/utils/sessionCookie.js`), with the harness's
+  `SESSION_SECRET`, instead of driving real Discord OAuth.
 - A test-only `POST /api/__test__/reset-rate-limit` route in `src/api/server.js`,
   compiled out whenever `NODE_ENV === 'production'`, lets tests reset the real 1-per-5-minute
   submission limiter instead of waiting it out or weakening it for tests.

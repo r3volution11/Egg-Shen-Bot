@@ -12,6 +12,7 @@
 
 import { jest, describe, test, expect, beforeAll, beforeEach, afterEach } from '@jest/globals';
 import { Collection } from 'discord.js';
+import { sessionCookieFor } from './harness/sessionCookie.js';
 
 process.env.OPENAI_API_KEY = '';
 
@@ -85,7 +86,7 @@ describe('the API', () => {
   const GUILD = '900000000000000088';
   let app;
   let request;
-  const cookie = (userId, timestamp = Date.now()) => `discord_session=${Buffer.from(JSON.stringify({ userId, username: 'u', timestamp })).toString('base64')}`;
+  const cookie = (userId, timestamp = Date.now()) => sessionCookieFor(userId, { timestamp });
   beforeEach(async () => {
     process.env.EVENT_STREAMING_LOOKUP = 'on';
     request = (await import('supertest')).default;
@@ -120,7 +121,7 @@ describe('the API', () => {
   test('a request whose artwork was picked names its title: where-to-watch uses it instead of guessing', async () => {
     await guildConfig.saveGuildConfig(GUILD, { eventRequests: { enabled: true, moderationChannel: 'mod-1' } });
     tmdb.getUnifiedTVWatchProviders.mockImplementation(async () => ({ link: 'L', flatrate: [{ provider_name: 'Hulu' }] }));
-    const res = await request(app).post('/api/event-request').send({
+    const res = await request(app).post('/api/event-request').set('Cookie', sessionCookieFor('member')).send({
       guildId: GUILD, title: 'Fargo', startTime: new Date(Date.now() + 864e5).toISOString(),
       submitterUsername: 'u', submitterDiscordId: 'member',
       tmdbTitle: { tmdbId: 6, type: 'tv', label: 'Fargo' },
@@ -134,7 +135,7 @@ describe('the API', () => {
 
   test('a malformed picked title is ignored, and the typed title is matched as usual', async () => {
     await guildConfig.saveGuildConfig(GUILD, { eventRequests: { enabled: true, moderationChannel: 'mod-1' } });
-    await request(app).post('/api/event-request').send({
+    await request(app).post('/api/event-request').set('Cookie', sessionCookieFor('member')).send({
       guildId: GUILD, title: 'Fargo', startTime: new Date(Date.now() + 864e5).toISOString(),
       submitterUsername: 'u', submitterDiscordId: 'member',
       tmdbTitle: { tmdbId: '../../etc', type: 'person' },

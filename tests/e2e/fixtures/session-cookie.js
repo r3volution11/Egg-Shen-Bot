@@ -1,14 +1,17 @@
 /**
- * Forges a discord_session cookie matching the exact shape src/api/server.js
- * writes at the OAuth callback and reads at /api/auth/session — see
- * server.js's `sessionToken` construction and the /api/auth/session handler.
+ * A discord_session login cookie for a test, signed the way the bot signs
+ * one at the OAuth callback (src/utils/sessionCookie.js), so tests can log
+ * in without driving real Discord OAuth.
  *
- * The cookie is unsigned base64 JSON (not a JWT, no HMAC), so tests can
- * build a valid one directly instead of driving real Discord OAuth.
+ * The secret must match the harness's (tests/e2e/harness/serve.js); it's
+ * read when a cookie is signed.
  */
+import { signSession } from '../../../src/utils/sessionCookie.js';
+
+process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'e2e-session-secret';
+
 export function buildSessionCookieValue({ userId, username = 'e2e-test-user', discriminator = '0', avatar = null, guildId, timestamp = Date.now() }) {
-  const payload = { userId, username, discriminator, avatar, guildId, timestamp };
-  return Buffer.from(JSON.stringify(payload)).toString('base64');
+  return signSession({ userId, username, discriminator, avatar, guildId }, timestamp);
 }
 
 /**

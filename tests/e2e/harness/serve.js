@@ -32,6 +32,8 @@ process.env.TOURNAMENT_SETUP_LINK_SECRET = process.env.TOURNAMENT_SETUP_LINK_SEC
 process.env.EVENT_CROP_LINK_SECRET = process.env.EVENT_CROP_LINK_SECRET || 'e2e-crop-link-secret';
 // No TMDB lookups for a submitted title's streaming services (eventStreaming.js)
 process.env.EVENT_STREAMING_LOOKUP = process.env.EVENT_STREAMING_LOOKUP || 'off';
+// The login cookie's secret: tests/e2e/fixtures/session-cookie.js signs with the same one
+process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'e2e-session-secret';
 
 async function main() {
   await writeFixtureGuildConfigs(ALL_GUILDS);

@@ -37,6 +37,9 @@ function fallback(name, value) {
 // (src/utils/eventStreaming.js). Never from a test: the suites for that
 // feature mock TMDB and switch it back on themselves.
 fallback('EVENT_STREAMING_LOOKUP', 'off');
+// Signs the form's login cookie (src/utils/sessionCookie.js); tests sign
+// theirs with tests/harness/sessionCookie.js
+fallback('SESSION_SECRET', 'test-session-secret');
 fallback('EVENT_IMAGES_DIR', path.join(workerDir, 'event_request_images'));
 fallback('EVENT_REQUESTS_FILE', path.join(workerDir, 'pending_event_requests.json'));
 fallback('EVENT_CHANNEL_SELECTIONS_FILE', path.join(workerDir, 'pending_event_channel_selections.json'));
