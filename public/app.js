@@ -45,6 +45,16 @@ let cropper = null;
 // first upload. null until an image has been picked/fetched.
 let currentOriginalFile = null;
 
+// The movie or show the image in the cropper came from, when it was picked
+// from the artwork suggestions: { tmdbId, type, label }. Sent with the
+// request so the bot's where-to-watch line uses that exact title instead
+// of guessing from the typed one. null for an uploaded file or pasted URL.
+let pickedArtworkTitle = null;
+
+// Settles once the cropper has loaded its image (Cropper.js `ready`);
+// uploadCurrentCrop waits on it
+let cropperReady = Promise.resolve();
+
 // Posts to the upload endpoint and records whatever imageToken it returns.
 // Module-scoped (not inside the DOMContentLoaded closure below) so
 // handleSubmit — a top-level function — can call the crop step directly.
@@ -112,20 +122,24 @@ function uploadOriginal(file) {
 // than on every crop-box adjustment (dragging/resizing in between is purely
 // local Cropper.js rendering, no network calls at all). Mirrors how the
 // moderator's crop page (public/crop/crop.js) only uploads once, on Save.
-function uploadCurrentCrop() {
-    if (!cropper) return Promise.resolve(true);
-    return new Promise((resolve) => {
-        cropper.getCroppedCanvas({ width: 1280, height: 720 }).toBlob(async (blob) => {
-            if (!blob) {
-                resolve(true);
-                return;
-            }
-            resolve(await sendImageUpload(
-                { image: blob, imageToken: uploadedImageToken || '' },
-                'Uploading cropped image...'
-            ));
-        }, 'image/jpeg', 0.9);
-    });
+//
+// Waits for the cropper to finish loading its image first: Submit clicked
+// right after picking an image used to find no canvas yet, throw inside
+// toBlob's callback, and leave the submit hanging with no message.
+async function uploadCurrentCrop() {
+    if (!cropper) return true;
+    await Promise.race([cropperReady, new Promise(r => setTimeout(r, 5000))]);
+    const canvas = cropper?.getCroppedCanvas({ width: 1280, height: 720 });
+    const blob = canvas ? await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9)) : null;
+
+    const fields = { imageToken: uploadedImageToken || '' };
+    if (blob) fields.image = blob;
+    // An image picked from the artwork suggestions hasn't been uploaded
+    // yet (so trying several doesn't use up the upload limit): send its
+    // original along with the crop, in one go
+    if (!uploadedImageToken && currentOriginalFile) fields.original = currentOriginalFile;
+    if (!fields.image && !fields.original) return true;
+    return sendImageUpload(fields, 'Uploading cropped image...');
 }
 
 // Module-scoped (not inside the DOMContentLoaded closure below) so both
@@ -136,6 +150,7 @@ function resetImageState() {
     cropper = null;
     currentOriginalFile = null;
     uploadedImageToken = null;
+    pickedArtworkTitle = null;
 
     const imageFileInput = document.getElementById('event-image-file');
     const imageUrlInput = document.getElementById('event-image-url');
@@ -253,10 +268,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         imageUrlGroup.style.display = 'none';
         imageCropGroup.style.display = 'block';
         imageCropTarget.src = imageSrc;
+        let markReady;
+        cropperReady = new Promise(resolve => { markReady = resolve; });
         cropper = new Cropper(imageCropTarget, {
             aspectRatio: 16 / 9,
             viewMode: 1,
             autoCropArea: 1,
+            ready: () => markReady(),
         });
     }
 
@@ -342,6 +360,109 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
         reader.readAsDataURL(imageFileInput.files[0]);
     });
+
+    // ── Artwork suggestions ───────────────────────────────────────────
+    // As a title is typed, offer TMDB backdrops and posters for it. Only
+    // suggestions: picking one loads it into the same cropper an upload
+    // uses, and nothing is chosen for the person.
+    const titleInput = document.getElementById('title');
+    const artworkBox = document.getElementById('artwork-suggestions');
+    const artworkStatus = document.getElementById('artwork-status');
+    const artworkTitles = document.getElementById('artwork-titles');
+    let artworkTimer = null;
+    let artworkSeq = 0; // only the latest lookup may draw
+    let artworkQuery = '';
+
+    function hideArtwork() {
+        artworkBox.hidden = true;
+        artworkTitles.replaceChildren();
+        artworkStatus.textContent = '';
+    }
+
+    async function loadArtworkSuggestions(title) {
+        const seq = ++artworkSeq;
+        if (title.length < 2) { artworkQuery = ''; hideArtwork(); return; }
+        if (title === artworkQuery) return;
+        artworkQuery = title;
+        artworkBox.hidden = false;
+        artworkTitles.replaceChildren();
+        artworkStatus.textContent = 'Looking for artwork…';
+        try {
+            const response = await fetch(`${API_BASE_URL}/event-request/title-art?guildId=${encodeURIComponent(GUILD_ID)}&title=${encodeURIComponent(title)}`, { credentials: 'include' });
+            const data = response.ok ? await response.json() : { titles: [] };
+            if (seq !== artworkSeq) return;
+            if (!data.titles?.length) { hideArtwork(); return; }
+            artworkStatus.textContent = data.titles.length > 1 ? 'A few titles match; pick from the right one.' : '';
+            artworkTitles.replaceChildren(...data.titles.map(renderArtworkTitle));
+        } catch (error) {
+            console.error('Artwork lookup failed:', error);
+            if (seq === artworkSeq) hideArtwork();
+        }
+    }
+
+    function renderArtworkTitle(t) {
+        const wrap = document.createElement('div');
+        wrap.className = 'artwork-title';
+        const label = document.createElement('div');
+        label.className = 'form-text';
+        label.textContent = `${t.label}${t.year ? ` (${t.year})` : ''} · ${t.type === 'tv' ? 'TV show' : 'Movie'}`;
+        const row = document.createElement('div');
+        row.className = 'artwork-row';
+        for (const img of t.images) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'artwork-option';
+            btn.dataset.kind = img.kind;
+            btn.title = `Use this ${img.kind} for ${t.label}`;
+            const thumb = document.createElement('img');
+            thumb.src = img.thumb;
+            thumb.alt = `${t.label} ${img.kind}`;
+            thumb.loading = 'lazy';
+            btn.append(thumb);
+            btn.addEventListener('click', () => pickArtwork(btn, img, t));
+            row.append(btn);
+        }
+        wrap.append(label, row);
+        return wrap;
+    }
+
+    // TMDB's image server allows cross-origin reads, so the full image is
+    // fetched straight into the browser and cropped like a picked file.
+    // It's uploaded only at submit (uploadCurrentCrop), with the crop.
+    async function pickArtwork(btn, img, t) {
+        btn.disabled = true;
+        imageUploadStatus.style.display = 'block';
+        imageUploadStatus.className = 'alert';
+        imageUploadStatus.textContent = 'Loading artwork…';
+        try {
+            const response = await fetch(img.url, { mode: 'cors' });
+            if (!response.ok) throw new Error(`TMDB returned ${response.status}`);
+            const blob = await response.blob();
+            cropper?.destroy();
+            cropper = null;
+            uploadedImageToken = null;
+            currentOriginalFile = blob;
+            pickedArtworkTitle = { tmdbId: t.tmdbId, type: t.type, label: t.label };
+            imageUploadStatus.style.display = 'none';
+            loadImageIntoCropper(URL.createObjectURL(blob));
+        } catch (error) {
+            console.error('Artwork load failed:', error);
+            imageUploadStatus.className = `alert ${ALERT_CLASS.error}`;
+            imageUploadStatus.textContent = '❌ Couldn\'t load that image. Try another, or upload your own.';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    titleInput.addEventListener('input', () => {
+        clearTimeout(artworkTimer);
+        artworkTimer = setTimeout(() => loadArtworkSuggestions(titleInput.value.trim()), 700);
+    });
+    titleInput.addEventListener('change', () => {
+        clearTimeout(artworkTimer);
+        loadArtworkSuggestions(titleInput.value.trim());
+    });
+    document.getElementById('event-form').addEventListener('reset', () => { artworkQuery = ''; artworkSeq++; hideArtwork(); });
 
     // Set min date to today
     const today = new Date().toISOString().split('T')[0];
@@ -790,6 +911,7 @@ async function handleSubmit(e) {
         endTime: combineDateTimeToISO('end-date', 'end-time'),
         frequency: document.getElementById('frequency').value || null,
         imageToken: null, // set below, after the current crop (if any) uploads
+        tmdbTitle: cropper ? pickedArtworkTitle : null,
         imageUrl: cropper ? null : (document.getElementById('event-image-url').value.trim() || null),
         submitterUsername: currentUser.discriminator === '0'
             ? currentUser.username

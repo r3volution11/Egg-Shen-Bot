@@ -54,3 +54,48 @@
 #guidance-when-wrap[hidden] {
     display: none;
 }
+
+/* Artwork suggestions (loadArtworkSuggestions in app.js): a row of
+   thumbnails per title. Backdrops are wide like an event cover; the
+   posters at the end of a row are tall. */
+.artwork-title {
+    margin-top: 8px;
+}
+
+.artwork-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 2px 8px;
+}
+
+.artwork-option {
+    flex: 0 0 auto;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-tertiary-bg);
+    cursor: pointer;
+    line-height: 0;
+}
+
+.artwork-option:hover,
+.artwork-option:focus-visible {
+    border-color: var(--bs-primary);
+}
+
+.artwork-option img {
+    height: 72px;
+    width: auto;
+    border-radius: calc(var(--bs-border-radius) - 2px);
+}
+
+.artwork-option[data-kind="backdrop"] img {
+    width: 128px;
+    object-fit: cover;
+}
+
+.artwork-option[disabled] {
+    opacity: 0.5;
+    cursor: progress;
+}

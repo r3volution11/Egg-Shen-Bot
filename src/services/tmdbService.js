@@ -308,6 +308,30 @@ export function getBackdropUrl(backdropPath, size = 'w1280') {
 }
 
 /**
+ * A movie's or show's artwork: backdrops (wide, like a Discord event cover)
+ * and posters, each best-rated first. English and text-free images only,
+ * so a suggestion never shows a title card in another language.
+ * @param {'movie'|'tv'} type
+ * @returns {Promise<{backdrops: string[], posters: string[]}>} file paths; empty on failure
+ */
+export async function getTitleImages(type, id) {
+  try {
+    const response = await tmdbApi.get(`/${type === 'tv' ? 'tv' : 'movie'}/${id}/images`, {
+      params: { include_image_language: 'en,null' },
+    });
+    const best = (list) => (list || [])
+      .slice()
+      .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0) || (b.vote_count || 0) - (a.vote_count || 0))
+      .map(i => i.file_path)
+      .filter(Boolean);
+    return { backdrops: best(response.data.backdrops), posters: best(response.data.posters) };
+  } catch (error) {
+    console.error('TMDB images error:', error.message);
+    return { backdrops: [], posters: [] };
+  }
+}
+
+/**
  * Discover random movies with optional filters
  * @param {Object} filters - Optional filters { genre, decade, minRating, maxRating }
  * @returns {Object} Random movie result

@@ -216,6 +216,17 @@ export function createApiServer(client) {
     keyGenerator: hostAndIpKeyGenerator,
   });
 
+  // Artwork suggestions as someone types a title (30 a minute per IP, per
+  // domain — a few per title as they type, never a TMDB firehose)
+  const titleArtLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: { error: 'Too many artwork lookups. Please wait a minute.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: hostAndIpKeyGenerator,
+  });
+
   // Rate limiting for the quotes-admin API (20 per minute per IP, per
   // domain — generous for normal editing, tight enough to bound brute-
   // forcing QUOTES_ADMIN_SECRET)
@@ -604,6 +615,37 @@ export function createApiServer(client) {
   // still goes through POST /api/event-request/upload-image afterward,
   // same as a picked file — this endpoint only bridges "URL" to "bytes the
   // browser can crop," it never itself produces an imageToken.
+  // Artwork suggestions for the title being typed (titleArtwork.js): TMDB
+  // backdrops and posters to pick from and crop. Logged-in members of the
+  // server only, so it isn't an open TMDB proxy. The images themselves load
+  // straight from TMDB in the browser, which allows it.
+  app.get('/api/event-request/title-art', titleArtLimiter, async (req, res) => {
+    const { guildId, title } = req.query;
+    if (typeof title !== 'string' || title.trim().length < 2 || typeof guildId !== 'string') {
+      return res.status(400).json({ error: 'A title and server are needed' });
+    }
+    let session;
+    try {
+      session = JSON.parse(Buffer.from(req.cookies.discord_session || '', 'base64').toString());
+    } catch {
+      session = null;
+    }
+    if (!session?.userId || Date.now() - session.timestamp > 24 * 60 * 60 * 1000) {
+      return res.status(401).json({ error: 'Log in with Discord first' });
+    }
+    const { isMember } = await checkGuildMembership(guildId, session.userId);
+    if (!isMember) {
+      return res.status(403).json({ error: 'Only members of this server can look up artwork' });
+    }
+    try {
+      const { findTitleArtwork } = await import('../utils/titleArtwork.js');
+      res.json(await findTitleArtwork(title.slice(0, 200)));
+    } catch (error) {
+      console.error('[API] Artwork lookup failed:', error.message);
+      res.json({ titles: [] });
+    }
+  });
+
   app.post('/api/event-request/fetch-image-url', imageUploadLimiter, async (req, res) => {
     const { imageUrl } = req.body;
 
@@ -1142,8 +1184,10 @@ export function createApiServer(client) {
       // it before approving; approval adds it to the event's description
       // (eventStreaming.js). Awaited, with a time limit, rather than edited
       // in afterwards: no write racing the stored request.
-      const { streamingLookupOn, streamingTextFor } = await import('../utils/eventStreaming.js');
-      const streamingText = streamingLookupOn(guildConfig) ? await streamingTextFor(title, guildConfig) : null;
+      const { streamingLookupOn, streamingTextFor, chosenTitleFrom } = await import('../utils/eventStreaming.js');
+      // Picked artwork names the exact title, so nothing has to be guessed
+      const chosenTitle = chosenTitleFrom(req.body.tmdbTitle);
+      const streamingText = streamingLookupOn(guildConfig) ? await streamingTextFor(title, guildConfig, { chosen: chosenTitle }) : null;
       if (streamingLookupOn(guildConfig)) {
         embed.addFields({
           name: '📺 Where to watch',

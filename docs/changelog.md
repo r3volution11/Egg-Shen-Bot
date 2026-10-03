@@ -9,6 +9,21 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.55.0 - 2026-10-03
+
+### Added
+- **Artwork suggestions on the event request form.** Type a title and the form suggests artwork for it from TMDB: wide backdrops first (they fit an event cover with little cropping), then a couple of posters. If several titles match, like the *Fargo* film and the show, each gets its own row with its year. Nothing is picked for you: click one to crop it, or use your own image. Picking artwork also tells the bot exactly which title you mean, so the moderators' where-to-watch line uses it instead of guessing. Trying different suggestions doesn't count against the upload limit. See [Artwork Suggestions](/features/event-requests#submitting-a-request)
+
+### Fixed
+- **Submitting right after picking an image could hang.** If the crop tool hadn't finished loading the image, the request never went through and no message appeared; it now waits for the image
+- A confidently matched title whose TMDB image list was empty showed no suggestions; it now falls back to the title's own backdrop and poster
+
+### Developer
+- `GET /api/event-request/title-art` (logged-in members only, 30 a minute): `src/utils/titleArtwork.js` returns the confident match from `resolveWatchTitle`, or the top three candidates, each with backdrops and posters from the new `tmdbService.getTitleImages`. The browser loads the chosen image straight from TMDB (which allows cross-origin reads) and uploads its original with the crop at submit
+- The form sends the picked title as `tmdbTitle`; `chosenTitleFrom` validates it and the where-to-watch lookup uses it instead of matching the typed title
+- `uploadCurrentCrop` waits for Cropper.js's `ready`. `tests/e2e/artwork-suggestions.spec.js` stubs the lookup and TMDB's images
+- Static form changes only: needs `deploy-domain-copy --all`, no `deploy-commands`
+
 ## 2.54.0 - 2026-10-03
 
 ### Added

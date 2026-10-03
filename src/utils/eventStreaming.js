@@ -109,8 +109,10 @@ const joinNames = (list) => (list.length <= 1 ? list.join('') : `${list.slice(0,
  * Where a title streams, among the server's services.
  * @returns {Promise<{label, type, tmdbId, services: string[], link: string} | null>} null when the title isn't confidently known
  */
-export async function lookupEventStreaming(title, { region = 'US', services = DEFAULT_STREAMING_SERVICES } = {}) {
-  const match = await resolveWatchTitle(title);
+export async function lookupEventStreaming(title, { region = 'US', services = DEFAULT_STREAMING_SERVICES, chosen = null } = {}) {
+  // The title the person picked artwork from is the one they meant; only
+  // without it is the typed title matched
+  const match = chosen || await resolveWatchTitle(title);
   if (!match) return null;
 
   const details = match.type === 'movie' ? await getMovieDetails(match.tmdbId) : await getTVShowDetails(match.tmdbId);
@@ -138,6 +140,16 @@ export function formatStreaming(result) {
   return `${first}\nMore places to watch: ${result.link}`;
 }
 
+/**
+ * The movie or show a request's artwork came from, as the form sends it
+ * ({ tmdbId, type }), or null if it's missing or malformed.
+ */
+export function chosenTitleFrom(value) {
+  const id = Number(value?.tmdbId);
+  if (!Number.isInteger(id) || id <= 0 || !['movie', 'tv'].includes(value?.type)) return null;
+  return { tmdbId: id, type: value.type, label: String(value.label || '').slice(0, 200) };
+}
+
 /** Will this server's requests be looked up at all? */
 export function streamingLookupOn(config) {
   return getStreamingSettings(config).enabled && process.env.EVENT_STREAMING_LOOKUP !== 'off';
@@ -148,14 +160,14 @@ export function streamingLookupOn(config) {
  * confidently known, failed, or too slow. Never throws.
  * @returns {Promise<string|null>}
  */
-export async function streamingTextFor(title, config) {
+export async function streamingTextFor(title, config, { chosen = null } = {}) {
   if (!streamingLookupOn(config)) return null;
   const settings = getStreamingSettings(config);
   try {
     let timer;
     const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(null), LOOKUP_TIMEOUT_MS); });
     const result = await Promise.race([
-      lookupEventStreaming(title, { region: config?.region || 'US', services: settings.services }),
+      lookupEventStreaming(title, { region: config?.region || 'US', services: settings.services, chosen }),
       timeout,
     ]).finally(() => clearTimeout(timer));
     return formatStreaming(result);

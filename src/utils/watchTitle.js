@@ -16,7 +16,7 @@ const yearOf = (r) => String(r?.release_date || r?.first_air_date || '').slice(0
 
 /**
  * @param {string} title - as typed, e.g. "Tragedy Girls (2017)"
- * @returns {Promise<{tmdbId: number, type: 'movie'|'tv', label: string, year: string|null} | null>}
+ * @returns {Promise<{tmdbId: number, type: 'movie'|'tv', label: string, year: string|null, backdrop_path, poster_path} | null>}
  */
 export async function resolveWatchTitle(title) {
   const { title: query, year } = stripTrailingYear(String(title || '').trim());
@@ -50,5 +50,9 @@ export async function resolveWatchTitle(title) {
     type: winner.type,
     label: winner.r.title || winner.r.name,
     year: yearOf(winner.r) || null,
+    // The result's own artwork, for when its full image list is empty
+    // (titleArtwork.js)
+    backdrop_path: winner.r.backdrop_path || null,
+    poster_path: winner.r.poster_path || null,
   };
 }

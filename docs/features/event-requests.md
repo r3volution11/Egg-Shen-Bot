@@ -349,7 +349,7 @@ Text and voice whitelists are **independent**:
 3. **Fill out the form:**
    - Event title (required)
    - Description (optional)
-   - **Event image** (optional) - Upload an image file or paste an image URL (not both) — either way you'll get a chance to crop it
+   - **Event image** (optional) - Upload an image file, paste an image URL, or pick artwork suggested for your title — either way you'll get a chance to crop it
    - **Location** (required) - Text channel for the watch party
    - **Voice channel** (optional) - Check the box to add voice/stage channel
    - Start date and time (required)
@@ -358,6 +358,12 @@ Text and voice whitelists are **independent**:
    - Each field has a short note on what the server wants; a server can rewrite these for its own community
 4. **Click "Submit Request"**
 5. **Wait for moderator approval**
+
+::: tip Artwork Suggestions
+Once you've typed the title, the form suggests artwork for it from TMDB: wide backdrops first (they fit an event cover with little cropping), then a couple of posters. If several titles match, like the *Fargo* film and the show, each gets its own row with its year, so you pick from the right one. Nothing is chosen for you. Click one to open it in the crop tool, or ignore them and use your own image.
+
+Picking artwork also tells the bot exactly which title you mean, so the moderators' **📺 Where to watch** line uses that title instead of guessing from what you typed. Trying different suggestions doesn't count against the upload limit; the one you keep is uploaded when you submit.
+:::
 
 ::: tip Event Image
 Picking a file (PNG, JPEG, GIF, or WebP, up to 8MB) or pasting a direct image URL and clicking **Fetch & Crop** both upload it right away and load it into a crop tool, pre-framed to match Discord's event cover shape. Providing neither is fine too — moderators can always add or change the image when they approve your request (see below).
