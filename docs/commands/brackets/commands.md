@@ -47,17 +47,19 @@ This page provides detailed documentation for all tournament bracket commands. C
 
 **Visual Examples:**
 
-<div style="display: flex; gap: 10px; margin: 20px 0;">
+<div class="dm-pair">
 <div>
 
-![Tournament Status](/images/examples/tournaments/tournament-status.png)
+<DiscordCard name="tournament-status" />
+
 *Live tournament status with vote counts*
 
 </div>
 <div>
 
-![Round Results](/images/examples/tournaments/round-complete.png)
-*Round completion with winner announcements*
+<DiscordCard name="matchup-results" />
+
+*A matchup's results card, posted as it closes*
 
 </div>
 </div>

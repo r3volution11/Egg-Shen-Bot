@@ -25,3 +25,26 @@ export function inlineToText(text) {
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
 }
+
+/**
+ * Discord-flavoured markdown → safe HTML, for the Discord message mock-ups
+ * (components/DiscordMessage.vue). Escapes first, then: **bold**, *italic*,
+ * `code`, [links](/path), "-# " subtext and "## " headings per line, and two
+ * stand-ins for what Discord draws itself: [ts:in 9 minutes] (a timestamp,
+ * shown as Discord's grey chip) and [mention:@Doug] (a mention).
+ */
+export function discordMarkdown(text, { inline = false } = {}) {
+  const fmt = (s) => escapeHtml(s)
+    .replace(/\[ts:([^\]]+)\]/g, '<span class="dm-chip">$1</span>')
+    .replace(/\[mention:([^\]]+)\]/g, '<span class="dm-mention">$1</span>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\(((?:\/|https:\/\/)[^)\s]*)\)/g, '<a href="$2">$1</a>');
+  if (inline) return fmt(String(text ?? ''));
+  return String(text ?? '').split('\n').map((line) => {
+    if (line.startsWith('-# ')) return `<span class="dm-sub">${fmt(line.slice(3))}</span>`;
+    if (line.startsWith('## ')) return `<span class="dm-h2">${fmt(line.slice(3))}</span>`;
+    return fmt(line);
+  }).join('<br>');
+}

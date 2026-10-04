@@ -60,6 +60,11 @@ describe('movie night: 8 movies, whole rounds, run by the scheduler', () => {
     // Round 1: the whole quarterfinal round, 4 matchups, on one ballot
     await sim.bracket('admin', 'open', { duration: '1d' });
     expect(sim.openMatchups()).toHaveLength(4);
+    // The deadline is the card's own timestamp, which Discord shows in each
+    // viewer's time zone — not a <t:…> in the footer, which it shows raw
+    const opened = sim.channel.posted.map(m => m.embeds[0]?.toJSON()).find(e => /Voting Opened/.test(e?.title || ''));
+    expect(opened.footer.text).toBe('Voting closes');
+    expect(Date.parse(opened.timestamp)).toBe(sim.openMatchups()[0].votingDeadline);
     await sim.everyoneVotes(favorite);
 
     // voter1 changes their mind on the first matchup; only the new vote counts

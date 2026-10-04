@@ -114,7 +114,8 @@ The bot builds the bracket (random seeding by default) and opens the first round
 
 Click **Start Voting** on the voting message to get your personal voting dashboard.
 
-![Personal Voting Dashboard](/images/examples/tournaments/voting-dashboard.png)
+<DiscordCard name="voting-dashboard" />
+
 *Personal voting dashboard: your picks, your streak, and every vote you've cast, by round*
 
 - Pick one title in each matchup.
@@ -135,7 +136,8 @@ The bot closes every open matchup in the round and moves the winners on. Ties st
 /bracket status
 ```
 
-![Tournament Status](/images/examples/tournaments/tournament-status.png)
+<DiscordCard name="tournament-status" />
+
 *Tournament status showing active knockout voting with live vote counts*
 
 ### Step 7: Repeat for Each Round

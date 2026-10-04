@@ -1487,7 +1487,8 @@ async function handleOpenGroups(interaction) {
       `⏰ **Voting closes in:** ${timeRemaining}\n` +
       `💡 **Tip:** You can change votes anytime before it closes!`
     )
-    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
+    .setFooter({ text: 'Voting closes' })
+    .setTimestamp(deadline); // a footer can't render <t:…>; this shows in each viewer's time zone
   
   embeds.push(mainEmbed);
   
@@ -1715,7 +1716,8 @@ async function startKnockout(interaction, durationMs, { openCount = null } = {})
       `Vote for ONE title in each matchup below.\n\n` +
       `⏰ **Voting closes in:** ${timeRemaining}`
     )
-    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
+    .setFooter({ text: 'Voting closes' })
+    .setTimestamp(deadline); // a footer can't render <t:…>; this shows in each viewer's time zone
   
   // Show wildcards if any
   if (wildcardsCount > 0) {
@@ -2121,7 +2123,8 @@ async function handleSmartOpen(interaction) {
         `🔹 Your choices are saved instantly\n\n` +
         `⏰ **Voting closes in:** ${timeRemaining}`
       )
-      .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
+      .setFooter({ text: 'Voting closes' })
+    .setTimestamp(deadline); // a footer can't render <t:…>; this shows in each viewer's time zone
     
     const startVotingButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -2564,7 +2567,8 @@ async function openRegionMatchups(interaction, tournament, regionNum, durationMs
       `⏰ **Voting closes in:** ${timeRemaining}\n` +
       `💡 **Tip:** You can change your votes anytime!`
     )
-    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
+    .setFooter({ text: 'Voting closes' })
+    .setTimestamp(deadline); // a footer can't render <t:…>; this shows in each viewer's time zone
   
   const startVotingButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -2912,7 +2916,8 @@ async function handleOpenMatchup(interaction) {
         `⏰ **Voting closes in:** ${timeRemaining}\n` +
         `💡 **Tip:** You can change your vote anytime!`
     )
-    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
+    .setFooter({ text: 'Voting closes' })
+    .setTimestamp(deadline); // a footer can't render <t:…>; this shows in each viewer's time zone
   
     const startVotingButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -2947,7 +2952,8 @@ async function handleOpenMatchup(interaction) {
       `⏰ **Voting closes in:** ${timeRemaining}\n` +
       `💡 **Tip:** You can change your votes anytime!`
     )
-    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
+    .setFooter({ text: 'Voting closes' })
+    .setTimestamp(deadline); // a footer can't render <t:…>; this shows in each viewer's time zone
   
   // Add "Start Voting" button
   const startVotingButton = new ActionRowBuilder().addComponents(

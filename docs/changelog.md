@@ -9,6 +9,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.56.2 - 2026-10-03
+
+### Fixed
+- **Tournament cards showed a raw "Deadline: <t:…:f>".** Discord doesn't turn timestamps into times in a card's footer, so seven voting cards (voting opened, region and matchup openings, group stage, knockout start) showed the code. The footer now reads "Voting closes • Tomorrow at 8:04 PM", in each viewer's own time zone
+
+### Docs
+- **The example Discord messages in the tournament guides are drawn in HTML**, in Discord's own colours, so they follow the docs' light/dark switch. They replace screenshots that had drifted from what the bot sends (coloured vote bars, a removed "Total votes" line): the voting post, your voting dashboard, live standings, a matchup's results card, `/bracket status`, and the group-stage ballot
+- Selected group-stage buttons turn purple, not green
+
+### Developer
+- `docs/.vitepress/theme`: `DiscordMessage.vue` draws a message from an object (embeds, fields, buttons, ephemeral note); `DiscordCard.vue` names one from `discordCards.js`; `discordMarkdown()` in `inline.js` renders Discord markdown safely, with `[ts:…]` and `[mention:…]` stand-ins. Styles are `--dm-*` variables in `custom.css`
+- The tournament simulator now fails when any card the bot posts has a `<t:…>` timestamp in its title, author or footer, where Discord shows it raw
+- Restart only; no command changes
+
 ## 2.56.1 - 2026-10-03
 
 ### Changed

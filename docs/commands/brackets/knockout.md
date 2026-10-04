@@ -60,7 +60,13 @@ If `duration` is left out, the bot uses the default voting duration set in the [
 
 ### How members vote
 
-The voting message has a **Start Voting** button. Clicking it opens a personal voting dashboard (only that member sees it):
+Opening a round posts the voting message:
+
+<DiscordCard name="voting-opened" />
+
+*The voting message, posted in the channel*
+
+Its **Start Voting** button opens a personal voting dashboard (only that member sees it):
 
 - Every open matchup, with a button for each title (your picks are purple)
 - **Your votes**: every matchup you've voted in this tournament, your pick ticked, under a heading per round (Round 1, Round 2… then the Final). Where a round has more than one matchup per region, each region gets its own heading and its matchups go by letter:
@@ -76,13 +82,15 @@ The voting message has a **Start Voting** button. Clicking it opens a personal v
 - Your voting streak
 - Choices save right away and can be changed until the matchup closes
 
-![Personal Voting Dashboard](/images/examples/tournaments/voting-dashboard.png)
-*Personal voting dashboard with voting streak and stats*
+<DiscordCard name="voting-dashboard" />
+
+*A member's own voting dashboard: their picks in purple, their streak, and every vote they've cast*
 
 Live vote counts are visible to everyone:
 
-![Live Tournament Standings](/images/examples/tournaments/live-standings.png)
-*Live standings with color-coded progress bars*
+<DiscordCard name="live-standings" />
+
+*Live standings, updated as votes come in*
 
 ---
 
@@ -176,8 +184,9 @@ Closed 4 matchups
 ...
 ```
 
-![Round Complete Results](/images/examples/tournaments/round-complete.png)
-*Round completion results with winner announcements*
+<DiscordCard name="matchup-results" />
+
+*A matchup's results card, posted as it closes*
 
 Each matchup's result card shows the winner's poster as a small thumbnail in its corner. Tiebreaker results and `/bracket close-matchup` show it too.
 

@@ -274,3 +274,155 @@
 .faq-list .faq-item h3 {
   margin-top: 28px;
 }
+
+/* ── Discord message mock-ups (components/DiscordMessage.vue) ──────────────
+   Discord's own light and dark palettes, switched by the docs' theme toggle
+   like everything else here. Close, not pixel-exact: the point is to show
+   what members will see, in the reader's own theme. */
+:root {
+  --dm-bg: #ffffff;
+  --dm-frame: #e3e5e8;
+  --dm-embed-bg: #f2f3f5;
+  --dm-embed-border: #e3e5e8;
+  --dm-text: #313338;
+  --dm-heading: #060607;
+  --dm-muted: #5c5e66;
+  --dm-chip: #e3e5e8;
+  --dm-mention-bg: rgba(88, 101, 242, 0.15);
+  --dm-mention: #4752c4;
+  --dm-ephemeral: rgba(88, 101, 242, 0.06);
+  --dm-btn-secondary: #6d6f78;
+  --dm-btn-primary: #5865f2;
+  --dm-btn-success: #248046;
+  --dm-btn-danger: #da373c;
+  --dm-link: #006ce7;
+  --dm-code: #ebedef;
+}
+
+.dark {
+  --dm-bg: #313338;
+  --dm-frame: #1e1f22;
+  --dm-embed-bg: #2b2d31;
+  --dm-embed-border: #1e1f22;
+  --dm-text: #dbdee1;
+  --dm-heading: #f2f3f5;
+  --dm-muted: #949ba4;
+  --dm-chip: #3f4147;
+  --dm-mention-bg: rgba(88, 101, 242, 0.3);
+  --dm-mention: #c9cdfb;
+  --dm-ephemeral: rgba(88, 101, 242, 0.08);
+  --dm-btn-secondary: #4e5058;
+  --dm-link: #00a8fc;
+  --dm-code: #1e1f22;
+}
+
+.dm {
+  margin: 16px 0 6px;
+  padding: 12px 16px 12px 8px;
+  max-width: 560px;
+  background: var(--dm-bg);
+  border: 1px solid var(--dm-frame);
+  border-radius: 8px;
+  color: var(--dm-text);
+  font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.375;
+}
+
+.dm-msg { padding: 2px 0 2px 8px; border-radius: 4px; }
+.dm-ephemeral { background: var(--dm-ephemeral); }
+.dm-row-main { display: flex; gap: 12px; }
+.dm-avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; object-fit: cover; }
+.dm-body { min-width: 0; flex: 1; }
+
+.dm-reply { display: flex; align-items: center; gap: 4px; margin: 0 0 2px 20px; font-size: 13px; }
+.dm-reply-line { width: 32px; height: 10px; margin-top: 8px; border: 2px solid var(--dm-muted); border-right: 0; border-bottom: 0; border-top-left-radius: 6px; opacity: 0.6; }
+.dm-reply-user { color: var(--dm-heading); font-weight: 500; }
+.dm-cmd { color: var(--dm-link); }
+.dm-muted { color: var(--dm-muted); }
+
+.dm-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.dm-author { color: var(--dm-heading); font-weight: 600; }
+.dm-app { background: #5865f2; color: #fff; font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 3px; line-height: 1.4; }
+.dm-time, .dm-edited { color: var(--dm-muted); font-size: 12px; }
+.dm-content { margin-top: 2px; }
+
+.dm-embed {
+  display: flex;
+  gap: 16px;
+  max-width: 520px;
+  margin-top: 6px;
+  padding: 10px 14px 14px 12px;
+  background: var(--dm-embed-bg);
+  border: 1px solid var(--dm-embed-border);
+  border-left: 4px solid;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.dm-embed-main { min-width: 0; flex: 1; }
+.dm-embed-title { color: var(--dm-heading); font-weight: 600; font-size: 16px; margin: 2px 0 6px; }
+.dm-embed-desc { white-space: normal; overflow-wrap: anywhere; }
+.dm-embed-footer { margin-top: 8px; color: var(--dm-muted); font-size: 12px; }
+
+/* Inline fields sit up to three across, and wrap rather than overlap when narrow */
+.dm-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px 12px; margin-top: 8px; }
+.dm-field-name, .dm-field-value { overflow-wrap: anywhere; }
+.dm-field { grid-column: 1 / -1; }
+.dm-field-inline { grid-column: auto; }
+.dm-field-name { color: var(--dm-heading); font-weight: 600; margin-bottom: 2px; }
+
+.dm-thumb {
+  flex: none;
+  width: 80px;
+  height: 80px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  font-size: 34px;
+  background: linear-gradient(135deg, #5865f2, #2ab5e5);
+}
+.dm-thumb-poster { height: 110px; width: 74px; background: linear-gradient(160deg, #3a1c71, #d76d77 60%, #ffaf7b); }
+
+.dm strong { color: var(--dm-heading); font-weight: 700; }
+.dm code { background: var(--dm-code); color: inherit; padding: 1px 4px; border-radius: 3px; font-size: 0.875em; }
+.dm a, .dm-link { color: var(--dm-link); text-decoration: none; }
+.dm-chip { background: var(--dm-chip); padding: 0 3px; border-radius: 3px; }
+.dm-mention { background: var(--dm-mention-bg); color: var(--dm-mention); padding: 0 2px; border-radius: 3px; font-weight: 500; }
+.dm-sub { color: var(--dm-muted); font-size: 12px; }
+.dm-h2 { color: var(--dm-heading); font-weight: 700; font-size: 18px; }
+
+.dm-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.dm-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 16px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--dm-btn-secondary);
+  user-select: none;
+}
+.dm-btn-primary { background: var(--dm-btn-primary); }
+.dm-btn-success { background: var(--dm-btn-success); }
+.dm-btn-danger { background: var(--dm-btn-danger); }
+.dm-btn-disabled { opacity: 0.5; }
+
+.dm-ephemeral-note { margin-top: 6px; color: var(--dm-muted); font-size: 12px; }
+.dm-missing { color: var(--vp-c-danger-1, #d00); }
+
+/* Two examples together: side by side only where each still gets a
+   message's width; Discord cards are tall, and squeezed they overlap */
+.dm-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px; }
+.dm-pair .dm { margin: 8px 0; }
+
+@media (max-width: 640px) {
+  .dm { padding: 10px 10px 10px 4px; font-size: 14px; }
+  .dm-avatar { width: 32px; height: 32px; }
+  .dm-row-main { gap: 8px; }
+  .dm-embed { gap: 10px; padding: 8px 10px 10px; }
+  .dm-thumb { width: 56px; height: 56px; font-size: 24px; }
+  .dm-thumb-poster { width: 52px; height: 78px; }
+  .dm-pair { grid-template-columns: 1fr; }
+}

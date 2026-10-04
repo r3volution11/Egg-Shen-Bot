@@ -394,6 +394,19 @@ export class Sim {
       }
     }
 
+    // Discord shows <t:…> timestamps as a time only in an embed's
+    // description and field values. In a title, author or footer it shows
+    // the raw code — "Deadline: <t:1791083998:f>" on Shudder (2026-10-03)
+    const shown = [...this.channel.messageList, ...[...this.discord.ephemerals.values()].flat()];
+    for (const msg of shown) {
+      for (const e of msg.embeds || []) {
+        const d = e.data || e.toJSON?.() || e;
+        for (const [part, text] of [['title', d.title], ['author', d.author?.name], ['footer', d.footer?.text]]) {
+          if (/<t:\d+/.test(text || '')) problems.push(`"${d.title}": a timestamp in its ${part} shows raw: "${text}"`);
+        }
+      }
+    }
+
     // A ballot holds 5 matchups
     const voting = (t.knockoutBracket || []).filter(m => m.status === 'voting');
     if (voting.length > MAX_BALLOT) problems.push(`${voting.length} matchups open at once; a ballot holds ${MAX_BALLOT}`);

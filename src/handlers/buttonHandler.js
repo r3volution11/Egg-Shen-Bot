@@ -1869,7 +1869,8 @@ async function handleOpenRegionButton(interaction) {
       `Vote for ONE title in each matchup below. You can change your vote anytime before voting closes.\n\n` +
       `⏰ **Voting closes in:** ${timeRemaining}`
     )
-    .setFooter({ text: `Deadline: <t:${Math.floor(deadline / 1000)}:f>` });
+    .setFooter({ text: 'Voting closes' })
+    .setTimestamp(deadline); // a footer can't render <t:…>; this shows in each viewer's time zone
   
   await interaction.channel.send({ embeds: [mainEmbed] });
   

@@ -217,12 +217,13 @@ After round one opens, continue with [Knockout Rounds](./knockout).
 The voting message has a **Start Voting** button.
 
 1. Click **Start Voting**.
-2. Pick your top 2 titles in each open group. Selected buttons turn green.
+2. Pick your top 2 titles in each open group. Selected buttons turn purple.
 3. Click a selected title again to deselect it.
 4. You can change your picks any time before the group closes.
 
-![First-Time Voter Welcome](/images/examples/tournaments/first-vote-welcome.png)
-*What first-time voters see when they start voting*
+<DiscordCard name="group-dashboard" />
+
+*A member's own group-stage ballot, their picks in purple*
 
 Members can check their progress with `/bracket my-votes` (only they see the reply).
 
