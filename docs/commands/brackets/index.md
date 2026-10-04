@@ -115,7 +115,7 @@ The bot builds the bracket (random seeding by default) and opens the first round
 Click **Start Voting** on the voting message to get your personal voting dashboard.
 
 ![Personal Voting Dashboard](/images/examples/tournaments/voting-dashboard.png)
-*Personal voting dashboard tracks your progress and streak*
+*Personal voting dashboard: your picks, your streak, and every vote you've cast, by round*
 
 - Pick one title in each matchup.
 - Your choices are saved right away and you can change them before voting closes.
@@ -222,7 +222,7 @@ Congratulations! 🎉
 ✅ **Auto-Advancement** - Winners fill the next round automatically  
 ✅ **Visual Brackets** - `/bracket view` draws the bracket as an image  
 ✅ **Deadline Tracking** - Every voting message shows time remaining  
-✅ **Voting Dashboard** - Members see which matchups they've voted in  
+✅ **Voting Dashboard** - Members see every vote they've cast, by round, with their pick ticked  
 ✅ **Granular Control** - Open or close whole rounds, regions, or single matchups  
 
 ---
