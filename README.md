@@ -36,7 +36,7 @@ Search across movies, TV shows, episodes, video games, board games, and books wi
 Coordinate viewing events with built-in timers, watch history tracking, and server statistics. **[→ Watch Party Commands](https://r3volution11.github.io/Egg-Shen-Bot/commands/watch-party)**
 
 ### � Event Requests (Optional)
-Let your community submit watch party requests through a web form with Discord OAuth. Moderators approve or deny requests, and approved events are automatically created as Discord Scheduled Events. **[→ Event Request Setup](https://r3volution11.github.io/Egg-Shen-Bot/features/event-requests)**
+Let your community submit watch party requests through a web form with Discord OAuth, with your server's own guidance on each field and artwork suggested for each title. Moderators see where each title streams, approve or deny, and approved events are automatically created as Discord Scheduled Events. **[→ Event Request Setup](https://r3volution11.github.io/Egg-Shen-Bot/features/event-requests)**
 
 ### �🎮 Social & Fun
 Interactive polls, AI image generation, and games with points (magic potions, food fights, horror-movie fates and rescues, with a scoreboard and leaderboard), plus soundtrack search to engage your community. **[→ Social Commands](https://r3volution11.github.io/Egg-Shen-Bot/commands/social)** | **[→ AI Images](https://r3volution11.github.io/Egg-Shen-Bot/commands/ai-images)**

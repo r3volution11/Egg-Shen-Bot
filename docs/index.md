@@ -51,7 +51,7 @@ features:
 
   - icon: 📅
     title: Event Requests
-    details: Members propose watch parties on a web form, logged in with Discord and checked against your server. Moderators approve with one click, which creates the real Discord event, and the bot can announce it where members will see it.
+    details: Members propose watch parties on a web form with your server's own guidance and artwork suggested for each title. Moderators see where it streams and approve with one click, which creates the real Discord event, and the bot can announce it where members will see it.
     link: /features/event-requests
     linkText: Event requests guide
 
@@ -191,13 +191,14 @@ Most Discord bots stop at commands typed inside Discord. Egg Shen Bot also ships
 1. **A community member visits your form** at your own domain (e.g. `events.yourserver.com`)
 2. **They log in with Discord** — OAuth authentication, no passwords stored
 3. **The bot checks they're actually a member of your server** before letting them submit anything — non-members get a friendly error with an invite link instead
-4. **They fill out title, description, an optional cover image (with an in-browser crop tool), and a time** — channel assignment can be left to moderators (Simple Mode) or picked by the user from an admin-defined whitelist (Advanced Mode)
-5. **The request lands in your moderation channel** with Approve / Edit / Deny buttons
+4. **They fill out title, description, an optional cover image, and a time**, with your server's guidance under each field. Type the title and the form suggests artwork for it to pick and crop, or they upload their own. Channel assignment can be left to moderators (Simple Mode) or picked by the user from an admin-defined whitelist (Advanced Mode)
+5. **The request lands in your moderation channel** with Approve / Edit / Deny buttons, and where the title streams on the services your server cares about
 6. **One click approval automatically creates a real Discord Scheduled Event** — cover image, channel, and time all set
 7. **Optionally, the bot announces it to your members** in the event's channel or one you choose, with Discord's **Interested** button right there
 
 **Why it's different:**
 - **Public-facing, but never open to strangers** — anyone can load the page, but only your server's own members can submit, enforced twice (at login and again at submission)
+- **Your server's voice on the form** — helper text on every field, with sensible defaults your admins can rewrite from Discord, so each community's site says what it wants requested
 - **Zero manual event creation** — approving a request *is* creating the Discord event, not a reminder to go create one
 - **Built-in image tooling** — upload-and-crop on the submission form, plus a separate moderator-only crop/replace link for fixing images after the fact
 - **Rate-limited and self-cleaning** — spam protection on submissions and uploads, with old uploaded images automatically pruned
@@ -320,6 +321,9 @@ Like the classic BBS door game: `/foodfight throw target:@Friend food:pie` lands
 ### Event Requests
 - Public web form with Discord OAuth login, gated to your server's actual membership
 - Image upload with in-browser cropping (plus a moderator-only crop/replace tool)
+- Artwork suggested from TMDB for the title as it's typed, to pick and crop
+- Helper text under each field, rewritten per server with `/eggshen-config-events event-requests guidance`
+- Where each title streams, on your server's chosen services, shown to moderators and added to the event
 - Approve / Edit / Deny buttons in a Discord moderation channel
 - Approved requests automatically become Discord Scheduled Events
 - Fully configurable via `/eggshen-config-events event-requests` - [see the full guide →](/features/event-requests)

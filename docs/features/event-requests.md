@@ -10,8 +10,11 @@ Allow your community to submit watch party event requests through a web form! Se
 
 The Event Request System provides:
 
-- 🔐 **Discord OAuth Login** - Secure authentication with Discord
+- 🔐 **Discord OAuth Login** - Secure authentication with Discord, kept in a signed cookie
 - 📝 **Web-based Form** - User-friendly event submission interface
+- 💬 **Guidance on the Form** - Helper text under each field, rewritten per server ([see below](#guidance-on-the-form))
+- 🖼️ **Artwork Suggestions** - Backdrops and posters for the typed title, to pick and crop
+- 📺 **Where to Watch** - Each title's streaming services, shown to moderators and added to the event ([see below](#where-to-watch-on-each-request))
 - ✅ **Moderation Queue** - Review and approve/deny requests
 - 🎉 **Auto-create Events** - Approved events become Discord Scheduled Events
 - ⏱️ **Rate Limiting** - Prevents spam (1 request per 5 minutes per user)
@@ -25,13 +28,13 @@ The Event Request System provides:
    - Checks if user is a member of the target server
    - Non-members see error with invite link (if configured)
    - Only server members can proceed
-4. **User submits event details:**
+4. **User submits event details** (with your server's guidance under each field, and artwork suggested for the title):
    - **Simple Mode (default):** Title, description, time only. Moderators assign channels during approval.
    - **Advanced Mode (opt-in):** Full control including channel selection from admin-configured whitelists.
 5. **System revalidates membership at submission** (prevents edge case of leaving server after login)
-6. **Request appears in your moderation channel** with Approve/Deny buttons
+6. **Request appears in your moderation channel** with Approve/Deny buttons, and where the title streams
 7. **Moderator clicks a button** to approve or deny
-8. **If approved, Discord Scheduled Event is created automatically**
+8. **If approved, Discord Scheduled Event is created automatically**, its description ending with where to watch
 
 ::: tip Security: Guild Membership Required
 The bot validates that users are **actual members of your Discord server** both when they log in and when they submit the form. Non-members see a friendly error message with an invite link to join. This prevents spam from users outside your community.
