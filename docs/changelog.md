@@ -9,6 +9,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.56.1 - 2026-10-03
+
+### Changed
+- **Your ballot's vote list reads by round.** Your own voting ballot now groups your votes under **Round 1**, **Round 2**… and the **Final**. Where a round has more than one matchup per region, each region gets its own heading (**Round 1 · Region 1**) and its matchups go by letter (A, B…); later rounds keep the full label (1A). Only you see this list. See [How members vote](/commands/brackets/knockout#how-members-vote)
+
+### Developer
+- `tournamentUI.matchupRegion(position, round)` returns `{ region, letter, perRegion }`; `matchupLabel` is built from it, unchanged. `formatKnockoutVotes` numbers rounds from the bracket's first round (counting rounds a voter skipped), groups by region where `perRegion > 1`, and drops the label on the final
+- No command changes: restart only
+
 ## 2.56.0 - 2026-10-03
 
 ### Changed

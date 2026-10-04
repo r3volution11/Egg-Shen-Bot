@@ -331,17 +331,29 @@ export function setTitleThumbnail(embed, title) {
  */
 export function matchupLabel(position, round) {
   if (round === 'finals') return 'Finals';
+  const where = matchupRegion(position, round);
+  return where ? `${where.region}${where.letter}` : String(position + 1);
+}
+
+/**
+ * Where a knockout matchup sits: its region (1–4), its letter in that
+ * region, and how many matchups each region has in that round. What
+ * matchupLabel's "1A" is made of. null for the final, or a round it
+ * doesn't know.
+ */
+export function matchupRegion(position, round) {
   const roundSizes = { round_of_32: 16, round_of_16: 8, quarterfinals: 4, semifinals: 2 };
   const totalMatchups = roundSizes[round];
-  if (!totalMatchups) return String(position + 1);
-  const matchupsPerRegion = totalMatchups / 4;
-  const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
-  const letter = String.fromCharCode(65 + (position % matchupsPerRegion)); // A, B, C...
-  return `${region}${letter}`;
+  if (!totalMatchups) return null;
+  const perRegion = totalMatchups / 4;
+  return {
+    region: Math.floor(position / perRegion) + 1, // 1-4
+    letter: String.fromCharCode(65 + (position % perRegion)), // A, B, C...
+    perRegion,
+  };
 }
 
 const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarterfinals', 'semifinals', 'finals'];
-const ROUND_TITLES = { round_of_32: 'Round of 32', round_of_16: 'Round of 16', quarterfinals: 'Quarterfinals', semifinals: 'Semifinals', finals: 'Finals' };
 
 // Room for the vote list in a ballot's description (4096), leaving the
 // intro and the closing-time line their space
@@ -351,29 +363,60 @@ const VOTE_LIST_MAX = 3000;
 const plain = (title) => String(title || '').replace(/([\\*_~`|>])/g, '\\$1');
 
 /**
- * Every knockout vote this person has cast, one line per matchup, their
- * pick ticked and bold (Doug, 2026-10-03):
- *   **1A:** ✅ **Session 9** vs A Nightmare on Elm Street
- * In bracket order, under a heading per round once there's more than one.
- * A very long list keeps the latest rounds and says how many it left out.
+ * Every knockout vote this person has cast, for their own ballot, in the
+ * layout Doug drew (2026-10-03):
+ *
+ *   **Round 1 · Region 1**
+ *   A: ✅ **Session 9** vs A Nightmare on Elm Street
+ *   B: Chucky vs ✅ **Halloween (1978)**
+ *
+ *   **Round 3**
+ *   1A: ✅ **Session 9** vs Halloween (1978)
+ *
+ *   **Final**
+ *   ✅ **Session 9** vs Scream
+ *
+ * Rounds are numbered from the bracket's first round (an 8-title bracket
+ * starts at Round 1), counting every round it has, so the numbers don't
+ * shift when someone skips a round. Where a round has several matchups per
+ * region, each region gets a heading and its matchups go by letter — a
+ * bare "A" would otherwise mean four matchups. Where it has one per region,
+ * the full label (1A) does the job under one heading. The last round is
+ * the Final. A very long list keeps the latest rounds and says how many it
+ * left out.
  * @returns {string|null} null when they haven't voted in the knockout yet
  */
 export function formatKnockoutVotes(tournament, userId) {
   const votes = tournament?.votes?.[userId] || {};
-  const voted = (tournament?.knockoutBracket || [])
-    .filter(m => votes[m.id] === 1 || votes[m.id] === 2)
-    .sort((a, b) => ROUND_ORDER.indexOf(a.round) - ROUND_ORDER.indexOf(b.round) || a.position - b.position);
+  const bracket = tournament?.knockoutBracket || [];
+  const byOrder = (a, b) => ROUND_ORDER.indexOf(a.round) - ROUND_ORDER.indexOf(b.round) || a.position - b.position;
+  const voted = bracket.filter(m => votes[m.id] === 1 || votes[m.id] === 2).sort(byOrder);
   if (!voted.length) return null;
 
-  const line = (m) => {
+  const roundsInBracket = ROUND_ORDER.filter(r => bracket.some(m => m.round === r));
+  const roundName = (r) => (r === 'finals' ? 'Final' : `Round ${roundsInBracket.indexOf(r) + 1}`);
+
+  const line = (m, label) => {
     const [one, two] = [plain(m.movie1?.title), plain(m.movie2?.title)];
     const pick = votes[m.id];
-    return `**${matchupLabel(m.position, m.round)}:** ${pick === 1 ? `✅ **${one}**` : one} vs ${pick === 2 ? `✅ **${two}**` : two}`;
+    const pair = `${pick === 1 ? `✅ **${one}**` : one} vs ${pick === 2 ? `✅ **${two}**` : two}`;
+    return label ? `${label}: ${pair}` : pair;
   };
+
+  // One block per round: its heading(s) and lines
   const rounds = [...new Set(voted.map(m => m.round))];
   const blocks = rounds.map(r => {
-    const lines = voted.filter(m => m.round === r).map(line);
-    return rounds.length > 1 ? [`__${ROUND_TITLES[r] || r}__`, ...lines].join('\n') : lines.join('\n');
+    const inRound = voted.filter(m => m.round === r);
+    if (r === 'finals') return [`**${roundName(r)}**`, ...inRound.map(m => line(m, null))].join('\n');
+    const where = (m) => matchupRegion(m.position, m.round);
+    if ((where(inRound[0])?.perRegion || 0) > 1) {
+      const regions = [...new Set(inRound.map(m => where(m).region))];
+      return regions.map(reg => [
+        `**${roundName(r)} · Region ${reg}**`,
+        ...inRound.filter(m => where(m).region === reg).map(m => line(m, where(m).letter)),
+      ].join('\n')).join('\n\n');
+    }
+    return [`**${roundName(r)}**`, ...inRound.map(m => line(m, matchupLabel(m.position, m.round)))].join('\n');
   });
 
   // Too long: drop the earliest rounds first, newest votes matter most

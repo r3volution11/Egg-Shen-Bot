@@ -63,11 +63,16 @@ If `duration` is left out, the bot uses the default voting duration set in the [
 The voting message has a **Start Voting** button. Clicking it opens a personal voting dashboard (only that member sees it):
 
 - Every open matchup, with a button for each title (your picks are purple)
-- **Your votes**: every matchup you've voted in this tournament, by its label, with your pick ticked, under a heading per round:
+- **Your votes**: every matchup you've voted in this tournament, your pick ticked, under a heading per round (Round 1, Round 2… then the Final). Where a round has more than one matchup per region, each region gets its own heading and its matchups go by letter:
   ```
-  1A: ✅ Session 9 vs A Nightmare on Elm Street
-  1B: Chucky vs ✅ Halloween (1978)
+  Round 1 · Region 1
+  A: ✅ Session 9 vs A Nightmare on Elm Street
+  B: Chucky vs ✅ Halloween (1978)
+
+  Round 3
+  1A: ✅ Session 9 vs Halloween (1978)
   ```
+  Only you see this list; it's on your own ballot.
 - Your voting streak
 - Choices save right away and can be changed until the matchup closes
 
