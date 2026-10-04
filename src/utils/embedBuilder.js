@@ -464,23 +464,28 @@ function buildRatingsText(data, enabledServices = null, guildEmojis = null) {
  * @returns {Array} Normalized unique provider names
  */
 export function normalizeProviders(providers) {
+  // Keys are lowercase: TMDB isn't consistent about case ("AMC Plus Apple
+  // TV channel" sat next to "Shudder Apple TV Channel" and slipped through
+  // an exact-case lookup, showing up beside the AMC+ it duplicates)
   const nameMap = {
-    'Peacock Premium': 'Peacock',
-    'Peacock Premium Plus': 'Peacock',
-    'Apple TV Store': 'Apple TV',
-    'Google Play Movies': 'Google Play',
-    'Fandango At Home': 'Fandango',
-    'Amazon Video': 'Amazon',
-    'AMC+ Amazon Channel': 'AMC+',
-    'Shudder Amazon Channel': 'Shudder',
-    'Shudder Apple TV Channel': 'Shudder',
-    'AMC Amazon Channel': 'AMC',
-    'AMC Apple TV Channel': 'AMC',
+    'peacock premium': 'Peacock',
+    'peacock premium plus': 'Peacock',
+    'apple tv store': 'Apple TV',
+    'google play movies': 'Google Play',
+    'fandango at home': 'Fandango',
+    'amazon video': 'Amazon',
+    'amc+ amazon channel': 'AMC+',
+    'amc plus apple tv channel': 'AMC+',
+    'amc+ apple tv channel': 'AMC+',
+    'shudder amazon channel': 'Shudder',
+    'shudder apple tv channel': 'Shudder',
+    'amc amazon channel': 'AMC',
+    'amc apple tv channel': 'AMC',
   };
-  
+
   const normalized = providers.map(p => {
     const name = p.provider_name;
-    return nameMap[name] || name; // Use mapped name or original
+    return nameMap[name.toLowerCase()] || name; // Use mapped name or original
   });
   
   // Remove duplicates while preserving order
@@ -499,12 +504,22 @@ function buildStreamingText(watchProviders) {
   
   const lines = [];
   
+  // Free services get their own line. TMDB keeps them only in `free`, which
+  // this never read, so Tubi, Pluto and the like silently went missing;
+  // Watchmode's sit in both `free` and `flatrate`, so they're taken out of
+  // the Stream line rather than listed twice.
+  const free = normalizeProviders(watchProviders.free || []);
+  const stream = normalizeProviders(watchProviders.flatrate || []).filter(s => !free.includes(s));
+
   // Streaming services (subscription)
-  if (watchProviders.flatrate && watchProviders.flatrate.length > 0) {
-    const services = normalizeProviders(watchProviders.flatrate).join(' • ');
-    lines.push(`**Stream:** ${services}`);
+  if (stream.length > 0) {
+    lines.push(`**Stream:** ${stream.join(' • ')}`);
   }
-  
+
+  if (free.length > 0) {
+    lines.push(`**Free:** ${free.join(' • ')}`);
+  }
+
   // Rental options
   if (watchProviders.rent && watchProviders.rent.length > 0) {
     const services = normalizeProviders(watchProviders.rent.slice(0, 8)).join(' • ');

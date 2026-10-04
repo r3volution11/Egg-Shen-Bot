@@ -9,6 +9,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.55.2 - 2026-10-03
+
+### Fixed
+- **Free services now show up in where-to-watch.** `/movie`, `/tv`, `/random` and the search picker's details never listed free and ad-supported services (Tubi, Pluto TV, The Roku Channel…) that TMDB knows about. They now get their own **Free:** line, and a free service no longer also appears under **Stream:**
+- **AMC+ is listed once.** "AMC Plus Apple TV channel" showed up next to AMC+ (Session 9, for one) instead of being folded into it
+
+### Developer
+- `buildStreamingText` reads `watchProviders.free` and removes those names from the Stream line. `normalizeProviders` looks names up case-insensitively, since TMDB's casing varies between channels
+- `tests/streaming-availability-embed.test.js` checks the exact field text, using TMDB's real Session 9 response
+- No command changes: restart only
+
 ## 2.55.1 - 2026-10-03
 
 ### Security
