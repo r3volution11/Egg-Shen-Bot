@@ -1231,11 +1231,7 @@ async function handleKnockoutVote(interaction) {
   // Get user's current votes for ALL matchups
   const userVotes = tournament.votes?.[interaction.user.id] || {};
   
-  // Get user participation stats
-  const userStats = tournament.participation?.[interaction.user.id];
-  const statsText = userStats 
-    ? `🔥 **Streak:** ${userStats.streak} rounds | 📊 **Total votes:** ${userStats.totalVotes}`
-    : '✨ This is your first vote!';
+  const statsText = ballotVotesText(tournament, interaction.user.id);
   
   // Rebuild all buttons with updated states
   const components = [];
@@ -1391,11 +1387,7 @@ async function handleStartKnockoutVoting(interaction) {
   // Get user's current votes
   const userVotes = tournament.votes?.[interaction.user.id] || {};
   
-  // Get user participation stats
-  const userStats = tournament.participation?.[interaction.user.id];
-  const statsText = userStats 
-    ? `🔥 **Streak:** ${userStats.streak} rounds | 📊 **Total votes:** ${userStats.totalVotes}`
-    : '✨ This is your first vote!';
+  const statsText = ballotVotesText(tournament, interaction.user.id);
   
   // Build voting dashboard with all matchups
   const embed = new EmbedBuilder()
@@ -2065,6 +2057,18 @@ function knockoutLabel(position, round) {
  * 4"), so each row now says it is one head-to-head vote. Used both when the
  * ballot opens and when it is redrawn after a vote, so the two can't drift.
  */
+/**
+ * The ballot's own record: the streak, then every knockout vote cast, by
+ * matchup, the pick ticked (formatKnockoutVotes). It used to be only a
+ * count ("📊 Total votes: 12"), which said nothing about what you picked.
+ */
+function ballotVotesText(tournament, userId) {
+  const streak = tournament.participation?.[userId]?.streak;
+  const list = tournamentUI.formatKnockoutVotes(tournament, userId);
+  if (!list) return '✨ Cast your first vote below!';
+  return `${streak ? `🔥 **Streak:** ${streak} round${streak === 1 ? '' : 's'}\n\n` : ''}**Your votes**\n${list}`;
+}
+
 function buildKnockoutBallotRows(matchups, round, userVotes) {
   const name = (title) => (title.length > 45 ? title.substring(0, 42) + '...' : title);
   return [...matchups]

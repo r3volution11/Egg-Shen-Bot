@@ -339,3 +339,51 @@ export function matchupLabel(position, round) {
   const letter = String.fromCharCode(65 + (position % matchupsPerRegion)); // A, B, C...
   return `${region}${letter}`;
 }
+
+const ROUND_ORDER = ['round_of_32', 'round_of_16', 'quarterfinals', 'semifinals', 'finals'];
+const ROUND_TITLES = { round_of_32: 'Round of 32', round_of_16: 'Round of 16', quarterfinals: 'Quarterfinals', semifinals: 'Semifinals', finals: 'Finals' };
+
+// Room for the vote list in a ballot's description (4096), leaving the
+// intro and the closing-time line their space
+const VOTE_LIST_MAX = 3000;
+
+/** Markdown in a title (a "*" or "_") would break the bold around it */
+const plain = (title) => String(title || '').replace(/([\\*_~`|>])/g, '\\$1');
+
+/**
+ * Every knockout vote this person has cast, one line per matchup, their
+ * pick ticked and bold (Doug, 2026-10-03):
+ *   **1A:** ✅ **Session 9** vs A Nightmare on Elm Street
+ * In bracket order, under a heading per round once there's more than one.
+ * A very long list keeps the latest rounds and says how many it left out.
+ * @returns {string|null} null when they haven't voted in the knockout yet
+ */
+export function formatKnockoutVotes(tournament, userId) {
+  const votes = tournament?.votes?.[userId] || {};
+  const voted = (tournament?.knockoutBracket || [])
+    .filter(m => votes[m.id] === 1 || votes[m.id] === 2)
+    .sort((a, b) => ROUND_ORDER.indexOf(a.round) - ROUND_ORDER.indexOf(b.round) || a.position - b.position);
+  if (!voted.length) return null;
+
+  const line = (m) => {
+    const [one, two] = [plain(m.movie1?.title), plain(m.movie2?.title)];
+    const pick = votes[m.id];
+    return `**${matchupLabel(m.position, m.round)}:** ${pick === 1 ? `✅ **${one}**` : one} vs ${pick === 2 ? `✅ **${two}**` : two}`;
+  };
+  const rounds = [...new Set(voted.map(m => m.round))];
+  const blocks = rounds.map(r => {
+    const lines = voted.filter(m => m.round === r).map(line);
+    return rounds.length > 1 ? [`__${ROUND_TITLES[r] || r}__`, ...lines].join('\n') : lines.join('\n');
+  });
+
+  // Too long: drop the earliest rounds first, newest votes matter most
+  let kept = blocks;
+  let dropped = 0;
+  while (kept.length > 1 && kept.join('\n\n').length > VOTE_LIST_MAX) {
+    dropped += voted.filter(m => m.round === rounds[blocks.length - kept.length]).length;
+    kept = kept.slice(1);
+  }
+  let text = kept.join('\n\n');
+  if (text.length > VOTE_LIST_MAX) text = `${text.slice(0, VOTE_LIST_MAX - 1)}…`;
+  return dropped ? `-# …and ${dropped} earlier vote${dropped === 1 ? '' : 's'}\n${text}` : text;
+}

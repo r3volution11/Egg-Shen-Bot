@@ -9,6 +9,15 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.56.0 - 2026-10-03
+
+### Changed
+- **The voting ballot shows every vote you've cast.** Instead of a count ("📊 Total votes: 12"), it lists each knockout matchup you've voted in by its label, your pick ticked: **1A:** ✅ **Session 9** vs A Nightmare on Elm Street. Earlier rounds stay listed under their own heading as the tournament goes on, and the list updates as you vote or change a vote. See [How members vote](/commands/brackets/knockout#how-members-vote)
+
+### Developer
+- `tournamentUI.formatKnockoutVotes(tournament, userId)` builds the list in bracket order, escapes markdown in titles, and keeps the latest rounds if it would pass 3,000 characters. Both ballot paths in `buttonHandler.js` use `ballotVotesText`. A simulator scenario votes, changes a vote and moves to the next round
+- No command changes: restart only
+
 ## 2.55.2 - 2026-10-03
 
 ### Fixed

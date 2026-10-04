@@ -73,7 +73,8 @@ async function importModules() {
   const guildConfig = await import(src('utils/guildConfig.js'));
   const watchlist = await import(src('utils/watchlistManager.js'));
   const tournamentImport = await import(src('utils/tournamentImport.js'));
-  const next = { bracket, handleButtonInteraction, handleSelectInteraction, bracketManager, scheduler, guildConfig, watchlist, tournamentImport, Sim };
+  const tournamentUI = await import(src('utils/tournamentUI.js'));
+  const next = { bracket, handleButtonInteraction, handleSelectInteraction, bracketManager, scheduler, guildConfig, watchlist, tournamentImport, tournamentUI, Sim };
   // Keep the same object, so everything holding `mods` sees the reload
   if (mods) Object.assign(mods, next);
   else mods = next;

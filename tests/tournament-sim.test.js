@@ -93,6 +93,73 @@ describe('movie night: 8 movies, whole rounds, run by the scheduler', () => {
   });
 });
 
+describe('the ballot lists every vote you\'ve cast', () => {
+  test('each matchup by its label, your pick ticked; later rounds add their own heading', async () => {
+    const sim = new Sim('sim-ballot-votes');
+    await sim.bracket('admin', 'create', { name: 'Ballot Votes', 'max-titles': 8 });
+    for (const [title, year] of HORROR_8) await sim.addTitle('movie', title, year);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+
+    const votesOn = (ballot) => ballot.embeds[0].description.split('**Your votes**\n')[1]?.split('\n\n⏰')[0];
+    const line = (m, pick) => `**${mods.tournamentUI.matchupLabel(m.position, m.round)}:** `
+      + (pick === 1 ? `✅ **${m.movie1.title}** vs ${m.movie2.title}` : `${m.movie1.title} vs ✅ **${m.movie2.title}**`);
+
+    // Before voting: no list yet
+    const ballot = await sim.openBallot('voter1');
+    expect(ballot.embeds[0].description).toContain('Cast your first vote below!');
+    expect(ballot.embeds[0].description).not.toContain('Total votes');
+
+    // Vote two ways; the ballot answers with both, in bracket order
+    const [a, b] = sim.openMatchups();
+    await sim.voteMatchup('voter1', ballot, b.id, 2);
+    await sim.voteMatchup('voter1', ballot, a.id, 1);
+    expect(votesOn(ballot)).toBe([line(a, 1), line(b, 2)].join('\n'));
+    expect(line(a, 1)).toMatch(/^\*\*1A:\*\* ✅ \*\*.+\*\* vs .+$/);
+
+    // Changing a vote moves the tick
+    await sim.voteMatchup('voter1', ballot, a.id, 2);
+    expect(votesOn(ballot)).toBe([line(a, 2), line(b, 2)].join('\n'));
+
+    // Next round: the earlier votes stay, under their round's heading
+    await sim.everyoneVotes(favorite, sim.voters.filter(v => v !== 'voter1'));
+    for (const m of sim.openMatchups().filter(m => m.id !== a.id && m.id !== b.id)) await sim.voteMatchup('voter1', ballot, m.id, 1);
+    await sim.passDeadlines();
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const [semi] = sim.openMatchups();
+    const next = await sim.openBallot('voter1');
+    // A freshly opened ballot already lists what you voted last round
+    expect(votesOn(next)).toContain(line(sim.tournament().knockoutBracket.find(m => m.id === a.id), 2));
+    await sim.voteMatchup('voter1', next, semi.id, 1);
+    const list = votesOn(next);
+    expect(list.startsWith('__Quarterfinals__\n')).toBe(true);
+    expect(list).toContain(`\n\n__Semifinals__\n${line(sim.tournament().knockoutBracket.find(m => m.id === semi.id), 1)}`);
+    expect(list.match(/✅/g)).toHaveLength(5);
+  });
+
+  test('a very long list keeps the latest rounds and says how many it left out', () => {
+    const { formatKnockoutVotes } = mods.tournamentUI;
+    const long = 'A Very Long Title That Goes On And On For A While';
+    const bracket = [];
+    const votes = {};
+    for (const [round, n] of [['round_of_32', 16], ['round_of_16', 8], ['quarterfinals', 4], ['semifinals', 2], ['finals', 1]]) {
+      for (let p = 0; p < n; p++) {
+        const id = `${round}-${p}`;
+        bracket.push({ id, round, position: p, movie1: { title: `${long} ${p}a` }, movie2: { title: `${long} ${p}b` } });
+        votes[id] = 1;
+      }
+    }
+    // Given out of order (a bracket file isn't promised to be sorted)
+    const text = formatKnockoutVotes({ knockoutBracket: [...bracket].reverse(), votes: { u: votes } }, 'u');
+    expect(text.indexOf('**1A:** ✅ **A Very Long Title That Goes On And On For A While 0a**')).toBeLessThan(text.indexOf('**1B:**'));
+    expect(text.length).toBeLessThanOrEqual(3000 + 40);
+    expect(text).toMatch(/^-# …and 16 earlier votes\n__Round of 16__/);
+    expect(text).toContain('__Finals__\n**Finals:** ✅');
+    // Markdown in a title can't break the bold
+    const odd = formatKnockoutVotes({ knockoutBracket: [{ id: 'x', round: 'finals', position: 0, movie1: { title: '*batteries*' }, movie2: { title: 'B' } }], votes: { u: { x: 1 } } }, 'u');
+    expect(odd).toBe('**Finals:** ✅ **\\*batteries\\*** vs B');
+  });
+});
+
 const HORROR_16 = [
   ...HORROR_8,
   ['Psycho', 1960], ['The Exorcist', 1973], ['Poltergeist', 1982], ['The Fly', 1986],
