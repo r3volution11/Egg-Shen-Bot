@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { setTitleThumbnail, matchupLabel } from '../utils/tournamentUI.js';
+import { setTitleThumbnail, matchupLabel, createRankedBar } from '../utils/tournamentUI.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, completeEntry, getTypeLabel } from '../utils/bracketTitles.js';
@@ -75,8 +75,8 @@ function buildTiebreakerVotingEmbed(tiebreaker) {
 
   const optionsText = tiebreaker.tiedOptions.map((opt, i) => {
     const votes = voteCounts[i] || 0;
-    const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 10) : 0;
-    const bar = '█'.repeat(pct) + '░'.repeat(10 - pct);
+    // Coloured squares, as on the live standings (createRankedBar)
+    const bar = createRankedBar(votes, tiebreaker.tiedOptions.map((_, j) => voteCounts[j] || 0));
     return `**${i + 1}.** ${opt.title}\n${bar} ${votes} vote${votes !== 1 ? 's' : ''}`;
   }).join('\n\n');
 

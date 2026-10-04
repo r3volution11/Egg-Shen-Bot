@@ -58,7 +58,7 @@ export const DISCORD_CARDS = {
       embeds: [{
         color: ACCENT,
         title: '🏆 Semifinals - Live Standings',
-        description: `**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nAlien 🔥\n████████████ 4 votes (67%)\nvs\nJaws\n██████░░░░░░ 2 votes (33%)\n\n**3A** · closes ${SOON}\nGet Out\n████░░░░░░░░ 2 votes (33%)\nvs\nHalloween 🔥\n████████████ 4 votes (67%)\n\n📈 **Total votes:** 12\n👥 **Voters:** 6\n🎯 **Matchups:** 2`,
+        description: `**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nAlien 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nJaws\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**3A** · closes ${SOON}\nGet Out\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\nvs\nHalloween 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\n\n📈 **Total votes:** 12\n👥 **Voters:** 6\n🎯 **Matchups:** 2`,
         footer: 'Updates in real-time as votes are cast',
         timestamp: 'Today at 8:05 PM',
         thumbnail: 'poster',

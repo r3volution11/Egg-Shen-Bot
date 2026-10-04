@@ -2222,9 +2222,9 @@ export function buildPublicKnockoutLeaderboard(tournament, currentRound, matchup
     const title1 = matchup.movie1.title.length > 25 ? matchup.movie1.title.substring(0, 22) + '...' : matchup.movie1.title;
     const title2 = matchup.movie2.title.length > 25 ? matchup.movie2.title.substring(0, 22) + '...' : matchup.movie2.title;
     
-    // Create progress bars
-    const bar1 = tournamentUI.createVoteBar(votes1, totalMatchupVotes, 12);
-    const bar2 = tournamentUI.createVoteBar(votes2, totalMatchupVotes, 12);
+    // Coloured square bars: green ahead, orange behind (createVoteBar)
+    const bar1 = tournamentUI.createVoteBar(votes1, totalMatchupVotes);
+    const bar2 = tournamentUI.createVoteBar(votes2, totalMatchupVotes);
     
     // Determine leader emoji
     let leader1 = votes1 > votes2 ? ' 🔥' : '';
@@ -2577,8 +2577,8 @@ async function handleTiebreakerVote(interaction) {
 
   const optionsText = updatedTiebreaker.tiedOptions.map((opt, i) => {
     const votes = voteCounts[i] || 0;
-    const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 10) : 0;
-    const bar = '█'.repeat(pct) + '░'.repeat(10 - pct);
+    // Coloured squares, as on the live standings (createRankedBar)
+    const bar = tournamentUI.createRankedBar(votes, updatedTiebreaker.tiedOptions.map((_, j) => voteCounts[j] || 0));
     return `**${i + 1}.** ${opt.title}\n${bar} ${votes} vote${votes !== 1 ? 's' : ''}`;
   }).join('\n\n');
 

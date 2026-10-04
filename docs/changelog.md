@@ -9,6 +9,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.56.3 - 2026-10-04
+
+### Changed
+- **Vote bars are in colour.** Live standings and tiebreaker votes draw their bars with coloured squares instead of plain `█` and `░` characters, which Discord can't colour: 🟩 for the title ahead, 🟧 for the one behind, 🟨 for a tie, ⬜ for the rest. Each bar is 10 squares, so each square is 10%. See [How members vote](/commands/brackets/knockout#how-members-vote)
+
+### Developer
+- `tournamentUI.VOTE_BAR` holds the squares. `createVoteBar(votes, totalVotes, length = 10)` colours a two-title bar by comparing it with the other title; the new `createRankedBar(votes, allVotes)` does the same for a tiebreaker's several options. Both tiebreaker builders (`bracket.js`, `buttonHandler.js`) use it
+- Tests cover the colours on the live standings and both tiebreaker paths, and that no `█`/`░` is left on those cards
+- Restart only; no command changes
+
 ## 2.56.2 - 2026-10-03
 
 ### Fixed

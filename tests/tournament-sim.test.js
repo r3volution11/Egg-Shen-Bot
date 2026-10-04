@@ -337,6 +337,10 @@ describe('ties', () => {
     expect(post).toBeTruthy();
     const option1 = post.allComponents.find(c => c.customId.endsWith('_0'));
     for (const v of sim.voters) await sim.click(v, post, option1.customId);
+    // Votes in: the leader's bar is green squares, as on the live standings
+    const counted = post.embeds[0].toJSON().description;
+    expect(counted).toContain(`${'🟩'.repeat(10)} ${sim.voters.length} votes`);
+    expect(counted).not.toMatch(/[█░]/);
     await sim.passDeadlines();
 
     const decided = sim.tournament().knockoutBracket.find(m => m.id === tied.id);
@@ -354,6 +358,10 @@ describe('ties', () => {
     await sim.bracket('admin', 'close-matchup', { matchup: '1A' });
     const post = sim.channel.posted.filter(m => m.allComponents.some(c => (c.customId || '').startsWith('tiebreaker_vote_'))).pop();
     expect(post).toBeTruthy();
+    // No votes yet: each tied title's bar is ten white squares, not █/░
+    const text = post.embeds[0].toJSON().description;
+    expect(text.match(new RegExp(`${'⬜'.repeat(10)} 0 votes`, 'g'))).toHaveLength(2);
+    expect(text).not.toMatch(/[█░]/);
   });
 
   test('a tie closed with /bracket close posts a tiebreaker vote', async () => {

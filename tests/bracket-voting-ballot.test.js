@@ -182,8 +182,26 @@ describe('live standings show both titles of every matchup', () => {
     }];
     const embed = buildPublicKnockoutLeaderboard({ votes: {}, statistics: {} }, 'round_of_32', matchups).toJSON();
 
-    expect(embed.description).toContain('Black Christmas\n░░░░░░░░░░░░ 0 votes (0%)');
-    expect(embed.description).toContain('vs\nCandyman 🔥\n████████████ 2 votes (100%)');
+    expect(embed.description).toContain(`Black Christmas\n${'⬜'.repeat(10)} 0 votes (0%)`);
+    expect(embed.description).toContain(`vs\nCandyman 🔥\n${'🟩'.repeat(10)} 2 votes (100%)`);
+  });
+
+  test('bars are coloured squares: green ahead, orange behind, yellow when tied', () => {
+    const board = (v1, v2) => buildPublicKnockoutLeaderboard({ votes: {}, statistics: {} }, 'round_of_32', [{
+      id: 'm1', position: 1, round: 'round_of_32', status: 'voting',
+      movie1: { title: 'Pearl' }, movie2: { title: 'Terrifier 2' },
+      votes: { movie1: Array.from({ length: v1 }, (_, i) => `a${i}`), movie2: Array.from({ length: v2 }, (_, i) => `b${i}`) },
+    }]).toJSON().description;
+
+    const ahead = board(1, 3);
+    expect(ahead).toContain(`Pearl\n${'🟧'.repeat(3)}${'⬜'.repeat(7)} 1 vote (25%)`);
+    expect(ahead).toContain(`Terrifier 2 🔥\n${'🟩'.repeat(8)}${'⬜'.repeat(2)} 3 votes (75%)`);
+
+    const tied = board(2, 2);
+    expect(tied.match(new RegExp(`${'🟨'.repeat(5)}${'⬜'.repeat(5)} 2 votes \\(50%\\)`, 'g'))).toHaveLength(2);
+
+    // No plain block characters left anywhere on the card
+    expect(ahead + tied).not.toMatch(/[█░]/);
   });
 
   test('a tie shows both counts and one 🤝 on the matchup', () => {

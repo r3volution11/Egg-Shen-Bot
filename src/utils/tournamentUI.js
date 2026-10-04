@@ -48,23 +48,54 @@ export function getProgressBarColor(percentage) {
 }
 
 /**
- * Generate a visual progress bar with vote counts
- * @param {number} votes - Number of votes
- * @param {number} totalVotes - Total votes across both options
- * @param {number} length - Bar length (default 10)
- * @returns {string} Formatted progress bar with vote count
+ * Coloured squares for a matchup's vote bars (Doug, 2026-10-04). Discord
+ * can't colour text in a card, but it draws emoji in colour, so the bar is
+ * built from square emoji: green for the title ahead, orange for the one
+ * behind, yellow for both when tied, white for the rest of the bar. White,
+ * not black: on Discord's dark theme (the usual one) a black square all
+ * but disappears into the card.
  */
-export function createVoteBar(votes, totalVotes, length = 12) {
+export const VOTE_BAR = { lead: '🟩', trail: '🟧', tie: '🟨', empty: '⬜' };
+
+/**
+ * One title's vote bar in a two-title matchup, with its count:
+ *   🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 7 votes (70%)
+ * Its colour comes from how it stands against the other title, whose votes
+ * are the rest of totalVotes.
+ * @param {number} votes - this title's votes
+ * @param {number} totalVotes - both titles' votes together
+ * @param {number} length - squares in the bar (default 10)
+ * @returns {string}
+ */
+export function createVoteBar(votes, totalVotes, length = 10) {
+  const count = `${votes} vote${votes !== 1 ? 's' : ''}`;
   if (totalVotes === 0) {
-    return `${'░'.repeat(length)} ${votes} votes (0%)`;
+    return `${VOTE_BAR.empty.repeat(length)} ${count} (0%)`;
   }
-  
+
+  const rival = totalVotes - votes;
+  const fill = votes > rival ? VOTE_BAR.lead : votes < rival ? VOTE_BAR.trail : VOTE_BAR.tie;
   const percentage = Math.round((votes / totalVotes) * 100);
   const filled = Math.round((votes / totalVotes) * length);
-  const empty = length - filled;
-  
-  const bar = '█'.repeat(filled) + '░'.repeat(empty);
-  return `${bar} ${votes} vote${votes !== 1 ? 's' : ''} (${percentage}%)`;
+  return `${fill.repeat(filled)}${VOTE_BAR.empty.repeat(length - filled)} ${count} (${percentage}%)`;
+}
+
+/**
+ * A coloured square bar for one option among several (a tiebreaker vote),
+ * without the count: green for the one clearly ahead, yellow for options
+ * sharing the lead, orange for the rest, white for the unfilled part.
+ * @param {number} votes - this option's votes
+ * @param {number[]} allVotes - every option's votes, this one included
+ * @param {number} length - squares in the bar (default 10)
+ */
+export function createRankedBar(votes, allVotes, length = 10) {
+  const total = allVotes.reduce((a, b) => a + b, 0);
+  if (total === 0) return VOTE_BAR.empty.repeat(length);
+  const top = Math.max(...allVotes);
+  const leaders = allVotes.filter(v => v === top).length;
+  const fill = votes < top ? VOTE_BAR.trail : leaders > 1 ? VOTE_BAR.tie : VOTE_BAR.lead;
+  const filled = Math.round((votes / total) * length);
+  return fill.repeat(filled) + VOTE_BAR.empty.repeat(length - filled);
 }
 
 /**
@@ -235,8 +266,8 @@ export function createMatchupSummary(title1, votes1, title2, votes2, label, maxT
   const tie = votes1 === votes2 && votes1 > 0 ? ' 🤝' : '';
   
   // Build bars
-  const bar1 = createVoteBar(votes1, totalVotes, 12);
-  const bar2 = createVoteBar(votes2, totalVotes, 12);
+  const bar1 = createVoteBar(votes1, totalVotes);
+  const bar2 = createVoteBar(votes2, totalVotes);
   
   return `**${label}:** ${t1}${leader1}\n${bar1}\n\nvs\n\n${t2}${leader2}\n${bar2}`;
 }
