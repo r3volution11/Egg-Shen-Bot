@@ -200,7 +200,7 @@ The `matchup` option suggests the current round's matchups that haven't been vot
 
 ### How much time is left?
 
-Ballots and the live standings show a countdown ("closes in 2 hours") that Discord keeps up to date. Anyone can also run `/bracket status` to see every open matchup and its time left, or `/bracket my-votes` for their own votes.
+Ballots and the live standings show a countdown ("closes in 2 hours") that Discord keeps up to date. Anyone can also run `/bracket status` to see every open matchup and its time left, or `/bracket my-votes` for their own votes. If the voting card has scrolled out of sight, `/bracket voting-post` posts it again with its **Start Voting** button (once every 10 minutes per channel; admins and mods any time).
 
 ### `/bracket close-matchup`
 

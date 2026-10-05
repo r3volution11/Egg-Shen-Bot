@@ -390,6 +390,46 @@ describe('ties', () => {
   });
 });
 
+describe('/bracket voting-post brings the voting card back', () => {
+  test('anyone can post it again; its Start Voting button works; once per 10 minutes, admins excepted', async () => {
+    mods.bracket.resetVotingPostCooldowns();
+    const sim = new Sim('sim-voting-post');
+    await straightBracket(sim, 'Long Haul', 8, 'movie', HORROR_8);
+
+    // Nothing open yet
+    const early = await sim.bracket('voter1', 'voting-post');
+    expect(early.reply.ephemeralFor).toBe('voter1');
+    expect(early.reply.text).toMatch(/Nothing is open for voting/);
+
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const [first] = sim.openMatchups();
+
+    // A member reposts it: a new public message, listing what's open
+    const posted = await sim.bracket('voter1', 'voting-post');
+    expect(posted.reply.ephemeralFor).toBeNull();
+    const card = posted.reply.embeds[0].toJSON();
+    expect(card.title).toBe('🗳️ Quarterfinals - Voting Is Open');
+    expect(card.description).toContain(`**1A:** ${first.movie1.title} vs ${first.movie2.title}`);
+    expect(card.description).toMatch(/⏰ Voting closes <t:\d+:R>/);
+    expect(Date.parse(card.timestamp)).toBe(first.votingDeadline);
+
+    // Its button is the real thing: it opens a ballot and the vote counts
+    const ballot = await sim.openBallot('voter2', posted.reply);
+    await sim.voteMatchup('voter2', ballot, first.id, 1);
+    expect(sim.tournament().knockoutBracket.find(m => m.id === first.id).votes.movie1).toContain('voter2');
+
+    // Again too soon: refused privately, pointing back at the card
+    const again = await sim.bracket('voter2', 'voting-post');
+    expect(again.reply.ephemeralFor).toBe('voter2');
+    expect(again.reply.text).toMatch(/^⏳ The voting card was posted here <t:\d+:R>/);
+
+    // An admin isn't held back; after 10 minutes, anyone again
+    expect((await sim.bracket('admin', 'voting-post')).reply.ephemeralFor).toBeNull();
+    await sim.advance(10 * 60 * 1000 + 1000);
+    expect((await sim.bracket('voter3', 'voting-post')).reply.ephemeralFor).toBeNull();
+  });
+});
+
 describe('who can do what', () => {
   test('members vote; they cannot run admin commands or press admin buttons', async () => {
     const sim = new Sim('sim-permissions');

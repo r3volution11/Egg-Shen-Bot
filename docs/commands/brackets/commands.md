@@ -371,6 +371,24 @@ Open specific groups for voting.
 
 ---
 
+### `/bracket voting-post`
+
+Post the voting card again, with its **Start Voting** button, for whatever is open right now.
+
+**Who Can Use:** Everyone
+
+**Parameters:** None
+
+In a long tournament the card from `/bracket open` scrolls far up the channel. This posts a fresh one at the bottom: the open matchups (or groups), when voting closes, and a working **Start Voting** button. Earlier cards stay where they are, and their buttons keep working.
+
+To keep the channel tidy, it can be posted once every 10 minutes in each channel; until then, it tells you when it was last posted so you can scroll up to it. Admins and moderators can post it any time.
+
+```
+/bracket voting-post
+```
+
+---
+
 ### `/bracket my-votes`
 
 View your voting history and available votes.

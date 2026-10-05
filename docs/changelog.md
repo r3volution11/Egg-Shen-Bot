@@ -9,6 +9,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.57.0 - 2026-10-05
+
+### Added
+- **`/bracket voting-post`** posts the voting card again, with its **Start Voting** button, for whatever is open right now: the open matchups (or groups) and when voting closes. In a long tournament the card from `/bracket open` scrolls far up the channel, and members were pinning it to find the button. Anyone can run it, once every 10 minutes per channel (admins and moderators any time); earlier cards stay, and their buttons keep working. See [`/bracket voting-post`](/commands/brackets/commands#bracket-voting-post)
+
+### Developer
+- `handleVotingPost` in `bracket.js`: a new public message (an edit notifies no one), button `start_knockout_voting_<phase>` or `start_group_voting_<ids>`, cooldown in memory per guild and channel (`VOTING_POST_COOLDOWN_MS`, `resetVotingPostCooldowns` for tests)
+- `/bracket` ends smaller (7,404 bytes, from 7,432) despite the new subcommand: wordy option descriptions were tightened, and the size ceiling in `tests/command-size-limit.test.js` came down to match
+- A simulator scenario posts it as a member, votes through its button, and checks the cooldown and the admin exception
+- New subcommand: needs `deploy-commands`
+
 ## 2.56.3 - 2026-10-04
 
 ### Changed

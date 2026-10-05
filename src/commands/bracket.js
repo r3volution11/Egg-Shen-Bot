@@ -358,7 +358,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('duration')
-          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setDescription('Voting length (e.g., "24h", "3d") - Default: 24h, Range: 5m-30d')
           .setRequired(false)
       )
   )
@@ -375,14 +375,14 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('tiebreaker-duration')
-          .setDescription('Duration for tiebreaker votes if needed (e.g., "1h", "30m", "2h") - Default: 1h')
+          .setDescription('Tiebreaker length if needed (e.g., "1h", "30m") - Default: 1h')
           .setRequired(false)
       )
   )
   .addSubcommand(subcommand =>
     subcommand
       .setName('regenerate')
-      .setDescription('Rebuild the knockout bracket from group results (Admin/Mod only, fixes bracket structure issues)')
+      .setDescription('Rebuild the knockout bracket from group results (Admin/Mod only)')
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -397,7 +397,7 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption(option =>
         option
           .setName('winner')
-          .setDescription('Pick a winner manually (1-4). Leave blank to resolve by current vote tallies.')
+          .setDescription('Winner (1-4). Leave blank to go by the current votes.')
           .setRequired(false)
           .setMinValue(1)
           .setMaxValue(4)
@@ -410,7 +410,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('duration')
-          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setDescription('Voting length (e.g., "24h", "3d") - Default: 24h, Range: 5m-30d')
           .setRequired(false)
       )
       .addIntegerOption(option =>
@@ -429,7 +429,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('tiebreaker-duration')
-          .setDescription('Duration for tiebreaker votes if needed (e.g., "1h", "30m") - Default: 1h')
+          .setDescription('Tiebreaker length if needed (e.g., "1h", "30m") - Default: 1h')
           .setRequired(false)
       )
   )
@@ -455,7 +455,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('duration')
-          .setDescription('Voting duration (e.g., "24h", "3d", "45m") - Default: 24h, Range: 5m-30d')
+          .setDescription('Voting length (e.g., "24h", "3d") - Default: 24h, Range: 5m-30d')
           .setRequired(false)
       )
   )
@@ -473,7 +473,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('tiebreaker-duration')
-          .setDescription('Duration for tiebreaker votes if needed (e.g., "1h", "30m", "2h") - Default: 1h')
+          .setDescription('Tiebreaker length if needed (e.g., "1h", "30m") - Default: 1h')
           .setRequired(false)
       )
   )
@@ -508,6 +508,11 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('status')
       .setDescription('View tournament status and standings')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('voting-post')
+      .setDescription('Repost the voting card with its Start Voting button')
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -671,6 +676,9 @@ export async function execute(interaction) {
       case 'status':
         await handleStatus(interaction);
         break;
+      case 'voting-post':
+        await handleVotingPost(interaction);
+        break;
       case 'list-groups':
         await handleListGroups(interaction);
         break;
@@ -787,6 +795,7 @@ async function handleHelp(interaction) {
           '• `/bracket status` - Live standings & vote counts\n' +
           '• `/bracket view` - Visual bracket diagram\n' +
           '• `/bracket my-votes` - Your voting history\n' +
+          '• `/bracket voting-post` - Post the voting card again, with its Start Voting button\n' +
           '• `/bracket help` - This guide',
         inline: false
       },
@@ -2267,6 +2276,92 @@ async function handleSmartClose(interaction) {
   }
 }
 
+
+/**
+ * /bracket voting-post — the voting card again, as a new message, for
+ * whatever is open right now (Doug, 2026-10-05). In a long tournament the
+ * card from /bracket open scrolls far up the channel; members were pinning
+ * it to find the Start Voting button. A new message, not an edit: an edit
+ * notifies nobody and stays where it was.
+ *
+ * Anyone can run it — it only helps people vote — but once per channel
+ * every 10 minutes (admins and mods excepted), so it can't be used to spam.
+ * Earlier cards are left alone; their buttons keep working.
+ */
+export const VOTING_POST_COOLDOWN_MS = 10 * 60 * 1000;
+const votingPostAt = new Map(); // `${guildId}:${channelId}` → when it was last posted
+
+/** Forget the cooldowns (tests) */
+export function resetVotingPostCooldowns() {
+  votingPostAt.clear();
+}
+
+async function handleVotingPost(interaction) {
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  if (!tournament) {
+    await interaction.reply({ content: '❌ There\'s no tournament on this server right now.', ephemeral: true });
+    return;
+  }
+
+  const now = Date.now();
+  const matchups = (tournament.knockoutBracket || [])
+    .filter(m => m.status === 'voting')
+    .sort((a, b) => a.position - b.position);
+  const groups = Object.entries(tournament.groups || {})
+    .filter(([, g]) => g.votingOpen && (!g.votingDeadline || g.votingDeadline > now))
+    .map(([id]) => id);
+  if (!matchups.length && !groups.length) {
+    await interaction.reply({ content: '🗳️ Nothing is open for voting right now. `/bracket status` shows where the tournament is.', ephemeral: true });
+    return;
+  }
+
+  const key = `${interaction.guildId}:${interaction.channelId}`;
+  const last = votingPostAt.get(key);
+  if (last && now - last < VOTING_POST_COOLDOWN_MS && !isAdmin(interaction.member)) {
+    await interaction.reply({
+      content: `⏳ The voting card was posted here <t:${Math.floor(last / 1000)}:R>; scroll up to find it. It can be posted again <t:${Math.floor((last + VOTING_POST_COOLDOWN_MS) / 1000)}:R>.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const roundName = matchups.length
+    ? tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    : 'Group Stage';
+  const deadlines = matchups.length
+    ? matchups.map(m => m.votingDeadline)
+    : groups.map(id => tournament.groups[id].votingDeadline);
+  const closes = Math.min(...deadlines.filter(Boolean));
+  const allSame = new Set(deadlines.filter(Boolean)).size <= 1;
+
+  const lines = matchups.length
+    ? matchups.slice(0, 16).map(m => `**${matchupLabel(m.position, m.round)}:** ${m.movie1.title} vs ${m.movie2.title}`)
+    : [`**Groups:** ${groups.join(', ')} — pick your top 2 in each`];
+  if (matchups.length > 16) lines.push(`…and ${matchups.length - 16} more`);
+
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle(`🗳️ ${roundName} - Voting Is Open`)
+    .setDescription([
+      `**${tournament.name}**`,
+      '',
+      ...lines,
+      '',
+      Number.isFinite(closes) ? `⏰ ${allSame ? 'Voting closes' : 'The first matchup closes'} <t:${Math.floor(closes / 1000)}:R>` : null,
+      'Click **Start Voting** for your own ballot. You can change your vote until it closes.',
+    ].filter(l => l !== null).join('\n'));
+  if (Number.isFinite(closes)) {
+    embed.setFooter({ text: 'Voting closes' }).setTimestamp(closes); // a footer can't render <t:…>
+  }
+
+  const button = new ButtonBuilder()
+    .setCustomId(matchups.length ? `start_knockout_voting_${tournament.phase}` : `start_group_voting_${groups.join(',')}`)
+    .setLabel('🗳️ Start Voting')
+    .setStyle(ButtonStyle.Success);
+
+  await interaction.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(button)] });
+  votingPostAt.set(key, now);
+}
 async function handleStatus(interaction) {
   await interaction.deferReply();
   

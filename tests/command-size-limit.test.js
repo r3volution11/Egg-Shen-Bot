@@ -89,8 +89,10 @@ describe('Discord slash command size limit', () => {
     // Raised 7400 → 7432 for 2.45.0's `open matchups:<1-5>` (one matchup at a
     // time; the only way to pace a small bracket). The next addition should
     // probably split the command instead.
+    // 2.57.0 added `voting-post` and paid for it by tightening wordy option
+    // descriptions, ending smaller (7404) — so the ceiling came down too.
     const bracket = commands.find(c => c.name === 'bracket');
     expect(bracket).toBeDefined();
-    expect(bracket.bytes).toBeLessThanOrEqual(7432);
+    expect(bracket.bytes).toBeLessThanOrEqual(7404);
   });
 });

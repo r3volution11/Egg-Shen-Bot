@@ -121,6 +121,7 @@ Click **Start Voting** on the voting message to get your personal voting dashboa
 - Pick one title in each matchup.
 - Your choices are saved right away and you can change them before voting closes.
 - Check your votes any time with `/bracket my-votes`.
+- Can't find the voting card? `/bracket voting-post` posts it again, with its **Start Voting** button.
 
 ### Step 6: Close the Round (Admin Only)
 
