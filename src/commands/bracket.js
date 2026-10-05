@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { setTitleThumbnail, matchupLabel, createRankedBar } from '../utils/tournamentUI.js';
+import { setTitleThumbnail, matchupLabel, createRankedBar, formatStandingsMatchup } from '../utils/tournamentUI.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, completeEntry, getTypeLabel } from '../utils/bracketTitles.js';
@@ -2361,6 +2361,18 @@ async function handleVotingPost(interaction) {
 
   await interaction.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(button)] });
   votingPostAt.set(key, now);
+
+  // The live standings come down with it, and the fresh copy is the one
+  // votes update from now on (moveLiveStandingsDown). Knockout only: the
+  // group stage has no live card.
+  if (matchups.length) {
+    try {
+      const { moveLiveStandingsDown } = await import('../handlers/buttonHandler.js');
+      await moveLiveStandingsDown(interaction.channel, tournament, matchups, interaction.client);
+    } catch (error) {
+      console.error('[voting-post] Couldn\'t move the live standings down:', error.message);
+    }
+  }
 }
 async function handleStatus(interaction) {
   await interaction.deferReply();
@@ -2437,22 +2449,14 @@ async function handleStatus(interaction) {
     let description = `**${currentRound}**\n\nSingle elimination bracket\n\n`;
     
     if (votingMatchups.length > 0) {
-      description += `**📊 Active Matchups:**\n`;
-      
-      for (const matchup of votingMatchups) {
-        const votes1 = matchup.votes?.movie1?.length || 0;
-        const votes2 = matchup.votes?.movie2?.length || 0;
-        const totalVotes = votes1 + votes2;
-        const timeRemaining = matchup.votingDeadline ? formatTimeRemaining(matchup.votingDeadline) : 'No deadline';
-        const deadlineEmoji = matchup.votingDeadline && Date.now() > matchup.votingDeadline - (60 * 60 * 1000) ? '⚠️' : '⏰';
-        const regionalLabel = getRegionalLabel(matchup.position, tournament.phase);
-        
-        const leader = votes1 > votes2 ? matchup.movie1.title : votes2 > votes1 ? matchup.movie2.title : 'Tied';
-        const leaderVotes = Math.max(votes1, votes2);
-        
-        description += `\n**Matchup ${regionalLabel}** - ${totalVotes} vote${totalVotes !== 1 ? 's' : ''}\n`;
-        description += `${deadlineEmoji} ${timeRemaining}\n`;
-        description += `  Leading: ${leader} (${leaderVotes})\n`;
+      // The same bars as the live standings card (formatStandingsMatchup),
+      // so checking in shows exactly what the card does. Discord caps a
+      // description at 4096 characters; a whole round of 32 can be open
+      const shown = [...votingMatchups].sort((a, b) => a.position - b.position).slice(0, 12);
+      description += `**📊 Live Vote Counts**\n\n`;
+      description += shown.map(m => formatStandingsMatchup(m)).join('\n\n') + '\n';
+      if (votingMatchups.length > shown.length) {
+        description += `\n…and ${votingMatchups.length - shown.length} more open\n`;
       }
     } else {
       description += `*No matchups currently open for voting*\n\n`;

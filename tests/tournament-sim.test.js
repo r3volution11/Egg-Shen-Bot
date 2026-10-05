@@ -430,6 +430,51 @@ describe('/bracket voting-post brings the voting card back', () => {
   });
 });
 
+describe('the live standings, on request', () => {
+  const standingsCards = (sim) => sim.channel.posted.filter(m => /Live Standings/.test(m.embeds[0]?.toJSON().title || ''));
+  const blocks = (sim) => sim.openMatchups().map(m => mods.tournamentUI.formatStandingsMatchup(m));
+
+  test('/bracket status shows each open matchup exactly as the live standings card does', async () => {
+    const sim = new Sim('sim-status-bars');
+    await straightBracket(sim, 'Bars', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    await sim.everyoneVotes((m, v) => (v === 'voter1' ? 2 : 1));
+
+    const status = (await sim.bracket('voter2', 'status')).reply.embeds[0].toJSON().description;
+    const card = standingsCards(sim).pop().embeds[0].toJSON().description;
+    for (const block of blocks(sim)) {
+      expect(status).toContain(block);
+      expect(card).toContain(block);
+    }
+    expect(status).toContain('🟩');
+    expect(status).not.toMatch(/Leading:/);
+  });
+
+  test('voting-post brings the live card down: the new one takes the votes, the old one says it moved', async () => {
+    mods.bracket.resetVotingPostCooldowns();
+    const sim = new Sim('sim-move-standings');
+    await straightBracket(sim, 'Moving Day', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const [first] = sim.openMatchups();
+    await sim.everyoneVotes(favorite, ['voter1', 'voter2']);
+    const old = standingsCards(sim).pop();
+
+    const posted = await sim.bracket('voter3', 'voting-post');
+    const after = sim.channel.posted.slice(sim.channel.posted.indexOf(posted.reply) + 1);
+    const fresh = after.find(m => /Live Standings/.test(m.embeds[0]?.toJSON().title || ''));
+    expect(fresh).toBeTruthy(); // right under the reposted voting card
+    expect(old.embeds[0].toJSON().footer.text).toBe('No longer updating: the live standings moved further down');
+
+    // The next vote updates the new card, not the old one
+    const oldText = old.embeds[0].toJSON().description;
+    const ballot = await sim.openBallot('voter3', posted.reply);
+    await sim.voteMatchup('voter3', ballot, first.id, 2);
+    expect(old.embeds[0].toJSON().description).toBe(oldText);
+    expect(fresh.embeds[0].toJSON().description).toContain(mods.tournamentUI.formatStandingsMatchup(sim.openMatchups()[0]));
+    expect(standingsCards(sim).filter(m => !m.deleted)).toHaveLength(2); // no third card
+  });
+});
+
 describe('who can do what', () => {
   test('members vote; they cannot run admin commands or press admin buttons', async () => {
     const sim = new Sim('sim-permissions');

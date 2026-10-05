@@ -86,14 +86,14 @@ export const DISCORD_CARDS = {
   },
 
   'tournament-status': {
-    label: 'Example: /bracket status, showing each open matchup, its time left and who is leading',
+    label: 'Example: /bracket status, showing each open matchup with the same coloured vote bars as the live standings',
     message: {
       command: { user: 'Member', name: '/bracket status' },
       time: 'Today at 8:10 PM',
       embeds: [{
         color: BLUE,
         title: '🏆 Friday Frights',
-        description: '**Quarterfinals**\n\nSingle elimination bracket\n\n**📊 Active Matchups:**\n\n**Matchup 1A** - 6 votes\n⏰ 23h 54m\n  Leading: Alien (5)\n\n**Matchup 2A** - 6 votes\n⏰ 23h 54m\n  Leading: Jaws (4)\n\n**Matchup 3A** - 5 votes\n⏰ 23h 54m\n  Leading: Get Out (3)\n\n**Completed:** 0 matchups',
+        description: `**Quarterfinals**\n\nSingle elimination bracket\n\n**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nThe Thing\n🟧🟧⬜⬜⬜⬜⬜⬜⬜⬜ 1 vote (17%)\nvs\nAlien 🔥\n🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ 5 votes (83%)\n\n**2A** · closes ${SOON}\nJaws 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nThe Shining\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**Completed:** 0 matchups`,
         fields: [
           { name: 'Status', value: 'knockout', inline: true },
           { name: 'Phase', value: 'quarterfinals', inline: true },

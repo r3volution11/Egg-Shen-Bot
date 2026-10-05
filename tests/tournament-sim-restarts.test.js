@@ -164,3 +164,29 @@ describe('restarts at bad moments', () => {
     expect(titled(sim, /Results/).length).toBe(4);
   });
 });
+
+describe('the live standings card after it was moved', () => {
+  test('a restart after /bracket voting-post: votes still update the moved card, not the old one', async () => {
+    const sim = new Sim('sim-restart-moved-standings');
+    await straightBracket(sim, 'Moved Then Restarted', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    await sim.everyoneVotes(favorite, ['voter1']);
+    const cards = () => sim.channel.posted.filter(m => /Live Standings/.test(m.embeds[0]?.toJSON().title || ''));
+    const [old] = cards();
+
+    const posted = await sim.bracket('admin', 'voting-post');
+    const moved = cards().pop();
+    expect(moved).not.toBe(old);
+
+    // The bot restarts: its memory of which card is live is gone; the file isn't
+    await restartBot();
+
+    const oldText = old.embeds[0].toJSON().description;
+    const [m] = sim.openMatchups();
+    const ballot = await sim.openBallot('voter2', posted.reply);
+    await sim.voteMatchup('voter2', ballot, m.id, favorite(m));
+    expect(old.embeds[0].toJSON().description).toBe(oldText);
+    expect(moved.embeds[0].toJSON().description).toContain(mods.tournamentUI.formatStandingsMatchup(sim.openMatchups()[0]));
+    expect(cards()).toHaveLength(2);
+  });
+});

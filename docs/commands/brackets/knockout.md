@@ -200,7 +200,7 @@ The `matchup` option suggests the current round's matchups that haven't been vot
 
 ### How much time is left?
 
-Ballots and the live standings show a countdown ("closes in 2 hours") that Discord keeps up to date. Anyone can also run `/bracket status` to see every open matchup and its time left, or `/bracket my-votes` for their own votes. If the voting card has scrolled out of sight, `/bracket voting-post` posts it again with its **Start Voting** button (once every 10 minutes per channel; admins and mods any time).
+Ballots and the live standings show a countdown ("closes in 2 hours") that Discord keeps up to date. Anyone can also run `/bracket status` to see every open matchup and its time left, or `/bracket my-votes` for their own votes. `/bracket status` shows each open matchup with the same coloured bars as the live standings. If the voting card has scrolled out of sight, `/bracket voting-post` posts it again with its **Start Voting** button, and brings the live standings down with it (once every 10 minutes per channel; admins and mods any time).
 
 ### `/bracket close-matchup`
 
@@ -234,20 +234,13 @@ When the last matchup of a round closes, the tournament moves to the next round.
 /bracket status
 ```
 
-Shows the current phase, each open matchup's vote count and time left (⚠️ when under an hour), and how many matchups are done.
+Shows the current phase, each open matchup with the same coloured vote bars and closing time as the live standings, and how many matchups are done. It's a snapshot; the live standings card is the one that keeps updating.
 
 **Who can use:** Everyone
 
-```
-🏆 The Ultimate Horror Cup
-Status: knockout | Phase: semifinals
+<DiscordCard name="tournament-status" />
 
-📊 Active Matchups:
-
-Matchup 1A - 15 votes
-⏰ 18h 32m
-  Leading: The Thing (9)
-```
+*`/bracket status` during a round*
 
 ---
 

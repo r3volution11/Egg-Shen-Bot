@@ -2166,6 +2166,49 @@ function buildKnockoutVotingDashboard(tournament, currentRound, matchups, userId
 }
 
 /**
+ * Move the live standings down the channel: post a fresh card for these
+ * open matchups and make it the one votes update from now on. Run by
+ * /bracket voting-post, so the move follows something someone just did
+ * (Doug, 2026-10-05) — never on its own, which would look like the card
+ * jumping for no reason, and hint at when someone voted.
+ *
+ * The card is remembered in two places, the tournament file and this
+ * module's cache; both must point at the new one, or the next vote would go
+ * on editing the old card. The old card is left in place with a note, so
+ * nobody reads its frozen counts as current.
+ * @returns {Promise<import('discord.js').Message|null>}
+ */
+export async function moveLiveStandingsDown(channel, tournament, matchups, client) {
+  if (!matchups.length) return null;
+  const bracketManager = await import('../utils/bracketManager.js');
+  const round = matchups[0].round;
+  const open = matchups.filter(m => m.round === round);
+  // The same key the vote handler uses: one card per set of open matchups
+  const cardKey = `${round}_${open.map(m => m.id).sort().join(',')}`;
+  const guildId = channel.guild?.id || channel.guildId;
+  const memoryKey = `${guildId}_knockout_${cardKey}`;
+  const previous = publicLeaderboards.get(memoryKey) || bracketManager.getLiveStandingsCard(guildId, cardKey);
+
+  const message = await channel.send({ embeds: [buildPublicKnockoutLeaderboard(tournament, round, open, client)] });
+  const ref = { messageId: message.id, channelId: channel.id, timestamp: Date.now() };
+  publicLeaderboards.set(memoryKey, ref);
+  bracketManager.recordLiveStandingsCard(guildId, cardKey, ref);
+
+  if (previous?.messageId && previous.messageId !== message.id) {
+    try {
+      const oldChannel = previous.channelId === channel.id ? channel : await client.channels.fetch(previous.channelId);
+      const old = await oldChannel.messages.fetch(previous.messageId);
+      const frozen = EmbedBuilder.from(old.embeds[0]).setFooter({ text: 'No longer updating: the live standings moved further down' });
+      await old.edit({ embeds: [frozen] });
+    } catch (error) {
+      // Gone already, or not editable: nothing to mark
+      console.log(`[ButtonHandler] Couldn't mark the old live standings card: ${error.message}`);
+    }
+  }
+  return message;
+}
+
+/**
  * Build public "All Votes" leaderboard for knockout round
  * @param {Object} tournament - Tournament data
  * @param {string} currentRound - Current round name
@@ -2188,58 +2231,8 @@ export function buildPublicKnockoutLeaderboard(tournament, currentRound, matchup
   // Build description with all matchup vote tallies WITH PROGRESS BARS
   let description = `**📊 Live Vote Counts**\n\n`;
   
-  // Helper function to get regional label
-  function getRegionalLabel(position, round) {
-    const roundSizes = {
-      'round_of_32': 16,
-      'round_of_16': 8,
-      'quarterfinals': 4,
-      'semifinals': 2,
-      'finals': 1
-    };
-    
-    if (round === 'finals') return 'Finals';
-    
-    const totalMatchups = roundSizes[round];
-    if (!totalMatchups) return String(position + 1);
-    
-    // Divide into 4 regions (March Madness style)
-    const matchupsPerRegion = totalMatchups / 4;
-    const region = Math.floor(position / matchupsPerRegion) + 1; // 1-4
-    const positionInRegion = position % matchupsPerRegion;
-    const letter = String.fromCharCode(65 + positionInRegion);
-    
-    return `${region}${letter}`;
-  }
-  
-  matchups.forEach((matchup) => {
-    const votes1 = matchup.votes.movie1.length;
-    const votes2 = matchup.votes.movie2.length;
-    const totalMatchupVotes = votes1 + votes2;
-    const regionalLabel = getRegionalLabel(matchup.position, currentRound);
-    
-    // Truncate titles if needed (shorter for progress bar layout)
-    const title1 = matchup.movie1.title.length > 25 ? matchup.movie1.title.substring(0, 22) + '...' : matchup.movie1.title;
-    const title2 = matchup.movie2.title.length > 25 ? matchup.movie2.title.substring(0, 22) + '...' : matchup.movie2.title;
-    
-    // Coloured square bars: green ahead, orange behind (createVoteBar)
-    const bar1 = tournamentUI.createVoteBar(votes1, totalMatchupVotes);
-    const bar2 = tournamentUI.createVoteBar(votes2, totalMatchupVotes);
-    
-    // Determine leader emoji
-    let leader1 = votes1 > votes2 ? ' 🔥' : '';
-    let leader2 = votes2 > votes1 ? ' 🔥' : '';
-    const tie = votes1 === votes2 && votes1 > 0 ? ' 🤝' : '';
-    
-    // Both titles get their bar and count. The second one's bar used to be
-    // built but never printed, so a matchup voted 0–2 read as "0 votes" with
-    // the leader showing only a 🔥 — votes for the second title looked lost.
-    const closes = matchup.votingDeadline ? ` · closes <t:${Math.floor(matchup.votingDeadline / 1000)}:R>` : '';
-    description += `**${regionalLabel}**${tie}${closes}\n`;
-    description += `${title1}${leader1}\n${bar1}\n`;
-    description += `vs\n`;
-    description += `${title2}${leader2}\n${bar2}\n\n`;
-  });
+  // One block per matchup, shared with /bracket status (tournamentUI)
+  description += matchups.map(m => tournamentUI.formatStandingsMatchup(m, currentRound)).join('\n\n') + '\n\n';
   
   description += `📈 **Total votes:** ${totalVotes}`;
   description += `\n👥 **Voters:** ${uniqueVoters}`;

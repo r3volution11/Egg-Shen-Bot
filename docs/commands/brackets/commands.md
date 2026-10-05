@@ -381,6 +381,8 @@ Post the voting card again, with its **Start Voting** button, for whatever is op
 
 In a long tournament the card from `/bracket open` scrolls far up the channel. This posts a fresh one at the bottom: the open matchups (or groups), when voting closes, and a working **Start Voting** button. Earlier cards stay where they are, and their buttons keep working.
 
+In the knockout rounds, the **live standings** come down with it: a fresh standings card is posted right under the voting card, and that's the one votes update from then on. The old standings card stays, marked "No longer updating", so nobody reads its counts as current.
+
 To keep the channel tidy, it can be posted once every 10 minutes in each channel; until then, it tells you when it was last posted so you can scroll up to it. Admins and moderators can post it any time.
 
 ```
@@ -741,7 +743,7 @@ Group F - 8 voters
   🥈 Hereditary (4)
 ```
 
-**Output Example (Knockout):**
+**Output Example (Knockout):** each open matchup appears exactly as on the live standings card, coloured bars and all:
 ```
 🏆 Summer Movie Madness
 Status: knockout | Phase: semifinals | Creator: @Admin
@@ -749,27 +751,30 @@ Status: knockout | Phase: semifinals | Creator: @Admin
 Semifinals
 Single elimination bracket
 
-📊 Active Matchups:
+📊 Live Vote Counts
 
-Matchup 1A - 15 votes
-⏰ 18h 32m
-  Leading: The Thing (9)
+1A · closes in 18 hours
+The Thing 🔥
+🟩🟩🟩🟩🟩🟩⬜⬜⬜⬜ 9 votes (60%)
+vs
+Evil Dead
+🟧🟧🟧🟧⬜⬜⬜⬜⬜⬜ 6 votes (40%)
 
-Matchup 2A - 12 votes
-⚠️ 55m
-  Leading: Tied (6)
+3A 🤝 · closes in 55 minutes
+Alien
+🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜ 6 votes (50%)
+vs
+Hereditary
+🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜ 6 votes (50%)
 
 Completed: 6 matchups
 ```
 
 **Notes:**
-- Shows **real-time voter counts** for active voting
-- Displays **time remaining** with ⚠️ warning when <1 hour left
-- Shows **current leaders** in each active vote
+- A snapshot, posted when you run it: the live standings card is the one that keeps updating. If that card has scrolled far up, `/bracket voting-post` brings it back down
+- Shows when each matchup closes, in your own time
+- Shows up to 12 open matchups; with more open, it says how many more
 - Tracks tournament progress with completion stats
-- Automatically updates as voting progresses
-- Use this to monitor participation and close voting
-- Warning emoji (⚠️) appears when deadline is approaching
 
 ---
 

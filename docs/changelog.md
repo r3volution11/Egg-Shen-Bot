@@ -9,6 +9,18 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.58.0 - 2026-10-05
+
+### Changed
+- **`/bracket status` shows the vote bars.** Each open matchup appears exactly as on the live standings card: coloured bars, counts, the 🔥 leader and when it closes, instead of a "Leading:" line. Up to 12 open matchups are shown. See [`/bracket status`](/commands/brackets/commands#bracket-status)
+- **`/bracket voting-post` brings the live standings down too.** In the knockout rounds, a fresh standings card is posted right under the reposted voting card, and votes update that one from then on. The old card stays, marked "No longer updating", so nobody reads its counts as current. The card only moves when someone runs the command, never on its own
+
+### Developer
+- `tournamentUI.formatStandingsMatchup(matchup)` is the one matchup block, used by `buildPublicKnockoutLeaderboard` and `/bracket status`, so they can't drift apart
+- `moveLiveStandingsDown(channel, tournament, matchups, client)` in `buttonHandler.js` posts the new card and points both the tournament file and the in-memory cache at it; with only the file updated, the next vote kept editing the old card until a restart
+- Simulator scenarios: status matches the live card block for block; the card moves and takes the next vote; and the same after a restart, when only the file remembers it
+- No command changes: restart only
+
 ## 2.57.0 - 2026-10-05
 
 ### Added

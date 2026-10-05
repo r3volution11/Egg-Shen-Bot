@@ -81,6 +81,40 @@ export function createVoteBar(votes, totalVotes, length = 10) {
 }
 
 /**
+ * One open matchup as the live standings show it — used by the Live
+ * Standings card and /bracket status, so the two always match:
+ *   **1A** · closes <t:…:R>
+ *   Sick
+ *   🟧🟧⬜⬜⬜⬜⬜⬜⬜⬜ 3 votes (18%)
+ *   vs
+ *   A Nightmare on Elm Street 🔥
+ *   🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ 14 votes (82%)
+ * Both titles get their bar and count. (The second one's bar was once
+ * built but never printed, so a matchup voted 0–2 read as "0 votes".)
+ * @param {object} matchup - with votes.movie1/movie2 voter lists
+ * @param {string} [round] - defaults to the matchup's own
+ */
+export function formatStandingsMatchup(matchup, round = matchup.round) {
+  const votes1 = matchup.votes?.movie1?.length || 0;
+  const votes2 = matchup.votes?.movie2?.length || 0;
+  const total = votes1 + votes2;
+  // Shorter titles keep each bar on its own line
+  const short = (t) => (t.length > 25 ? `${t.substring(0, 22)}...` : t);
+  const lead1 = votes1 > votes2 ? ' 🔥' : '';
+  const lead2 = votes2 > votes1 ? ' 🔥' : '';
+  const tie = votes1 === votes2 && votes1 > 0 ? ' 🤝' : '';
+  const closes = matchup.votingDeadline ? ` · closes <t:${Math.floor(matchup.votingDeadline / 1000)}:R>` : '';
+  return [
+    `**${matchupLabel(matchup.position, round)}**${tie}${closes}`,
+    `${short(matchup.movie1.title)}${lead1}`,
+    createVoteBar(votes1, total),
+    'vs',
+    `${short(matchup.movie2.title)}${lead2}`,
+    createVoteBar(votes2, total),
+  ].join('\n');
+}
+
+/**
  * A coloured square bar for one option among several (a tiebreaker vote),
  * without the count: green for the one clearly ahead, yellow for options
  * sharing the lead, orange for the rest, white for the unfilled part.
