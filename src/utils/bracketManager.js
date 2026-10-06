@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, renameS
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { placeWinners } from './bracketProgress.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -507,29 +508,11 @@ function resolveByes(tournament) {
 function propagateWinners(tournament, round) {
   const nextRound = ROUND_SEQUENCE[round];
   if (!nextRound) return false;
-
-  const currentRoundMatchups = tournament.knockoutBracket
-    .filter(m => m.round === round)
-    .sort((a, b) => a.position - b.position);
-  const nextRoundMatchups = tournament.knockoutBracket
-    .filter(m => m.round === nextRound)
-    .sort((a, b) => a.position - b.position);
-
-  let placed = false;
-  currentRoundMatchups.forEach((matchup, index) => {
-    if (!matchup.winner) return;
-    const nextMatchup = nextRoundMatchups[Math.floor(index / 2)];
-    if (!nextMatchup) return;
-
-    if (index % 2 === 0) {
-      nextMatchup.movie1 = matchup.winner;
-    } else {
-      nextMatchup.movie2 = matchup.winner;
-    }
-    placed = true;
-  });
-
-  return placed;
+  // The pairing rule lives in bracketProgress.js, shared with the bracket image
+  return placeWinners(
+    tournament.knockoutBracket.filter(m => m.round === round),
+    tournament.knockoutBracket.filter(m => m.round === nextRound),
+  );
 }
 
 /**

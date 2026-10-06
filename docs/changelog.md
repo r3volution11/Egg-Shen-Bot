@@ -9,6 +9,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.58.1 - 2026-10-05
+
+### Fixed
+- **The bracket image showed "TBD" for a winner until the whole round was over.** A decided matchup's winner now appears in their next matchup straight away, in `/bracket view` and the bracket posted after each matchup. The bot still fills the real next round when the round finishes, as before
+- **The bracket image never highlighted a winner.** It compared the stored winner with "movie1"/"movie2", which never matched. Winners now get the blue tile, with dark text you can read on it and a tick drawn as a shape (the ✓ character showed as an empty box)
+
+### Developer
+- `src/utils/bracketProgress.js`: `placeWinners` (the pairing rule: the winner of matchup i goes to matchup floor(i/2), top slot when i is even), now behind `bracketManager.propagateWinners` too; `bracketWithWinnersSeated` (a copy for drawing, filling only empty slots); `winnerSide` (matches the stored winning title to its side, by id and type, or title)
+- `tests/bracket-progress.test.js`; checked by drawing the live Slasher Showdown bracket
+- Restart only
+
 ## 2.58.0 - 2026-10-05
 
 ### Changed

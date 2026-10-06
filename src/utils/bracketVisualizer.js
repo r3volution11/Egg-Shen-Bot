@@ -1,6 +1,7 @@
 import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { config } from '../config.js';
 import { existsSync } from 'fs';
+import { bracketWithWinnersSeated, winnerSide } from './bracketProgress.js';
 
 // Register Arial font if available
 const arialPaths = [
@@ -96,7 +97,10 @@ function getRegionalLabel(position, round) {
  * @returns {Promise<Buffer>} PNG image buffer
  */
 export async function generateBracketImage(tournament) {
-  const { knockoutBracket, knockoutResults, phase } = tournament;
+  const { knockoutResults, phase } = tournament;
+  // Each decided winner shown in their next matchup straight away, not as
+  // "TBD" until the whole round is over (bracketProgress.js)
+  const knockoutBracket = bracketWithWinnersSeated(tournament.knockoutBracket);
   
   if (!knockoutBracket || knockoutBracket.length === 0) {
     throw new Error('Tournament has no knockout bracket yet');
@@ -320,8 +324,9 @@ function drawMirroredConnector(ctx, x, y, side, matchupIndex, totalMatchups, spa
  */
 async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1, roundName = null) {
   const { movie1, movie2, id, status, position } = matchup;
-  const result = knockoutResults?.[id];
-  const winner = result?.winner; // 'movie1' or 'movie2'
+  // Results store the winning title; this compared it with 'movie1' and
+  // 'movie2', so no winner was ever highlighted (winnerSide)
+  const winner = winnerSide(matchup, knockoutResults?.[id]);
   
   const width = PARTICIPANT_WIDTH * scale;
   const height = PARTICIPANT_HEIGHT * scale;
@@ -551,8 +556,9 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
   ctx.lineWidth = isWinner ? 3 * scale : 2 * scale;
   ctx.strokeRect(x, y, width, height);
   
-  // Title - always use white for visibility
-  ctx.fillStyle = COLORS.text;
+  // Title: white, but dark on a winner's light-blue tile, where white was
+  // hard to read
+  ctx.fillStyle = isWinner ? COLORS.background : COLORS.text;
   ctx.font = `${fontSize}px Arial, sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
@@ -584,13 +590,22 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
     ctx.fillText(typeLabel, x + 5 * scale, y + 12 * scale);
   }
   
-  // Winner checkmark
+  // Winner tick, drawn as lines: the fonts here have no ✓ glyph, so the
+  // character came out as an empty box
   if (isWinner) {
-    ctx.fillStyle = COLORS.background;
-    ctx.font = `bold ${20 * scale}px Arial, sans-serif`;
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('✓', x + width - 10 * scale, y + height / 2);
+    const cx = x + width - 16 * scale;
+    const cy = y + height / 2;
+    ctx.save();
+    ctx.strokeStyle = COLORS.background;
+    ctx.lineWidth = 3 * scale;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - 6 * scale, cy);
+    ctx.lineTo(cx - 2 * scale, cy + 4 * scale);
+    ctx.lineTo(cx + 6 * scale, cy - 5 * scale);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
