@@ -2071,7 +2071,9 @@ function ballotVotesText(tournament, userId) {
 }
 
 function buildKnockoutBallotRows(matchups, round, userVotes) {
-  const name = (title) => (title.length > 45 ? title.substring(0, 42) + '...' : title);
+  // With the year, so a remake can't be mistaken for the original; within
+  // Discord's 80-character button label, after the "1A · "
+  const name = (entry) => tournamentUI.displayTitle(entry, 72);
   return [...matchups]
     .sort((a, b) => a.position - b.position)
     .map((m) => {
@@ -2080,7 +2082,7 @@ function buildKnockoutBallotRows(matchups, round, userVotes) {
       return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`knockout_vote_${m.id}_1`)
-          .setLabel(`${label} · ${name(m.movie1.title)}`)
+          .setLabel(`${label} · ${name(m.movie1)}`)
           .setStyle(vote === 1 ? ButtonStyle.Primary : ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId(`knockout_vs_${m.id}`)
@@ -2089,7 +2091,7 @@ function buildKnockoutBallotRows(matchups, round, userVotes) {
           .setDisabled(true),
         new ButtonBuilder()
           .setCustomId(`knockout_vote_${m.id}_2`)
-          .setLabel(`${label} · ${name(m.movie2.title)}`)
+          .setLabel(`${label} · ${name(m.movie2)}`)
           .setStyle(vote === 2 ? ButtonStyle.Primary : ButtonStyle.Secondary),
       );
     });

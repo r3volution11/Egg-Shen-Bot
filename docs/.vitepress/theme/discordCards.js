@@ -38,14 +38,14 @@ export const DISCORD_CARDS = {
       embeds: [{
         color: ACCENT,
         title: '🗳️ Your Voting Dashboard',
-        description: 'Vote for ONE title in each matchup below.\nYour selections are shown in **purple**.\n\n💡 Click any button to cast or change your vote!\n\n🔥 **Streak:** 2 rounds\n\n**Your votes**\n**Round 1**\n1A: The Thing vs ✅ **Alien**\n2A: ✅ **Jaws** vs The Shining\n3A: Hereditary vs ✅ **Get Out**\n4A: Scream vs ✅ **Halloween**\n\n**Round 2**\n1A: ✅ **Alien** vs Jaws\n3A: Get Out vs ✅ **Halloween**\n\n⏰ Voting closes ' + SOON,
+        description: 'Vote for ONE title in each matchup below.\nYour selections are shown in **purple**.\n\n💡 Click any button to cast or change your vote!\n\n🔥 **Streak:** 2 rounds\n\n**Your votes**\n**Round 1**\n1A: The Thing (1982) vs ✅ **Alien (1979)**\n2A: ✅ **Jaws (1975)** vs The Shining (1980)\n3A: Hereditary (2018) vs ✅ **Get Out (2017)**\n4A: Scream (1996) vs ✅ **Halloween (1978)**\n\n**Round 2**\n1A: ✅ **Alien (1979)** vs Jaws (1975)\n3A: Get Out (2017) vs ✅ **Halloween (1978)**\n\n⏰ Voting closes ' + SOON,
         footer: 'Only you can see this • Your votes update in real-time',
         timestamp: 'Today at 8:05 PM',
         thumbnail: 'avatar',
       }],
       rows: [
-        [{ label: '1A · Alien', kind: 'primary' }, { label: 'vs', disabled: true }, { label: '1A · Jaws' }],
-        [{ label: '3A · Get Out' }, { label: 'vs', disabled: true }, { label: '3A · Halloween', kind: 'primary' }],
+        [{ label: '1A · Alien (1979)', kind: 'primary' }, { label: 'vs', disabled: true }, { label: '1A · Jaws (1975)' }],
+        [{ label: '3A · Get Out (2017)' }, { label: 'vs', disabled: true }, { label: '3A · Halloween (1978)', kind: 'primary' }],
       ],
     },
   },
@@ -58,7 +58,7 @@ export const DISCORD_CARDS = {
       embeds: [{
         color: ACCENT,
         title: '🏆 Semifinals - Live Standings',
-        description: `**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nAlien 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nJaws\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**3A** · closes ${SOON}\nGet Out\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\nvs\nHalloween 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\n\n📈 **Total votes:** 12\n👥 **Voters:** 6\n🎯 **Matchups:** 2`,
+        description: `**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nAlien (1979) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nJaws (1975)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**3A** · closes ${SOON}\nGet Out (2017)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\nvs\nHalloween (1978) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\n\n📈 **Total votes:** 12\n👥 **Voters:** 6\n🎯 **Matchups:** 2`,
         footer: 'Updates in real-time as votes are cast',
         timestamp: 'Today at 8:05 PM',
         thumbnail: 'poster',
@@ -93,7 +93,7 @@ export const DISCORD_CARDS = {
       embeds: [{
         color: BLUE,
         title: '🏆 Friday Frights',
-        description: `**Quarterfinals**\n\nSingle elimination bracket\n\n**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nThe Thing\n🟧🟧⬜⬜⬜⬜⬜⬜⬜⬜ 1 vote (17%)\nvs\nAlien 🔥\n🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ 5 votes (83%)\n\n**2A** · closes ${SOON}\nJaws 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nThe Shining\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**Completed:** 0 matchups`,
+        description: `**Quarterfinals**\n\nSingle elimination bracket\n\n**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nThe Thing (1982)\n🟧🟧⬜⬜⬜⬜⬜⬜⬜⬜ 1 vote (17%)\nvs\nAlien (1979) 🔥\n🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ 5 votes (83%)\n\n**2A** · closes ${SOON}\nJaws (1975) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nThe Shining (1980)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**Completed:** 0 matchups`,
         fields: [
           { name: 'Status', value: 'knockout', inline: true },
           { name: 'Phase', value: 'quarterfinals', inline: true },

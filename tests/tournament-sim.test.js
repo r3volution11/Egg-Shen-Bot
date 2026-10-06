@@ -108,8 +108,9 @@ describe('the ballot lists every vote you\'ve cast', () => {
     const votesOn = (ballot) => ballot.embeds[0].description.split('**Your votes**\n')[1]?.split('\n\n⏰')[0];
     const find = (m) => sim.tournament().knockoutBracket.find(x => x.id === m.id);
     // An 8-title bracket: one matchup per region, so each line keeps its full label
+    const { displayTitle } = mods.tournamentUI;
     const line = (m, pick) => `${mods.tournamentUI.matchupLabel(m.position, m.round)}: `
-      + (pick === 1 ? `✅ **${m.movie1.title}** vs ${m.movie2.title}` : `${m.movie1.title} vs ✅ **${m.movie2.title}**`);
+      + (pick === 1 ? `✅ **${displayTitle(m.movie1)}** vs ${displayTitle(m.movie2)}` : `${displayTitle(m.movie1)} vs ✅ **${displayTitle(m.movie2)}**`);
 
     // Before voting: no list yet
     const ballot = await sim.openBallot('voter1');
@@ -121,7 +122,7 @@ describe('the ballot lists every vote you\'ve cast', () => {
     await sim.voteMatchup('voter1', ballot, b.id, 2);
     await sim.voteMatchup('voter1', ballot, a.id, 1);
     expect(votesOn(ballot)).toBe(['**Round 1**', line(a, 1), line(b, 2)].join('\n'));
-    expect(line(a, 1)).toMatch(/^1A: ✅ \*\*.+\*\* vs .+$/);
+    expect(line(a, 1)).toMatch(/^1A: ✅ \*\*.+ \(\d{4}\)\*\* vs .+ \(\d{4}\)$/);
 
     // Changing a vote moves the tick
     await sim.voteMatchup('voter1', ballot, a.id, 2);

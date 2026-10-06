@@ -133,7 +133,8 @@ describe('knockout voting as a regular member', () => {
       expect(row[1]).toMatchObject({ label: 'vs', disabled: true });
       expect(row[0].label).toMatch(/^\dA|^\d[A-D] · /);
     }
-    expect(rows[0][0].label).toMatch(/ · Film \d$/);
+    // With the year, so a remake can't be mistaken for the original
+    expect(rows[0][0].label).toMatch(/ · Film \d \(\d{4}\)$/);
   });
 
   test('voting redraws the ballot the same way, with the pick highlighted', async () => {
@@ -184,6 +185,28 @@ describe('live standings show both titles of every matchup', () => {
 
     expect(embed.description).toContain(`Black Christmas\n${'⬜'.repeat(10)} 0 votes (0%)`);
     expect(embed.description).toContain(`vs\nCandyman 🔥\n${'🟩'.repeat(10)} 2 votes (100%)`);
+  });
+
+  test('titles are shown whole, with their year, so a remake can\'t be mistaken for the original', () => {
+    const embed = buildPublicKnockoutLeaderboard({ votes: {}, statistics: {} }, 'round_of_32', [{
+      id: 'm1', position: 1, round: 'round_of_32', status: 'voting',
+      movie1: { title: 'In a Violent Nature', year: '2024' },
+      movie2: { title: 'The Town That Dreaded Sundown', year: '1976' },
+      votes: { movie1: ['a'], movie2: ['b'] },
+    }]).toJSON();
+    expect(embed.description).toContain('\nIn a Violent Nature (2024)\n');
+    expect(embed.description).toContain('\nThe Town That Dreaded Sundown (1976)\n');
+  });
+
+  test('displayTitle: a year once, never cut; only a very long name is shortened', async () => {
+    const { displayTitle } = await import('../src/utils/tournamentUI.js');
+    expect(displayTitle({ title: 'Halloween', year: '1978' })).toBe('Halloween (1978)');
+    expect(displayTitle({ title: 'Halloween (1978)', year: '1978' })).toBe('Halloween (1978)');
+    expect(displayTitle({ title: 'Sick' })).toBe('Sick');
+    expect(displayTitle({ title: 'Twin Peaks', year: '1990-04-08' })).toBe('Twin Peaks (1990)');
+    const long = displayTitle({ title: 'x'.repeat(100), year: 2006 }, 40);
+    expect(long).toHaveLength(40);
+    expect(long.endsWith('… (2006)')).toBe(true);
   });
 
   test('bars are coloured squares: green ahead, orange behind, yellow when tied', () => {

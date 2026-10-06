@@ -81,6 +81,23 @@ export function createVoteBar(votes, totalVotes, length = 10) {
 }
 
 /**
+ * A title as people need to see it to tell remakes apart: with its year,
+ * "The Town That Dreaded Sundown (1976)" (there's a 2014 one), unless the
+ * title already ends with a year. Shortened only when longer than `max`,
+ * and then the name is cut, never the year (Doug, 2026-10-05: the live
+ * standings cut titles at 25 characters, with room to spare).
+ * @param {{title: string, year?: string|number}} entry
+ * @param {number} [max] - longest result, in characters
+ */
+export function displayTitle(entry, max = 80) {
+  const title = String(entry?.title || '').trim();
+  const year = String(entry?.year || '').slice(0, 4);
+  const suffix = /^\d{4}$/.test(year) && !/\(\d{4}\)$/.test(title) ? ` (${year})` : '';
+  if (title.length + suffix.length <= max) return title + suffix;
+  return `${title.slice(0, Math.max(1, max - suffix.length - 1)).trimEnd()}…${suffix}`;
+}
+
+/**
  * One open matchup as the live standings show it — used by the Live
  * Standings card and /bracket status, so the two always match:
  *   **1A** · closes <t:…:R>
@@ -98,18 +115,16 @@ export function formatStandingsMatchup(matchup, round = matchup.round) {
   const votes1 = matchup.votes?.movie1?.length || 0;
   const votes2 = matchup.votes?.movie2?.length || 0;
   const total = votes1 + votes2;
-  // Shorter titles keep each bar on its own line
-  const short = (t) => (t.length > 25 ? `${t.substring(0, 22)}...` : t);
   const lead1 = votes1 > votes2 ? ' 🔥' : '';
   const lead2 = votes2 > votes1 ? ' 🔥' : '';
   const tie = votes1 === votes2 && votes1 > 0 ? ' 🤝' : '';
   const closes = matchup.votingDeadline ? ` · closes <t:${Math.floor(matchup.votingDeadline / 1000)}:R>` : '';
   return [
     `**${matchupLabel(matchup.position, round)}**${tie}${closes}`,
-    `${short(matchup.movie1.title)}${lead1}`,
+    `${displayTitle(matchup.movie1)}${lead1}`,
     createVoteBar(votes1, total),
     'vs',
-    `${short(matchup.movie2.title)}${lead2}`,
+    `${displayTitle(matchup.movie2)}${lead2}`,
     createVoteBar(votes2, total),
   ].join('\n');
 }
@@ -462,7 +477,7 @@ export function formatKnockoutVotes(tournament, userId) {
   const roundName = (r) => (r === 'finals' ? 'Final' : `Round ${roundsInBracket.indexOf(r) + 1}`);
 
   const line = (m, label) => {
-    const [one, two] = [plain(m.movie1?.title), plain(m.movie2?.title)];
+    const [one, two] = [plain(displayTitle(m.movie1)), plain(displayTitle(m.movie2))];
     const pick = votes[m.id];
     const pair = `${pick === 1 ? `✅ **${one}**` : one} vs ${pick === 2 ? `✅ **${two}**` : two}`;
     return label ? `${label}: ${pair}` : pair;
