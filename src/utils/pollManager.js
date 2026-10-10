@@ -300,6 +300,33 @@ export function closePoll(guildId, pollId, closedBy) {
 }
 
 /**
+ * Point a poll at a newly posted copy of its card (/survey voting-post).
+ *
+ * Votes refresh whichever card was clicked, but closing — by /survey close
+ * or the auto-expiry scheduler — edits only `poll.messageId`. Left on the
+ * old card, a repost would keep live buttons after the survey closed and
+ * never show the final result. So the newest card becomes the poll's card.
+ *
+ * Load-modify-save in one synchronous step, so a vote saved meanwhile isn't
+ * overwritten by a poll object read earlier.
+ *
+ * @returns {{channelId: string, messageId: string}} where the card was before
+ */
+export function movePollCard(guildId, pollId, channelId, messageId) {
+  const polls = loadGuildPolls(guildId);
+  const poll = polls.find(p => p.pollId === pollId);
+  if (!poll) {
+    throw new Error('Poll not found');
+  }
+
+  const previous = { channelId: poll.channelId, messageId: poll.messageId };
+  poll.channelId = channelId;
+  poll.messageId = messageId;
+  saveGuildPolls(guildId, polls);
+  return previous;
+}
+
+/**
  * Delete a poll
  */
 export function deletePoll(guildId, pollId) {
@@ -399,6 +426,15 @@ export function buildSurveyButtons(poll) {
     rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
   }
   return rows;
+}
+
+/** The voting buttons, greyed out: for a closed survey, or a card that moved. */
+export function buildDisabledSurveyButtons(poll) {
+  return buildSurveyButtons(poll).map(row => {
+    const newRow = new ActionRowBuilder();
+    row.components.forEach(btn => newRow.addComponents(ButtonBuilder.from(btn).setDisabled(true)));
+    return newRow;
+  });
 }
 
 /**
@@ -503,12 +539,7 @@ export async function closePollAndAnnounce(client, guildId, pollId, closedBy) {
       // Disable rather than remove the buttons, so the closed poll still
       // shows what the options/labels were, matching the tiebreaker
       // voting UI's closed-state convention elsewhere in this bot.
-      const disabledRows = buildSurveyButtons(updatedPoll).map(row => {
-        const newRow = new ActionRowBuilder();
-        row.components.forEach(btn => newRow.addComponents(ButtonBuilder.from(btn).setDisabled(true)));
-        return newRow;
-      });
-      await message.edit({ embeds: [pollEmbed], components: disabledRows });
+      await message.edit({ embeds: [pollEmbed], components: buildDisabledSurveyButtons(updatedPoll) });
     }
 
     const resultsEmbed = createPollEmbed(updatedPoll, true);

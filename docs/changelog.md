@@ -9,6 +9,21 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.60.0 - 2026-10-10
+
+### Added
+- **`/survey voting-post` brings a survey back down.** Like `/bracket voting-post`, it posts the survey again at the bottom of the channel as a new message, with its vote buttons and the votes so far, so nobody has to scroll up to find it. The old card greys out its buttons and links to the new one, and the new card is the one that shows the final result when the survey closes. Leave out `poll_id` when only one survey is open. Anyone can use it; members once every 10 minutes per survey, the survey's creator and admins any time
+
+### Changed
+- The command docs said surveys are voted on with emoji reactions; they've used buttons for a while, and now say so
+
+### Developer
+- `pollManager.movePollCard(guildId, pollId, channelId, messageId)`: synchronous load-modify-save pointing the poll at the new card. Needed because `closePollAndAnnounce` (used by `/survey close` and the auto-close scheduler) edits only `poll.messageId`; without it a repost kept live buttons after closing
+- `pollManager.buildDisabledSurveyButtons(poll)`, shared by closing and the retired card
+- Older reaction-voted surveys can't be reposted (their votes are reactions on that one message) and say so
+- `tests/survey-voting-post.test.js` (10), end to end through the fake Discord: real create, real button clicks on each card, repost, close
+- Command definition changed: run `deploy-commands`
+
 ## 2.59.0 - 2026-10-10
 
 ### Added

@@ -11,6 +11,8 @@ import {
   createPollEmbed,
   closePollAndAnnounce,
   buildSurveyButtons,
+  buildDisabledSurveyButtons,
+  movePollCard,
   VOTE_EMOJIS,
 } from '../utils/pollManager.js';
 import { canUseCommand } from '../utils/guildConfig.js';
@@ -150,6 +152,18 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand(subcommand =>
     subcommand
+      .setName('voting-post')
+      .setDescription('Post an open survey again, with its buttons and the votes so far')
+      .addStringOption(option =>
+        option
+          .setName('poll_id')
+          .setDescription('The survey (leave out when only one is open)')
+          .setRequired(false)
+          .setAutocomplete(true)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('close')
       .setDescription('Close an active survey (admin/mod/creator only)')
       .addStringOption(option =>
@@ -200,6 +214,9 @@ export async function execute(interaction) {
     case 'results':
       await handleResults(interaction);
       break;
+    case 'voting-post':
+      await handleVotingPost(interaction);
+      break;
     case 'close':
       await handleClose(interaction);
       break;
@@ -212,6 +229,7 @@ export async function execute(interaction) {
 /**
  * Autocomplete for the poll_id option on /survey results, close, and delete.
  * - results: any survey, active or closed (read-only, no permission needed)
+ * - voting-post: open surveys (anyone may bring one back down)
  * - close/delete: only surveys the invoking user can actually manage
  *   (creator, admin, or mod), so a suggestion never leads to a permission
  *   error after picking it
@@ -312,7 +330,7 @@ async function handleCreate(interaction) {
       ? `\n**Auto-closes:** <t:${Math.floor(new Date(poll.expiresAt).getTime() / 1000)}:R>`
       : '';
     await interaction.followUp({
-      content: `✅ Survey created! Users can vote by clicking a button below the message.\n\n**Survey ID:** \`${poll.pollId}\`${autoCloseNote}\n**Manage:** Use \`/survey close ${poll.pollId}\` to close or \`/survey delete ${poll.pollId}\` to delete.`,
+      content: `✅ Survey created! Users can vote by clicking a button below the message.\n\n**Survey ID:** \`${poll.pollId}\`${autoCloseNote}\n**Manage:** Use \`/survey close ${poll.pollId}\` to close or \`/survey delete ${poll.pollId}\` to delete. If the survey scrolls away, \`/survey voting-post\` brings it back down.`,
       ephemeral: true,
     });
     
@@ -423,6 +441,99 @@ async function handleResults(interaction) {
   }
   
   await interaction.editReply({ embeds: [embed] });
+}
+
+/**
+ * /survey voting-post — the survey card again, as a new message, with its
+ * buttons and the votes so far (Doug, 2026-10-10), as /bracket voting-post
+ * does for tournaments. In a busy channel the card from /survey create
+ * scrolls far up; a new message, not an edit, because an edit notifies
+ * nobody and stays where it was.
+ *
+ * The new card becomes the survey's card (movePollCard) — closing edits
+ * only that one — and the old one is greyed out with a pointer down, so
+ * there is never a stale count with live buttons left behind.
+ *
+ * Anyone can run it — it only helps people vote — but once per survey per
+ * channel every 10 minutes, except for whoever can manage the survey, so it
+ * can't be used to spam.
+ */
+export const VOTING_POST_COOLDOWN_MS = 10 * 60 * 1000;
+const votingPostAt = new Map(); // `${guildId}:${pollId}:${channelId}` → when it was last posted
+
+/** Forget the cooldowns (tests) */
+export function resetVotingPostCooldowns() {
+  votingPostAt.clear();
+}
+
+/** The survey asked for, or the only open one (this channel's first). */
+function pickOpenSurvey(interaction) {
+  const pollId = interaction.options.getString('poll_id');
+  if (pollId) return { poll: getPoll(interaction.guildId, pollId), count: 1 };
+
+  const open = getActivePolls(interaction.guildId);
+  const here = open.filter(p => p.channelId === interaction.channelId);
+  const pool = here.length ? here : open;
+  return { poll: pool.length === 1 ? pool[0] : null, count: pool.length };
+}
+
+const jumpLink = (poll) => `https://discord.com/channels/${poll.guildId}/${poll.channelId}/${poll.messageId}`;
+
+async function handleVotingPost(interaction) {
+  const { poll, count } = pickOpenSurvey(interaction);
+
+  if (!poll) {
+    const content = count === 0
+      ? '📊 No survey is open right now. `/survey list filter:all` shows past ones.'
+      : interaction.options.getString('poll_id')
+        ? '❌ Survey not found. Use `/survey list` to see all surveys.'
+        : `📊 ${count} surveys are open — pick one with the \`poll_id\` option.`;
+    await interaction.reply({ content, ephemeral: true });
+    return;
+  }
+  if (poll.status !== 'active') {
+    await interaction.reply({ content: `🔴 "${poll.question}" has closed. \`/survey results\` shows how it ended.`, ephemeral: true });
+    return;
+  }
+  if (poll.votingMethod === 'reactions') {
+    // Votes are the reactions on that one message; a copy couldn't carry them
+    await interaction.reply({ content: `📊 This older survey is voted on with reactions, which can't move to a new message. [Jump to it](${jumpLink(poll)}).`, ephemeral: true });
+    return;
+  }
+
+  const now = Date.now();
+  const key = `${interaction.guildId}:${poll.pollId}:${interaction.channelId}`;
+  const last = votingPostAt.get(key);
+  if (last && now - last < VOTING_POST_COOLDOWN_MS && !canManagePoll(poll, interaction.member)) {
+    await interaction.reply({
+      content: `⏳ This survey was posted here <t:${Math.floor(last / 1000)}:R>; scroll up to find it. It can be posted again <t:${Math.floor((last + VOTING_POST_COOLDOWN_MS) / 1000)}:R>.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferReply();
+  const message = await interaction.editReply({ embeds: [createPollEmbed(poll, true)], components: buildSurveyButtons(poll) });
+  votingPostAt.set(key, now);
+
+  const previous = movePollCard(interaction.guildId, poll.pollId, interaction.channelId, message.id);
+
+  // Grey out the old card. Re-read the poll: votes may have landed while
+  // posting, and the old card should show them. Its message may be gone
+  // (deleted by hand), which costs nothing — the new card is already up.
+  try {
+    const current = getPoll(interaction.guildId, poll.pollId);
+    const channel = await interaction.client.channels.fetch(previous.channelId);
+    const old = await channel.messages.fetch(previous.messageId);
+    const embed = createPollEmbed(current, true).addFields({
+      name: '⬇️ Moved',
+      value: `Voting continues on the [newer post](${jumpLink(current)}).`,
+      inline: false,
+    });
+    await old.edit({ embeds: [embed], components: buildDisabledSurveyButtons(current) });
+  } catch (error) {
+    console.error(`[survey voting-post] Couldn't retire the old card for ${poll.pollId}:`, error.message);
+  }
 }
 
 /**

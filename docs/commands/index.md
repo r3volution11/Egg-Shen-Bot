@@ -539,14 +539,14 @@ Create interactive polls and surveys with up to 10 options and real-time vote tr
 - `/survey create` - Create a new survey with up to 10 options
 - `/survey list` - View all surveys (active, closed, or all)
 - `/survey results` - View detailed results with progress bars
+- `/survey voting-post` - Post an open survey again at the bottom of the channel, with its vote buttons and the votes so far. The old card greys out and links to the new one. Anyone can use it; members once every 10 minutes per survey, the creator and admins any time. Leave out `poll_id` when only one survey is open
 - `/survey close` - End voting and show final results (creator/admin/mod only)
 - `/survey delete` - Permanently delete a survey (creator/admin/mod only)
 
 **Features:**
 - Up to 10 options per survey
 - Single or multiple vote modes
-- Real-time voting via emoji reactions (1️⃣-🔟)
-- Progress bars showing vote percentages
+- Vote with buttons; the card updates its progress bars with every vote
 - Permission system for management
 - Persistent storage across bot restarts
 - Configurable per-server
@@ -556,6 +556,7 @@ Create interactive polls and surveys with up to 10 options and real-time vote tr
 /survey create question:"What should we watch tonight?" option1:"Horror" option2:"Comedy" option3:"Action"
 /survey list filter:active
 /survey results poll_id:a1b2c3d4e5f6g7h8
+/survey voting-post
 /survey close poll_id:a1b2c3d4e5f6g7h8
 ```
 
