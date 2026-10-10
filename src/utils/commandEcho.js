@@ -1,5 +1,5 @@
 /**
- * "@Doug used `/movie title:Alien`" above a public result.
+ * "@Doug used /movie `query`" above a public result.
  *
  * Discord draws that header itself on an interaction's own reply, but most
  * public results here are not one: search commands defer ephemeral (so a
@@ -8,9 +8,11 @@
  * which carries no interaction, so no header. Nobody watching could tell what
  * produced the answer, and seeing it is how people learn the commands.
  *
- * So we write the header ourselves, and include the options too — the native
- * header shows only the command name, and the options are the part that
- * teaches the syntax.
+ * So we write the header ourselves. The command is a Discord command mention
+ * (</movie:id>), which renders as a clickable chip that drops the command
+ * into the message box — the shortest path from seeing it to trying it. The
+ * option names follow; their values don't, since the point is advertising
+ * how to run it, not repeating what this person searched for.
  *
  * The command line is captured at dispatch (src/index.js) because by the time
  * a picker selection delivers the result, the select interaction has no
@@ -25,9 +27,8 @@ const TTL_MS = 15 * 60 * 1000;
 // Discord rejects content over 2000 chars. The header is a courtesy; it gives
 // way before the result does.
 const MAX_CONTENT = 2000;
-const MAX_HEADER = 200;
 
-const remembered = new Map(); // interaction id -> { name, words, options, expiresAt }
+const remembered = new Map(); // interaction id -> { name, commandId, words, options, expiresAt }
 
 function prune() {
   const now = Date.now();
@@ -47,7 +48,7 @@ function flatten(data, words, options) {
       flatten(opt.options, words, options);
     } else if (opt.name !== 'private') {
       // `private` is noise here: a public post already means it was false.
-      options.push({ name: opt.name, value: opt.value });
+      options.push(opt.name);
     }
   }
 }
@@ -60,6 +61,7 @@ export function rememberCommand(interaction) {
   flatten(interaction.options?.data, words, options);
   remembered.set(interaction.id, {
     name: interaction.commandName,
+    commandId: interaction.commandId,
     words,
     options,
     expiresAt: Date.now() + TTL_MS,
@@ -67,24 +69,14 @@ export function rememberCommand(interaction) {
 }
 
 /**
- * Show an option by a readable value instead of the one Discord sent.
- *
- * Autocomplete hands commands an id (a TMDB person, a matchup) where the user
- * picked a name; `director:578` would teach nobody anything. Call this once
- * the command has resolved the name.
+ * "</movie:123> `query` `year`" — a clickable command mention, then the
+ * option names used. Without an id (a command we never saw) it falls back to
+ * bold text, which still reads as a command.
  */
-export function relabelOption(interaction, optionName, display) {
-  const entry = remembered.get(interaction.id);
-  const opt = entry?.options.find(o => o.name === optionName);
-  if (opt && display) opt.value = display;
-}
-
-/** "/movie title:Alien year:1979", built from a remembered entry. */
 export function formatCommandLine(entry) {
-  const parts = [`/${entry.name}`, ...entry.words];
-  for (const { name, value } of entry.options) parts.push(`${name}:${value}`);
-  // Strip backticks so a value can't break out of the inline code span.
-  return parts.join(' ').replace(/`/g, '');
+  const path = [entry.name, ...entry.words].join(' ');
+  const command = entry.commandId ? `</${path}:${entry.commandId}>` : `**/${path}**`;
+  return [command, ...entry.options.map(name => `\`${name}\``)].join(' ');
 }
 
 /**
@@ -105,15 +97,15 @@ export function echoFor(interaction) {
   if (entry) {
     line = formatCommandLine(entry);
   } else if (interaction.isChatInputCommand?.()) {
-    line = `/${interaction.commandName}`;
+    line = formatCommandLine({ name: interaction.commandName, commandId: interaction.commandId, words: [], options: [] });
   } else {
+    // The message metadata keeps the name but not the id or options.
     const legacyName = interaction.message?.interaction?.commandName;
-    if (legacyName) line = `/${legacyName}`;
+    if (legacyName) line = formatCommandLine({ name: legacyName, words: [], options: [] });
   }
   if (!line || !interaction.user?.id) return null;
 
-  if (line.length > MAX_HEADER) line = `${line.slice(0, MAX_HEADER - 1)}…`;
-  return `-# <@${interaction.user.id}> used \`${line}\``;
+  return `-# <@${interaction.user.id}> used ${line}`;
 }
 
 /**

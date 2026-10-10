@@ -4,7 +4,8 @@
  * Search commands defer ephemeral and post their public answer as a plain
  * channel message, which loses Discord's own "used /command" header. The
  * header is how people watching learn the commands, so commandEcho.js puts
- * one back — with the options, which Discord's header never showed.
+ * one back: a clickable command mention plus the option names used (not
+ * their values — it advertises how, not what this person searched for).
  *
  * The end-to-end case runs a real ambiguous /movie through the real command,
  * then feeds the picker's own option value into the real select handler:
@@ -98,6 +99,7 @@ function slash(commandName, data, { user = { id: 'user-1', username: 'tester' } 
   return {
     id: `slash-${nextId++}`,
     commandName,
+    commandId: `cmd-${commandName}`,
     isChatInputCommand: () => true,
     guildId: 'guild-1',
     channelId: 'channel-1',
@@ -114,45 +116,39 @@ function slash(commandName, data, { user = { id: 'user-1', username: 'tester' } 
 }
 
 describe('formatCommandLine / echoFor', () => {
-  test('subcommand groups and subcommands become words, options become name:value', () => {
+  test('subcommand groups and subcommands join the mention, options follow by name', () => {
     const i = slash('config', [{
       name: 'stats', type: 2, options: [{
         name: 'set', type: 1, options: [{ name: 'enabled', type: 5, value: true }],
       }],
     }]);
     echo.rememberCommand(i);
-    expect(echo.echoFor(i)).toBe('-# <@user-1> used `/config stats set enabled:true`');
+    expect(echo.echoFor(i)).toBe('-# <@user-1> used </config stats set:cmd-config> `enabled`');
   });
 
-  test('private is left out, and backticks cannot break the code span', () => {
+  test('values never appear, and private is left out', () => {
     const i = slash('movie', [
-      { name: 'query', type: 3, value: 'the `thing`' },
+      { name: 'query', type: 3, value: 'the thing' },
+      { name: 'year', type: 4, value: 1982 },
       { name: 'private', type: 5, value: false },
     ]);
     echo.rememberCommand(i);
-    expect(echo.echoFor(i)).toBe('-# <@user-1> used `/movie query:the thing`');
+    expect(echo.echoFor(i)).toBe('-# <@user-1> used </movie:cmd-movie> `query` `year`');
   });
 
   test('a command with no options is just its name', () => {
     const i = slash('stats', []);
     echo.rememberCommand(i);
-    expect(echo.echoFor(i)).toBe('-# <@user-1> used `/stats`');
+    expect(echo.echoFor(i)).toBe('-# <@user-1> used </stats:cmd-stats>');
   });
 
-  test('relabelOption replaces an autocomplete id with the name picked', () => {
-    const i = slash('recommend', [{ name: 'director', type: 3, value: '578' }]);
-    echo.rememberCommand(i);
-    echo.relabelOption(i, 'director', 'Ridley Scott');
-    expect(echo.echoFor(i)).toBe('-# <@user-1> used `/recommend director:Ridley Scott`');
-  });
-
-  test('after a restart a picker still names its command, just without options', () => {
+  test('after a restart a picker still names its command, in bold since the id is gone', () => {
     const select = {
       isChatInputCommand: () => false,
       user: { id: 'user-1' },
       message: { interactionMetadata: { id: 'forgotten' }, interaction: { commandName: 'movie' } },
     };
-    expect(echo.echoFor(select)).toBe('-# <@user-1> used `/movie`');
+    expect(echo.echoFor(select)).toBe('-# <@user-1> used **/movie**');
   });
 });
 
@@ -165,7 +161,7 @@ describe('deliverResult stamps the public post, never the private one', () => {
     await deliverResult(i, { content: 'Dune', embeds: [{ title: 'Dune' }] });
 
     expect(i.channel.send).toHaveBeenCalledWith({
-      content: '-# <@user-1> used `/book query:dune`\nDune',
+      content: '-# <@user-1> used </book:cmd-book> `query`\nDune',
       embeds: [{ title: 'Dune' }],
       allowedMentions: { parse: [] },
     });
@@ -194,7 +190,7 @@ describe('deliverResult stamps the public post, never the private one', () => {
 });
 
 describe('end to end: /movie picker → selection', () => {
-  test('the public result names the original /movie query', async () => {
+  test('the public result names the original /movie and its option', async () => {
     mockSearchMovies.mockResolvedValue([
       { id: 1091, title: 'The Thing', release_date: '1982-06-25' },
       { id: 60935, title: 'The Thing', release_date: '2011-10-12' },
@@ -227,7 +223,7 @@ describe('end to end: /movie picker → selection', () => {
 
     expect(select.channel.send).toHaveBeenCalledTimes(1);
     const posted = select.channel.send.mock.calls[0][0];
-    expect(posted.content.split('\n')[0]).toBe('-# <@user-1> used `/movie query:the thing`');
+    expect(posted.content.split('\n')[0]).toBe('-# <@user-1> used </movie:cmd-movie> `query`');
     expect(posted.allowedMentions).toEqual({ parse: [] });
     expect(posted.embeds.length).toBeGreaterThan(0);
   });

@@ -9,6 +9,16 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.61.1 - 2026-10-10
+
+### Changed
+- **The "used a command" line is a clickable command now, and shows option names only.** It reads "@Doug used /movie `query`": the command is Discord's blue command chip, which you can click to start typing that command yourself, followed by the options that were used. What was typed into them is no longer shown
+
+### Developer
+- `formatCommandLine` builds a `</name sub:commandId>` mention from `interaction.commandId`, then the option names in backticks. A picker opened before a restart loses the id and falls back to bold `**/movie**`
+- `relabelOption` removed, along with its calls in `/recommend` and `/image`, since values aren't shown. `/recommend` keeps the small `genreNameFor` helper split out of `describeFilters`
+- No command definition changed
+
 ## 2.61.0 - 2026-10-10
 
 ### Added

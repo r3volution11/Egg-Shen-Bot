@@ -9,7 +9,6 @@ import { isTrueAdmin, isModerator } from '../utils/guildConfig.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import { matchupLabel } from '../utils/tournamentUI.js';
 import { deliverResult } from '../utils/interactionResponse.js';
-import { relabelOption } from '../utils/commandEcho.js';
 
 export const data = new SlashCommandBuilder()
   .setName('image')
@@ -382,9 +381,6 @@ async function generateVersusFromMatchup(interaction, matchupInput, customPrompt
     await interaction.editReply(`❌ ${error} Start typing in \`matchup:\` to pick from the list, or use: \`/image title1:"Movie A" title2:"Movie B"\``);
     return;
   }
-
-  // Autocomplete sent the matchup's id; echo the label people type ("2B").
-  relabelOption(interaction, 'matchup', matchupLabel(matchup.position, matchup.round));
 
   const firstTitle = matchup.movie1.title;
   const secondTitle = matchup.movie2.title;

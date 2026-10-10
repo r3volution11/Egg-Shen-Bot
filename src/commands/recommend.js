@@ -34,7 +34,6 @@ import {
   scoreCandidates,
 } from '../utils/recommendationEngine.js';
 import { titleHasGenre } from '../utils/genreCache.js';
-import { relabelOption } from '../utils/commandEcho.js';
 
 const RESULT_COUNT = 5;
 const AI_POOL_SIZE = 15;
@@ -454,10 +453,6 @@ export async function execute(interaction) {
 
     const genreName = genreId ? await genreNameFor(genreId) : null;
     const filterText = await describeFilters({ type, genreId, decade, personName, genreName });
-
-    // Autocomplete sent ids; the public echo should show what was picked.
-    relabelOption(interaction, 'genre', genreName);
-    relabelOption(interaction, 'director', personName);
 
     let result;
     if (source === 'most-watched') {
