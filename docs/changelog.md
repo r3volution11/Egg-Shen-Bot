@@ -9,6 +9,18 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.59.0 - 2026-10-10
+
+### Added
+- **`/random movie` and `/random tv` can pick from your streaming services.** A new `streaming` option takes one or more services, separated by commas, and only picks something that's on at least one of them: `/random movie genre:Horror streaming:Shudder, Tubi TV`. Start typing to see the services available in the server's streaming region, and picking one adds it to the list. A service includes its Amazon, Apple TV and Roku channel versions, so `Shudder` also finds what's on Shudder through Prime Video, and Peacock or Paramount+ cover every plan. A name the bot doesn't recognize is named back to you rather than quietly left out
+
+### Developer
+- `tmdbService`: `getWatchProviderList(type, region)` (TMDB's provider list, cached a day per type and region, since autocomplete fires per keystroke), `getStreamingServices` (providers grouped by name with the channel and tier suffix stripped, so new Amazon channels group without a hand-kept map), `resolveStreamingServices(type, region, text)` (exact name, else a unique prefix; returns `unknown` for anything else)
+- `discoverRandomMovie`/`discoverRandomTV` take `providerIds` + `region` → `with_watch_providers` (pipe = any) and `watch_region`. Measured: without `watch_region` TMDB ignores the provider filter entirely (Shudder: 20,001 results, the unfiltered count, vs 761 with US). `with_watch_monetization_types` is deliberately not sent: TMDB applies it to a title's offers on any service, not the requested ones
+- `random.js` gains `autocomplete()`; the option is on the `movie` and `tv` subcommands
+- `tests/random-streaming.test.js` (17), against a recorded subset of TMDB's real US provider list (`tests/fixtures/tmdb-watch-providers-movie-us.json`), including the suggestion fed back into the command
+- Command definition changed: run `deploy-commands`
+
 ## 2.58.2 - 2026-10-05
 
 ### Fixed

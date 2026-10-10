@@ -390,16 +390,19 @@ Generate AI images: freeform, from a Discord message, or a "versus" battle betwe
 Get random movie, TV show, episode, game, board game, or book with filters.
 
 **Subcommands:**
-- `/random movie` - Random movie with genre/decade/rating filters
-- `/random tv` - Random TV show with genre/decade/rating filters
+- `/random movie` - Random movie with genre/decade/rating/streaming filters
+- `/random tv` - Random TV show with genre/decade/rating/streaming filters
 - `/random episode` - Random episode from a specific show
 - `/random game` - Random video game with genre/platform/rating filters
 - `/random boardgame` - Random board game with category/rating filters
 - `/random book` - Random book with subject/decade/rating filters
 
+**Streaming filter:** `streaming` (movie and tv) limits the pick to titles on the services you name, in the server's streaming region (`/eggshen-config settings region`). Separate several with commas — `Shudder, Tubi` means on *either*. Start typing to see the services available. A service includes its Amazon, Apple TV and Roku channel versions, so `Shudder` also finds what's on Shudder through Prime Video.
+
 **Example:**
 ```
 /random movie genre:horror min-rating:7
+/random movie genre:horror streaming:Shudder, Tubi TV
 /random book subject:horror decade:1980s
 ```
 

@@ -36,6 +36,8 @@ jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
   sumEpisodeRuntimes: jest.fn(),
   getUnifiedMovieWatchProviders: jest.fn().mockResolvedValue(null),
   getUnifiedTVWatchProviders: jest.fn().mockResolvedValue(null),
+  getStreamingServices: jest.fn().mockResolvedValue([]),
+  resolveStreamingServices: jest.fn().mockResolvedValue({ services: [], ids: [], unknown: [] }),
   getEpisodeDetails: jest.fn().mockResolvedValue(null),
   searchEpisodeByName: jest.fn().mockResolvedValue(null),
   discoverRandomMovie: jest.fn().mockResolvedValue(null),

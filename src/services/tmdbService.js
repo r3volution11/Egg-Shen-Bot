@@ -372,6 +372,138 @@ async function pickRandomDiscoverResult(type, params) {
   return results[Math.floor(Math.random() * results.length)];
 }
 
+// ---------------------------------------------------------------------------
+// Streaming-service filter (/random movie|tv streaming:)
+// ---------------------------------------------------------------------------
+
+/**
+ * /discover params for "only titles on these services".
+ *
+ * `watch_region` is not optional in practice: without it TMDB ignores
+ * `with_watch_providers` entirely (measured: Shudder alone, 20,001 results
+ * without a region — the unfiltered count — vs 761 with US).
+ *
+ * Deliberately no `with_watch_monetization_types`: TMDB applies it to a
+ * title's offers on ANY service, not the ones asked for (Apple TV, a
+ * rent/buy store, still matched 241 "flatrate" 1980s horror films), so it
+ * can't express "streams on Shudder" and only muddies the filter.
+ */
+function watchProviderParams(filters) {
+  if (!filters.providerIds?.length) return {};
+  return {
+    with_watch_providers: filters.providerIds.join('|'), // pipe = on ANY of them
+    watch_region: filters.region || 'US',
+  };
+}
+
+// The same service is listed once per storefront: "Shudder", "Shudder Amazon
+// Channel", "Shudder Apple TV channel", plus tiers ("Peacock Premium",
+// "Peacock Premium Plus"). Asking for Shudder means all of them. Stripping
+// the suffix groups new channels without a hand-kept map like
+// normalizeProviders' — TMDB adds Amazon channels constantly, and even
+// misspells them ("Outside TV Features Amzon Channel").
+const CHANNEL_SUFFIX = /\s+(amazon|amzon|apple tv|roku premium)\s+channel$/i;
+const TIER_SUFFIX = /\s+(premium plus|premium|essential|standard with ads|free with ads|with ads)$/i;
+
+/** "Shudder Amazon Channel" → "Shudder"; "Peacock Premium Plus" → "Peacock" */
+export function streamingServiceLabel(providerName) {
+  return String(providerName).replace(/\s+/g, ' ').trim()
+    .replace(CHANNEL_SUFFIX, '')
+    .replace(TIER_SUFFIX, '')
+    .trim();
+}
+
+/** Comparison key: "Paramount+", "Paramount Plus" and "paramount plus" agree. */
+function serviceKey(name) {
+  return String(name).toLowerCase().replace(/\+/g, 'plus').replace(/[^a-z0-9]/g, '');
+}
+
+// type:region → { at, providers }. Autocomplete fires on every keystroke, so
+// this must not become a TMDB request per character. A day is plenty: the
+// list changes when TMDB adds a service, not by the minute.
+const providerListCache = new Map();
+const PROVIDER_LIST_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Forget cached provider lists (tests) */
+export function _resetProviderListCache() {
+  providerListCache.clear();
+}
+
+/**
+ * Every streaming service TMDB knows in a region.
+ * @returns {Promise<Array<{provider_id, provider_name, display_priority}>>} [] on failure
+ */
+export async function getWatchProviderList(type, region = 'US') {
+  const key = `${type}:${region}`;
+  const cached = providerListCache.get(key);
+  if (cached && Date.now() - cached.at < PROVIDER_LIST_TTL_MS) return cached.providers;
+
+  try {
+    const response = await tmdbApi.get(`/watch/providers/${type}`, {
+      params: { language: 'en-US', watch_region: region },
+    });
+    const providers = (response.data?.results || []).map(p => ({
+      provider_id: p.provider_id,
+      provider_name: p.provider_name,
+      display_priority: p.display_priorities?.[region] ?? p.display_priority ?? 999,
+    }));
+    providerListCache.set(key, { at: Date.now(), providers }); // a failure is not cached
+    return providers;
+  } catch (error) {
+    console.error(`TMDB ${type} watch provider list error:`, error.message);
+    return [];
+  }
+}
+
+/**
+ * The region's services grouped by name, most prominent first.
+ * @returns {Promise<Array<{label: string, key: string, ids: number[]}>>}
+ */
+export async function getStreamingServices(type, region = 'US') {
+  const groups = new Map();
+  const providers = [...await getWatchProviderList(type, region)]
+    .sort((a, b) => a.display_priority - b.display_priority);
+  for (const p of providers) {
+    const label = streamingServiceLabel(p.provider_name);
+    const key = serviceKey(label);
+    if (!key) continue;
+    // The first member seen is the most prominent, so it names the group
+    if (!groups.has(key)) groups.set(key, { label, key, ids: [] });
+    groups.get(key).ids.push(p.provider_id);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Turn "Shudder, Tubi" into provider IDs.
+ *
+ * A name matches its group exactly ("paramount+" = "Paramount Plus"), or
+ * failing that, the one group it begins ("Tubi" → "Tubi TV"). A prefix that
+ * fits several groups is unknown rather than a guess.
+ *
+ * @returns {Promise<{services: Array<{label, ids}>, ids: number[], unknown: string[]}>}
+ */
+export async function resolveStreamingServices(type, region, text) {
+  const names = String(text || '').split(',').map(s => s.trim()).filter(Boolean);
+  const all = await getStreamingServices(type, region);
+  const services = [];
+  const unknown = [];
+
+  for (const name of names) {
+    const key = serviceKey(streamingServiceLabel(name));
+    const prefixed = all.filter(s => key && s.key.startsWith(key));
+    const match = all.find(s => s.key === key) || (prefixed.length === 1 ? prefixed[0] : null);
+    if (!match) unknown.push(name);
+    else if (!services.includes(match)) services.push(match);
+  }
+
+  return {
+    services: services.map(({ label, ids }) => ({ label, ids })),
+    ids: [...new Set(services.flatMap(s => s.ids))],
+    unknown,
+  };
+}
+
 export async function discoverRandomMovie(filters = {}) {
   try {
     const params = {
@@ -399,6 +531,8 @@ export async function discoverRandomMovie(filters = {}) {
     if (filters.maxRating) {
       params['vote_average.lte'] = parseFloat(filters.maxRating);
     }
+
+    Object.assign(params, watchProviderParams(filters));
 
     return await pickRandomDiscoverResult('movie', params);
   } catch (error) {
@@ -442,6 +576,8 @@ export async function discoverRandomTV(filters = {}) {
     if (filters.maxRating) {
       params['vote_average.lte'] = parseFloat(filters.maxRating);
     }
+
+    Object.assign(params, watchProviderParams(filters));
 
     return await pickRandomDiscoverResult('tv', params);
   } catch (error) {

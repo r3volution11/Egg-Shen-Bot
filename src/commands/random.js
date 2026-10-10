@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { discoverRandomMovie, discoverRandomTV, getMovieDetails, getTVShowDetails, searchTVShows, getSeasonDetails, getUnifiedMovieWatchProviders, getUnifiedTVWatchProviders } from '../services/tmdbService.js';
+import { discoverRandomMovie, discoverRandomTV, getMovieDetails, getTVShowDetails, searchTVShows, getSeasonDetails, getUnifiedMovieWatchProviders, getUnifiedTVWatchProviders, getStreamingServices, resolveStreamingServices } from '../services/tmdbService.js';
 import { getOMDBData } from '../services/omdbService.js';
 import { getMovieRating, getShowRating } from '../services/traktService.js';
 import { getLetterboxdRating } from '../services/letterboxdService.js';
@@ -32,6 +32,36 @@ import { config } from '../config.js';
  */
 function isNoResultsError(error) {
   return /no games found/i.test(error?.message || '');
+}
+
+/** "Shudder", "Shudder or Tubi", "Shudder, Tubi or Hulu" */
+function orList(labels) {
+  return labels.length <= 1 ? (labels[0] || '') : `${labels.slice(0, -1).join(', ')} or ${labels.at(-1)}`;
+}
+
+/**
+ * Read the `streaming` option into discover filters.
+ *
+ * Every name has to resolve: dropping an unrecognised one would quietly
+ * widen "Shudder, Shuder" to just Shudder at best — and to no filter at all
+ * if it was the only one, handing back something on a service nobody has.
+ *
+ * @returns {Promise<{filters: object, label: string|null, error?: string}>}
+ */
+async function readStreamingFilter(interaction, type, region) {
+  const text = interaction.options.getString('streaming');
+  if (!text || !text.trim()) return { filters: {}, label: null };
+
+  const { services, ids, unknown } = await resolveStreamingServices(type, region, text);
+  if (unknown.length) {
+    const names = unknown.map(n => `"${n}"`).join(', ');
+    return {
+      filters: {},
+      label: null,
+      error: `❌ Couldn't find a streaming service called ${names} in ${region}. Start typing in the \`streaming\` option to see the services available, and separate several with commas.`,
+    };
+  }
+  return { filters: { providerIds: ids, region }, label: orList(services.map(s => s.label)) };
 }
 
 export const data = new SlashCommandBuilder()
@@ -88,6 +118,13 @@ export const data = new SlashCommandBuilder()
           .setDescription('Minimum rating (0-10)')
           .setRequired(false)
       )
+      .addStringOption(option =>
+        option
+          .setName('streaming')
+          .setDescription('Only titles on these services, comma-separated (e.g. Shudder, Tubi)')
+          .setRequired(false)
+          .setAutocomplete(true)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -135,6 +172,13 @@ export const data = new SlashCommandBuilder()
           .setName('min-rating')
           .setDescription('Minimum rating (0-10)')
           .setRequired(false)
+      )
+      .addStringOption(option =>
+        option
+          .setName('streaming')
+          .setDescription('Only titles on these services, comma-separated (e.g. Shudder, Tubi)')
+          .setRequired(false)
+          .setAutocomplete(true)
       )
   )
   .addSubcommand(subcommand =>
@@ -304,7 +348,15 @@ export async function execute(interaction) {
       const decade = interaction.options.getString('decade');
       const minRating = interaction.options.getString('min-rating');
 
-      const filters = {};
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+      const region = guildConfig.region || 'US';
+      const streaming = await readStreamingFilter(interaction, 'movie', region);
+      if (streaming.error) {
+        await interaction.editReply({ content: streaming.error });
+        return;
+      }
+
+      const filters = { ...streaming.filters };
       if (genre) filters.genre = genre;
       if (decade) filters.decade = decade;
       if (minRating) filters.minRating = minRating;
@@ -313,7 +365,9 @@ export async function execute(interaction) {
 
       if (!randomMovie) {
         await interaction.editReply({
-          content: 'Could not find a random movie with those filters. Try different options.',
+          content: streaming.label
+            ? `Could not find a random movie on ${streaming.label} with those filters. Try different options.`
+            : 'Could not find a random movie with those filters. Try different options.',
         });
         return;
       }
@@ -322,17 +376,15 @@ export async function execute(interaction) {
       const tmdb = await getMovieDetails(randomMovie.id);
       const imdbId = tmdb.external_ids?.imdb_id;
 
-      const [omdb, trakt, letterboxd, enabledServices, guildEmojis, guildConfig] = await Promise.all([
+      const [omdb, trakt, letterboxd, enabledServices, guildEmojis] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getMovieRating(imdbId) : null,
         imdbId ? getLetterboxdRating(imdbId) : null,
         getEnabledServices(interaction.guildId),
         getEmojis(interaction.guildId),
-        loadGuildConfig(interaction.guildId),
       ]);
 
       // Get watch providers (TMDB + Watchmode)
-      const region = guildConfig.region || 'US';
       const watchProviders = await getUnifiedMovieWatchProviders(randomMovie.id, imdbId, region);
 
       const urls = {
@@ -362,7 +414,15 @@ export async function execute(interaction) {
       const decade = interaction.options.getString('decade');
       const minRating = interaction.options.getString('min-rating');
 
-      const filters = {};
+      const guildConfig = await loadGuildConfig(interaction.guildId);
+      const region = guildConfig.region || 'US';
+      const streaming = await readStreamingFilter(interaction, 'tv', region);
+      if (streaming.error) {
+        await interaction.editReply({ content: streaming.error });
+        return;
+      }
+
+      const filters = { ...streaming.filters };
       if (genre) filters.genre = genre;
       if (decade) filters.decade = decade;
       if (minRating) filters.minRating = minRating;
@@ -371,7 +431,9 @@ export async function execute(interaction) {
 
       if (!randomTV) {
         await interaction.editReply({
-          content: 'Could not find a random TV show with those filters. Try different options.',
+          content: streaming.label
+            ? `Could not find a random TV show on ${streaming.label} with those filters. Try different options.`
+            : 'Could not find a random TV show with those filters. Try different options.',
         });
         return;
       }
@@ -380,16 +442,14 @@ export async function execute(interaction) {
       const tmdb = await getTVShowDetails(randomTV.id);
       const imdbId = tmdb.external_ids?.imdb_id;
 
-      const [omdb, trakt, enabledServices, guildEmojis, guildConfig] = await Promise.all([
+      const [omdb, trakt, enabledServices, guildEmojis] = await Promise.all([
         imdbId ? getOMDBData(imdbId) : null,
         imdbId ? getShowRating(imdbId) : null,
         getEnabledServices(interaction.guildId),
         getEmojis(interaction.guildId),
-        loadGuildConfig(interaction.guildId),
       ]);
 
       // Get watch providers (TMDB + Watchmode)
-      const region = guildConfig.region || 'US';
       const watchProviders = await getUnifiedTVWatchProviders(randomTV.id, imdbId, region);
 
       const urls = {
@@ -675,6 +735,45 @@ export async function execute(interaction) {
       content: 'An error occurred while getting random content. Please try again later.',
     });
   }
+}
+
+/**
+ * Suggestions for `streaming`. It holds a comma-separated list, so only the
+ * name after the last comma is being typed: suggest completions for that and
+ * keep what comes before it, so picking one extends the list rather than
+ * replacing it ("Shudder, tu" → "Shudder, Tubi TV").
+ */
+export async function autocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  if (focused.name !== 'streaming') return interaction.respond([]);
+
+  const type = interaction.options.getSubcommand() === 'tv' ? 'tv' : 'movie';
+  const guildConfig = await loadGuildConfig(interaction.guildId);
+  const services = await getStreamingServices(type, guildConfig.region || 'US');
+
+  const typed = String(focused.value || '');
+  const cut = typed.lastIndexOf(',');
+  const earlier = cut === -1 ? [] : typed.slice(0, cut).split(',').map(s => s.trim()).filter(Boolean);
+  const partial = (cut === -1 ? typed : typed.slice(cut + 1)).trim().toLowerCase();
+  const chosen = new Set(earlier.map(n => n.toLowerCase()));
+  const prefix = earlier.length ? `${earlier.join(', ')}, ` : '';
+
+  const matches = services
+    .filter(s => !chosen.has(s.label.toLowerCase()))
+    .filter(s => !partial || s.label.toLowerCase().includes(partial))
+    // Names starting with what's typed first, then TMDB's own prominence order
+    .sort((a, b) => Number(!a.label.toLowerCase().startsWith(partial)) - Number(!b.label.toLowerCase().startsWith(partial)));
+
+  // A choice's name and value are both capped at 100 characters. A cut-off
+  // value would submit a different list than the one shown, so a choice
+  // that doesn't fit is left out rather than truncated.
+  const choices = matches
+    .map(s => `${prefix}${s.label}`)
+    .filter(v => v.length <= 100)
+    .slice(0, 25)
+    .map(v => ({ name: v, value: v }));
+
+  return interaction.respond(choices);
 }
 
 // Helper function to handle random episode selection (called by selectHandler)

@@ -93,7 +93,7 @@ export async function execute(interaction) {
     value:
       '**🎲 /random** - Get random movie, TV, episode, game, board game, or book\n' +
       '**✨ /recommend** - Picks based on what this server watches\n' +
-      '**🔀 Filters:** genre, decade, rating, platform, etc.',
+      '**🔀 Filters:** genre, decade, rating, streaming service, platform, etc.',
     inline: false,
   });
 
