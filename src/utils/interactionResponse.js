@@ -13,6 +13,8 @@
  * posting a brand-new public one in the channel.
  */
 
+import { withCommandEcho } from './commandEcho.js';
+
 /**
  * Deliver a command's final response, respecting whether the user asked to
  * keep it private.
@@ -37,7 +39,9 @@ export async function deliverResult(interaction, response, isPrivate = false) {
     await interaction.message.delete().catch(() => {});
   }
 
-  await interaction.channel.send(response);
+  // A plain channel message loses Discord's "used /command" header — put
+  // our own back. See commandEcho.js.
+  await interaction.channel.send(withCommandEcho(interaction, response));
 }
 
 /**

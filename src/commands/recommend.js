@@ -34,6 +34,7 @@ import {
   scoreCandidates,
 } from '../utils/recommendationEngine.js';
 import { titleHasGenre } from '../utils/genreCache.js';
+import { relabelOption } from '../utils/commandEcho.js';
 
 const RESULT_COUNT = 5;
 const AI_POOL_SIZE = 15;
@@ -162,15 +163,17 @@ async function getPersonName(personId) {
 }
 
 /** Human-readable summary of the active filters, for the embed and the AI. */
-async function describeFilters({ type, genreId, decade, personName }) {
+async function genreNameFor(genreId) {
+  const lists = await Promise.all([getGenres('movie'), getGenres('tv')]);
+  const match = lists.flat().find(g => String(g.id) === String(genreId));
+  return match ? match.name : null;
+}
+
+async function describeFilters({ type, genreId, decade, personName, genreName }) {
   const parts = [];
   if (type) parts.push(type === 'tv' ? 'TV' : 'Movies');
 
-  if (genreId) {
-    const lists = await Promise.all([getGenres('movie'), getGenres('tv')]);
-    const match = lists.flat().find(g => String(g.id) === String(genreId));
-    parts.push(match ? match.name : 'Genre');
-  }
+  if (genreId) parts.push(genreName || 'Genre');
 
   if (decade) parts.push(`${decade}s`);
   if (personName) parts.push(personName);
@@ -449,7 +452,12 @@ export async function execute(interaction) {
       personName = await getPersonName(personId);
     }
 
-    const filterText = await describeFilters({ type, genreId, decade, personName });
+    const genreName = genreId ? await genreNameFor(genreId) : null;
+    const filterText = await describeFilters({ type, genreId, decade, personName, genreName });
+
+    // Autocomplete sent ids; the public echo should show what was picked.
+    relabelOption(interaction, 'genre', genreName);
+    relabelOption(interaction, 'director', personName);
 
     let result;
     if (source === 'most-watched') {

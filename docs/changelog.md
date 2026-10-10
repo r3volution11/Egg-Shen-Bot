@@ -9,6 +9,18 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.61.0 - 2026-10-10
+
+### Added
+- **Public results show the command that produced them.** A small grey line above the result says who ran what, options included, e.g. "@Doug used `/movie query:the thing`", so anyone watching can see how to do it themselves. This covers `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`, `/image`, `/recommend`, `/soundtrack`, `/watched`, `/eggshen-ask`, every "did you mean…?" picker selection, and the `/random` episode and `/similar` picker results. The mention never pings. Results kept `private:true` don't get the line. Options picked from a suggestion list show the name you picked (`director:Ridley Scott`, `matchup:2B`), not an internal ID
+
+### Developer
+- Why it was missing: these commands defer ephemeral and `deliverResult()` posts the public answer with `channel.send`, a plain message with no interaction attached, so Discord drew no "used /command" header. Commands that reply publicly through the interaction already had it and are unchanged
+- `src/utils/commandEcho.js`: `rememberCommand` (called in `index.js` before `execute`) records the command line by interaction id for 15 minutes. `withCommandEcho` stamps it onto a public response with `allowedMentions: { parse: [] }`. A picker selection finds its command through `message.interactionMetadata.id`. After a restart only the command name survives. The header is dropped rather than push content past 2000 characters
+- `relabelOption(interaction, name, display)` swaps an autocomplete id for a readable name; used by `/recommend genre`/`director` and `/image matchup`
+- `tests/command-echo.test.js` (9), including a real ambiguous `/movie` through its own picker into the real select handler
+- No command definition changed
+
 ## 2.60.0 - 2026-10-10
 
 ### Added

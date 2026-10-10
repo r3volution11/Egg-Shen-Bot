@@ -5,6 +5,7 @@ import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
 import { loadTimers, getTimerStatus, restoreTimerTimeouts } from './utils/timerManager.js';
 import * as logger from './utils/logger.js';
+import { rememberCommand } from './utils/commandEcho.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -237,6 +238,10 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
       
+      // Remembered before execute so a public result — even one delivered
+      // later from a picker — can say which command produced it.
+      rememberCommand(interaction);
+
       const startTime = Date.now();
       await command.execute(interaction);
       const duration = Date.now() - startTime;

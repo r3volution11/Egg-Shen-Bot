@@ -16,6 +16,7 @@ import { getEnabledServices, getEmojis, loadGuildConfig } from '../utils/guildCo
 import { canUseCommand } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
 import { config } from '../config.js';
+import { withCommandEcho } from '../utils/commandEcho.js';
 
 /**
  * Whether a RAWG discovery error means "nothing matched" rather than "the
@@ -821,9 +822,9 @@ export async function handleRandomEpisodeSelection(showId, interaction) {
     await interaction.message.delete().catch(() => {});
 
     // Post the result publicly
-    await interaction.channel.send({
+    await interaction.channel.send(withCommandEcho(interaction, {
       content: `🎲 **Random Episode:** ${showDetails.name} - S${randomSeason}E${randomEpisode.episode_number}: ${randomEpisode.name}\n\n${randomEpisode.overview || 'No description available.'}\n\nUse \`/episode show:${showDetails.name} episode:${randomEpisode.name}\` to see full details and ratings.`,
-    });
+    }));
   } catch (error) {
     console.error('Random episode selection error:', error);
     await interaction.followUp({

@@ -5,6 +5,7 @@ import { searchBoardGames } from '../services/bggService.js';
 import { loadGuildConfig } from '../utils/guildConfig.js';
 import { trackSearch } from '../utils/statsTracker.js';
 import { config } from '../config.js';
+import { withCommandEcho } from '../utils/commandEcho.js';
 
 export const data = new SlashCommandBuilder()
   .setName('similar')
@@ -317,7 +318,7 @@ export async function handleSimilarSelection(type, itemId, interaction) {
     await interaction.message.delete().catch(() => {});
 
     // Post the result publicly
-    await interaction.channel.send({ embeds: [embed] });
+    await interaction.channel.send(withCommandEcho(interaction, { embeds: [embed] }));
   } catch (error) {
     console.error('Similar selection error:', error);
     await interaction.followUp({
