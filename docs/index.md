@@ -47,7 +47,7 @@ features:
 
   - icon: 🎲
     title: Discover Something New
-    details: Can't decide? /random picks a movie, show, episode, game, board game, or book, filtered by genre, decade, rating, platform, or category. /similar finds titles like one you love, across every kind.
+    details: Can't decide? /random picks a movie, show, episode, game, board game, or book, filtered by genre, decade, rating, platform, or category, and for movies and shows, only from the streaming services you have. /similar finds titles like one you love, across every kind.
 
   - icon: 📅
     title: Event Requests
@@ -67,7 +67,7 @@ features:
 
   - icon: 🎪
     title: Social & Fun
-    details: Food fights, horror-movie fates, rescues and magic potions are games with points, a scoreboard and a monthly leaderboard. Polls with up to 10 options and live results, soundtrack search on iTunes and Spotify, and a rotating status of movie quotes your members can suggest.
+    details: Food fights, horror-movie fates, rescues and magic potions are games with points, a scoreboard and a monthly leaderboard. Polls with up to 10 options and live results that you can bring back down when they scroll away, soundtrack search on iTunes and Spotify, and a rotating status of movie quotes your members can suggest.
 
   - icon: 🛡️
     title: Moderation
@@ -239,7 +239,7 @@ Titles are validated against TMDB, RAWG, BoardGameGeek, and Google Books before 
 ### Smart Features
 
 **Random Picker**  
-Type `/random movie`, `/random tv`, or `/random book` to get random suggestions. Works with all content types: movies, TV shows, episodes, games, board games, and books. Filter by genre, decade, or minimum rating.
+Type `/random movie`, `/random tv`, or `/random book` to get random suggestions. Works with all content types: movies, TV shows, episodes, games, board games, and books. Filter by genre, decade, or minimum rating, and for movies and shows, by the streaming services you have: `/random movie genre:Horror streaming:Shudder, Tubi TV`.
 
 **Find Similar Content**  
 Type `/similar title:Alien` to find titles like one you love. It works for movies, TV shows, games, board games, and books; add `type:` when a title could be more than one.
@@ -302,7 +302,7 @@ Like the classic BBS door game: `/foodfight throw target:@Friend food:pie` lands
 
 ### Tournaments & Social
 - `/bracket` - Full tournament system: group stages, knockout brackets, wildcards, tiebreakers
-- `/survey create` / `list` / `results` / `close` / `delete` - Polls with up to 10 options, live results, and optional auto-close
+- `/survey create` / `list` / `results` / `voting-post` / `close` / `delete` - Polls with up to 10 options, live results, and optional auto-close; `voting-post` brings one back to the bottom of the channel
 - `/potion give` - Give magical potions to a member, a role, or @everyone (13 types: helpful & harmful)
 - `/potion responses` - Manage custom potion responses (admin/mod only)
 - 339 pop culture references from horror, comedy, fantasy, and games

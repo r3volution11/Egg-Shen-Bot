@@ -32,6 +32,9 @@ A: Yes. Pick a member, a role, or @everyone as the target. A role or @everyone s
 **Q: Can I turn off /potion, /foodfight, /doom or /rescue?**  
 A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`, `setting:doom`, `setting:rescue`). Admins and moderators can always use them. To keep the games to certain channels, or out of them, use `/eggshen-config-games channels` ([Games & Scores](./games#where-games-can-be-played)).
 
+**Q: The survey scrolled away. How do people find it?**  
+A: `/survey voting-post` posts it again at the bottom of the channel, with its buttons and the votes so far. The old card greys out and links to the new one.
+
 **Q: Can a survey close itself automatically?**  
 A: Yes! Set `duration:[minutes]` when creating it (`/survey create ... duration:120` for 2 hours). Without it, a survey stays open until someone runs `/survey close`.
 
@@ -149,6 +152,30 @@ Your Vote(s): 1️⃣ Horror
 ```
 
 The leader gets a 🏆 and a solid bar; everyone else gets a dimmer bar so the front-runner stands out at a glance. If the top spots are tied, no option is crowned.
+
+---
+
+### Post a Survey Again
+
+```
+/survey voting-post poll_id:[optional]
+```
+
+In a busy channel the survey scrolls up out of sight. This posts it again at the bottom, as a new message, with its vote buttons and the votes so far, so people can find it and see how it's going.
+
+**Parameters:**
+- `poll_id` (optional) - The survey to post. Leave it out when only one survey is open; with several open, start typing the question and pick one
+
+**How It Works:**
+- The new card is the survey from then on: votes on it update it, and it's the one that shows the final result when the survey closes
+- The old card greys out its buttons and gets a link down to the new one, so there's never an out-of-date count with working buttons left behind
+- Anyone who can use `/survey` can run it. Members can post the same survey once every 10 minutes per channel; the survey's creator and anyone who can manage the server, any time
+- Closed surveys can't be posted again; use `/survey results` to see how they ended. Very old surveys that were voted on with reactions can't move either, and you get a link to the original instead
+
+**Example:**
+```
+/survey voting-post
+```
 
 ---
 
