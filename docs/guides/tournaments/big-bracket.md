@@ -7,9 +7,9 @@ howto:
   totalTime: P10D
   steps:
     - name: Set it up from a spreadsheet
-      text: Run `/bracket setup-link`, open the link, choose a type, upload the [straight-bracket template](/templates/tournaments/straight-bracket.csv) with your 32 titles, check the matches and press **Create tournament**.
+      text: Run `/bracket-setup setup-link`, open the link, choose a type, upload the [straight-bracket template](/templates/tournaments/straight-bracket.csv) with your 32 titles, check the matches and press **Create tournament**.
     - name: Announce it
-      text: Run `/bracket announce`.
+      text: Run `/bracket-setup announce`.
     - name: Open the first four matchups
       text: Run `/bracket open matchups:4 duration:1d`. Round one has 16 matchups, and a ballot holds up to 5, so open it in parts.
     - name: Open the next four each day
@@ -44,7 +44,7 @@ The bracket is split into four regions, labelled `1A`–`1D`, `2A`–`2D`, and s
 
 ### Seeding
 
-By default the bracket is shuffled. To decide who meets whom, choose **Ordered** seeding in the setup form and put your titles in order. See [Seeded bracket](./seeded).
+By default the bracket is shuffled. To decide who meets whom, add `seeding:` to `/bracket-setup create`. **By rating** ranks the titles for you, and **The order I add them** follows your list. The setup form has the same choices. With 32 titles that's March Madness territory: 1 v 32 in round one, seeds shown on every matchup, and upsets called out. See [Seeded bracket](./seeded) and [Sports-style tournaments](./sports-styles#ncaa-march-madness).
 
 ## Related
 

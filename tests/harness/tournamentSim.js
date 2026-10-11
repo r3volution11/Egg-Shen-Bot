@@ -66,6 +66,7 @@ export async function loadSim() {
 
 async function importModules() {
   const bracket = await import(src('commands/bracket.js'));
+  const bracketSetup = await import(src('commands/bracket-setup.js'));
   const { handleButtonInteraction } = await import(src('handlers/buttonHandler.js'));
   const { handleSelectInteraction } = await import(src('handlers/selectHandler.js'));
   const bracketManager = await import(src('utils/bracketManager.js'));
@@ -74,7 +75,7 @@ async function importModules() {
   const watchlist = await import(src('utils/watchlistManager.js'));
   const tournamentImport = await import(src('utils/tournamentImport.js'));
   const tournamentUI = await import(src('utils/tournamentUI.js'));
-  const next = { bracket, handleButtonInteraction, handleSelectInteraction, bracketManager, scheduler, guildConfig, watchlist, tournamentImport, tournamentUI, Sim };
+  const next = { bracket, bracketSetup, commands: { bracket, 'bracket-setup': bracketSetup }, handleButtonInteraction, handleSelectInteraction, bracketManager, scheduler, guildConfig, watchlist, tournamentImport, tournamentUI, Sim };
   // Keep the same object, so everything holding `mods` sees the reload
   if (mods) Object.assign(mods, next);
   else mods = next;
@@ -171,7 +172,7 @@ export class Sim {
     const origError = console.error;
     console.error = (...args) => { errors.push(args.map(String).join(' ')); };
     try {
-      if (interaction.kind === 'command') await mods.bracket.execute(interaction);
+      if (interaction.kind === 'command') await mods.commands[interaction.commandName].execute(interaction);
       else if (interaction.kind === 'autocomplete') await mods.bracket.autocomplete(interaction);
       else if (interaction.kind === 'button') await mods.handleButtonInteraction(interaction);
       else if (interaction.kind === 'select') await mods.handleSelectInteraction(interaction);
@@ -207,10 +208,24 @@ export class Sim {
     throw new SimFailure(`[${this.guildId}] after "${label}":\n${message}`);
   }
 
-  /** /bracket <sub> as a user. Returns the interaction; .reply is its main response. */
+  /**
+   * A tournament subcommand as a user, on whichever command now has it:
+   * setup subcommands moved to /bracket-setup in 2.62.0, and routing here
+   * keeps every scenario written as `sim.bracket('admin', 'create')` working.
+   * Returns the interaction; .reply is its main response.
+   */
   async bracket(userId, subcommand, options = {}) {
-    const i = this.discord.command(userId, 'bracket', { subcommand, options });
-    await this.dispatch(i, `${userId}: /bracket ${subcommand} ${fmtOptions(options)}`);
+    const name = mods.bracket.SETUP_SUBCOMMANDS.includes(subcommand) ? 'bracket-setup' : 'bracket';
+    return this.command(userId, name, subcommand, options);
+  }
+
+  /** /<name> <sub> exactly as typed. Discord only sends subcommands the registered command has. */
+  async command(userId, name, subcommand, options = {}) {
+    const label = `${userId}: /${name} ${subcommand} ${fmtOptions(options)}`;
+    const known = mods.commands[name].data.toJSON().options.map(o => o.name);
+    if (!known.includes(subcommand)) this.fail(label, `/${name} has no "${subcommand}" subcommand (it has: ${known.join(', ')})`);
+    const i = this.discord.command(userId, name, { subcommand, options });
+    await this.dispatch(i, label);
     i.reply = i.replyMessage;
     return i;
   }

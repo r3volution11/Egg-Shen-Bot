@@ -13,13 +13,17 @@ faq:
   - q: Who can vote, and who can run the tournament?
     a: Everyone in the server can vote by pressing **Start Voting**. Only administrators and moderators can create, open, close or change a tournament.
   - q: What happens when a matchup ties?
-    a: The two titles get a tiebreaker vote, posted in the same channel. When it ends, the winner moves on. If the tiebreaker ties too, including when nobody votes in it, one of the two is picked at random.
+    a: The two titles get a tiebreaker vote, posted in the same channel. When it ends, the winner moves on. If the tiebreaker ties too, including when nobody votes in it, one of the two is picked at random. A seeded bracket can instead send ties straight to the higher seed. The creator picks this with `ties:Higher seed wins` (see [Seeded Bracket](/guides/tournaments/seeded)).
+  - q: What do the numbers in brackets next to titles mean?
+    a: They're seeds, as in "(1) Halloween". The tournament's creator chose a seeded bracket, ranked by rating or by their own order, so seed 1 is the favourite. When a lower seed wins, the result calls it an upset. See [Seeded Bracket](/guides/tournaments/seeded).
+  - q: Can I run it like March Madness, the NFL playoffs or the World Cup?
+    a: Close to it. Seeding, tie and size settings get you most of the way, and for some formats (the College Football Playoff and the 2026 World Cup) all the way. See [Sports-style tournaments](/guides/tournaments/sports-styles).
   - q: Why didn't the next round open?
     a: A round moves on only when every matchup in it has closed. If one is waiting on a tiebreaker, the next round opens after that. Run `/bracket status` to see what's still open.
   - q: How many titles can a tournament have?
     a: A straight bracket holds 2 to 32 titles. A groups tournament holds 16 to 48, in 4 to 12 groups of 4.
   - q: How do I set up a tournament with 16 titles?
-    a: 'There are two ways. **From a spreadsheet** (quickest for a list): run `/bracket setup-link`, fill in the [straight-bracket CSV](/templates/tournaments/straight-bracket.csv) with your 16 titles, upload it on the form, check the matches and create the tournament. See [set up from a spreadsheet](/guides/tournaments/from-a-spreadsheet). **With commands:** run `/bracket create name:"Movie Cup" max-titles:16`, then add each title with `/bracket manage-titles action:add type:movie title:Alien` (no `group` needed in a straight bracket). Either way, open voting with `/bracket open matchups:4`: the first round has 8 matchups and a ballot holds 5, so it opens in parts. Run `/bracket open matchups:4` again to close those four and open the other four. For 4 groups of 4 instead, see the [groups tournament guide](/guides/tournaments/groups).'
+    a: 'There are two ways. **From a spreadsheet** (quickest for a list): run `/bracket-setup setup-link`, fill in the [straight-bracket CSV](/templates/tournaments/straight-bracket.csv) with your 16 titles, upload it on the form, check the matches and create the tournament. See [set up from a spreadsheet](/guides/tournaments/from-a-spreadsheet). **With commands:** run `/bracket-setup create name:"Movie Cup" max-titles:16`, then add each title with `/bracket-setup manage-titles action:add type:movie title:Alien` (no `group` needed in a straight bracket). Either way, open voting with `/bracket open matchups:4`: the first round has 8 matchups and a ballot holds 5, so it opens in parts. Run `/bracket open matchups:4` again to close those four and open the other four. For 4 groups of 4 instead, see the [groups tournament guide](/guides/tournaments/groups).'
   - q: Can a tournament use TV shows, games, board games or books?
     a: Yes. A tournament holds one type of title. The first title you add sets it, or you choose it in the setup form.
   - q: How do I start over?

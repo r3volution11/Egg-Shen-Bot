@@ -5,22 +5,22 @@ description: Set up a whole tournament at once by uploading a CSV or JSON file, 
 
 # Setup Form & Templates
 
-Instead of adding titles one command at a time, you can set up a whole tournament on a web form: upload a CSV or JSON file, check the matches, and save. Every title goes through the same search `/bracket manage-titles` uses, so the result is exactly what you'd get by hand.
+Instead of adding titles one command at a time, you can set up a whole tournament on a web form: upload a CSV or JSON file, check the matches, and save. Every title goes through the same search `/bracket-setup manage-titles` uses, so the result is exactly what you'd get by hand.
 
 ## Getting started
 
-1. In Discord, run `/bracket setup-link` (administrators and moderators only). The bot replies privately with a link.
+1. In Discord, run `/bracket-setup setup-link` (administrators and moderators only). The bot replies privately with a link.
 2. Open the link. It works for **60 minutes** and only for your server. Anyone you give it to can change your tournament setup, so keep it to yourself.
 3. Choose the **type** (movies, TV shows, video games, board games or books).
 4. Upload a CSV or JSON file, or add titles by hand. Download a template below to start from.
 5. Press **Find matches**. Each title shows the poster and year it matched. If a title has several matches (remakes, sequels, common names), pick the right one from its menu. If nothing was found, fix the spelling and press **Find matches** again.
 6. Fill in the name and any settings, then press **Create tournament**.
-7. Back in Discord, run `/bracket announce`, then `/bracket open` to start voting.
+7. Back in Discord, run `/bracket-setup announce`, then `/bracket open` to start voting.
 
-Until voting opens, run `/bracket setup-link` again to reopen the form with everything filled in. Saving replaces the lineup; the form lists any titles that will be removed and asks first. Once voting has started, the form is read-only, but it can still download a backup.
+Until voting opens, run `/bracket-setup setup-link` again to reopen the form with everything filled in. Saving replaces the lineup; the form lists any titles that will be removed and asks first. Once voting has started, the form is read-only, but it can still download a backup.
 
 ::: tip Self-hosting
-The link uses this server's [bot URL](../configuration#bot-url) if one is set, otherwise the bot's `PUBLIC_BOT_URL`: the address the bot's web server is reachable at. If neither is set, `/bracket setup-link` tells you so instead of posting a broken link.
+The link uses this server's [bot URL](../configuration#bot-url) if one is set, otherwise the bot's `PUBLIC_BOT_URL`: the address the bot's web server is reachable at. If neither is set, `/bracket-setup setup-link` tells you so instead of posting a broken link.
 
 Behind nginx or another reverse proxy, forward the form's two paths to the bot, next to your existing `/api/` block. Without them the proxy serves your website's own page instead, and the form never loads:
 
@@ -57,7 +57,7 @@ One row per title, with a header row. Only `title` is required. Filling in `grou
 
 | Column | Required | What it does |
 | --- | --- | --- |
-| `title` | Yes | The search text, as you'd type it into `/bracket manage-titles`. A year on the end, like "The Thing (1982)", is moved into `year` for you. |
+| `title` | Yes | The search text, as you'd type it into `/bracket-setup manage-titles`. A year on the end, like "The Thing (1982)", is moved into `year` for you. |
 | `year` | No, but recommended | Picks the right release when there are remakes or sequels. With a year, most rows match with no picking. |
 | `group` | Groups only | A letter A to L. Leave it empty in a straight bracket. In a groups tournament, an empty cell goes into the first group with room. |
 | `id` | No | The title's id in its database: TMDB for movies and TV, RAWG for games, BoardGameGeek for board games, Google Books for books. Skips the search. Backups fill it in. |
@@ -78,7 +78,7 @@ A JSON file holds the same titles plus the settings, so one file can recreate a 
 | `seeding` | No | `ordered` or `random` (the default). See [Seeding](#seeding). |
 | `votingDuration` | No | How long a round stays open when `/bracket open` is run without a `duration`, like `"24h"` or `"3d"`. 5m to 30d. Default `"24h"`. |
 | `tiebreakerDuration` | No | How long a tiebreaker vote runs. 5m to 7d. Default `"1h"`. |
-| `announcement` | No | `{ "message": "...", "imageUrl": "..." }`. Used by `/bracket announce` when you don't type a message or attach an image there. Message up to 1000 characters. |
+| `announcement` | No | `{ "message": "...", "imageUrl": "..." }`. Used by `/bracket-setup announce` when you don't type a message or attach an image there. Message up to 1000 characters. |
 | `titles` | Yes | A list of `{ "title", "year", "group", "id", "imageUrl" }`, the same as the CSV columns. |
 
 Unknown fields are errors too. The voting channel isn't in the file, because channels belong to one server: voting happens in whichever channel you run `/bracket open` in.
@@ -93,7 +93,7 @@ These are the rules `/bracket` always enforces. The form checks them all before 
 | Groups | None | Letters from A with no gaps, exactly 4 titles each |
 | Bracket size | The next power of two up from the title count | Set by how the groups finish |
 | Byes | One per empty slot: 12 titles make a 16-slot bracket with 4 byes | Go to group winners |
-| Seeding | Ordered or Random | Doesn't apply |
+| Seeding | Random, Ordered or By rating | Doesn't apply |
 
 Every tournament also needs one type throughout, and no title twice. Two releases with different years are different titles.
 
@@ -101,8 +101,13 @@ Every tournament also needs one type throughout, and no title twice. Two release
 
 Seeding decides who plays whom in the first round of a straight bracket.
 
-- **Random** shuffles the titles when the bracket is built. This is the default, and how tournaments set up with commands work.
+- **Random** shuffles the titles when the bracket is built. This is the default.
 - **Ordered** treats your list as the seed order: the first title is seed 1. Round one pairs the best seed with the worst (1 v 8, 2 v 7, and so on), and seeds 1 and 2 go in opposite halves, so they can only meet in the final. Byes go to the top seeds. On the form, reorder titles with the ↑ ↓ buttons.
+- **By rating** (`"rating"` in a file) ranks the titles by their rating, best first. Titles with no rating go last, in list order.
+
+With Ordered or By rating, Discord shows each title's seed, for example "(1) Halloween", and calls out upsets.
+
+**Ties** decides what a tied matchup does. **Runoff vote** (`"runoff"`, the default) posts a short tiebreaker vote. **Higher seed wins** (`"higher-seed"`) sends the better seed through at once. It needs Ordered or By rating seeding; with Random, ties always get a runoff.
 
 In a groups tournament, the file only decides which group each title is in. The knockout is seeded from the group results.
 
@@ -119,5 +124,5 @@ Problems are shown next to the row they belong to, all at once, and each can be 
 | A group isn't exactly 4, or a letter is skipped | Move or add titles so every group from A onward has 4. |
 | Too many titles for a straight bracket | Remove titles, or give them group letters to make a groups tournament. |
 | Unknown column or field | Fix the name; the file isn't read until it's fixed. |
-| "This link has expired" | Run `/bracket setup-link` again. Nothing you saved is lost. |
+| "This link has expired" | Run `/bracket-setup setup-link` again. Nothing you saved is lost. |
 | Voting has started | The lineup can't change any more. The form can still download a backup. |

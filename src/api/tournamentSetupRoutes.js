@@ -1,11 +1,11 @@
 /**
- * The tournament setup form: the page `/bracket setup-link` points to, and the
+ * The tournament setup form: the page `/bracket-setup setup-link` points to, and the
  * API behind it. Kept out of server.js, which was already long.
  *
  * Every request carries the link's token (`?token=` for the page, the
  * `X-Setup-Token` header for the API) and is re-verified; the guild comes
  * from the token, never from the request. Title lookups go through
- * tournamentImport → bracketTitles, the same path `/bracket manage-titles`
+ * tournamentImport → bracketTitles, the same path `/bracket-setup manage-titles`
  * uses. See tournamentImport.js for the format itself.
  */
 
@@ -89,8 +89,8 @@ export function registerTournamentSetupRoutes(app, client) {
     const result = verifySetupToken(req.get('X-Setup-Token'));
     if (!result.valid) {
       const message = result.reason === 'expired'
-        ? 'This setup link has expired. Run /bracket setup-link in Discord for a new one.'
-        : 'This setup link is not valid. Run /bracket setup-link in Discord for a new one.';
+        ? 'This setup link has expired. Run /bracket-setup setup-link in Discord for a new one.'
+        : 'This setup link is not valid. Run /bracket-setup setup-link in Discord for a new one.';
       return res.status(403).json({ error: message });
     }
     req.setup = { guildId: result.guildId, userId: result.userId, exp: result.exp };
@@ -116,8 +116,8 @@ export function registerTournamentSetupRoutes(app, client) {
     if (!result.valid) {
       return res.status(403).type('text/plain').send(
         result.reason === 'expired'
-          ? 'This setup link has expired. Run /bracket setup-link in Discord for a new one.'
-          : 'This setup link is not valid. Run /bracket setup-link in Discord for a new one.'
+          ? 'This setup link has expired. Run /bracket-setup setup-link in Discord for a new one.'
+          : 'This setup link is not valid. Run /bracket-setup setup-link in Discord for a new one.'
       );
     }
     try {
@@ -163,6 +163,7 @@ export function registerTournamentSetupRoutes(app, client) {
           name: exported.name,
           type: exported.type,
           seeding: exported.seeding,
+          ties: exported.ties,
           votingDuration: exported.votingDuration,
           tiebreakerDuration: exported.tiebreakerDuration,
           announcement: exported.announcement,
@@ -272,6 +273,7 @@ export function registerTournamentSetupRoutes(app, client) {
         name: typeof settings.name === 'string' ? settings.name : '',
         type,
         seeding: settings.seeding,
+        ties: settings.ties,
         votingDuration: settings.votingDuration || undefined,
         tiebreakerDuration: settings.tiebreakerDuration || undefined,
         announcement: settings.announcement,

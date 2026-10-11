@@ -185,7 +185,7 @@ Start typing in `matchup:` to pick from this tournament's matchups, voting ones 
 - No wildcards needed
 - Knockout starts at the Quarterfinals
 
-`/bracket create` makes groups tournaments of 9–12 groups; use `/bracket resize groups:4` during setup to shrink one, or set it up with the [setup form](./import).
+`/bracket-setup create` makes groups tournaments of 9–12 groups; use `/bracket-setup resize groups:4` during setup to shrink one, or set it up with the [setup form](./import).
 
 **Tips:**
 - Open all groups at once.

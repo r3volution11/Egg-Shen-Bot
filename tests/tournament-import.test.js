@@ -286,6 +286,65 @@ describe('Ordered seeding', () => {
   });
 });
 
+describe('Rating seeding and ties', () => {
+  function firstRound(tournament) {
+    return tournament.knockoutBracket
+      .filter(m => m.round === tournament.phase)
+      .sort((a, b) => a.position - b.position)
+      .map(m => [m.movie1?.title ?? null, m.movie2?.title ?? null]);
+  }
+
+  test('rating: best-rated is seed 1; unrated titles go last in list order', () => {
+    // Film 1-8 rated so the ranking reverses the list, except Film 3 and 6 unrated
+    const rows = entries(8);
+    const ratings = [5.1, 5.2, null, 5.4, 5.5, 0, 5.7, 5.8];
+    rows.forEach((r, i) => { r.entry.metadata = { vote_average: ratings[i] }; });
+    imp.saveImportedTournament(GUILD_ID, { settings: { ...SETTINGS, seeding: 'rating' }, rows, creatorId: 'u1' });
+    const t = bracketManager.generateKnockoutBracket(GUILD_ID).tournament;
+    // Seeds: 1 Film 8, 2 Film 7, 3 Film 5, 4 Film 4, 5 Film 2, 6 Film 1, 7 Film 3, 8 Film 6
+    expect(firstRound(t)).toEqual([
+      ['Film 8', 'Film 6'], ['Film 4', 'Film 2'], ['Film 7', 'Film 3'], ['Film 5', 'Film 1'],
+    ]);
+    expect(t.knockoutBracket.find(m => m.movie1?.title === 'Film 8').movie1.seed).toBe(1);
+  });
+
+  test('titleRating reads each type\'s own field', () => {
+    const r = (type, metadata) => bracketManager.titleRating({ type, metadata });
+    expect(r('movie', { vote_average: 7.4 })).toBe(7.4);
+    expect(r('tv', { vote_average: 0 })).toBeNull();
+    expect(r('game', { rating: 4.2 })).toBe(4.2);
+    expect(r('book', { averageRating: 3.9 })).toBe(3.9);
+    expect(r('boardgame', { bggRating: 7.1 })).toBe(7.1);
+    expect(r('boardgame', {})).toBeNull();
+  });
+
+  test('random brackets carry no seeds, and their tie rule is always runoff', () => {
+    imp.saveImportedTournament(GUILD_ID, { settings: { ...SETTINGS, ties: 'higher-seed' }, rows: entries(8), creatorId: 'u1' });
+    const t = bracketManager.generateKnockoutBracket(GUILD_ID).tournament;
+    expect(t.knockoutBracket.some(m => m.movie1?.seed || m.movie2?.seed)).toBe(false);
+    expect(bracketManager.getTieRule(t)).toBe('runoff');
+  });
+
+  test('a tournament saved before these options reads as random seeding with runoff ties', () => {
+    expect(bracketManager.getSeedingMode({})).toBe('random');
+    expect(bracketManager.getTieRule({})).toBe('runoff');
+    expect(bracketManager.getTieRule({ seeding: 'ordered' })).toBe('runoff');
+  });
+
+  test('ties are validated, and rating + higher-seed survive an export round trip', () => {
+    const bad = imp.validateSettings({ name: 'X', type: 'movie', ties: 'coin' }, { forSave: true });
+    expect(bad.map(e => e.field)).toEqual(['ties']);
+    expect(bad[0].message).toContain('higher-seed');
+
+    imp.saveImportedTournament(GUILD_ID, { settings: { ...SETTINGS, seeding: 'rating', ties: 'higher-seed' }, rows: entries(4), creatorId: 'u1' });
+    const exported = imp.buildExport(bracketManager.loadTournament(GUILD_ID));
+    expect(exported).toMatchObject({ seeding: 'rating', ties: 'higher-seed' });
+    const parsed = imp.parseImportFile(JSON.stringify(exported));
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.settings).toMatchObject({ seeding: 'rating', ties: 'higher-seed' });
+  });
+});
+
 // ─── saving ───────────────────────────────────────────────────────────────────
 
 describe('saveImportedTournament', () => {

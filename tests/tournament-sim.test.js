@@ -41,7 +41,7 @@ const HORROR_8 = [
 ];
 
 describe('movie night: 8 movies, whole rounds, run by the scheduler', () => {
-  test('from /bracket create to a champion on the watchlist', async () => {
+  test('from /bracket-setup create to a champion on the watchlist', async () => {
     const sim = new Sim('sim-movie-night');
     await sim.configure(c => { c.watchlist = { ...(c.watchlist || {}), autoAddChampion: true }; });
 
@@ -498,6 +498,36 @@ describe('who can do what', () => {
   });
 });
 
+describe('/bracket-setup (split out of /bracket in 2.62.0)', () => {
+  test('a tournament set up under its real name runs on /bracket', async () => {
+    const sim = new Sim('sim-setup-command');
+    await sim.command('admin', 'bracket-setup', 'create', { name: 'Split Decision', 'max-titles': 4, seeding: 'ordered' });
+    for (const [title, year] of HORROR_8.slice(0, 4)) await sim.addTitle('movie', title, year);
+    expect(sim.titleCount()).toBe(4);
+    await sim.command('admin', 'bracket', 'open', { duration: '1d' });
+    expect(sim.openMatchups().map(m => [m.movie1.seed, m.movie2.seed])).toEqual([[1, 4], [2, 3]]);
+  });
+
+  test('members are refused, and the server toggle turns it off with /bracket', async () => {
+    const sim = new Sim('sim-setup-gate');
+    // Discord hides it from members without Moderate Members (admins see all)
+    expect(mods.bracketSetup.data.toJSON().default_member_permissions).toBe((1n << 40n).toString());
+    const denied = await sim.command('voter1', 'bracket-setup', 'create', { name: 'Not Mine' });
+    expect(denied.reply.text).toMatch(/administrators and moderators/i);
+    expect(sim.tournament()).toBeFalsy();
+
+    // Defaults leave /bracket on; turning it off for members turns off both
+    await sim.configure(cfg => { cfg.commandPermissions.bracket = false; });
+    const off = await sim.command('voter1', 'bracket-setup', 'setup-link');
+    expect(off.reply.text).toContain('`/bracket-setup` command is currently disabled');
+  });
+
+  test('Discord never sends a setup subcommand to /bracket any more', async () => {
+    const sim = new Sim('sim-setup-moved');
+    await expect(sim.command('admin', 'bracket', 'create', { name: 'Old Habits' })).rejects.toThrow(/no "create" subcommand/);
+  });
+});
+
 describe('the smallest bracket', () => {
   test('2 titles: one matchup, and its winner is champion', async () => {
     const sim = new Sim('sim-two');
@@ -775,6 +805,94 @@ describe('seeding and the setup form', () => {
       await sim.passDeadlines();
     }
     expect(sim.tournament().status).toBe('completed');
+  });
+});
+
+describe('seeding options: by rating, visible seeds, ties to the higher seed', () => {
+  const split = (m, voter) => (['voter1', 'voter2'].includes(voter) ? 1 : 2);
+  const tiebreakerPosts = (sim) => sim.channel.posted.filter(m => m.allComponents.some(c => (c.customId || '').startsWith('tiebreaker_vote_')));
+
+  async function seededBracket(sim, name, options) {
+    await sim.bracket('admin', 'create', { name, 'max-titles': 8, ...options });
+    for (const [title, year] of HORROR_8) await sim.addTitle('movie', title, year);
+  }
+
+  test('/bracket-setup create seeding:rating seeds by the recorded TMDB ratings and shows them', async () => {
+    const sim = new Sim('sim-seed-rating');
+    await seededBracket(sim, 'Rated', { seeding: 'rating' });
+    const byRating = [...sim.tournament().titles]
+      .sort((a, b) => mods.bracketManager.titleRating(b) - mods.bracketManager.titleRating(a))
+      .map(t => t.title);
+    expect(sim.tournament().titles.every(t => mods.bracketManager.titleRating(t) > 0)).toBe(true);
+    // The ranking isn't just the order they were added, or this proves nothing
+    expect(byRating).not.toEqual(HORROR_8.map(r => r[0]));
+
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const seed = (n) => byRating[n - 1];
+    expect(sim.openMatchups().map(m => [m.movie1.title, m.movie2.title]))
+      .toEqual([[seed(1), seed(8)], [seed(4), seed(5)], [seed(2), seed(7)], [seed(3), seed(6)]]);
+    // Voters see the seeds on their ballot
+    const ballot = await sim.openBallot('voter1');
+    expect(ballot.allComponents.map(c => c.label).join('\n')).toContain(`(1) ${seed(1)}`);
+  });
+
+  test('ties:higher-seed — a tie goes straight to the better seed, which keeps its seed', async () => {
+    const sim = new Sim('sim-seed-tie', { voters: 4 });
+    await seededBracket(sim, 'Chalk', { seeding: 'ordered', ties: 'higher-seed' });
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const [tied] = sim.openMatchups();
+    expect([tied.movie1.seed, tied.movie2.seed]).toEqual([1, 8]);
+    await sim.everyoneVotes((m, v) => (m.id === tied.id ? split(m, v) : favorite(m)));
+    await sim.passDeadlines();
+
+    expect(tiebreakerPosts(sim)).toHaveLength(0);
+    const t = sim.tournament();
+    const decided = t.knockoutBracket.find(m => m.id === tied.id);
+    expect(decided.winner.title).toBe(HORROR_8[0][0]);
+    expect(t.knockoutResults[tied.id]).toMatchObject({ wasTie: true, decidedBy: 'seed' });
+    expect(sim.channelText()).toContain('Tied 2–2: the higher seed advances.');
+    // Seed 1 carries its seed into the semifinal
+    const semi = t.knockoutBracket.find(m => m.round === 'semifinals' && m.movie1?.title === HORROR_8[0][0]);
+    expect(semi.movie1.seed).toBe(1);
+  });
+
+  test('a worse seed winning is called out as an upset', async () => {
+    const sim = new Sim('sim-seed-upset');
+    await seededBracket(sim, 'Cinderella', { seeding: 'ordered' });
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const [first] = sim.openMatchups();
+    await sim.everyoneVotes((m) => (m.id === first.id ? 2 : 1));
+    await sim.passDeadlines();
+    expect(sim.channelText()).toContain('🚨 Upset! (8) knocks out (1)');
+    expect(sim.channelText()).not.toContain('(5) knocks out (4)'); // the favourites won elsewhere
+  });
+
+  test('with random seeding, higher-seed ties still get a runoff and no seeds are shown', async () => {
+    const sim = new Sim('sim-seed-random-tie', { voters: 4 });
+    await seededBracket(sim, 'Lottery', { ties: 'higher-seed' });
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const [tied] = sim.openMatchups();
+    await sim.everyoneVotes((m, v) => (m.id === tied.id ? split(m, v) : favorite(m)));
+    await sim.passDeadlines();
+    expect(tiebreakerPosts(sim)).toHaveLength(1);
+    expect(sim.channelText()).not.toMatch(/\(\d\) /);
+  });
+
+  test('a tournament saved before seeding options runs exactly as before: runoff, no seeds', async () => {
+    const sim = new Sim('sim-seed-legacy', { voters: 4 });
+    await straightBracket(sim, 'Old Timer', 8, 'movie', HORROR_8);
+    // Strip what this release added, as in a file written by an older version
+    const t = sim.tournament();
+    delete t.seeding;
+    delete t.ties;
+    mods.bracketManager.saveTournament(sim.guildId, t);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const [tied] = sim.openMatchups();
+    await sim.everyoneVotes((m, v) => (m.id === tied.id ? split(m, v) : favorite(m)));
+    await sim.passDeadlines();
+    expect(tiebreakerPosts(sim)).toHaveLength(1);
+    expect(sim.channelText()).not.toMatch(/\(\d\) /);
+    expect(sim.channelText()).not.toContain('Upset');
   });
 });
 

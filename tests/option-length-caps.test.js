@@ -6,7 +6,7 @@
  * title at 256 and a description at 4096, and discord.js throws when you
  * exceed one. Where that build happens inside a background scheduler, the
  * throw is swallowed by an outer try/catch and the feature silently stops —
- * `/bracket create` with a long name made group voting never auto-close, with
+ * `/bracket-setup create` with a long name made group voting never auto-close, with
  * only a console.error to show for it.
  *
  * An option cap alone isn't enough, because it only governs NEW input. Values
@@ -48,11 +48,11 @@ jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
   getBackdropUrl: jest.fn(() => null),
 }));
 
-let bracketData, watchlistData, noteForDisplay;
+let bracketSetupData, watchlistData, noteForDisplay;
 let saveTournament, loadTournament, MAX_TOURNAMENT_NAME_LENGTH;
 
 beforeAll(async () => {
-  ({ data: bracketData } = await import('../src/commands/bracket.js'));
+  ({ data: bracketSetupData } = await import('../src/commands/bracket-setup.js'));
   ({ data: watchlistData, noteForDisplay } = await import('../src/commands/watchlist.js'));
   ({ saveTournament, loadTournament, MAX_TOURNAMENT_NAME_LENGTH } =
     await import('../src/utils/bracketManager.js'));
@@ -71,19 +71,19 @@ describe('free-text options that land in an embed are capped', () => {
   // Each of these is interpolated into an embed title or description. Without
   // a cap, a long enough value makes the embed fail to build.
   test.each([
-    ['bracket', 'create', 'name', 100],
-    ['bracket', 'edit-name', 'name', 100],
-    ['bracket', 'announce', 'message', 1000],
+    ['bracket-setup', 'create', 'name', 100],
+    ['bracket-setup', 'edit-name', 'name', 100],
+    ['bracket-setup', 'announce', 'message', 1000],
     ['watchlist', 'add', 'note', 200],
   ])('/%s %s %s is capped at %i', (command, sub, opt, expected) => {
-    const data = command === 'bracket' ? bracketData : watchlistData;
+    const data = command === 'bracket-setup' ? bracketSetupData : watchlistData;
 
     expect(option(data, sub, opt).max_length).toBe(expected);
   });
 
   test('a capped tournament name still fits an embed title with its prefix', () => {
     // The longest prefix is tournamentScheduler's "📊 Group A Results - ".
-    const cap = option(bracketData, 'create', 'name').max_length;
+    const cap = option(bracketSetupData, 'create', 'name').max_length;
     const longestPrefix = '📊 Group A Results - ';
 
     expect(longestPrefix.length + cap).toBeLessThanOrEqual(256);

@@ -302,7 +302,7 @@ describe('/bracket resolve-tiebreaker', () => {
 // success/error paths), not just the underlying bracketManager functions
 // (which is what already-passing tests/bracketManager.test.js covers).
 
-describe('/bracket resize', () => {
+describe('/bracket-setup resize', () => {
   test('non-admin, non-mod is rejected', async () => {
     setupGroupTournament();
     const interaction = createMockInteraction({
@@ -347,7 +347,7 @@ describe('/bracket resize', () => {
   });
 });
 
-describe('/bracket edit-name', () => {
+describe('/bracket-setup edit-name', () => {
   test('non-admin, non-mod is rejected', async () => {
     bracketManager.createTournament(GUILD_ID, 'Original Name', 'admin-1', 36);
 

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { setTitleThumbnail, matchupLabel, createRankedBar, formatStandingsMatchup } from '../utils/tournamentUI.js';
+import { setTitleThumbnail, matchupLabel, createRankedBar, formatStandingsMatchup, seededTitle, knockoutOutcome } from '../utils/tournamentUI.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, completeEntry, getTypeLabel } from '../utils/bracketTitles.js';
@@ -10,10 +10,13 @@ import { loadGuildConfig, isAdmin, canUseCommand, getPublicBotUrl } from '../uti
 import { config } from '../config.js';
 import { closeMatchupsNow, afterKnockoutDecided } from '../utils/tournamentScheduler.js';
 
-const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+export const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
 // Subcommands only admins and moderators can run. Exported so /eggshen-ask
 // can say when an answer needs one, from the same list that enforces it.
+// The ones that moved to /bracket-setup in 2.62.0 (see bracket-setup.js);
+// they still run through execute() below, gate and all.
+export const SETUP_SUBCOMMANDS = ['create', 'setup-link', 'manage-titles', 'resize', 'edit-name', 'announce'];
 export const ADMIN_SUBCOMMANDS = ['create', 'setup-link', 'manage-titles', 'resize', 'edit-name', 'announce', 'open', 'close', 'open-groups', 'close-groups', 'regenerate', 'resolve-tiebreaker', 'open-matchup', 'close-matchup', 'extend-voting', 'cancel'];
 
 // Temporary storage for custom images during selection process
@@ -153,9 +156,7 @@ async function closeEarlierMatchups(interaction, keepIds = []) {
     const m = tournament.knockoutBracket.find(x => x.id === c.id);
     const label = getRegionalLabel(m.position, m.round);
     if (c.tied) return `${label}: tied — tiebreaker vote posted`;
-    const high = Math.max(c.votes1, c.votes2);
-    const low = Math.min(c.votes1, c.votes2);
-    return `${label}: **${c.winner?.title}** wins ${high}–${low}`;
+    return `${label}: ${knockoutOutcome(c.winner, c.votes1, c.votes2, c.decidedBy)}`;
   });
   return `🔒 Voting closed on the earlier matchup${closed.length === 1 ? '' : 's'}:\n${lines.join('\n')}`;
 }
@@ -209,141 +210,6 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('help')
       .setDescription('📖 View tournament guide and command overview')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('create')
-      .setDescription('Create a new tournament (Admin/Mod only)')
-      .addStringOption(option =>
-        option
-          .setName('name')
-          .setDescription('Tournament name (e.g., "The Ultimate Horror Cup")')
-          .setRequired(true)
-          // The name is interpolated into embed titles, which Discord caps at
-          // 256 — and the longest of those prefixes it with "📊 Group A
-          // Results - ". Without a cap, an over-long name makes .setTitle()
-          // throw inside tournamentScheduler's auto-close, where the outer
-          // try/catch swallows it and group voting silently never closes.
-          .setMaxLength(100)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('max-titles')
-          .setDescription('Max titles (2-32: bracket, 36-48: groups)')
-          .setRequired(false)
-          .addChoices(
-            { name: '2 titles (Finals only)', value: 2 },
-            { name: '4 titles (Semifinals)', value: 4 },
-            { name: '8 titles (Quarterfinals)', value: 8 },
-            { name: '16 titles (Round of 16)', value: 16 },
-            { name: '32 titles (Round of 32)', value: 32 },
-            { name: '36 titles (9 groups)', value: 36 },
-            { name: '40 titles (10 groups)', value: 40 },
-            { name: '44 titles (11 groups)', value: 44 },
-            { name: '48 titles (12 groups)', value: 48 }
-          )
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('setup-link')
-      .setDescription('Private link to set up the tournament on the web, from a CSV/JSON file (Admin/Mod only)')
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('manage-titles')
-      .setDescription('Add or remove titles from groups (Admin/Mod only)')
-      .addStringOption(option =>
-        option
-          .setName('action')
-          .setDescription('Action to perform')
-          .setRequired(true)
-          .addChoices(
-            { name: 'Add Title', value: 'add' },
-            { name: 'Remove Title', value: 'remove' }
-          )
-      )
-      .addStringOption(option =>
-        option
-          .setName('group')
-          .setDescription('Group letter (auto-assigned in bracket mode)')
-          .setRequired(false)
-          .addChoices(...GROUP_LETTERS.map(letter => ({ name: `Group ${letter}`, value: letter })))
-      )
-      .addStringOption(option =>
-        option
-          .setName('type')
-          .setDescription('Tournament type (required for adding)')
-          .setRequired(false)
-          .addChoices(
-            { name: 'Movies', value: 'movie' },
-            { name: 'TV Shows', value: 'tv' },
-            { name: 'Video Games', value: 'game' },
-            { name: 'Board Games', value: 'boardgame' },
-            { name: 'Books', value: 'book' }
-          )
-      )
-      .addStringOption(option =>
-        option.setName('title').setDescription('Title to search for and add (required for adding)').setRequired(false)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('position')
-          .setDescription('Number to remove, from /bracket list-groups (required for removing)')
-          .setRequired(false)
-          .setMinValue(1)
-          // 32, not 4: bracket mode numbers its whole list; groups mode validates 1-4 itself
-          .setMaxValue(32)
-      )
-      .addAttachmentOption(option =>
-        option
-          .setName('image')
-          .setDescription('Optional: Custom image (for adding only)')
-          .setRequired(false)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('resize')
-      .setDescription('Change the number of groups before voting begins (Admin/Mod only)')
-      .addIntegerOption(option =>
-        option
-          .setName('groups')
-          .setDescription('New number of groups (4-12)')
-          .setRequired(true)
-          .setMinValue(4)
-          .setMaxValue(12)
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('edit-name')
-      .setDescription('Rename the tournament (Admin/Mod only)')
-      .addStringOption(option =>
-        option
-          .setName('name')
-          .setDescription('New tournament name')
-          .setRequired(true)
-          .setMaxLength(100) // Same embed-title ceiling as `create`.
-      )
-  )
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('announce')
-      .setDescription('Announce the tournament to the channel (Admin/Mod only)')
-      .addStringOption(option =>
-        option
-          .setName('message')
-          .setDescription('Announcement message to the server')
-          .setRequired(false)
-          .setMaxLength(1000) // Goes into an embed description (Discord caps at 4096).
-      )
-      .addAttachmentOption(option =>
-        option
-          .setName('image')
-          .setDescription('Optional tournament banner/image')
-          .setRequired(false)
-      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -596,13 +462,13 @@ export async function autocomplete(interaction) {
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
-  console.log('[/bracket] Subcommand received:', subcommand);
+  console.log(`[/${interaction.commandName || 'bracket'}] Subcommand received:`, subcommand);
 
   // Check if the /bracket command is enabled at all for this server
   const hasPermission = await canUseCommand(interaction.guildId, interaction.member, 'bracket');
   if (!hasPermission) {
     await interaction.reply({
-      content: '❌ The `/bracket` command is currently disabled for regular users. Contact a server administrator for more information.',
+      content: `❌ The \`/${interaction.commandName || 'bracket'}\` command is currently disabled for regular users. Contact a server administrator for more information.`,
       ephemeral: true,
     });
     return;
@@ -734,10 +600,10 @@ async function handleHelp(interaction) {
       {
         name: '📋 Quick Start (Admin)',
         value:
-          '1️⃣ `/bracket create name:"Tournament Name" max-titles:32`\n' +
+          '1️⃣ `/bracket-setup create name:"Tournament Name" max-titles:32`\n' +
           '2️⃣ Bot auto-selects bracket or group mode based on size\n' +
-          '3️⃣ `/bracket manage-titles action:add` - Add titles, or `/bracket setup-link` to upload a file\n' +
-          '4️⃣ `/bracket announce` - Announce to members\n' +
+          '3️⃣ `/bracket-setup manage-titles action:add` - Add titles, or `/bracket-setup setup-link` to upload a file\n' +
+          '4️⃣ `/bracket-setup announce` - Announce to members\n' +
           '5️⃣ `/bracket open` - Smart command opens next round\n' +
           '6️⃣ Members vote using buttons!\n' +
           '7️⃣ `/bracket close` - Smart command closes & advances\n' +
@@ -759,6 +625,15 @@ async function handleHelp(interaction) {
           '• 44 titles (11 groups)\n' +
           '• 48 titles (12 groups)\n\n' +
           '💡 **Bot automatically picks the best format!**',
+        inline: false
+      },
+      {
+        name: '🏅 Seeding & Ties (optional, straight brackets)',
+        value:
+          '• `seeding:` **Random** (default), **The order I add them**, or **By rating**\n' +
+          '• Seeded brackets show seeds — **(1) Halloween vs (8) Hereditary** — and call out upsets\n' +
+          '• `ties:` **Runoff vote** (default) or **Higher seed wins**\n' +
+          `💡 Set them in \`/bracket-setup create\`. Want it like March Madness, the College Football Playoff or the World Cup? See [sports styles](${config.docsUrl.replace(/\/+$/, '')}/guides/tournaments/sports-styles).`,
         inline: false
       },
       {
@@ -802,8 +677,8 @@ async function handleHelp(interaction) {
       {
         name: '⚙️ Admin Commands',
         value:
-          '• `/bracket manage-titles` - Add/remove titles\n' +
-          '• `/bracket setup-link` - Set up from a CSV/JSON file on the web\n' +
+          '• `/bracket-setup manage-titles` - Add/remove titles\n' +
+          '• `/bracket-setup setup-link` - Set up from a CSV/JSON file on the web\n' +
           '• `/bracket extend-voting` - Add more time\n' +
           '• `/bracket resolve-tiebreaker` - Manually resolve ties\n' +
           '• `/bracket export` - Save results (JSON/Markdown)\n' +
@@ -830,7 +705,7 @@ async function handleHelp(interaction) {
           '• **Region selector:** For large brackets (>5 matchups), bot shows regions\n' +
           '• **Search integration:** Bot auto-searches when adding titles\n' +
           '• **Custom images:** Upload your own when adding titles\n' +
-          '• **AI images:** Generate matchup images with `/bracket image`\n' +
+          '• **AI images:** Generate matchup images with `/image matchup:`\n' +
           '• **Export options:** Markdown for Discord, JSON for a backup you can re-import',
         inline: false
       },
@@ -903,6 +778,8 @@ async function handleSetupLink(interaction) {
 async function handleCreate(interaction) {
   const name = interaction.options.getString('name');
   const maxTitles = interaction.options.getInteger('max-titles') || 32; // Default to 32 titles
+  const seeding = interaction.options.getString('seeding') || 'random';
+  const ties = interaction.options.getString('ties') || 'runoff';
   const guildId = interaction.guildId;
   
   // Check if tournament already exists
@@ -915,7 +792,7 @@ async function handleCreate(interaction) {
     return;
   }
   
-  const tournament = bracketManager.createTournament(guildId, name, interaction.user.id, maxTitles);
+  const tournament = bracketManager.createTournament(guildId, name, interaction.user.id, maxTitles, { seeding, ties });
   
   if (!tournament) {
     await interaction.reply({
@@ -943,14 +820,43 @@ async function handleCreate(interaction) {
       { name: 'Status', value: 'Setup', inline: true },
       { name: 'Mode', value: modeInfo, inline: true },
       { name: 'Max Titles', value: `${maxTitles} titles`, inline: true },
+      ...(tournament.mode === 'bracket' ? [{ name: 'Seeding', value: describeSeeding(tournament), inline: false }] : []),
       { name: 'Creator', value: `<@${interaction.user.id}>`, inline: false }
     )
     .setFooter({ text: tournament.mode === 'bracket' 
-      ? 'Use /bracket manage-titles to add titles • Auto-selects groups if not specified'
-      : 'Use /bracket manage-titles to add titles to groups A-' + String.fromCharCode(64 + tournament.groupCount) 
+      ? 'Use /bracket-setup manage-titles to add titles • Auto-selects groups if not specified'
+      : 'Use /bracket-setup manage-titles to add titles to groups A-' + String.fromCharCode(64 + tournament.groupCount) 
     });
   
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  // Groups seed their knockout from the group results, so these don't apply
+  const ignored = tournament.mode !== 'bracket' && (seeding !== 'random' || ties !== 'runoff')
+    ? 'ℹ️ Seeding and tie options are for straight brackets (2–32 titles). Groups seed the knockout from group results, and ties get a runoff.'
+    : undefined;
+  await interaction.reply({ content: ignored, embeds: [embed], ephemeral: true });
+}
+
+/**
+ * The tournament's seeding and tie rule in a line or two, for the admin who
+ * picked them — including when the tie choice can't apply (random seeds).
+ */
+export function describeSeeding(tournament) {
+  const mode = bracketManager.getSeedingMode(tournament);
+  const seeding = {
+    random: 'Random — shuffled when the bracket is built',
+    ordered: 'The order titles are added — the first is the #1 seed (reorder on the `/bracket-setup setup-link` form)',
+    rating: 'By rating — best-rated title is the #1 seed',
+  }[mode];
+  const ties = bracketManager.getTieRule(tournament) === 'higher-seed'
+    ? 'Ties: the higher seed wins'
+    : tournament.ties === 'higher-seed'
+      ? 'Ties: runoff vote (higher seed wins needs Ordered or By rating seeding)'
+      : 'Ties: runoff vote';
+  // Seen before the bracket is built, so a missing rating can still be fixed
+  const unrated = mode === 'rating' ? (tournament.titles || []).filter(t => bracketManager.titleRating(t) === null) : [];
+  const note = unrated.length
+    ? `\n⚠️ No rating, so seeded last: ${unrated.slice(0, 5).map(t => t.title).join(', ')}${unrated.length > 5 ? ` and ${unrated.length - 5} more` : ''}`
+    : '';
+  return `${seeding}\n${ties}${note}`.slice(0, 1024);
 }
 
 /**
@@ -983,7 +889,7 @@ async function handleAddTitle(interaction) {
   const tournament = bracketManager.loadTournament(interaction.guildId);
   if (!tournament || tournament.status !== 'setup') {
     await interaction.editReply({
-      content: '❌ No tournament in setup phase. Create one with `/bracket create` first.',
+      content: '❌ No tournament in setup phase. Create one with `/bracket-setup create` first.',
       ephemeral: true,
     });
     return;
@@ -1136,7 +1042,7 @@ async function handleRemoveTitle(interaction) {
   const tournament = bracketManager.loadTournament(guildId);
   if (!tournament || tournament.status !== 'setup') {
     await interaction.reply({
-      content: '❌ No tournament in setup phase. Create one with `/bracket create` first.',
+      content: '❌ No tournament in setup phase. Create one with `/bracket-setup create` first.',
       ephemeral: true,
     });
     return;
@@ -1222,12 +1128,12 @@ async function handleRemoveTitle(interaction) {
     embed.addFields({
       name: '⚠️ Group Empty',
       value: `Group ${group} now has no titles. Choose an option:\n\n` +
-             `1️⃣ Add 4 titles to Group ${group} with \`/bracket manage-titles action:add\`\n` +
-             `2️⃣ Resize tournament to ${suggestedGroupCount} groups with \`/bracket resize groups:${suggestedGroupCount}\``,
+             `1️⃣ Add 4 titles to Group ${group} with \`/bracket-setup manage-titles action:add\`\n` +
+             `2️⃣ Resize tournament to ${suggestedGroupCount} groups with \`/bracket-setup resize groups:${suggestedGroupCount}\``,
       inline: false
     });
   } else if (result.titleCount < 4) {
-    embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group} with /bracket manage-titles action:add` });
+    embed.setFooter({ text: `Add ${4 - result.titleCount} more title(s) to Group ${group} with /bracket-setup manage-titles action:add` });
   }
   
   await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -1241,7 +1147,7 @@ async function handleResize(interaction) {
   const tournament = bracketManager.loadTournament(guildId);
   if (!tournament) {
     await interaction.reply({
-      content: '❌ No tournament found. Create one with `/bracket create` first.',
+      content: '❌ No tournament found. Create one with `/bracket-setup create` first.',
       ephemeral: true,
     });
     return;
@@ -1328,7 +1234,7 @@ async function handleAnnounce(interaction) {
   const tournament = bracketManager.loadTournament(guildId);
   if (!tournament) {
     await interaction.reply({
-      content: '❌ No tournament found. Create one with `/bracket create` first.',
+      content: '❌ No tournament found. Create one with `/bracket-setup create` first.',
       ephemeral: true,
     });
     return;
@@ -1938,7 +1844,7 @@ async function openNextMatchups(interaction, count, deadline) {
   tournament = result.tournament;
   const roundName = tournament.phase.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   const left = unopened(tournament).length;
-  const lines = result.opened.map(m => `**${getRegionalLabel(m.position, m.round)}** · ${m.movie1.title} vs ${m.movie2.title}`);
+  const lines = result.opened.map(m => `**${getRegionalLabel(m.position, m.round)}** · ${seededTitle(m.movie1)} vs ${seededTitle(m.movie2)}`);
 
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
@@ -1969,7 +1875,7 @@ async function handleSmartOpen(interaction) {
   let tournament = bracketManager.loadTournament(interaction.guildId);
   
   if (!tournament) {
-    await interaction.editReply('❌ No tournament found. Create one with `/bracket create` first.');
+    await interaction.editReply('❌ No tournament found. Create one with `/bracket-setup create` first.');
     return;
   }
   
@@ -2242,6 +2148,7 @@ async function handleSmartClose(interaction) {
       winner: c.winner,
       votes1: c.votes1,
       votes2: c.votes2,
+      decidedBy: c.decidedBy,
     }));
     const tiebreakersCreated = closed.filter(c => c.tied).map(c => c.tiebreaker);
     
@@ -2253,7 +2160,7 @@ async function handleSmartClose(interaction) {
     
     if (results.length > 0) {
       const winnersText = results
-        .map(r => `• ${getRegionalLabel(r.matchup.position, tournament.phase)}: **${r.winner.title}** (${r.votes1} vs ${r.votes2})`)
+        .map(r => `• ${getRegionalLabel(r.matchup.position, tournament.phase)}: ${knockoutOutcome(r.winner, r.votes1, r.votes2, r.decidedBy)}`)
         .join('\n');
       embed.addFields({ name: '🏆 Winners', value: winnersText, inline: false });
     }
@@ -2335,7 +2242,7 @@ async function handleVotingPost(interaction) {
   const allSame = new Set(deadlines.filter(Boolean)).size <= 1;
 
   const lines = matchups.length
-    ? matchups.slice(0, 16).map(m => `**${matchupLabel(m.position, m.round)}:** ${m.movie1.title} vs ${m.movie2.title}`)
+    ? matchups.slice(0, 16).map(m => `**${matchupLabel(m.position, m.round)}:** ${seededTitle(m.movie1)} vs ${seededTitle(m.movie2)}`)
     : [`**Groups:** ${groups.join(', ')} — pick your top 2 in each`];
   if (matchups.length > 16) lines.push(`…and ${matchups.length - 16} more`);
 
@@ -2398,6 +2305,7 @@ async function handleStatus(interaction) {
   
   if (tournament.status === 'setup' && tournament.mode === 'bracket') {
     embed.setDescription(`Tournament is being set up.\n\n**Titles Added:** ${tournament.titles.length}/${tournament.maxTitles}`);
+    embed.addFields({ name: 'Seeding', value: describeSeeding(tournament), inline: false });
 
   } else if (tournament.status === 'setup') {
     const groupsAdded = Object.keys(tournament.groups).length;
@@ -2988,16 +2896,16 @@ async function handleOpenMatchup(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x4EC5ED)
       .setTitle(`${roundName} - Matchup ${regionalLabel}`)
-      .setDescription(`**${regionalLabel}:** ${matchup.movie1.title} vs ${matchup.movie2.title}`)
+      .setDescription(`**${regionalLabel}:** ${seededTitle(matchup.movie1)} vs ${seededTitle(matchup.movie2)}`)
       .addFields(
         { 
-          name: `${matchup.movie1.title}`, 
+          name: seededTitle(matchup.movie1),
           value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
           inline: true 
         },
         { name: '\u200B', value: 'vs', inline: true },
         { 
-          name: `${matchup.movie2.title}`, 
+          name: seededTitle(matchup.movie2),
           value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
           inline: true 
         }
@@ -3160,10 +3068,11 @@ async function handleCloseMatchup(interaction) {
     
     successes.push({
       label: regionalLabel,
-      winner: updatedMatchup.winner.title,
+      winner: seededTitle(updatedMatchup.winner),
       winnerEntry: updatedMatchup.winner,
-      movie1: updatedMatchup.movie1.title,
-      movie2: updatedMatchup.movie2.title,
+      movie1: seededTitle(updatedMatchup.movie1),
+      movie2: seededTitle(updatedMatchup.movie2),
+      decidedBy: updatedMatchup.decidedBy,
       votes1,
       votes2,
       autoAdvanced: result.autoAdvanced
@@ -3217,7 +3126,7 @@ async function handleCloseMatchup(interaction) {
       .setColor(0x00FF00)
       .setTitle(`🏁 ${roundName} - Matchup ${s.label} Complete!`)
       .setDescription(
-        `**${s.winner}** wins!\n\n` +
+        (s.decidedBy === 'seed' ? `**${s.winner}** advances on a tie as the higher seed!\n\n` : `**${s.winner}** wins!\n\n`) +
         `**${s.movie1}** (${s.votes1} votes) vs **${s.movie2}** (${s.votes2} votes)`
       );
     setTitleThumbnail(embed, s.winnerEntry);
@@ -3253,7 +3162,7 @@ async function handleCloseMatchup(interaction) {
       .setColor(0x00FF00)
       .setTitle(`🏁 ${roundName} - ${successes.length} Matchup${successes.length !== 1 ? 's' : ''} Closed!`)
       .setDescription(
-        successes.map(s => `**${s.label}**: ${s.winner} wins (${s.votes1} vs ${s.votes2})`).join('\n')
+        successes.map(s => `**${s.label}**: ${s.winner} ${s.decidedBy === 'seed' ? 'advances on a tie as the higher seed' : 'wins'} (${s.votes1} vs ${s.votes2})`).join('\n')
       );
     
     const autoAdvanced = successes.filter(s => s.autoAdvanced);
@@ -3529,7 +3438,7 @@ async function handleExport(interaction) {
   
   if (format === 'json') {
     // The setup form's import format: lineup and settings, re-importable with
-    // /bracket setup-link. It used to dump the stored tournament whole —
+    // /bracket-setup setup-link. It used to dump the stored tournament whole —
     // which couldn't be imported, and put every voter's Discord id in a
     // public channel (export isn't admin-only).
     const jsonData = JSON.stringify(buildExport(tournament), null, 2);
@@ -3537,7 +3446,7 @@ async function handleExport(interaction) {
     const attachment = new AttachmentBuilder(buffer, { name: `${tournament.name.replace(/\s+/g, '_')}_backup.json` });
 
     await interaction.editReply({
-      content: `📦 **${tournament.name}** - lineup and settings. Upload it to \`/bracket setup-link\` to run it again.`,
+      content: `📦 **${tournament.name}** - lineup and settings. Upload it to \`/bracket-setup setup-link\` to run it again.`,
       files: [attachment]
     });
     

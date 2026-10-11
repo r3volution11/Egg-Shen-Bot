@@ -22,7 +22,7 @@ if (!existsSync(tournamentsDir)) {
  * A file that won't parse is recovered from the backup saveTournament keeps
  * (the version before the last save), and the damaged one is kept aside.
  * This used to return null — "no tournament" — so a file cut off by a kill
- * mid-write lost the tournament outright, and `/bracket create` would then
+ * mid-write lost the tournament outright, and `/bracket-setup create` would then
  * overwrite it. One damaged file also made every scheduler pass log an error.
  */
 export function loadTournament(guildId) {
@@ -43,7 +43,7 @@ export function loadTournament(guildId) {
     } catch {
       // Nothing to recover from. Keep the damaged file aside for a person to
       // look at, rather than leave it to fail every scheduler pass or be
-      // silently overwritten by the next /bracket create
+      // silently overwritten by the next /bracket-setup create
       console.error(`[BracketManager] Tournament file for ${guildId} is damaged and has no usable backup; moved aside:`, error.message);
       try { renameSync(filePath, `${filePath}.damaged-${Date.now()}`); } catch { /* already gone */ }
       return null;
@@ -285,6 +285,75 @@ function shuffle(items) {
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
+}
+
+// How a straight bracket is seeded. 'random' is the long-standing shuffle;
+// 'ordered' takes the admin's list order; 'rating' ranks by each title's
+// rating. Creators pick — the bot doesn't impose one (Doug, 2026-10-10).
+export const SEEDING_MODES = ['random', 'ordered', 'rating'];
+// What a tied knockout matchup does: a runoff vote (the long-standing rule)
+// or the better seed advances at once, as in college sports.
+export const TIE_RULES = ['runoff', 'higher-seed'];
+
+/**
+ * The tournament's seeding mode. Tournaments made before a mode was stored
+ * (or with anything unrecognised) read as random — what they always did.
+ * @param {Object} tournament
+ * @returns {'random'|'ordered'|'rating'}
+ */
+export function getSeedingMode(tournament) {
+  return SEEDING_MODES.includes(tournament?.seeding) ? tournament.seeding : 'random';
+}
+
+/**
+ * The tournament's tie rule. Random seeds mean nothing, so they never decide
+ * a matchup: with random seeding this is always 'runoff', whatever is stored.
+ * Missing (every tournament made before the option existed) is 'runoff'.
+ * @param {Object} tournament
+ * @returns {'runoff'|'higher-seed'}
+ */
+export function getTieRule(tournament) {
+  if (getSeedingMode(tournament) === 'random') return 'runoff';
+  return tournament?.ties === 'higher-seed' ? 'higher-seed' : 'runoff';
+}
+
+/**
+ * A title's rating, from whatever its source API provides: TMDB's
+ * vote_average for movies and TV (0-10), RAWG's for games (0-5), Google
+ * Books' averageRating (0-5), BGG's Bayesian average (0-10). A tournament
+ * holds one type, so the scales never mix. 0 is how TMDB says "unrated",
+ * so it counts as none.
+ * @param {Object} entry - a tournament title
+ * @returns {number|null}
+ */
+export function titleRating(entry) {
+  const m = entry?.metadata || {};
+  const raw = { movie: m.vote_average, tv: m.vote_average, game: m.rating, book: m.averageRating, boardgame: m.bggRating }[entry?.type];
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/**
+ * The titles in seed order for the tournament's seeding mode. Rating mode
+ * puts unrated titles last; ties and unrated titles keep their list order
+ * (Array.prototype.sort is stable), so the admin's order is the tiebreak.
+ * @param {Object} tournament
+ * @returns {{participants: Array, seeded: boolean, unrated: Array}}
+ */
+export function seedTitles(tournament) {
+  const titles = tournament.titles || [];
+  const mode = getSeedingMode(tournament);
+  if (mode === 'random') return { participants: shuffle(titles), seeded: false, unrated: [] };
+
+  let ordered = [...titles];
+  let unrated = [];
+  if (mode === 'rating') {
+    unrated = titles.filter(t => titleRating(t) === null);
+    ordered = [...titles].sort((a, b) => (titleRating(b) ?? -1) - (titleRating(a) ?? -1));
+  }
+  // The seed rides on the entry, and winners advance as the same object, so
+  // every later round knows it with no extra bookkeeping.
+  return { participants: ordered.map((t, i) => ({ ...t, seed: i + 1 })), seeded: true, unrated };
 }
 
 /**
@@ -572,7 +641,7 @@ function determineTournamentMode(maxTitles) {
   return { mode: 'groups', groupCount, error: null };
 }
 
-export function createTournament(guildId, name, creatorId, maxTitles = 32) {
+export function createTournament(guildId, name, creatorId, maxTitles = 32, { seeding, ties } = {}) {
   // Determine tournament mode and validate
   const config = determineTournamentMode(maxTitles);
   if (config.error) {
@@ -599,6 +668,9 @@ export function createTournament(guildId, name, creatorId, maxTitles = 32) {
     votes: {}, // userId -> {groupId: [movieIndexes], matchupId: movieIndex}
     winner: null,
     titles: [], // All titles added to tournament (bracket mode stores them here)
+    // Straight brackets only; read through getSeedingMode / getTieRule
+    seeding: SEEDING_MODES.includes(seeding) ? seeding : 'random',
+    ties: TIE_RULES.includes(ties) ? ties : 'runoff',
     // Participation tracking (Tatsu-style)
     participation: {}, // userId -> { totalVotes: number, groupVotes: number, knockoutVotes: number, streak: number, lastVoted: timestamp }
     statistics: { // Tournament-wide stats
@@ -659,7 +731,7 @@ export function resizeTournament(guildId, newGroupCount) {
       let errorMsg = `❌ Cannot contract to ${newGroupCount} groups. The following groups have titles that would be removed:\n\n${groupList}\n\n`;
       errorMsg += `**Options:**\n`;
       errorMsg += `1️⃣ Move ${totalTitlesToRemove} title${totalTitlesToRemove !== 1 ? 's' : ''} from ${groupsWithTitles.map(g => `Group ${g.id}`).join(' and ')} to groups ${keepRange.split('').join(', ')}\n`;
-      errorMsg += `2️⃣ Remove the titles using \`/bracket manage-titles action:remove\`\n`;
+      errorMsg += `2️⃣ Remove the titles using \`/bracket-setup manage-titles action:remove\`\n`;
       
       // Calculate minimum groups needed to keep all current titles
       const allGroupsWithTitles = Object.keys(tournament.groups).filter(
@@ -1725,10 +1797,7 @@ function generateInitialBracket(guildId) {
     return { success: false, error: 'Need at least 2 titles to generate bracket' };
   }
   
-  // Ordered seeding (set by the setup form) takes the list as seed order;
-  // anything else is the long-standing random shuffle.
-  const seeded = tournament.seeding === 'ordered';
-  const participants = seeded ? [...tournament.titles] : shuffle(tournament.titles);
+  const { participants, seeded } = seedTitles(tournament);
   const { matchups: allMatchups, firstRoundMatchups, startingRound } = buildBracketTree(participants, { seeded });
 
   tournament.knockoutBracket = allMatchups;
@@ -2082,12 +2151,17 @@ export function closeKnockoutMatchup(guildId, matchupId, tiebreakerDurationMs = 
   
   // Determine winner
   let winner;
+  let decidedBy = 'votes';
   let tiebreakerCreated = false;
   
   if (votes1 > votes2) {
     winner = matchup.movie1;
   } else if (votes2 > votes1) {
     winner = matchup.movie2;
+  } else if (getTieRule(tournament) === 'higher-seed' && matchup.movie1?.seed && matchup.movie2?.seed) {
+    // The creator chose college-sports ties: the better seed advances, no runoff
+    winner = matchup.movie1.seed < matchup.movie2.seed ? matchup.movie1 : matchup.movie2;
+    decidedBy = 'seed';
   } else {
     // Tie - create tiebreaker vote
     const tiedOptions = [matchup.movie1, matchup.movie2];
@@ -2119,6 +2193,7 @@ export function closeKnockoutMatchup(guildId, matchupId, tiebreakerDurationMs = 
     
     // Fallback to random if tiebreaker creation failed
     winner = Math.random() < 0.5 ? matchup.movie1 : matchup.movie2;
+    decidedBy = 'coin';
   }
   
   matchup.status = 'closed';
@@ -2132,7 +2207,9 @@ export function closeKnockoutMatchup(guildId, matchupId, tiebreakerDurationMs = 
     votes1: votes1,
     votes2: votes2,
     wasTie: votes1 === votes2,
+    decidedBy,
   };
+  if (decidedBy === 'seed') matchup.decidedBy = 'seed';
   
   // Save first
   if (!saveTournament(guildId, tournament)) {

@@ -7,7 +7,7 @@ howto:
   totalTime: P10D
   steps:
     - name: Set up the groups
-      text: Run `/bracket setup-link`, upload the [groups template](/templates/tournaments/groups.csv) with a `group` letter on every title (4 titles per group), and press **Create tournament**.
+      text: Run `/bracket-setup setup-link`, upload the [groups template](/templates/tournaments/groups.csv) with a `group` letter on every title (4 titles per group), and press **Create tournament**.
     - name: Open the group stage
       text: Run `/bracket open duration:2d`. Every group opens, and voters pick their **top 2** in each group.
     - name: Close the groups
@@ -29,8 +29,9 @@ A groups tournament starts like the World Cup. Titles are split into **groups of
 - **Pick a group count with no byes:** 4, 6, 7, 8, 11 or 12 groups give a full knockout bracket (see the table below).
 - **Every group needs exactly 4 titles** before voting can open. `/bracket open` names any group that's short.
 - **The setup form is easiest** for groups, since you can give each title its group letter in the spreadsheet. Leave a cell empty and the title goes into the first group with room.
-- **With commands instead,** `/bracket create max-titles:36` makes 9 groups, and `/bracket resize groups:<4-12>` changes the count.
+- **With commands instead,** `/bracket-setup create max-titles:36` makes 9 groups, and `/bracket-setup resize groups:<4-12>` changes the count.
 - **Ties in a group** for 1st or 2nd place get a tiebreaker vote before the knockout can start.
+- **Seeding and tie options are for straight brackets.** Here, the group results seed the knockout. With 48 titles it's the 2026 World Cup format: 12 groups, then a Round of 32. See [Sports-style tournaments](./sports-styles#fifa-world-cup).
 
 ## In detail
 

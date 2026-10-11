@@ -4,6 +4,7 @@
   "name": "October Horror Showdown",
   "type": "movie",
   "seeding": "ordered",
+  "ties": "runoff",
   "votingDuration": "24h",
   "tiebreakerDuration": "1h",
   "announcement": {

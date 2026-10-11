@@ -7,7 +7,7 @@
 import * as bracketManager from './bracketManager.js';
 import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, AttachmentBuilder } from 'discord.js';
 import * as bracketVisualizer from './bracketVisualizer.js';
-import { setTitleThumbnail } from './tournamentUI.js';
+import { setTitleThumbnail, seededTitle, upsetNote } from './tournamentUI.js';
 import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -653,6 +653,7 @@ async function autoCloseMatchup(guild, tournament, matchup, tiebreakerDurationMs
       winner: closedMatchup.winner,
       votes1: closedMatchup.votes1Count ?? 0,
       votes2: closedMatchup.votes2Count ?? 0,
+      decidedBy: closedMatchup.decidedBy,
     };
 
     // A finished tournament can seed the watchlist with its champion.
@@ -783,7 +784,7 @@ async function postKnockoutTiebreaker(guild, tournament, matchup, tiebreaker) {
       .setTitle(`🔀 Tiebreaker: ${getMatchupTitle(matchup)}`)
       .setDescription(
         `**${tournament.name}**\n\n` +
-        `${matchup.movie1.title} and ${matchup.movie2.title} tied. Click a button below to break it!`
+        `${seededTitle(matchup.movie1)} and ${seededTitle(matchup.movie2)} tied. Click a button below to break it!`
       )
       .addFields({ name: '⏰ Closes', value: `<t:${Math.floor(tiebreaker.deadline / 1000)}:R>`, inline: true })
       .setFooter({ text: `Tiebreaker ID: ${tiebreaker.id}` })
@@ -1016,19 +1017,26 @@ async function postMatchupResults(guild, tournament, matchup) {
     const winnerVotes = Math.max(votesA, votesB);
     const loserVotes = Math.min(votesA, votesB);
     
+    // A tie the 'higher-seed' rule settled says so, or 4–4 reads as a
+    // miscount; a worse seed winning gets called out as an upset.
+    const notes = [
+      matchup.decidedBy === 'seed' ? `⚖️ Tied ${winnerVotes}–${loserVotes}: the higher seed advances.` : '',
+      upsetNote(winner, loser),
+    ].filter(Boolean).map(n => `\n${n}`).join('');
+
     const embed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle(`📊 ${getMatchupTitle(matchup)} - Results`)
-      .setDescription(`**${tournament.name}**\n\nVoting has closed!`)
+      .setDescription(`**${tournament.name}**\n\nVoting has closed!${notes}`)
       .addFields(
         {
           name: '🏆 Winner',
-          value: `**${winner.title}**\n${winnerVotes} vote${winnerVotes !== 1 ? 's' : ''}`,
+          value: `**${seededTitle(winner)}**\n${winnerVotes} vote${winnerVotes !== 1 ? 's' : ''}`,
           inline: true
         },
         {
           name: 'Runner-up',
-          value: `${loser?.title || 'Bye'}\n${loserVotes} vote${loserVotes !== 1 ? 's' : ''}`,
+          value: `${loser ? seededTitle(loser) : 'Bye'}\n${loserVotes} vote${loserVotes !== 1 ? 's' : ''}`,
           inline: true
         }
       )

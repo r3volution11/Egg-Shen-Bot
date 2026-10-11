@@ -454,7 +454,7 @@ describe('settings saved by the setup form', () => {
     expect(deadline - before).toBeLessThan(2 * 60 * 60 * 1000);
   });
 
-  test('/bracket announce posts the saved message and banner, and counts a straight bracket\'s titles', async () => {
+  test('/bracket-setup announce posts the saved message and banner, and counts a straight bracket\'s titles', async () => {
     bracketManager.createTournament(GUILD_ID, 'Announce Cup', USER_ID, 8);
     ['Alien', 'Aliens', 'Alien 3'].forEach((t, i) => bracketManager.addTitle(GUILD_ID, 'A', 'movie', movie(i + 1, t, 1979 + i)));
     const t = bracketManager.loadTournament(GUILD_ID);
@@ -474,7 +474,7 @@ describe('settings saved by the setup form', () => {
   });
 });
 
-describe('/bracket setup-link and export', () => {
+describe('/bracket-setup setup-link and export', () => {
   const ORIGINAL_URL = process.env.PUBLIC_BOT_URL;
   afterEach(() => {
     if (ORIGINAL_URL === undefined) delete process.env.PUBLIC_BOT_URL;
@@ -535,8 +535,12 @@ describe('/bracket setup-link and export', () => {
 
   test('advance-knockout is gone from the command definition', async () => {
     const { data } = await import('../src/commands/bracket.js');
+    expect(data.toJSON().options.map(o => o.name)).not.toContain('advance-knockout');
+  });
+
+  test('setup-link sits next to create, on /bracket-setup', async () => {
+    const { data } = await import('../src/commands/bracket-setup.js');
     const names = data.toJSON().options.map(o => o.name);
-    expect(names).not.toContain('advance-knockout');
     expect(names.indexOf('setup-link')).toBe(names.indexOf('create') + 1);
   });
 });

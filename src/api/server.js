@@ -1427,7 +1427,7 @@ export function createApiServer(client) {
     });
   }
 
-  // Tournament setup form (/bracket setup-link) — its own module
+  // Tournament setup form (/bracket-setup setup-link) — its own module
   registerTournamentSetupRoutes(app, client);
 
   // 404 handler

@@ -25,6 +25,7 @@ const sidebar = [
           { text: 'Groups Tournament', link: '/guides/tournaments/groups' },
           { text: 'From a Spreadsheet', link: '/guides/tournaments/from-a-spreadsheet' },
           { text: 'Seeded Bracket', link: '/guides/tournaments/seeded' },
+          { text: 'Sports-Style Tournaments', link: '/guides/tournaments/sports-styles' },
           { text: 'Tournament FAQ', link: '/guides/tournaments/faq' }
         ]
       }

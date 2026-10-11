@@ -6,7 +6,7 @@
  * templates live in docs/public/templates/tournaments/. Change them together.
  *
  * Titles are looked up through bracketTitles.js — the same search
- * `/bracket manage-titles` uses — and added through bracketManager.addTitle,
+ * `/bracket-setup manage-titles` uses — and added through bracketManager.addTitle,
  * so a tournament built here is indistinguishable from one built by hand.
  * Nothing here has its own idea of what a valid tournament is beyond what
  * `/bracket` already enforces; it checks all of it up front instead, so a
@@ -30,14 +30,15 @@ export const MAX_ROWS = GROUPS_MAX * GROUP_SIZE;
 
 export const DEFAULT_VOTING_DURATION = '24h';
 export const DEFAULT_TIEBREAKER_DURATION = '1h';
-export const SEEDING_OPTIONS = ['random', 'ordered'];
+export const SEEDING_OPTIONS = bracketManager.SEEDING_MODES; // random, ordered, rating
+export const TIE_OPTIONS = bracketManager.TIE_RULES; // runoff, higher-seed
 export const MAX_NAME_LENGTH = bracketManager.MAX_TOURNAMENT_NAME_LENGTH;
 export const MAX_ANNOUNCEMENT_LENGTH = 1000;
 
 // Unknown columns and fields are errors, not ignored: a typo like "seedng"
 // would otherwise silently do nothing (the TMDB `vote_count_gte` lesson).
 const CSV_COLUMNS = ['title', 'year', 'group', 'id', 'image_url'];
-const JSON_FIELDS = ['format', 'version', 'name', 'type', 'seeding', 'votingDuration', 'tiebreakerDuration', 'announcement', 'titles'];
+const JSON_FIELDS = ['format', 'version', 'name', 'type', 'seeding', 'ties', 'votingDuration', 'tiebreakerDuration', 'announcement', 'titles'];
 const JSON_TITLE_FIELDS = ['title', 'year', 'group', 'id', 'imageUrl'];
 const ANNOUNCEMENT_FIELDS = ['message', 'imageUrl'];
 
@@ -215,7 +216,7 @@ function parseJsonFile(text, errors) {
   }
 
   const settings = {};
-  for (const key of ['name', 'type', 'seeding', 'votingDuration', 'tiebreakerDuration']) {
+  for (const key of ['name', 'type', 'seeding', 'ties', 'votingDuration', 'tiebreakerDuration']) {
     if (data[key] !== undefined) settings[key] = data[key];
   }
   if (data.announcement && typeof data.announcement === 'object') {
@@ -282,7 +283,10 @@ export function validateSettings(settings, { forSave = false } = {}) {
   }
 
   if (settings.seeding !== undefined && !SEEDING_OPTIONS.includes(settings.seeding)) {
-    add('seeding', `Seeding is "ordered" or "random", not "${settings.seeding}".`);
+    add('seeding', `Seeding is "random", "ordered" or "rating", not "${settings.seeding}".`);
+  }
+  if (settings.ties !== undefined && !TIE_OPTIONS.includes(settings.ties)) {
+    add('ties', `Ties is "runoff" or "higher-seed", not "${settings.ties}".`);
   }
 
   for (const [field, label, valid, range] of [
@@ -314,7 +318,7 @@ function nextPowerOfTwo(n) {
 /**
  * Work out what tournament the rows describe, and everything wrong with it.
  * Any `group` makes it a groups tournament; rows without one are placed in the
- * first group with room, the same as `/bracket manage-titles` does.
+ * first group with room, the same as `/bracket-setup manage-titles` does.
  * Duplicates are judged by id when rows have one (after matching), otherwise by
  * title and year.
  * @returns {{mode, groupCount, bracketSize, byes, groups: string[], errors}}
@@ -449,7 +453,7 @@ export async function resolveRows(type, rows, { concurrency = 4 } = {}) {
  *
  * @param {string} guildId
  * @param {Object} params
- * @param {Object} params.settings - name, type, seeding, durations, announcement
+ * @param {Object} params.settings - name, type, seeding, ties, durations, announcement
  * @param {Array} params.rows - `{ entry, group }`: entry from resolveRow/fetchEntryById
  * @param {string} params.creatorId - used when there's no setup tournament to replace
  * @returns {{success: true, tournament} | {success: false, errors: Array}}
@@ -509,7 +513,8 @@ export function saveImportedTournament(guildId, { settings, rows, creatorId }) {
   }
 
   const tournament = bracketManager.loadTournament(guildId);
-  tournament.seeding = settings.seeding === 'ordered' ? 'ordered' : 'random';
+  tournament.seeding = SEEDING_OPTIONS.includes(settings.seeding) ? settings.seeding : 'random';
+  tournament.ties = TIE_OPTIONS.includes(settings.ties) ? settings.ties : 'runoff';
   tournament.votingDuration = settings.votingDuration || DEFAULT_VOTING_DURATION;
   tournament.tiebreakerDuration = settings.tiebreakerDuration || DEFAULT_TIEBREAKER_DURATION;
   tournament.announcement = {
@@ -551,7 +556,9 @@ export function buildExport(tournament) {
     name: tournament.name,
     // An empty tournament has no type yet; importing that asks for one
     type: tournament.type || '',
-    seeding: tournament.seeding === 'ordered' ? 'ordered' : 'random',
+    seeding: bracketManager.getSeedingMode(tournament),
+    // The stored choice, not getTieRule's effective one, so a round trip keeps it
+    ties: tournament.ties === 'higher-seed' ? 'higher-seed' : 'runoff',
     votingDuration: tournament.votingDuration || DEFAULT_VOTING_DURATION,
     tiebreakerDuration: tournament.tiebreakerDuration || DEFAULT_TIEBREAKER_DURATION,
     announcement: {

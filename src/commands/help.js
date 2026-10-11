@@ -98,7 +98,7 @@ export async function execute(interaction) {
   });
 
   const tournamentsAndPolls = buildCategory([
-    { enabled: bracketAllowed, line: '**🏆 /bracket** - Run tournaments (movies, TV, games, books, boardgames)\n**💡 Pro Tip:** Use `/bracket help` for tournament guide' },
+    { enabled: bracketAllowed, line: '**🏆 /bracket** - Run tournaments (movies, TV, games, books, boardgames)\n**🛠️ /bracket-setup** - Create a tournament and add its titles (Admin/Mod)\n**💡 Pro Tip:** Use `/bracket help` for tournament guide' },
     { enabled: surveyAllowed, line: '**📊 /survey** - Create polls with up to 10 options; `voting-post` brings one back down' },
   ]);
   if (tournamentsAndPolls) {

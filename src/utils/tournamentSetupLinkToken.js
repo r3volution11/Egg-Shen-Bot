@@ -1,6 +1,6 @@
 /**
  * Signed, short-lived tokens for the tournament setup form, issued by
- * `/bracket setup-link` to an admin or mod. Same construction as
+ * `/bracket-setup setup-link` to an admin or mod. Same construction as
  * cropLinkToken.js (HMAC-SHA256, timing-safe compare), but NOT single-use:
  * setting up a tournament is a session — upload, pick matches, fix rows,
  * save, maybe save again — so every request re-verifies the token instead

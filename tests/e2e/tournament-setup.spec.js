@@ -58,7 +58,7 @@ async function interceptResolveAndSave(page) {
 test('an invalid link says how to get a new one', async ({ page }) => {
   const response = await page.goto('/tournament-setup?token=nope');
   expect(response.status()).toBe(403);
-  await expect(page.locator('body')).toContainText('/bracket setup-link');
+  await expect(page.locator('body')).toContainText('/bracket-setup setup-link');
 });
 
 test('upload a CSV, fix what needs fixing, and save exactly what was chosen', async ({ page }) => {

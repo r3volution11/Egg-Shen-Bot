@@ -7,11 +7,11 @@ howto:
   totalTime: PT1H15M
   steps:
     - name: Create the tournament
-      text: Run `/bracket create name:"Friday Frights" max-titles:8`.
+      text: Run `/bracket-setup create name:"Friday Frights" max-titles:8`.
     - name: Add 8 titles
-      text: Run `/bracket manage-titles action:add type:movie title:"The Thing"` once per title. After the first, you can leave `type` out.
+      text: Run `/bracket-setup manage-titles action:add type:movie title:"The Thing"` once per title. After the first, you can leave `type` out.
     - name: Announce it
-      text: Run `/bracket announce` so everyone knows a tournament is coming.
+      text: Run `/bracket-setup announce` so everyone knows a tournament is coming.
     - name: Open round one
       text: Run `/bracket open duration:20m`. All 4 quarterfinal matchups open on one ballot, and everyone votes by pressing **Start Voting**.
     - name: Repeat for each round
@@ -31,7 +31,7 @@ An 8-title bracket has three rounds: **quarterfinals** (4 matchups), **semifinal
 - **Showing the bracket.** The bot posts the bracket as an image after each round, and `/bracket view` draws it any time.
 - **Checking time left.** Ballots show a live countdown, and anyone can run `/bracket status`.
 - **Fewer than 8 titles is fine.** With 6, the bracket still has 8 slots, and two titles skip round one (a bye).
-- **For a meaningful order,** choose Ordered seeding in the [setup form](/commands/brackets/import#seeding), so the strongest titles can only meet in the final. See [Seeded bracket](./seeded).
+- **For a meaningful order,** add `seeding:By rating` (or `seeding:The order I add them`) to `/bracket-setup create`. The strongest titles can then only meet in the final, everyone sees the seeds, and upsets get called out. See [Seeded bracket](./seeded).
 
 ## In detail
 
@@ -46,6 +46,8 @@ Pressing **Start Voting** opens a private ballot with one row per matchup: `[1A 
 ### When a matchup ties
 
 The tied titles get a tiebreaker vote, posted in the same channel. It lasts 1 hour, or, when you close the round yourself with `/bracket close`, whatever you set with `tiebreaker-duration`. The next round opens once it's settled.
+
+On a tight schedule, create a seeded bracket with `ties:Higher seed wins` instead. A tie then goes straight to the better seed, with no extra vote to wait for.
 
 ### Starting over
 

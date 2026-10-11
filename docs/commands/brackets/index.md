@@ -35,16 +35,16 @@ A: Two:
 - **Groups tournament** - 4 to 12 groups of exactly 4 titles. Members vote in groups first, then the qualifiers go into a knockout.
 
 **Q: How do I choose?**  
-A: With `max-titles` when you create the tournament. 2, 4, 8, 16, or 32 makes a straight bracket; 36, 40, 44, or 48 makes a groups tournament with 9–12 groups. You can change the group count later with `/bracket resize` (4–12). A straight bracket doesn't have to be full: with 12 titles in a 16-title bracket, 4 titles get byes.
+A: With `max-titles` when you create the tournament. 2, 4, 8, 16, or 32 makes a straight bracket; 36, 40, 44, or 48 makes a groups tournament with 9–12 groups. You can change the group count later with `/bracket-setup resize` (4–12). A straight bracket doesn't have to be full: with 12 titles in a 16-title bracket, 4 titles get byes.
 
 **Q: Do I have to add titles one at a time?**  
-A: No. The [setup form](./import) lets you set up a whole tournament by uploading a CSV or JSON file, or by filling it in. Run `/bracket setup-link` to get a private link to it.
+A: No. The [setup form](./import) lets you set up a whole tournament by uploading a CSV or JSON file, or by filling it in. Run `/bracket-setup setup-link` to get a private link to it.
 
 **Q: What types of tournaments can I run?**  
 A: Movies, TV shows, video games, board games, or books. Each tournament is a single type.
 
 **Q: How does the search work?**  
-A: `/bracket manage-titles action:add` searches TMDB (movies/TV), RAWG (games), BoardGameGeek (board games), or Google Books. One match is added right away. Several matches show a menu so you can pick the right one.
+A: `/bracket-setup manage-titles action:add` searches TMDB (movies/TV), RAWG (games), BoardGameGeek (board games), or Google Books. One match is added right away. Several matches show a menu so you can pick the right one.
 
 **Q: Who can create and manage tournaments?**  
 A: Server administrators and moderators. Everyone can vote.
@@ -70,22 +70,22 @@ This walks through a small straight bracket from creation to a champion. For a g
 ### Step 1: Create the Tournament (Admin Only)
 
 ```
-/bracket create name:"Horror Movie Showdown" max-titles:8
+/bracket-setup create name:"Horror Movie Showdown" max-titles:8
 ```
 
 ✅ Only you can see the reply, so you can set up privately.
 
 ::: tip Setting up many titles?
-Instead of Steps 1–2, run `/bracket setup-link` and use the [setup form](./import) to upload a CSV or JSON file or fill the tournament in.
+Instead of Steps 1–2, run `/bracket-setup setup-link` and use the [setup form](./import) to upload a CSV or JSON file or fill the tournament in.
 :::
 
 ### Step 2: Add Titles (Admin Only)
 
 ```
-/bracket manage-titles action:add type:movie title:"The Thing"
-/bracket manage-titles action:add title:"Alien"
-/bracket manage-titles action:add title:"The Exorcist"
-/bracket manage-titles action:add title:"The Shining"
+/bracket-setup manage-titles action:add type:movie title:"The Thing"
+/bracket-setup manage-titles action:add title:"Alien"
+/bracket-setup manage-titles action:add title:"The Exorcist"
+/bracket-setup manage-titles action:add title:"The Shining"
 ```
 
 Add up to 8. `type` is only needed on the first one.
@@ -95,7 +95,7 @@ Add up to 8. `type` is only needed on the first one.
 ### Step 3: Announce the Tournament (Admin Only)
 
 ```
-/bracket announce message:"🎬 Horror Movie Showdown starts NOW! Vote for your favorites!"
+/bracket-setup announce message:"🎬 Horror Movie Showdown starts NOW! Vote for your favorites!"
 ```
 
 📢 Now everyone can see it.

@@ -550,7 +550,7 @@ export async function execute(interaction) {
         book: '/book command',
         survey: '/survey command',
         soundtrack: '/soundtrack command',
-        bracket: '/bracket command',
+        bracket: '/bracket and /bracket-setup commands',
         watchlist: '/watchlist command',
         potion: '/potion command',
         foodfight: '/foodfight command',

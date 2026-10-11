@@ -35,7 +35,7 @@ features:
 
   - icon: 🏆
     title: Tournament Brackets
-    details: Let your server vote its favorite. A straight bracket of 2 to 32 titles, or a groups tournament of up to 48. Set it up with commands or from a spreadsheet, open a whole round or one matchup at a time, and watch live standings as people vote. Ties get their own tiebreaker vote.
+    details: Let your server vote its favorite. A straight bracket of 2 to 32 titles, or a groups tournament of up to 48. Set it up with commands or from a spreadsheet, open a whole round or one matchup at a time, and watch live standings as people vote. Seed it March Madness style, by rating or your own order, with seeds shown and upsets called out. Ties get a tiebreaker vote, or go to the higher seed.
     link: /guides/tournaments/
     linkText: Tournament quick guides
 
@@ -157,9 +157,9 @@ Type `/book query:Clive Barker Books of Blood` to find:
 Host comprehensive tournaments for your community! **[View Full Tournament Guide →](/commands/brackets/)**
 
 **Example Tournament Flow:**
-1. **Create**: `/bracket create name:"Friday Frights" max-titles:8` - a straight bracket (2–32 titles), or 36–48 for a groups tournament
-2. **Add Titles**: `/bracket manage-titles action:add type:movie title:"The Thing"` (repeat for each title), or run `/bracket setup-link` to set it all up from a CSV or JSON file on the [setup form](/commands/brackets/import)
-3. **Announce**: `/bracket announce` - Publicly announce the tournament with full details
+1. **Create**: `/bracket-setup create name:"Friday Frights" max-titles:8` - a straight bracket (2–32 titles), or 36–48 for a groups tournament
+2. **Add Titles**: `/bracket-setup manage-titles action:add type:movie title:"The Thing"` (repeat for each title), or run `/bracket-setup setup-link` to set it all up from a CSV or JSON file on the [setup form](/commands/brackets/import)
+3. **Announce**: `/bracket-setup announce` - Publicly announce the tournament with full details
 4. **Start**: `/bracket open duration:"24h"` - Builds the bracket and opens round one. A ballot holds 5 matchups, so a bigger round opens in parts with `/bracket open matchups:4`, or one matchup at a time with `matchups:1`
 5. **Vote**: Members press **Start Voting** for their own private ballot; live standings update as they vote
 6. **Next Rounds**: When voting closes, the winners move on; `/bracket open` again for each round
@@ -167,6 +167,7 @@ Host comprehensive tournaments for your community! **[View Full Tournament Guide
 
 **Tournament Features:**
 - **Two Shapes**: Straight bracket (2-32 titles) or groups tournament (4-12 groups of 4, then a knockout)
+- **Seeding, Your Way**: Random, your own order, or by rating. Seeds show on every matchup, upsets get called out, and ties can go to the higher seed. Run it like [March Madness, the College Football Playoff or the World Cup](/guides/tournaments/sports-styles)
 - **Smart Wildcards**: Automatically calculated based on tournament size
 - **Regional System**: Each round split into 4 regions with 1A, 2B labels
 - **Three Opening Modes**: Open entire rounds, by region, or individual matchups

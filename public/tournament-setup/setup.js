@@ -1,7 +1,7 @@
-// Tournament setup form. Reached from `/bracket setup-link`; the link's token
+// Tournament setup form. Reached from `/bracket-setup setup-link`; the link's token
 // authorises every request. The page only holds the draft — the server checks
 // everything again on save and builds the tournament through the same code
-// `/bracket manage-titles` uses. See src/api/tournamentSetupRoutes.js.
+// `/bracket-setup manage-titles` uses. See src/api/tournamentSetupRoutes.js.
 
 const token = new URLSearchParams(location.search).get('token') || '';
 
@@ -217,6 +217,13 @@ function render() {
         input.disabled = !state.editable;
     }
     document.querySelectorAll('input[name="seeding"]').forEach(r => { r.disabled = !state.editable; });
+    renderTies();
+}
+
+// Random seeds mean nothing, so the tie rule only applies to a seeded bracket
+function renderTies() {
+    const random = (document.querySelector('input[name="seeding"]:checked')?.value || 'random') === 'random';
+    document.querySelectorAll('input[name="ties"]').forEach(r => { r.disabled = !state.editable || random; });
 }
 
 function showErrors(list) {
@@ -236,9 +243,15 @@ function applySettings(settings = {}) {
     if (settings.name !== undefined) els.name.value = settings.name;
     if (settings.type) els.type.value = settings.type;
     if (settings.seeding) {
-        const radio = document.querySelector(`input[name="seeding"][value="${settings.seeding === 'ordered' ? 'ordered' : 'random'}"]`);
+        const radio = document.querySelector(`input[name="seeding"][value="${settings.seeding}"]`)
+            || document.querySelector('input[name="seeding"][value="random"]');
         if (radio) radio.checked = true;
     }
+    if (settings.ties) {
+        const radio = document.querySelector(`input[name="ties"][value="${settings.ties}"]`);
+        if (radio) radio.checked = true;
+    }
+    renderTies();
     if (settings.votingDuration !== undefined) els.voting.value = settings.votingDuration;
     if (settings.tiebreakerDuration !== undefined) els.tiebreaker.value = settings.tiebreakerDuration;
     if (settings.announcement) {
@@ -252,6 +265,7 @@ function readSettings() {
         name: els.name.value.trim(),
         type: els.type.value,
         seeding: document.querySelector('input[name="seeding"]:checked')?.value || 'random',
+        ties: document.querySelector('input[name="ties"]:checked')?.value || 'runoff',
         votingDuration: els.voting.value.trim(),
         tiebreakerDuration: els.tiebreaker.value.trim(),
         announcement: { message: els.message.value.trim(), imageUrl: els.banner.value.trim() },
@@ -386,7 +400,7 @@ async function save() {
             el('strong', { text: `Saved "${s.name}".` }),
             document.createTextNode(` ${s.titleCount} titles, ${s.mode === 'groups' ? `${s.groupCount} groups` : 'straight bracket'}. `),
             document.createTextNode('Next, in Discord: '),
-            el('code', { text: '/bracket announce' }),
+            el('code', { text: '/bracket-setup announce' }),
             document.createTextNode(' to tell everyone, then '),
             el('code', { text: '/bracket open' }),
             document.createTextNode(' to start voting. You can keep editing here until then.'));
@@ -459,6 +473,7 @@ els.addRow.addEventListener('click', () => {
 });
 els.find.addEventListener('click', findMatches);
 els.save.addEventListener('click', save);
+document.querySelectorAll('input[name="seeding"]').forEach(r => r.addEventListener('change', renderTies));
 els.backup.addEventListener('click', downloadBackup);
 els.file.addEventListener('change', () => {
     const file = els.file.files?.[0];
@@ -476,7 +491,7 @@ els.type.addEventListener('change', () => {
 (async () => {
     if (!token) {
         els.loading.style.display = 'none';
-        showPageMessage('This page needs the link from /bracket setup-link in Discord.', 'danger');
+        showPageMessage('This page needs the link from /bracket-setup setup-link in Discord.', 'danger');
         return;
     }
     try {

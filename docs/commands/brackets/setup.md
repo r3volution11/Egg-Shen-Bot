@@ -7,7 +7,7 @@ description: Create a tournament, add titles, and run the group stage through to
 
 This page covers creating a tournament, adding titles, and running the group stage up to the start of the knockout.
 
-You can set up a tournament with the commands below, one title at a time, or all at once with the [setup form](./import). Run `/bracket setup-link` (Admins/Mods) to get a private link to the form, then upload a CSV or JSON file or fill it in.
+You can set up a tournament with the commands below, one title at a time, or all at once with the [setup form](./import). Run `/bracket-setup setup-link` (Admins/Mods) to get a private link to the form, then upload a CSV or JSON file or fill it in.
 
 ## Two Tournament Shapes
 
@@ -16,16 +16,16 @@ You can set up a tournament with the commands below, one title at a time, or all
 | **Straight bracket** | 2–32, no groups | Head-to-head matchups from round one |
 | **Groups tournament** | 4–12 groups of exactly 4 titles | Group voting, then a knockout |
 
-`/bracket create` picks the shape from `max-titles`: 2–32 makes a straight bracket, 36–48 makes a groups tournament.
+`/bracket-setup create` picks the shape from `max-titles`: 2–32 makes a straight bracket, 36–48 makes a groups tournament.
 
 ---
 
 ## Creating Your Tournament
 
-### `/bracket create`
+### `/bracket-setup create`
 
 ```
-/bracket create name:<text> max-titles:<2|4|8|16|32|36|40|44|48>
+/bracket-setup create name:<text> max-titles:<2|4|8|16|32|36|40|44|48>
 ```
 
 **Parameters:**
@@ -37,26 +37,26 @@ You can set up a tournament with the commands below, one title at a time, or all
 **Who can use:** Administrators and Moderators only
 
 **Notes:**
-- The reply is private (only you see it). Use `/bracket announce` when you're ready to tell the server.
+- The reply is private (only you see it). Use `/bracket-setup announce` when you're ready to tell the server.
 - Only one tournament per server at a time.
 - The tournament type (movie, TV, game, board game, book) is set by the first title you add.
 
 **Examples:**
 ```
-/bracket create name:"Quick Horror Showdown" max-titles:8
-/bracket create name:"Monthly Movie Madness" max-titles:32
-/bracket create name:"The Ultimate Horror Cup" max-titles:48
+/bracket-setup create name:"Quick Horror Showdown" max-titles:8
+/bracket-setup create name:"Monthly Movie Madness" max-titles:32
+/bracket-setup create name:"The Ultimate Horror Cup" max-titles:48
 ```
 
 ---
 
 ## Adding and Removing Titles
 
-### `/bracket manage-titles`
+### `/bracket-setup manage-titles`
 
 ```
-/bracket manage-titles action:add type:<movie|tv|game|boardgame|book> title:<text> group:<A-L> image:<attachment>
-/bracket manage-titles action:remove position:<number> group:<A-L>
+/bracket-setup manage-titles action:add type:<movie|tv|game|boardgame|book> title:<text> group:<A-L> image:<attachment>
+/bracket-setup manage-titles action:remove position:<number> group:<A-L>
 ```
 
 **Parameters:**
@@ -82,14 +82,14 @@ You can set up a tournament with the commands below, one title at a time, or all
 **Examples:**
 ```
 # Straight bracket
-/bracket manage-titles action:add type:movie title:"The Thing"
-/bracket manage-titles action:add title:"Halloween"
-/bracket manage-titles action:remove position:7
+/bracket-setup manage-titles action:add type:movie title:"The Thing"
+/bracket-setup manage-titles action:add title:"Halloween"
+/bracket-setup manage-titles action:remove position:7
 
 # Groups tournament
-/bracket manage-titles action:add group:A type:movie title:"The Exorcist"
-/bracket manage-titles action:add group:D title:"Akira" image:[upload file]
-/bracket manage-titles action:remove group:A position:3
+/bracket-setup manage-titles action:add group:A type:movie title:"The Exorcist"
+/bracket-setup manage-titles action:add group:D title:"Akira" image:[upload file]
+/bracket-setup manage-titles action:remove group:A position:3
 ```
 
 Titles can only be added or removed during setup.
@@ -98,10 +98,10 @@ Titles can only be added or removed during setup.
 
 ## Managing Setup
 
-### `/bracket resize`
+### `/bracket-setup resize`
 
 ```
-/bracket resize groups:<4-12>
+/bracket-setup resize groups:<4-12>
 ```
 
 Change the number of groups in a groups tournament. Setup only.
@@ -111,16 +111,16 @@ Change the number of groups in a groups tournament. Setup only.
 
 **Examples:**
 ```
-/bracket resize groups:12
-/bracket resize groups:4
+/bracket-setup resize groups:12
+/bracket-setup resize groups:4
 ```
 
 ---
 
-### `/bracket announce`
+### `/bracket-setup announce`
 
 ```
-/bracket announce message:<text> image:<attachment>
+/bracket-setup announce message:<text> image:<attachment>
 ```
 
 Post a public announcement of the tournament.
@@ -133,9 +133,9 @@ Post a public announcement of the tournament.
 
 **Examples:**
 ```
-/bracket announce
-/bracket announce message:"🎬 The Ultimate Horror Cup starts NOW! Vote for your favorites!"
-/bracket announce message:"🔥 Monthly Movie Madness starts NOW!" image:[upload banner]
+/bracket-setup announce
+/bracket-setup announce message:"🎬 The Ultimate Horror Cup starts NOW! Vote for your favorites!"
+/bracket-setup announce message:"🔥 Monthly Movie Madness starts NOW!" image:[upload banner]
 ```
 
 ---
@@ -180,7 +180,10 @@ The bracket is sized to the next power of 2 at or above the number of titles. An
 Seeding decides who meets whom:
 
 - **Random** (the default): titles are shuffled.
-- **Ordered** (set in the [setup form](./import)): the order of your list is the seed order. Seed 1 meets the lowest seed, 2 meets the second-lowest, and so on, and byes go to the top seeds.
+- **Ordered** (`seeding:The order I add them` in `/bracket-setup create`, or the [setup form](./import)): the order of your list is the seed order. Seed 1 meets the lowest seed, 2 meets the second-lowest, and so on, and byes go to the top seeds.
+- **By rating** (`seeding:By rating`): the same layout, with titles ranked by their rating instead of your order.
+
+Seeded brackets show each title's seed and call out upsets. With `ties:Higher seed wins`, a tied matchup goes to the better seed instead of a runoff. See [Seeded Bracket](/guides/tournaments/seeded).
 
 After round one opens, continue with [Knockout Rounds](./knockout).
 
@@ -322,11 +325,11 @@ If the bracket looks wrong, `/bracket regenerate` rebuilds it from the group res
 
 | Command | Purpose |
 |---------|---------|
-| `/bracket setup-link` | Private link to the [setup form](./import) |
-| `/bracket create` | Start a new tournament |
-| `/bracket manage-titles` | Add or remove a title |
-| `/bracket resize` | Change the number of groups |
-| `/bracket announce` | Share the tournament publicly |
+| `/bracket-setup setup-link` | Private link to the [setup form](./import) |
+| `/bracket-setup create` | Start a new tournament |
+| `/bracket-setup manage-titles` | Add or remove a title |
+| `/bracket-setup resize` | Change the number of groups |
+| `/bracket-setup announce` | Share the tournament publicly |
 | `/bracket list-groups` | Numbered list of titles |
 | `/bracket open` | Start voting, open the next groups, or start the knockout |
 | `/bracket open-groups` | Open specific groups |

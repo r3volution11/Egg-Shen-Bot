@@ -111,7 +111,23 @@
                             <input class="form-check-input" type="radio" name="seeding" id="seeding-ordered" value="ordered">
                             <label class="form-check-label" for="seeding-ordered"><strong>Ordered</strong> — the list above is the seed order: #1 is the top seed. Round one pairs best with worst (1 v 8, 2 v 7…), #1 and #2 can only meet in the final, and any byes go to the top seeds. Use the ↑ ↓ buttons to reorder.</label>
                         </div>
-                        <div class="form-text"><a class="docs-link" data-anchor="seeding" href="#" target="_blank" rel="noopener">How seeding works</a></div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="seeding" id="seeding-rating" value="rating">
+                            <label class="form-check-label" for="seeding-rating"><strong>By rating</strong> — the bot ranks the titles by their rating (TMDB for movies and TV, RAWG for games, BoardGameGeek, Google Books), best first, and seeds them in that order. Titles with no rating go last, in list order.</label>
+                        </div>
+                        <div class="form-text">Ordered and By rating show each title's seed in Discord — "(1) Halloween" — and call out upsets. <a class="docs-link" data-anchor="seeding" href="#" target="_blank" rel="noopener">How seeding works</a></div>
+                    </fieldset>
+
+                    <fieldset class="mb-3" id="ties-fieldset">
+                        <legend class="form-label fs-6">Ties <span class="text-secondary">(seeded brackets only)</span></legend>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="ties" id="ties-runoff" value="runoff" checked>
+                            <label class="form-check-label" for="ties-runoff"><strong>Runoff vote</strong> — a tied matchup gets a short tiebreaker vote.</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="ties" id="ties-higher-seed" value="higher-seed">
+                            <label class="form-check-label" for="ties-higher-seed"><strong>Higher seed wins</strong> — a tied matchup goes straight to the better seed, college-sports style. Needs Ordered or By rating seeding; with Random, ties always get a runoff.</label>
+                        </div>
                     </fieldset>
 
                     <div class="row g-3 mb-3">
@@ -130,7 +146,7 @@
                     <div class="mb-3">
                         <label for="announcement-message" class="form-label">Announcement <span class="text-secondary">(optional)</span></label>
                         <textarea id="announcement-message" class="form-control" rows="3" maxlength="1000"></textarea>
-                        <div class="form-text">Posted by <code>/bracket announce</code> when you don't type a message there.</div>
+                        <div class="form-text">Posted by <code>/bracket-setup announce</code> when you don't type a message there.</div>
                     </div>
                     <div class="mb-1">
                         <label for="announcement-image" class="form-label">Announcement banner link <span class="text-secondary">(optional)</span></label>

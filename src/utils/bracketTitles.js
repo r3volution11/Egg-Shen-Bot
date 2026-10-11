@@ -1,6 +1,6 @@
 /**
  * Title lookup for tournaments — the one path every way of adding a title
- * goes through: `/bracket manage-titles`, its multi-result picker, and the
+ * goes through: `/bracket-setup manage-titles`, its multi-result picker, and the
  * setup form's import.
  *
  * This used to be written out twice: inline in `bracket.js` for the search,
@@ -49,7 +49,7 @@ export async function searchTitleCandidates(type, query) {
  * `volumeInfo.publishedDate`) for board games and books, but the services
  * return their own flat shapes (`yearPublished`; `publishedDate`,
  * `thumbnail`), so those entries had no year, cover or authors — on the
- * setup form, and when /bracket manage-titles found exactly one match.
+ * setup form, and when /bracket-setup manage-titles found exactly one match.
  * BGG's search has no image at all: see completeEntry.
  */
 export function buildEntryFromResult(result, type) {
@@ -77,11 +77,11 @@ export function buildEntryFromResult(result, type) {
   } else if (type === 'boardgame') {
     entry.year = result.yearPublished ?? null;
     entry.posterUrl = result.thumbnail ?? null; // not in search results; completeEntry
-    entry.metadata = { minPlayers: result.minPlayers, maxPlayers: result.maxPlayers };
+    entry.metadata = { minPlayers: result.minPlayers, maxPlayers: result.maxPlayers }; // rating: completeEntry
   } else if (type === 'book') {
     entry.year = result.publishedDate?.split('-')[0] ?? null;
     entry.posterUrl = result.thumbnail ?? null;
-    entry.metadata = { authors: result.authors, pageCount: result.pageCount };
+    entry.metadata = { authors: result.authors, pageCount: result.pageCount, averageRating: result.averageRating ?? null };
   }
 
   return entry;
@@ -130,7 +130,8 @@ export async function fetchEntryById(type, id) {
       type, title: result.name, id: result.id,
       year: result.yearPublished,
       posterUrl: result.thumbnail,
-      metadata: { minPlayers: result.minPlayers, maxPlayers: result.maxPlayers },
+      // BGG's Bayesian average, which "By rating" seeding reads (titleRating)
+      metadata: { minPlayers: result.minPlayers, maxPlayers: result.maxPlayers, bggRating: Number(result.rating?.bayesAverage) || null },
     };
   }
   if (type === 'book') {
@@ -140,7 +141,7 @@ export async function fetchEntryById(type, id) {
       type, title: result.title, id: result.id,
       year: result.publishedDate?.split('-')[0],
       posterUrl: result.thumbnail,
-      metadata: { authors: result.authors, pageCount: result.pageCount },
+      metadata: { authors: result.authors, pageCount: result.pageCount, averageRating: result.averageRating ?? null },
     };
   }
   return null;
@@ -148,14 +149,16 @@ export async function fetchEntryById(type, id) {
 
 /**
  * Fill in what a search result lacks, once a title is settled on. BGG's
- * search returns no image, so a board game added from a search had none;
- * its details lookup has it. Other types come back complete from search.
+ * search returns no image and no rating, so a board game added from a search
+ * had neither (no cover, and "By rating" seeding ranked it last); its details
+ * lookup has both. Other types come back complete from search.
  * Never fails: on any lookup error the entry is kept as it was.
  * @param {Object} entry - from buildEntryFromResult
  * @returns {Promise<Object>}
  */
 export async function completeEntry(entry) {
-  if (!entry || entry.posterUrl || entry.type !== 'boardgame' || !entry.id) return entry;
+  if (!entry || entry.type !== 'boardgame' || !entry.id) return entry;
+  if (entry.posterUrl && entry.metadata?.bggRating) return entry;
   try {
     const details = await fetchEntryById(entry.type, entry.id);
     return details ? { ...entry, ...details, customImageUrl: entry.customImageUrl } : entry;

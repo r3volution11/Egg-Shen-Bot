@@ -1,11 +1,13 @@
 ---
 title: Command Reference
-description: "Every /bracket tournament command and option in Egg Shen Bot, organised by tournament phase, with examples."
+description: "Every /bracket and /bracket-setup tournament command and option in Egg Shen Bot, organised by tournament phase, with examples."
 ---
 
 # Bracket Command Reference
 
 This page provides detailed documentation for all tournament bracket commands. Commands are organized by tournament phase and use case.
+
+Tournaments use two commands. **`/bracket-setup`** is for getting a tournament ready before voting starts: creating it, adding titles, naming and announcing it. Only admins and moderators see it. **`/bracket`** is for everything after that: opening and closing votes, status, the bracket image, and exporting. Members use it too. (Before 2.62.0, setup was part of `/bracket`; it moved to make room in Discord's size limit for commands.)
 
 **Note:** Group stage voting is now **button-based**! Members vote by clicking buttons on the voting message - no commands needed.
 
@@ -14,12 +16,12 @@ This page provides detailed documentation for all tournament bracket commands. C
 | Command | Who Can Use | Description | Phase |
 |---------|-------------|-------------|-------|
 | `help` | Everyone | View tournament guide and command overview | Any |
-| `create` | Admin/Mod | Create a new tournament | Setup |
-| `setup-link` | Admin/Mod | Private link to the web [setup form](./import) (CSV/JSON upload or fill in) | Setup |
-| `manage-titles` | Admin/Mod | Add or remove titles from groups | Setup |
-| `resize` | Admin/Mod | Change the number of groups before voting begins | Setup |
-| `edit-name` | Admin/Mod | Rename the tournament | Any |
-| `announce` | Admin/Mod | Announce the tournament to the channel | Setup |
+| `/bracket-setup create` | Admin/Mod | Create a new tournament | Setup |
+| `/bracket-setup setup-link` | Admin/Mod | Private link to the web [setup form](./import) (CSV/JSON upload or fill in) | Setup |
+| `/bracket-setup manage-titles` | Admin/Mod | Add or remove titles from groups | Setup |
+| `/bracket-setup resize` | Admin/Mod | Change the number of groups before voting begins | Setup |
+| `/bracket-setup edit-name` | Admin/Mod | Rename the tournament | Any |
+| `/bracket-setup announce` | Admin/Mod | Announce the tournament to the channel | Setup |
 | `open` | Admin/Mod | Smart: Opens next round (auto-detects phase) | Any |
 | `close` | Admin/Mod | Smart: Closes current round (auto-detects phase) | Any |
 | `open-groups` | Admin/Mod | Open specific groups for button-based voting | Group Stage |
@@ -38,10 +40,10 @@ This page provides detailed documentation for all tournament bracket commands. C
 
 **Key Changes:**
 - 🆕 **Smart Commands**: `/bracket open` and `/bracket close` auto-detect tournament phase
-- 🔄 **Unified Management**: `/bracket manage-titles` replaces `add-title` and `remove-title`
+- 🔄 **Unified Management**: `/bracket-setup manage-titles` replaces `add-title` and `remove-title`
 - ⚖️ **Tiebreaker Voting & Resolution**: Ties are now resolved by member button-voting, with `/bracket resolve-tiebreaker` available to tally votes early or manually override the winner
 - 🎨 **AI Images Moved**: Matchup image generation now lives in the standalone [`/image`](../ai-images) command (`/image matchup:"Title A vs Title B"`), alongside its freeform, message, and versus-search modes
-- 🆕 **Setup Form**: `/bracket setup-link` sets up a whole tournament from a CSV or JSON file, or a form. See [Setup Form](./import)
+- 🆕 **Setup Form**: `/bracket-setup setup-link` sets up a whole tournament from a CSV or JSON file, or a form. See [Setup Form](./import)
 - ❌ **Removed**: `advance-knockout` — `/bracket open` starts the knockout once every group is closed
 - ❌ **Removed**: `open-knockout`, `close-knockout`, `open-quarters`, `close-quarters`, `open-semis`, `close-semis`, `open-finals`, `close-finals`, `open-region` — all superseded by the smart `open`/`close`/`open-matchup` commands
 
@@ -100,9 +102,9 @@ This command sends an ephemeral reply (only you can see it), keeping the channel
 
 ## Setup Commands
 
-These commands are used to create and configure a tournament before voting begins. All setup commands require Admin or Moderator permissions.
+These `/bracket-setup` commands are used to create and configure a tournament before voting begins. All of them require Admin or Moderator permissions, and Discord only shows `/bracket-setup` to members who have them.
 
-### `/bracket create`
+### `/bracket-setup create`
 
 Create a new tournament bracket. The bot automatically selects the best tournament format based on size.
 
@@ -112,25 +114,34 @@ Create a new tournament bracket. The bot automatically selects the best tourname
   - **Valid bracket sizes:** 2, 4, 8, 16, 32 (powers of 2)
   - **Valid group sizes:** 36, 40, 44, 48 (multiples of 4)
   - **Straight bracket** (2-32 titles): No groups; head-to-head matchups from round one. This is the most titles it can hold — you can start with fewer, and empty slots become byes
-  - **Groups tournament** (36-48 titles): 9-12 groups of 4, then a knockout. `/bracket resize` changes the group count (4-12) during setup
+  - **Groups tournament** (36-48 titles): 9-12 groups of 4, then a knockout. `/bracket-setup resize` changes the group count (4-12) during setup
   - Discord shows labeled choices: "8 titles (Quarterfinals)", "36 titles (9 groups)", etc.
+- `seeding` (optional, dropdown): How titles are seeded. Straight brackets only. [More on seeding](/guides/tournaments/seeded)
+  - **Random** (default): shuffled when the bracket is built
+  - **The order I add them**: the first title added is seed 1
+  - **By rating**: ranked by TMDB, RAWG, BoardGameGeek or Google Books rating
+  - Seeded brackets show each title's seed, for example "(1) Halloween", and call out upsets
+- `ties` (optional, dropdown): What a tied matchup does
+  - **Runoff vote** (default): a short tiebreaker vote
+  - **Higher seed wins**: the better seed advances at once. Needs a seeded bracket.
 
 **Example Usage:**
 ```
-/bracket create name:"Summer Movie Madness" max-titles:32
-/bracket create name:"Quick 8-Title Showdown" max-titles:8
-/bracket create name:"Epic 48-Title Championship" max-titles:48
+/bracket-setup create name:"Summer Movie Madness" max-titles:32
+/bracket-setup create name:"Quick 8-Title Showdown" max-titles:8
+/bracket-setup create name:"Horror March Madness" max-titles:16 seeding:By rating ties:Higher seed wins
+/bracket-setup create name:"Epic 48-Title Championship" max-titles:48
 ```
 
 **Notes:**
 - Tournament names are visible to all participants (max 100 characters)
 - Default is 32 titles if not specified (straight bracket)
-- The reply is private; use `/bracket announce` to tell the server
+- The reply is private; use `/bracket-setup announce` to tell the server
 - Only one active tournament per server at a time
 
 ---
 
-### `/bracket setup-link`
+### `/bracket-setup setup-link`
 
 Get a private link to the web setup form, where you can set up a whole tournament at once instead of adding titles one by one.
 
@@ -140,7 +151,7 @@ Get a private link to the web setup form, where you can set up a whole tournamen
 
 **Example Usage:**
 ```
-/bracket setup-link
+/bracket-setup setup-link
 ```
 
 **Notes:**
@@ -155,7 +166,7 @@ See [Setup Form](./import) for the file format and details.
 
 ---
 
-### `/bracket manage-titles`
+### `/bracket-setup manage-titles`
 
 Add or remove titles during setup. This unified command replaces the old `add-title` and `remove-title` commands.
 
@@ -176,17 +187,17 @@ Add or remove titles during setup. This unified command replaces the old `add-ti
 
 **Example Usage (Adding):**
 ```
-/bracket manage-titles action:"Add Title" group:A type:movie title:"The Thing"
-/bracket manage-titles action:"Add Title" group:B type:tv title:"Breaking Bad"
-/bracket manage-titles action:"Add Title" group:C type:game title:"Elden Ring"
-/bracket manage-titles action:"Add Title" group:A type:movie title:"Evil Dead" image:[uploaded-file.jpg]
+/bracket-setup manage-titles action:"Add Title" group:A type:movie title:"The Thing"
+/bracket-setup manage-titles action:"Add Title" group:B type:tv title:"Breaking Bad"
+/bracket-setup manage-titles action:"Add Title" group:C type:game title:"Elden Ring"
+/bracket-setup manage-titles action:"Add Title" group:A type:movie title:"Evil Dead" image:[uploaded-file.jpg]
 ```
 
 **Example Usage (Removing):**
 ```
-/bracket manage-titles action:"Remove Title" group:A position:2
-/bracket manage-titles action:"Remove Title" group:D position:4
-/bracket manage-titles action:"Remove Title" position:7
+/bracket-setup manage-titles action:"Remove Title" group:A position:2
+/bracket-setup manage-titles action:"Remove Title" group:D position:4
+/bracket-setup manage-titles action:"Remove Title" position:7
 ```
 
 The last example is a straight bracket, which has no groups.
@@ -202,7 +213,7 @@ The last example is a straight bracket, which has no groups.
 
 ---
 
-### `/bracket resize`
+### `/bracket-setup resize`
 
 Change the number of groups before voting begins.
 
@@ -213,8 +224,8 @@ Change the number of groups before voting begins.
 
 **Example Usage:**
 ```
-/bracket resize groups:10
-/bracket resize groups:9
+/bracket-setup resize groups:10
+/bracket-setup resize groups:9
 ```
 
 **Notes:**
@@ -224,7 +235,7 @@ Change the number of groups before voting begins.
 
 ---
 
-### `/bracket announce`
+### `/bracket-setup announce`
 
 Announce the tournament to the channel with optional custom message and banner.
 
@@ -234,9 +245,9 @@ Announce the tournament to the channel with optional custom message and banner.
 
 **Example Usage:**
 ```
-/bracket announce
-/bracket announce message:"Let the games begin! Vote for your favorites!"
-/bracket announce message:"Welcome to the tournament!" image:[banner.jpg]
+/bracket-setup announce
+/bracket-setup announce message:"Let the games begin! Vote for your favorites!"
+/bracket-setup announce message:"Welcome to the tournament!" image:[banner.jpg]
 ```
 
 **Notes:**
@@ -842,7 +853,7 @@ Export the tournament's lineup and settings (JSON) or its results (Markdown).
 **JSON Export:**
 - The setup form's import format: the title lineup (with ids filled in) and the tournament's settings
 - No votes and no voter ids
-- Upload it through `/bracket setup-link` to run the same tournament again
+- Upload it through `/bracket-setup setup-link` to run the same tournament again
 
 **Markdown Export:**
 - Formatted results ready to paste
@@ -888,7 +899,7 @@ Export the tournament's lineup and settings (JSON) or its results (Markdown).
 
 ---
 
-### `/bracket edit-name`
+### `/bracket-setup edit-name`
 
 Change the tournament name after creation.
 
@@ -899,8 +910,8 @@ Change the tournament name after creation.
 
 **Example Usage:**
 ```
-/bracket edit-name name:"Epic Summer Movie Championship 2026"
-/bracket edit-name name:"Quick Test Tournament"
+/bracket-setup edit-name name:"Epic Summer Movie Championship 2026"
+/bracket-setup edit-name name:"Quick Test Tournament"
 ```
 
 **Notes:**
@@ -948,10 +959,10 @@ Cancel the tournament and delete all data.
 
 **Setup:**
 ```
-/bracket create name:"Quick Horror Showdown" max-titles:8
-/bracket create name:"Summer Movie Madness" max-titles:32
+/bracket-setup create name:"Quick Horror Showdown" max-titles:8
+/bracket-setup create name:"Summer Movie Madness" max-titles:32
 ```
-*(or set it up in one go with `/bracket setup-link` and the [setup form](./import))*
+*(or set it up in one go with `/bracket-setup setup-link` and the [setup form](./import))*
 
 **Configuration:**
 - **Groups:** None
@@ -975,10 +986,10 @@ Cancel the tournament and delete all data.
 
 **Setup:**
 ```
-/bracket create name:"Quick Horror Tournament" max-titles:36
-/bracket resize groups:4
+/bracket-setup create name:"Quick Horror Tournament" max-titles:36
+/bracket-setup resize groups:4
 ```
-*`/bracket create` makes 9–12 groups; resize during setup, or use the [setup form](./import).*
+*`/bracket-setup create` makes 9–12 groups; resize during setup, or use the [setup form](./import).*
 
 **Configuration:**
 - **Groups:** 4 groups (A-D) of 4
@@ -997,8 +1008,8 @@ Cancel the tournament and delete all data.
 
 **Setup:**
 ```
-/bracket create name:"Community Choice Awards" max-titles:36
-/bracket resize groups:8
+/bracket-setup create name:"Community Choice Awards" max-titles:36
+/bracket-setup resize groups:8
 ```
 
 **Configuration:**
@@ -1018,7 +1029,7 @@ Cancel the tournament and delete all data.
 
 **Setup:**
 ```
-/bracket create name:"Ultimate Showdown" max-titles:40
+/bracket-setup create name:"Ultimate Showdown" max-titles:40
 ```
 
 **Configuration:**
@@ -1038,7 +1049,7 @@ Cancel the tournament and delete all data.
 
 **Setup:**
 ```
-/bracket create name:"Epic Community Championship" max-titles:48
+/bracket-setup create name:"Epic Community Championship" max-titles:48
 ```
 
 **Configuration:**
@@ -1071,7 +1082,7 @@ The tournament bracket system supports a wide range of features and configuratio
 - **Dynamic resizing** of the group count during setup
 - **Seeding:** random or ordered for straight brackets; from group results for groups tournaments
 - **Wildcard system** fills the knockout bracket
-- **Setup form** - set up a tournament from a CSV or JSON file, or by filling in a form (`/bracket setup-link`)
+- **Setup form** - set up a tournament from a CSV or JSON file, or by filling in a form (`/bracket-setup setup-link`)
 
 ### Voting Options
 - **Group stage:** Pick your top 2 titles in each group
@@ -1175,7 +1186,7 @@ Understanding what the system cannot do helps set proper expectations:
 ### During Setup
 1. **Use custom images** for better visual appeal
 2. **Add titles efficiently** - Don't rush, but don't delay too long
-3. **Use `/bracket announce`** when ready to begin
+3. **Use `/bracket-setup announce`** when ready to begin
 4. **Consider group waves** - Open groups in batches (A-D, then E-H)
 
 ### During Group Stage

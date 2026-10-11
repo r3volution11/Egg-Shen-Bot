@@ -109,11 +109,11 @@ describe('the docs index', () => {
 
   test('a 16-team setup question finds an answer that gives both ways', () => {
     // It used to give only the commands: the FAQ mentioned the setup form in
-    // passing, without /bracket setup-link, so the answer left it out
+    // passing, without /bracket-setup setup-link, so the answer left it out
     const top = docsIndex.searchDocs('How do I set up a 16 team tournament?')[0];
     expect(top.heading).toBe('How do I set up a tournament with 16 titles?');
-    expect(top.text).toContain('/bracket setup-link');
-    expect(top.text).toContain('/bracket create');
+    expect(top.text).toContain('/bracket-setup setup-link');
+    expect(top.text).toContain('/bracket-setup create');
   });
 
   test('"open a matchup with only 2 titles" finds the matchup answer, not tournament setup', () => {
@@ -156,7 +156,7 @@ describe('the command checker', () => {
 
   test('real commands pass, wherever and however they are written', () => {
     expect(check('Run `/bracket open matchups:1`.').unknown).toEqual([]);
-    expect(check("Run `'/bracket create name:\"Cup\" max-titles:16'`.").unknown).toEqual([]);
+    expect(check("Run `'/bracket-setup create name:\"Cup\" max-titles:16'`.").unknown).toEqual([]);
     expect(check('```\n/timer start label:The Lord of the Rings duration:190\n```').unknown).toEqual([]);
     expect(check('Use /bracket to run tournaments, see [guide](/guides/tournaments/) or https://eggshenbot.com/commands/').unknown).toEqual([]);
     // A title with a colon is one value, not a "Rings" option (a real answer was dropped for this)

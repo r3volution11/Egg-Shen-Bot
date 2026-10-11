@@ -63,7 +63,7 @@ describe('restarts at bad moments', () => {
   const titled = (sim, re) => sim.channel.posted.filter(m => re.test(m.embeds[0]?.toJSON().title || ''));
   const tournamentFile = (sim) => `${process.env.GUILD_TOURNAMENTS_DIR}/${sim.guildId}.json`;
 
-  test('killed in the middle of saving: the tournament survives, and /bracket create can\'t replace it', async () => {
+  test('killed in the middle of saving: the tournament survives, and /bracket-setup create can\'t replace it', async () => {
     const sim = new Sim('sim-restart-torn-write');
     await straightBracket(sim, 'Torn', 8, 'movie', HORROR_8);
     await sim.bracket('admin', 'open', { duration: '1d' });

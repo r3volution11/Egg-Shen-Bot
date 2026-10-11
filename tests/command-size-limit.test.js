@@ -83,16 +83,18 @@ describe('Discord slash command size limit', () => {
     }
   });
 
-  test('/bracket has not grown since it was last measured', () => {
-    // /bracket sits at ~93% with under 600 bytes free. Anything added to it
-    // should be a conscious decision, so pin the ceiling.
-    // Raised 7400 → 7432 for 2.45.0's `open matchups:<1-5>` (one matchup at a
-    // time; the only way to pace a small bracket). The next addition should
-    // probably split the command instead.
-    // 2.57.0 added `voting-post` and paid for it by tightening wordy option
-    // descriptions, ending smaller (7404) — so the ceiling came down too.
-    const bracket = commands.find(c => c.name === 'bracket');
-    expect(bracket).toBeDefined();
-    expect(bracket.bytes).toBeLessThanOrEqual(7404);
+  test('/bracket and /bracket-setup have not grown since they were last measured', () => {
+    // /bracket reached 7841 of 8000 bytes with 2.62.0's seeding options, so
+    // 2.62.0 split it: setup subcommands (create, setup-link, manage-titles,
+    // resize, edit-name, announce) moved to /bracket-setup. Both now have
+    // room, but growth should still be a conscious decision, so pin each.
+    // History: 7400 → 7432 (2.45.0 `open matchups:`), → 7404 (2.57.0 trimmed
+    // descriptions to pay for `voting-post`), → 7841, then the split.
+    const ceilings = { bracket: 4346, 'bracket-setup': 3586 };
+    for (const [name, ceiling] of Object.entries(ceilings)) {
+      const command = commands.find(c => c.name === name);
+      expect(command).toBeDefined();
+      expect(command.bytes).toBeLessThanOrEqual(ceiling);
+    }
   });
 });

@@ -25,6 +25,12 @@ const userVotingDashboards = new Map();
 // Value: { messageId, channelId, timestamp }
 const publicLeaderboards = new Map();
 
+// Cut `text` to `keep` chars + '...' once it passes `max` — the truncation
+// the matchup cards always used, kept so unseeded titles read as before.
+function shortLabel(text, max, keep = max - 3) {
+  return text.length > max ? text.substring(0, keep) + '...' : text;
+}
+
 // Clean up old dashboard entries (older than 1 hour) every 10 minutes
 // unref(): housekeeping must not keep the process alive on its own. The bot
 // stays up regardless (its Discord connection does that); without this,
@@ -1610,13 +1616,13 @@ async function handleOpenMatchupButton(interaction) {
     .setDescription(`**${regionalLabel}:** Vote for your pick!`)
     .addFields(
       { 
-        name: `${matchup.movie1.title}`, 
+        name: tournamentUI.seededTitle(matchup.movie1), 
         value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
         inline: true 
       },
       { name: '\u200B', value: 'vs', inline: true },
       { 
-        name: `${matchup.movie2.title}`, 
+        name: tournamentUI.seededTitle(matchup.movie2), 
         value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
         inline: true 
       }
@@ -1626,11 +1632,11 @@ async function handleOpenMatchupButton(interaction) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`knockout_vote_${matchup.id}_1`)
-      .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
+      .setLabel(shortLabel(tournamentUI.seededTitle(matchup.movie1), 80))
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`knockout_vote_${matchup.id}_2`)
-      .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
+      .setLabel(shortLabel(tournamentUI.seededTitle(matchup.movie2), 80))
       .setStyle(ButtonStyle.Primary)
   );
   
@@ -1741,12 +1747,12 @@ async function handleCloseMatchupButton(interaction) {
 
   const after = bracketManager.loadTournament(interaction.guild.id);
   const next = after.status === 'completed'
-    ? `\n🏆 That was the final: **${closed.winner.title}** is champion!`
+    ? `\n🏆 That was the final: **${tournamentUI.seededTitle(closed.winner)}** is champion!`
     : after.phase !== tournament.phase
       ? `\nAll matchups complete — on to the ${after.phase.replace(/_/g, ' ')}.`
       : '';
   await privateNote(interaction, {
-    content: `✅ Closed matchup ${regionalLabel}: **${closed.winner.title}** wins ${Math.max(closed.votes1, closed.votes2)}–${Math.min(closed.votes1, closed.votes2)}.${next}`,
+    content: `✅ Closed matchup ${regionalLabel}: ${tournamentUI.knockoutOutcome(closed.winner, closed.votes1, closed.votes2, closed.decidedBy)}.${next}`,
   });
 }
 
@@ -1886,13 +1892,13 @@ async function handleOpenRegionButton(interaction) {
       .setDescription(`**${regionalLabel}:** Vote for your pick!`)
       .addFields(
         { 
-          name: `${matchup.movie1.title}`, 
+          name: tournamentUI.seededTitle(matchup.movie1), 
           value: `${votes1} vote${votes1 !== 1 ? 's' : ''}`, 
           inline: true 
         },
         { name: '\u200B', value: 'vs', inline: true },
         { 
-          name: `${matchup.movie2.title}`, 
+          name: tournamentUI.seededTitle(matchup.movie2), 
           value: `${votes2} vote${votes2 !== 1 ? 's' : ''}`, 
           inline: true 
         }
@@ -1902,11 +1908,11 @@ async function handleOpenRegionButton(interaction) {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`knockout_vote_${matchup.id}_1`)
-        .setLabel(matchup.movie1.title.length > 80 ? matchup.movie1.title.substring(0, 77) + '...' : matchup.movie1.title)
+        .setLabel(shortLabel(tournamentUI.seededTitle(matchup.movie1), 80))
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`knockout_vote_${matchup.id}_2`)
-        .setLabel(matchup.movie2.title.length > 80 ? matchup.movie2.title.substring(0, 77) + '...' : matchup.movie2.title)
+        .setLabel(shortLabel(tournamentUI.seededTitle(matchup.movie2), 80))
         .setStyle(ButtonStyle.Primary)
     );
     
@@ -2016,7 +2022,7 @@ async function closeEarlierMatchupsFromButton(interaction, keepIds) {
     const label = knockoutLabel(m.position, m.round);
     return c.tied
       ? `${label}: tied — tiebreaker vote posted`
-      : `${label}: **${c.winner?.title}** wins ${Math.max(c.votes1, c.votes2)}–${Math.min(c.votes1, c.votes2)}`;
+      : `${label}: ${tournamentUI.knockoutOutcome(c.winner, c.votes1, c.votes2, c.decidedBy)}`;
   });
   await privateNote(interaction, {
     content: `🔒 Voting closed on the earlier matchup${closed.length === 1 ? '' : 's'}:\n${lines.join('\n')}`,
@@ -2139,12 +2145,11 @@ function buildKnockoutVotingDashboard(tournament, currentRound, matchups, userId
     
     let matchupText = '';
     if (hasVoted) {
-      const votedTitle = userChoice === 1 ? matchup.movie1.title : matchup.movie2.title;
-      const truncated = votedTitle.length > 35 ? votedTitle.substring(0, 32) + '...' : votedTitle;
+      const truncated = shortLabel(tournamentUI.seededTitle(userChoice === 1 ? matchup.movie1 : matchup.movie2), 35);
       matchupText = `${indicator} **Matchup ${matchup.position + 1}:** ${truncated}`;
     } else {
-      const title1 = matchup.movie1.title.length > 18 ? matchup.movie1.title.substring(0, 15) + '...' : matchup.movie1.title;
-      const title2 = matchup.movie2.title.length > 18 ? matchup.movie2.title.substring(0, 15) + '...' : matchup.movie2.title;
+      const title1 = shortLabel(tournamentUI.seededTitle(matchup.movie1), 18, 15);
+      const title2 = shortLabel(tournamentUI.seededTitle(matchup.movie2), 18, 15);
       matchupText = `${indicator} **Matchup ${matchup.position + 1}:** ${title1} vs ${title2}`;
     }
     description += matchupText + '\n';

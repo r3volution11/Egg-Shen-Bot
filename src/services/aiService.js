@@ -650,7 +650,7 @@ export async function answerFromDocs({ question, sections, catalogLines }) {
     '- Include only the options the task needs; leave optional ones out unless the question asks about them.',
     '- Write any placeholder in angle brackets, e.g. `type:<potion type>`, never bare. Never write an option list like `[groups, duration]` in a command.',
     '- Answer exactly what was asked. Don\'t add steps before it (creating a tournament, adding titles) unless the question is about setting one up.',
-    '- Prefer the simplest way that fully answers the question. If the excerpts show another way to do the same thing (for example the web setup form from `/bracket setup-link` instead of adding titles one command at a time), mention it in one short line, with its command. Only mention a way to do the task that was asked about.',
+    '- Prefer the simplest way that fully answers the question. If the excerpts show another way to do the same thing (for example the web setup form from `/bracket-setup setup-link` instead of adding titles one command at a time), mention it in one short line, with its command. Only mention a way to do the task that was asked about.',
     '- Be brief: under 120 words. Use a numbered list only for several steps.',
     '- If the excerpts and command list do not answer the question, reply with exactly: NOT_COVERED',
     '- End with a line: SOURCES: the numbers of the excerpts you used, comma-separated, or none.',

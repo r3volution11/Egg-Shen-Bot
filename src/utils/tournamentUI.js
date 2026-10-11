@@ -93,8 +93,50 @@ export function displayTitle(entry, max = 80) {
   const title = String(entry?.title || '').trim();
   const year = String(entry?.year || '').slice(0, 4);
   const suffix = /^\d{4}$/.test(year) && !/\(\d{4}\)$/.test(title) ? ` (${year})` : '';
-  if (title.length + suffix.length <= max) return title + suffix;
-  return `${title.slice(0, Math.max(1, max - suffix.length - 1)).trimEnd()}…${suffix}`;
+  // A seeded bracket shows the seed, March Madness style: "(1) Halloween".
+  // Only seeded brackets stamp entry.seed, so random ones read as before.
+  const prefix = entry?.seed ? `(${entry.seed}) ` : '';
+  const room = max - prefix.length;
+  if (title.length + suffix.length <= room) return prefix + title + suffix;
+  return `${prefix}${title.slice(0, Math.max(1, room - suffix.length - 1)).trimEnd()}…${suffix}`;
+}
+
+/**
+ * The bare title with its seed in front when the bracket is seeded:
+ * "(1) Halloween", else "Halloween" — for the places that always showed the
+ * bare title, so unseeded tournaments (and ones already running when seeds
+ * arrived) read exactly as before.
+ * @param {{title: string, seed?: number}} entry
+ */
+export function seededTitle(entry) {
+  const title = String(entry?.title || '');
+  return entry?.seed ? `(${entry.seed}) ${title}` : title;
+}
+
+/**
+ * A decided knockout matchup in one line: "**(2) Hereditary** wins 5–3", or,
+ * when a tie went to the better seed (the 'higher-seed' tie rule),
+ * "**(2) Hereditary** advances on a 4–4 tie as the higher seed" — so nobody
+ * reads a tie as a vote count error.
+ * @param {Object} winner - the winning entry
+ * @param {number} votes1
+ * @param {number} votes2
+ * @param {string} [decidedBy] - 'seed' when the tie rule decided it
+ */
+export function knockoutOutcome(winner, votes1, votes2, decidedBy) {
+  const score = `${Math.max(votes1, votes2)}–${Math.min(votes1, votes2)}`;
+  return decidedBy === 'seed'
+    ? `**${seededTitle(winner)}** advances on a ${score} tie as the higher seed`
+    : `**${seededTitle(winner)}** wins ${score}`;
+}
+
+/**
+ * "🚨 Upset! (12) knocks out (5)" when a worse seed beats a better one, else
+ * ''. Unseeded entries (random brackets, groups knockouts) are never upsets.
+ */
+export function upsetNote(winner, loser) {
+  if (!winner?.seed || !loser?.seed || winner.seed <= loser.seed) return '';
+  return `🚨 Upset! (${winner.seed}) knocks out (${loser.seed})`;
 }
 
 /**

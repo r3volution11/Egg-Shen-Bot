@@ -226,8 +226,8 @@ Host comprehensive tournaments for movies, TV shows, video games, board games, o
 **Example:**
 ```
 /bracket help
-/bracket create name:Horror Movie Madness max-titles:32
-/bracket manage-titles action:add group:A type:movie
+/bracket-setup create name:Horror Movie Madness max-titles:32
+/bracket-setup manage-titles action:add group:A type:movie
 /bracket open duration:24h
 /bracket close tiebreaker-duration:30m
 /bracket status

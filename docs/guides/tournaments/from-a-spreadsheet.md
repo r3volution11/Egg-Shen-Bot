@@ -1,13 +1,13 @@
 ---
 title: Set Up a Tournament From a Spreadsheet - Egg Shen Bot
-description: Load a whole Discord tournament from a CSV or JSON file with /bracket setup-link - pick a template, fill in titles, check the matches and create it.
+description: Load a whole Discord tournament from a CSV or JSON file with /bracket-setup setup-link - pick a template, fill in titles, check the matches and create it.
 howto:
   name: Set up a tournament from a spreadsheet
   timeText: 10 minutes
   totalTime: PT10M
   steps:
     - name: Get the link
-      text: In Discord, run `/bracket setup-link` (admins and moderators). The bot replies privately with a link that works for an hour.
+      text: In Discord, run `/bracket-setup setup-link` (admins and moderators). The bot replies privately with a link that works for an hour.
     - name: Fill in a template
       text: Download the [straight-bracket CSV](/templates/tournaments/straight-bracket.csv) or the [groups CSV](/templates/tournaments/groups.csv), and put one title per row. Add a `year` to each title for the best matches.
     - name: Upload it
@@ -15,7 +15,7 @@ howto:
     - name: Check the matches
       text: Each row shows the title it matched, with its poster. Pick the right one where there are several matches, and fix any that weren't found.
     - name: Create the tournament
-      text: Add a name, choose the seeding and voting times, and press **Create tournament**. Then run `/bracket announce` and `/bracket open` in Discord.
+      text: Add a name, choose the seeding and voting times, and press **Create tournament**. Then run `/bracket-setup announce` and `/bracket open` in Discord.
 ---
 
 # Set Up From a Spreadsheet
@@ -28,7 +28,7 @@ Typing 32 titles one command at a time is slow. The setup form takes a whole lis
 
 - **Add the year.** "The Thing" matches two films; "The Thing, 1982" matches one. A year in the title, like "Halloween (1978)", is read automatically.
 - **Groups go in a column.** Fill in `group` with letters A–L for a [groups tournament](./groups); leave it empty for a straight bracket.
-- **Edit until voting starts.** Run `/bracket setup-link` again to reopen the form with everything filled in. Saving replaces the lineup, and lists anything it drops before it does.
+- **Edit until voting starts.** Run `/bracket-setup setup-link` again to reopen the form with everything filled in. Saving replaces the lineup, and lists anything it drops before it does.
 - **Keep a backup.** `/bracket export format:json` saves the lineup and settings, ready to load again next year.
 - **Custom images** go in an `image_url` column, as a direct link to an image.
 
@@ -38,6 +38,7 @@ The [setup form page](/commands/brackets/import) has the full reference: every C
 
 ## Related
 
-- [Seeded bracket](./seeded), to decide who meets whom
+- [Seeded bracket](./seeded), to decide who meets whom: your spreadsheet's order, or by rating
+- [Sports-style tournaments](./sports-styles), for settings that match March Madness, the College Football Playoff and more
 - [Groups tournament](./groups)
 - [Setup form reference](/commands/brackets/import)

@@ -9,6 +9,30 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.62.0 - 2026-10-10
+
+### Added
+- **Seeding that matters, March Madness style. Every part is optional, and the tournament creator chooses.** `/bracket-setup create` has two new options, and the setup form and tournament files have matching settings:
+  - **`seeding`**: **Random** (the default, as before), **The order I add them**, or the new **By rating**. By rating ranks the titles by their TMDB, RAWG, BoardGameGeek or Google Books rating and makes the best one seed 1. Titles with no rating go last, and `/bracket status` names them while you're still setting up
+  - **Seeds are shown** in a seeded bracket: on the ballot, vote buttons, results, live standings and bracket image, for example "(1) Halloween vs (8) Hereditary". A worse seed winning gets **🚨 Upset! (8) knocks out (1)** on the result post
+  - **`ties`**: **Runoff vote** (the default, as before), or **Higher seed wins**, which sends a tied matchup straight to the better seed with no runoff and says so in the result. It needs a seeded bracket; with Random seeding, ties always get a runoff
+- Tournaments already running are unchanged: no seeds appear, and ties still get a runoff
+- **New guide: [Sports-style tournaments](/guides/tournaments/sports-styles).** It shows which settings run a tournament like NCAA March Madness, the College Football Playoff, the NFL, MLB, NBA or NHL playoffs, the FIFA World Cup or an FA Cup draw, and where each one differs. Twelve seeded titles give the College Football Playoff's layout exactly, and 48 titles in groups give the 2026 World Cup's. The quick guides, FAQ and `/bracket help` now cover seeding and ties too
+
+### Changed
+- **Setting up a tournament has its own command: `/bracket-setup`.** `create`, `setup-link`, `manage-titles`, `resize`, `edit-name` and `announce` moved there from `/bracket`. Everything you use while a tournament runs stays on `/bracket`: open, close, status, voting, view, export. Only admins and moderators see `/bracket-setup`. `/bracket` had nearly reached Discord's size limit for a command, and this makes room for more tournament features. If Discord says a command is outdated, reload Discord (Cmd/Ctrl+R)
+- `/bracket help` no longer mentions a `/bracket image` command, which never existed. Matchup images come from `/image matchup:`
+
+### Developer
+- `bracketManager`: `SEEDING_MODES`, `TIE_RULES`, `getSeedingMode`, `getTieRule` (always `runoff` for random seeding), `titleRating`, `seedTitles`. Seeded participants get `seed: n` when the bracket is generated. Winners advance as the same object, so the seed travels with them
+- `closeKnockoutMatchup` settles a tie by seed under `higher-seed` and records `decidedBy: 'seed' | 'votes' | 'coin'` in `knockoutResults`. It also sets `matchup.decidedBy` when the seed decided it
+- `tournamentUI`: `displayTitle` prefixes the seed; new `seededTitle` (seed and bare title, used where the bare title was shown before, so unseeded output is byte-identical), `knockoutOutcome` and `upsetNote`
+- Book entries store `averageRating` and board games `bggRating`. `completeEntry` now also fetches BGG details for a board game with no rating
+- Import/export: `seeding` accepts `rating`; new `ties` field
+- `create` gained `seeding` and `ties`, which took `/bracket` to 7841/8000 bytes. Split by phase into `src/commands/bracket-setup.js` (3586 bytes) and `/bracket` (4346). The handlers stayed in `bracket.js`: `bracket-setup` calls its `execute()`, so the `commands.bracket` toggle (shared by both commands) and the admin/mod gate are the same code. The new command sets `setDefaultMemberPermissions(ModerateMembers)`, which matches that gate. `SETUP_SUBCOMMANDS` is exported, and `/eggshen-ask` knows both commands' admin subcommands. **Command definitions changed: run `deploy-commands`**
+- `tests/bracket-command-references.test.js`: every `/bracket …` and `/bracket-setup …` in `src/` and `public/` names a real subcommand (`docs-commands.test.js` already covers the docs). Size ceilings are now pinned per command. The simulator's `sim.bracket()` routes setup subcommands to `/bracket-setup`, and `sim.command()` refuses a subcommand the named command doesn't have, as Discord does
+- Tests: rating, tie, upset, random-tie and legacy-file scenarios in `tournament-sim.test.js`; rating, validation and round-trip tests in `tournament-import.test.js`
+
 ## 2.61.1 - 2026-10-10
 
 ### Changed

@@ -6,7 +6,7 @@ howto:
   timeText: a few minutes per matchup
   steps:
     - name: Set up the tournament
-      text: Create it and add your titles as usual, with `/bracket create` and `/bracket manage-titles`, or with the [setup form](/commands/brackets/import).
+      text: Create it and add your titles as usual, with `/bracket-setup create` and `/bracket-setup manage-titles`, or with the [setup form](/commands/brackets/import).
     - name: Open the first matchup
       text: Run `/bracket open matchups:1 duration:1h`. It builds the bracket if needed and opens just the first matchup.
     - name: Let people vote
@@ -27,7 +27,8 @@ Every vote is already one title against one title. This guide is about **how man
 
 - **Two or three at a time** work the same way: `matchups:2` or `matchups:3`. Up to 5, the most a ballot holds.
 - **Earlier votes lock.** Opening the next matchup closes any earlier one still voting, so nobody can change a vote after the tournament has moved on.
-- **A tie pauses the round.** It gets a tiebreaker vote. If the round has nothing else to open, the command says it's waiting on that tiebreaker.
+- **A tie pauses the round.** It gets a tiebreaker vote. If the round has nothing else to open, the command says it's waiting on that tiebreaker. To skip the wait, create a seeded bracket with `ties:Higher seed wins`, and a tie goes straight to the better seed.
+- **Seeds make each matchup a story.** With `seeding:By rating`, every matchup shows its seeds, such as **(2) Alien vs (7) The Fly**, and an upset gets called out when it happens.
 - **Choosing a specific matchup:** use `/bracket open-matchup` and pick it from the list, which shows each matchup's titles. The same lock-in rule applies.
 - **Long gaps are fine.** Each matchup can stay open as long as you like (`duration` takes `5m` up to `30d`), and its deadline closes it on its own.
 

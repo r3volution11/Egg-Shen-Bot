@@ -2,6 +2,7 @@ import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
 import { config } from '../config.js';
 import { existsSync } from 'fs';
 import { bracketWithWinnersSeated, winnerSide } from './bracketProgress.js';
+import { seededTitle } from './tournamentUI.js';
 
 // Register Arial font if available
 const arialPaths = [
@@ -565,7 +566,7 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
   
   // Truncate text if too long
   const maxWidth = width - 40 * scale;
-  let displayText = movie.title;
+  let displayText = seededTitle(movie); // "(1) Halloween" in a seeded bracket
   let textWidth = ctx.measureText(displayText).width;
   
   if (textWidth > maxWidth) {

@@ -1,6 +1,6 @@
 /**
  * The setup form's HTTP side (src/api/tournamentSetupRoutes.js), driven the
- * way the page drives it: a token from `/bracket setup-link`, then parse →
+ * way the page drives it: a token from `/bracket-setup setup-link`, then parse →
  * resolve → save → state → export. Only the external search APIs are mocked.
  *
  * The security properties get their own tests because the routes are the only
@@ -104,7 +104,7 @@ describe('the link', () => {
   test('the page needs a valid token', async () => {
     const res = await request(app).get('/tournament-setup?token=nope');
     expect(res.status).toBe(403);
-    expect(res.text).toContain('/bracket setup-link');
+    expect(res.text).toContain('/bracket-setup setup-link');
   });
 
   test('the page is served, themed, with a valid token', async () => {

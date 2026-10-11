@@ -2,7 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.
 import { loadGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import { answerQuestion } from '../utils/docsAnswer.js';
 import { deliverResult } from '../utils/interactionResponse.js';
-import { ADMIN_SUBCOMMANDS } from './bracket.js';
+import { ADMIN_SUBCOMMANDS, SETUP_SUBCOMMANDS } from './bracket.js';
 
 /**
  * /eggshen-ask — "how do I…" in plain words, answered from the bot's own
@@ -56,7 +56,7 @@ export async function execute(interaction) {
     guildConfig,
     commands: interaction.client?.commands?.values?.() || [],
     isManager,
-    adminSubcommands: { bracket: ADMIN_SUBCOMMANDS },
+    adminSubcommands: { bracket: ADMIN_SUBCOMMANDS, 'bracket-setup': SETUP_SUBCOMMANDS },
   });
 
   const description = [
