@@ -9,6 +9,22 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.63.0 - 2026-10-11
+
+### Added
+- **`/watchparty ready`: check who's ready before you press play.** It posts a card with **✅ Ready** and **⏳ Need a minute** buttons. Anyone can answer and switch their answer, and the card lists who's ready and who you're waiting on. It's only a count; you still start the timer yourself. `message:` adds a line to the card, and `role:` pings a role
+  - **If the channel has a watch party scheduled around now** (running, or starting within about two hours), the card also compares the answers with who marked the Discord event Interested: how many of them are ready, who hasn't checked in yet, and how many ready people didn't mark Interested. Without an event, it's a plain tally
+  - **The host gets a ping** when the last person who asked for a minute presses Ready. It's a new message, so it notifies
+  - **It stops taking answers** and freezes with the final count when a timer starts in the channel, when the channel's event goes live, when someone posts a newer ready check there, or after three hours
+- **`/watchparty ready-close`** stops taking answers early. Only the person who posted the check, or a moderator, can use it
+
+### Developer
+- New `src/utils/readyCheckManager.js`: one check per channel, kept in `ready_checks.json` (`READY_CHECKS_FILE`) with synchronous load-modify-save and an atomic rename, so it survives a restart and concurrent clicks can't overwrite each other. Button customIds are `ready_check_<hexId>_<ready|minute>`
+- `findEventForChannel` takes `startsWithinMs`: a Scheduled event matches only if it starts within that window of now (Active events always match). Existing callers don't pass it. New `fetchInterestedUserIds(event)` pages `fetchSubscribers` over REST (no new intent) and returns `null` on error
+- `startTimerCountdown` calls `closeForTimer` after `startTimer`, without awaiting it, so the timer is never delayed. The button handler closes a check whose event has gone live since it was posted, using the same event fetch that refreshes the Interested list (at most once a minute)
+- `/watchparty` gained `ready` and `ready-close`. **Command definition changed: run `deploy-commands`**
+- `tests/watchparty-ready.test.js`: 14 tests through the fake Discord, which now supports `getRole`. They cover the tally, the Interested comparison, a next-week event, an unreadable list, the host ping, every way a check closes, and a restart
+
 ## 2.62.0 - 2026-10-10
 
 ### Added

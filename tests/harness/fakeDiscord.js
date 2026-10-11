@@ -343,6 +343,7 @@ function slashOptions({ subcommand = null, group = null, values = {}, focused = 
     getAttachment: (name) => get(name),
     getChannel: (name) => get(name),
     getUser: (name) => get(name),
+    getRole: (name) => get(name),
     getFocused: (full = false) => (full ? focused : focused?.value ?? ''),
     // A Mentionable or User option's value is given as { user, member } or
     // { role }; get() returns it the way discord.js resolves it

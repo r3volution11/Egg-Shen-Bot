@@ -145,6 +145,7 @@ export async function execute(interaction) {
       value:
         '**⏱️ /timer** - Start, stop, or check channel timers\n' +
         '**🎉 /watchparty** - Announce that a scheduled watch party is starting\n' +
+        '**✅ /watchparty ready** - Ask who is ready, and tally the answers\n' +
         '**📊 /stats** - View server or personal statistics',
       inline: false,
     },

@@ -29,19 +29,25 @@ import { stripTrailingYear } from './episodeRangeParser.js';
  *   haven't started yet. Both remind paths want those (they run before the
  *   party); `/timer start` does NOT, since labelling a timer with a party
  *   that isn't happening would be wrong.
+ * @param {number} [options.startsWithinMs] - when set, a Scheduled event
+ *   only counts if it starts within this long of now (either side). Without
+ *   it, next week's party for the channel matches tonight; the ready check
+ *   wants the one happening around now. Active events always match.
  * @param {string} [options.logPrefix='Event Lookup']
  * @returns {Promise<import('discord.js').GuildScheduledEvent|null>}
  */
-export async function findEventForChannel(guild, channelId, { includeScheduled = true, logPrefix = 'Event Lookup' } = {}) {
+export async function findEventForChannel(guild, channelId, { includeScheduled = true, startsWithinMs, logPrefix = 'Event Lookup' } = {}) {
   try {
     console.log(`[${logPrefix}] Checking for events in channel ${channelId}...`);
 
     const events = await guild.scheduledEvents.fetch();
     console.log(`[${logPrefix}] Found ${events.size} total scheduled event(s)`);
 
+    const startsSoon = (event) => startsWithinMs === undefined
+      || Math.abs((event.scheduledStartTimestamp ?? Infinity) - Date.now()) <= startsWithinMs;
     const relevantEvents = events.filter(event =>
       event.status === GuildScheduledEventStatus.Active ||
-      (includeScheduled && event.status === GuildScheduledEventStatus.Scheduled)
+      (includeScheduled && event.status === GuildScheduledEventStatus.Scheduled && startsSoon(event))
     );
     console.log(`[${logPrefix}] Found ${relevantEvents.size} relevant event(s)`);
 
@@ -87,6 +93,33 @@ export async function findEventForChannel(guild, channelId, { includeScheduled =
     return null;
   } catch (error) {
     console.error(`[${logPrefix}] Error fetching scheduled events:`, error);
+    return null;
+  }
+}
+
+/**
+ * Who marked the event Interested, as user ids. Discord pages these 100 at a
+ * time; a watch party rarely has more, so this stops at `max`. REST only —
+ * no gateway intent needed. Never throws: null means "couldn't tell", and
+ * callers fall back to not comparing.
+ * @param {import('discord.js').GuildScheduledEvent} event
+ * @param {number} [max=500]
+ * @returns {Promise<string[]|null>}
+ */
+export async function fetchInterestedUserIds(event, max = 500) {
+  try {
+    const ids = [];
+    let after;
+    while (ids.length < max) {
+      const page = await event.fetchSubscribers({ limit: 100, ...(after ? { after } : {}) });
+      const users = [...page.values()].map(s => s.user?.id).filter(Boolean);
+      ids.push(...users);
+      if (users.length < 100) break;
+      after = users[users.length - 1];
+    }
+    return ids.slice(0, max);
+  } catch (error) {
+    console.error('[Event Lookup] Couldn\'t fetch interested users:', error.message);
     return null;
   }
 }

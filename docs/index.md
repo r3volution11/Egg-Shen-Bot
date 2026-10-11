@@ -29,7 +29,7 @@ features:
 
   - icon: ⏱️
     title: Watch Parties
-    details: Run /timer start in a channel and the bot reads your scheduled Discord event, finds the title, and sets the runtime for you, multi-episode parties included. Pause for breaks, announce the party ahead of time and when it starts, and keep a history of everything your server has watched.
+    details: Run /timer start in a channel and the bot reads your scheduled Discord event, finds the title, and sets the runtime for you, multi-episode parties included. Pause for breaks, announce the party ahead of time and when it starts, check who's ready before you press play, and keep a history of everything your server has watched.
     link: /commands/watch-party
     linkText: Watch party commands
 
@@ -250,6 +250,9 @@ Create a Discord scheduled event for a specific channel, then run `/timer start`
 
 **Watch Party Announcements**  
 Two announcements, for the two moments that matter. Ahead of time, `/announce party title1:"Hellraiser" time:"8:00 PM EST" message:"Bring your own puzzle box."` posts a card with the start time and where to stream it. Minutes before, `/announce starting message:"Starting in 10 minutes" title:"Hellraiser"` posts the nudge. Both go to the current channel or any channel you name, and `role:` pings the people who want to know — in the message itself, so it actually notifies.
+
+**Ready Check**  
+Before you press play, `/watchparty ready` asks who's ready. People press **✅ Ready** or **⏳ Need a minute**, and the card tallies them. If the channel has a watch party scheduled around now, it also shows how many of the people who marked the event Interested are ready, and who hasn't checked in. The host gets a ping when the last straggler is ready, and the card stops taking answers once the timer starts or with `/watchparty ready-close`.
 
 Your own `message` always posts exactly as written. Leave it out and, if your server has AI text enabled, the bot writes it for you from the real plot and streaming availability rather than generic filler — pick a `tone`, or describe your own with `custom-tone`. Turn that off per server with `/eggshen-config-ai ai-text feature-toggle`.
 

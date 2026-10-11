@@ -2,7 +2,7 @@
  * Handle button interactions with comprehensive error handling
  */
 import * as logger from '../utils/logger.js';
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, GuildScheduledEventStatus } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postPublicEventAnnouncement, buildEventCreatedReply } from '../utils/eventRequestApproval.js';
@@ -760,6 +760,12 @@ export async function handleButtonInteraction(interaction) {
     }
 
     // Handle survey voting buttons
+    if (interaction.customId.startsWith('ready_check_')) {
+      await handleReadyCheckButton(interaction);
+      logger.logButton(interaction.customId, interaction.user, interaction.guild, true);
+      return;
+    }
+
     if (interaction.customId.startsWith('survey_vote_')) {
       await handleSurveyVote(interaction);
 
@@ -2628,6 +2634,75 @@ async function handleTiebreakerVote(interaction) {
  * (castSingleVote); multi-select polls (allowMultipleVotes) toggle just the
  * clicked option on/off, leaving other selections untouched.
  */
+/**
+ * ✅ Ready / ⏳ Need a minute on a /watchparty ready card. Anyone can answer
+ * — that's the point — so there's no permission gate. Notes go out as an
+ * ephemeral followUp: after deferUpdate, editReply would edit the public card.
+ */
+async function handleReadyCheckButton(interaction) {
+  // ready_check_<checkId>_<ready|minute>; checkId is hex, no underscores
+  const [, , checkId, kind] = interaction.customId.split('_');
+  const readyChecks = await import('../utils/readyCheckManager.js');
+  const note = (content) => interaction.followUp({ content, flags: MessageFlags.Ephemeral });
+
+  await interaction.deferUpdate();
+  const channelId = interaction.channelId;
+  let check = readyChecks.getCheck(channelId);
+
+  // One event fetch serves two jobs: a party that has gone live since the
+  // check was posted stops taking answers, and a stale Interested list is
+  // refreshed so late Interested clicks count.
+  if (check && check.id === checkId && !check.closed && check.eventId && interaction.guild) {
+    const stale = !check.interestedFetchedAt || Date.now() - check.interestedFetchedAt > readyChecks.INTERESTED_REFRESH_MS;
+    const postedBeforeStart = check.eventStatusAtOpen === GuildScheduledEventStatus.Scheduled;
+    if (stale || postedBeforeStart) {
+      const { fetchInterestedUserIds } = await import('../utils/scheduledEventLookup.js');
+      const event = await interaction.guild.scheduledEvents.fetch(check.eventId).catch(() => null);
+      if (event && postedBeforeStart && event.status !== GuildScheduledEventStatus.Scheduled) {
+        const closed = readyChecks.closeCheck(channelId, 'event');
+        if (closed) {
+          await interaction.editReply(readyChecks.buildReadyCard(closed));
+          await note('🎬 The watch party has started, so this ready check is closed.');
+          return;
+        }
+      }
+      if (event && stale) {
+        check = readyChecks.setInterested(channelId, checkId, await fetchInterestedUserIds(event), event.userCount) || check;
+      }
+    }
+  }
+
+  const result = readyChecks.answer(channelId, checkId, interaction.user.id, kind === 'minute' ? 'minute' : 'ready');
+  if (result.error) {
+    // A closed check's card is redrawn as it stands, in case the close
+    // couldn't edit it. A replaced one was greyed out when it was replaced.
+    const current = readyChecks.getCheck(channelId);
+    if (current && current.id === checkId) await interaction.editReply(readyChecks.buildReadyCard(current));
+    else if (result.error === 'expired') await interaction.editReply({ components: [] });
+    const why = {
+      replaced: 'A newer ready check was posted in this channel — answer that one.',
+      expired: 'This ready check has expired.',
+      timer: 'The timer has started, so this ready check is closed.',
+      event: 'The watch party has started, so this ready check is closed.',
+      host: 'This ready check has been closed.',
+    }[result.error] || 'This ready check is closed.';
+    await note(`❌ ${why}`);
+    return;
+  }
+
+  await interaction.editReply(readyChecks.buildReadyCard(result.check));
+
+  // Edits never notify. The host is waiting for exactly this moment, so it
+  // gets a new message with a real mention.
+  if (result.waitListJustEmptied) {
+    const ready = readyChecks.countOf(result.check, 'ready');
+    await interaction.channel?.send({
+      content: `<@${result.check.hostId}> ✅ Everyone who asked for a minute is ready (${ready} ready).`,
+      allowedMentions: { users: [result.check.hostId] },
+    });
+  }
+}
+
 async function handleSurveyVote(interaction) {
   await interaction.deferUpdate();
 

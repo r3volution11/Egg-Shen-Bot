@@ -7,6 +7,7 @@ import { hybridSearch, pickLandslideWinner, pickExactTitleMatch } from '../servi
 import { parseEpisodeRange, parseEventEpisodeRange, stripTrailingYear } from '../utils/episodeRangeParser.js';
 import { findEventForChannel, searchEventTitle, formatRuntime } from '../utils/scheduledEventLookup.js';
 import { resolveWatchTitle } from '../utils/watchTitle.js';
+import { closeForTimer } from '../utils/readyCheckManager.js';
 
 /**
  * Resolve a multi-episode watch-party duration for a known show: fetch the
@@ -1660,6 +1661,8 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
       }
       
       startTimer(channelId, userId, username, label, duration, interaction.client, isFallbackDuration, media);
+      // The party has started: the channel's ready check stops taking answers
+      closeForTimer(interaction.client, channelId);
       return;
       
     } else {
@@ -1753,6 +1756,8 @@ export async function startTimerCountdown(interaction, channelId, userId, userna
       await message.edit({ embeds: [goEmbed] });
       
       startTimer(channelId, userId, username, label, duration, interaction.client, isFallbackDuration, media);
+      // The party has started: the channel's ready check stops taking answers
+      closeForTimer(interaction.client, channelId);
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       

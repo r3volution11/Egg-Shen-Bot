@@ -137,12 +137,54 @@ Announce that you're about to start the timer right before beginning the watch p
 
 **How It Works:**
 1. You've already announced the watch party 1-2 hours ago via Discord event
-2. Everyone is gathered and ready
-3. Run `/timer remind` to give final notice
-4. Shows what you're watching with TMDB details
-5. Immediately run `/timer start` to begin
+2. Everyone is gathered
+3. Run `/timer remind` to give final notice, showing what you're watching with TMDB details
+4. Optionally run `/watchparty ready` to see who's actually ready ([Ready Check](#ready-check))
+5. Run `/timer start` to begin
 
-**Tip:** Use this right before starting the timer to ensure everyone is ready and knows what's playing!
+**Tip:** Use this right before starting the timer so everyone knows what's playing.
+
+## Ready Check
+
+Not sure whether everyone's back with snacks? Ask, and let the bot count. It works for a planned watch party or a spur-of-the-moment one.
+
+```
+/watchparty ready message:[optional] role:[optional]
+```
+
+**Parameters:**
+- `message` (optional): a line shown on the card, such as "Starting in 5!"
+- `role` (optional): a role to ping
+
+The bot posts a card with two buttons, **✅ Ready** and **⏳ Need a minute**. Anyone can press one, and can switch their answer at any time. The card lists who's ready and who asked for a minute, so you can see exactly who you're waiting on. It's only a count; you still start the timer yourself.
+
+**When a watch party is scheduled for the channel**, either already running or starting within about two hours, the card also compares the answers with who marked the Discord event **Interested**:
+
+```
+👀 Interested in the event: 9
+4 ready, 1 needs a minute
+Not checked in yet: @hal @ivy @jo @kim
+Also ready: 1 who didn't mark Interested
+```
+
+The Interested list refreshes as people answer, so someone who clicks Interested late still counts. Without an event, or if the bot can't read the event, the card is a plain tally.
+
+**You'll get a ping** when the last person who asked for a minute presses Ready: "✅ Everyone who asked for a minute is ready." It's a new message, so it notifies you even if you're not looking at the card.
+
+**The card stops taking answers** and freezes with the final count when:
+- A timer starts in the channel (`/timer start`)
+- The channel's Discord event goes live, if the check was posted before it started. The card updates the next time someone presses a button.
+- You close it with `/watchparty ready-close`
+- Someone posts a newer ready check in the same channel
+- Three hours pass
+
+### Close a Ready Check
+
+```
+/watchparty ready-close
+```
+
+Stops taking answers on the channel's ready check and shows the final count. Only the person who posted it, or a moderator, can close it.
 
 ## Timer Commands
 
