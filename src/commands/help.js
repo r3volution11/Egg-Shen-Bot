@@ -106,7 +106,7 @@ export async function execute(interaction) {
   }
 
   const aiImageGeneration = buildCategory([
-    { enabled: imageAllowed, line: '**🎨 /image** - Generate AI images: freeform, from a message, or a versus battle between two titles' },
+    { enabled: imageAllowed, line: '**🎨 /image** - Generate AI images: freeform, from a message, a versus battle between two titles, or a persona of a member' },
   ]);
   if (aiImageGeneration) {
     embed.addFields({ name: '🎨 AI Image Generation', value: aiImageGeneration, inline: false });

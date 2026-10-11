@@ -1,10 +1,10 @@
 ---
-description: "Generate AI images in Discord with Egg Shen Bot: freeform prompts, images from a message, and versus battle images comparing two titles."
+description: "Generate AI images in Discord with Egg Shen Bot: freeform prompts, images from a message, versus battle images comparing two titles, and personas of server members."
 ---
 
 # AI Image Generation
 
-Egg Shen can generate AI-powered images using OpenAI's latest image generation API. One command handles freeform prompts, generating from a Discord message, and "versus" battle images comparing two titles — with built-in rate limiting to control costs.
+Egg Shen can generate AI-powered images using OpenAI's latest image generation API. One command handles freeform prompts, generating from a Discord message, "versus" battle images comparing two titles, and personas of server members — with built-in rate limiting to control costs.
 
 ## Overview
 
@@ -17,14 +17,14 @@ Egg Shen can generate AI-powered images using OpenAI's latest image generation A
 - **Whitelist:** Contributors/premium users can have unlimited access
 
 **Available Commands:**
-- **`/image`** - Generate images from text prompts, Discord messages, a two-title versus battle, or an active tournament matchup
+- **`/image`** - Generate images from text prompts, Discord messages, a two-title versus battle, an active tournament matchup, or a member's profile
 - **`/potion`** - Generate mystical potion images (see [Social Commands](./social))
 
 ---
 
 ## `/image` Command
 
-Generate AI images in one of four modes, depending on which options you provide.
+Generate AI images in one of five modes, depending on which options you provide.
 
 ### Mode 1: Freeform Text Prompt
 
@@ -61,6 +61,22 @@ Searches TMDB, RAWG, BoardGameGeek, and Google Books to validate both titles exi
 
 If your server has a [tournament bracket](./brackets/) under way, generates a versus image straight from one of its matchups instead of searching from scratch. Start typing in `matchup:` and pick from the list (matchups voting now come first), or type a matchup's label such as `1A` or `Finals`, or its two titles. Running `/image` with no options lists this round's matchups by label, open ones first.
 
+### Mode 5: A Member, Imagined From Their Profile
+
+```
+/image user:@Doug prompt:a Lego minifig version of them
+/image user:@Doug prompt:as a 1950s drive-in mascot
+```
+
+Builds an original character from what Egg Shen can see of the member, **as text only**:
+
+- Their display name and server nickname
+- Their profile accent color and their role colors, used as signature colors
+- Their top roles, by name
+- Movies and shows they've looked up with the bot, and titles they've wanted on the [watchlist](./watch-party), worked in as motifs and props
+
+**Their avatar is never used.** It isn't downloaded or sent to the image generator, so nobody can turn someone else's photo into an image. Discord doesn't let bots read a member's bio (About Me) or their Nitro profile theme, so neither is used. `prompt` is required in this mode. Details the bot doesn't know are left out, so a member with no roles or history still works from their name and your prompt.
+
 ### Options
 
 | Option | Type | Required | Description |
@@ -70,9 +86,10 @@ If your server has a [tournament bracket](./brackets/) under way, generates a ve
 | `title1` | String | No* | First title for a versus battle (Mode 3) — provide with `title2` |
 | `title2` | String | No* | Second title for a versus battle (Mode 3) — provide with `title1` |
 | `matchup` | String | No | Tournament matchup to visualize (Mode 4): pick from the list, or type its label (`1A`, `Finals`) or titles |
+| `user` | User | No | A member to imagine from their profile details, never their avatar (Mode 5). Needs `prompt` |
 | `private` | Boolean | No | Only show the generated image to you instead of the whole channel (default: false) |
 
-*Provide exactly one of: `title1` + `title2` together, `matchup`, `message`, or `prompt` alone. Mixing modes (e.g. `title1` with `message`) returns an error asking you to pick one.
+*Provide exactly one of: `title1` + `title2` together, `matchup`, `message`, `user` (with `prompt`), or `prompt` alone. Mixing modes (e.g. `title1` with `message`) returns an error asking you to pick one.
 
 ### Features
 
@@ -81,7 +98,7 @@ If your server has a [tournament bracket](./brackets/) under way, generates a ve
 - **Auto-Disambiguation** - Selects the first match and tells you if multiple results were found
 - **Content-Safe Prompts** - Uses "inspired by themes" language to comply with OpenAI's content policy, rather than requesting direct replicas
 - **Rich Context** - Uses title metadata (overviews, release dates) to build better versus prompts
-- **Format** - Square (1024x1024) for freeform/message mode; wide split-screen (1792x1024) for versus/matchup mode
+- **Format** - Square (1024x1024) for freeform/message/user mode; wide split-screen (1792x1024) for versus/matchup mode
 
 ### Rate Limiting
 
@@ -415,7 +432,7 @@ For `/image message:` usage:
 - **Provider:** OpenAI
 - **Model:** `gpt-image-2` (latest image generation model)
 - **Format:**
-  - Freeform/message mode: 1024x1024 (square)
+  - Freeform/message/user mode: 1024x1024 (square)
   - Versus/matchup mode: 1792x1024 (wide)
 - **Quality:** Medium (balance of quality and speed)
 - **Generation Time:** 2-3 minutes average
@@ -436,7 +453,7 @@ Prompts are designed to comply with OpenAI's content policy:
 - **Discord Attachment:** Bot downloads/converts and sends as Discord attachment
 - **Permanent Storage:** Discord CDN stores images permanently
 - **Embed Display:**
-  - Title: "🎨 AI Generated Image" or "🎨 Title1 vs Title2"
+  - Title: "🎨 AI Generated Image", "🎨 Title1 vs Title2", or "🎨 Name, imagined"
   - Image: The generated artwork
   - Footer: Your username
   - Timestamp: When it was created
@@ -446,7 +463,7 @@ Prompts are designed to comply with OpenAI's content policy:
 
 Each generation logs:
 - Guild ID and User ID
-- Mode (image, versus-image, bracket-image)
+- Mode (image, versus-image, bracket-image, user-image)
 - Metadata (titles, prompts, types)
 - Cost ($0.04 per image)
 - Timestamp

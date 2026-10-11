@@ -9,10 +9,12 @@ import { isTrueAdmin, isModerator } from '../utils/guildConfig.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import { matchupLabel } from '../utils/tournamentUI.js';
 import { deliverResult } from '../utils/interactionResponse.js';
+import { loadGuildStats } from '../utils/statsTracker.js';
+import { getWatchlist } from '../utils/watchlistManager.js';
 
 export const data = new SlashCommandBuilder()
   .setName('image')
-  .setDescription('Generate AI images: freeform, from a message, or a versus battle between two titles')
+  .setDescription('Generate AI images: freeform, from a message, a versus battle, or a persona of a member')
   .addStringOption(option =>
     option
       .setName('prompt')
@@ -43,6 +45,12 @@ export const data = new SlashCommandBuilder()
       .setDescription('A tournament matchup: pick from the list, or type its label (e.g. "1A")')
       .setRequired(false)
       .setAutocomplete(true)
+  )
+  .addUserOption(option =>
+    option
+      .setName('user')
+      .setDescription('A member to imagine from their profile details (name, roles, colors, interests), not their avatar')
+      .setRequired(false)
   )
   .addBooleanOption(option =>
     option
@@ -78,6 +86,7 @@ export async function execute(interaction) {
   const title1 = interaction.options.getString('title1');
   const title2 = interaction.options.getString('title2');
   const matchupInput = interaction.options.getString('matchup');
+  const targetUser = interaction.options.getUser('user');
 
   // title1/title2 must be provided together
   if ((title1 && !title2) || (title2 && !title1)) {
@@ -85,16 +94,23 @@ export async function execute(interaction) {
   }
 
   const hasVersusTitles = !!(title1 && title2);
-  const primaryModes = [hasVersusTitles, !!matchupInput, !!messageInput].filter(Boolean);
+  const primaryModes = [hasVersusTitles, !!matchupInput, !!messageInput, !!targetUser].filter(Boolean);
 
   if (primaryModes.length > 1) {
     return await interaction.editReply(
-      '❌ Please choose only one of: `title1`+`title2`, `matchup`, or `message` — not more than one.'
+      '❌ Please choose only one of: `title1`+`title2`, `matchup`, `message`, or `user` — not more than one.'
+    );
+  }
+
+  // A persona with nothing asked of it would spend a generation on a guess.
+  if (targetUser && !prompt) {
+    return await interaction.editReply(
+      '❌ Tell me what to make of them, e.g. `/image user:@name prompt:make them a Lego minifig`.'
     );
   }
 
   // No mode selected at all — show usage help (and current tournament matchups, if any)
-  if (!hasVersusTitles && !matchupInput && !messageInput && !prompt) {
+  if (!hasVersusTitles && !matchupInput && !messageInput && !targetUser && !prompt) {
     return await interaction.editReply({ content: buildHelpMessage(interaction.guildId) });
   }
 
@@ -105,6 +121,8 @@ export async function execute(interaction) {
       await generateVersusFromMatchup(interaction, matchupInput, prompt, isPrivate);
     } else if (messageInput) {
       await generateFromMessage(interaction, messageInput, prompt, isPrivate);
+    } else if (targetUser) {
+      await generateFromUser(interaction, targetUser, prompt, isPrivate);
     } else {
       await generateFromPrompt(interaction, prompt, isPrivate);
     }
@@ -132,6 +150,7 @@ function buildHelpMessage(guildId) {
   helpMessage += '**Create a versus battle image with smart search:**\n`/image title1:"The Thing" title2:"Alien"`\n\n';
   helpMessage += '**Or generate freeform:**\n`/image prompt:"a haunted lighthouse at midnight"`\n\n';
   helpMessage += '**Or generate from a recent message:**\n`/image message:"username or message ID"`\n\n';
+  helpMessage += '**Or imagine a member from their profile (never their avatar):**\n`/image user:@name prompt:"make them a Lego minifig"`\n\n';
   helpMessage += '✨ **Features:**\n';
   helpMessage += '• Versus mode searches movies, TV shows, video games, board games, and books\n';
   helpMessage += '• Validates titles exist before generating\n';
@@ -252,7 +271,7 @@ function buildVersusPrompt(firstTitle, secondTitle, firstEntry, secondEntry, cus
   );
 }
 
-async function generateAndPostImage(interaction, prompt, { size, embedTitle, filename, recordType, recordMeta, isPrivate = false }) {
+async function generateAndPostImage(interaction, prompt, { size, embedTitle, filename, recordType, recordMeta, isPrivate = false, color = 0xFEE75C }) {
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: {
@@ -296,7 +315,7 @@ async function generateAndPostImage(interaction, prompt, { size, embedTitle, fil
   await recordImageGeneration(interaction.guildId, interaction.user.id, recordType, recordMeta);
 
   const embed = new EmbedBuilder()
-    .setColor(0xFEE75C)
+    .setColor(color)
     .setTitle(embedTitle)
     .setImage(`attachment://${filename}`)
     .setFooter({ text: interaction.user.username })
@@ -537,5 +556,112 @@ async function generateFromPrompt(interaction, prompt, isPrivate = false) {
     recordType: 'image',
     recordMeta: { prompt: prompt.substring(0, 200), messageSource: null },
     isPrivate,
+  });
+}
+
+/**
+ * What a bot can see of a member, as text. Deliberately never the avatar or
+ * banner: nobody should be able to feed another person's photo into the
+ * generator, so those URLs are never read. (The bio and Nitro profile theme
+ * aren't readable by bots at all.) The bot's own records of what they search
+ * for and want to watch stand in as interests.
+ */
+async function collectUserProfile(interaction, user) {
+  const profile = {
+    name: user.globalName || user.username,
+    nickname: null,
+    accentColor: null,
+    roles: [],
+    interests: [],
+  };
+
+  // accentColor is only populated by a forced fetch; plenty of people have none.
+  try {
+    const fetched = await user.fetch(true);
+    profile.accentColor = fetched?.hexAccentColor || null;
+  } catch (error) {
+    console.warn(`[/image] Could not fetch profile for ${user.id}: ${error.message}`);
+  }
+
+  let member = interaction.options.getMember('user');
+  if (!member?.roles?.cache) {
+    member = await interaction.guild?.members.fetch(user.id).catch(() => null);
+  }
+  if (member) {
+    profile.nickname = member.nickname || null;
+    profile.roles = [...(member.roles?.cache?.values() || [])]
+      .filter(r => r.id !== interaction.guildId) // @everyone shares the guild's id
+      .sort((a, b) => b.position - a.position)
+      .slice(0, 5)
+      .map(r => ({ name: r.name, color: r.hexColor && r.hexColor !== '#000000' ? r.hexColor : null }));
+  }
+
+  const interests = new Set();
+  try {
+    const stats = await loadGuildStats(interaction.guildId);
+    // Only titled lookups — 'random'/'similar' records describe a command, not a taste.
+    const searches = (stats.searches || [])
+      .filter(s => s.userId === user.id && (s.type === 'movie' || s.type === 'tv') && s.title);
+    for (const s of searches.slice().reverse()) {
+      if (interests.size >= 6) break;
+      interests.add(s.title);
+    }
+  } catch (error) {
+    console.warn(`[/image] Could not read search stats: ${error.message}`);
+  }
+  try {
+    const watchlist = await getWatchlist(interaction.guildId);
+    for (const e of watchlist) {
+      if (interests.size >= 8) break;
+      if (Array.isArray(e.wantedBy) && e.wantedBy.includes(user.id) && e.title) interests.add(e.title);
+    }
+  } catch (error) {
+    console.warn(`[/image] Could not read watchlist: ${error.message}`);
+  }
+  profile.interests = [...interests];
+
+  return profile;
+}
+
+/** The persona prompt; any detail we couldn't learn is simply left out. */
+export function buildUserPersonaPrompt(profile, customPrompt) {
+  const displayName = profile.nickname || profile.name;
+  const lines = [
+    `An original illustrated character representing a Discord community member called "${displayName}". ` +
+      'This is a visual persona, not a likeness of a real person. Build it from these details:',
+  ];
+
+  const colors = [profile.accentColor, ...profile.roles.map(r => r.color)].filter(Boolean);
+  const uniqueColors = [...new Set(colors.map(c => c.toLowerCase()))].slice(0, 4);
+  if (uniqueColors.length) lines.push(`- Signature colors: ${uniqueColors.join(', ')}`);
+  if (profile.nickname && profile.nickname !== profile.name) lines.push(`- Also known as "${profile.name}"`);
+  if (profile.roles.length) lines.push(`- Roles in the community: ${profile.roles.map(r => r.name).join(', ')}`);
+  if (profile.interests.length) {
+    lines.push(
+      `- Favorite movies and shows: ${profile.interests.join(', ')} — work them in as motifs, props or costume ` +
+        'details; do not replicate existing poster art or real actors.'
+    );
+  }
+
+  lines.push(`Request: ${customPrompt}`);
+  return lines.join('\n');
+}
+
+async function generateFromUser(interaction, user, customPrompt, isPrivate = false) {
+  const profile = await collectUserProfile(interaction, user);
+  const displayName = profile.nickname || profile.name;
+
+  await interaction.editReply(`🎨 Imagining **${displayName}** from their profile...\n\n_This may take 2-3 minutes..._`);
+
+  const prompt = buildUserPersonaPrompt(profile, customPrompt);
+
+  await generateAndPostImage(interaction, prompt, {
+    size: '1024x1024',
+    embedTitle: `🎨 ${displayName}, imagined`,
+    filename: 'user-persona.png',
+    recordType: 'user-image',
+    recordMeta: { targetUserId: user.id, prompt: customPrompt.substring(0, 200) },
+    isPrivate,
+    color: profile.accentColor ? parseInt(profile.accentColor.slice(1), 16) : undefined,
   });
 }

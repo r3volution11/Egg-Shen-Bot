@@ -353,17 +353,18 @@ Post the "starting in 10 minutes" nudge to a channel (Admin/Moderator only).
 ## AI Image Generation Commands
 
 ### `/image`
-Generate AI images: freeform, from a Discord message, or a "versus" battle between two titles — all in one command.
+Generate AI images: freeform, from a Discord message, a "versus" battle between two titles, or a persona of a server member — all in one command.
 
 **Options:**
 - `prompt` - Describe the image to generate (or add extra style detail alongside `title1`/`title2` or `matchup`)
 - `message` - Username or message ID to generate from
 - `title1` / `title2` - Two titles for a versus battle image (movie, TV, game, board game, book) — provide both together
 - `matchup` - Generate from an active tournament matchup instead of searching (e.g., `"The Thing vs Alien"`)
+- `user` - Imagine a member from their profile details (name, roles, colors, the titles they look up), never their avatar. Needs `prompt`
 - `private` - Only show the generated image to you instead of the whole channel (default: false)
 
 **Features:**
-- Text-to-image generation, generate-from-message, and versus-battle modes
+- Text-to-image generation, generate-from-message, versus-battle, and member-persona modes
 - Smart search validation across TMDB, RAWG, BGG, and Google Books for versus mode
 - Cross-type comparisons (movies vs games, etc.)
 - Square format (1024x1024) for freeform/message mode; wide format (1792x1024) for versus mode
@@ -378,6 +379,7 @@ Generate AI images: freeform, from a Discord message, or a "versus" battle betwe
 /image title1:Godzilla title2:King Kong
 /image title1:Alien title2:The Thing prompt:in deep space
 /image matchup:1A
+/image user:@Doug prompt:a Lego minifig version of them
 ```
 
 [Learn more →](/commands/ai-images)

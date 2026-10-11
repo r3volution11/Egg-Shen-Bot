@@ -9,6 +9,18 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.64.0 - 2026-10-11
+
+### Added
+- **`/image user:` imagines a server member as an original character.** For example, `/image user:@Doug prompt:a Lego minifig version of them`. The character is built from what the bot can see of the member, as text: their name and nickname, their profile accent color and role colors as signature colors, their top roles, and the movies and shows they've looked up or wanted on the watchlist, worked in as motifs and props
+  - **Their avatar is never used.** It isn't downloaded or sent to the image generator, so nobody can turn someone else's photo into an image. Discord doesn't let bots read bios or Nitro profile themes, so those aren't used either
+  - `prompt` is required with `user`, and `user` can't be combined with `message`, `title1`/`title2` or `matchup`. The result is titled "🎨 Name, imagined" and uses the member's accent color
+
+### Developer
+- `src/commands/image.js`: new `user` option, `collectUserProfile` (forced `user.fetch(true)` for `hexAccentColor`, member roles, `statsTracker` searches filtered to that user's movie/tv lookups, watchlist `wantedBy`, each source failing soft) and exported `buildUserPersonaPrompt`. `generateAndPostImage` takes an optional embed `color`. Generations are recorded as `user-image`
+- **Command definition changed: run `deploy-commands`**
+- `tests/image-command.test.js`: 4 new tests. They cover the prompt contents, that other users' titles stay out, that the avatar is never read or fetched, degrading to name-only, the required prompt, and the one-mode rule
+
 ## 2.63.0 - 2026-10-11
 
 ### Added
