@@ -631,11 +631,117 @@ export function buildTitlePicker(requested, candidates, { channelId, timerStartT
 }
 
 /**
- * Set the running timer's title, tell the person who set it, and announce it
- * in the channel. Shared by /timer title and its picker (selectHandler.js).
+ * The duration a title implies, by the same rules /timer start uses — so the
+ * two can never disagree about how long a film runs.
+ *
+ * TV without an episode range has no duration on purpose: one episode's
+ * runtime would stop a multi-episode party an hour early (see
+ * runTitleSearchAndDecide). `reason` says why when there's no duration.
+ *
+ * @returns {Promise<{duration: number|null, details: object|null, reason: string|null}>}
+ */
+async function durationForTitle(media, guildConfig) {
+  if (media.type === 'movie') {
+    const details = await getMovieDetails(media.tmdbId);
+    const runtime = details?.runtime;
+    return runtime > 0
+      ? { duration: clampTimerDuration(runtime + 10, guildConfig), details, reason: null }
+      : { duration: null, details, reason: 'no-runtime' };
+  }
+
+  const details = await getTVShowDetails(media.tmdbId).catch(() => null);
+  if (!media.episodeRange) return { duration: null, details, reason: 'tv-no-range' };
+
+  const result = await resolveEpisodeRangeDuration(media.tmdbId, media.episodeRange, getEpisodeBufferMinutes(guildConfig));
+  return result
+    ? { duration: clampTimerDuration(result.duration, guildConfig), details, reason: null }
+    : { duration: null, details, reason: 'no-runtime' };
+}
+
+/**
+ * The public card for a newly titled timer: what's playing, and where the
+ * timer now stands. Shaped like /timer start's Now Playing card so the
+ * channel sees the same thing whichever way the title arrived.
+ */
+function buildTitleCard(label, details, timer, backdropUrl) {
+  const date = details?.release_date || details?.first_air_date;
+  const year = date ? ` (${String(date).slice(0, 4)})` : '';
+  const overview = details?.overview
+    ? (details.overview.length > 300 ? details.overview.substring(0, 297) + '...' : details.overview)
+    : '';
+
+  // Like the start card, a fallback duration is a safety net, not a runtime
+  // anyone should plan around — so no duration or countdown for it.
+  const hasRealDuration = Boolean(timer?.duration) && !timer.isFallbackDuration;
+  const fields = [];
+  if (hasRealDuration) fields.push({ name: 'Duration', value: formatMinutesHuman(timer.duration), inline: true });
+  if (timer) fields.push({ name: 'Elapsed', value: timer.elapsedFormatted, inline: true });
+  if (hasRealDuration && timer.remainingFormatted) {
+    fields.push({ name: 'Remaining', value: timer.remainingFormatted, inline: true });
+  }
+  if (hasRealDuration && timer.endTime && !timer.paused) {
+    fields.push({ name: 'Ends', value: `<t:${Math.round(timer.endTime / 1000)}:t>`, inline: true });
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0x0099FF)
+    .setTitle('🏷️  NOW WATCHING')
+    .setDescription(`## ${label}${year}${overview ? `\n${overview}` : ''}`.substring(0, 4096))
+    .setFooter({ text: hasRealDuration ? 'Timer will auto-stop when complete' : 'Use /timer stop to end the timer' });
+  if (fields.length) embed.addFields(fields);
+  if (backdropUrl) embed.setImage(backdropUrl);
+  return embed;
+}
+
+/**
+ * Set the running timer's title — and, when the title has a known runtime,
+ * its duration — then tell the person and post the card. Shared by
+ * /timer title and its picker (selectHandler.js).
+ *
+ * The runtime counts from when the timer STARTED: the timer was started when
+ * playback was, so 20 minutes into a 100-minute film the new total is
+ * 110 (with the usual 10-minute buffer) and about 90 remain.
+ *
+ * The duration changes only for someone allowed to /timer adjust (starter or
+ * mod) or on a timer with nothing but a fallback duration — the title rule
+ * lets anyone name an unnamed timer, but a runtime the starter set is theirs.
  */
 export async function applyTimerTitle(interaction, label, media, { keptAsTyped = false } = {}) {
-  setTimerTitle(interaction.channelId, label, media);
+  const channelId = interaction.channelId;
+  const before = getTimerStatus(channelId);
+  setTimerTitle(channelId, label, media);
+
+  let details = null;
+  let durationNote = '';
+  if (media?.tmdbId && before) {
+    const guildConfig = await loadGuildConfig(interaction.guildId);
+    let found = { duration: null, details: null, reason: 'no-runtime' };
+    try {
+      found = await durationForTitle(media, guildConfig);
+    } catch (error) {
+      console.error('[Timer] Title runtime lookup failed:', error.message);
+    }
+    details = found.details;
+
+    const mayAdjust = before.userId === interaction.user.id
+      || isAdmin(interaction.member)
+      || before.isFallbackDuration === true;
+
+    if (!found.duration) {
+      durationNote = found.reason === 'tv-no-range'
+        ? ' The duration is unchanged. To set one for a show, include the episodes, e.g. `S1: E1-E3`.'
+        : ` TMDB has no runtime for it, so the duration is unchanged.`;
+    } else if (!mayAdjust) {
+      durationNote = ` The duration is unchanged. <@${before.userId}> set it; they or a moderator can change it with \`/timer adjust\`.`;
+    } else {
+      const result = adjustTimerDuration(channelId, found.duration, interaction.client, { realDuration: true });
+      if (result?.error === 'duration_too_short') {
+        durationNote = ` The timer has already run longer than its ${formatMinutesHuman(found.duration)} runtime, so the duration is unchanged.`;
+      } else if (result?.success) {
+        durationNote = ` Duration set to **${formatMinutesHuman(found.duration)}**, counted from when the timer started: **${result.remainingFormatted}** left.`;
+      }
+    }
+  }
 
   const identified = media
     ? `Matched on TMDB, so it will log to watch history correctly.`
@@ -644,16 +750,25 @@ export async function applyTimerTitle(interaction, label, media, { keptAsTyped =
       : `Couldn't match this on TMDB — the timer is named, but double-check the watch-history entry when it stops.`;
 
   await interaction.editReply({
-    content: `🏷️ Timer is now **${label}**. ${identified}`,
+    content: `🏷️ Timer is now **${label}**. ${identified}${durationNote}`,
     embeds: [],
     components: [],
   });
 
-  // Announce it publicly: whoever fixed the title did it for everyone's
-  // benefit, and the people watching should see what the timer now says.
-  await interaction.channel.send({
-    content: `🏷️ <@${interaction.user.id}> set this timer's title to **${label}**.`,
-  }).catch(() => {});
+  // Announce it publicly with a card: whoever fixed the title did it for
+  // everyone's benefit, and the people watching should see what the timer
+  // now says. A NEW message, since edits never notify; the mention is in
+  // content because mentions inside an embed never ping.
+  const content = `🏷️ <@${interaction.user.id}> set this timer's title to **${label}**.`;
+  let embeds = [];
+  try {
+    const { backdropUrl } = media?.tmdbId ? await fetchTimerArt(media, details) : { backdropUrl: null };
+    embeds = [buildTitleCard(label, details, getTimerStatus(channelId), backdropUrl)];
+  } catch (error) {
+    // The card is decoration — the title is already set; announce it plainly
+    console.error('[Timer] Title card failed (posting without it):', error.message);
+  }
+  await interaction.channel.send({ content, embeds }).catch(() => {});
 }
 
 export const data = new SlashCommandBuilder()
@@ -776,7 +891,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('title')
-      .setDescription('🏷️ Name what the running timer is for, so it logs to watch history correctly')
+      .setDescription('🏷️ Name what the running timer is for and set its duration from it')
       .addStringOption(option =>
         option
           .setName('title')
@@ -1643,9 +1758,10 @@ const CARD_RULE = '━━━━━━━━━━━━━━━━━━━━�
  * taller card.
  *
  * @param {object|null} media - {tmdbId, type} captured when the title was resolved
+ * @param {object|null} [knownDetails] - TMDB details already in hand, to skip the lookup
  * @returns {Promise<{posterUrl: string|null, backdropUrl: string|null}>}
  */
-async function fetchTimerArt(media) {
+async function fetchTimerArt(media, knownDetails = null) {
   const none = { posterUrl: null, backdropUrl: null };
 
   if (!media?.tmdbId || (media.type !== 'movie' && media.type !== 'tv')) {
@@ -1653,9 +1769,10 @@ async function fetchTimerArt(media) {
   }
 
   try {
-    const details = media.type === 'movie'
+    // /timer title already fetched the details for the runtime — reuse them
+    const details = knownDetails || (media.type === 'movie'
       ? await getMovieDetails(media.tmdbId)
-      : await getTVShowDetails(media.tmdbId);
+      : await getTVShowDetails(media.tmdbId));
 
     const posterUrl = details?.poster_path
       ? getPosterUrl(details.poster_path, 'w342')

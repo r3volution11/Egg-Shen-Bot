@@ -20,18 +20,22 @@ import path from 'path';
 
 const mockSearchMovies = jest.fn();
 const mockSearchTVShows = jest.fn();
+const mockGetMovieDetails = jest.fn();
+const mockGetTVShowDetails = jest.fn();
+const mockGetSeasonDetails = jest.fn();
+const mockSumEpisodeRuntimes = jest.fn();
 
 jest.unstable_mockModule('../src/services/tmdbService.js', () => ({
-  getPosterUrl: jest.fn(() => null),
-  getBackdropUrl: jest.fn(() => null),
+  getPosterUrl: jest.fn((p) => (p ? `https://img.test/poster${p}` : null)),
+  getBackdropUrl: jest.fn((p) => (p ? `https://img.test/backdrop${p}` : null)),
   searchMovies: mockSearchMovies,
   searchTVShows: mockSearchTVShows,
-  getMovieDetails: jest.fn(),
-  getTVShowDetails: jest.fn(),
+  getMovieDetails: mockGetMovieDetails,
+  getTVShowDetails: mockGetTVShowDetails,
   getMovieAlternativeTitles: jest.fn().mockResolvedValue([]),
   getTVAlternativeTitles: jest.fn().mockResolvedValue([]),
-  getSeasonDetails: jest.fn(),
-  sumEpisodeRuntimes: jest.fn(),
+  getSeasonDetails: mockGetSeasonDetails,
+  sumEpisodeRuntimes: mockSumEpisodeRuntimes,
   // selectHandler.js imports these too
   getUnifiedMovieWatchProviders: jest.fn(),
   getUnifiedTVWatchProviders: jest.fn(),
@@ -57,7 +61,7 @@ jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
 }));
 
 let execute, handleSelectInteraction;
-let startTimer, stopTimer, getTimerStatus, clearAllTimers, canSetTimerTitle, setTimerTitle;
+let startTimer, stopTimer, pauseTimer, getTimerStatus, clearAllTimers, loadTimers, canSetTimerTitle, setTimerTitle;
 
 const TIMERS_FILE = process.env.ACTIVE_TIMERS_FILE || path.join(process.cwd(), 'active_timers.json');
 
@@ -68,7 +72,7 @@ function cleanupTimerFile() {
 beforeAll(async () => {
   ({ execute } = await import('../src/commands/timer.js'));
   ({ handleSelectInteraction } = await import('../src/handlers/selectHandler.js'));
-  ({ startTimer, stopTimer, getTimerStatus, clearAllTimers, canSetTimerTitle, setTimerTitle } =
+  ({ startTimer, stopTimer, pauseTimer, getTimerStatus, clearAllTimers, loadTimers, canSetTimerTitle, setTimerTitle } =
     await import('../src/utils/timerManager.js'));
 });
 
@@ -77,9 +81,17 @@ beforeEach(() => {
   cleanupTimerFile();
   mockSearchMovies.mockReset().mockResolvedValue([]);
   mockSearchTVShows.mockReset().mockResolvedValue([]);
+  mockGetMovieDetails.mockReset().mockResolvedValue(null);
+  mockGetTVShowDetails.mockReset().mockResolvedValue(null);
+  mockGetSeasonDetails.mockReset().mockResolvedValue(null);
+  mockSumEpisodeRuntimes.mockReset().mockReturnValue(null);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // Every title change saves without awaiting. Jest reuses this worker for
+  // the next suite, so an undrained write can land on ITS timers file —
+  // loadTimers waits for the save queue before reading.
+  await loadTimers();
   clearAllTimers();
   cleanupTimerFile();
 });
@@ -264,14 +276,21 @@ describe('/timer title', () => {
     expect(interaction.channel.send).not.toHaveBeenCalled();
   });
 
-  test('does not reschedule the auto-stop', async () => {
+  test('a stranger naming a timer does not override the starter\'s duration', async () => {
+    // Anyone may name an UNNAMED timer, but a runtime the starter chose is
+    // theirs — only they or a mod may change it (the /timer adjust rule).
     startTimer('channel-1', 'starter', 'starter', '', 120, null, false);
     const before = getTimerStatus('channel-1').endTime;
     mockSearchMovies.mockResolvedValue([{ id: 1091, title: 'The Thing', release_date: '1982-06-25' }]);
+    mockGetMovieDetails.mockResolvedValue({ id: 1091, title: 'The Thing', runtime: 109 });
 
-    await execute(makeInteraction({ userId: 'a-stranger' }));
+    const interaction = makeInteraction({ userId: 'a-stranger' });
+    await execute(interaction);
 
+    expect(getTimerStatus('channel-1').label).toBe('The Thing');
+    expect(getTimerStatus('channel-1').duration).toBe(120);
     expect(getTimerStatus('channel-1').endTime).toBe(before);
+    expect(responseText(interaction)).toContain('/timer adjust');
   });
 });
 
@@ -442,5 +461,188 @@ describe('/timer title picker — an ambiguous title asks, like /movie', () => {
 
     await handleSelectInteraction(makeSelect(value));
     expect(getTimerStatus('channel-1')).toMatchObject({ label: 'The Thing', tmdbId: 1091 });
+  });
+});
+
+describe('/timer title sets the duration, counted from when the timer started', () => {
+  const T0 = 1_700_000_000_000;
+  const MIN = 60_000;
+  const thing = { id: 1091, title: 'The Thing', release_date: '1982-06-25' };
+  const thingDetails = {
+    id: 1091, title: 'The Thing', runtime: 100, release_date: '1982-06-25',
+    overview: 'An Antarctic research crew meets a shape-shifter.', backdrop_path: '/thing.jpg',
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers({ now: T0, doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  /** A timer with nothing but the server's fallback cap, as /timer start leaves an unnamed one. */
+  function startFallbackTimer() {
+    startTimer('channel-1', 'starter', 'starter', '', 360, null, true);
+  }
+
+  test('20 minutes in, a 100-minute film leaves 90 (runtime + 10 buffer − elapsed)', async () => {
+    startFallbackTimer();
+    jest.setSystemTime(T0 + 20 * MIN);
+    mockSearchMovies.mockResolvedValue([thing]);
+    mockGetMovieDetails.mockResolvedValue(thingDetails);
+
+    const interaction = makeInteraction({ userId: 'a-stranger' });
+    await execute(interaction);
+
+    const timer = getTimerStatus('channel-1');
+    expect(timer.duration).toBe(110);
+    expect(timer.remainingMs).toBe(90 * MIN);
+    expect(timer.endTime).toBe(T0 + 110 * MIN);
+    // a real runtime now, so it no longer gets fallback warnings
+    expect(timer.isFallbackDuration).toBe(false);
+    expect(responseText(interaction)).toContain('1h 50m');
+  });
+
+  test('the same through the picker', async () => {
+    startFallbackTimer();
+    jest.setSystemTime(T0 + 20 * MIN);
+    mockSearchMovies.mockResolvedValue([thing, { id: 60935, title: 'The Thing', release_date: '2011-10-13' }]);
+    mockGetMovieDetails.mockResolvedValue(thingDetails);
+
+    const cmd = makeInteraction({ userId: 'a-stranger' });
+    await execute(cmd);
+    const options = cmd.editReply.mock.calls.at(-1)[0].components[0].toJSON().components[0].options;
+    const value = options.find(o => o.label === 'The Thing (1982)').value;
+
+    await handleSelectInteraction({
+      customId: 'timer_select_title', values: [value],
+      channelId: 'channel-1', guildId: 'guild-1',
+      user: { id: 'a-stranger', username: 'tester' }, member: {},
+      channel: { send: jest.fn().mockResolvedValue(undefined) },
+      replied: false, deferred: false,
+      deferUpdate: jest.fn().mockResolvedValue(undefined),
+      editReply: jest.fn().mockResolvedValue(undefined),
+    });
+
+    expect(mockGetMovieDetails).toHaveBeenCalledWith(1091);
+    expect(getTimerStatus('channel-1').duration).toBe(110);
+    expect(getTimerStatus('channel-1').remainingMs).toBe(90 * MIN);
+  });
+
+  test('a break earlier in the party does not count as watched', async () => {
+    startFallbackTimer();
+    jest.setSystemTime(T0 + 20 * MIN);
+    pauseTimer('channel-1');
+    jest.setSystemTime(T0 + 30 * MIN);
+    const { resumeTimer } = await import('../src/utils/timerManager.js');
+    resumeTimer('channel-1', null);
+    mockSearchMovies.mockResolvedValue([thing]);
+    mockGetMovieDetails.mockResolvedValue(thingDetails);
+
+    await execute(makeInteraction({ userId: 'a-stranger' }));
+
+    expect(getTimerStatus('channel-1').remainingMs).toBe(90 * MIN); // not 80
+  });
+
+  test('an episode range sets the summed duration', async () => {
+    startFallbackTimer();
+    jest.setSystemTime(T0 + 10 * MIN);
+    mockSearchTVShows.mockResolvedValue([{ id: 2391, name: 'Tales from the Crypt', first_air_date: '1989-06-10' }]);
+    mockGetTVShowDetails.mockResolvedValue({ id: 2391, name: 'Tales from the Crypt', first_air_date: '1989-06-10' });
+    mockGetSeasonDetails.mockResolvedValue({ episodes: [] });
+    mockSumEpisodeRuntimes.mockReturnValue({ episodeCount: 4, totalRuntime: 100, breakdown: [] });
+
+    await execute(makeInteraction({ userId: 'a-stranger', title: 'Tales from the Crypt S6: E4-E7' }));
+
+    // 100 min of episodes + max(10, 4 episodes × 5) buffer
+    expect(getTimerStatus('channel-1').duration).toBe(120);
+    expect(getTimerStatus('channel-1').remainingMs).toBe(110 * MIN);
+  });
+
+  test('a show without episodes leaves the duration alone, and says how to set one', async () => {
+    startFallbackTimer();
+    mockSearchTVShows.mockResolvedValue([{ id: 2391, name: 'Tales from the Crypt', first_air_date: '1989-06-10' }]);
+    mockGetTVShowDetails.mockResolvedValue({ id: 2391, name: 'Tales from the Crypt', episode_run_time: [26] });
+
+    const interaction = makeInteraction({ userId: 'a-stranger', title: 'Tales from the Crypt' });
+    await execute(interaction);
+
+    expect(getTimerStatus('channel-1').duration).toBe(360);
+    expect(getTimerStatus('channel-1').isFallbackDuration).toBe(true);
+    expect(responseText(interaction)).toContain('S1: E1-E3');
+  });
+
+  test('a timer already past the runtime keeps its duration, and says so', async () => {
+    startFallbackTimer();
+    jest.setSystemTime(T0 + 115 * MIN);
+    mockSearchMovies.mockResolvedValue([thing]);
+    mockGetMovieDetails.mockResolvedValue(thingDetails);
+
+    const interaction = makeInteraction({ userId: 'a-stranger' });
+    await execute(interaction);
+
+    expect(getTimerStatus('channel-1').duration).toBe(360);
+    expect(responseText(interaction)).toContain('already run longer');
+  });
+
+  test('the starter may replace their own duration with the runtime', async () => {
+    startTimer('channel-1', 'starter', 'starter', 'Wrong Title', 120, null, false);
+    jest.setSystemTime(T0 + 20 * MIN);
+    mockSearchMovies.mockResolvedValue([thing]);
+    mockGetMovieDetails.mockResolvedValue(thingDetails);
+
+    await execute(makeInteraction({ userId: 'starter' }));
+
+    expect(getTimerStatus('channel-1').duration).toBe(110);
+  });
+
+  test('a paused timer gets the new duration when it resumes', async () => {
+    startFallbackTimer();
+    jest.setSystemTime(T0 + 20 * MIN);
+    pauseTimer('channel-1');
+    mockSearchMovies.mockResolvedValue([thing]);
+    mockGetMovieDetails.mockResolvedValue(thingDetails);
+
+    await execute(makeInteraction({ userId: 'a-stranger' }));
+
+    const paused = getTimerStatus('channel-1');
+    expect(paused.duration).toBe(110);
+    expect(paused.remainingMs).toBe(90 * MIN);
+    expect(paused.endTime).toBeUndefined();
+  });
+
+  test('posts a Now Watching card with the title, year, art and countdown', async () => {
+    startFallbackTimer();
+    jest.setSystemTime(T0 + 20 * MIN);
+    mockSearchMovies.mockResolvedValue([thing]);
+    mockGetMovieDetails.mockResolvedValue(thingDetails);
+
+    const interaction = makeInteraction({ userId: 'a-stranger' });
+    await execute(interaction);
+
+    const sent = interaction.channel.send.mock.calls[0][0];
+    expect(sent.content).toContain('<@a-stranger>'); // pings — embeds never do
+    const card = sent.embeds[0].toJSON();
+    expect(card.title).toContain('NOW WATCHING');
+    expect(card.description).toContain('## The Thing (1982)');
+    expect(card.description).toContain('Antarctic');
+    expect(card.image.url).toBe('https://img.test/backdrop/thing.jpg');
+    const field = (name) => card.fields.find(f => f.name === name)?.value;
+    expect(field('Duration')).toBe('1h 50m');
+    expect(field('Remaining')).toBe('1:30:00');
+    expect(field('Ends')).toBe(`<t:${Math.round((T0 + 110 * MIN) / 1000)}:t>`);
+    // the runtime lookup's details are reused for the art — one call
+    expect(mockGetMovieDetails).toHaveBeenCalledTimes(1);
+  });
+
+  test('a fallback-only timer\'s card shows no made-up duration', async () => {
+    startFallbackTimer();
+    const interaction = makeInteraction({ userId: 'a-stranger', title: 'Some Obscure Short' });
+    await execute(interaction);
+
+    const card = interaction.channel.send.mock.calls[0][0].embeds[0].toJSON();
+    expect(card.description).toContain('## Some Obscure Short');
+    expect(card.fields.map(f => f.name)).toEqual(['Elapsed']);
+    expect(card.image).toBeUndefined();
   });
 });

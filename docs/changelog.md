@@ -9,6 +9,22 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.65.0 - 2026-10-17
+
+### Added
+- **`/timer title` sets the timer's duration from the title's runtime.** The runtime counts from when the timer started, since the timer was started when playback was. 20 minutes into a 100-minute film, the duration becomes 1h 50m (runtime plus the usual 10-minute buffer) with about 90 minutes left. Episode ranges ("Show S2: E1-E3") get the same summed total `/timer start` would give them, and a paused timer gets the new duration when it resumes
+  - The duration stays as it was for a show with no episodes given, when the starter set the duration and someone else is naming the timer, or when the timer has already run past the runtime. The reply says which
+- **`/timer title` posts a Now Watching card** with the title's art, year and synopsis, plus the timer's duration, elapsed and remaining time and when it ends
+
+### Fixed
+- **`/timer adjust` and the Extend button no longer end a timer early after a pause.** The new end time counted paused minutes as watched, so a 10-minute break made an adjusted timer stop 10 minutes early
+
+### Developer
+- `src/utils/timerManager.js`: `adjustTimerDuration` computes remaining time from `elapsedMsOf` (the pause fix). It now works on a paused timer (sets `remainingMsAtPause`, schedules nothing) and takes `{ realDuration }` to clear `isFallbackDuration`
+- `src/commands/timer.js`: `durationForTitle` uses the start flow's rules (movie runtime + 10; TV only with an episode range). `applyTimerTitle` changes the duration for the starter, a moderator, or anyone on a fallback-only timer. `buildTitleCard` is new, and `fetchTimerArt` accepts details already in hand
+- `tests/timer-set-title.test.js`: 10 new tests; its `afterEach` now drains queued timer saves, which were landing on the next suite's timers file. `tests/timer-pause-resume.test.js`: 2 new tests
+- **Command definition changed: run `deploy-commands`**
+
 ## 2.64.1 - 2026-10-17
 
 ### Fixed

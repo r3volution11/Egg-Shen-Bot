@@ -334,6 +334,41 @@ describe('/timer stop while paused', () => {
     expect(result.error).toBeUndefined();
     expect(result.success).toBe(true);
   });
+
+  test('/timer adjust after a break ends the timer at the right time', async () => {
+    // The new end used to be startTime + duration, which counts the break as
+    // watched — a 10-minute break made an adjusted timer stop 10 minutes early.
+    jest.useFakeTimers({ now: 1_000_000 });
+    startTimer('channel-1', 'starter-user', 'starter-user', 'Film', 120, null, false);
+
+    jest.setSystemTime(1_000_000 + 20 * 60_000); // 20 minutes watched
+    pauseTimer('channel-1');
+    jest.setSystemTime(1_000_000 + 30 * 60_000); // 10-minute break
+    resumeTimer('channel-1', null);
+
+    const result = adjustTimerDuration('channel-1', 110, null);
+
+    expect(result.remainingMs).toBe(90 * 60_000); // 110 - 20 watched
+    expect(getTimerStatus('channel-1').endTime).toBe(1_000_000 + 30 * 60_000 + 90 * 60_000);
+  });
+
+  test('/timer adjust on a paused timer waits for resume to schedule', async () => {
+    jest.useFakeTimers({ now: 1_000_000 });
+    startTimer('channel-1', 'starter-user', 'starter-user', 'Film', 120, null, false);
+
+    jest.setSystemTime(1_000_000 + 20 * 60_000);
+    pauseTimer('channel-1');
+
+    adjustTimerDuration('channel-1', 110, null);
+    const paused = getTimerStatus('channel-1');
+    expect(paused.duration).toBe(110);
+    expect(paused.remainingMs).toBe(90 * 60_000);
+    expect(paused.endTime).toBeUndefined(); // still frozen
+
+    jest.setSystemTime(1_000_000 + 50 * 60_000); // 30-minute break
+    resumeTimer('channel-1', null);
+    expect(getTimerStatus('channel-1').endTime).toBe(1_000_000 + 50 * 60_000 + 90 * 60_000);
+  });
 });
 
 describe('paused timer survives a simulated bot restart', () => {

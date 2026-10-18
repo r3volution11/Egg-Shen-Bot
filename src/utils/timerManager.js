@@ -661,9 +661,13 @@ export function setTimerTitle(channelId, label, media = null) {
  * @param {string} channelId - Discord channel ID
  * @param {number} newDurationMinutes - New total duration in minutes
  * @param {object} client - Discord client (needed for auto-stop callback)
+ * @param {object} [options]
+ * @param {boolean} [options.realDuration=false] - the new total is a known
+ *   runtime (from /timer title), not someone buying more time — so the timer
+ *   stops being a fallback, exactly as a runtime given to /timer start does
  * @returns {object|null} - Updated timer data with remaining time, or null if no timer
  */
-export function adjustTimerDuration(channelId, newDurationMinutes, client) {
+export function adjustTimerDuration(channelId, newDurationMinutes, client, { realDuration = false } = {}) {
   const timer = activeTimers.get(channelId);
   
   if (!timer) {
@@ -686,11 +690,14 @@ export function adjustTimerDuration(channelId, newDurationMinutes, client) {
   // Clear existing auto-stop timeout if it exists
   if (timer.autoStopTimeout) {
     clearTimeout(timer.autoStopTimeout);
+    timer.autoStopTimeout = null;
   }
 
-  // Calculate new endTime
-  const newEndTime = timer.startTime + (newDurationMinutes * 60 * 1000);
-  const remainingMs = newEndTime - Date.now();
+  // Remaining is the new total minus time actually WATCHED. This used to be
+  // `startTime + duration`, which counts every paused minute as watched —
+  // so after a 10-minute break, an adjusted timer stopped 10 minutes early.
+  const remainingMs = newDurationMinutes * 60 * 1000 - elapsedMs;
+  const newEndTime = Date.now() + remainingMs;
 
   // Update timer data.
   //
@@ -705,11 +712,19 @@ export function adjustTimerDuration(channelId, newDurationMinutes, client) {
   //
   // A timer that DID have a real duration stays non-fallback, as before.
   timer.duration = newDurationMinutes;
-  timer.endTime = newEndTime;
+  if (realDuration) timer.isFallbackDuration = false;
 
-  // Set up new auto-stop timeout
-  if (client) {
-    timer.autoStopTimeout = scheduleAutoStop(channelId, remainingMs, client);
+  if (timer.paused) {
+    // A paused clock is frozen: resumeTimer reschedules from
+    // remainingMsAtPause, so nothing may be scheduled now.
+    timer.remainingMsAtPause = remainingMs;
+  } else {
+    timer.endTime = newEndTime;
+
+    // Set up new auto-stop timeout
+    if (client) {
+      timer.autoStopTimeout = scheduleAutoStop(channelId, remainingMs, client);
+    }
   }
 
   // Save to disk

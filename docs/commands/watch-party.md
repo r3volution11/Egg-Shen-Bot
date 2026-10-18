@@ -315,7 +315,7 @@ Status is public by default: a watch party is a shared activity, and whoever ask
 /timer title <title>
 ```
 
-Names a timer that was started without identifying what's playing — which is what the watch-history entry gets written under when it stops.
+Names a timer that was started without identifying what's playing — which is what the watch-history entry gets written under when it stops — and sets the timer's duration from the title's runtime.
 
 **Who can use it:**
 - **While the timer has no title, anyone can set one.** That's the state worth fixing, and whoever's watching can fix it
@@ -327,9 +327,14 @@ It searches like `/movie` and `/tv`: a clear match is used right away, and episo
 /timer title Tales from the Crypt S6: E4-E7
 ```
 
-If the title could mean more than one thing ("Fargo" is two films and a show), or what you typed isn't an exact title, you get a picker of movies and shows to choose from, with exact title matches listed first. The first option, **Keep "…" as typed**, names the timer without matching it to anything. Only if TMDB finds nothing at all is the timer named with your text directly, since an approximate label beats an unnamed one. The change is announced in the channel, since it was made on everyone's behalf.
+If the title could mean more than one thing ("Fargo" is two films and a show), or what you typed isn't an exact title, you get a picker of movies and shows to choose from, with exact title matches listed first. The first option, **Keep "…" as typed**, names the timer without matching it to anything. Only if TMDB finds nothing at all is the timer named with your text directly, since an approximate label beats an unnamed one. The change is announced in the channel with a **Now Watching** card (art, year, synopsis, and where the timer stands), since it was made on everyone's behalf.
 
-**This does not change the duration.** A running timer is synced to real playback, so rescheduling its auto-stop underneath everyone would be worse than an imperfect end time — use `/timer adjust` for that.
+**It sets the duration, counted from when the timer started.** The timer was started when playback was, so the runtime includes the time already run: 20 minutes into a 100-minute film, the duration becomes 1h 50m (the runtime plus the usual 10-minute buffer) with about 90 minutes left. Time spent paused never counts. The duration stays as it was when:
+- **It's a show with no episodes given.** One episode's runtime would end a multi-episode party early; include them (`Show S1: E1-E3`) to set one
+- **Someone else set the duration.** Anyone can name an unnamed timer, but only the person who started it or a moderator can replace a duration they chose. A timer that only has the server's safety-net duration can be filled in by anyone
+- **The timer has already run past the runtime**
+
+Use `/timer adjust` to set a duration by hand.
 
 ### Pause and Resume Timer
 
