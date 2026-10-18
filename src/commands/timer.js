@@ -6,7 +6,8 @@ import { searchBoardGames, getBoardGameDetails } from '../services/bggService.js
 import { hybridSearch, pickLandslideWinner, pickExactTitleMatch } from '../services/aiService.js';
 import { parseEpisodeRange, parseEventEpisodeRange, stripTrailingYear } from '../utils/episodeRangeParser.js';
 import { findEventForChannel, searchEventTitle, formatRuntime } from '../utils/scheduledEventLookup.js';
-import { resolveWatchTitle } from '../utils/watchTitle.js';
+import { searchWatchTitle } from '../utils/watchTitle.js';
+import { stashSelection } from '../utils/pendingSelections.js';
 import { closeForTimer } from '../utils/readyCheckManager.js';
 
 /**
@@ -552,6 +553,107 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
 
   // Check if timer already exists and start countdown
   await startTimerCountdown(interaction, channelId, userId, username, label, duration, theme, guildConfig, false, media);
+}
+
+/** The media record setTimerTitle stores, from a chosen TMDB result. */
+function titleMedia(type, tmdbId, episodeRange = null) {
+  return {
+    tmdbId,
+    type,
+    episodeRange: episodeRange
+      ? { season: episodeRange.season, episodeStart: episodeRange.episodeStart, episodeEnd: episodeRange.episodeEnd }
+      : null,
+  };
+}
+
+/**
+ * Movies and shows for the /timer title picker, exact title matches first.
+ * "Fargo" is the case this exists for: two films and a show all carry the
+ * name, and the one people mean shouldn't be buried under fuzzy hits. 24
+ * leaves room for the "keep as typed" option inside Discord's 25 cap.
+ */
+function buildTitleCandidates(movies, shows, query) {
+  const all = [
+    ...movies.slice(0, 12).map(r => ({ ...r, type: 'movie' })),
+    ...shows.slice(0, 12).map(r => ({ ...r, type: 'tv' })),
+  ];
+  const isExact = r => Boolean(pickExactTitleMatch([r], query));
+  return [...all.filter(isExact), ...all.filter(r => !isExact(r))].slice(0, 24);
+}
+
+/**
+ * The picker /timer title shows when a title is ambiguous.
+ *
+ * Values are `<nonce>_<type>_<id>` or `<nonce>_keep`; the nonce holds which
+ * timer this was for, what was typed and the result labels — so the select
+ * handler needs no second search and can refuse a menu left open across a
+ * different timer. (Payloads never go in a customId — see CLAUDE.md.)
+ */
+export function buildTitlePicker(requested, candidates, { channelId, timerStartTime, episodeRange }) {
+  const labels = {};
+  for (const r of candidates) labels[`${r.type}_${r.id}`] = r.title || r.name;
+  const nonce = stashSelection({ channelId, timerStartTime, requested, episodeRange: episodeRange || null, labels });
+
+  const options = [
+    {
+      label: `Keep "${requested}" as typed`.substring(0, 100),
+      description: 'Name the timer without matching it to TMDB',
+      value: `${nonce}_keep`,
+      emoji: '✏️',
+    },
+    ...candidates.map((r) => {
+      const date = r.release_date || r.first_air_date;
+      const yearStr = date ? ` (${date.split('-')[0]})` : '';
+      const kind = r.type === 'tv' ? 'TV' : 'Movie';
+      const overview = r.overview ? `${kind} · ${r.overview}` : kind;
+      return {
+        label: `${r.title || r.name}${yearStr}`.substring(0, 100),
+        description: overview.length > 100 ? overview.substring(0, 97) + '...' : overview,
+        value: `${nonce}_${r.type}_${r.id}`,
+      };
+    }),
+  ];
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId('timer_select_title')
+    .setPlaceholder('Pick the title being watched')
+    .addOptions(options);
+
+  const embed = new EmbedBuilder()
+    .setColor(0x0099FF)
+    .setTitle(`🏷️ Which "${requested}"?`.substring(0, 256))
+    .setDescription(
+      `${candidates.length} possible match${candidates.length === 1 ? '' : 'es'}. Pick the one being watched ` +
+      `so it logs to watch history correctly, or keep the title as you typed it.`
+    );
+
+  return { embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] };
+}
+
+/**
+ * Set the running timer's title, tell the person who set it, and announce it
+ * in the channel. Shared by /timer title and its picker (selectHandler.js).
+ */
+export async function applyTimerTitle(interaction, label, media, { keptAsTyped = false } = {}) {
+  setTimerTitle(interaction.channelId, label, media);
+
+  const identified = media
+    ? `Matched on TMDB, so it will log to watch history correctly.`
+    : keptAsTyped
+      ? `Kept as typed, without a TMDB match — double-check the watch-history entry when it stops.`
+      : `Couldn't match this on TMDB — the timer is named, but double-check the watch-history entry when it stops.`;
+
+  await interaction.editReply({
+    content: `🏷️ Timer is now **${label}**. ${identified}`,
+    embeds: [],
+    components: [],
+  });
+
+  // Announce it publicly: whoever fixed the title did it for everyone's
+  // benefit, and the people watching should see what the timer now says.
+  await interaction.channel.send({
+    content: `🏷️ <@${interaction.user.id}> set this timer's title to **${label}**.`,
+  }).catch(() => {});
 }
 
 export const data = new SlashCommandBuilder()
@@ -1248,66 +1350,59 @@ export async function execute(interaction) {
 
     await interaction.deferReply({ ephemeral: true });
 
-    // Reuse the start flow's lookup so an exact title resolves instantly and
-    // an ambiguous one gets the same picker people already know — including
-    // episode-range notation, which is how a multi-episode party is named.
-    const { title: searchLabel, year: searchYear } = stripTrailingYear(requested);
+    // Works like /movie and /tv: a confident match is taken outright, an
+    // ambiguous one gets a picker, and only a title TMDB has never heard of
+    // is saved as typed. It used to save the raw text whenever the match
+    // wasn't certain, so "the thing" or "fargo" named the timer but left it
+    // unidentified — and /timer stop then re-guessed it for watch history.
+    // Episode-range notation still works; it's how a multi-episode party is
+    // named.
     const episodeRange = parseEpisodeRange(requested);
 
     let resolved = null;
+    let candidates = [];
     try {
       if (episodeRange) {
         const shows = await hybridSearch(episodeRange.showName, searchTVShows, 'tv', getTVAlternativeTitles);
         const show = shows.length === 1 ? shows[0] : pickLandslideWinner(shows, episodeRange.showName);
         if (show) {
-          resolved = {
-            label: requested,
-            media: {
-              tmdbId: show.id,
-              type: 'tv',
-              episodeRange: {
-                season: episodeRange.season,
-                episodeStart: episodeRange.episodeStart,
-                episodeEnd: episodeRange.episodeEnd,
-              },
-            },
-          };
+          resolved = { label: requested, media: titleMedia('tv', show.id, episodeRange) };
+        } else {
+          candidates = shows.slice(0, 24).map(r => ({ ...r, type: 'tv' }));
         }
       } else {
         // The same matcher the event-request streaming line uses
-        const match = await resolveWatchTitle(requested);
+        const { match, movies, shows, query, year } = await searchWatchTitle(requested);
+        // ...plus /movie's landslide rule, for a fuzzy query whose top
+        // result is decisive and the other type came back empty.
+        const movieWinner = !match && shows.length === 0 && movies.length > 1 ? pickLandslideWinner(movies, query, year) : null;
+        const tvWinner = !match && movies.length === 0 && shows.length > 1 ? pickLandslideWinner(shows, query, year) : null;
+        const landslide = movieWinner ? { r: movieWinner, type: 'movie' } : tvWinner ? { r: tvWinner, type: 'tv' } : null;
         if (match) {
-          resolved = {
-            label: match.label,
-            media: { tmdbId: match.tmdbId, type: match.type, episodeRange: null },
-          };
+          resolved = { label: match.label, media: titleMedia(match.type, match.tmdbId) };
+        } else if (landslide) {
+          resolved = { label: landslide.r.title || landslide.r.name, media: titleMedia(landslide.type, landslide.r.id) };
+        } else {
+          candidates = buildTitleCandidates(movies, shows, query);
         }
       }
     } catch (error) {
       console.error('[Timer] Title lookup failed:', error.message);
     }
 
-    // Nothing matched confidently — still record what they typed. An
-    // approximate label beats an unnamed timer, and /timer stop re-searches
-    // it anyway when there's no stored id.
-    const label = resolved?.label || requested;
-    const media = resolved?.media || null;
+    if (!resolved && candidates.length > 0) {
+      await interaction.editReply(buildTitlePicker(requested, candidates, {
+        channelId,
+        timerStartTime: timer.startTime,
+        episodeRange,
+      }));
+      return;
+    }
 
-    setTimerTitle(channelId, label, media);
-
-    const identified = media
-      ? `Matched on TMDB, so it will log to watch history correctly.`
-      : `Couldn't match this on TMDB — the timer is named, but double-check the watch-history entry when it stops.`;
-
-    await interaction.editReply({
-      content: `🏷️ Timer is now **${label}**. ${identified}`,
-    });
-
-    // Announce it publicly: whoever fixed the title did it for everyone's
-    // benefit, and the people watching should see what the timer now says.
-    await interaction.channel.send({
-      content: `🏷️ <@${interaction.user.id}> set this timer's title to **${label}**.`,
-    }).catch(() => {});
+    // Nothing matched at all — still record what they typed. An approximate
+    // label beats an unnamed timer, and /timer stop re-searches it anyway
+    // when there's no stored id.
+    await applyTimerTitle(interaction, resolved?.label || requested, resolved?.media || null);
 
   } else if (subcommand === 'adjust') {
     const requestedDuration = interaction.options.getInteger('duration');

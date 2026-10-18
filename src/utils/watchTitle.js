@@ -19,8 +19,21 @@ const yearOf = (r) => String(r?.release_date || r?.first_air_date || '').slice(0
  * @returns {Promise<{tmdbId: number, type: 'movie'|'tv', label: string, year: string|null, backdrop_path, poster_path} | null>}
  */
 export async function resolveWatchTitle(title) {
+  return (await searchWatchTitle(title)).match;
+}
+
+/**
+ * The search behind resolveWatchTitle, with the raw results kept — so a
+ * caller that can ask a person (`/timer title`'s picker) offers the same
+ * candidates the matcher just declined to choose between, without a second
+ * round of TMDB calls.
+ *
+ * @param {string} title
+ * @returns {Promise<{match: object|null, movies: Array, shows: Array, query: string, year: string|null}>}
+ */
+export async function searchWatchTitle(title) {
   const { title: query, year } = stripTrailingYear(String(title || '').trim());
-  if (!query) return null;
+  if (!query) return { match: null, movies: [], shows: [], query, year };
 
   const [movies, shows] = await Promise.all([
     hybridSearch(query, searchMovies, 'movie', getMovieAlternativeTitles).catch(() => []),
@@ -44,9 +57,9 @@ export async function resolveWatchTitle(title) {
     : exact.length === 0 && soleMovie ? { r: soleMovie, type: 'movie' }
     : exact.length === 0 && soleTV ? { r: soleTV, type: 'tv' }
     : null;
-  if (!winner) return null;
+  if (!winner) return { match: null, movies, shows, query, year };
 
-  return {
+  return { movies, shows, query, year, match: {
     tmdbId: winner.r.id,
     type: winner.type,
     label: winner.r.title || winner.r.name,
@@ -55,5 +68,5 @@ export async function resolveWatchTitle(title) {
     // (titleArtwork.js)
     backdrop_path: winner.r.backdrop_path || null,
     poster_path: winner.r.poster_path || null,
-  };
+  } };
 }

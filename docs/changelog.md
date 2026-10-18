@@ -9,6 +9,20 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.64.1 - 2026-10-17
+
+### Fixed
+- **`/timer title` now lets you pick the right title, like `/movie` and `/tv` do.** Before, if what you typed wasn't one exact, unambiguous title, the timer was named with your text and left unmatched, so "Triangle" or "the thing" never got identified for watch history. Now a clear match is used right away, and anything ambiguous shows a picker of movies and shows, with exact title matches listed first
+  - The first option, **Keep "…" as typed**, names the timer without matching it. Only a title TMDB finds nothing for is named with your text directly
+  - Episode notation ("Show S2: E1-E3") gets the same picker when several shows share the name, and keeps the episode range
+
+### Developer
+- `src/utils/watchTitle.js`: new `searchWatchTitle` returns the matcher's raw movie/TV results alongside `match`; `resolveWatchTitle` wraps it
+- `src/commands/timer.js`: `/timer title` falls back to `buildTitlePicker` (customId `timer_select_title`, values `<nonce>_<type>_<id>` / `<nonce>_keep` via `pendingSelections`) and adds /movie's landslide rule. `applyTimerTitle` is shared with the select handler
+- `src/handlers/selectHandler.js`: `timer_select_title` handler. It refuses a pick if the timer was replaced since the menu opened (`startTime` check), and re-checks `canSetTimerTitle`
+- `tests/timer-set-title.test.js`: 7 end-to-end tests feeding the command's own option values into the real select handler
+- No command definition change, so restart only
+
 ## 2.64.0 - 2026-10-11
 
 ### Added

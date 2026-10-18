@@ -57,7 +57,8 @@ export async function handleSelectInteraction(interaction) {
     'select_random_episode',
     'select_similar',
     'select_soundtrack',
-    'timer_select_runtime'
+    'timer_select_runtime',
+    'timer_select_title'
   ];
   
   const isHandled = handledIds.includes(interaction.customId) || 
@@ -111,6 +112,68 @@ export async function handleSelectInteraction(interaction) {
   // Defer the update to acknowledge the interaction
   if (!interaction.replied && !interaction.deferred && !isBracketSelection) {
     await interaction.deferUpdate();
+  }
+
+  // /timer title's picker — the user chose which title the running timer is
+  if (interaction.customId === 'timer_select_title') {
+    const { readSelection } = await import('../utils/pendingSelections.js');
+    const { getTimerStatus, canSetTimerTitle } = await import('../utils/timerManager.js');
+    const { applyTimerTitle } = await import('../commands/timer.js');
+
+    const value = interaction.values[0];
+    const [nonce, type, id] = value.split('_');
+    const pending = readSelection(nonce);
+
+    if (!pending) {
+      await interaction.editReply({
+        content: '⌛ This menu expired. Run `/timer title` again.',
+        embeds: [],
+        components: [],
+      });
+      return;
+    }
+
+    // The menu can sit open while the timer stops and a new one starts;
+    // naming the new one with a choice made for the old would be wrong.
+    const timer = getTimerStatus(pending.channelId);
+    if (!timer || timer.startTime !== pending.timerStartTime) {
+      await interaction.editReply({
+        content: '❌ The timer this menu was for is no longer running.',
+        embeds: [],
+        components: [],
+      });
+      return;
+    }
+
+    // Re-checked: someone may have set a title since the menu opened, and
+    // only the starter or a mod may overwrite one.
+    if (!canSetTimerTitle(timer, interaction.user.id, interaction.member)) {
+      await interaction.editReply({
+        content: `❌ **${timer.label}** has since been set as the title. Only the person who started the timer or a moderator can change it.`,
+        embeds: [],
+        components: [],
+      });
+      return;
+    }
+
+    if (type === 'keep') {
+      await applyTimerTitle(interaction, pending.requested, null, { keptAsTyped: true });
+      return;
+    }
+
+    const tmdbId = parseInt(id, 10);
+    const episodeRange = type === 'tv' ? pending.episodeRange : null;
+    // A range keeps its notation as the label ("Severance S2: E1-E3") —
+    // that's what tells people which episodes the timer covers.
+    const label = episodeRange ? pending.requested : (pending.labels[`${type}_${id}`] || pending.requested);
+    await applyTimerTitle(interaction, label, {
+      tmdbId,
+      type,
+      episodeRange: episodeRange
+        ? { season: episodeRange.season, episodeStart: episodeRange.episodeStart, episodeEnd: episodeRange.episodeEnd }
+        : null,
+    });
+    return;
   }
 
   // Handle timer runtime selection

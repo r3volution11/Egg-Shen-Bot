@@ -321,13 +321,13 @@ Names a timer that was started without identifying what's playing — which is w
 - **While the timer has no title, anyone can set one.** That's the state worth fixing, and whoever's watching can fix it
 - **Once a title is set, only the person who started the timer or a moderator can change it** — overwriting a correct title would quietly corrupt the watch-history entry
 
-It runs the same lookup `/timer start` does, so an exact title resolves instantly and episode notation works too:
+It searches like `/movie` and `/tv`: a clear match is used right away, and episode notation works too:
 ```
 /timer title The Thing
 /timer title Tales from the Crypt S6: E4-E7
 ```
 
-If nothing matches on TMDB the timer is still named with what you typed — an approximate label beats an unnamed one. The change is announced in the channel, since it was made on everyone's behalf.
+If the title could mean more than one thing ("Fargo" is two films and a show), or what you typed isn't an exact title, you get a picker of movies and shows to choose from, with exact title matches listed first. The first option, **Keep "…" as typed**, names the timer without matching it to anything. Only if TMDB finds nothing at all is the timer named with your text directly, since an approximate label beats an unnamed one. The change is announced in the channel, since it was made on everyone's behalf.
 
 **This does not change the duration.** A running timer is synced to real playback, so rescheduling its auto-stop underneath everyone would be worse than an imperfect end time — use `/timer adjust` for that.
 
