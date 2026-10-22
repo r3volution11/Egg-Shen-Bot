@@ -877,15 +877,32 @@ export async function searchPeople(query) {
  * `vote_count_gte` went unnoticed).
  *
  * @param {'movie'|'tv'} type
- * @param {object} filters - {genre, decade, minRating, personId}
+ * @param {object} filters - {genre, decade, minRating, personId, keywords,
+ *   minVotes, maxVotes, page}. `keywords` is an array of TMDB keyword ids,
+ *   matched as OR; minVotes/maxVotes bound vote_count (Escape Velocity uses
+ *   them to pick how well-known a question's title is).
  */
 export function buildDiscoverParams(type, filters = {}) {
   const params = {
     language: 'en-US',
     sort_by: 'popularity.desc',
     include_adult: false,
-    'vote_count.gte': 50, // keep 1-vote curios out of recommendations
+    // keep 1-vote curios out of recommendations
+    'vote_count.gte': Number.isFinite(filters.minVotes) ? filters.minVotes : 50,
   };
+
+  if (Number.isFinite(filters.maxVotes)) {
+    params['vote_count.lte'] = filters.maxVotes;
+  }
+
+  if (Array.isArray(filters.keywords) && filters.keywords.length) {
+    // '|' is OR in TMDB's discover syntax (',' would be AND)
+    params.with_keywords = filters.keywords.join('|');
+  }
+
+  if (Number.isInteger(filters.page) && filters.page > 1) {
+    params.page = filters.page;
+  }
 
   if (type === 'movie') {
     params.include_video = false;
@@ -942,6 +959,41 @@ export async function discoverTitles(type, filters = {}) {
     console.error(`TMDB discover ${type} error:`, error.message);
     return [];
   }
+}
+
+/**
+ * One discover page WITH its totals — discoverTitles drops them, but a
+ * caller sizing a pool (or checking a filter took effect at all, since TMDB
+ * ignores filters it doesn't recognize) needs total_results.
+ *
+ * @returns {Promise<{results: Array, total_results: number, total_pages: number}>}
+ * @throws on a failed request, so a caller can tell "nothing matched" from "TMDB is down"
+ */
+export async function discoverPage(type, filters = {}) {
+  const params = buildDiscoverParams(type, filters);
+  const response = await tmdbApi.get(`/discover/${type}`, { params });
+  return {
+    results: response.data?.results || [],
+    total_results: response.data?.total_results || 0,
+    total_pages: response.data?.total_pages || 0,
+  };
+}
+
+/**
+ * Details, credits and keywords for a title in ONE request — what a trivia
+ * question needs (director, cast and characters, creators, networks, seasons,
+ * subgenre keywords). getMovieDetails/getTVShowDetails make two requests
+ * each and return no credits.
+ *
+ * @param {'movie'|'tv'} type
+ * @returns {Promise<object>} TMDB details with `credits` and `keywords` attached
+ * @throws on a failed request
+ */
+export async function getTriviaDetails(type, id) {
+  const response = await tmdbApi.get(`/${type}/${id}`, {
+    params: { language: 'en-US', append_to_response: 'credits,keywords' },
+  });
+  return response.data;
 }
 
 /**

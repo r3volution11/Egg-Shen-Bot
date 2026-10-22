@@ -49,6 +49,7 @@ const sidebar = [
           { text: 'Tips & Strategies', link: '/commands/brackets/tips' }
         ]
       },
+      { text: 'Escape Velocity', link: '/commands/escape-velocity' },
       { text: 'AI Image Generation', link: '/commands/ai-images' },
       { text: 'Watch Parties', link: '/commands/watch-party' },
       { text: 'Social Commands', link: '/commands/social' },

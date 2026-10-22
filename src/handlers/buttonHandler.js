@@ -53,6 +53,13 @@ export async function handleButtonInteraction(interaction) {
   const startTime = Date.now();
   
   try {
+    // Escape Velocity owns every ev_ button
+    if (interaction.customId.startsWith('ev_')) {
+      const { handleEscapeButton } = await import('./escapeHandler.js');
+      await handleEscapeButton(interaction);
+      return;
+    }
+
     // DON'T defer update - we'll use interaction.update() to show per-user button states
     
     // Handle group stage voting buttons

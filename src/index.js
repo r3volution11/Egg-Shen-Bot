@@ -165,6 +165,10 @@ client.once('clientReady', async () => {
   const { initialize: initTournamentScheduler } = await import('./utils/tournamentScheduler.js');
   initTournamentScheduler(client);
 
+  // Initialize Escape Velocity's launches, day rollovers and finishes
+  const { initialize: initEscapeScheduler } = await import('./utils/escapeScheduler.js');
+  initEscapeScheduler(client);
+
   // Initialize survey auto-expiry scheduler
   const { initialize: initPollScheduler } = await import('./utils/pollScheduler.js');
   initPollScheduler(client);
@@ -998,6 +1002,10 @@ async function gracefulShutdown(signal) {
   // Stop tournament scheduler
   const { shutdown: shutdownScheduler } = await import('./utils/tournamentScheduler.js');
   shutdownScheduler();
+
+  // Stop Escape Velocity scheduler
+  const { shutdown: shutdownEscapeScheduler } = await import('./utils/escapeScheduler.js');
+  shutdownEscapeScheduler();
 
   // Stop poll scheduler
   const { shutdown: shutdownPollScheduler } = await import('./utils/pollScheduler.js');

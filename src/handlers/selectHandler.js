@@ -61,6 +61,14 @@ export async function handleSelectInteraction(interaction) {
     'timer_select_title'
   ];
   
+  // Escape Velocity's setup menus answer for themselves (they update the
+  // setup screen, so they mustn't be deferred below)
+  if (interaction.customId.startsWith('ev_setup_')) {
+    const { handleEscapeSelect } = await import('./escapeHandler.js');
+    await handleEscapeSelect(interaction);
+    return;
+  }
+
   const isHandled = handledIds.includes(interaction.customId) || 
                     interaction.customId.startsWith('select_bracket_title_') ||
                     interaction.customId.startsWith('select_text_channel_') ||

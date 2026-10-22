@@ -70,6 +70,25 @@ describe('buildDiscoverParams', () => {
     expect(tmdb.buildDiscoverParams('tv', { personId: 11770 }).with_people).toBe('11770');
   });
 
+  test('matches subgenre keywords as OR, under the exact key TMDB reads', () => {
+    // with_keywords joined by ',' would be AND — a title would need EVERY
+    // subgenre to match, which almost nothing does.
+    const params = tmdb.buildDiscoverParams('movie', { keywords: [12339, 209568] });
+    expect(params.with_keywords).toBe('12339|209568');
+  });
+
+  test('bounds vote counts with dotted keys, replacing the default floor', () => {
+    const params = tmdb.buildDiscoverParams('tv', { minVotes: 300, maxVotes: 999 });
+    expect(params['vote_count.gte']).toBe(300);
+    expect(params['vote_count.lte']).toBe(999);
+    expect(params).not.toHaveProperty('vote_count_lte');
+  });
+
+  test('asks for a page only beyond the first', () => {
+    expect(tmdb.buildDiscoverParams('movie', { page: 3 }).page).toBe(3);
+    expect(tmdb.buildDiscoverParams('movie', { page: 1 })).not.toHaveProperty('page');
+  });
+
   test('omits filters that were not given', () => {
     const params = tmdb.buildDiscoverParams('movie', {});
     expect(params.with_genres).toBeUndefined();

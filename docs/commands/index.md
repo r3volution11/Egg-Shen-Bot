@@ -190,6 +190,11 @@ Search for books with comprehensive information.
 
 ## Tournament Commands
 
+### `/escape`
+**Escape Velocity**: a multi-day movie and TV genre trivia event in the style of *Who Wants to Be a Millionaire?*. Climb 15 stages to reach orbit, with one launch a day and your best run counting. Admins run events with `/escape-setup`.
+
+[Learn more →](/commands/escape-velocity)
+
 ### `/bracket`
 Host comprehensive tournaments for movies, TV shows, video games, board games, or books.
 
@@ -480,7 +485,7 @@ Display comprehensive bot help with complete command list — tailored to what's
 - Movies & TV Shows: movie, tv, episode, episode-list, similar, watched
 - Games & Entertainment: game, boardgame, book, soundtrack
 - Random & Discovery: random with filters
-- Tournaments & Polls: bracket, survey
+- Tournaments & Polls: bracket, survey, escape
 - AI Image Generation: image
 - Fun & Games: potion, foodfight, doom, rescue, scoreboard, leaderboard
 - Watch Party Tools: timer, watchparty, stats

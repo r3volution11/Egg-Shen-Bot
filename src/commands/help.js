@@ -25,6 +25,7 @@ export async function execute(interaction) {
     foodfightAllowed,
     doomAllowed,
     rescueAllowed,
+    escapeAllowed,
     guildConfig,
   ] = await Promise.all([
     canUseCommand(interaction.guildId, interaction.member, 'movie'),
@@ -42,6 +43,7 @@ export async function execute(interaction) {
     canUseCommand(interaction.guildId, interaction.member, 'foodfight'),
     canUseCommand(interaction.guildId, interaction.member, 'doom'),
     canUseCommand(interaction.guildId, interaction.member, 'rescue'),
+    canUseCommand(interaction.guildId, interaction.member, 'escape'),
     loadGuildConfig(interaction.guildId),
   ]);
 
@@ -100,6 +102,7 @@ export async function execute(interaction) {
   const tournamentsAndPolls = buildCategory([
     { enabled: bracketAllowed, line: '**🏆 /bracket** - Run tournaments (movies, TV, games, books, boardgames)\n**🛠️ /bracket-setup** - Create a tournament and add its titles (Admin/Mod)\n**💡 Pro Tip:** Use `/bracket help` for tournament guide' },
     { enabled: surveyAllowed, line: '**📊 /survey** - Create polls with up to 10 options; `voting-post` brings one back down' },
+    { enabled: escapeAllowed, line: '**🚀 /escape** - Escape Velocity: a multi-day genre trivia climb to orbit, one launch a day\n**🛠️ /escape-setup** - Run an Escape Velocity event (Admin/Mod)' },
   ]);
   if (tournamentsAndPolls) {
     embed.addFields({ name: '🏆 Tournaments & Polls', value: tournamentsAndPolls, inline: false });

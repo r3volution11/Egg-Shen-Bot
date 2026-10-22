@@ -61,6 +61,7 @@ const defaultConfig = {
     foodfight: true,
     doom: true,
     rescue: true,
+    escape: true,
   },
   notifications: {
     restartAnnouncements: false, // Send announcements when bot restarts with active timers

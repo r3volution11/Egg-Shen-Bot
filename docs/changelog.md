@@ -9,6 +9,26 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.66.0 - 2026-10-21
+
+### Added
+- **Escape Velocity (`/escape`): a multi-day genre trivia event in the style of *Who Wants to Be a Millionaire?*.** Every question is about movie and TV genres and subgenres: slashers, folk horror, space opera, heists, anime and more. Climb 15 stages, each worth more and harder than the last, from 100 points to **1,000,000** for reaching orbit
+  - **One launch a day** (UTC). A wrong answer ends that day's run; your best run across the event is your score
+  - **Stage separations** at 5 (1,000) and 10 (32,000): once cleared, a later wrong answer can't take them back. **Abort** any time to keep what's banked
+  - **Mission card:** a public card in the event's channel shows the top 10 and has **🚀 Launch** and **📊 My mission** buttons. Launch opens your own private dashboard with the question, four options, what you've banked and your progress. A fresh card is posted each day, and the channel hears about anyone who clears stage 10 or reaches orbit
+  - **Real data:** questions are built from TMDB, so answers are always right: name a title from its synopsis, its lead, director, year, creator, network, number of seasons, who played a role, and "which of these is a slasher film?" Popular titles make easy questions, obscure ones hard
+  - `/escape play`, `/escape rules` and `/escape standings`
+- **`/escape-setup` runs an event (admins and moderators).** `create` opens a private screen to pick movies and/or TV and any of 8 genres (each brings its subgenres), then builds about 125 questions and launches. `pool`, `extend`, `end-now` and `cancel` manage it while it runs, and the bot adds questions on its own as people play
+  - Lifelines (Jettison, Poll mission control, Hail a crewmate) come in the next releases
+
+### Developer
+- New: `src/commands/escape.js`, `escape-setup.js`, `src/handlers/escapeHandler.js` (all `ev_` buttons and setup selects), `src/utils/escapeStore.js` (one event per guild in `guild_escape/`, atomic + `.bak`, synchronous load-modify-save helpers; `markLaunched`/`rolloverDay`/`finishEvent` report a change once so posts never repeat), `escapeQuestions.js` (templates, popularity tiers, decoy rules), `escapeUI.js`, `escapeScheduler.js` (launch, UTC rollover, card refresh, finish, pool top-up), `src/data/escapeGenres.js`
+- `scripts/verify-escape-genres.js` checks every genre name and keyword id against live TMDB and that each filter actually narrows results
+- `tmdbService.js`: `buildDiscoverParams` takes `keywords` (OR), `minVotes`/`maxVotes` and `page`; new `discoverPage` and `getTriviaDetails`. `gameScores.js` exports `dayKey`. `escape: true` added to `commandPermissions`
+- Test harness: `httpReplay` takes a per-simulator fixture file and a `shrink` hook, and while recording replays a response already captured in the same run (live data drifting between two identical requests made replays take a different path). `fakeDiscord` records `allowedMentions`
+- New tests: `escape-store`, `escape-questions` (recorded TMDB), `escape-sim` and `escape-sim-restarts` (`tests/harness/escapeSim.js`). Re-record with `SIM_RECORD=1 npm test -- --runInBand tests/escape-sim.test.js tests/escape-sim-restarts.test.js`
+- **New commands: run `deploy-commands`**
+
 ## 2.65.0 - 2026-10-17
 
 ### Added

@@ -109,7 +109,8 @@ export function periodKeys(now = Date.now()) {
   return { all: 'all', year: `y${y}`, month: `m${y}-${m}` };
 }
 
-const dayKey = (now) => new Date(now).toISOString().slice(0, 10);
+/** The UTC day a moment falls on — daily caps here, and Escape Velocity's one run a day. */
+export const dayKey = (now) => new Date(now).toISOString().slice(0, 10);
 
 // ── storage ─────────────────────────────────────────────────────────────
 

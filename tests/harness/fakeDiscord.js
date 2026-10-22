@@ -58,6 +58,9 @@ export class FakeMessage {
     if ('embeds' in p) this.embeds = (p.embeds || []).map(e => new Embed(toJSON(e)));
     if ('components' in p) this.components = (p.components || []).map(r => new ActionRow(toJSON(r)));
     if ('files' in p) this.attachments = p.files || [];
+    // Who the message was allowed to ping, as sent — a test can check a
+    // mention displayed without summoning anyone
+    if ('allowedMentions' in p) this.allowedMentions = p.allowedMentions;
     this.history.push(this.snapshot());
   }
 
