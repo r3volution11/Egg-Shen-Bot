@@ -54,6 +54,7 @@ jest.unstable_mockModule('../src/utils/guildConfig.js', () => ({
   getEpisodeBufferMinutes: jest.fn(() => 5),
   getAutoDetectMode: jest.fn().mockReturnValue('ask'),
   getAiTextEnabled: mockGetAiTextEnabled,
+  getStartingSoonEnabled: jest.fn(() => true),
   isAdmin: (member) => member?.isAdmin === true,
   loadGuildConfig: mockLoadGuildConfig,
 }));
@@ -469,8 +470,8 @@ describe('/announce starting', () => {
 });
 
 describe('/announce — command definition', () => {
-  test('exposes both subcommands', () => {
-    expect(data.toJSON().options.map(o => o.name).sort()).toEqual(['party', 'starting']);
+  test('exposes its subcommands', () => {
+    expect(data.toJSON().options.map(o => o.name).sort()).toEqual(['party', 'schedule', 'scheduled', 'starting']);
   });
 
   test('starting requires a message, party requires a title and time', () => {
@@ -484,7 +485,7 @@ describe('/announce — command definition', () => {
   test('every free-text option is length-capped', () => {
     // These land in embed titles and descriptions, which discord.js throws past.
     for (const sub of data.toJSON().options) {
-      for (const option of sub.options) {
+      for (const option of sub.options || []) {
         if (option.type === 3 && !option.choices) {
           expect(option.max_length).toBeDefined();
         }

@@ -9,6 +9,21 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.67.0 - 2026-10-25
+
+### Added
+- **`/announce schedule` posts a watch-party announcement automatically, a set time before a scheduled event.** Start typing in `event` to pick from the server's upcoming events, then say how long before the start (`hours`, `minutes`) and where (`channel`, such as #announcements). It posts the full watch-party card, with the start time shown in each reader's own timezone and the event's link so people can click Interested
+  - **Tied to the event:** if the event is moved, the announcement moves with it; if it's cancelled, so is the announcement; if the bot was offline past the start, it's skipped rather than posted late
+  - **Title:** taken from the event's name (a year like "(1978)" is ignored, episode ranges are picked up), with `title1` for events named something else. Titles are checked when you schedule, so a typo shows up right away
+  - **`/announce scheduled`** lists what's waiting to post, with a Cancel button for each, and what happened to recent ones
+- **A "starting soon" card 10 minutes before every scheduled event**, posted in the event's own channel (its voice channel's chat, or the channel named in its location), with the event's cover image and link. On by default; turn it off with `/eggshen-config-watch-party watch-party starting-soon enabled:false`
+
+### Developer
+- New: `src/utils/announcementScheduler.js` (60-second pass; follows moved/cancelled events; claims each post before sending so a restart can skip one but never repeat it), `announcementStore.js` (`scheduled_announcements.json`, synchronous load-modify-save), `upcomingEvents.js` (cached `guild.scheduledEvents.fetch`, autocomplete choices, `eventChannelId`), `announcementCompose.js` (the `/announce party` card code, moved out of `announce.js` unchanged so scheduled and hand-posted cards match)
+- `guildConfig.js`: `announceStartingSoon: true` default, read through `getStartingSoonEnabled`. `buttonHandler.js` routes `ann_cancel_` to `announce.js`
+- `tests/announce-schedule.test.js`: 14 tests driving the real autocomplete into the real command, then scheduler passes at controlled times
+- **Command definitions changed: run `deploy-commands`**
+
 ## 2.66.0 - 2026-10-21
 
 ### Added

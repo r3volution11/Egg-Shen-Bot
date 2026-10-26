@@ -65,6 +65,17 @@ export const data = new SlashCommandBuilder()
               )
           )
       )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('starting-soon')
+          .setDescription('Post a "starting soon" card in each scheduled event\'s channel 10 minutes before it starts')
+          .addBooleanOption(option =>
+            option
+              .setName('enabled')
+              .setDescription('On (default) or off')
+              .setRequired(true)
+          )
+      )
   )
   // ========== WATCHLIST GROUP ==========
   .addSubcommandGroup(group =>
@@ -404,6 +415,23 @@ export async function execute(interaction) {
       .setTitle(summary.title)
       .setDescription(summary.description)
       .setFooter({ text: 'Change this any time with /eggshen-config-watch-party watch-party auto-detect' });
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  } else if (group === 'watch-party' && subcommand === 'starting-soon') {
+    const enabled = interaction.options.getBoolean('enabled');
+
+    const config = await loadGuildConfig(guildId);
+    config.announceStartingSoon = enabled;
+    await saveGuildConfig(guildId, config);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle(enabled ? '🎬 Starting-soon cards: On' : '🚫 Starting-soon cards: Off')
+      .setDescription(enabled
+        ? 'Ten minutes before every scheduled event starts, I\'ll post a short "starting soon" card in the event\'s channel — ' +
+          'its voice channel\'s chat, or the channel named in its location.'
+        : 'No automatic "starting soon" cards. Announcements queued with `/announce schedule` still post.')
+      .setFooter({ text: 'Change this any time with /eggshen-config-watch-party watch-party starting-soon' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   } else if (group === 'rate-limit' && subcommand === 'toggle') {

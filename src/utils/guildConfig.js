@@ -84,6 +84,10 @@ const defaultConfig = {
   // Always read it through getAutoDetectMode() below, never directly —
   // configs written before this key existed simply lack it.
   watchPartyAutoDetectMode: 'ask',
+  // A short "starting soon" card in the event's channel 10 minutes before
+  // every scheduled event (announcementScheduler.js). Read through
+  // getStartingSoonEnabled: configs written before this key lack it.
+  announceStartingSoon: true,
   // Extra minutes added per episode when a multi-episode watch party's
   // duration is calculated. TMDB reports ad-free runtimes, so a 25-minute
   // episode on an ad-supported service (Tubi, Pluto) really runs 33-35 —
@@ -284,6 +288,15 @@ const AUTO_DETECT_MODES = new Set(['ask', 'full', 'off']);
  * @param {object} guildConfig
  * @returns {'ask'|'full'|'off'}
  */
+/**
+ * Whether the server gets an automatic "starting soon" card 10 minutes
+ * before each scheduled event. On unless explicitly turned off, so servers
+ * whose config predates the switch get it.
+ */
+export function getStartingSoonEnabled(guildConfig) {
+  return guildConfig?.announceStartingSoon !== false;
+}
+
 export function getAutoDetectMode(guildConfig) {
   const mode = guildConfig?.watchPartyAutoDetectMode;
   return AUTO_DETECT_MODES.has(mode) ? mode : 'ask';

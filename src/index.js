@@ -165,6 +165,10 @@ client.once('clientReady', async () => {
   const { initialize: initTournamentScheduler } = await import('./utils/tournamentScheduler.js');
   initTournamentScheduler(client);
 
+  // Initialize scheduled watch-party announcements and starting-soon cards
+  const { initialize: initAnnouncementScheduler } = await import('./utils/announcementScheduler.js');
+  initAnnouncementScheduler(client);
+
   // Initialize Escape Velocity's launches, day rollovers and finishes
   const { initialize: initEscapeScheduler } = await import('./utils/escapeScheduler.js');
   initEscapeScheduler(client);
@@ -1002,6 +1006,10 @@ async function gracefulShutdown(signal) {
   // Stop tournament scheduler
   const { shutdown: shutdownScheduler } = await import('./utils/tournamentScheduler.js');
   shutdownScheduler();
+
+  // Stop announcement scheduler
+  const { shutdown: shutdownAnnouncementScheduler } = await import('./utils/announcementScheduler.js');
+  shutdownAnnouncementScheduler();
 
   // Stop Escape Velocity scheduler
   const { shutdown: shutdownEscapeScheduler } = await import('./utils/escapeScheduler.js');

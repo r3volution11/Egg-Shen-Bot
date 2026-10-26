@@ -30,6 +30,7 @@ guild_watchlists/
 
 # Active timers (runtime state)
 active_timers.json
+scheduled_announcements.json
 
 # Pending event requests (runtime state)
 pending_event_requests.json

@@ -53,6 +53,13 @@ export async function handleButtonInteraction(interaction) {
   const startTime = Date.now();
   
   try {
+    // /announce scheduled's Cancel buttons
+    if (interaction.customId.startsWith('ann_cancel_')) {
+      const { handleCancelButton } = await import('../commands/announce.js');
+      await handleCancelButton(interaction);
+      return;
+    }
+
     // Escape Velocity owns every ev_ button
     if (interaction.customId.startsWith('ev_')) {
       const { handleEscapeButton } = await import('./escapeHandler.js');

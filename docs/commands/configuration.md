@@ -308,6 +308,14 @@ The setting governs what the bot does *unprompted*. A label you type yourself wi
 
 `ask` exists because a watch party shouldn't begin with a quiz. Most of the time the lookup succeeds silently and you get a correct duration for free; when it can't, one click starts the timer anyway.
 
+#### Starting-Soon Cards
+
+```
+/eggshen-config-watch-party watch-party starting-soon enabled:<true|false>
+```
+
+**On by default.** Ten minutes before every scheduled event starts, the bot posts a short "starting soon" card in the event's channel: its voice channel's chat, or the channel named in its location. Turning this off doesn't affect announcements queued with [`/announce schedule`](/commands/watch-party#scheduled-announcements).
+
 ---
 
 ### Rate Limit Group

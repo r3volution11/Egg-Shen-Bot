@@ -182,6 +182,7 @@ export async function execute(interaction) {
         value:
           '**📣 /announce party** - Announce an upcoming watch party (an hour or more ahead)\n' +
           '**🎬 /announce starting** - Announce that it\'s about to start\n' +
+          '**📅 /announce schedule** - Post the card automatically before a scheduled event; `scheduled` to see or cancel\n' +
           '  • Write your own `message`, or let AI write it for you\n' +
           '  • Posts to this channel, or any channel you pick\n' +
           '  • Add `role` to ping the people who want to know',

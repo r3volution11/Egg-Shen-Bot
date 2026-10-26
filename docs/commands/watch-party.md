@@ -43,11 +43,12 @@ Host synchronized watch parties with timers and track what your community watche
 
 | When | Command |
 |---|---|
-| An hour or more ahead | `/announce party` |
+| An hour or more ahead | `/announce party` now, or [`/announce schedule`](#scheduled-announcements) to post it automatically |
+| 10 minutes before a scheduled event | Automatic: the [starting-soon card](#the-automatic-starting-soon-card) |
 | A few minutes before | `/announce starting` |
 | The moment you start the timer | `/timer remind` |
 
-Both `/announce` subcommands post to the channel themselves, and both are Admin/Moderator only.
+Every `/announce` subcommand posts to the channel itself, and all of them are Admin/Moderator only.
 
 ### The Advance Notice
 
@@ -107,6 +108,42 @@ AI is never involved here — a timing claim is the one thing that must not be p
 ```
 
 **Tip:** An unrecognised `title` won't lose your announcement — it posts with what you typed, just without the artwork.
+
+### Scheduled Announcements
+
+Queue the advance notice to post automatically, a set time before one of the server's [scheduled events](https://support.discord.com/hc/en-us/articles/4409494125719):
+
+```
+/announce schedule event:<pick one> hours:<0-336> minutes:[optional] channel:[optional] role:[optional] message:[optional] title1:[optional] episodes1:[optional] title2:[optional] host:[optional]
+```
+
+- **`event`**: start typing and pick from the server's upcoming events, soonest first.
+- **`hours`** and **`minutes`**: how long before the event starts the card should post. For example, `hours:2` posts two hours ahead, and `hours:0 minutes:45` posts 45 minutes ahead.
+- **`channel`**: where it posts, such as `#announcements`. Defaults to the channel you run the command in.
+- **`title1`**: by default, the event's name is the title (a year like "(1978)" is ignored, and episodes in the name or description, such as "S6: E4-E7", are picked up). Use `title1` when the event is called something like "Spooky Saturday".
+- The rest work as they do for `/announce party`. Leave out `message` and AI writes the text if the server allows it.
+
+It posts the **full watch-party card**: art, where to stream it, and the start time shown in each reader's own timezone, plus the event's link so people can click **Interested**.
+
+It's tied to the event:
+- **Moved:** if the event's start time changes, the announcement moves with it.
+- **Cancelled:** if the event is cancelled or deleted, the announcement is cancelled too.
+- **Late:** if the bot was offline through the posting time and the event has already started, the announcement is skipped rather than posted late.
+
+Titles are checked when you schedule, so a typo shows up right away rather than hours later.
+
+**See or cancel:** `/announce scheduled` lists what's waiting to post, with a **Cancel** button for each, and what happened to recent ones (posted, cancelled, skipped, or failed and why).
+
+**Example:** the full card in #announcements two hours before Friday's event, pinging the movie-night role:
+```
+/announce schedule event:Night of the Living Dead hours:2 channel:#announcements role:@Movie Night
+```
+
+### The Automatic Starting-Soon Card
+
+Ten minutes before **every** scheduled event starts, Egg Shen posts a short "starting soon" card in the event's own channel: its voice channel's chat, or the channel named in its location (such as `#watch-party`). Nobody has to schedule it. It shows the event's cover image (or the title's artwork) and links to the event.
+
+It posts once per event. If the event is moved, it posts again for the new time. Admins can turn it off with [`/eggshen-config-watch-party watch-party starting-soon`](/commands/configuration#starting-soon-cards).
 
 ## Timer Reminders
 

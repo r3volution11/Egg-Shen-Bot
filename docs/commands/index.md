@@ -355,6 +355,28 @@ Post the "starting in 10 minutes" nudge to a channel (Admin/Moderator only).
 
 ---
 
+### `/announce schedule`
+Post the full watch-party card automatically, a set time before one of the server's scheduled events (Admin/Moderator only). It moves if the event moves and is cancelled with it.
+
+**Options:**
+- `event` (required) - Start typing to pick an upcoming event
+- `hours` (required) and `minutes` (optional) - How long before the start to post
+- `channel` (optional) - Where to post it (default: the current channel)
+- `role`, `message`, `title1`, `episodes1`, `title2`, `host` (optional) - As for `/announce party`. `title1` is for when the event's name isn't the title
+
+`/announce scheduled` lists what's waiting to post, with a **Cancel** button for each.
+
+Every scheduled event also gets a short "starting soon" card in its own channel 10 minutes before it starts, automatically.
+
+**Example:**
+```
+/announce schedule event:Night of the Living Dead hours:2 channel:#announcements role:@Movie Night
+```
+
+[Learn more →](/commands/watch-party#scheduled-announcements)
+
+---
+
 ## AI Image Generation Commands
 
 ### `/image`

@@ -45,6 +45,7 @@ fallback('EVENT_REQUESTS_FILE', path.join(workerDir, 'pending_event_requests.jso
 fallback('EVENT_CHANNEL_SELECTIONS_FILE', path.join(workerDir, 'pending_event_channel_selections.json'));
 fallback('ACTIVE_TIMERS_FILE', path.join(workerDir, 'active_timers.json'));
 fallback('READY_CHECKS_FILE', path.join(workerDir, 'ready_checks.json'));
+fallback('SCHEDULED_ANNOUNCEMENTS_FILE', path.join(workerDir, 'scheduled_announcements.json'));
 fallback('GUILD_CONFIGS_DIR', path.join(workerDir, 'guild_configs'));
 fallback('GUILD_TOURNAMENTS_DIR', path.join(workerDir, 'guild_tournaments'));
 fallback('GUILD_WATCHLISTS_DIR', path.join(workerDir, 'guild_watchlists'));

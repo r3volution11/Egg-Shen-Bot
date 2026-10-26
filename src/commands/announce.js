@@ -1,25 +1,21 @@
-import { SlashCommandBuilder, EmbedBuilder, ChannelType, PermissionsBitField } from 'discord.js';
-import {
-  searchMovies,
-  searchTVShows,
-  getMovieDetails,
-  getTVShowDetails,
-  getUnifiedMovieWatchProviders,
-  getUnifiedTVWatchProviders,
-  getBackdropUrl,
-  getPosterUrl,
-} from '../services/tmdbService.js';
-import { hybridSearch, generateAnnouncementText } from '../services/aiService.js';
-import { normalizeProviders } from '../utils/embedBuilder.js';
-import { isAdmin, loadGuildConfig, getAiTextEnabled } from '../utils/guildConfig.js';
+import { SlashCommandBuilder, EmbedBuilder, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { isAdmin, loadGuildConfig, getAiTextEnabled, getStartingSoonEnabled } from '../utils/guildConfig.js';
+import { resolveSegment, composePartyPost, channelProblem, buildPingContent, fitTitle } from '../utils/announcementCompose.js';
+import { scheduleAnnouncement, listAnnouncements, dueAt } from '../utils/announcementStore.js';
+import { fetchUpcomingEvents, eventChoice } from '../utils/upcomingEvents.js';
+import { parseEventEpisodeRange, stripTrailingYear } from '../utils/episodeRangeParser.js';
 
 /**
  * /announce posts the two announcements a watch party needs, at the two
  * moments it needs them:
  *
- *   party    — the advance notice, usually an hour or more ahead. Full detail:
- *              title(s), start time, where to stream it, optional AI flavor.
- *   starting — the short nudge minutes before the timer starts.
+ *   party     — the advance notice, usually an hour or more ahead. Full detail:
+ *               title(s), start time, where to stream it, optional AI flavor.
+ *   schedule  — the same card, posted automatically a set time before one of
+ *               the server's scheduled events (announcementScheduler.js).
+ *               `scheduled` lists what's queued, with Cancel buttons.
+ *   starting  — the short nudge minutes before the timer starts. (Scheduled
+ *               events also get one automatically, 10 minutes ahead.)
  *
  * Both POST publicly. An earlier version handed back an ephemeral code block
  * for a moderator to copy and paste, which meant the bot's nicest output
@@ -29,9 +25,6 @@ import { isAdmin, loadGuildConfig, getAiTextEnabled } from '../utils/guildConfig
  * AI call at all. AI is optional flair that only runs when the server has it
  * enabled AND no message was supplied.
  */
-
-/** Discord's embed title cap, which discord.js throws past. */
-const MAX_EMBED_TITLE = 256;
 
 export const data = new SlashCommandBuilder()
   .setName('announce')
@@ -154,146 +147,70 @@ export const data = new SlashCommandBuilder()
           .setDescription('Role to ping — pinged in the message itself, so it actually notifies')
           .setRequired(false)
       )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('schedule')
+      .setDescription('Post the watch-party card automatically, a set time before a scheduled event')
+      .addStringOption(option =>
+        option
+          .setName('event')
+          .setDescription('The upcoming event (start typing to search)')
+          .setRequired(true)
+          .setMaxLength(100)
+          .setAutocomplete(true)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('hours')
+          .setDescription('Hours before the event starts')
+          .setRequired(true)
+          .setMinValue(0)
+          .setMaxValue(336)
+      )
+      .addIntegerOption(option =>
+        option
+          .setName('minutes')
+          .setDescription('Plus minutes (default 0)')
+          .setMinValue(0)
+          .setMaxValue(59)
+      )
+      .addChannelOption(option =>
+        option
+          .setName('channel')
+          .setDescription('Where to post it (default: this channel)')
+          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+      )
+      .addRoleOption(option =>
+        option.setName('role').setDescription('Role to ping when it posts')
+      )
+      .addStringOption(option =>
+        option
+          .setName('message')
+          .setDescription('Your own announcement text, instead of AI')
+          .setMaxLength(1500)
+      )
+      .addStringOption(option =>
+        option
+          .setName('title1')
+          .setDescription('What\'s being watched, if the event name isn\'t the title')
+          .setMaxLength(200)
+      )
+      .addStringOption(option =>
+        option.setName('episodes1').setDescription('Episode(s) for title1, e.g. "S3E9-E12"').setMaxLength(100)
+      )
+      .addStringOption(option =>
+        option.setName('title2').setDescription('A second title, if watching two back-to-back').setMaxLength(200)
+      )
+      .addStringOption(option =>
+        option.setName('host').setDescription('Who\'s hosting').setMaxLength(100)
+      )
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('scheduled')
+      .setDescription('See and cancel announcements waiting to post')
   );
-
-/**
- * Resolve a title to its TMDB details + streaming availability, or null if
- * nothing was found. Always uses the top search result — /announce posts in one
- * shot, so there's no picker step for ambiguous titles.
- */
-async function resolveSegment(title, episodes, region) {
-  const [movieResults, tvResults] = await Promise.all([
-    hybridSearch(title, searchMovies, 'movie'),
-    hybridSearch(title, searchTVShows, 'tv'),
-  ]);
-
-  // If episodes were given, prefer a TV match (that's clearly the intent);
-  // otherwise prefer whichever type matched first/best.
-  const preferTV = !!episodes;
-  const tvMatch = tvResults?.[0];
-  const movieMatch = movieResults?.[0];
-  const type = preferTV && tvMatch ? 'tv' : (movieMatch ? 'movie' : (tvMatch ? 'tv' : null));
-
-  if (!type) {
-    return null;
-  }
-
-  if (type === 'movie') {
-    const details = await getMovieDetails(movieMatch.id);
-    const imdbId = details.external_ids?.imdb_id;
-    const watchProviders = await getUnifiedMovieWatchProviders(movieMatch.id, imdbId, region);
-    return {
-      type: 'movie',
-      title: details.title,
-      overview: details.overview,
-      episodes: null,
-      artUrl: pickArtUrl(details),
-      streamingText: buildStreamingLine(watchProviders),
-    };
-  }
-
-  const details = await getTVShowDetails(tvMatch.id);
-  const imdbId = details.external_ids?.imdb_id;
-  const watchProviders = await getUnifiedTVWatchProviders(tvMatch.id, imdbId, region);
-  return {
-    type: 'tv',
-    title: details.name,
-    overview: details.overview,
-    episodes: episodes || null,
-    artUrl: pickArtUrl(details),
-    streamingText: buildStreamingLine(watchProviders),
-  };
-}
-
-/**
- * The image for an announcement card, preferring the 16:9 backdrop.
- *
- * Discord gives no control over an embed image's display size — setImage
- * always fills the card width — so aspect ratio is the only lever on how much
- * channel the card occupies. At a fixed width a backdrop is roughly half the
- * height of a 2:3 poster. Falls back to the poster, since plenty of older or
- * obscure titles have no backdrop and losing the art would be worse than a
- * taller card.
- */
-function pickArtUrl(details) {
-  if (details?.backdrop_path) return getBackdropUrl(details.backdrop_path, 'w780');
-  if (details?.poster_path) return getPosterUrl(details.poster_path, 'w342');
-  return null;
-}
-
-/**
- * Build a single "Available to stream on X, Y" line from unified watch
- * provider data — a shorter, single-line variant of embedBuilder.js's
- * buildStreamingText (which includes rent/buy/link sections not wanted here).
- */
-function buildStreamingLine(watchProviders) {
-  if (!watchProviders?.flatrate || watchProviders.flatrate.length === 0) {
-    return null;
-  }
-  // Cap at 4 services for a clean single line — TMDB/Watchmode often list many
-  // near-duplicate storefronts (e.g. "Amazon Prime Video" vs "Prime Video");
-  // showing all of them would read as noise rather than a helpful summary.
-  const services = normalizeProviders(watchProviders.flatrate).slice(0, 4).join(' and ');
-  return `Available to stream on ${services}`;
-}
-
-/**
- * Plain, non-AI template. Used whenever AI text isn't in play: the server
- * disabled it, the operator set no API key, or the call failed.
- */
-function buildFallbackText(segments, timeText, host) {
-  const titles = segments.map(s => s.episodes ? `*${s.title}* (${s.episodes})` : `*${s.title}*`).join(' and ');
-  const hostLine = host ? ` Hosted by ${host}.` : '';
-  return `Join us for a watch party! Tonight we're watching ${titles}.${hostLine}\n\nStarts at **${timeText}**.`;
-}
-
-/**
- * Where to post, and whether we're actually able to.
- *
- * Checked up front rather than letting channel.send() throw, so a missing
- * permission reports itself as "I can't post there" instead of the generic
- * error — and, critically, so we never tell someone their announcement went
- * out when it didn't.
- */
-function resolveTargetChannel(interaction) {
-  const target = interaction.options.getChannel('channel') || interaction.channel;
-
-  if (!target) {
-    return { error: '❌ Couldn\'t work out which channel to post in. Try passing `channel` explicitly.' };
-  }
-
-  const me = interaction.guild?.members?.me;
-  if (me && typeof target.permissionsFor === 'function') {
-    const perms = target.permissionsFor(me);
-    const needed = [
-      [PermissionsBitField.Flags.ViewChannel, 'view'],
-      [PermissionsBitField.Flags.SendMessages, 'send messages in'],
-      [PermissionsBitField.Flags.EmbedLinks, 'embed links in'],
-    ];
-    for (const [flag, what] of needed) {
-      if (perms && !perms.has(flag)) {
-        return { error: `❌ I don't have permission to ${what} ${target}. Give me access there, or pick another channel.` };
-      }
-    }
-  }
-
-  return { channel: target };
-}
-
-/**
- * The ping line. A mention inside an embed NEVER notifies anyone — only
- * message content does — so anything meant to get attention goes here.
- */
-function buildPingContent(role, headline) {
-  const ping = role ? `${role} ` : '';
-  return `${ping}${headline}`;
-}
-
-/** Trim a title to what an embed title can hold, leaving room for a prefix. */
-function fitTitle(prefix, text) {
-  const room = MAX_EMBED_TITLE - prefix.length;
-  return `${prefix}${text.length > room ? `${text.slice(0, room - 1)}…` : text}`;
-}
 
 export async function execute(interaction) {
   if (!isAdmin(interaction.member)) {
@@ -309,7 +226,20 @@ export async function execute(interaction) {
   if (subcommand === 'starting') {
     return handleStarting(interaction);
   }
+  if (subcommand === 'schedule') {
+    return handleSchedule(interaction);
+  }
+  if (subcommand === 'scheduled') {
+    return interaction.reply({ ...scheduledView(interaction.guildId), ephemeral: true });
+  }
   return handleParty(interaction);
+}
+
+/** The channel to post in, or an error line. */
+function resolveTargetChannel(interaction) {
+  const target = interaction.options.getChannel('channel') || interaction.channel;
+  const problem = channelProblem(target, interaction.guild?.members?.me);
+  return problem ? { error: problem } : { channel: target };
 }
 
 /**
@@ -339,85 +269,25 @@ async function handleParty(interaction) {
 
   try {
     const guildConfig = await loadGuildConfig(interaction.guildId);
-    const region = guildConfig.region || 'US';
 
-    const segmentInputs = [{ title: title1, episodes: episodes1 }];
+    const segments = [{ title: title1, episodes: episodes1 }];
     if (title2) {
-      segmentInputs.push({ title: title2, episodes: episodes2 });
+      segments.push({ title: title2, episodes: episodes2 });
     }
 
-    const resolvedSegments = await Promise.all(
-      segmentInputs.map(s => resolveSegment(s.title, s.episodes, region))
-    );
+    const built = await composePartyPost({
+      segments, timeText, host, tone, customTone, manualMessage, role, guildConfig,
+    });
 
-    const notFound = segmentInputs
-      .map((s, i) => (resolvedSegments[i] ? null : s.title))
-      .filter(Boolean);
-
-    if (notFound.length > 0) {
+    if (built.notFound) {
       await interaction.editReply({
-        content: `❌ Couldn't find: ${notFound.map(t => `**${t}**`).join(', ')}. Check the spelling and try again.`,
+        content: `❌ Couldn't find: ${built.notFound.map(t => `**${t}**`).join(', ')}. Check the spelling and try again.`,
       });
       return;
     }
+    const usedAi = built.usedAi;
 
-    // A manual message is the point of the option: post it as written, make no
-    // AI call, spend nothing. AI only fills in when nothing was written AND the
-    // server wants it.
-    let bodyText = manualMessage;
-    let usedAi = false;
-
-    if (!bodyText) {
-      if (getAiTextEnabled(guildConfig)) {
-        const flavorText = await generateAnnouncementText({
-          segments: resolvedSegments,
-          tone,
-          customTone,
-          timeText,
-          host,
-        });
-        if (flavorText) {
-          bodyText = flavorText;
-          usedAi = true;
-        }
-      }
-      bodyText = bodyText || buildFallbackText(resolvedSegments, timeText, host);
-    }
-
-    const titles = resolvedSegments
-      .map(s => (s.episodes ? `${s.title} (${s.episodes})` : s.title))
-      .join(' + ');
-
-    const streamingLines = resolvedSegments
-      .map(s => s.streamingText)
-      .filter(Boolean)
-      .join('\n');
-
-    const embed = new EmbedBuilder()
-      .setColor(0xFF6B9D)
-      .setTitle(fitTitle('🍿 Watch Party: ', titles))
-      .setDescription(bodyText)
-      .addFields({
-        name: '🕒 Starts',
-        value: timeText,
-        inline: true,
-      })
-      .setTimestamp();
-
-    if (host) {
-      embed.addFields({ name: '🎤 Hosted by', value: host, inline: true });
-    }
-    if (streamingLines) {
-      embed.addFields({ name: '📺 Where to watch', value: streamingLines.slice(0, 1024), inline: false });
-    }
-
-    const artUrl = resolvedSegments.find(s => s.artUrl)?.artUrl;
-    if (artUrl) embed.setImage(artUrl);
-
-    await target.channel.send({
-      content: buildPingContent(role, `🍿 **Watch party:** ${titles} — starts at **${timeText}**`),
-      embeds: [embed],
-    });
+    await target.channel.send(built.payload);
 
     // Say which text was used when it wasn't what they asked for, so nobody is
     // left wondering why an announcement reads generically.
@@ -500,3 +370,217 @@ async function handleStarting(interaction) {
     });
   }
 }
+
+// ── scheduled announcements ─────────────────────────────────────────────
+
+/** "1h 30m" from minutes. */
+function leadText(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return [h && `${h}h`, m && `${m}m`].filter(Boolean).join(' ') || '0m';
+}
+
+/**
+ * What an event is showing, from its name and description: "Severance" with
+ * "S2E1-E3" when the event spells out episodes, and never the year a host
+ * added to tell films apart (TMDB searches it literally and finds nothing).
+ */
+function segmentFromEvent(event) {
+  const range = parseEventEpisodeRange(event.name, event.description);
+  if (range) {
+    const eps = range.episodeEnd > range.episodeStart
+      ? `S${range.season}E${range.episodeStart}-E${range.episodeEnd}`
+      : `S${range.season}E${range.episodeStart}`;
+    return { title: stripTrailingYear(range.showName).title || range.showName, episodes: eps };
+  }
+  return { title: stripTrailingYear(event.name).title || event.name, episodes: null };
+}
+
+/**
+ * The event a moderator picked. Autocomplete sends its id; someone who typed
+ * a name and pressed Enter without picking sends the text, so a name that
+ * matches exactly one upcoming event is accepted too.
+ */
+function findEvent(events, picked) {
+  const byId = events.find(e => e.id === picked);
+  if (byId) return byId;
+  const wanted = String(picked || '').trim().toLowerCase();
+  const exact = events.filter(e => e.name.toLowerCase() === wanted);
+  if (exact.length === 1) return exact[0];
+  const partial = events.filter(e => e.name.toLowerCase().includes(wanted));
+  return partial.length === 1 ? partial[0] : null;
+}
+
+/**
+ * Queue the full watch-party card for a set time before a scheduled event.
+ * The titles are checked now, so a typo surfaces while the moderator is
+ * here rather than as a silent failure hours later.
+ */
+async function handleSchedule(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  const now = Date.now();
+
+  const events = await fetchUpcomingEvents(interaction.guild, now, { fresh: true }).catch(() => null);
+  if (!events) {
+    await interaction.editReply({ content: '❌ I couldn\'t load this server\'s scheduled events. Check I can see them, then try again.' });
+    return;
+  }
+  const event = findEvent(events, interaction.options.getString('event'));
+  if (!event) {
+    await interaction.editReply({
+      content: events.length
+        ? '❌ Pick an event from the list that appears as you type in `event`.'
+        : '❌ There are no upcoming scheduled events. Create one in Discord first (Events → Create Event).',
+    });
+    return;
+  }
+
+  const lead = (interaction.options.getInteger('hours') || 0) * 60 + (interaction.options.getInteger('minutes') || 0);
+  const startsAt = event.scheduledStartTimestamp;
+  const unixStart = Math.floor(startsAt / 1000);
+  if (lead === 0) {
+    await interaction.editReply({ content: '❌ Set `hours` and/or `minutes` — how long before the start the card should post.' });
+    return;
+  }
+  const due = startsAt - lead * 60_000;
+  if (due <= now) {
+    await interaction.editReply({
+      content: `❌ **${event.name}** starts <t:${unixStart}:R>, so ${leadText(lead)} before it has already passed. Pick a shorter time, or post it now with \`/announce party\`.`,
+    });
+    return;
+  }
+
+  const target = resolveTargetChannel(interaction);
+  if (target.error) {
+    await interaction.editReply({ content: target.error });
+    return;
+  }
+
+  const title1 = interaction.options.getString('title1');
+  const title2 = interaction.options.getString('title2');
+  const segments = title1
+    ? [{ title: title1, episodes: interaction.options.getString('episodes1') }]
+    : [segmentFromEvent(event)];
+  if (title2) segments.push({ title: title2, episodes: null });
+
+  const guildConfig = await loadGuildConfig(interaction.guildId);
+  const resolved = await Promise.all(segments.map(seg => resolveSegment(seg.title, seg.episodes, guildConfig.region || 'US').catch(() => null)));
+  const missing = segments.filter((seg, i) => !resolved[i]).map(seg => seg.title);
+  if (missing.length) {
+    await interaction.editReply({
+      content: `❌ Couldn't find ${missing.map(t => `**${t}**`).join(', ')} on TMDB.` +
+        (title1 ? ' Check the spelling.' : ' If the event name isn\'t the title, say what\'s showing with `title1`.'),
+    });
+    return;
+  }
+
+  const role = interaction.options.getRole('role');
+  scheduleAnnouncement({
+    guildId: interaction.guildId,
+    eventId: event.id,
+    eventName: event.name,
+    startsAt,
+    offsetMs: lead * 60_000,
+    channelId: target.channel.id,
+    createdBy: interaction.user.id,
+    post: {
+      segments,
+      host: interaction.options.getString('host'),
+      manualMessage: interaction.options.getString('message'),
+      roleId: role?.id || null,
+    },
+  }, now);
+
+  const unixDue = Math.floor(due / 1000);
+  const soon = getStartingSoonEnabled(guildConfig)
+    ? '\n\n🎬 A short "starting soon" card also goes in the event\'s channel 10 minutes before it starts.'
+    : '';
+  await interaction.editReply({
+    content:
+      `✅ Scheduled: the watch-party card for **${resolved.map(r => r.title).join(' + ')}** posts in ${target.channel} ` +
+      `<t:${unixDue}:F> (<t:${unixDue}:R>), ${leadText(lead)} before **${event.name}** starts.\n` +
+      `If the event is moved, the announcement moves with it; if it's cancelled, so is this. See or cancel it with \`/announce scheduled\`.${soon}`,
+  });
+}
+
+const STATUS_LINE = {
+  posted: '✅ posted',
+  failed: '❌ failed',
+  cancelled: '🚫 cancelled',
+  missed: '⏭️ skipped',
+  posting: '⏳ posting',
+};
+
+/**
+ * What's queued (with Cancel buttons) and what happened recently. Ephemeral,
+ * but the buttons check for a moderator anyway (CLAUDE.md).
+ */
+export function scheduledView(guildId, { note = null } = {}) {
+  const all = listAnnouncements(guildId);
+  const pending = all.filter(a => a.status === 'pending').slice(0, 20);
+  const recent = all
+    .filter(a => a.status !== 'pending')
+    .sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0))
+    .slice(0, 5);
+
+  const lines = pending.map((a, i) => {
+    const unix = Math.floor(dueAt(a) / 1000);
+    return `**${i + 1}.** **${a.eventName}** → <#${a.channelId}> · <t:${unix}:f> (<t:${unix}:R>), ${leadText(a.offsetMs / 60_000)} before it starts`;
+  });
+  const history = recent.map(a => `${STATUS_LINE[a.status] || a.status} · **${a.eventName}** → <#${a.channelId}>${a.reason ? ` — ${a.reason}` : ''}`);
+
+  const embed = new EmbedBuilder()
+    .setColor(0xFF6B9D)
+    .setTitle('📅 Scheduled announcements')
+    .setDescription(
+      (note ? `${note}\n\n` : '') +
+      (lines.length ? lines.join('\n') : '*Nothing waiting to post. Queue one with `/announce schedule`.*') +
+      (history.length ? `\n\n**Recently**\n${history.join('\n')}` : '')
+    );
+
+  const rows = [];
+  for (let i = 0; i < pending.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(
+      pending.slice(i, i + 5).map((a, j) => new ButtonBuilder()
+        .setCustomId(`ann_cancel_${a.id}`)
+        .setLabel(`Cancel ${i + j + 1}`)
+        .setStyle(ButtonStyle.Danger))
+    ));
+  }
+  return { content: '', embeds: [embed], components: rows.slice(0, 4) };
+}
+
+/** A Cancel button from /announce scheduled. */
+export async function handleCancelButton(interaction) {
+  if (!isAdmin(interaction.member)) {
+    await interaction.reply({ content: '❌ Only admins and moderators can cancel scheduled announcements.', ephemeral: true });
+    return;
+  }
+  const { cancelAnnouncement } = await import('../utils/announcementStore.js');
+  const id = interaction.customId.slice('ann_cancel_'.length);
+  const result = cancelAnnouncement(interaction.guildId, id);
+  const note = result.error === 'not-pending'
+    ? `ℹ️ **${result.announcement.eventName}** had already ${result.announcement.status === 'posted' ? 'posted' : 'finished'}.`
+    : result.error
+      ? 'ℹ️ That announcement no longer exists.'
+      : `🚫 Cancelled the announcement for **${result.announcement.eventName}**.`;
+  await interaction.update(scheduledView(interaction.guildId, { note }));
+}
+
+/** `event`: upcoming scheduled events, soonest first, filtered by what's typed. */
+export async function autocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  if (focused.name !== 'event' || !isAdmin(interaction.member)) {
+    await interaction.respond([]);
+    return;
+  }
+  const now = Date.now();
+  const events = await fetchUpcomingEvents(interaction.guild, now).catch(() => []);
+  const typed = String(focused.value || '').toLowerCase();
+  const choices = events
+    .filter(e => !typed || e.name.toLowerCase().includes(typed))
+    .slice(0, 25)
+    .map(e => eventChoice(e, now));
+  await interaction.respond(choices);
+}
+
