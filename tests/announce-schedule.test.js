@@ -7,7 +7,7 @@
  * Run with: npm test -- tests/announce-schedule.test.js
  */
 
-import { describe, test, expect, jest, beforeAll, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeAll, beforeEach, afterEach } from '@jest/globals';
 
 const mockSearchMovies = jest.fn();
 const mockSearchTVShows = jest.fn();
@@ -286,6 +286,105 @@ describe('/announce schedule', () => {
 
     await tick(NOW + 2 * HOUR);
     expect(world.channels.get('announcements').posts).toHaveLength(0);
+  });
+});
+
+describe('the event picker under Discord\'s rate limit', () => {
+  // Measured in production: a second events fetch within seconds of the
+  // first waited ~12s, and autocomplete gets 3s — so the list never showed.
+
+  /** A fetch that stalls until released, like one waiting out a rate limit. */
+  function stallFetches() {
+    const releases = [];
+    world.guild.scheduledEvents.fetch = jest.fn(() => new Promise((resolve) => {
+      releases.push(() => resolve(new Map(world.events)));
+    }));
+    return () => releases.splice(0).forEach(r => r());
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ['Date'] });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  async function pickWhileStalled(typed = '') {
+    const ac = interaction({ focused: { name: 'event', value: typed } });
+    const done = announce.autocomplete(ac);
+    await jest.advanceTimersByTimeAsync(2_000);
+    await done;
+    return ac.choices;
+  }
+
+  test('answers from the last list it had instead of waiting', async () => {
+    world.addEvent('e1', 'Night of the Living Dead', NOW + 3 * HOUR);
+    await pickEvent(); // warms the cache
+    Date.now.mockReturnValue(NOW + 5 * MIN); // the cached list is now stale
+    stallFetches();
+
+    const choices = await pickWhileStalled();
+    expect(choices.map(c => c.value)).toEqual(['e1']);
+  });
+
+  test('says it\'s loading rather than showing nothing, then has the list next keystroke', async () => {
+    world.addEvent('e1', 'Night of the Living Dead', NOW + 3 * HOUR);
+    const release = stallFetches();
+
+    const first = await pickWhileStalled('n');
+    expect(first).toHaveLength(1);
+    expect(first[0].name).toContain('Loading events');
+    // Another keystroke while it's still stalled joins the same fetch rather
+    // than queueing a second behind the rate limit
+    await pickWhileStalled('ni');
+
+    release();
+    await jest.advanceTimersByTimeAsync(0);
+    const second = await pickWhileStalled('ni');
+    expect(second.map(c => c.value)).toEqual(['e1']);
+    // One fetch served both keystrokes
+    expect(world.guild.scheduledEvents.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('a scheduler pass warms the picker, so it doesn\'t fetch at all', async () => {
+    world.addEvent('e1', 'Night of the Living Dead', NOW + 3 * HOUR);
+    await tick(NOW);
+    expect(world.guild.scheduledEvents.fetch).toHaveBeenCalledTimes(1);
+    await pickEvent();
+    expect(world.guild.scheduledEvents.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('explains an empty list instead of showing nothing', async () => {
+    jest.useRealTimers();
+    const none = await pickEvent();
+    expect(none).toEqual([{ name: expect.stringContaining('No upcoming events'), value: '-' }]);
+
+    // Picking that line is a plain error, not a crash
+    const cmd = interaction({ options: { event: none[0].value, hours: 1 } });
+    await announce.execute(cmd);
+    expect(text(cmd)).toContain('no upcoming scheduled events');
+  });
+
+  test('picking an explanation line never schedules a real event', async () => {
+    // A real event name with a hyphen in it: the explanation's value must not
+    // partly match it
+    jest.useRealTimers();
+    world.addEvent('e1', 'Crystal Lake - Episodes 5 & 6', NOW + 3 * HOUR);
+    const [line] = await pickEvent('zzz');
+    expect(line.name).toContain('No upcoming event matches');
+
+    const cmd = interaction({ options: { event: line.value, hours: 1 } });
+    await announce.execute(cmd);
+    expect(store.listAnnouncements('g1')).toHaveLength(0);
+    expect(text(cmd)).toContain('Pick an event');
+  });
+
+  test('tells a non-moderator why there\'s nothing to pick', async () => {
+    jest.useRealTimers();
+    world.addEvent('e1', 'Night of the Living Dead', NOW + 3 * HOUR);
+    const ac = interaction({ admin: false, focused: { name: 'event', value: '' } });
+    await announce.autocomplete(ac);
+    expect(ac.choices[0].name).toContain('Only admins and moderators');
   });
 });
 

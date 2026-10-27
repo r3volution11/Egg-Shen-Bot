@@ -19,7 +19,7 @@ import {
   pendingByGuild, dueAt, updateStart, claimForPosting, finishAnnouncement, claimStartingSoon, pruneAnnouncements,
 } from './announcementStore.js';
 import { composePartyPost, channelProblem, fitTitle } from './announcementCompose.js';
-import { eventChannelId, eventUrl } from './upcomingEvents.js';
+import { eventChannelId, eventUrl, guildEvents } from './upcomingEvents.js';
 import { resolveWatchTitle } from './watchTitle.js';
 import { getBackdropUrl } from '../services/tmdbService.js';
 
@@ -32,8 +32,6 @@ const PRUNE_MS = 60 * 60_000;
 
 let interval = null;
 let lastPrune = 0;
-// In memory: losing it on restart just costs one extra fetch
-const eventCache = new Map(); // guildId -> { at, events: Map<id, event> }
 
 /** "Saturday, October 31 at 7:00 PM (in 2 hours)" in each reader's own timezone. */
 export function startText(startsAt) {
@@ -41,17 +39,17 @@ export function startText(startsAt) {
   return `<t:${unix}:F> (<t:${unix}:R>)`;
 }
 
+/**
+ * The guild's events, through the cache /announce schedule's picker shares
+ * (upcomingEvents.js): re-fetched every pass while something is close, else
+ * every few minutes. Each pass keeps the picker's list warm, too — the events
+ * endpoint is rate-limited hard, and the picker can't wait for it.
+ */
 async function eventsFor(guild, now, { soonest }) {
-  const hit = eventCache.get(guild.id);
   const close = (t) => t != null && t - now <= CLOSE_MS;
-  const stale = !hit || now - hit.at >= EVENTS_STALE_MS
-    || close(soonest)
-    || [...hit.events.values()].some(e => close(e.scheduledStartTimestamp));
-  if (!stale) return hit.events;
-  const fetched = await guild.scheduledEvents.fetch();
-  const events = new Map([...fetched.values()].map(e => [e.id, e]));
-  eventCache.set(guild.id, { at: now, events });
-  return events;
+  const cached = await guildEvents(guild, { maxAgeMs: Infinity, now }).catch(() => null);
+  const anyClose = close(soonest) || [...(cached?.values() || [])].some(e => close(e.scheduledStartTimestamp));
+  return guildEvents(guild, { maxAgeMs: anyClose ? CHECK_INTERVAL_MS - 5_000 : EVENTS_STALE_MS, now });
 }
 
 async function fetchChannel(client, id) {
@@ -221,6 +219,5 @@ export function shutdown() {
 
 /** Test-only. */
 export function _resetAnnouncementScheduler() {
-  eventCache.clear();
   lastPrune = 0;
 }

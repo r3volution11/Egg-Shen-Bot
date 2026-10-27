@@ -9,6 +9,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.67.1 - 2026-10-27
+
+### Fixed
+- **`/announce schedule`'s event list now appears.** Discord limits how often a bot can look up a server's events, and the lookup could wait about 12 seconds, much longer than the 3 seconds Discord gives the list to show up. So it showed nothing. The list now comes from a copy the bot keeps up to date, and while that's refreshing, the list says it's loading rather than staying empty
+  - An empty list now says why: no upcoming events (with how to create one), nothing matching what you typed, or that only moderators can schedule
+
+### Developer
+- `upcomingEvents.js`: one events cache per guild (`guildEvents`), shared by the picker and the announcement scheduler, whose passes keep it warm; one fetch in flight per guild; `waitMs` lets autocomplete give up after 2s and answer from the cached list, however old. Measured in production: a second `scheduledEvents.fetch` within seconds waited ~12s on the rate limit, which discord.js waits out silently
+- `/announce schedule` checks the cached list first and fetches fresh only if the picked event isn't in it
+- `tests/announce-schedule.test.js`: 6 tests with a stalled fetch (stale-cache answer, "loading" then the list, one fetch for two keystrokes, scheduler warming the picker, explanation lines never matching a real event)
+
 ## 2.67.0 - 2026-10-25
 
 ### Added

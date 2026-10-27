@@ -402,6 +402,7 @@ function segmentFromEvent(event) {
  * matches exactly one upcoming event is accepted too.
  */
 function findEvent(events, picked) {
+  if (picked === NOTE_VALUE) return null; // the picker's "no events" / "loading" line
   const byId = events.find(e => e.id === picked);
   if (byId) return byId;
   const wanted = String(picked || '').trim().toLowerCase();
@@ -420,12 +421,24 @@ async function handleSchedule(interaction) {
   await interaction.deferReply({ ephemeral: true });
   const now = Date.now();
 
-  const events = await fetchUpcomingEvents(interaction.guild, now, { fresh: true }).catch(() => null);
-  if (!events) {
+  const picked = interaction.options.getString('event');
+  let events;
+  let event = null;
+  try {
+    // The picker's cached list first; a fresh fetch only if the event isn't
+    // in it (say, created a moment ago). That fetch may wait out Discord's
+    // rate limit, which is fine here — the reply is deferred.
+    events = await fetchUpcomingEvents(interaction.guild, now);
+    event = findEvent(events, picked);
+    if (!event) {
+      events = await fetchUpcomingEvents(interaction.guild, now, { maxAgeMs: 0 });
+      event = findEvent(events, picked);
+    }
+  } catch (error) {
+    console.error('[Announce] Loading scheduled events failed:', error.message);
     await interaction.editReply({ content: '❌ I couldn\'t load this server\'s scheduled events. Check I can see them, then try again.' });
     return;
   }
-  const event = findEvent(events, interaction.options.getString('event'));
   if (!event) {
     await interaction.editReply({
       content: events.length
@@ -567,20 +580,53 @@ export async function handleCancelButton(interaction) {
   await interaction.update(scheduledView(interaction.guildId, { note }));
 }
 
+/**
+ * How long the picker waits for Discord's events endpoint before answering
+ * from cache. Autocomplete must answer within 3 seconds, and that endpoint
+ * can stall ~12s on its rate limit (upcomingEvents.js).
+ */
+const PICKER_WAIT_MS = 2_000;
+
+/**
+ * A choice that explains an empty list — Discord shows nothing at all for
+ * an empty one, which reads as broken. Picking it gets a plain error back.
+ */
+const NOTE_VALUE = '-';
+const note = (name) => [{ name: name.slice(0, 100), value: NOTE_VALUE }];
+
 /** `event`: upcoming scheduled events, soonest first, filtered by what's typed. */
 export async function autocomplete(interaction) {
   const focused = interaction.options.getFocused(true);
-  if (focused.name !== 'event' || !isAdmin(interaction.member)) {
+  if (focused.name !== 'event') {
     await interaction.respond([]);
     return;
   }
+  if (!isAdmin(interaction.member)) {
+    await interaction.respond(note('Only admins and moderators can schedule announcements'));
+    return;
+  }
   const now = Date.now();
-  const events = await fetchUpcomingEvents(interaction.guild, now).catch(() => []);
+  let events;
+  try {
+    events = await fetchUpcomingEvents(interaction.guild, now, { waitMs: PICKER_WAIT_MS });
+  } catch (error) {
+    console.error('[Announce] Event picker couldn\'t load scheduled events:', error.message);
+    await interaction.respond(note('Couldn\'t load this server\'s events — try again in a moment'));
+    return;
+  }
+  if (!events) {
+    // Still fetching; it carries on and fills the cache for the next keystroke
+    await interaction.respond(note('⏳ Loading events… type another letter in a moment'));
+    return;
+  }
   const typed = String(focused.value || '').toLowerCase();
-  const choices = events
-    .filter(e => !typed || e.name.toLowerCase().includes(typed))
-    .slice(0, 25)
-    .map(e => eventChoice(e, now));
-  await interaction.respond(choices);
+  const matches = events.filter(e => !typed || e.name.toLowerCase().includes(typed));
+  if (!matches.length) {
+    await interaction.respond(note(events.length
+      ? `No upcoming event matches "${focused.value}"`
+      : 'No upcoming events — create one in Discord first (Events → Create Event)'));
+    return;
+  }
+  await interaction.respond(matches.slice(0, 25).map(e => eventChoice(e, now)));
 }
 

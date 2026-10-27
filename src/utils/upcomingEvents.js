@@ -1,32 +1,79 @@
 /**
- * A server's upcoming scheduled events — for /announce schedule's event
- * picker, and for finding the channel an event happens in.
+ * A server's scheduled events — for /announce schedule's event picker, the
+ * announcement scheduler, and finding the channel an event happens in.
  *
  * Fetched over REST (guild.scheduledEvents.fetch), which needs no extra
- * gateway intent. Autocomplete must answer within 3 seconds and fires on
- * every keystroke, so the list is cached briefly per guild.
+ * gateway intent — but Discord rate-limits that endpoint hard: measured in
+ * production, a second fetch within seconds of the first waited ~12s, and
+ * discord.js waits silently. Autocomplete must answer within 3 seconds, so
+ * an uncached picker simply never showed its list. Hence:
+ *
+ *   - one cache per guild, shared by the picker and the scheduler (whose
+ *     every-minute passes keep it warm)
+ *   - one fetch in flight per guild; everyone else waits on that one
+ *   - callers that can't wait (autocomplete) give up after `waitMs` and use
+ *     what's cached, however old, rather than nothing
  */
 
 import { GuildScheduledEventStatus } from 'discord.js';
 
-const CACHE_MS = 30_000;
-const cache = new Map(); // guildId -> { at, events }
+const cache = new Map(); // guildId -> { at, events: Map<id, event> }
+const inflight = new Map(); // guildId -> Promise<Map>
 
 /**
- * Events that haven't started, soonest first.
- * @returns {Promise<Array>} discord.js GuildScheduledEvent objects
+ * All of a guild's events (any status), from cache when fresh enough.
+ *
+ * @param {object} opts
+ * @param {number} opts.maxAgeMs - how old a cached list may be
+ * @param {number} [opts.waitMs] - give up on a fetch after this long; then
+ *   the cached list is returned even if stale, or null if there's none yet
+ *   (the fetch carries on and fills the cache for next time)
+ * @returns {Promise<Map<string, object>|null>}
  */
-export async function fetchUpcomingEvents(guild, now = Date.now(), { fresh = false } = {}) {
+export async function guildEvents(guild, { maxAgeMs = 60_000, waitMs = Infinity, now = Date.now() } = {}) {
   const hit = cache.get(guild.id);
-  let events;
-  if (!fresh && hit && now - hit.at < CACHE_MS) {
-    events = hit.events;
-  } else {
-    const fetched = await guild.scheduledEvents.fetch();
-    events = [...fetched.values()];
-    cache.set(guild.id, { at: now, events });
+  if (hit && now - hit.at < maxAgeMs) return hit.events;
+
+  let pending = inflight.get(guild.id);
+  if (!pending) {
+    pending = guild.scheduledEvents.fetch({ withUserCount: false })
+      .then((fetched) => {
+        const events = new Map([...fetched.values()].map(e => [e.id, e]));
+        cache.set(guild.id, { at: Date.now(), events });
+        return events;
+      })
+      .finally(() => inflight.delete(guild.id));
+    inflight.set(guild.id, pending);
   }
-  return events
+  if (waitMs === Infinity) return pending;
+
+  // A caller that gave up still leaves the fetch running; don't let its
+  // failure surface as an unhandled rejection
+  pending.catch(() => {});
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), waitMs);
+    timer.unref?.();
+  });
+  try {
+    const events = await Promise.race([pending, timeout]);
+    return events || hit?.events || null;
+  } catch (error) {
+    if (hit) return hit.events;
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Events that haven't started, soonest first — or null when they're still
+ * loading (only possible with `waitMs`).
+ */
+export async function fetchUpcomingEvents(guild, now = Date.now(), { maxAgeMs = 60_000, waitMs = Infinity } = {}) {
+  const events = await guildEvents(guild, { maxAgeMs, waitMs, now });
+  if (!events) return null;
+  return [...events.values()]
     .filter(e => e.status === GuildScheduledEventStatus.Scheduled && e.scheduledStartTimestamp > now)
     .sort((a, b) => a.scheduledStartTimestamp - b.scheduledStartTimestamp);
 }
@@ -81,4 +128,5 @@ export function eventUrl(event) {
 /** Test-only. */
 export function _clearEventCache() {
   cache.clear();
+  inflight.clear();
 }
