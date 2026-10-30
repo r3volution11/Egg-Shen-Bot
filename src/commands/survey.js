@@ -121,6 +121,16 @@ export const data = new SlashCommandBuilder()
           .setMinValue(1)
           .setMaxValue(20160) // 14 days
       )
+      .addStringOption(option =>
+        option
+          .setName('tie-break')
+          .setDescription('If options tie for first: a runoff vote (then a random pick), or leave the tie')
+          .setRequired(false)
+          .addChoices(
+            { name: 'Runoff vote (default)', value: 'runoff' },
+            { name: 'None — a tie is a fine result', value: 'none' }
+          )
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -273,6 +283,7 @@ async function handleCreate(interaction) {
   const question = interaction.options.getString('question');
   const allowMultiple = interaction.options.getBoolean('multiple') || false;
   const duration = interaction.options.getInteger('duration') || null;
+  const tieBreak = interaction.options.getString('tie-break') === 'none' ? 'none' : 'runoff';
 
   // Collect all provided options
   const options = [];
@@ -318,7 +329,8 @@ async function handleCreate(interaction) {
       question,
       options,
       allowMultiple,
-      duration
+      duration,
+      { tieBreak }
     );
 
     // Update message with full poll and its voting buttons
@@ -329,8 +341,11 @@ async function handleCreate(interaction) {
     const autoCloseNote = duration
       ? `\n**Auto-closes:** <t:${Math.floor(new Date(poll.expiresAt).getTime() / 1000)}:R>`
       : '';
+    const tieNote = tieBreak === 'runoff'
+      ? '\n**If it ties:** a runoff vote between the tied options; if that ties too, I pick one at random.'
+      : '\n**If it ties:** the tie stands.';
     await interaction.followUp({
-      content: `✅ Survey created! Users can vote by clicking a button below the message.\n\n**Survey ID:** \`${poll.pollId}\`${autoCloseNote}\n**Manage:** Use \`/survey close ${poll.pollId}\` to close or \`/survey delete ${poll.pollId}\` to delete. If the survey scrolls away, \`/survey voting-post\` brings it back down.`,
+      content: `✅ Survey created! Users can vote by clicking a button below the message.\n\n**Survey ID:** \`${poll.pollId}\`${autoCloseNote}${tieNote}\n**Manage:** Use \`/survey close ${poll.pollId}\` to close or \`/survey delete ${poll.pollId}\` to delete. If the survey scrolls away, \`/survey voting-post\` brings it back down.`,
       ephemeral: true,
     });
     
@@ -425,6 +440,20 @@ async function handleResults(interaction) {
     inline: true,
   });
   
+  // A tie that went to a runoff: point at it (and a runoff back at its original)
+  if (poll.runoffPollId) {
+    const runoff = getPoll(interaction.guildId, poll.runoffPollId);
+    if (runoff?.messageId) {
+      embed.addFields({
+        name: runoff.status === 'active' ? 'Runoff (open)' : 'Runoff',
+        value: `[Jump to the runoff](https://discord.com/channels/${runoff.guildId}/${runoff.channelId}/${runoff.messageId})`,
+        inline: true,
+      });
+    }
+  } else if (poll.runoffOf) {
+    embed.addFields({ name: 'Runoff for', value: `Survey \`${poll.runoffOf}\``, inline: true });
+  }
+
   // Show user's votes if any
   const userVotes = getUserVote(poll, interaction.user.id);
   if (userVotes.length > 0) {

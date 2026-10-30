@@ -565,7 +565,7 @@ Search for movie and TV show soundtracks with iTunes and Spotify integration.
 Create interactive polls and surveys with up to 10 options and real-time vote tracking.
 
 **Subcommands:**
-- `/survey create` - Create a new survey with up to 10 options
+- `/survey create` - Create a new survey with up to 10 options. A tie for first starts a runoff vote, then a random pick (`tie-break:None` to let a tie stand)
 - `/survey list` - View all surveys (active, closed, or all)
 - `/survey results` - View detailed results with progress bars
 - `/survey voting-post` - Post an open survey again at the bottom of the channel, with its vote buttons and the votes so far. The old card greys out and links to the new one. Anyone can use it; members once every 10 minutes per survey, the creator and admins any time. Leave out `poll_id` when only one survey is open

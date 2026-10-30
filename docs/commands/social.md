@@ -38,6 +38,9 @@ A: `/survey voting-post` posts it again at the bottom of the channel, with its b
 **Q: Can a survey close itself automatically?**  
 A: Yes! Set `duration:[minutes]` when creating it (`/survey create ... duration:120` for 2 hours). Without it, a survey stays open until someone runs `/survey close`.
 
+**Q: What happens if two options tie?**  
+A: A runoff vote between just the tied options starts automatically. If the runoff ties too, the bot picks one at random. Set `tie-break:None` when creating a survey where a tie is a fine answer. See [Ties](#ties).
+
 ---
 
 ## Survey Commands
@@ -47,7 +50,7 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 ### Create a Survey
 
 ```
-/survey create question:[question] option1:[text] option2:[text] ... option10:[optional] multiple:[optional] duration:[optional]
+/survey create question:[question] option1:[text] option2:[text] ... option10:[optional] multiple:[optional] duration:[optional] tie-break:[optional]
 ```
 
 **Parameters:**
@@ -57,6 +60,7 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 - `option3`-`option10` (optional) - Additional options (max 100 characters each)
 - `multiple` (optional) - Allow users to vote for multiple options (default: false)
 - `duration` (optional) - Auto-close voting after this many minutes, from 1 minute up to 14 days (20160 minutes). Omit for a survey that stays open until manually closed with `/survey close`
+- `tie-break` (optional) - What a tie for first does: **Runoff vote** (default) or **None** (the tie stands). See [Ties](#ties)
 
 **Features:**
 - Up to 10 options per survey
@@ -85,6 +89,15 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 5. Anyone can view live results any time with `/survey results`
 
 ---
+
+### Ties
+
+When a survey closes with two or more options tied for first:
+
+1. **A runoff starts.** The results card says who tied, and a new runoff survey is posted below it with only the tied options. It's one vote each, even if the original allowed several, and it runs as long as the original did, or 24 hours if the original had no timer. Everyone can vote, including people who didn't vote the first time.
+2. **If the runoff ties too,** the bot picks one of the tied options at random. The results show the pick with a 🎲 and say it was random.
+
+A survey nobody voted in has no winner and no runoff, and a tie for second place doesn't count. Create a survey with `tie-break:None` to let a tie stand, which suits opinion polls like "How scary was it?". `/survey results` on a tied survey links to its runoff.
 
 ### List All Surveys
 

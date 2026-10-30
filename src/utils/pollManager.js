@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -66,11 +66,18 @@ function saveGuildPolls(guildId, polls) {
   }
 }
 
+/** A runoff gets a day when the survey it breaks a tie for had no timer. */
+export const RUNOFF_DEFAULT_MINUTES = 24 * 60;
+
 /**
  * Create a new poll
  * @param {number|null} expiresInMinutes - Optional auto-close duration in minutes from now
+ * @param {object} [extra]
+ * @param {'runoff'|'none'} [extra.tieBreak='runoff'] - what a tie for first does when it closes
+ * @param {number} [extra.round=1] - 2 for a runoff
+ * @param {string|null} [extra.runoffOf=null] - the survey a runoff breaks the tie for
  */
-export function createPoll(guildId, channelId, messageId, creatorId, question, options, allowMultipleVotes = false, expiresInMinutes = null) {
+export function createPoll(guildId, channelId, messageId, creatorId, question, options, allowMultipleVotes = false, expiresInMinutes = null, { tieBreak = 'runoff', round = 1, runoffOf = null } = {}) {
   const polls = loadGuildPolls(guildId);
 
   const poll = {
@@ -96,6 +103,12 @@ export function createPoll(guildId, channelId, messageId, creatorId, question, o
     // that as 'reactions' (their original, only mechanism). New polls are
     // always 'buttons'; there's no way to switch an in-flight poll's method.
     votingMethod: 'buttons',
+    // How long it ran for, so a runoff can run as long (see startRunoff)
+    durationMinutes: expiresInMinutes || null,
+    // Read through tieBreakOf(): polls created before these existed lack them
+    tieBreak,
+    round,
+    runoffOf,
   };
 
   polls.push(poll);
@@ -281,7 +294,10 @@ export function toggleVote(guildId, pollId, optionId, userId) {
 }
 
 /**
- * Close a poll
+ * Close a poll — once. Returns the closed poll only to the caller that
+ * actually closed it, and null if it was already closed: /survey close and
+ * the auto-close timer can land together, and each must not post its own
+ * results (and, with tie-breaks, its own runoff).
  */
 export function closePoll(guildId, pollId, closedBy) {
   const polls = loadGuildPolls(guildId);
@@ -289,6 +305,9 @@ export function closePoll(guildId, pollId, closedBy) {
   
   if (!poll) {
     throw new Error('Poll not found');
+  }
+  if (poll.status === 'closed') {
+    return null;
   }
   
   poll.status = 'closed';
@@ -387,6 +406,58 @@ export function getPollResults(poll) {
   };
 }
 
+/** What a tie for first does. Surveys from before the option existed get the default. */
+export function tieBreakOf(poll) {
+  return poll.tieBreak === 'none' ? 'none' : 'runoff';
+}
+
+/**
+ * The options tied for first, or null when there's a clear leader or no
+ * votes at all (nobody voted is no result, not a tie).
+ */
+export function findTie(poll) {
+  const top = Math.max(0, ...poll.options.map(o => o.votes.length));
+  if (top === 0) return null;
+  const tied = poll.options.filter(o => o.votes.length === top);
+  return tied.length >= 2 ? tied : null;
+}
+
+/** How long a runoff runs: as long as the survey it settles, or a day. */
+export function runoffMinutes(poll) {
+  if (poll.durationMinutes) return poll.durationMinutes;
+  if (poll.expiresAt && poll.createdAt) {
+    return Math.max(1, Math.round((new Date(poll.expiresAt) - new Date(poll.createdAt)) / 60000));
+  }
+  return RUNOFF_DEFAULT_MINUTES;
+}
+
+/**
+ * Settle a runoff that tied again: one of the tied options, at random.
+ * Stored, so the card and any later look agree on the winner. Done once —
+ * a second call returns the first pick.
+ */
+export function pickRandomWinner(guildId, pollId, random = randomInt) {
+  const polls = loadGuildPolls(guildId);
+  const poll = polls.find(p => p.pollId === pollId);
+  if (!poll) throw new Error('Poll not found');
+  if (poll.randomWinnerId != null) return poll;
+  const tied = findTie(poll);
+  if (!tied) return poll;
+  poll.randomWinnerId = tied[random(tied.length)].id;
+  saveGuildPolls(guildId, polls);
+  return poll;
+}
+
+/** Remember the runoff a tied survey started, and which options tied. */
+function linkRunoff(guildId, pollId, runoffPollId, tiedOptionIds) {
+  const polls = loadGuildPolls(guildId);
+  const poll = polls.find(p => p.pollId === pollId);
+  if (!poll) return;
+  poll.runoffPollId = runoffPollId;
+  poll.tiedOptionIds = tiedOptionIds;
+  saveGuildPolls(guildId, polls);
+}
+
 /**
  * Get user's vote in a poll
  */
@@ -438,6 +509,24 @@ export function buildDisabledSurveyButtons(poll) {
 }
 
 /**
+ * The line above a closed survey's results that says how a tie was settled:
+ * a runoff started, or a runoff's random pick. Empty otherwise.
+ */
+function tieLine(poll) {
+  if (poll.status !== 'closed') return '';
+  const names = (ids) => ids.map(id => `**${poll.options.find(o => o.id === id)?.text}**`).join(' and ');
+  if (poll.randomWinnerId != null) {
+    const winner = poll.options.find(o => o.id === poll.randomWinnerId)?.text;
+    return `🎲 Tied again, so the bot picked **${winner}** at random.\n\n`;
+  }
+  if (poll.runoffPollId && poll.tiedOptionIds?.length) {
+    const votes = poll.options.find(o => o.id === poll.tiedOptionIds[0])?.votes.length || 0;
+    return `🤝 Tied: ${names(poll.tiedOptionIds)} (${votes} vote${votes === 1 ? '' : 's'} each). Runoff below!\n\n`;
+  }
+  return '';
+}
+
+/**
  * Create a poll embed. Shared by /survey create, the live-updating vote
  * handlers (buttons and legacy reactions), /survey close, and the
  * auto-expiry scheduler, so every code path that renders a poll looks the
@@ -447,8 +536,9 @@ export function createPollEmbed(poll, showResults = false) {
   const { totalVotes, results } = getPollResults(poll);
   const voteInstruction = poll.votingMethod === 'reactions' ? 'React to vote!' : 'Click a button to vote!';
 
+  const isRunoff = (poll.round || 1) >= 2;
   const embed = new EmbedBuilder()
-    .setTitle(`📊 ${poll.question}`)
+    .setTitle(`${isRunoff ? '🔁 Runoff: ' : '📊 '}${poll.question}`.slice(0, 256))
     .setColor(poll.status === 'active' ? 0x5865F2 : 0x99AAB5)
     .setFooter({
       text: `Survey ID: ${poll.pollId} • ${poll.status === 'active' ? voteInstruction : 'Survey closed'} • Total votes: ${totalVotes}${poll.allowMultipleVotes ? ' • Multiple votes allowed' : ''}`,
@@ -459,13 +549,15 @@ export function createPollEmbed(poll, showResults = false) {
   // pack — skipped entirely when there are no votes yet, or when the top
   // spot is tied (no single option is actually "ahead").
   const isSoleLeader = totalVotes > 0 && results[0].voteCount > (results[1]?.voteCount ?? -1);
+  // A runoff that tied again is settled at random; that pick gets the crown
+  const randomWinner = poll.randomWinnerId != null ? poll.randomWinnerId : null;
 
   // Build options display
   const optionsText = results.map((option, index) => {
-    const isLeader = showResults && isSoleLeader && index === 0;
+    const isLeader = showResults && (randomWinner != null ? option.id === randomWinner : isSoleLeader && index === 0);
     const bar = createProgressBar(option.percentage, 20, isLeader);
     const voteText = `${option.voteCount} vote${option.voteCount !== 1 ? 's' : ''}`;
-    const crown = isLeader ? '🏆 ' : '';
+    const crown = isLeader ? (randomWinner != null ? '🎲 ' : '🏆 ') : '';
     const name = isLeader ? `**${option.text}**` : option.text;
 
     if (showResults) {
@@ -475,7 +567,7 @@ export function createPollEmbed(poll, showResults = false) {
     }
   }).join('\n\n');
 
-  embed.setDescription(optionsText);
+  embed.setDescription(`${tieLine(poll)}${optionsText}`.slice(0, 4096));
 
   // Add status info
   if (poll.status === 'closed') {
@@ -509,7 +601,7 @@ export function createPollEmbed(poll, showResults = false) {
  *   bot's own client.user.id for an auto-expiry close)
  * @returns {Promise<{success: boolean, poll?: object, error?: string}>}
  */
-export async function closePollAndAnnounce(client, guildId, pollId, closedBy) {
+export async function closePollAndAnnounce(client, guildId, pollId, closedBy, { random = randomInt } = {}) {
   const poll = getPoll(guildId, pollId);
 
   if (!poll) {
@@ -527,7 +619,21 @@ export async function closePollAndAnnounce(client, guildId, pollId, closedBy) {
     const channel = await client.channels.fetch(poll.channelId);
     const message = await channel.messages.fetch(poll.messageId);
 
-    closePoll(guildId, pollId, closedBy);
+    // Closed after the awaits, so this is where two closers race: only the
+    // one that really closed it posts results (and starts any runoff)
+    if (!closePoll(guildId, pollId, closedBy)) {
+      return { success: false, error: 'Poll already closed' };
+    }
+
+    // A tie for first: a first-round survey gets a runoff between the tied
+    // options; a runoff that ties again is settled at random
+    const tied = tieBreakOf(poll) === 'runoff' ? findTie(getPoll(guildId, pollId)) : null;
+    let runoff = null;
+    if (tied && (poll.round || 1) >= 2) {
+      pickRandomWinner(guildId, pollId, random);
+    } else if (tied) {
+      runoff = await startRunoff(channel, getPoll(guildId, pollId), tied);
+    }
 
     const updatedPoll = getPoll(guildId, pollId);
     const pollEmbed = createPollEmbed(updatedPoll, true);
@@ -543,12 +649,62 @@ export async function closePollAndAnnounce(client, guildId, pollId, closedBy) {
     }
 
     const resultsEmbed = createPollEmbed(updatedPoll, true);
-    resultsEmbed.setTitle(`🏁 Survey Closed: ${poll.question}`);
+    resultsEmbed.setTitle(resultsTitle(updatedPoll));
     await channel.send({ embeds: [resultsEmbed] });
 
-    return { success: true, poll: updatedPoll };
+    // The runoff goes out AFTER the results, so it's the newest message —
+    // the one people see and vote on
+    if (runoff) await runoff.post();
+
+    return { success: true, poll: updatedPoll, runoff: runoff?.poll || null };
   } catch (error) {
     console.error(`Error closing poll ${pollId}:`, error);
     return { success: false, error: error.message };
   }
+}
+
+/** "🏁 Survey Closed: …", or for a runoff, who won the original question. */
+function resultsTitle(poll) {
+  const title = (poll.round || 1) >= 2
+    ? `🏁 Runoff closed: ${poll.question}`
+    : `🏁 Survey Closed: ${poll.question}`;
+  return title.slice(0, 256);
+}
+
+/**
+ * Create the runoff for a tied survey: only the tied options, one vote each
+ * (even if the original allowed several — a runoff is choosing one), running
+ * as long as the original did, or a day. It's an ordinary survey from then
+ * on, so votes, /survey voting-post, close and the timer all just work.
+ *
+ * Stored now (so it's linked to the original before anything is posted);
+ * `post()` sends it as a NEW message, which notifies — an edit wouldn't.
+ */
+async function startRunoff(channel, poll, tied) {
+  const runoffPoll = createPoll(
+    poll.guildId,
+    poll.channelId,
+    null,
+    poll.creatorId,
+    poll.question,
+    tied.map(o => o.text),
+    false,
+    runoffMinutes(poll),
+    { tieBreak: 'runoff', round: 2, runoffOf: poll.pollId }
+  );
+  linkRunoff(poll.guildId, poll.pollId, runoffPoll.pollId, tied.map(o => o.id));
+
+  const names = tied.map(o => `**${o.text}**`).join(' and ');
+  return {
+    poll: runoffPoll,
+    async post() {
+      const sent = await channel.send({
+        content: `🔁 **Runoff:** ${poll.question}\nIt's a tie between ${names}. Vote again to break it!`,
+        embeds: [createPollEmbed(runoffPoll, false)],
+        components: buildSurveyButtons(runoffPoll),
+        allowedMentions: { parse: [] },
+      });
+      movePollCard(poll.guildId, runoffPoll.pollId, channel.id, sent.id);
+    },
+  };
 }

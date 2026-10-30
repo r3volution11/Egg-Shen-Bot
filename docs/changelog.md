@@ -9,6 +9,21 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.68.0 - 2026-10-29
+
+### Added
+- **Survey ties now get settled.** When a survey closes with two or more options tied for first, a **runoff** is posted right below the results, with only the tied options. It's one vote each, and it runs as long as the original survey did (or 24 hours if it had no timer). If the runoff ties too, the bot **picks one at random** and says so with a 🎲
+  - `/survey create` has a new `tie-break` option: **Runoff vote** (default) or **None**, for surveys where a tie is a fine answer
+  - A survey nobody voted in, or a tie for second place, doesn't start a runoff. `/survey results` on a tied survey links to its runoff
+
+### Fixed
+- **A survey closes only once.** `/survey close` and the auto-close timer landing at the same moment could each post results
+
+### Developer
+- `pollManager.js`: `createPoll` takes `{ tieBreak, round, runoffOf }` and stores `durationMinutes`; `closePoll` returns null when already closed (the closing claim); new `findTie`, `runoffMinutes`, `pickRandomWinner` (injectable random, done once) and `tieBreakOf` (surveys without the field read as `runoff`). `closePollAndAnnounce` posts the results, then the runoff as a new message
+- `tests/survey-tie-break.test.js`: 12 tests through the real `closePollAndAnnounce`, the runoff card's own button through the real button handler, and the real `/survey create`
+- **Command definition changed: run `deploy-commands`**
+
 ## 2.67.1 - 2026-10-27
 
 ### Fixed
