@@ -1,14 +1,17 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
-import { getLeaderboard, GAME_NAMES } from '../utils/gameScores.js';
+import { getLeaderboard, getGameSettings, GAME_NAMES } from '../utils/gameScores.js';
 import { gameOption, periodOption, privateOption, periodLabel, enabledGames } from '../utils/gameBoards.js';
 import { renderLeaderboard } from '../utils/leaderboardCard.js';
+import { happeningsNow } from '../utils/gamePlay.js';
+import { loadGuildConfig } from '../utils/guildConfig.js';
 
 /**
  * /leaderboard — the server's game card: the top 15 players in the games
  * this month, this year or all time, each with the badge of the title they
  * show, who leads each game, who received the most of what, and the
- * period's numbers. One gold embed (leaderboardCard.js); this command finds
- * who everyone is now and hands their names in.
+ * period's numbers, and (R4) any happening in progress. One gold embed
+ * (leaderboardCard.js); this command finds who everyone is now and hands
+ * their names in.
  */
 
 export const data = new SlashCommandBuilder()
@@ -51,6 +54,9 @@ export async function execute(interaction) {
   await interaction.deferReply(isPrivate ? { flags: MessageFlags.Ephemeral } : {});
 
   const board = getLeaderboard(interaction.guildId, game, period, { limit: 15, games });
+  // R4: what's on now — none when an admin has switched happenings off
+  const now = Date.now();
+  const happenings = happeningsNow(interaction.guildId, now, getGameSettings(await loadGuildConfig(interaction.guildId)));
 
   // Everyone the card names: the rows, each game's leader, the received
   // leaders and the best streak — mostly the same few people, looked up once
@@ -71,7 +77,8 @@ export async function execute(interaction) {
     received: board.received.map(withName),
     bestStreak: withName(board.bestStreak),
     totals: board.totals,
-  });
+    happenings,
+  }, { now });
 
   // Names, not mentions, but a name can still look like one: ping nobody
   await interaction.editReply({ embeds: [card], allowedMentions: { parse: [] } });

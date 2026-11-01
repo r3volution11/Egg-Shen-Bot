@@ -30,6 +30,8 @@ import { DOOM_LINES } from '../src/data/doomLines.js';
 import { RESCUE_LINES, DOOM_BLOCKED_LINES } from '../src/data/rescueLines.js';
 import { POTION_LINES } from '../src/data/potionLines.js';
 import { periodLabel } from '../src/utils/gameBoards.js';
+import { _setLuck, LUCK_OFF } from '../src/utils/gameLuck.js';
+import { startHappening, loadState } from '../src/utils/happeningStore.js';
 
 const commands = {};
 beforeAll(async () => {
@@ -690,5 +692,93 @@ describe('the built-in lines', () => {
     for (const t of commands.doom.TROPES) expect(DOOM_LINES[t.value]?.length).toBeGreaterThanOrEqual(15);
     for (const t of commands.rescue.RESCUE_TROPES) expect(RESCUE_LINES[t.value]?.length).toBeGreaterThanOrEqual(15);
     expect(DOOM_BLOCKED_LINES.every(t => t.includes('{user}') && t.includes('{target}'))).toBe(true);
+  });
+});
+
+// ── R4: twists and happenings, through the real commands ────────────────
+
+describe('R4: twists and happenings end to end', () => {
+  const happeningsFile = () => path.join(process.env.GUILD_HAPPENINGS_DIR, `${GUILD}.json`);
+  let switchWas;
+  beforeEach(() => {
+    for (const f of [happeningsFile(), `${happeningsFile()}.bak`, `${happeningsFile()}.tmp`]) if (fs.existsSync(f)) fs.unlinkSync(f);
+    // Suites run with GAME_HAPPENINGS=off so a calendar day can't move
+    // their stubbed draws; these tests are about happenings, so they're on
+    switchWas = process.env.GAME_HAPPENINGS;
+    delete process.env.GAME_HAPPENINGS;
+    // One fixed moment, the evening of Monday 2 Nov 2026: no calendar
+    // happening, and nothing ends while a test runs
+    freezeClock();
+  });
+  afterEach(() => {
+    if (switchWas === undefined) delete process.env.GAME_HAPPENINGS;
+    else process.env.GAME_HAPPENINGS = switchWas;
+    _setLuck(null);
+  });
+
+  test('a twist: its line under the points, its points stored as bonus', async () => {
+    // Fires (0 < 4%), then the first twist in the table: Loose Change
+    const luck = [0, 0];
+    _setLuck(() => (luck.length ? luck.shift() : LUCK_OFF));
+    stubOutcome(FOODFIGHT_LINES.pie, 'hit');
+    const m = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), food: 'pie' } });
+    expect(m.content.split('\n').slice(1)).toEqual([
+      '-# 🎯 Hit! Sam +3 (6 pts) · Alex −1',
+      '-# 🎲 Twist! 💰 Loose Change: Sam digs through the seat cushions and finds a few bucks and a Junior Mint of unknown age. Sam +3.',
+    ]);
+    expect(stored('sam', 'foodfight')).toMatchObject({ points: 6, bonus: 3 });
+    expect(stored('alex', 'foodfight').points).toBe(-1);
+    expect(discord.violations).toEqual([]);
+  });
+
+  test('a Full Moon started in the store: /doom scores double both ways, tagged; the cards say it\'s on', async () => {
+    const started = startHappening(GUILD, 'fullmoon', { source: 'admin' }, CARD_NOW);
+    expect(started.happening.kind).toBe('fullmoon');
+    const endsAt = Math.floor(started.happening.endsAt / 1000);
+
+    stubOutcome(DOOM_LINES.zombie, 'doomed');
+    const m = await run('doom', 'sam', { subcommand: 'fate', options: { target: member('alex'), trope: 'zombie' } });
+    expect(points(m)).toBe('-# 💀 Doomed! 🌕×2 Sam +6 (6 pts) · Alex −2');
+    expect([stored('sam', 'doom').points, stored('alex', 'doom').points]).toEqual([6, -2]);
+    // Every play notes who played, and where: what a random happening needs
+    expect(loadState(GUILD).activity.recent.sam).toBe(CARD_NOW);
+
+    const card = (await run('scoreboard', 'sam')).embeds[0].toJSON();
+    expect(card.description.split('\n').at(-1)).toBe(`🌕 Full Moon: dooms score double · ends <t:${endsAt}:R>`);
+    const board = (await run('leaderboard', 'sam')).embeds[0].toJSON();
+    expect(board.fields.at(-1)).toEqual({ name: '⏰ In progress', value: `🌕 Full Moon: dooms score double · ends <t:${endsAt}:R>`, inline: false });
+    expect(discord.violations).toEqual([]);
+  });
+
+  test('switched off by an admin, the Full Moon bends nothing and isn\'t shown', async () => {
+    await saveGuildConfig(GUILD, { ...(await loadGuildConfig(GUILD)), games: { happenings: false } });
+    startHappening(GUILD, 'fullmoon', { source: 'admin' }, CARD_NOW);
+    stubOutcome(DOOM_LINES.zombie, 'doomed');
+    const m = await run('doom', 'sam', { subcommand: 'fate', options: { target: member('alex'), trope: 'zombie' } });
+    expect(points(m)).toBe('-# 💀 Doomed! Sam +3 (3 pts) · Alex −1');
+    const card = (await run('scoreboard', 'sam')).embeds[0].toJSON();
+    expect(card.description).not.toContain('Full Moon');
+    const board = (await run('leaderboard', 'sam')).embeds[0].toJSON();
+    expect(board.fields.map(f => f.name)).not.toContain('⏰ In progress');
+  });
+
+  test('GAME_HAPPENINGS=off (the suites\' switch): no happening reaches a play', async () => {
+    process.env.GAME_HAPPENINGS = 'off';
+    startHappening(GUILD, 'fullmoon', { source: 'admin' }, CARD_NOW);
+    stubOutcome(DOOM_LINES.zombie, 'doomed');
+    const m = await run('doom', 'sam', { subcommand: 'fate', options: { target: member('alex'), trope: 'zombie' } });
+    expect(points(m)).toBe('-# 💀 Doomed! Sam +3 (3 pts) · Alex −1');
+  });
+
+  test('a status on the card: "In effect" says what it does and how long it has', async () => {
+    mutateScores(GUILD, (d) => {
+      const u = (d.users.sam ||= { name: 'Sam', games: {} });
+      u.effects = { refill: { at: CARD_NOW, until: CARD_NOW + 60 * 60 * 1000, playsLeft: 2 } };
+    });
+    stubOutcome(FOODFIGHT_LINES.pie, 'hit');
+    const m = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), food: 'pie' } });
+    expect(m.content.split('\n').slice(1)).toEqual(['-# 🎯 Hit! Sam +3 (4 pts) · Alex −1', '-# 🍿 Free Refill: Sam +1 (1 more).']);
+    const card = (await run('scoreboard', 'sam')).embeds[0].toJSON();
+    expect(card.fields.find(f => f.name === '🌀 In effect')).toEqual({ name: '🌀 In effect', value: '🍿 Free Refill: +1 on each good play · 1 play left', inline: false });
   });
 });

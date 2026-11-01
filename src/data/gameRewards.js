@@ -93,12 +93,13 @@ export const FULL_STACK_POINTS = 2;
 export const TITLE_POINTS = 10;
 
 /**
- * However many things multiply a play (items now; R4's happenings and
- * Director's Cut later), the product is capped: your gains at ×3, your
- * losses at ×2, the target's points at ×2. Items never make a target lose
- * more.
+ * However many things multiply a play (items, R4's happenings and
+ * Director's Cut), the product is capped: your gains at ×3, your losses at
+ * ×2, the target's points at ×2. Items never make a target lose more. A
+ * rescue's shield is capped the same way: Holy Water's 3× and Sunrise's 2×
+ * would be 6× anyway, but a third shield-stretcher mustn't make it 12×.
  */
-export const MULTIPLIER_CAPS = Object.freeze({ gain: 3, loss: 2, target: 2 });
+export const MULTIPLIER_CAPS = Object.freeze({ gain: 3, loss: 2, target: 2, shield: 6 });
 
 // ── recurring prizes ────────────────────────────────────────────────────
 
@@ -159,10 +160,10 @@ export const NIGHT_TIERS = Object.freeze([
 /**
  * Titles, checked against what's already stored all-time: `did` counts
  * your own outcomes (games[g].all.counts), `got` what was done to you
- * (games[g].all.received), `streak` your best streak in any game, and
- * `nights` your best nights in a row. Each maps game → outcomes summed.
- * Siege and twist titles join in the releases that create them: one entry
- * each.
+ * (games[g].all.received), `streak` your best streak in any game,
+ * `nights` your best nights in a row, and `twists` (R4) the twists that
+ * happened to you. Each `did`/`got` maps game → outcomes summed. Siege
+ * titles join in the release that creates them: one entry each.
  */
 export const TITLES = Object.freeze([
   { key: 'pie-sniper', title: 'Pie Sniper', badge: '🥧', need: 150, did: { foodfight: ['hit'] } },
@@ -184,4 +185,66 @@ export const TITLES = Object.freeze([
   { key: 'night-owl', title: 'Night Owl', badge: '🦉', need: 7, nights: true },
   { key: 'creature', title: 'Creature of the Night', badge: '🌕', need: 14, nights: true },
   { key: 'undead', title: 'Undead Regular', badge: '🧟', need: 30, nights: true },
+  // R4: twists that happened to you, scored plays only (lifetime.twists)
+  { key: 'plot-twist', title: 'Plot Twist', badge: '🎲', need: 30, twists: true },
 ]);
+
+// ── twists (R4) ─────────────────────────────────────────────────────────
+
+/**
+ * Twists: on a scored play, a small chance (settings.twistPercent, 4% by
+ * default, ×twistMult during some happenings) that something happens to
+ * the PLAYER — never their target. One luck() draw decides whether one
+ * fires, one which (by `weight`), and one more picks an item where a twist
+ * needs one. Good ones weigh 72 and bad ones 60 in all, so a bit over half
+ * are good before "the twist after a bad one is always good" tips it
+ * further.
+ *   good    - which pool it's in (and what lastTwistBad remembers)
+ *   weight  - its share of the draw among the twists that can fire now
+ *   points  - flat points now (loose, fan, pickpocket, call), or per play
+ *             while the status lasts (refill +1 on good plays, mosquito −1)
+ *   status  - leaves a status in users[uid].effects for later plays; a
+ *             repeat refreshes it (playsLeft back to `plays`, 24 h again)
+ *             rather than stacking
+ *   plays   - how many scored plays a counting status lasts
+ *   opposite - setting this status clears that one (Lucky Break and
+ *             Jinxed can't both shape the same draw)
+ * The words — flavour, what it did, the card's note — are in
+ * gameEventLines.js.
+ */
+export const TWISTS = Object.freeze({
+  // Good [72]
+  loose: { name: 'Loose Change', emoji: '💰', good: true, weight: 16, points: 3 },
+  fan: { name: 'Fan Favorite', emoji: '🌟', good: true, weight: 6, points: 5 },
+  find: { name: 'Glovebox Find', emoji: '🎁', good: true, weight: 6 },
+  luckybreak: { name: 'Lucky Break', emoji: '🍀', good: true, weight: 10, status: true, opposite: 'jinxed' },
+  refill: { name: 'Free Refill', emoji: '🍿', good: true, weight: 10, status: true, plays: 3, points: 1 },
+  dcut: { name: 'Director\'s Cut', emoji: '🎬', good: true, weight: 8, status: true },
+  secondwind: { name: 'Second Wind', emoji: '🔥', good: true, weight: 8, status: true },
+  ghost: { name: 'Friendly Ghost', emoji: '👻', good: true, weight: 8 },
+  // Bad [60]
+  pickpocket: { name: 'Pickpocketed', emoji: '🦝', good: false, weight: 10, points: -3 },
+  call: { name: 'The Call Is Coming From Inside the House', emoji: '📞', good: false, weight: 5, points: -4 },
+  breakin: { name: 'Car Break-In', emoji: '🚗', good: false, weight: 4 },
+  bitten: { name: 'Bitten', emoji: '🧛', good: false, weight: 10, status: true, plays: 3 },
+  jinxed: { name: 'Jinxed', emoji: '🐈‍⬛', good: false, weight: 9, status: true, opposite: 'luckybreak' },
+  mosquito: { name: 'Mosquito Swarm', emoji: '🦟', good: false, weight: 8, status: true, plays: 3, points: -1 },
+  reel: { name: 'Reel Change', emoji: '🎞️', good: false, weight: 7 },
+  brainfreeze: { name: 'Brain Freeze', emoji: '🧊', good: false, weight: 7 },
+});
+
+export const TWIST_RULES = Object.freeze({
+  perDay: 3, // twists per member per UTC day (daily[uid].twists)
+  // Points twists can take from a member per UTC day, all twists together
+  // (Pickpocketed, The Call, each Mosquito bite) — and never below 0 for
+  // the month: a twist is a joke at your expense, not a way to lose a month
+  dailyLoss: 8,
+  statusHours: 24, // an unused status runs out after this
+  ghostMinutes: 30, // Friendly Ghost's shield from /doom
+  // What a Glovebox Find can turn up: the prize items (no Silver Bullet
+  // before /siege, no Night Light — that's the nights row's own prize)
+  findItems: RANDOM_PRIZE_ITEMS,
+  // What a Car Break-In can never take: the Night Light is the row's
+  // safety net, and losing it to a raccoon would undo weeks of nights
+  safe: Object.freeze(['nlight']),
+});

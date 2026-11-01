@@ -11,14 +11,21 @@
  * Both depend on the stored Glovebox, shield and daily counters, which
  * another play could change during any await. So resolvePlay reads them
  * and draws, and recordPlay saves, back to back with no await between.
+ *
+ * R4 adds happenings (server-wide, gameHappenings.js) and the statuses
+ * twists leave (users[uid].effects): finishPlay reads the happenings in
+ * progress ONCE and hands the same list to both steps, so the draw and the
+ * points can't disagree about whether the Full Moon was up.
  */
 
 import { loadGuildConfig } from './guildConfig.js';
 import {
   getGameSettings, checkPlayLimit, recordPlay, resultLine, extraLines, channelAllowed,
-  loadScores, wouldScore, itemProblem, itemUsesToday, shieldActive, defencesLeft, defenceReady,
+  loadScores, wouldScore, itemProblem, itemUsesToday, shieldActive, defencesLeft, defenceReady, activeStatuses,
+  POINTS,
 } from './gameScores.js';
-import { pickLine, itemEffect } from './gameRules.js';
+import { pickLine, itemEffect, goodLine, liveHappenings, happeningWeights } from './gameRules.js';
+import { activeHappenings, noteActivity } from './happeningStore.js';
 import { ITEMS, DAILY } from '../data/gameRewards.js';
 import { ITEM_REFUSALS, ITEM_PLACEHOLDERS, itemChoiceName } from '../data/gameRewardLines.js';
 import { allowedMentionsFor } from './socialTarget.js';
@@ -34,6 +41,16 @@ export const OUTCOME_LABELS = {
   helped: '💚 It worked!', hurt: '☠️ It worked!',
 };
 
+/**
+ * The points line's label: the outcome, then the tag of each happening
+ * that changed this play — "💀 Doomed! 🌕×2" — so a doubled score never
+ * looks like a bug.
+ */
+export function outcomeLabel(result) {
+  const tags = (result.happenings || []).map(h => h.tag).filter(Boolean);
+  return [OUTCOME_LABELS[result.outcome], ...tags].filter(Boolean).join(' ');
+}
+
 /** Discord's limit on a message's content */
 const CONTENT_MAX = 2000;
 
@@ -48,6 +65,42 @@ export function tagged(lines, fallback) {
 
 /** A random element */
 export const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+/**
+ * The happenings bending the games now (happeningStore.activeHappenings),
+ * for a play or a card. Pass the game settings to honour the admin switch
+ * (`happenings: false` → none, calendar ones included). Never throws: a
+ * broken happenings file must never break a /doom.
+ *
+ * GAME_HAPPENINGS=off → none at all, read on every call so a suite can
+ * flip it. Suites drive plays on the real clock and stub Math.random onto
+ * a chosen line: on a Friday the 13th (a calendar happening, `bad: true`
+ * ×1.25 and +1 on good plays) every one of those stubs would land
+ * somewhere else and every points assertion would be off by one. Suites
+ * that test happenings pass explicit lists, or switch it back on.
+ */
+export function happeningsNow(guildId, now = Date.now(), settings = null) {
+  if (process.env.GAME_HAPPENINGS === 'off') return [];
+  try {
+    const list = activeHappenings(guildId, now, settings);
+    return Array.isArray(list) ? list : [];
+  } catch (error) {
+    console.error(`[GamePlay] Couldn't read happenings for ${guildId}:`, error.message);
+    return [];
+  }
+}
+
+/**
+ * The player's points for a LINE outcome, to say which of two draws is
+ * worse for them (Jinxed). A potion line that works is scored by what the
+ * potion does; anything unknown counts as 0.
+ */
+function actorValue(game, outcome, effect) {
+  let scored = outcome;
+  if (game === 'potion' && outcome === 'worked') scored = effect === 'harmful' ? 'hurt' : 'helped';
+  const table = POINTS[game] || {};
+  return Object.hasOwn(table, scored) ? table[scored][0] : 0;
+}
 
 /**
  * The `item:` option on a play subcommand: one of your Glovebox items,
@@ -119,16 +172,27 @@ export function itemChoices(guildId, userId, { game, action }, typed = '', now =
 }
 
 /**
- * Draw the play's line, with the item and defences applied. Synchronous,
- * and called right before recordPlay with no await between, so what it
- * reads (the Glovebox, the shield, today's counters) is exactly what
- * recordPlay will save against. In order:
- *   1. the daily cap: a capped play ignores the item completely, and no
- *      defence fires against it (not even the shield)
+ * Draw the play's line, with the item, happenings, statuses and defences
+ * applied. Synchronous, and called right before recordPlay with no await
+ * between, so what it reads (the Glovebox, the shield, statuses, today's
+ * counters) is exactly what recordPlay will save against. In order:
+ *   1. the daily cap: a capped play ignores the item and the player's
+ *      statuses completely, and no defence fires against it (not even the
+ *      shield). Happenings still bend it: they're the weather.
  *   2. the rescue shield (doom): blocks a scoring doom, unless it's your
- *      own doom or a Cursed VHS cuts through it
- *   3. outcome weights: the item narrows the pool (pickLine, one draw)
- *   4. Garlic (doom) or the Antidote (potion), for the target
+ *      own doom or a Cursed VHS cuts through it. A blocked doom draws no
+ *      line from the pool, so a Lucky Break or a Jinx waits for the next.
+ *   3. outcome weights: each line's weight is the happenings' multipliers
+ *      × Lucky Break (bad lines out) × the item's (0 takes lines out). All
+ *      multiply, so an item's 0 is 0 whatever else: a Golden Pie still
+ *      can't miss in The Fog.
+ *   4. pickLine — one draw; Jinxed draws twice and keeps the line worse for
+ *      the player (the first, if they're as bad as each other)
+ *   5. Garlic (doom) or the Antidote (potion), for the target
+ *
+ * With no happening, status or item every weight is 1, and the draw is
+ * exactly pick()'s — the many suites that stub Math.random onto a line
+ * still land on it.
  *
  * @param {string} guildId
  * @param {object} play
@@ -141,11 +205,16 @@ export function itemChoices(guildId, userId, { game, action }, typed = '', now =
  * @param {?string} [play.item]
  * @param {'helpful'|'harmful'} [play.effect] - potions
  * @param {object} play.settings
+ * @param {object[]} [play.happenings] - happeningsNow(…): the same list finishPlay hands recordPlay
  * @param {number} [now]
  * @param {() => number} [random] - the line draw (Math.random: tests stub it)
- * @returns {{line: {text, outcome}, outcome: string, item: ?string, mods: {defence?: string}}}
+ * @returns {{line: {text, outcome}, outcome: string, item: ?string,
+ *   mods: {defence?: string, happenings?: string[], statuses?: string[]}}}
+ *   mods.happenings: the happenings whose weights shaped this draw (their
+ *   tags go on the label); mods.statuses: Lucky Break / Jinxed, which
+ *   recordPlay then uses up
  */
-export function resolvePlay(guildId, { game, action, actor, target, lines, blockedLines = [], item = null, effect, settings }, now = Date.now(), random = Math.random) {
+export function resolvePlay(guildId, { game, action, actor, target, lines, blockedLines = [], item = null, effect, settings, happenings = [] }, now = Date.now(), random = Math.random) {
   const data = loadScores(guildId);
   const targetId = target?.kind === 'member' && target.pingUserIds[0] !== actor.id ? target.pingUserIds[0] : null;
   const scored = wouldScore(data, actor.id, game, settings, now);
@@ -161,9 +230,33 @@ export function resolvePlay(guildId, { game, action, actor, target, lines, block
     return { line, outcome: 'blocked', item, mods: { defence: 'shield' } };
   }
 
-  let line = pickLine(lines, fx?.weights || {}, random);
-  let outcome = line.outcome;
+  // The weights, by line outcome: happenings × Lucky Break × the item
+  const live = liveHappenings(happenings, now);
+  const status = scored ? activeStatuses(data.users[actor.id], now) : {};
+  const outcomes = [...new Set((lines || []).map(l => l?.outcome))];
+  const bent = happeningWeights(live, { game, action, outcomes });
+  const weights = {};
+  for (const o of outcomes) {
+    let w = bent.mult[o] ?? 1;
+    if (status.luckybreak && !goodLine(game, o)) w = 0;
+    const itemWeight = fx?.weights && Object.hasOwn(fx.weights, o) ? fx.weights[o] : 1;
+    weights[o] = w * itemWeight;
+  }
   const mods = {};
+  if (bent.touched.length) mods.happenings = bent.touched;
+  const used = [];
+  if (status.luckybreak) used.push('luckybreak');
+
+  let line = pickLine(lines, weights, random);
+  if (status.jinxed) {
+    // Two draws; the player keeps the worse. On equal points the first
+    // stands, so a Jinx never swaps one miss for another for nothing.
+    const second = pickLine(lines, weights, random);
+    if (second && actorValue(game, second.outcome, effect) < actorValue(game, line.outcome, effect)) line = second;
+    used.push('jinxed');
+  }
+  if (used.length) mods.statuses = used;
+  let outcome = line.outcome;
 
   // Garlic: a doom that rolls doomed becomes an escape — and the line says
   // so, drawn from the escapes. Never against a VHS or a capped play.
@@ -204,13 +297,23 @@ export async function finishPlay(interaction, { game, action = null, target, lin
   const actor = { id: interaction.user.id, name: nameOf(interaction) };
   const now = Date.now();
   const pool = lines || [{ text, outcome }];
+  // Read once: the draw and the points use the same list (see the top)
+  const happenings = happeningsNow(interaction.guildId, now, settings);
   // No await between these two: see the top of this file
-  const drawn = resolvePlay(interaction.guildId, { game, action, actor, target, lines: pool, blockedLines, item, effect, settings }, now);
-  const result = recordPlay(interaction.guildId, { game, action, actor, target, outcome: drawn.outcome, effect, settings, item: drawn.item, mods: drawn.mods }, now);
+  const drawn = resolvePlay(interaction.guildId, { game, action, actor, target, lines: pool, blockedLines, item, effect, settings, happenings }, now);
+  const result = recordPlay(interaction.guildId, { game, action, actor, target, outcome: drawn.outcome, effect, settings, item: drawn.item, mods: drawn.mods, happenings }, now);
+  // Who's been playing, and where: a random happening needs a few members
+  // around, and is announced where they last played. Throttled and
+  // never-throwing in the store; after the save, so it can't hold the play up.
+  try {
+    noteActivity(interaction.guildId, { channelId: interaction.channelId || null, userId: actor.id }, now);
+  } catch (error) {
+    console.error('[GamePlay] Couldn\'t note activity:', error.message);
+  }
 
   const names = { actor: actor.name, target: result.targetId ? target.name : null };
   const tail = [
-    resultLine(game, result, names, { label: OUTCOME_LABELS[result.outcome] }),
+    resultLine(game, result, names, { label: outcomeLabel(result) }),
     ...extraLines(result, names),
   ].join('\n');
   // Over Discord's limit, the line itself gives way — never the points or

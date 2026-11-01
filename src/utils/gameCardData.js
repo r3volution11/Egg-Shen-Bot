@@ -1,6 +1,7 @@
 /**
  * What R3 adds to a member's game card, read from the scores file: the
- * rewards in progress, the nights row, the Glovebox and titles. Read-only
+ * rewards in progress, the nights row, the Glovebox and titles — and R4's
+ * statuses from twists and the server's happenings in progress. Read-only
  * — the card never writes — and shaped for gameCard.js to draw (agent F's
  * renderer reads exactly these field names; change them together).
  *
@@ -9,12 +10,14 @@
  * card shows alive is one the next play will extend.
  */
 
-import { loadScores, earnedTitles, shownTitleOf, canBurnLight } from './gameScores.js';
+import { loadScores, earnedTitles, shownTitleOf, canBurnLight, activeStatuses } from './gameScores.js';
 import {
-  nightKey, nightsBetween, shiftNight, nightTier, nextNightTier, nextNightLightAt, titleProgress,
+  nightKey, nightsBetween, shiftNight, nightTier, nextNightTier, nextNightLightAt, titleProgress, liveHappenings,
 } from './gameRules.js';
-import { ITEMS, PRIZES, TITLES, NIGHTS_SHOWN, NIGHT_LIGHT_DAYS } from '../data/gameRewards.js';
+import { happeningsNow } from './gamePlay.js';
+import { ITEMS, PRIZES, TITLES, NIGHTS_SHOWN, NIGHT_LIGHT_DAYS, TWISTS } from '../data/gameRewards.js';
 import { NO_TITLE_CHOICE } from '../data/gameRewardLines.js';
+import { STATUS_NOTES } from '../data/gameEventLines.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -57,12 +60,47 @@ function nightRow(user, now) {
 const titleCard = (t) => ({ key: t.key, title: t.title, badge: t.badge });
 
 /**
+ * The statuses twists left on a member that are still running (R4), in
+ * TWISTS order — good ones first, as the table lists them. `until` is when
+ * an unused one runs out (24 h after it was given or refreshed);
+ * `playsLeft` is there for the ones that count plays.
+ */
+function statusesOf(user, now) {
+  const running = activeStatuses(user, now);
+  return Object.keys(TWISTS)
+    .filter(key => running[key])
+    .map(key => {
+      const t = TWISTS[key];
+      const s = running[key];
+      return {
+        kind: key, icon: t.emoji, name: t.name, about: STATUS_NOTES[key] || '', good: t.good,
+        ...(t.plays ? { playsLeft: s.playsLeft } : {}),
+        until: s.until,
+      };
+    });
+}
+
+/** A happening as the cards show it: no mods, just what it is and when it ends */
+const happeningCard = (h) => ({
+  kind: h.kind, name: h.name, emoji: h.emoji, tag: h.tag, about: h.about,
+  endsAt: Number.isFinite(h.endsAt) ? h.endsAt : null, calendar: !!h.calendar,
+});
+
+/**
  * One member's rewards, for their card.
+ * @param {string} guildId
+ * @param {string} userId
+ * @param {object} [options]
+ * @param {number} [options.now]
+ * @param {?object} [options.settings] - getGameSettings(config): happenings switched off → none shown
+ * @param {object[]} [options.happenings] - the happenings in progress, if already read (tests pass a list)
  * @returns {{
  *   progress: Array<{key, game, icon, label, have, need, prize: {item, name, icon, points}, waiting}>,
  *   nights: {current, best, tier: ?{key, name, emoji}, next: ?{at, name}, row: string[]},
  *   glovebox: Array<{item, name, icon, count, cap, passive, about, readyAt}>,
  *   titles: {shown: ?{key, title, badge}, earned: Array<{key, title, badge, at}>, next: Array<{key, title, badge, have, need}>},
+ *   effects: Array<{kind, icon, name, about, good, playsLeft?, until}>,
+ *   happenings: Array<{kind, name, emoji, tag, about, endsAt: ?number, calendar: boolean}>,
  * }}
  *   progress: every recurring counter in a stable order, the nights row's
  *     Night Light last; `waiting` = held at need − 1 by the daily prize cap.
@@ -73,8 +111,11 @@ const titleCard = (t) => ({ key: t.key, title: t.title, badge: t.badge });
  *     qualified for before R3 and hasn't played since (granted on their
  *     next play, silently).
  *   titles.next: up to 3 unearned titles, closest first.
+ *   effects: the statuses twists left (R4), beside the rescue shield the
+ *     card already shows; `icon` is Unicode (the kit has no codes for them).
+ *   happenings: the server's happenings in progress (R4), ended ones left out.
  */
-export function getPlayerCardExtras(guildId, userId, { now = Date.now() } = {}) {
+export function getPlayerCardExtras(guildId, userId, { now = Date.now(), settings = null, happenings = undefined } = {}) {
   const data = loadScores(guildId);
   const user = data.users[userId] || null;
 
@@ -137,7 +178,10 @@ export function getPlayerCardExtras(guildId, userId, { now = Date.now() } = {}) 
       .slice(0, 3),
   };
 
-  return { progress, nights, glovebox, titles };
+  const effects = statusesOf(user, now);
+  const going = liveHappenings(happenings === undefined ? happeningsNow(guildId, now, settings) : happenings, now);
+
+  return { progress, nights, glovebox, titles, effects, happenings: going.map(happeningCard) };
 }
 
 /**

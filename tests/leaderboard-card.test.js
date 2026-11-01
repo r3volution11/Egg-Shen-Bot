@@ -20,6 +20,7 @@ import * as leaderboardCommand from '../src/commands/leaderboard.js';
 import { renderLeaderboard, layoutLeaderboard, LEADERBOARD_STEPS } from '../src/utils/leaderboardCard.js';
 import { createKit, KIT_CODES, MAX_EMOJI_MARKUP } from '../src/utils/emojiKit.js';
 import { messageProblems, embedTextLength, LIMITS } from '../src/utils/embedFit.js';
+import { HAPPENINGS, CALENDAR_HAPPENINGS } from '../src/data/gameHappenings.js';
 
 const GUILD = 'leaderboard-card-guild';
 const NOW = Date.UTC(2026, 10, 15, 12, 0, 0); // 15 Nov 2026
@@ -345,6 +346,63 @@ describe('always within Discord\'s limits', () => {
       const rest = text.replace(/<a?:\w+:\d+>/g, '');
       expect(rest).not.toMatch(/<:/);
       expect((text.match(/`/g) || []).length % 2).toBe(0);
+    }
+  });
+});
+
+// ── R4: "In progress" ────────────────────────────────────────────────────
+
+/** A happening as /leaderboard hands it in (activeHappenings' shape) */
+const happening = (kind, endsAt = NOW + 30 * 60 * 1000) => {
+  const h = HAPPENINGS[kind] || CALENDAR_HAPPENINGS[kind];
+  return { kind, name: h.name, emoji: h.emoji, tag: h.tag, about: h.about, mods: h.mods, endsAt, calendar: !HAPPENINGS[kind] };
+};
+const ENDS_AT = Math.floor((NOW + 30 * 60 * 1000) / 1000);
+
+describe('R4: what\'s in progress', () => {
+  test('a happening and a calendar day: the last field, one line each; an ended one isn\'t there', () => {
+    november();
+    const data = { ...cardData(getLeaderboard(GUILD, 'all', 'month', {}, NOW)), happenings: [happening('fullmoon'), happening('friday13', null), happening('fog', NOW)] };
+    const d = renderLeaderboard(data, { kit: fallback, now: NOW }).toJSON();
+    expect(d.fields.at(-1)).toEqual({
+      name: '⏰ In progress',
+      value: `🌕 Full Moon: dooms score double · ends <t:${ENDS_AT}:R>\n🔪 Friday the 13th: bad luck is likelier, good plays +1 · all day`,
+      inline: false,
+    });
+    expect(d.fields.at(-2).name).toBe('📊 Server stats');
+    // With the kit uploaded the heading's clock is its icon; the happening stays the emoji it is
+    const up = renderLeaderboard(data, { kit: uploaded, now: NOW }).toJSON();
+    expect(up.fields.at(-1).name).toBe(`${E('clock')} In progress`);
+    expect(misplacedEmoji(renderLeaderboard(data, { kit: uploaded, now: NOW }))).toEqual([]);
+  });
+
+  test('nothing in progress (or only ended ones): no field', () => {
+    november();
+    const plain = renderLeaderboard(cardData(getLeaderboard(GUILD, 'all', 'month', {}, NOW)), { kit: fallback, now: NOW }).toJSON();
+    const ended = renderLeaderboard({ ...cardData(getLeaderboard(GUILD, 'all', 'month', {}, NOW)), happenings: [happening('fog', NOW)] }, { kit: fallback, now: NOW }).toJSON();
+    expect(plain.fields.map(f => f.name)).not.toContain('⏰ In progress');
+    expect(ended).toEqual(plain);
+  });
+
+  test('nobody has played, but the moon is full: the best reason to be first', () => {
+    const data = { ...cardData(getLeaderboard(GUILD, 'all', 'month', {}, NOW)), happenings: [happening('fullmoon')] };
+    expect(renderLeaderboard(data, { kit: fallback, now: NOW }).toJSON()).toEqual({
+      color: 0xF1C40F,
+      title: 'Leaderboard · All games · November 2026',
+      description: 'Nobody has played yet. Be the first!',
+      fields: [{ name: '⏰ In progress', value: `🌕 Full Moon: dooms score double · ends <t:${ENDS_AT}:R>`, inline: false }],
+      footer: { text: 'Your own card: /scoreboard' },
+    });
+  });
+
+  test('the worst case with two happenings in progress still fits, at the same steps as without', () => {
+    const going = [happening('sunrise'), happening('friday13', null)];
+    for (const [kit, step] of [[fallback, 0], [longest, 1]]) {
+      const { embed, step: took } = layoutLeaderboard({ ...worst(), happenings: going }, { kit, now: NOW });
+      expect(messageProblems({ embeds: [embed] })).toEqual([]);
+      expect(took).toBe(step);
+      expect(rowsOn(embed)).toBe(15);
+      expect(embed.toJSON().fields.at(-1).value.split('\n')).toHaveLength(2);
     }
   });
 });

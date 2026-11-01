@@ -1,7 +1,8 @@
 /**
  * The games' rules that need no storage: how a line is drawn, what an item
- * does to a play, how multipliers are capped, how nights are counted, and
- * how far a member is toward a title. Pure functions, so recordPlay
+ * does to a play, how multipliers are capped, how a happening's `mods`
+ * match a play (R4), how nights are counted, and how far a member is
+ * toward a title. Pure functions, so recordPlay
  * (gameScores.js), resolvePlay (gamePlay.js) and the card
  * (gameCardData.js) all read the same rule instead of three copies of it.
  *
@@ -14,6 +15,23 @@ import {
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
+
+/**
+ * Outcomes that extend a streak; any other (but `blocked`) ends it. Also
+ * what the nights-in-a-row buff pays on. Lives here, not in gameScores.js
+ * (which re-exports it), so the happening and twist rules below can use it
+ * without a circular import.
+ */
+export const GOOD = new Set(['hit', 'tasty', 'doomed', 'rescued', 'helped', 'hurt']);
+
+/**
+ * Is a LINE's outcome good for the player? Potion lines are tagged
+ * `worked`/`backfired` until recordPlay scores them as helped/hurt, so a
+ * potion that works is good whichever way it works. `blocked` is neither
+ * good nor bad: nothing happened.
+ */
+export const goodLine = (game, outcome) => GOOD.has(outcome) || (game === 'potion' && outcome === 'worked');
+export const badLine = (game, outcome) => outcome !== 'blocked' && !goodLine(game, outcome);
 
 // ── drawing a line ──────────────────────────────────────────────────────
 
@@ -100,6 +118,105 @@ export function scalePoints([actor, target], { gain = 1, loss = 1, target: onTar
   return [a, times(target, onTarget, MULTIPLIER_CAPS.target)];
 }
 
+// ── happenings (R4) ─────────────────────────────────────────────────────
+
+/**
+ * The happenings that count NOW. The store's activeHappenings already
+ * leaves out a random one past its end, but the list is fetched once per
+ * play and handed down, and a stored one a late scheduler hasn't cleared
+ * yet must not stretch past its endsAt — so the rules check the clock
+ * themselves. A calendar happening has endsAt null: it's on all day.
+ */
+export function liveHappenings(list, now = Date.now()) {
+  return (Array.isArray(list) ? list : []).filter(h => h && typeof h === 'object'
+    && !(Number.isFinite(h.endsAt) && now >= h.endsAt));
+}
+
+/**
+ * Does one `mods.weights` or `mods.points` rule (gameHappenings.js) match
+ * this play? Each of game/action/outcome narrows it when given; `bad: true`
+ * matches every outcome that isn't good (and isn't `blocked`).
+ */
+export function ruleMatches(rule, { game, action, outcome }) {
+  if (!rule) return false;
+  if (rule.game && rule.game !== game) return false;
+  if (rule.action && rule.action !== action) return false;
+  if (rule.bad) return badLine(game, outcome);
+  return !rule.outcome || rule.outcome === outcome;
+}
+
+/** A multiplier from a happening's data: a finite number ≥ 0, or null to skip it */
+const factor = (v) => {
+  const f = Number(v);
+  return Number.isFinite(f) && f >= 0 ? f : null;
+};
+
+/**
+ * The happenings' weight multipliers for each line outcome in a draw, and
+ * which happenings touched it (a rule matched an outcome actually in the
+ * pool) — those get their tag on the play's label.
+ * @returns {{mult: Object<string, number>, touched: string[]}}
+ */
+export function happeningWeights(live, { game, action, outcomes }) {
+  const mult = {};
+  const touched = new Set();
+  for (const outcome of outcomes) {
+    let m = 1;
+    for (const h of live) {
+      for (const rule of h.mods?.weights || []) {
+        const f = factor(rule?.mult);
+        if (f === null || !ruleMatches(rule, { game, action, outcome })) continue;
+        m *= f;
+        touched.add(h.kind);
+      }
+    }
+    mult[outcome] = m;
+  }
+  return { mult, touched: [...touched] };
+}
+
+/**
+ * The happenings' points multiplier for a play (both sides), before the
+ * caps, and which happenings it came from. Double Feature × Full Moon is ×4
+ * here; scalePoints caps it.
+ * @returns {{mult: number, kinds: string[]}}
+ */
+export function happeningPoints(live, play) {
+  let mult = 1;
+  const kinds = [];
+  for (const h of live) {
+    for (const rule of h.mods?.points || []) {
+      const f = factor(rule?.mult);
+      if (f === null || !ruleMatches(rule, play)) continue;
+      mult *= f;
+      if (!kinds.includes(h.kind)) kinds.push(h.kind);
+    }
+  }
+  return { mult, kinds };
+}
+
+/**
+ * A number-valued mod across the live happenings — multiplied (shieldMult,
+ * twistMult) or added (goodBonus, `add: true`) — and the kinds that gave
+ * it. A mod that changes nothing (×1, +0) gives no kind, so it never earns
+ * a tag on the label.
+ * @returns {{value: number, kinds: string[]}}
+ */
+export function happeningMod(live, key, { add = false } = {}) {
+  let value = add ? 0 : 1;
+  const kinds = [];
+  for (const h of live) {
+    const v = factor(h.mods?.[key]);
+    if (v === null || v === (add ? 0 : 1)) continue;
+    value = add ? value + v : value * v;
+    kinds.push(h.kind);
+  }
+  return { value, kinds };
+}
+
+/** The live happenings that keep streaks through a bad outcome (Be Kind, Rewind) */
+export const streakKeepers = (live) => live.filter(h => h.mods?.keepStreaks === true).map(h => h.kind);
+
 // ── nights in a row ─────────────────────────────────────────────────────
 
 /**
@@ -146,6 +263,7 @@ export function nextNightLightAt(n) {
  *   do:  { game: { outcome: n } }   // their own scored plays
  *   got: { game: { outcome: n } }   // done to them by someone's scored play
  *   streak: { game: n }, bestStreak  // good outcomes in a row, scored plays only
+ *   twists: n                        // R4: twists that happened to them, scored plays only
  * }
  *
  * Why not the all-time stats every card shows? Those count capped plays
@@ -192,6 +310,8 @@ export function titleProgress(user, title) {
   if (title.nights) return user?.nights?.best || 0;
   const life = lifetimeOf(user);
   if (title.streak) return life.bestStreak || 0;
+  // R4: twists start at 0 for everyone (lifetimeFrom has none to find)
+  if (title.twists) return life.twists || 0;
   return title.did ? summed(life.do, title.did) : summed(life.got, title.got || {});
 }
 

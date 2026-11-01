@@ -38,6 +38,7 @@ const SHARED_PATH_VARS = [
   'GUILD_WATCH_HISTORY_DIR',
   'GUILD_GAMES_DIR',
   'GUILD_ESCAPE_DIR',
+  'GUILD_HAPPENINGS_DIR',
 ];
 
 function allSuites() {
@@ -83,7 +84,7 @@ describe('no suite recursively deletes a directory it shares with others', () =>
     expect(offenders).toEqual([]);
   });
 
-  test('the guard flags an unclaimed delete of each shared directory, the games\' and Escape\'s included', () => {
+  test('the guard flags an unclaimed delete of each shared directory, the games\', Escape\'s and happenings\' included', () => {
     // Checked on a made-up source, so no suite that really deletes anything
     // has to exist for the guard to be shown working
     for (const v of SHARED_PATH_VARS) {
@@ -91,7 +92,7 @@ describe('no suite recursively deletes a directory it shares with others', () =>
       expect(`${v}: ${isUnsafe({ source })}`).toBe(`${v}: true`);
       expect(`${v} claimed: ${isUnsafe({ source: `process.env.${v} = mine;\n${source}` })}`).toBe(`${v} claimed: false`);
     }
-    expect(SHARED_PATH_VARS).toEqual(expect.arrayContaining(['GUILD_GAMES_DIR', 'GUILD_ESCAPE_DIR']));
+    expect(SHARED_PATH_VARS).toEqual(expect.arrayContaining(['GUILD_GAMES_DIR', 'GUILD_ESCAPE_DIR', 'GUILD_HAPPENINGS_DIR']));
   });
 });
 

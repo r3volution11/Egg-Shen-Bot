@@ -9,6 +9,43 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.72.0 - 2026-11-01
+
+### Added
+- **Twists.** Now and then (4% of scoring plays) something happens to you on top of your play. Some are good:
+  - 💰 Loose Change, +3
+  - 🎁 Glovebox Find, a free item
+  - 🍀 Lucky Break, your next play goes your way
+  - 👻 Friendly Ghost, a 30-minute shield from /doom
+
+  Some are bad:
+  - 🦝 Pickpocketed, −3
+  - 🧛 Bitten, half points for 3 plays
+  - 🐈‍⬛ Jinxed, your next play keeps the worse of two draws
+  - 🚗 Car Break-In, an item stolen
+
+  There are 16 in all. They only ever touch you, never the person you aimed at. You get at most 3 a day, a bad one is always followed by a good one, and twists can cost you at most 8 points a day and never take your month below 0. Ongoing ones show on your card under 🌀 In effect. 30 twists earns the 🎲 Plot Twist title. See [Twists](/commands/games#twists)
+- **Happenings: events for the whole server.** About once a day on a busy server, something takes over for 30–60 minutes and the bot announces it:
+  - 🌕 Full Moon: dooms score double
+  - 🍻 Happy Hour: feeds are tastier
+  - 🌫️ The Fog: throws miss a lot more
+  - 🎞️ Double Feature: every point counts twice
+  - 🌅 Sunrise: rescues rarely get caught, and shields last longer
+  - 🧪 Mad Scientist Hour: potions backfire less
+  - 📼 Be Kind, Rewind: a bad play won't break your streak
+  - 🎪 Intermission: twists are three times as likely
+
+  Halloween and Friday the 13th each get an all-day happening of their own. A play a happening changed shows its tag (`💀 Doomed! 🌕×2`), and the cards and the leaderboard show what's on. See [Happenings](/commands/games#happenings)
+- **`/eggshen-config-games happenings`** (Admin/Mod): how often happenings come (off, rare, normal, often), which channel announces them, start or end one now, and switch twists off or change their chance. Both are on after this update. See [Happenings and twists settings](/commands/games#happenings-and-twists)
+
+### Developer
+- `src/data/gameHappenings.js` is the contract between the scheduler and the play rules: each happening's duration, rate and `mods` (weights, points, goodBonus, shieldMult, keepStreaks, twistMult). Calendar happenings are worked out from the date
+- `src/utils/happeningStore.js` (`guild_happenings/`, `GUILD_HAPPENINGS_DIR`; atomic writes with `.bak`): `activeHappenings` checks expiry by the clock, so effects stop on time even if the scheduler runs late. Also `noteActivity` (throttled, 7-day prune) and `maybeSpawn` (gap, daily cap, recent players, real lunar phase for Full Moon). Spawn chance per active minute is Σrate × frequency / 240; seeded simulations give about 1 a day at normal
+- `src/utils/happeningScheduler.js`: a 60-second pass with a per-server running flag. It saves the claim before sending, so an announcement is never sent twice or late after a restart, and checks channel permissions before posting
+- Twists in `recordPlay`, rolled with `gameLuck` after the play's own scoring. Statuses live in `users[uid].effects`. Happening weights apply in `resolvePlay`, and points inside `MULTIPLIER_CAPS` (shield ×6 max). `GOOD` moved to `gameRules.js` (re-exported)
+- Tests: `game-twists`, `game-happening-mods`, `happening-store`, `game-happenings` (FakeDiscord, fake clock, real commands, restart cases), plus card and leaderboard cases. 110 rules break-tested. `GAME_HAPPENINGS=off` in `jest.setup.js` keeps calendar days from changing other suites' draws
+- New subcommand: needs `deploy-commands`
+
 ## 2.71.0 - 2026-11-01
 
 ### Added

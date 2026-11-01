@@ -23,6 +23,12 @@
  * Glovebox, defences, recurring prizes, titles, and nights in a row. The
  * numbers are in src/data/gameRewards.js, the words in gameRewardLines.js,
  * and the pure rules in gameRules.js.
+ *
+ * R4 adds twists (a small chance, on a scored play, of something happening
+ * to the player: TWISTS in gameRewards.js, words in gameEventLines.js) and
+ * the statuses they leave in users[uid].effects, and applies the server's
+ * happenings (gameHappenings.js `mods`) to the points — still inside the
+ * same one save.
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, copyFileSync } from 'fs';
@@ -30,14 +36,15 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   ITEMS, DEFENCES, DAILY, FULL_STACK_POINTS, TITLE_POINTS, PRIZES, RANDOM_PRIZE_ITEMS, TITLES,
-  NIGHTS_SHOWN, NIGHT_LIGHT_DAYS,
+  NIGHTS_SHOWN, NIGHT_LIGHT_DAYS, MULTIPLIER_CAPS, TWISTS, TWIST_RULES,
 } from '../data/gameRewards.js';
 import {
   ITEM_USED, ITEM_KEPT, SHIELD_BROKEN, DEFENCE_LINES, prizeLine, prizeHeldLine, titleLine, NIGHT_LINES,
 } from '../data/gameRewardLines.js';
+import { twistLine, STATUS_USED, HAPPENING_LINES, calendarLine } from '../data/gameEventLines.js';
 import {
   actionFor, itemEffect, scalePoints, nightKey, nightsBetween, shiftNight, nightTier, earnsNightLight, qualifiesFor,
-  owns, lifetimeFrom,
+  owns, lifetimeFrom, pickLine, GOOD, liveHappenings, happeningPoints, happeningMod, streakKeepers,
 } from './gameRules.js';
 import { luck } from './gameLuck.js';
 
@@ -68,9 +75,10 @@ export const POINTS = {
 
 /**
  * Outcomes that extend a streak; any other (but `blocked`) ends it. Also
- * what the nights-in-a-row buff pays on.
+ * what the nights-in-a-row buff pays on. Defined in gameRules.js since R4
+ * (the happening rules need it there); exported here as it always was.
  */
-export const GOOD = new Set(['hit', 'tasty', 'doomed', 'rescued', 'helped', 'hurt']);
+export { GOOD };
 
 /** Rescue outcomes that shield the one rescued from the next /doom */
 const SHIELDING = new Set(['rescued', 'sacrificed']);
@@ -84,7 +92,23 @@ export const DEFAULT_GAME_SETTINGS = {
   // 'except' (everywhere but `channels`). Doug asked for both, 2026-10-02.
   channelMode: 'all',
   channels: [],
+  // R4. Twists: a small chance on each scored play of something happening
+  // to the player (good or bad). On after the upgrade, as Doug asked;
+  // admins can turn the chance down (0 = never) or switch them off.
+  twists: true,
+  twistPercent: 4, // per scored play, 0–15
+  // Happenings: server-wide events (src/data/gameHappenings.js). Random
+  // ones are started by the happening scheduler; calendar ones just are.
+  happenings: true,
+  happeningFrequency: 'normal', // HAPPENING_RULES.frequency: off | rare | normal | often
+  happeningChannel: null, // where they're announced; null = the scheduler picks
 };
+
+/** Admin frequency choices for random happenings, in the order offered */
+export const HAPPENING_FREQUENCIES = Object.freeze(['off', 'rare', 'normal', 'often']);
+
+/** The most an admin can set the twist chance to: past this it stops being a twist */
+export const TWIST_PERCENT_MAX = 15;
 
 /** The server's game settings. Configs predating the key lack it. */
 export function getGameSettings(config) {
@@ -93,6 +117,16 @@ export function getGameSettings(config) {
     const v = Number(g[key]);
     return Number.isFinite(v) && v >= min && v <= max ? v : DEFAULT_GAME_SETTINGS[key];
   };
+  // A switch: only a real boolean counts, so a config that never had the key
+  // (every server before R4) reads as the default, on
+  const flag = (key) => (typeof g[key] === 'boolean' ? g[key] : DEFAULT_GAME_SETTINGS[key]);
+  // The twist chance is a whole percentage. Out of range is clamped rather
+  // than reset: an admin who typed 20 meant "as many as allowed", not 4.
+  // Not a number at all (or never set) is the default.
+  const twistRaw = g.twistPercent === null || g.twistPercent === undefined || g.twistPercent === '' ? NaN : Number(g.twistPercent);
+  const twistPercent = Number.isFinite(twistRaw)
+    ? Math.min(TWIST_PERCENT_MAX, Math.max(0, Math.round(twistRaw)))
+    : DEFAULT_GAME_SETTINGS.twistPercent;
   return {
     cooldownSeconds: pick('cooldownSeconds', 0, 3600),
     perMinute: pick('perMinute', 1, 60),
@@ -100,6 +134,14 @@ export function getGameSettings(config) {
     shieldMinutes: pick('shieldMinutes', 0, 1440),
     channelMode: ['all', 'only', 'except'].includes(g.channelMode) ? g.channelMode : 'all',
     channels: Array.isArray(g.channels) ? g.channels.filter(id => typeof id === 'string') : [],
+    twists: flag('twists'),
+    twistPercent,
+    happenings: flag('happenings'),
+    happeningFrequency: HAPPENING_FREQUENCIES.includes(g.happeningFrequency) ? g.happeningFrequency : DEFAULT_GAME_SETTINGS.happeningFrequency,
+    // A channel id string; anything else (unset, cleared to null or '')
+    // means the scheduler picks. Whether the channel still exists, and the
+    // bot can post there, is the scheduler's check at announce time.
+    happeningChannel: typeof g.happeningChannel === 'string' && g.happeningChannel ? g.happeningChannel : null,
   };
 }
 
@@ -387,6 +429,47 @@ function countNight(user, now) {
   return info;
 }
 
+// ── statuses (R4) ───────────────────────────────────────────────────────
+
+const STATUS_MS = TWIST_RULES.statusHours * 60 * 60 * 1000;
+
+/**
+ * The statuses twists left on a member that are still running, by key:
+ * { luckybreak: {at, until}, refill: {at, until, playsLeft}, … }. One past
+ * its 24 hours, or with no plays left, is over whether or not a save has
+ * cleared it yet. Read-only: the card and resolvePlay call it too.
+ */
+export function activeStatuses(user, now = Date.now()) {
+  const out = {};
+  for (const [key, s] of Object.entries(user?.effects || {})) {
+    if (!owns(TWISTS, key) || !TWISTS[key].status || !s) continue;
+    if (!(s.until > now) || (TWISTS[key].plays && !(s.playsLeft > 0))) continue;
+    out[key] = s;
+  }
+  return out;
+}
+
+/**
+ * Give a member a status. A repeat REFRESHES it — 24 hours from now, its
+ * plays back to full — rather than stacking: two Bitten twists are one
+ * Bitten for three more plays, not six plays of halving. A status with an
+ * `opposite` clears it (a Lucky Break ends a Jinx, and the other way).
+ */
+function setStatus(user, key, now) {
+  const twist = TWISTS[key];
+  const effects = (user.effects ||= {});
+  effects[key] = { at: now, until: now + STATUS_MS, ...(twist.plays ? { playsLeft: twist.plays } : {}) };
+  if (twist.opposite) delete effects[twist.opposite];
+}
+
+/** Drop statuses that are over, so the file only holds what's running */
+function pruneStatuses(user, now) {
+  if (!user.effects) return;
+  const running = activeStatuses(user, now);
+  for (const key of Object.keys(user.effects)) if (!running[key]) delete user.effects[key];
+  if (!Object.keys(user.effects).length) delete user.effects;
+}
+
 // ── shields ─────────────────────────────────────────────────────────────
 
 /** Until when this person is shielded from /doom, or null */
@@ -398,21 +481,29 @@ export function shieldedUntil(guildId, userId, now = Date.now()) {
 // ── recording a play ────────────────────────────────────────────────────
 
 /**
- * Record one play and move the points — and, since R3, everything a play
- * can earn — in ONE synchronous load-modify-save. In order:
+ * Record one play and move the points — and everything a play can earn —
+ * in ONE synchronous load-modify-save. In order (R3, with R4's steps):
  *   the daily cap → the item (a capped play ignores it completely) →
  *   defences (decided by resolvePlay, used up here) → base points →
- *   multipliers → flat additions → stats and shields → nights in a row and
- *   its buff → prize counters and prizes (DAILY.prizes a day) → titles,
- *   for the player and a member target.
+ *   multipliers (happenings × item × Director's Cut, capped) → flat
+ *   additions and statuses (the item's, Bitten) → streaks (Be Kind,
+ *   Rewind and Second Wind keep one) → stats and shields (Sunrise) →
+ *   Free Refill, Mosquito Swarm and a happening's goodBonus → nights in a
+ *   row and its buff → prize counters and prizes (DAILY.prizes a day) →
+ *   titles, for the player and a member target → the twist roll (R4) and
+ *   the Plot Twist title.
  *
  * Commands reach this through finishPlay → resolvePlay, which draws the
- * line with the item and defences applied. Tests (and anything else) may
- * still pass a bare `outcome`, `'blocked'` included.
+ * line with the item, happenings, statuses and defences applied. Tests
+ * (and anything else) may still pass a bare `outcome`, `'blocked'`
+ * included.
  *
  * Rewards are earned on scored plays only: a capped play still counts in
  * the stats, and what it adds to a title's count is picked up by the next
- * scored play.
+ * scored play. Statuses wait for a scored play too, and for one where
+ * something happened (not a blocked doom): a Free Refill spent on a play
+ * worth nothing would be no refill at all. Happenings bend every play,
+ * capped or not — they're the weather, not a reward.
  *
  * @param {string} guildId
  * @param {object} play
@@ -424,19 +515,31 @@ export function shieldedUntil(guildId, userId, now = Date.now()) {
  * @param {'helpful'|'harmful'} [play.effect] - potions only
  * @param {object} [play.settings] - getGameSettings(config)
  * @param {?string} [play.item] - the Glovebox item asked for (an ITEMS key)
- * @param {object} [play.mods] - from resolvePlay: { defence: 'garlic'|'antid' }
+ * @param {object} [play.mods] - from resolvePlay: { defence?: 'garlic'|'antid'|'shield',
+ *   happenings?: kinds whose weights shaped the draw, statuses?: ['luckybreak'|'jinxed'] that shaped it }
+ * @param {object[]} [play.happenings] - activeHappenings(guildId, now): the SAME list resolvePlay drew with
  * @returns {{outcome, action, scored, capped, actorDelta, targetDelta, actorPoints, streak, shieldedUntil, targetId,
  *   item: ?{key, used, note}, defence: ?{key, readyAt?}, shieldBroken, rewards: object[], titles: object[],
- *   nights: ?object, bonus: number, targetBonus: number}}
+ *   nights: ?object, bonus: number, targetBonus: number,
+ *   twist: ?object, statuses: object[], happenings: Array<{kind, tag}>, happeningLines: object[], calendar: object[]}}
+ *   twist: { key, good, points?, item?, overflow?, until?, cancelled?, streak?, gameName? }
+ *   statuses: the statuses that acted on THIS play, in the order they did
+ *   happenings: those that changed this play, for the label's tags
+ *   happeningLines: { kind: 'goodBonus'|'keptStreak', happening, points? }
+ *   calendar: calendar happenings to mention (once per member per UTC day)
  */
-export function recordPlay(guildId, { game, action = null, actor, target, outcome, effect, settings = DEFAULT_GAME_SETTINGS, item = null, mods = {} }, now = Date.now()) {
+export function recordPlay(guildId, { game, action = null, actor, target, outcome, effect, settings = DEFAULT_GAME_SETTINGS, item = null, mods = {}, happenings = [] }, now = Date.now()) {
   if (game === 'potion' && outcome === 'worked') outcome = effect === 'harmful' ? 'hurt' : 'helped';
   const points = owns(POINTS, game) && owns(POINTS[game], outcome) ? POINTS[game][outcome] : null;
   if (!points) throw new Error(`Unknown outcome "${outcome}" for ${game}`);
   action ||= actionFor(game, outcome);
+  // Checked against the clock here too: a happening past its endsAt does
+  // nothing, even if the store still holds it (gameRules.liveHappenings)
+  const live = liveHappenings(happenings, now);
 
   return mutateScores(guildId, (data) => {
-    const periods = Object.values(periodKeys(now));
+    const keys = periodKeys(now);
+    const periods = Object.values(keys);
     const today = dayKey(now);
 
     // The daily cap: plays still happen and are counted, unscored
@@ -488,18 +591,83 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       theirs.defences = (theirs.defences || 0) + 1;
     }
 
+    // R4: which happenings changed this play (their tags go on the label):
+    // those that shaped the draw (resolvePlay), and those below
+    const touched = new Set(Array.isArray(mods.happenings) ? mods.happenings : []);
+    const good = GOOD.has(outcome);
+    const bad = !good && outcome !== 'blocked';
+    // Statuses act on a scored play where something happened (see above)
+    const acts = scored && outcome !== 'blocked';
+    pruneStatuses(me, now);
+    const status = acts ? activeStatuses(me, now) : {};
+    const statuses = [];
+    // Lucky Break and Jinxed shaped the draw (resolvePlay); they're spent now
+    for (const key of Array.isArray(mods.statuses) ? mods.statuses : []) {
+      if (key !== 'luckybreak' && key !== 'jinxed') continue;
+      if (!status[key]) continue;
+      delete me.effects[key];
+      statuses.push({ key });
+    }
+
     // Points: base, then multipliers, then flat additions
     let [actorPts, targetPts] = scored ? points : [0, 0];
     if (defence?.key === 'antid') [actorPts, targetPts] = DEFENCES.antid.points;
-    [actorPts, targetPts] = scalePoints([actorPts, targetPts], { gain: fx?.gain || 1 });
+    // Happenings multiply BOTH sides; items and Director's Cut only your
+    // gains. scalePoints caps the products (MULTIPLIER_CAPS), so an item
+    // never makes a target lose more, and Double Feature on a Golden Pie
+    // is ×3, not ×4.
+    const hp = scored ? happeningPoints(live, { game, action, outcome }) : { mult: 1, kinds: [] };
+    const scale = (cut) => scalePoints([actorPts, targetPts], { gain: (fx?.gain || 1) * hp.mult * cut, loss: hp.mult, target: hp.mult });
+    // Director's Cut: the next GOOD outcome's points ×2 — spent on it even
+    // when the cap leaves nothing to double, and the line says so
+    const cut = acts && good && status.dcut;
+    const scaled = scale(cut ? 2 : 1);
+    if (cut) {
+      statuses.push({ key: 'dcut', wasted: scaled[0] === scale(1)[0] });
+      delete me.effects.dcut;
+    }
+    if (hp.kinds.length && (actorPts !== 0 || (targetId && targetPts !== 0))) hp.kinds.forEach(k => touched.add(k));
+    [actorPts, targetPts] = scaled;
     if (fx?.actorPlus) actorPts += fx.actorPlus;
     if (fx?.targetPlus && targetId) targetPts += fx.targetPlus;
 
-    // Streak: good outcomes extend it, bad ones end it; a blocked doom neither
+    // Bitten: this play's gain halved, rounded down. Each acting play uses
+    // one of its plays, gain or not — "for your next 3 plays".
+    if (status.bitten) {
+      status.bitten.playsLeft -= 1;
+      if (actorPts > 0) {
+        const before = actorPts;
+        actorPts = Math.floor(actorPts / 2);
+        statuses.push({ key: 'bitten', before, after: actorPts, left: status.bitten.playsLeft });
+      }
+    }
+
+    // Streak: good outcomes extend it, bad ones end it; a blocked doom
+    // neither. A bad outcome keeps it during Be Kind, Rewind (every play,
+    // capped or not: it's the server's weather), or once with Second Wind
+    // — spent only when there's a streak to keep, and not when a
+    // happening is keeping it anyway.
     const all = statsFor(data, actor.id, actor.name, game, 'all');
-    if (GOOD.has(outcome)) all.streak = (all.streak || 0) + 1;
-    else if (outcome !== 'blocked') all.streak = 0;
-    const streak = all.streak || 0;
+    const life = me.lifetime;
+    const hadStreak = (all.streak || 0) > 0 || (scored && (life.streak[game] || 0) > 0);
+    const happeningLines = [];
+    let kept = false;
+    if (bad && hadStreak) {
+      const keepers = streakKeepers(live);
+      if (keepers.length) {
+        kept = true;
+        for (const k of keepers) {
+          touched.add(k);
+          happeningLines.push({ kind: 'keptStreak', happening: k });
+        }
+      } else if (status.secondwind) {
+        kept = true;
+        delete me.effects.secondwind;
+        statuses.push({ key: 'secondwind' });
+      }
+    }
+    if (good) all.streak = (all.streak || 0) + 1;
+    else if (bad && !kept) all.streak = 0;
 
     for (const period of periods) {
       const s = statsFor(data, actor.id, actor.name, game, period);
@@ -507,7 +675,7 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       s.plays += 1;
       if (scored) s.scoredPlays += 1;
       s.counts[outcome] = (s.counts[outcome] || 0) + 1;
-      s.bestStreak = Math.max(s.bestStreak || 0, streak);
+      s.bestStreak = Math.max(s.bestStreak || 0, all.streak || 0);
       if (targetId) {
         const t = statsFor(data, targetId, target.name, game, period);
         t.points += targetPts;
@@ -516,13 +684,17 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       }
     }
 
-    // Shields: a rescue grants one (Holy Water: 3× as long); a doom on a
-    // shielded member is blocked and uses it up, and a Cursed VHS tears
-    // through it, using it up too
+    // Shields: a rescue grants one (Holy Water: 3× as long; Sunrise: 2×;
+    // both: 6×, MULTIPLIER_CAPS.shield); a doom on a shielded member is
+    // blocked and uses it up, and a Cursed VHS tears through it, using it
+    // up too
     let shieldUntil = null;
     let shieldBroken = false;
     if (targetId && game === 'rescue' && SHIELDING.has(outcome) && settings.shieldMinutes > 0) {
-      shieldUntil = now + settings.shieldMinutes * 60 * 1000 * (fx?.shieldTimes || 1);
+      const sm = happeningMod(live, 'shieldMult');
+      sm.kinds.forEach(k => touched.add(k));
+      const times = Math.min(MULTIPLIER_CAPS.shield, (fx?.shieldTimes || 1) * sm.value);
+      shieldUntil = now + Math.round(settings.shieldMinutes * 60 * 1000 * times);
       data.shields[targetId] = Math.max(data.shields[targetId] || 0, shieldUntil);
     }
     if (targetId && game === 'doom') {
@@ -549,6 +721,23 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
         s.bonus = (s.bonus || 0) + pts;
       }
       bonus[userId] += pts;
+    };
+
+    // What a twist may still take from the player: TWIST_RULES.dailyLoss a
+    // day, all twists together, and never below 0 for the month (every
+    // game this month, bonuses included, as their card adds it up)
+    const lossRoom = () => {
+      const month = Object.values(me.games).reduce((n, g) => n + (g?.[keys.month]?.points || 0), 0);
+      return Math.max(0, Math.min(TWIST_RULES.dailyLoss - (daily.twistLoss || 0), month));
+    };
+    /** Take up to n points as a twist loss; returns what was taken */
+    const takeLoss = (n) => {
+      const taken = Math.max(0, Math.min(n, lossRoom()));
+      if (taken) {
+        give(actor.id, actor.name, -taken);
+        daily.twistLoss = (daily.twistLoss || 0) + taken;
+      }
+      return taken;
     };
 
     // One recurring prize counter moves; a prize past today's cap waits
@@ -585,26 +774,140 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       }
     };
 
+    /**
+     * The twist roll (R4). One luck() draw says whether one fires
+     * (settings.twistPercent% × the happenings' twistMult), one which —
+     * among the twists that would DO something now, and only the good ones
+     * after a bad one — and a third picks an item for Glovebox Find or a
+     * Car Break-In. Its points are bonus, in this play's game; a status is
+     * for the player's later plays. Never on a capped play or a blocked
+     * doom (the caller's check), never more than TWIST_RULES.perDay a day,
+     * and never to the target.
+     */
+    const rollTwist = () => {
+      if ((settings.twists ?? DEFAULT_GAME_SETTINGS.twists) === false) return null;
+      const percent = Number(settings.twistPercent ?? DEFAULT_GAME_SETTINGS.twistPercent);
+      if (!(percent > 0) || (daily.twists || 0) >= TWIST_RULES.perDay) return null;
+      const tm = happeningMod(live, 'twistMult');
+      if (!(luck() < Math.min(1, (percent / 100) * tm.value))) return null;
+
+      const streakNow = Math.max(all.streak || 0, life.streak[game] || 0);
+      const stealable = Object.keys(ITEMS).filter(k => !TWIST_RULES.safe.includes(k) && (me.glovebox?.[k] || 0) > 0);
+      // A twist that would do nothing isn't drawn: no loss left to take
+      // today, no gain to cancel, no streak to freeze
+      const idle = {
+        pickpocket: lossRoom() <= 0,
+        call: lossRoom() <= 0,
+        reel: actorPts <= 0,
+        brainfreeze: streakNow <= 0,
+      };
+      const pool = Object.keys(TWISTS).filter(k => (!me.lastTwistBad || TWISTS[k].good) && !idle[k]);
+      let key = pickLine(pool.map(k => ({ outcome: k })), Object.fromEntries(pool.map(k => [k, TWISTS[k].weight])), luck).outcome;
+      // A break-in on an empty Glovebox (or one holding only a Night
+      // Light): nothing to steal, so the mosquitoes get them instead
+      if (key === 'breakin' && !stealable.length) key = 'mosquito';
+
+      const twist = { key, good: TWISTS[key].good };
+      const anyOf = (list) => list[Math.min(list.length - 1, Math.floor(luck() * list.length))];
+      switch (key) {
+        case 'loose':
+        case 'fan':
+          give(actor.id, actor.name, TWISTS[key].points);
+          twist.points = TWISTS[key].points;
+          break;
+        case 'find': {
+          twist.item = anyOf(TWIST_RULES.findItems);
+          twist.overflow = !stash(me, twist.item);
+          if (twist.overflow) give(actor.id, actor.name, FULL_STACK_POINTS);
+          break;
+        }
+        case 'ghost': {
+          // A shield like a rescue's; one already up for longer stays as it is
+          const until = now + TWIST_RULES.ghostMinutes * 60 * 1000;
+          data.shields[actor.id] = Math.max(data.shields[actor.id] || 0, until);
+          twist.until = data.shields[actor.id];
+          break;
+        }
+        case 'pickpocket':
+        case 'call':
+          twist.points = -takeLoss(-TWISTS[key].points);
+          break;
+        case 'breakin':
+          twist.item = anyOf(stealable);
+          take(me, twist.item);
+          break;
+        case 'reel': {
+          // This play's own points go; what it earned besides (a prize, a
+          // title, the nights buff) stays. The points prize counter gives
+          // back what it counted, as far as it can (a prize it paid stays).
+          twist.cancelled = actorPts;
+          for (const period of periods) statsFor(data, actor.id, actor.name, game, period).points -= actorPts;
+          if (me.progress?.points) me.progress.points = Math.max(0, me.progress.points - actorPts);
+          actorPts = 0;
+          break;
+        }
+        case 'brainfreeze':
+          twist.streak = streakNow;
+          twist.gameName = GAME_NAMES[game] || game;
+          all.streak = 0;
+          life.streak[game] = 0;
+          break;
+        default:
+          // luckybreak, refill, dcut, secondwind, bitten, jinxed, mosquito
+          setStatus(me, key, now);
+      }
+      daily.twists = (daily.twists || 0) + 1;
+      me.lastTwistBad = !twist.good;
+      tm.kinds.forEach(k => touched.add(k));
+      return twist;
+    };
+
     let nights = null;
+    let twist = null;
     if (scored) {
       // What titles count: scored plays only (gameRules.js lifetimeFrom).
       // The stats above count capped plays too, and keep doing so for the
       // card; these don't, so a capped play can't be farmed for a title.
-      const mine = me.lifetime;
-      (mine.do[game] ||= {})[outcome] = (mine.do[game][outcome] || 0) + 1;
-      if (GOOD.has(outcome)) {
-        mine.streak[game] = (mine.streak[game] || 0) + 1;
-        mine.bestStreak = Math.max(mine.bestStreak || 0, mine.streak[game]);
-      } else if (outcome !== 'blocked') {
-        mine.streak[game] = 0;
+      (life.do[game] ||= {})[outcome] = (life.do[game][outcome] || 0) + 1;
+      if (good) {
+        life.streak[game] = (life.streak[game] || 0) + 1;
+        life.bestStreak = Math.max(life.bestStreak || 0, life.streak[game]);
+      } else if (bad && !kept) {
+        life.streak[game] = 0;
       }
       if (them) (them.lifetime.got[game] ||= {})[outcome] = (them.lifetime.got[game][outcome] || 0) + 1;
+
+      // Statuses and happenings that add to (or take from) this play, as
+      // bonus: Free Refill's +1 on a good outcome, a Mosquito bite (a
+      // twist loss, so inside the day's and the month's floor), and a
+      // happening's goodBonus (Friday the 13th)
+      if (status.refill) {
+        status.refill.playsLeft -= 1;
+        if (good) {
+          give(actor.id, actor.name, TWISTS.refill.points);
+          statuses.push({ key: 'refill', points: TWISTS.refill.points, left: status.refill.playsLeft });
+        }
+      }
+      if (status.mosquito) {
+        status.mosquito.playsLeft -= 1;
+        const bit = takeLoss(-TWISTS.mosquito.points);
+        if (bit) statuses.push({ key: 'mosquito', points: -bit, left: status.mosquito.playsLeft });
+      }
+      if (good) {
+        for (const h of live) {
+          const n = Number(h.mods?.goodBonus);
+          if (!(Number.isFinite(n) && n > 0)) continue;
+          give(actor.id, actor.name, n);
+          touched.add(h.kind);
+          happeningLines.push({ kind: 'goodBonus', happening: h.kind, points: n });
+        }
+      }
 
       // Nights in a row (yours), and its tier's +1 on the day's first good outcomes
       nights = countNight(me, now);
       if (nights) {
         const tier = nightTier(nights.current);
-        if (tier && GOOD.has(outcome) && (daily.buffs || 0) < tier.buffs) {
+        if (tier && good && (daily.buffs || 0) < tier.buffs) {
           daily.buffs = (daily.buffs || 0) + 1;
           give(actor.id, actor.name, 1);
           nights.buff = { tier, used: daily.buffs };
@@ -629,8 +932,30 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
 
       checkTitles('actor', actor.id, actor.name, me);
       if (them) checkTitles('target', targetId, target.name, them);
+
+      // The twist, last: it can cancel this play's gain (Reel Change) or
+      // freeze the streak just extended (Brain Freeze), and the 30th earns
+      // Plot Twist
+      if (outcome !== 'blocked') twist = rollTwist();
+      if (twist) {
+        life.twists = (life.twists || 0) + 1;
+        checkTitles('actor', actor.id, actor.name, me);
+      }
+    }
+    pruneStatuses(me, now);
+
+    // A calendar happening is mentioned once per member per UTC day, on
+    // the first play that day: it's on all day, with no announcement
+    const calendar = [];
+    for (const h of live) {
+      if (!h.calendar || !h.kind) continue;
+      const seen = (daily.calendar ||= []);
+      if (seen.includes(h.kind)) continue;
+      seen.push(h.kind);
+      calendar.push({ kind: h.kind, name: h.name, emoji: h.emoji, about: h.about });
     }
 
+    const byKind = new Map(live.map(h => [h.kind, h]));
     return {
       outcome,
       action,
@@ -639,7 +964,7 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       actorDelta: actorPts,
       targetDelta: targetId ? targetPts : null,
       actorPoints: me.games[game].all.points,
-      streak,
+      streak: all.streak || 0,
       shieldedUntil: shieldUntil,
       targetId,
       item: itemInfo,
@@ -650,6 +975,12 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       nights: nights && { current: nights.current, best: nights.best, saved: nights.saved, milestone: nights.milestone, buff: nights.buff },
       bonus: bonus[actor.id],
       targetBonus: targetId ? bonus[targetId] : 0,
+      twist,
+      statuses,
+      // In the order the happenings are listed, each once
+      happenings: live.filter(h => touched.has(h.kind)).map(h => ({ kind: h.kind, tag: h.tag || h.emoji || '' })),
+      happeningLines: happeningLines.map(l => ({ ...l, happening: byKind.get(l.happening) || { kind: l.happening } })),
+      calendar,
     };
   });
 }
@@ -796,10 +1127,11 @@ export function getLeaderboard(guildId, game = 'all', period = 'all-time', { lim
  * Clear scores: everything, one game, one person, or one person's game.
  *
  * A person (or everyone) is cleared completely: points, the Glovebox,
- * titles, nights, prize counters, cooldowns, their day's counters and
- * their shield. One game clears that game's stats and its prize counters,
- * but keeps titles and the Glovebox — they were earned, and the points
- * counter (which spans every game) keeps going.
+ * titles, nights, prize counters, cooldowns, a twist's statuses and the
+ * twist counts, their day's counters and their shield. One game clears
+ * that game's stats and its prize counters, but keeps titles, the
+ * Glovebox and statuses — they were earned (or suffered) in any game, and
+ * the points counter (which spans every game) keeps going.
  * @returns {number} how many people's records changed
  */
 export function resetScores(guildId, { game = null, userId = null } = {}) {
@@ -897,9 +1229,12 @@ export function resultLine(game, result, { actor, target }, { label } = {}) {
 
 /**
  * The `-#` lines under the points line: an item used (or kept, and why),
- * a defence that fired, a Night Light, a nights milestone or buff, prizes
- * (or one held by the daily cap), and titles — in that order. finishPlay
- * trims the play's own line to make room for these, never these.
+ * a defence that fired, the statuses that acted on this play (R4), what a
+ * happening did (a +1, a streak kept), a Night Light, a nights milestone
+ * or buff, prizes (or one held by the daily cap), the twist (R4), titles,
+ * and a calendar happening's once-a-day mention — in that order, which is
+ * the order they happened in. finishPlay trims the play's own line to make
+ * room for these, never these.
  * @param {object} result - from recordPlay
  * @param {{actor: string, target: ?string}} names - display names; target null when no member was scored
  * @returns {string[]}
@@ -919,6 +1254,13 @@ export function extraLines(result, { actor, target }) {
   if (result.shieldBroken && target) out.push(SHIELD_BROKEN(names));
   if (result.defence && DEFENCE_LINES[result.defence.key] && target) out.push(DEFENCE_LINES[result.defence.key](names));
 
+  const player = actor || 'Someone';
+  for (const s of result.statuses || []) if (STATUS_USED[s.key]) out.push(STATUS_USED[s.key](s, player));
+  for (const l of result.happeningLines || []) {
+    if (l.kind === 'goodBonus') out.push(HAPPENING_LINES.goodBonus(l.happening, player, l.points));
+    else if (l.kind === 'keptStreak') out.push(HAPPENING_LINES.keptStreak(l.happening, player));
+  }
+
   const nights = result.nights;
   if (nights?.saved) out.push(NIGHT_LINES.saved({ who: actor, current: nights.current }));
   if (nights?.milestone) out.push(NIGHT_LINES.tier({ who: actor, current: nights.current, tier: nights.milestone }));
@@ -929,7 +1271,9 @@ export function extraLines(result, { actor, target }) {
     else if (r.kind === 'prize') out.push(prizeLine({ who: who(r), prize: PRIZE_BY_KEY[r.prize], item: r.item, points: r.points, overflow: r.overflow }));
     else if (r.kind === 'held') out.push(prizeHeldLine({ who: who(r), prize: PRIZE_BY_KEY[r.prize] }));
   }
+  if (result.twist) out.push(twistLine(result.twist, player));
   for (const t of result.titles || []) out.push(titleLine({ who: who(t), title: TITLE_BY_KEY[t.key] }));
+  for (const h of result.calendar || []) out.push(calendarLine(h));
 
-  return out.map(line => `-# ${line}`);
+  return out.filter(Boolean).map(line => `-# ${line}`);
 }

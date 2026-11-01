@@ -24,6 +24,7 @@ guild_polls/
 guild_tournaments/
 guild_games/
 guild_escape/
+guild_happenings/
 
 # Watchlists (server-specific watchlist data)
 guild_watchlists/

@@ -716,7 +716,7 @@ See [Social Commands › Rescue](./social#rescue).
 ---
 
 ### `/scoreboard`
-Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), an active rescue shield, and your rewards: prizes in progress, nights in a row, Glovebox and titles. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
+Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), an active rescue shield and any [twist](./games#twists) status, any [happening](./games#happenings) in progress, and your rewards: prizes in progress, nights in a row, Glovebox and titles. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
 
 **Options:** `user`, `game`, `period` (this month, this year, all time), `private`, and `title` (pick which [earned title](./games#choosing-the-title-you-show) shows with your name, or *No title*; only for yourself)
 
@@ -730,7 +730,7 @@ See [Games & Scores › Scoreboard](./games#scoreboard).
 ---
 
 ### `/leaderboard`
-The server's game card: the top 15 players one line each (medal, name, a bar against the leader, points), who leads each game, who received the most of everything, and the period's plays, points, players, most played game and best streak.
+The server's game card: the top 15 players one line each (medal, name, a bar against the leader, points), who leads each game, who received the most of everything, the period's plays, points, players, most played game and best streak, and any [happening](./games#happenings) in progress.
 
 **Options:** `game`, `period` (this month, this year, all time), `private`
 
@@ -768,19 +768,21 @@ View server statistics (Admin/Moderator only).
 ## Admin Commands
 
 ### `/eggshen-config` and friends
-Comprehensive server configuration (Admin/Moderator only), split across 5 commands to stay under Discord's per-command size limit:
+Comprehensive server configuration (Admin/Moderator only), split across 6 commands to stay under Discord's per-command size limit:
 
 - `/eggshen-config` - settings, stats, commands, notifications
 - `/eggshen-config-watch-party` - watch party channels, rate limiting
 - `/eggshen-config-ai` - AI image limits and permissions, AI announcement text, and AI answers for `/eggshen-ask`
 - `/eggshen-config-moderation` - whitelist, cooldowns, auto-ban
 - `/eggshen-config-events` - event request system
+- `/eggshen-config-games` - game limits, game channels, [happenings and twists](./games#happenings-and-twists), score resets
 
 **Example:**
 ```
 /eggshen-config settings view
 /eggshen-config-watch-party rate-limit toggle enabled:true
 /eggshen-config-moderation moderation toggle enabled:true
+/eggshen-config-games happenings frequency:rare
 ```
 
 [Learn more →](/commands/configuration)
@@ -828,6 +830,6 @@ Display help information and available commands.
 ## Command Permissions
 
 - **Everyone:** Search, timer, watched add, random, similar, soundtrack
-- **Admin/Mod:** stats, eggshen-config (and its 4 sibling commands), watched from timer (or timer starter)
+- **Admin/Mod:** stats, eggshen-config (and its 5 sibling commands), watched from timer (or timer starter)
 
 [Learn about moderation →](/features/moderation-tools)

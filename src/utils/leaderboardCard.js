@@ -21,6 +21,7 @@ import { GAME_NAMES } from './gameScores.js';
 import { cardName, clipEmbedToFit } from './gameBoards.js';
 import { liveKit, pill } from './emojiKit.js';
 import { messageProblems, chooseLayout } from './embedFit.js';
+import { happeningLine } from '../data/gameEventLines.js';
 
 /** Gold, the colour the old first row had */
 export const LEADERBOARD_COLOUR = 0xF1C40F;
@@ -119,11 +120,24 @@ function statsFields(data, { kit }) {
 }
 
 /**
- * The fields below the standings, top to bottom; a section with nothing to
- * show adds nothing. "In progress" goes here later: a happening (R4), a
- * siege and its HP bar (R5), each from its own optional key of `data`.
+ * "In progress" (R4): the server's happenings right now, one line each —
+ * "🌕 Full Moon: dooms score double · ends <t:…:R>". A reason to play
+ * now, so it's on the card even before anyone has played. One that has
+ * ended by `now` isn't shown, even if handed in. A siege and its HP bar
+ * join it in R5.
  */
-const SECTIONS = [leaderFields, receivedFields, statsFields];
+function inProgressFields(data, { kit, now }) {
+  const lines = (data.happenings || [])
+    .filter(h => h && !(Number.isFinite(h.endsAt) && h.endsAt <= now))
+    .map(h => happeningLine(h));
+  return lines.length ? [{ name: `${kit.e('clock')} In progress`, value: lines.join('\n'), inline: false }] : [];
+}
+
+/**
+ * The fields below the standings, top to bottom; a section with nothing to
+ * show adds nothing. Each reads its own optional key of `data`.
+ */
+const SECTIONS = [leaderFields, receivedFields, statsFields, inProgressFields];
 
 function heading(data) {
   const which = data.game === 'all' ? 'All games' : GAME_NAMES[data.game];
@@ -139,6 +153,9 @@ function draft(data, kit, step, now) {
   };
   if (!data.rows?.length) {
     embed.description = 'Nobody has played yet. Be the first!';
+    // A happening is the best reason to be the first
+    const going = inProgressFields(data, { kit, now });
+    if (going.length) embed.fields = going;
     return embed;
   }
   if (data.rows[0].avatarUrl) embed.thumbnail = { url: data.rows[0].avatarUrl };
@@ -160,6 +177,7 @@ const fits = (embed) => messageProblems({ embeds: [embed] }).length === 0;
  * @param {Array<{label, name, count}>} data.received
  * @param {?{name, game, count}} data.bestStreak
  * @param {{players, plays, points, mostPlayed: ?{game, plays}}} data.totals
+ * @param {Array<{kind, name, emoji, about, endsAt: ?number}>} [data.happenings] - in progress (R4)
  * @param {object} [options] - kit (default: live), now, step (the first to try)
  * @returns {{ embed: EmbedBuilder, step: number }}
  */

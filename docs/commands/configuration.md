@@ -8,7 +8,7 @@ Administrative commands for configuring and managing Egg Shen Bot in your server
 
 ## Configuration Commands
 
-Configuration is split across 5 top-level commands (kept under Discord's per-command size limit — each covers a related set of settings):
+Configuration is split across 6 top-level commands (kept under Discord's per-command size limit — each covers a related set of settings):
 
 ```
 /eggshen-config <group> <subcommand> [parameters]                 — settings, stats, commands, notifications
@@ -16,12 +16,17 @@ Configuration is split across 5 top-level commands (kept under Discord's per-com
 /eggshen-config-ai <group> <subcommand> [parameters]               — ai-images
 /eggshen-config-moderation <group> <subcommand> [parameters]       — moderation
 /eggshen-config-events <group> <subcommand> [parameters]           — event-requests
-/eggshen-config-games <subcommand> [parameters]                     — game limits, game channels, score resets
+/eggshen-config-games <subcommand> [parameters]                     — game limits, game channels, happenings and twists, score resets
 ```
 
-The game settings (`/eggshen-config-games`) are described on [Games & Scores](./games#game-settings-admin-mod).
+The game settings (`/eggshen-config-games`) are described on [Games & Scores](./games#game-settings-admin-mod). `/eggshen-config-games happenings` turns twists and server-wide happenings on or off, sets how often and where they're announced, and starts or ends one by hand ([details](./games#happenings-and-twists)):
 
-**Required Permissions (all 5 commands):**
+```
+/eggshen-config-games happenings frequency:rare
+/eggshen-config-games happenings start:fullmoon
+```
+
+**Required Permissions (all 6 commands):**
 - Administrator
 - OR Manage Server permission
 

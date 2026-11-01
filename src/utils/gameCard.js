@@ -21,13 +21,15 @@
  */
 
 import { EmbedBuilder, MessageFlags, escapeMarkdown } from 'discord.js';
-import { getScoreboard, GAME_NAMES, POINTS } from './gameScores.js';
+import { getScoreboard, getGameSettings, GAME_NAMES, POINTS } from './gameScores.js';
 import { OUTCOME_EMOJI, periodLabel, enabledGames, ordinal, cardName, clipEmbedToFit } from './gameBoards.js';
 import { avatarOf, nameOf } from './personCard.js';
 import { liveKit, createKit, KIT_CODES, pill, progressPill, formatNumber } from './emojiKit.js';
 import { LIMITS, messageProblems, clipText, chooseLayout, fieldsFromLines } from './embedFit.js';
 import { NIGHT_TIERS } from '../data/gameRewards.js';
+import { happeningLine } from '../data/gameEventLines.js';
 import { getPlayerCardExtras } from './gameCardData.js';
+import { loadGuildConfig } from './guildConfig.js';
 
 /** The games' orange, as the scoreboard has always been */
 export const CARD_COLOUR = 0xE67E22;
@@ -82,6 +84,12 @@ const PLAIN = createKit(null);
  */
 const iconFor = (kit, code) => (code && KIT_CODES[code] ? kit.e(code) : '');
 
+/**
+ * An icon that may be either a kit code or plain Unicode (R4's statuses
+ * have no kit codes: they're drawn as the emoji they are).
+ */
+const iconOrText = (kit, icon) => (icon && KIT_CODES[icon] ? kit.e(icon) : icon || '');
+
 /** Words joined by spaces, skipping the empty ones (a missing icon) */
 const spaced = (...parts) => parts.filter(Boolean).join(' ');
 
@@ -118,9 +126,21 @@ function shownTitle(data, kit) {
   return spaced(kit.e('scroll'), `*${escapeMarkdown(t.title)}*`, t.badge);
 }
 
-/** The description: the summary, then the shown title on its own line */
-function description(data, kit) {
-  return [summary(data, kit), shownTitle(data, kit)].filter(Boolean).join('\n');
+/**
+ * The server's happenings in progress (R4), one line each — "🌕 Full
+ * Moon: dooms score double · ends <t:…:R>". In the description, under who
+ * the card is about, because they change what the next play is worth for
+ * everyone. One that has ended by `now` isn't shown, even if handed in.
+ */
+function happeningLines(data, now) {
+  return (data.happenings || [])
+    .filter(h => h && !(Number.isFinite(h.endsAt) && h.endsAt <= now))
+    .map(h => happeningLine(h));
+}
+
+/** The description: the summary, the shown title, then any happening in progress */
+function description(data, kit, now) {
+  return [summary(data, kit), shownTitle(data, kit), ...happeningLines(data, now)].filter(Boolean).join('\n');
 }
 
 /**
@@ -146,16 +166,34 @@ function gameFields(data, { kit, step }) {
   });
 }
 
-/** What each kind of effect says. R4's twists add theirs here. */
+/** What each kind of effect says; a twist's status (R4) says it with statusLine */
 const EFFECT_LINES = {
   shield: (e, kit) => `${kit.e('shield')} Safe from /doom until <t:${Math.floor(e.until / 1000)}:t>`,
 };
 
-/** Effects running now, one line each; nothing once they've run out */
+/**
+ * A status a twist left (R4), from gameCardData's effects: what it does,
+ * then plays left for one that counts plays, or when an unused one runs
+ * out for one that waits for its moment.
+ *   🍿 Free Refill: +1 on each good play · 2 plays left
+ *   🍀 Lucky Break: the next play can only go well · ends <t:…:R>
+ */
+function statusLine(e, kit) {
+  const head = spaced(iconOrText(kit, e.icon), e.name);
+  const parts = [e.about ? `${head}: ${e.about}` : head];
+  if (e.playsLeft > 0) parts.push(`${formatNumber(e.playsLeft)} ${plural(e.playsLeft, 'play')} left`);
+  else if (e.until) parts.push(`ends <t:${Math.floor(e.until / 1000)}:R>`);
+  return parts.join(' · ');
+}
+
+const effectLine = (e, kit) => (EFFECT_LINES[e.kind] ? EFFECT_LINES[e.kind](e, kit) : e.name ? statusLine(e, kit) : '');
+
+/** Effects running now, one line each — the shield, then statuses; nothing once they've run out */
 function effectFields(data, { kit, now }) {
   const lines = (data.effects || [])
-    .filter(e => EFFECT_LINES[e.kind] && !(e.until <= now))
-    .map(e => EFFECT_LINES[e.kind](e, kit));
+    .filter(e => e && !(e.until <= now))
+    .map(e => effectLine(e, kit))
+    .filter(Boolean);
   return lines.length ? [{ name: `${kit.e('effect')} In effect`, value: lines.join('\n'), inline: false }] : [];
 }
 
@@ -293,8 +331,9 @@ function titleFields(data, { kit, step }) {
  * empty heading. Each reads its own optional key of `data`, so a card
  * without R3's data (and every R1 test) is exactly what it was: the games,
  * `progress` (rewards in progress), `nights`, the `glovebox` and `titles`
- * side by side as two of DarcyBot's columns, then effects. Later: a
- * `happening` (R4) and a `siege` (R5).
+ * side by side as two of DarcyBot's columns, then effects (the shield and,
+ * since R4, a twist's statuses). R4's `happenings` are lines in the
+ * description (see description). Later: a `siege` (R5).
  */
 const SECTIONS = [gameFields, rewardFields, nightsFields, gloveboxFields, titleFields, effectFields];
 
@@ -304,7 +343,7 @@ function draft(data, kit, step, now) {
     color: CARD_COLOUR,
     author: { name: clipText(String(data.player.name || 'Someone'), LIMITS.author) },
     title: `Game card${data.scope ? ` · ${data.scope}` : ''}`,
-    description: description(data, kit),
+    description: description(data, kit, now),
     fields: SECTIONS.flatMap(section => section(data, { kit, step, now })),
     footer: { text: `${data.periodLabel} · ${CARD_HINT}` },
   };
@@ -351,15 +390,25 @@ export function renderGameCard(data, options = {}) {
  * shown title, which is who you are — and leaves the nights row, the
  * Glovebox and the titles list to the all-games card: none of them belong
  * to one game.
- * @param {?{progress, nights, glovebox, titles}} extras
+ *
+ * R4: the happenings in progress go on every card — they're the server's,
+ * and change what this game's next play is worth. A twist's statuses go
+ * with the Glovebox on the all-games card: like an item, a status follows
+ * the member into whichever game they play next. Each is added only when
+ * there is one, so a card from before R4 is exactly what it was.
+ * @param {?{progress, nights, glovebox, titles, effects?, happenings?}} extras
  * @param {{game: string, shown: string[]}} on
  */
 export function cardExtras(extras, { game = 'all', shown = [] } = {}) {
   if (!extras) return {};
   const ours = (p) => (game === 'all' ? !p.game || shown.includes(p.game) : p.game === game);
   const progress = (extras.progress || []).filter(ours);
-  if (game !== 'all') return { progress, titles: { shown: extras.titles?.shown || null, earned: [], next: [] } };
-  return { progress, nights: extras.nights || null, glovebox: extras.glovebox || [], titles: extras.titles || null };
+  const r4 = {
+    ...(extras.happenings?.length ? { happenings: extras.happenings } : {}),
+    ...(game === 'all' && extras.effects?.length ? { effects: extras.effects } : {}),
+  };
+  if (game !== 'all') return { progress, titles: { shown: extras.titles?.shown || null, earned: [], next: [] }, ...r4 };
+  return { progress, nights: extras.nights || null, glovebox: extras.glovebox || [], titles: extras.titles || null, ...r4 };
 }
 
 /**
@@ -371,9 +420,13 @@ export function cardExtras(extras, { game = 'all', shown = [] } = {}) {
  * @param {{id: string, name: string, avatarUrl: ?string}} who.player
  * @param {string[]} who.shown - the games on the card, in GAMES order
  * @param {?object} [who.extras] - getPlayerCardExtras(…); see cardExtras
- * @returns {{ player, periodLabel, scope, total, rank, ranked, games, effects, emptyText, progress?, nights?, glovebox?, titles? }}
+ * @returns {{ player, periodLabel, scope, total, rank, ranked, games, effects, emptyText, progress?, nights?, glovebox?, titles?, happenings? }}
  */
 export function gameCardData(board, { player, shown, game = 'all', period = 'all-time', now = Date.now(), emptyText = null, extras = null }) {
+  const more = cardExtras(extras, { game, shown });
+  // A rescue's shield, shown with the games it belongs to, then any
+  // statuses a twist left (R4)
+  const shield = board.shieldedUntil && shown.includes('rescue') ? [{ kind: 'shield', until: board.shieldedUntil }] : [];
   return {
     player,
     periodLabel: periodLabel(period, now),
@@ -388,10 +441,9 @@ export function gameCardData(board, { player, shown, game = 'all', period = 'all
         counts: s.counts, received: s.received, streak: s.streak, bestStreak: s.bestStreak,
       };
     }),
-    // A rescue's shield, shown with the games it belongs to
-    effects: board.shieldedUntil && shown.includes('rescue') ? [{ kind: 'shield', until: board.shieldedUntil }] : [],
     emptyText,
-    ...cardExtras(extras, { game, shown }),
+    ...more,
+    effects: [...shield, ...(more.effects || [])],
   };
 }
 
@@ -441,8 +493,11 @@ export async function replyWithGameCard(interaction, { picked = null, period = '
     ? 'No points yet. Throw some food, brew a potion, doom someone, or rescue them!'
     : `${cardName(name)} hasn't played${game === 'all' ? '' : ` ${GAME_NAMES[game]}`} yet.`;
   // R3: rewards in progress, the nights row, the Glovebox and titles —
-  // anyone's, on anyone's card, like their points (see gloveboxFields)
-  const extras = getPlayerCardExtras(interaction.guildId, user.id, { now });
+  // anyone's, on anyone's card, like their points (see gloveboxFields).
+  // R4: their statuses, and the server's happenings — none when an admin
+  // has switched happenings off, so the settings are read for that.
+  const settings = getGameSettings(await loadGuildConfig(interaction.guildId));
+  const extras = getPlayerCardExtras(interaction.guildId, user.id, { now, settings });
   const data = gameCardData(board, { player: { id: user.id, name, avatarUrl }, shown, game, period, now, emptyText, extras });
 
   await interaction.reply({

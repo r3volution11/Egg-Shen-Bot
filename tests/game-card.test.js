@@ -8,7 +8,9 @@
  *
  * R3's sections (rewards in progress, the nights row, the Glovebox,
  * titles) are checked the same two ways, line by line, from a fixture in
- * the shape getPlayerCardExtras (gameCardData.js) returns.
+ * the shape getPlayerCardExtras (gameCardData.js) returns — and R4's: a
+ * twist's statuses under "In effect", and the server's happenings in
+ * progress as lines in the description.
  *
  * And it must always fit: a card over Discord's limits is rejected whole
  * and posts nothing. R3's worst case — every game and outcome, nine reward
@@ -31,6 +33,10 @@ import { recordPlay, deleteScores, getScoreboard, GAMES } from '../src/utils/gam
 import { getPlayerCardExtras } from '../src/utils/gameCardData.js';
 import { FakeDiscord } from './harness/fakeDiscord.js';
 import * as scoreboard from '../src/commands/scoreboard.js';
+import { mutateScores } from '../src/utils/gameScores.js';
+import { TWISTS } from '../src/data/gameRewards.js';
+import { STATUS_NOTES } from '../src/data/gameEventLines.js';
+import { HAPPENINGS, CALENDAR_HAPPENINGS } from '../src/data/gameHappenings.js';
 
 const NOW = Date.UTC(2026, 10, 1, 20, 0, 0);
 const HOUR = 60 * 60 * 1000;
@@ -688,5 +694,140 @@ describe('R3: always within Discord\'s limits', () => {
     const titles = field(d, 'Titles').value.split('\n');
     expect(titles[0]).toBe(`\`30\` earned: ${BADGE.repeat(LIST_CAPS.badges)} …and 22 more`);
     expect(titles.slice(1)).toEqual([`${BADGE} ${'N'.repeat(32)} \`01234/12345\``]);
+  });
+});
+
+// ── R4: statuses and happenings ──────────────────────────────────────────
+
+/** A status as getPlayerCardExtras returns it, from the real twist table */
+const status = (kind, extra = {}) => ({
+  kind, icon: TWISTS[kind].emoji, name: TWISTS[kind].name, about: STATUS_NOTES[kind], good: TWISTS[kind].good, until: NOW + 2 * HOUR,
+  ...(TWISTS[kind].plays ? { playsLeft: TWISTS[kind].plays } : {}), ...extra,
+});
+/** A happening as getPlayerCardExtras returns it (no mods) */
+const happening = (kind, endsAt = NOW + 45 * 60 * 1000) => {
+  const h = HAPPENINGS[kind] || CALENDAR_HAPPENINGS[kind];
+  return { kind, name: h.name, emoji: h.emoji, tag: h.tag, about: h.about, endsAt, calendar: !HAPPENINGS[kind] };
+};
+const ENDS_AT = Math.floor((NOW + 45 * 60 * 1000) / 1000);
+const UNTIL = Math.floor((NOW + 2 * HOUR) / 1000);
+
+describe('R4: statuses and happenings, line by line', () => {
+  test('"In effect": the shield, then each status — plays left for one that counts them, else when it runs out', () => {
+    const data = { ...card(), effects: [...card().effects, status('refill', { playsLeft: 2 }), status('luckybreak'), status('jinxed', { until: NOW - 1 })] };
+    const d = renderGameCard(data, { kit: fallback, now: NOW }).toJSON();
+    expect(field(d, 'In effect')).toEqual({
+      name: '🌀 In effect',
+      value: [
+        `🛡️ Safe from /doom until <t:${SHIELD_AT}:t>`,
+        '🍿 Free Refill: +1 on each good play · 2 plays left',
+        `🍀 Lucky Break: the next play can only go well · ends <t:${UNTIL}:R>`,
+      ].join('\n'),
+      inline: false,
+    });
+    // With the kit uploaded the shield is its icon; a status stays the emoji it is
+    const up = renderGameCard(data, { kit: uploaded, now: NOW }).toJSON();
+    expect(field(up, 'In effect').value.split('\n').slice(0, 2)).toEqual([
+      `${E('shield')} Safe from /doom until <t:${SHIELD_AT}:t>`,
+      '🍿 Free Refill: +1 on each good play · 2 plays left',
+    ]);
+    expect(field(up, 'In effect').name).toBe(`${E('effect')} In effect`);
+  });
+
+  test('a happening in progress is a line in the description; a calendar one is all day; an ended one is gone', () => {
+    const data = { ...card(), happenings: [happening('fullmoon'), happening('halloween', null), happening('fog', NOW)] };
+    const d = renderGameCard(data, { kit: fallback, now: NOW }).toJSON();
+    expect(d.description).toBe([
+      '🪙 `5` points · 🥇 `1st` of 3 players',
+      `🌕 Full Moon: dooms score double · ends <t:${ENDS_AT}:R>`,
+      '🎃 Halloween Night: twists are twice as likely · all day',
+    ].join('\n'));
+    // Under the shown title, and on a card with nothing played yet too
+    const r3 = renderGameCard({ ...r3card(), happenings: [happening('fullmoon')] }, { kit: fallback, now: NOW }).toJSON();
+    expect(r3.description.split('\n').slice(1)).toEqual(['📜 *Red Shirt* 👕', `🌕 Full Moon: dooms score double · ends <t:${ENDS_AT}:R>`]);
+    const empty = renderGameCard({ ...card(), games: [], effects: [], total: 0, rank: null, emptyText: 'No points yet.', happenings: [happening('doublefeature')] }, { kit: fallback, now: NOW }).toJSON();
+    expect(empty.description).toBe(`No points yet.\n🎞️ Double Feature: every point counts twice · ends <t:${ENDS_AT}:R>`);
+  });
+
+  test('which card: happenings on every card; statuses on the all-games card, after the shield', () => {
+    const board = { total: 5, rank: 1, players: 3, shieldedUntil: NOW + HOUR, games: Object.fromEntries(card().games.map(g => [g.game, { ...g }])) };
+    const more = { ...extras(), effects: [status('bitten')], happenings: [happening('fullmoon')] };
+    const all = gameCardData(board, { player: card().player, shown: ['foodfight', 'doom', 'rescue'], now: NOW, extras: more });
+    expect(all.effects).toEqual([{ kind: 'shield', until: NOW + HOUR }, status('bitten')]);
+    expect(all.happenings).toEqual([happening('fullmoon')]);
+    const one = gameCardData(board, { player: card().player, shown: ['doom'], game: 'doom', now: NOW, extras: more });
+    expect([one.effects, one.happenings]).toEqual([[], [happening('fullmoon')]]);
+    // None of either: nothing added, the R3 card as it was
+    const none = gameCardData(board, { player: card().player, shown: ['doom'], now: NOW, extras: { ...extras(), effects: [], happenings: [] } });
+    expect(none).not.toHaveProperty('happenings');
+  });
+
+  test('drawn from real plays: the statuses stored, and the happenings handed in, as the card reads them', () => {
+    const GUILD = 'game-card-r4-guild';
+    deleteScores(GUILD);
+    recordPlay(GUILD, { game: 'foodfight', actor: { id: 'sam', name: 'Sam' }, target: { kind: 'role', pingUserIds: [] }, outcome: 'hit' }, NOW);
+    mutateScores(GUILD, (d) => {
+      d.users.sam.effects = {
+        jinxed: { at: NOW, until: NOW + 2 * HOUR },
+        refill: { at: NOW, until: NOW + 2 * HOUR, playsLeft: 1 },
+        bitten: { at: NOW - 25 * HOUR, until: NOW - HOUR, playsLeft: 3 }, // ran out an hour ago
+      };
+    });
+    const going = [{ ...happening('fullmoon'), mods: HAPPENINGS.fullmoon.mods }, { ...happening('fog', NOW), mods: HAPPENINGS.fog.mods }];
+    const x = getPlayerCardExtras(GUILD, 'sam', { now: NOW, happenings: going });
+    // Good ones first, in the twist table's order; no mods on the card
+    expect(x.effects).toEqual([status('refill', { playsLeft: 1 }), status('jinxed')]);
+    expect(x.happenings).toEqual([happening('fullmoon')]);
+    deleteScores(GUILD);
+  });
+});
+
+describe('R4: always within Discord\'s limits', () => {
+  /**
+   * R3's worst card plus R4's most: every status at once (seven, each with
+   * its longest note) and two happenings in the description — a random
+   * one with the longest summary and a calendar day.
+   */
+  const worstR4 = () => ({
+    ...worstR3(),
+    effects: [{ kind: 'shield', until: NOW + HOUR }, ...Object.keys(STATUS_NOTES).map(k => status(k))],
+    happenings: [happening('sunrise'), happening('friday13', null)],
+  });
+
+  test('a typical R4 card fits as it is, in every kit', () => {
+    const typical = { ...r3card(), effects: [...card().effects, status('refill'), status('jinxed')], happenings: [happening('fullmoon')] };
+    for (const kit of [fallback, uploaded, longest]) {
+      const { embed, step } = layoutGameCard(typical, { kit, now: NOW });
+      expect(messageProblems({ embeds: [embed] })).toEqual([]);
+      expect(step).toBe(0);
+    }
+  });
+
+  test('the worst case fits: as it is in plain emoji; with the longest custom emoji, by the same step as R3\'s', () => {
+    const plain = layoutGameCard(worstR4(), { kit: fallback, now: NOW });
+    expect(messageProblems({ embeds: [plain.embed] })).toEqual([]);
+    expect(plain.step).toBe(0);
+    for (const kit of [uploaded, longest]) {
+      const { embed, step } = layoutGameCard(worstR4(), { kit, now: NOW });
+      expect(messageProblems({ embeds: [embed] })).toEqual([]);
+      // R4 adds ~600 characters at most; the card still stops where R3's
+      // did, at the 4 closest rewards, with room to spare
+      expect(step).toBe(stepWhere(s => s.rewards === 4));
+      // Every status and both happenings are still there, unclipped
+      const d = embed.toJSON();
+      expect(field(d, 'In effect').value.split('\n')).toHaveLength(8);
+      expect(d.description.split('\n').slice(-2)).toEqual([
+        `🌅 Sunrise: rescues rarely get caught, shields last 2× · ends <t:${ENDS_AT}:R>`,
+        '🔪 Friday the 13th: bad luck is likelier, good plays +1 · all day',
+      ]);
+    }
+  });
+
+  test('custom emoji never in a pill, the title, author or footer, at any step', () => {
+    for (const kit of [uploaded, longest]) {
+      for (let step = 0; step < CARD_STEPS.length; step++) {
+        expect(misplacedEmoji(renderGameCard(worstR4(), { kit, now: NOW, step }))).toEqual([]);
+      }
+    }
   });
 });

@@ -41,6 +41,12 @@ fallback('EVENT_STREAMING_LOOKUP', 'off');
 // so no random item, twist or loot turns up in a suite that didn't ask for
 // one. Suites that want luck set it with _setLuck.
 fallback('GAME_LUCK', 'off');
+// Happenings (src/data/gameHappenings.js) bend every play, and two of them
+// are calendar days: every 31 October is Halloween and Friday 13 November
+// 2026 is a Friday the 13th. Suites that play on the real clock would get
+// different line draws and extra lines on those days. The happening suites
+// switch this back on for themselves and fix the clock.
+fallback('GAME_HAPPENINGS', 'off');
 // Signs the form's login cookie (src/utils/sessionCookie.js); tests sign
 // theirs with tests/harness/sessionCookie.js
 fallback('SESSION_SECRET', 'test-session-secret');
@@ -58,6 +64,7 @@ fallback('GUILD_STATS_DIR', path.join(workerDir, 'guild_stats'));
 fallback('GUILD_WATCH_HISTORY_DIR', path.join(workerDir, 'guild_watch_history'));
 fallback('GUILD_GAMES_DIR', path.join(workerDir, 'guild_games'));
 fallback('GUILD_ESCAPE_DIR', path.join(workerDir, 'guild_escape'));
+fallback('GUILD_HAPPENINGS_DIR', path.join(workerDir, 'guild_happenings'));
 
 /**
  * Make supertest's servers listen on 127.0.0.1, not on every address.
