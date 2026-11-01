@@ -9,6 +9,21 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.68.1 - 2026-10-31
+
+### Changed
+- **Bracket winners keep their poster and get a trophy.** In the bracket image, a matchup's winner used to turn solid light blue with dark text. It now looks like every other title, with its poster behind it, drawn slightly larger with a soft shadow and a shining gold 🏆 at the end
+- **The champion card has a trophy either side of "CHAMPION"**, instead of one squeezed in above the card
+
+### Fixed
+- **The champion's trophy no longer covers the finals.** It sat in the narrow gap above the champion card, over the bottom of the finals winner's title
+- **Matchup labels (1A, 1B…) all sit at the same height.** Every label after the first was drawn lower than intended, right on its matchup's frame
+
+### Developer
+- `bracketVisualizer.js`: `WINNER_SCALE` (1.08) grows a winner's tile around its centre; the winner is drawn after its opponent so its shadow isn't painted over. `drawTrophyIcon` rewritten as a shaded, glowing trophy with sparkles (`drawSparkle`), drawn as shapes since the server has no colour emoji font. The matchup label sets its own `textBaseline` rather than inheriting the last title's `middle`. `COLORS.winner` removed
+- `tests/bracket-visualizer.test.js`: 3 tests on the rendered pixels of a real `generateBracketImage` (winner filled like its opponent, larger than its slot, gold trophy only on the winner)
+- No command definition changed: restart only
+
 ## 2.68.0 - 2026-10-29
 
 ### Added

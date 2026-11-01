@@ -43,6 +43,9 @@ const CANVAS_PADDING = 60;
 const FONT_SIZE = 14;
 const TITLE_FONT_SIZE = 28;
 const CONNECTOR_EXTEND = 40; // How far connector lines extend horizontally
+// A matchup's winner is drawn this much larger, around the same centre. Kept
+// small: the two titles in a matchup are only MATCHUP_GAP apart.
+const WINNER_SCALE = 1.08;
 
 // Color scheme with primary blue rgb(78, 197, 237)
 const COLORS = {
@@ -52,7 +55,6 @@ const COLORS = {
   cardBorder: 'rgb(50, 60, 68)',      // Border with blue tint
   text: 'rgb(230, 235, 240)',         // Light text with blue tint
   textMuted: 'rgb(140, 150, 160)',    // Muted text with blue tint
-  winner: 'rgb(78, 197, 237)',        // Primary blue for winners
   connectorLine: 'rgb(78, 110, 130)'  // Connector lines with blue tint
 };
 
@@ -353,12 +355,24 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1, round
     ctx.fillStyle = COLORS.primary;
     ctx.font = `bold ${FONT_SIZE}px Arial, sans-serif`;
     ctx.textAlign = 'center';
+    // Set, not inherited: the last title drawn left it at 'middle', which
+    // dropped every label but the first onto the frame, touching an
+    // enlarged winner's tile
+    ctx.textBaseline = 'alphabetic';
     ctx.fillText(regionalLabel, x + (width / 2), participant1Y - 8 * scale);
   }
   
-  // Draw participants
-  await drawParticipant(ctx, movie1, x, participant1Y, winner === 'movie1', scale);
-  await drawParticipant(ctx, movie2, x, participant2Y, winner === 'movie2', scale);
+  // Draw participants, the winner last: its tile is enlarged and casts a
+  // shadow, which the other title would otherwise paint over
+  const drawFirst = () => drawParticipant(ctx, movie1, x, participant1Y, winner === 'movie1', scale);
+  const drawSecond = () => drawParticipant(ctx, movie2, x, participant2Y, winner === 'movie2', scale);
+  if (winner === 'movie1') {
+    await drawSecond();
+    await drawFirst();
+  } else {
+    await drawFirst();
+    await drawSecond();
+  }
 }
 
 /**
@@ -449,6 +463,14 @@ async function extractPosterColors(imageUrl) {
  * @param {number} scale - Scale factor for finals (default 1)
  */
 async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
+  // A winner looks like any other title, just a little larger (grown around
+  // its centre) and with a trophy. It used to be filled solid light blue,
+  // which hid its poster and made it the one tile unlike the rest.
+  if (isWinner) {
+    x -= PARTICIPANT_WIDTH * scale * (WINNER_SCALE - 1) / 2;
+    y -= PARTICIPANT_HEIGHT * scale * (WINNER_SCALE - 1) / 2;
+    scale *= WINNER_SCALE;
+  }
   const width = PARTICIPANT_WIDTH * scale;
   const height = PARTICIPANT_HEIGHT * scale;
   const fontSize = FONT_SIZE * scale;
@@ -468,8 +490,20 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
     return;
   }
   
-  // Draw poster image and gradient for non-winner participants with posters
-  if (!isWinner && movie.posterUrl) {
+  // Lift the winner off the page: a soft shadow cast by a backing in the
+  // page colour, so the tile itself still renders exactly like the others
+  if (isWinner) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 10 * scale;
+    ctx.shadowOffsetY = 3 * scale;
+    ctx.fillStyle = COLORS.background;
+    ctx.fillRect(x, y, width, height);
+    ctx.restore();
+  }
+
+  // Draw poster image and gradient for participants with posters
+  if (movie.posterUrl) {
     try {
       // Load and draw poster image as background
       const posterImg = await loadImage(movie.posterUrl);
@@ -547,25 +581,23 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(x, y, width, height);
   } else {
-    // Solid color for winners or items without posters
-    ctx.fillStyle = isWinner ? COLORS.winner : COLORS.cardBg;
+    // Solid color for items without posters
+    ctx.fillStyle = COLORS.cardBg;
     ctx.fillRect(x, y, width, height);
   }
-  
+
   // Border
   ctx.strokeStyle = isWinner ? COLORS.primary : COLORS.cardBorder;
   ctx.lineWidth = isWinner ? 3 * scale : 2 * scale;
   ctx.strokeRect(x, y, width, height);
-  
-  // Title: white, but dark on a winner's light-blue tile, where white was
-  // hard to read
-  ctx.fillStyle = isWinner ? COLORS.background : COLORS.text;
+
+  ctx.fillStyle = COLORS.text;
   ctx.font = `${fontSize}px Arial, sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  
-  // Truncate text if too long
-  const maxWidth = width - 40 * scale;
+
+  // Truncate text if too long, leaving room at the right for a winner's trophy
+  const maxWidth = width - (isWinner ? 48 : 40) * scale;
   let displayText = seededTitle(movie); // "(1) Halloween" in a seeded bracket
   let textWidth = ctx.measureText(displayText).width;
   
@@ -584,29 +616,15 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
   // before `qualifiedAs` existed still carry it in `type`.
   const qualified = movie.qualifiedAs || (['winner', 'runnerup', 'wildcard'].includes(movie.type) ? movie.type : null);
   if (qualified) {
-    ctx.fillStyle = isWinner ? COLORS.background : COLORS.textMuted;
+    ctx.fillStyle = COLORS.textMuted;
     ctx.font = `bold ${(FONT_SIZE - 2) * scale}px Arial, sans-serif`;
     ctx.textAlign = 'left';
     const typeLabel = qualified === 'winner' ? 'W' : qualified === 'runnerup' ? 'R' : 'WC';
     ctx.fillText(typeLabel, x + 5 * scale, y + 12 * scale);
   }
-  
-  // Winner tick, drawn as lines: the fonts here have no ✓ glyph, so the
-  // character came out as an empty box
+
   if (isWinner) {
-    const cx = x + width - 16 * scale;
-    const cy = y + height / 2;
-    ctx.save();
-    ctx.strokeStyle = COLORS.background;
-    ctx.lineWidth = 3 * scale;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(cx - 6 * scale, cy);
-    ctx.lineTo(cx - 2 * scale, cy + 4 * scale);
-    ctx.lineTo(cx + 6 * scale, cy - 5 * scale);
-    ctx.stroke();
-    ctx.restore();
+    drawTrophyIcon(ctx, x + width - 22 * scale, y + height / 2, 32 * scale);
   }
 }
 
@@ -636,50 +654,121 @@ function drawConnectorLine(ctx, x, y, roundIndex, matchupIndex, totalMatchups, y
 }
 
 /**
- * Helper function to draw a custom trophy icon
+ * A shining gold trophy in the style of the 🏆 emoji, on a matchup winner's
+ * tile and above the champion card. Drawn as shapes, not text: the server's
+ * fonts have no colour emoji, so a 🏆 character renders as an empty box (as
+ * ✓ once did here).
+ * @param {number} cx - Centre x
+ * @param {number} cy - Centre y
+ * @param {number} size - Height of the trophy in pixels, sparkles aside
  */
-function drawTrophyIcon(ctx, x, y, size) {
-  const scale = size / 48; // Base size of 48px
-  
-  // Gold color
-  ctx.fillStyle = '#FFD700';
-  ctx.strokeStyle = '#B8860B'; // Darker gold for outlines
-  ctx.lineWidth = 2 * scale;
-  
-  // Trophy cup
+function drawTrophyIcon(ctx, cx, cy, size) {
+  const u = size / 30; // Drawn on a grid where the cup's rim is y -14 and the base's foot y +15
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(u, u);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  // Metallic gold: pale where the light catches the left, deep amber right
+  const gold = ctx.createLinearGradient(-11, 0, 11, 0);
+  gold.addColorStop(0, '#FFF3A8');
+  gold.addColorStop(0.35, '#FFD43B');
+  gold.addColorStop(0.75, '#F0A30A');
+  gold.addColorStop(1, '#B86E00');
+  const outline = '#8A5200';
+
+  const cupPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(-10.5, -14);
+    ctx.lineTo(10.5, -14);
+    ctx.bezierCurveTo(10.5, -4, 6.5, 2.5, 2, 3);
+    ctx.lineTo(-2, 3);
+    ctx.bezierCurveTo(-6.5, 2.5, -10.5, -4, -10.5, -14);
+    ctx.closePath();
+  };
+
+  // The glow: every gold part casts a warm halo. shadowBlur is in canvas
+  // pixels, unaffected by the scale above, hence the * u.
+  ctx.shadowColor = 'rgba(255, 200, 40, 0.85)';
+  ctx.shadowBlur = 9 * u;
+
+  // Handles, behind the cup
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 2.6;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(9.5 * side, -12);
+    ctx.bezierCurveTo(17 * side, -12.5, 16.5 * side, -2, 6 * side, -1);
+    ctx.stroke();
+  }
+
+  // Cup, stem and two-step base
+  ctx.fillStyle = gold;
+  cupPath();
+  ctx.fill();
+  ctx.fillRect(-2, 3, 4, 5);
+  roundRectPath(ctx, -6, 8, 12, 2.5, 1);
+  ctx.fill();
+  roundRectPath(ctx, -8.5, 10.5, 17, 4.5, 1.2);
+  ctx.fill();
+
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 0.8;
+  cupPath();
+  ctx.stroke();
+  roundRectPath(ctx, -6, 8, 12, 2.5, 1);
+  ctx.stroke();
+  roundRectPath(ctx, -8.5, 10.5, 17, 4.5, 1.2);
+  ctx.stroke();
+
+  // Engraved plate on the base
+  ctx.fillStyle = 'rgba(138, 82, 0, 0.55)';
+  ctx.fillRect(-4.5, 11.8, 9, 2);
+
+  // The rim catching the light
+  ctx.strokeStyle = '#FFF8D0';
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(x - 15 * scale, y - 10 * scale);
-  ctx.lineTo(x - 12 * scale, y + 10 * scale);
-  ctx.lineTo(x + 12 * scale, y + 10 * scale);
-  ctx.lineTo(x + 15 * scale, y - 10 * scale);
+  ctx.moveTo(-9.5, -13.3);
+  ctx.lineTo(9.5, -13.3);
+  ctx.stroke();
+
+  // Gloss: a white streak down the bowl's lit side
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+  ctx.beginPath();
+  ctx.moveTo(-7.5, -12);
+  ctx.quadraticCurveTo(-7.8, -4, -3.5, 0.5);
+  ctx.quadraticCurveTo(-5.6, -4.5, -5.2, -12);
   ctx.closePath();
   ctx.fill();
-  ctx.stroke();
-  
-  // Trophy handles
-  // Left handle
+
+  // Sparkles: the shine
+  drawSparkle(ctx, 11.5, -15, 4.2, u);
+  drawSparkle(ctx, -13, 7, 2.6, u);
+  drawSparkle(ctx, 4.5, -8.5, 1.8, u); // a glint on the cup itself
+
+  ctx.restore();
+}
+
+/** A four-pointed white sparkle with a soft glow, centred on (x, y) */
+function drawSparkle(ctx, x, y, r, u) {
+  const k = r * 0.22; // How far the sides pinch in towards the centre
+  ctx.save();
+  ctx.shadowColor = 'rgba(255, 240, 180, 0.95)';
+  ctx.shadowBlur = r * 1.5 * u;
+  ctx.fillStyle = '#FFFFFF';
   ctx.beginPath();
-  ctx.arc(x - 20 * scale, y, 5 * scale, 0, Math.PI * 2);
+  ctx.moveTo(x, y - r);
+  ctx.quadraticCurveTo(x + k, y - k, x + r, y);
+  ctx.quadraticCurveTo(x + k, y + k, x, y + r);
+  ctx.quadraticCurveTo(x - k, y + k, x - r, y);
+  ctx.quadraticCurveTo(x - k, y - k, x, y - r);
   ctx.fill();
-  ctx.stroke();
-  
-  // Right handle
-  ctx.beginPath();
-  ctx.arc(x + 20 * scale, y, 5 * scale, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  
-  // Trophy base
-  ctx.fillRect(x - 18 * scale, y + 10 * scale, 36 * scale, 4 * scale);
-  ctx.strokeRect(x - 18 * scale, y + 10 * scale, 36 * scale, 4 * scale);
-  
-  // Trophy stem
-  ctx.fillRect(x - 4 * scale, y + 14 * scale, 8 * scale, 8 * scale);
-  ctx.strokeRect(x - 4 * scale, y + 14 * scale, 8 * scale, 8 * scale);
-  
-  // Trophy bottom plate
-  ctx.fillRect(x - 20 * scale, y + 22 * scale, 40 * scale, 4 * scale);
-  ctx.strokeRect(x - 20 * scale, y + 22 * scale, 40 * scale, 4 * scale);
+  ctx.restore();
 }
 
 /**
@@ -711,9 +800,6 @@ async function drawChampion(ctx, winner, x, y) {
   // Center the card at x position
   const cardX = x - (width / 2);
   const cardY = y - (height / 2);
-  
-  // Draw custom trophy icon above the card
-  drawTrophyIcon(ctx, x, cardY - 35, 48);
   
   // Draw poster background if available
   if (winner.posterUrl) {
@@ -788,7 +874,14 @@ async function drawChampion(ctx, winner, x, y) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('CHAMPION', x, cardY + textBandHeight / 2);
-  
+
+  // A trophy either side of the word. One used to sit above the card, in
+  // the ~20px between it and the finals, so it covered the bottom of the
+  // finals winner's tile — which now carries a trophy of its own.
+  const trophyOffset = ctx.measureText('CHAMPION').width / 2 + 30;
+  drawTrophyIcon(ctx, x - trophyOffset, cardY + textBandHeight / 2, 34);
+  drawTrophyIcon(ctx, x + trophyOffset, cardY + textBandHeight / 2, 34);
+
   // Bottom dark band for title text
   ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
   ctx.save();
