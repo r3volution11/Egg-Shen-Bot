@@ -94,6 +94,13 @@ client.once('clientReady', async () => {
     commandCount: client.commands.size
   });
   
+  // The emoji kit's icons: see what's uploaded (awaited, at most 5 s,
+  // so the first cards after a restart already have their art), then upload
+  // anything missing in the background. Plain emoji until a family is all
+  // there, and always with EMOJI_SYNC=off.
+  const { startEmojiKit } = await import('./utils/emojiSync.js');
+  await startEmojiKit(client).catch(err => console.warn('[EmojiKit] Start failed:', err.message));
+
   // Load persisted timers from previous session
   const restoredTimers = await loadTimers();
   
@@ -907,6 +914,10 @@ async function gracefulShutdown(signal) {
     memoryUsage: process.memoryUsage()
   });
   
+  // Stop the emoji kit's upload retries
+  const { stopEmojiKit } = await import('./utils/emojiSync.js');
+  stopEmojiKit();
+
   // Stop tournament scheduler
   const { shutdown: shutdownScheduler } = await import('./utils/tournamentScheduler.js');
   shutdownScheduler();

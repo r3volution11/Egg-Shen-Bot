@@ -9,6 +9,26 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.71.0 - 2026-11-01
+
+### Added
+- **The cards have their own icons.** Game cards and the leaderboard now use a set of 64 icons drawn in Egg Shen's own style, matching the bot's logo:
+  - bars are carved stone channels filling with blue lightning
+  - your nights row is a string of paper lanterns
+  - medals and points are old Chinese coins
+  - the Glovebox is the Six Demon Bag
+  - every game and item has its own icon
+
+  They'll come to tournament and survey cards too. Nothing to set up: the bot adds them to itself the first time it starts. Until then, and anywhere they can't load, the cards use ordinary emoji and read the same
+
+### Developer
+- `src/utils/emojiSync.js` uploads the kit as **application emojis** (they work in every server without Use External Emojis) on startup: one bounded read before the schedulers start, then any missing ones in the background, retried hourly. `EMOJI_SYNC=off` skips it. Names are `es_<code>_<hash>`; changed art is uploaded beside the old version, never replacing it, because posted messages point at emojis by id. `npm run deploy-emojis` (`--dry-run`, `--prune` for versions over 30 days old) does it by hand
+- `src/utils/emojiKit.js`: readiness by family (bars, ticks, icons), so a bar never mixes custom and plain pieces
+- The art is drawn in code (`scripts/emoji-styles/egg-shen.js`, canvas vector shapes) and built by `npm run build:emojis` into `assets/emojis/<code>.png`, `manifest.json` (hash = sha256 of the PNG) and `contact-sheet.png`. The PNGs are committed, since servers install with `--omit=dev`. `assets/emojis/art/<code>.png` overrides any drawing
+- Tests: `emoji-sync` (fake application emoji manager: uploads once, keeps old versions, prune rules, foreign emojis untouched, partial failures and retry, name clashes, the 2,000 cap) and `emoji-art` (every code drawn, 128×128 with transparency, bar edges line up, manifest hashes match the PNGs)
+- Self-hosting: see [Deployment](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/DEPLOYMENT.md). Give a development bot its own Discord application, since emojis belong to the application
+- No command changes: restart only
+
 ## 2.70.0 - 2026-11-01
 
 ### Added

@@ -120,6 +120,14 @@ npm run deploy-commands
 
 You should see: `✓ Successfully deployed 4 commands globally`
 
+### The game cards' icons (automatic)
+
+The game cards, leaderboard and tournament/survey cards use small drawn icons (bars, medals, items) in the bot's own style. There is nothing to set up: on its first start the bot uploads them to **its own application** as application emojis, which work in every server it's in. The log shows `[EmojiKit] Uploading 64 of 64 in the background…`, then `[EmojiKit] Ready: 64`. Until then, and if an upload fails, cards use plain emoji and still read correctly; failed uploads are retried hourly.
+
+- `EMOJI_SYNC=off` in `.env` turns this off (plain emoji everywhere).
+- You'll see them in the Developer Portal under your application → **Emojis**, named `es_<icon>_<hash>`. Don't rename them. When the art changes, the new version is uploaded beside the old one, because messages already posted still point at the old one. `npm run deploy-emojis -- --prune` removes versions that are no longer current and over 30 days old; `-- --dry-run` just reports.
+- If you test with a development bot, give it its **own** Discord application: emojis belong to the application, so a dev bot sharing production's would upload into production's list.
+
 ## Step 6: Start the Bot with PM2
 
 Create logs directory:

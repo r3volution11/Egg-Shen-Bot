@@ -1,0 +1,386 @@
+{
+  "bgl": {
+    "hash": "6902",
+    "family": "bar",
+    "fallback": "🟩",
+    "source": "drawn"
+  },
+  "bgm": {
+    "hash": "fc19",
+    "family": "bar",
+    "fallback": "🟩",
+    "source": "drawn"
+  },
+  "bgr": {
+    "hash": "94af",
+    "family": "bar",
+    "fallback": "🟩",
+    "source": "drawn"
+  },
+  "bol": {
+    "hash": "9546",
+    "family": "bar",
+    "fallback": "🟧",
+    "source": "drawn"
+  },
+  "bom": {
+    "hash": "6847",
+    "family": "bar",
+    "fallback": "🟧",
+    "source": "drawn"
+  },
+  "bor": {
+    "hash": "f769",
+    "family": "bar",
+    "fallback": "🟧",
+    "source": "drawn"
+  },
+  "byl": {
+    "hash": "b60b",
+    "family": "bar",
+    "fallback": "🟨",
+    "source": "drawn"
+  },
+  "bym": {
+    "hash": "d481",
+    "family": "bar",
+    "fallback": "🟨",
+    "source": "drawn"
+  },
+  "byr": {
+    "hash": "e843",
+    "family": "bar",
+    "fallback": "🟨",
+    "source": "drawn"
+  },
+  "bbl": {
+    "hash": "3e3b",
+    "family": "bar",
+    "fallback": "🟦",
+    "source": "drawn"
+  },
+  "bbm": {
+    "hash": "df94",
+    "family": "bar",
+    "fallback": "🟦",
+    "source": "drawn"
+  },
+  "bbr": {
+    "hash": "2b16",
+    "family": "bar",
+    "fallback": "🟦",
+    "source": "drawn"
+  },
+  "bpl": {
+    "hash": "1abf",
+    "family": "bar",
+    "fallback": "🟪",
+    "source": "drawn"
+  },
+  "bpm": {
+    "hash": "aa81",
+    "family": "bar",
+    "fallback": "🟪",
+    "source": "drawn"
+  },
+  "bpr": {
+    "hash": "7834",
+    "family": "bar",
+    "fallback": "🟪",
+    "source": "drawn"
+  },
+  "bsl": {
+    "hash": "733f",
+    "family": "bar",
+    "fallback": "⬜",
+    "source": "drawn"
+  },
+  "bsm": {
+    "hash": "cb62",
+    "family": "bar",
+    "fallback": "⬜",
+    "source": "drawn"
+  },
+  "bsr": {
+    "hash": "6886",
+    "family": "bar",
+    "fallback": "⬜",
+    "source": "drawn"
+  },
+  "bel": {
+    "hash": "5e60",
+    "family": "bar",
+    "fallback": "⬜",
+    "source": "drawn"
+  },
+  "bem": {
+    "hash": "6e53",
+    "family": "bar",
+    "fallback": "⬜",
+    "source": "drawn"
+  },
+  "ber": {
+    "hash": "3a80",
+    "family": "bar",
+    "fallback": "⬜",
+    "source": "drawn"
+  },
+  "tk1": {
+    "hash": "136d",
+    "family": "tick",
+    "fallback": "✅",
+    "source": "drawn"
+  },
+  "tk0": {
+    "hash": "9705",
+    "family": "tick",
+    "fallback": "⬜",
+    "source": "drawn"
+  },
+  "ntp": {
+    "hash": "aaf9",
+    "family": "tick",
+    "fallback": "🌕",
+    "source": "drawn"
+  },
+  "nts": {
+    "hash": "1c09",
+    "family": "tick",
+    "fallback": "🔦",
+    "source": "drawn"
+  },
+  "ntm": {
+    "hash": "a482",
+    "family": "tick",
+    "fallback": "🌑",
+    "source": "drawn"
+  },
+  "ntt": {
+    "hash": "444e",
+    "family": "tick",
+    "fallback": "🌗",
+    "source": "drawn"
+  },
+  "coin": {
+    "hash": "0bbe",
+    "family": "icon",
+    "fallback": "🪙",
+    "source": "drawn"
+  },
+  "flame": {
+    "hash": "6320",
+    "family": "icon",
+    "fallback": "🔥",
+    "source": "drawn"
+  },
+  "moon": {
+    "hash": "f6f6",
+    "family": "icon",
+    "fallback": "🌙",
+    "source": "drawn"
+  },
+  "shield": {
+    "hash": "dbb6",
+    "family": "icon",
+    "fallback": "🛡️",
+    "source": "drawn"
+  },
+  "clock": {
+    "hash": "72c1",
+    "family": "icon",
+    "fallback": "⏰",
+    "source": "drawn"
+  },
+  "star": {
+    "hash": "aff7",
+    "family": "icon",
+    "fallback": "⭐",
+    "source": "drawn"
+  },
+  "chart": {
+    "hash": "4721",
+    "family": "icon",
+    "fallback": "📊",
+    "source": "drawn"
+  },
+  "people": {
+    "hash": "6011",
+    "family": "icon",
+    "fallback": "👥",
+    "source": "drawn"
+  },
+  "med1": {
+    "hash": "6d7a",
+    "family": "icon",
+    "fallback": "🥇",
+    "source": "drawn"
+  },
+  "med2": {
+    "hash": "d518",
+    "family": "icon",
+    "fallback": "🥈",
+    "source": "drawn"
+  },
+  "med3": {
+    "hash": "e081",
+    "family": "icon",
+    "fallback": "🥉",
+    "source": "drawn"
+  },
+  "trophy": {
+    "hash": "f6a5",
+    "family": "icon",
+    "fallback": "🏆",
+    "source": "drawn"
+  },
+  "crown": {
+    "hash": "e813",
+    "family": "icon",
+    "fallback": "👑",
+    "source": "drawn"
+  },
+  "ballot": {
+    "hash": "4c07",
+    "family": "icon",
+    "fallback": "🗳️",
+    "source": "drawn"
+  },
+  "vs": {
+    "hash": "6adc",
+    "family": "icon",
+    "fallback": "⚔️",
+    "source": "drawn"
+  },
+  "lock": {
+    "hash": "4bb9",
+    "family": "icon",
+    "fallback": "🔒",
+    "source": "drawn"
+  },
+  "tie": {
+    "hash": "3863",
+    "family": "icon",
+    "fallback": "🤝",
+    "source": "drawn"
+  },
+  "upset": {
+    "hash": "8a65",
+    "family": "icon",
+    "fallback": "🚨",
+    "source": "drawn"
+  },
+  "dice": {
+    "hash": "c384",
+    "family": "icon",
+    "fallback": "🎲",
+    "source": "drawn"
+  },
+  "potion": {
+    "hash": "7fa0",
+    "family": "icon",
+    "fallback": "🧪",
+    "source": "drawn"
+  },
+  "food": {
+    "hash": "c95a",
+    "family": "icon",
+    "fallback": "🥧",
+    "source": "drawn"
+  },
+  "doom": {
+    "hash": "9500",
+    "family": "icon",
+    "fallback": "🪓",
+    "source": "drawn"
+  },
+  "rescue": {
+    "hash": "c847",
+    "family": "icon",
+    "fallback": "🛟",
+    "source": "drawn"
+  },
+  "siege": {
+    "hash": "8902",
+    "family": "icon",
+    "fallback": "👹",
+    "source": "drawn"
+  },
+  "gpie": {
+    "hash": "4eaf",
+    "family": "icon",
+    "fallback": "🥧",
+    "source": "drawn"
+  },
+  "vhs": {
+    "hash": "3c39",
+    "family": "icon",
+    "fallback": "📼",
+    "source": "drawn"
+  },
+  "garlic": {
+    "hash": "b442",
+    "family": "icon",
+    "fallback": "🧄",
+    "source": "drawn"
+  },
+  "holyw": {
+    "hash": "2fd1",
+    "family": "icon",
+    "fallback": "💧",
+    "source": "drawn"
+  },
+  "penny": {
+    "hash": "450e",
+    "family": "icon",
+    "fallback": "🍀",
+    "source": "drawn"
+  },
+  "antid": {
+    "hash": "c297",
+    "family": "icon",
+    "fallback": "💊",
+    "source": "drawn"
+  },
+  "silver": {
+    "hash": "f04f",
+    "family": "icon",
+    "fallback": "🥈",
+    "source": "drawn"
+  },
+  "nlight": {
+    "hash": "05d8",
+    "family": "icon",
+    "fallback": "🔦",
+    "source": "drawn"
+  },
+  "gift": {
+    "hash": "378d",
+    "family": "icon",
+    "fallback": "🎁",
+    "source": "drawn"
+  },
+  "glove": {
+    "hash": "e40d",
+    "family": "icon",
+    "fallback": "🧰",
+    "source": "drawn"
+  },
+  "scroll": {
+    "hash": "f93c",
+    "family": "icon",
+    "fallback": "📜",
+    "source": "drawn"
+  },
+  "effect": {
+    "hash": "966e",
+    "family": "icon",
+    "fallback": "🌀",
+    "source": "drawn"
+  },
+  "rocket": {
+    "hash": "9da3",
+    "family": "icon",
+    "fallback": "🚀",
+    "source": "drawn"
+  }
+}

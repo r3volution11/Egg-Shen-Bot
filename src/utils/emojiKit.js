@@ -1,7 +1,9 @@
 /**
- * The emoji kit: the small pixel-art icons that make a card look like
- * DarcyBot's (icons beside headings, progress bars built from emoji pieces,
- * rows of streak ticks), with a plain-emoji fallback for every one.
+ * The emoji kit: the small icons that make a card look like DarcyBot's
+ * (icons beside headings, progress bars built from emoji pieces, rows of
+ * streak ticks), with a plain-emoji fallback for every one. They're drawn in
+ * the bot's own style, "Egg Shen's Magic" (scripts/emoji-styles/egg-shen.js:
+ * carved stone, jade, blue lightning, paper lanterns).
  *
  * The art is uploaded as the bot's own *application emojis*, which work in
  * every server without Use External Emojis (Discord docs). Every operator's
