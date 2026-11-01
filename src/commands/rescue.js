@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 import { resolveSocialTarget } from '../utils/socialTarget.js';
-import { beginPlay, finishPlay, tagged, pick } from '../utils/gamePlay.js';
+import { beginPlay, finishPlay, tagged, pick, itemOption, itemChoices } from '../utils/gamePlay.js';
 import { RESCUE_LINES } from '../data/rescueLines.js';
 
 /**
@@ -11,6 +11,9 @@ import { RESCUE_LINES } from '../data/rescueLines.js';
  * (src/utils/gameScores.js); each line is tagged rescued, caught or
  * sacrificed, and a rescue (or a heroic sacrifice) shields the one saved:
  * the next /doom aimed at them is blocked.
+ *
+ * `attempt` takes an `item:` from the Glovebox (Holy Water can't be caught,
+ * and its shield lasts 3× as long); finishPlay draws the line with it.
  *
  * Rescuing yourself is refused — it would hand you a shield on demand.
  * The main subcommand is `attempt`, which sorts ahead of `lines` in
@@ -58,7 +61,8 @@ export const data = new SlashCommandBuilder()
       .setName('target')
       .setDescription('Who to save: a member, a role, or @everyone')
       .setRequired(true))
-    .addStringOption(tropeOption(false)))
+    .addStringOption(tropeOption(false))
+    .addStringOption(itemOption))
   .addSubcommandGroup(group => group
     .setName('lines')
     .setDescription('Manage this server\'s own rescue lines (Admin/Mod only)')
@@ -94,6 +98,12 @@ export const data = new SlashCommandBuilder()
       .setDescription('Remove all of this server\'s lines for a rescue')
       .addStringOption(tropeOption(true))));
 
+/** `item` suggestions for `attempt`: what's in your Glovebox that fits */
+export async function autocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  await interaction.respond(itemChoices(interaction.guildId, interaction.user.id, { game: 'rescue', action: 'attempt' }, focused?.value));
+}
+
 export async function execute(interaction) {
   if (!await canUseCommand(interaction.guildId, interaction.member, 'rescue')) {
     await interaction.reply({ content: '❌ /rescue is turned off on this server.', ephemeral: true });
@@ -123,13 +133,13 @@ async function attempt(interaction) {
     return;
   }
 
-  const started = await beginPlay(interaction, 'rescue');
+  const started = await beginPlay(interaction, 'rescue', { item: interaction.options.getString('item'), action: 'attempt' });
   if (!started) return;
 
   const trope = interaction.options.getString('trope') || pick(RESCUE_TROPES).value;
-  const line = pick([...tagged(getRescueLines(started.config)[trope], 'rescued'), ...(RESCUE_LINES[trope] || [])]);
-  const text = line.text.replace(/{user}/g, `<@${interaction.user.id}>`).replace(/{target}/g, target.mention);
-  await finishPlay(interaction, { game: 'rescue', target, text, outcome: line.outcome, settings: started.settings });
+  const lines = [...tagged(getRescueLines(started.config)[trope], 'rescued'), ...(RESCUE_LINES[trope] || [])];
+  const fill = (text) => text.replace(/{user}/g, `<@${interaction.user.id}>`).replace(/{target}/g, target.mention);
+  await finishPlay(interaction, { game: 'rescue', action: 'attempt', target, lines, fill, item: started.item, settings: started.settings });
 }
 
 async function manageLines(interaction) {

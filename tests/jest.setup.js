@@ -37,6 +37,10 @@ function fallback(name, value) {
 // (src/utils/eventStreaming.js). Never from a test: the suites for that
 // feature mock TMDB and switch it back on themselves.
 fallback('EVENT_STREAMING_LOOKUP', 'off');
+// The games' luck (src/utils/gameLuck.js): a constant that fires nothing,
+// so no random item, twist or loot turns up in a suite that didn't ask for
+// one. Suites that want luck set it with _setLuck.
+fallback('GAME_LUCK', 'off');
 // Signs the form's login cookie (src/utils/sessionCookie.js); tests sign
 // theirs with tests/harness/sessionCookie.js
 fallback('SESSION_SECRET', 'test-session-secret');

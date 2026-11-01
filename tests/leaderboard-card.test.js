@@ -7,13 +7,16 @@
  * limits is rejected whole and posts nothing.
  *
  * /leaderboard itself (member lookups, refusals) is driven end to end in
- * tests/game-commands.test.js.
+ * tests/game-commands.test.js; the title badge on each row (R3), from the
+ * title a member chose to show, is driven end to end here.
  *
  * Run with: npm test -- tests/leaderboard-card.test.js
  */
 
 import { describe, test, expect, beforeEach } from '@jest/globals';
-import { recordPlay, deleteScores, getLeaderboard, GAMES } from '../src/utils/gameScores.js';
+import { recordPlay, deleteScores, getLeaderboard, setShownTitle, GAMES } from '../src/utils/gameScores.js';
+import { FakeDiscord } from './harness/fakeDiscord.js';
+import * as leaderboardCommand from '../src/commands/leaderboard.js';
 import { renderLeaderboard, layoutLeaderboard, LEADERBOARD_STEPS } from '../src/utils/leaderboardCard.js';
 import { createKit, KIT_CODES, MAX_EMOJI_MARKUP } from '../src/utils/emojiKit.js';
 import { messageProblems, embedTextLength, LIMITS } from '../src/utils/embedFit.js';
@@ -189,6 +192,22 @@ describe('the card, line by line', () => {
     expect(d.description).toBe('🥇 \\*\\`Kim\\`\\* ▰▰▰▰▰ `3`');
   });
 
+  test('title badges (R3): after the name, before the bar; no title, no badge; Unicode whichever kit draws the rest', () => {
+    november();
+    const badges = { sam: '🥧', alex: '👕' };
+    const data = cardData(getLeaderboard(GUILD, 'all', 'month', {}, NOW));
+    data.rows = data.rows.map(r => ({ ...r, badge: badges[r.userId] || null }));
+    expect(renderLeaderboard(data, { kit: fallback }).toJSON().description.split('\n')).toEqual([
+      '🥇 Sam 🥧 ▰▰▰▰▰ `8`',
+      '🥈 Kim ▰▰▰▰▱ `6`',
+      '🥉 Alex 👕 ▰▱▱▱▱ `1`',
+      '4\\. Lee ▱▱▱▱▱ `0`',
+    ]);
+    const custom = renderLeaderboard(data, { kit: uploaded });
+    expect(custom.toJSON().description.split('\n')[0]).toBe(`${E('med1')} Sam 🥧 ${E('byl')}${E('bym')}${E('bym')}${E('bym')}${E('byr')} \`8\``);
+    expect(misplacedEmoji(custom)).toEqual([]);
+  });
+
   test('nobody has played: a friendly card, with nothing empty on it', () => {
     const { embed } = layoutLeaderboard(cardData(getLeaderboard(GUILD, 'all', 'month', {}, NOW)), { kit: fallback });
     expect(embed.toJSON()).toEqual({
@@ -198,6 +217,24 @@ describe('the card, line by line', () => {
       footer: { text: 'Your own card: /scoreboard' },
     });
     expect(messageProblems({ embeds: [embed] })).toEqual([]);
+  });
+});
+
+describe('/leaderboard: each row shows the badge of the title they chose', () => {
+  test('ten hits in a row earn On Fire; shown, its badge is on their row, and nobody else\'s', async () => {
+    const discord = new FakeDiscord({ guildId: GUILD });
+    discord.addUser('sam', { nickname: 'Sam' });
+    discord.addUser('kim', { nickname: 'Kim' });
+    for (let n = 0; n < 10; n++) play('foodfight', 'hit', sam, ROLE, NOW + n);
+    play('doom', 'doomed', kim);
+    expect(setShownTitle(GUILD, 'sam', 'on-fire', NOW)).toMatchObject({ ok: true });
+
+    const i = discord.command('kim', 'leaderboard');
+    await leaderboardCommand.execute(i);
+    const rows = i.replyMessage.embeds[0].toJSON().description.split('\n');
+    expect(rows[0]).toMatch(/^🥇 Sam 🔥 ▰▰▰▰▰ `\d+`$/);
+    expect(rows[1]).toMatch(/^🥈 Kim [▰▱]{5} `3`$/);
+    expect(discord.violations).toEqual([]);
   });
 });
 
@@ -257,8 +294,32 @@ describe('always within Discord\'s limits', () => {
     expect(embedTextLength(d)).toBeLessThanOrEqual(LIMITS.total);
   });
 
-  // Past this point only R3's title badges (or labels longer than today's)
-  // could take a card; overlong ones stand in for them here
+  // A badge is one emoji, but one emoji can be 8 characters (🧑‍🤝‍🧑 is
+  // four code points joined): the longest on all 15 rows still fits
+  test('worst case with the longest badge on every row: all 15 rows in both kits', () => {
+    const BADGE = '🧑‍🤝‍🧑';
+    expect(BADGE).toHaveLength(8);
+    const plain = layoutLeaderboard(worst({ badge: BADGE }), { kit: fallback });
+    expect([plain.step, rowsOn(plain.embed)]).toEqual([0, 15]);
+    const custom = layoutLeaderboard(worst({ badge: BADGE }), { kit: longest });
+    expect([custom.step, rowsOn(custom.embed)]).toEqual([1, 15]);
+    for (const { embed } of [plain, custom]) {
+      expect(messageProblems({ embeds: [embed] })).toEqual([]);
+      const last = embed.toJSON().description.split('\n')[14];
+      expect(last.startsWith(`15\\. ${'\\_\\*'.repeat(16)} ${BADGE} `)).toBe(true);
+    }
+  });
+
+  test('fifteen ordinary names, every one with a badge: the bars stay, even with uploaded emoji', () => {
+    const data = worst();
+    data.rows = data.rows.map((r, i) => ({ ...r, name: `Member ${i + 1}`, badge: '🧑‍🤝‍🧑', points: 100 - i }));
+    const { embed, step } = layoutLeaderboard(data, { kit: longest });
+    expect(step).toBe(0);
+    expect(embed.toJSON().description.split('\n')[1]).toMatch(/^<:es_xxxxxx_ab12:\d+> Member 2 🧑‍🤝‍🧑 (<:es_xxxxxx_ab12:\d+>){5} `99`$/);
+  });
+
+  // Past this point only overlong badges (or labels longer than today's)
+  // could take a card; they stand in for them here
   test('overgrown rows: down to the top 10', () => {
     const { embed, step } = layoutLeaderboard(worst({ badge: 'B'.repeat(250) }), { kit: longest });
     expect(messageProblems({ embeds: [embed] })).toEqual([]);

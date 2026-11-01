@@ -1,6 +1,9 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { gameOption, periodOption, privateOption } from '../utils/gameBoards.js';
 import { replyWithGameCard } from '../utils/gameCard.js';
+import { setShownTitle } from '../utils/gameScores.js';
+import { titleChoices } from '../utils/gameCardData.js';
+import { TITLE_REFUSALS } from '../data/gameRewardLines.js';
 
 /**
  * /scoreboard — one person's game card: points in /potion, /foodfight,
@@ -10,6 +13,11 @@ import { replyWithGameCard } from '../utils/gameCard.js';
  * The card itself, and every refusal (games switched off, bots, "hasn't
  * played yet"), lives in gameCard.js, because the right-click Game card
  * (game-card.js) shows the same card.
+ *
+ * `title:` (R3) picks which of your earned titles shows with your name, on
+ * your card and the leaderboard — then shows the card, so you see it
+ * there. Only for your own card: picking someone else's title would be a
+ * prank, not a choice.
  */
 
 export const data = new SlashCommandBuilder()
@@ -21,9 +29,34 @@ export const data = new SlashCommandBuilder()
     .setRequired(false))
   .addStringOption(gameOption)
   .addStringOption(periodOption)
-  .addBooleanOption(privateOption);
+  .addBooleanOption(privateOption)
+  .addStringOption(option => option
+    .setName('title')
+    .setDescription('Pick the title shown with your name')
+    .setRequired(false)
+    .setAutocomplete(true));
+
+/** `title` suggestions: your earned titles, then "No title" */
+export async function autocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  await interaction.respond(titleChoices(interaction.guildId, interaction.user.id, focused?.value));
+}
 
 export async function execute(interaction) {
+  const title = interaction.options.getString('title');
+  if (title) {
+    const picked = interaction.options.get('user');
+    if (picked?.user && picked.user.id !== interaction.user.id) {
+      await interaction.reply({ content: TITLE_REFUSALS.notYours, flags: MessageFlags.Ephemeral });
+      return;
+    }
+    const set = setShownTitle(interaction.guildId, interaction.user.id, title === 'none' ? null : title);
+    if (!set.ok) {
+      await interaction.reply({ content: TITLE_REFUSALS[set.reason], flags: MessageFlags.Ephemeral });
+      return;
+    }
+  }
+
   await replyWithGameCard(interaction, {
     picked: interaction.options.get('user'),
     period: interaction.options.getString('period') || 'all-time',

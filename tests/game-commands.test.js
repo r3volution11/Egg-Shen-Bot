@@ -19,7 +19,9 @@ import { describe, test, expect, jest, beforeAll, beforeEach, afterEach } from '
 import fs from 'fs';
 import path from 'path';
 import { FakeDiscord } from './harness/fakeDiscord.js';
-import { resetPlayLimits, deleteScores, loadScores, recordPlay, POINTS } from '../src/utils/gameScores.js';
+import { resetPlayLimits, deleteScores, loadScores, recordPlay, mutateScores, POINTS } from '../src/utils/gameScores.js';
+import { pickLine } from '../src/utils/gameRules.js';
+import { ITEM_PLACEHOLDERS } from '../src/data/gameRewardLines.js';
 import { saveGuildConfig, loadGuildConfig } from '../src/utils/guildConfig.js';
 import { checkRateLimit } from '../src/utils/rateLimiter.js';
 import { FOODFIGHT_LINES } from '../src/data/foodfightLines.js';
@@ -72,6 +74,42 @@ function stubOutcome(list, outcome) {
 
 /** Every game card's footer: how to open anyone's */
 const HINT = 'Anyone\'s card: right-click them → Apps → Game card';
+
+/**
+ * A card's nights row (R3) depends on the night a play falls in, and a
+ * night turns over at 12:00 UTC: a test that played at 11:59:59.9 and drew
+ * the card a moment later would see a different row. So the card tests
+ * play and draw at one fixed moment, the evening of 2 Nov 2026 (UTC).
+ */
+const CARD_NOW = Date.UTC(2026, 10, 2, 18, 0);
+const freezeClock = () => jest.spyOn(Date, 'now').mockReturnValue(CARD_NOW);
+
+/**
+ * R3's sections on a card (rendered by gameCard.js from getPlayerCardExtras):
+ * a first night's row is 13 missed nights and tonight played, one night
+ * of the 3 a Night Light needs, and no titles yet — the closest ones by
+ * the share still to go.
+ */
+const FIRST_NIGHT = {
+  name: '🌙 Nights in a row: `Tier 0`',
+  value: '🌑🌑🌑🌑🌑🌑🌑\n🌑🌑🌑🌑🌑🌑🌕\n`1` night · best `1` · Regular at 3\nNew Moon: no bonus yet',
+  inline: false,
+};
+const R3_NAMES = ['🎁 Rewards in progress', FIRST_NIGHT.name, '📜 Titles'];
+/** Kim, after one doom: what her card adds below the Doom column */
+const KIM_R3 = [
+  {
+    name: '🎁 Rewards in progress',
+    value: [
+      '`1/3` 🟩🟩🟩⬜⬜⬜⬜⬜ 🔦 Night Light · Nights in a row',
+      '`01/25` 🟩⬜⬜⬜⬜⬜⬜⬜ 📼 Cursed VHS `+3` · Dooms',
+      '`003/750` 🟩⬜⬜⬜⬜⬜⬜⬜ 🎁 A random item · Points',
+    ].join('\n'),
+    inline: false,
+  },
+  FIRST_NIGHT,
+  { name: '📜 Titles', value: 'None yet\n🦉 Night Owl `1/7`\n🔥 On Fire `01/10`\n🌕 Creature of the Night `01/14`', inline: true },
+];
 
 const said = (message) => message.content.split('\n')[0];
 const points = (message) => message.content.split('\n')[1];
@@ -211,6 +249,7 @@ describe('limits and where games are played', () => {
 
 describe('/scoreboard: the game card', () => {
   beforeEach(async () => {
+    freezeClock();
     await saveGuildConfig(GUILD, { ...(await loadGuildConfig(GUILD)), games: { cooldownSeconds: 0 } });
     stubOutcome(FOODFIGHT_LINES.pie, 'hit');
     await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), food: 'pie' } });
@@ -218,6 +257,7 @@ describe('/scoreboard: the game card', () => {
     stubOutcome(DOOM_LINES.zombie, 'doomed');
     await run('doom', 'kim', { subcommand: 'fate', options: { target: member('sam'), trope: 'zombie' } });
     jest.restoreAllMocks();
+    freezeClock(); // restoreAllMocks put the real clock back with Math.random
   });
 
   test('your own: your server name and avatar, total and rank, a column per game played', async () => {
@@ -233,6 +273,18 @@ describe('/scoreboard: the game card', () => {
       fields: [
         { name: '🥧 Food Fight', value: '`6` pts · #1\n2 plays\n2 🎯\n🔥 2 now · best 2', inline: true },
         { name: '🪓 Doom', value: '`−1` pts · #2\n0 plays\nReceived: 1 💀', inline: true },
+        // R3: two hits toward a Golden Pie, 6 points toward a random item
+        {
+          name: '🎁 Rewards in progress',
+          value: [
+            '`1/3` 🟩🟩🟩⬜⬜⬜⬜⬜ 🔦 Night Light · Nights in a row',
+            '`02/25` 🟩⬜⬜⬜⬜⬜⬜⬜ 🥧 Golden Pie `+3` · Hits',
+            '`006/750` 🟩⬜⬜⬜⬜⬜⬜⬜ 🎁 A random item · Points',
+          ].join('\n'),
+          inline: false,
+        },
+        FIRST_NIGHT,
+        { name: '📜 Titles', value: 'None yet\n🔥 On Fire `02/10`\n🦉 Night Owl `1/7`\n🌋 Unstoppable `02/15`', inline: true },
       ],
       footer: { text: `All time · ${HINT}` },
     });
@@ -246,13 +298,13 @@ describe('/scoreboard: the game card', () => {
     expect(card.author).toEqual({ name: 'Kim' });
     expect(card.thumbnail).toEqual({ url: 'https://cdn.example/kim.png' });
     expect(card.description).toBe('🪙 `3` points · 🥈 `2nd` of 3 players');
-    expect(card.fields).toEqual([{ name: '🪓 Doom', value: '`3` pts · #1\n1 play\n1 💀\n🔥 1 now · best 1', inline: true }]);
+    expect(card.fields).toEqual([{ name: '🪓 Doom', value: '`3` pts · #1\n1 play\n1 💀\n🔥 1 now · best 1', inline: true }, ...KIM_R3]);
   });
 
   test('a game switched off is left out: its column, its points, and its players from the rank', async () => {
     await run('eggshen-config', 'admin', { group: 'commands', subcommand: 'toggle', options: { setting: 'doom', enabled: false } });
     const card = (await run('scoreboard', 'sam')).embeds[0].toJSON();
-    expect(card.fields.map(f => f.name)).toEqual(['🥧 Food Fight']);
+    expect(card.fields.map(f => f.name)).toEqual(['🥧 Food Fight', ...R3_NAMES]);
     // Kim only played Doom, so food fight's two players are all that's left
     expect(card.description).toBe('🪙 `6` points · 🥇 `1st` of 2 players');
     const off = await run('scoreboard', 'sam', { options: { game: 'doom' } });
@@ -272,20 +324,25 @@ describe('/scoreboard: the game card', () => {
     recordPlay(GUILD, { game: 'potion', actor: { id: 'sam', name: 'Sam' }, target: { kind: 'role', pingUserIds: [] }, outcome: 'helped' }, Date.UTC(2020, 0, 1));
     const allTime = (await run('scoreboard', 'sam')).embeds[0].toJSON();
     const month = (await run('scoreboard', 'sam', { options: { period: 'month' } })).embeds[0].toJSON();
-    expect(allTime.fields.map(f => f.name)).toEqual(['🧪 Potions', '🥧 Food Fight', '🪓 Doom']);
+    expect(allTime.fields.map(f => f.name)).toEqual(['🧪 Potions', '🥧 Food Fight', '🪓 Doom', ...R3_NAMES]);
     expect(allTime.description).toMatch(/^🪙 `6` points/);
-    expect(month.fields.map(f => f.name)).toEqual(['🥧 Food Fight', '🪓 Doom']);
+    expect(month.fields.map(f => f.name)).toEqual(['🥧 Food Fight', '🪓 Doom', ...R3_NAMES]);
     expect(month.description).toMatch(/^🪙 `5` points/);
   });
 
   test('a rescue\'s shield shows while it lasts, with the games it belongs to', async () => {
     recordPlay(GUILD, { game: 'rescue', actor: { id: 'kim', name: 'Kim' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'Alex' }, outcome: 'rescued' });
     const shielded = (await run('scoreboard', 'sam', { options: { user: member('alex') } })).embeds[0].toJSON();
-    expect(shielded.fields.at(-1)).toMatchObject({ name: '🌀 In effect', inline: false });
-    expect(shielded.fields.at(-1).value).toMatch(/^🛡️ Safe from \/doom until <t:\d+:t>$/);
+    expect(shielded.fields.at(-1)).toEqual({
+      name: '🌀 In effect',
+      value: `🛡️ Safe from /doom until <t:${Math.floor((CARD_NOW + 60 * 60 * 1000) / 1000)}:t>`,
+      inline: false,
+    });
     await run('eggshen-config', 'admin', { group: 'commands', subcommand: 'toggle', options: { setting: 'rescue', enabled: false } });
     const rescueOff = (await run('scoreboard', 'sam', { options: { user: member('alex') } })).embeds[0].toJSON();
-    expect(rescueOff.fields.map(f => f.name)).toEqual(['🥧 Food Fight']);
+    // Alex has only been played on: no nights row, but the +2 rescue counts
+    // toward the points prize, and titles are there to aim for
+    expect(rescueOff.fields.map(f => f.name)).toEqual(['🥧 Food Fight', '🎁 Rewards in progress', '📜 Titles']);
   });
 
   test('nothing played: someone else\'s says so; your own says how to start', async () => {
@@ -311,6 +368,7 @@ describe('/scoreboard: the game card', () => {
 
 describe('right-click a member → Apps → Game card', () => {
   test('their card, shown only to you', async () => {
+    freezeClock();
     recordPlay(GUILD, { game: 'doom', actor: { id: 'kim', name: 'Kim' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'Alex' }, outcome: 'doomed' });
     const i = discord.userMenu('sam', 'Game card', 'kim');
     await commands['game-card'].execute(i);
@@ -321,7 +379,7 @@ describe('right-click a member → Apps → Game card', () => {
       title: 'Game card',
       thumbnail: { url: 'https://cdn.example/kim.png' },
       description: '🪙 `3` points · 🥇 `1st` of 2 players',
-      fields: [{ name: '🪓 Doom', value: '`3` pts · #1\n1 play\n1 💀\n🔥 1 now · best 1', inline: true }],
+      fields: [{ name: '🪓 Doom', value: '`3` pts · #1\n1 play\n1 💀\n🔥 1 now · best 1', inline: true }, ...KIM_R3],
       footer: { text: `All time · ${HINT}` },
     });
     expect(discord.violations).toEqual([]);
@@ -457,12 +515,144 @@ describe('/eggshen-config-games', () => {
   });
 });
 
+describe('items: the `item:` option', () => {
+  const stock = (userId, glovebox) => mutateScores(GUILD, (d) => {
+    const u = (d.users[userId] ||= { name: userId, games: {} });
+    u.glovebox = glovebox;
+  });
+  async function suggest(name, userId, subcommand, focused) {
+    const i = discord.autocomplete(userId, name, { subcommand, focused });
+    await commands[name].autocomplete(i);
+    return i.choices;
+  }
+
+  test('/foodfight throw with the item its own autocomplete offers: a Golden Pie turns a backfire into a hit, ×2', async () => {
+    stock('sam', { gpie: 2 });
+    const choices = await suggest('foodfight', 'sam', 'throw', { name: 'item', value: '' });
+    expect(choices).toEqual([{ name: '🥧 Golden Pie ×2 · can\'t miss, points ×2', value: 'gpie' }]);
+
+    const pie = FOODFIGHT_LINES.pie;
+    const r = (pie.findIndex(l => l.outcome === 'backfire') + 0.5) / pie.length;
+    jest.spyOn(Math, 'random').mockReturnValue(r);
+    const m = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), food: 'pie', item: choices[0].value } });
+    const line = pickLine(pie, { miss: 0, backfire: 0 }, () => r);
+    expect(said(m)).toBe(line.text.replace(/{thrower}/g, '<@sam>').replace(/{target}/g, '<@alex>'));
+    expect(m.content.split('\n').slice(1)).toEqual([
+      '-# 🎯 Hit! Sam +6 (6 pts) · Alex −1',
+      '-# 🥧 Golden Pie: a sure hit, and Sam\'s points ×2.',
+    ]);
+    expect([stored('sam', 'foodfight').points, stored('alex', 'foodfight').points]).toEqual([6, -1]);
+    expect(loadScores(GUILD).users.sam.glovebox).toEqual({ gpie: 1 });
+    // On a feed the same pie says what it does there
+    expect(await suggest('foodfight', 'sam', 'feed', { name: 'item', value: '' }))
+      .toEqual([{ name: '🥧 Golden Pie ×1 · always tasty, +2 each', value: 'gpie' }]);
+  });
+
+  test('an item you don\'t hold is refused privately: no cooldown spent, nothing stored', async () => {
+    const m = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), item: 'gpie' } });
+    expect([m.ephemeralFor, m.content]).toEqual(['sam', '🧰 You don\'t have a 🥧 Golden Pie in your Glovebox.']);
+    expect(loadScores(GUILD).users).toEqual({});
+    const played = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex') } });
+    expect(played.ephemeralFor).toBeNull();
+    expect(stored('sam', 'foodfight').plays).toBe(1);
+  });
+
+  test('one that doesn\'t fit the play is refused too; with nothing that fits, the placeholder plays without one', async () => {
+    stock('sam', { vhs: 1 });
+    const wrong = await run('rescue', 'sam', { subcommand: 'attempt', options: { target: member('alex'), item: 'vhs' } });
+    expect([wrong.ephemeralFor, wrong.content]).toEqual(['sam', '🧰 📼 Cursed VHS doesn\'t work with /rescue attempt.']);
+    const choices = await suggest('rescue', 'sam', 'attempt', { name: 'item', value: '' });
+    expect(choices).toEqual([{ name: ITEM_PLACEHOLDERS.none, value: 'none' }]);
+    const m = await run('rescue', 'sam', { subcommand: 'attempt', options: { target: member('alex'), item: choices[0].value } });
+    expect(m.ephemeralFor).toBeNull();
+    expect(m.content.split('\n')).toHaveLength(2); // the line and the points: no item line
+    expect(loadScores(GUILD).users.sam.glovebox).toEqual({ vhs: 1 });
+  });
+
+  test('/doom, /rescue and /potion each offer the item that fits; /potion still suggests types', async () => {
+    stock('sam', { vhs: 2, holyw: 1, penny: 3, garlic: 1 });
+    expect(await suggest('doom', 'sam', 'fate', { name: 'item', value: '' }))
+      .toEqual([{ name: '📼 Cursed VHS ×2 · can\'t backfire, beats shields, points ×2', value: 'vhs' }]);
+    expect(await suggest('rescue', 'sam', 'attempt', { name: 'item', value: '' }))
+      .toEqual([{ name: '💧 Holy Water ×1 · can\'t be caught, +2, shield 3×', value: 'holyw' }]);
+    expect(await suggest('potion', 'sam', 'give', { name: 'item', value: '' }))
+      .toEqual([{ name: '🍀 Lucky Penny ×3 · always works, points ×2', value: 'penny' }]);
+    expect(await suggest('potion', 'admin', 'add', { name: 'type', value: 'he' })).toEqual([{ name: '💚 Health', value: 'health' }]);
+    expect(discord.violations).toEqual([]);
+  });
+});
+
+describe('typed, not picked: keys an object inherits', () => {
+  // An autocomplete value is whatever the client sends. A table lookup
+  // without an own-key check took "constructor" for an item, a title and a
+  // potion type ("undefined Object doesn't work with…").
+  test.each(['constructor', '__proto__', 'toString'])('%s is not an item, a title or a potion type', async (key) => {
+    const item = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), item: key } });
+    expect([item.ephemeralFor, item.content]).toEqual(['sam', '🧰 That isn\'t an item. Pick one from the list.']);
+    const title = await run('scoreboard', 'sam', { options: { title: key } });
+    expect([title.ephemeralFor, title.content]).toEqual(['sam', '📜 That isn\'t a title. Pick one from the list.']);
+    const type = await run('potion', 'admin', { group: 'responses', subcommand: 'list', options: { type: key } });
+    expect([type.ephemeralFor, type.content.split(':')[0]]).toEqual(['admin', '❌ Pick a potion type from the list']);
+    expect(loadScores(GUILD).users).toEqual({});
+  });
+});
+
+describe('/scoreboard title:', () => {
+  beforeEach(() => {
+    recordPlay(GUILD, { game: 'foodfight', actor: { id: 'sam', name: 'Sam' }, target: { kind: 'role', pingUserIds: [] }, outcome: 'hit' });
+    mutateScores(GUILD, (d) => { d.users.sam.titles.earned['pie-sniper'] = 1; });
+  });
+
+  test('pick one of your titles from the autocomplete: it shows under your total, and as your badge on the leaderboard', async () => {
+    const i = discord.autocomplete('sam', 'scoreboard', { focused: { name: 'title', value: 'pie' } });
+    await commands.scoreboard.autocomplete(i);
+    expect(i.choices).toEqual([{ name: '🥧 Pie Sniper', value: 'pie-sniper' }, { name: '🚫 No title', value: 'none' }]);
+
+    const m = await run('scoreboard', 'sam', { options: { title: i.choices[0].value } });
+    expect(m.ephemeralFor).toBeNull();
+    expect(loadScores(GUILD).users.sam.titles.shown).toBe('pie-sniper');
+    expect(m.embeds[0].toJSON().description.split('\n')[1]).toBe('📜 *Pie Sniper* 🥧');
+    expect((await run('leaderboard', 'sam')).embeds[0].toJSON().description.split('\n')[0]).toContain('Sam 🥧');
+
+    await run('scoreboard', 'sam', { options: { title: 'none' } });
+    expect(loadScores(GUILD).users.sam.titles.shown).toBeNull();
+  });
+
+  test('refused, privately, for someone else\'s card and for a title not earned', async () => {
+    const theirs = await run('scoreboard', 'sam', { options: { user: member('kim'), title: 'pie-sniper' } });
+    expect([theirs.ephemeralFor, theirs.content]).toEqual(['sam', '📜 You can only pick the title on your own card.']);
+    const unearned = await run('scoreboard', 'sam', { options: { title: 'dartboard' } });
+    expect([unearned.ephemeralFor, unearned.content]).toEqual(['sam', '📜 You haven\'t earned that title yet. Your card shows the ones you\'re closest to.']);
+    expect(loadScores(GUILD).users.sam.titles.shown).toBeNull();
+    expect(loadScores(GUILD).users.kim).toBeUndefined();
+  });
+});
+
 describe('the commands as Discord lists them', () => {
   test('the play subcommand sorts ahead of the admin ones', () => {
     const first = (name) => commands[name].data.toJSON().options.map(o => o.name).sort()[0];
     expect(first('foodfight')).toBe('feed');
     expect(first('doom')).toBe('fate');
     expect(first('rescue')).toBe('attempt');
+  });
+
+  test('/foodfight lines: the food is an autocomplete, and its value adds a line end to end', async () => {
+    const i = discord.autocomplete('admin', 'foodfight', { subcommand: 'add', focused: { name: 'food', value: 'spag' } });
+    await commands.foodfight.autocomplete(i);
+    expect(i.choices).toEqual([{ name: '🍝 Spaghetti', value: 'spaghetti' }]);
+
+    const added = await run('foodfight', 'admin', { group: 'lines', subcommand: 'add', options: { action: 'throw', food: i.choices[0].value, outcome: 'hit', line: '{thrower} slings meatballs at {target}!' } });
+    expect(added.content).toBe('✅ Added to 🍝 Spaghetti (throw) as **hit**:\n{thrower} slings meatballs at {target}!');
+    jest.spyOn(Math, 'random').mockReturnValue(0); // custom lines come first
+    const m = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), food: 'spaghetti' } });
+    expect(said(m)).toBe('<@sam> slings meatballs at <@alex>!');
+
+    // Typed, not picked: a food that isn't on the menu has no lines
+    const typo = await run('foodfight', 'admin', { group: 'lines', subcommand: 'list', options: { food: 'spagetti' } });
+    expect([typo.ephemeralFor, typo.content]).toEqual(['admin', `❌ Pick a food from the list: ${commands.foodfight.FOODS.map(f => f.value).join(', ')}.`]);
+    const all = discord.autocomplete('admin', 'foodfight', { subcommand: 'list', focused: { name: 'food', value: '' } });
+    await commands.foodfight.autocomplete(all);
+    expect(all.choices.map(c => c.value)).toEqual(commands.foodfight.FOODS.map(f => f.value));
   });
 
   test('potion type autocomplete narrows by what was typed', async () => {

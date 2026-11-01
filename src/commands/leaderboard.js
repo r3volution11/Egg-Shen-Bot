@@ -5,9 +5,10 @@ import { renderLeaderboard } from '../utils/leaderboardCard.js';
 
 /**
  * /leaderboard — the server's game card: the top 15 players in the games
- * this month, this year or all time, who leads each game, who received the
- * most of what, and the period's numbers. One gold embed (leaderboardCard.js);
- * this command finds who everyone is now and hands their names in.
+ * this month, this year or all time, each with the badge of the title they
+ * show, who leads each game, who received the most of what, and the
+ * period's numbers. One gold embed (leaderboardCard.js); this command finds
+ * who everyone is now and hands their names in.
  */
 
 export const data = new SlashCommandBuilder()
@@ -63,7 +64,9 @@ export async function execute(interaction) {
     game,
     games,
     periodLabel: periodLabel(period),
-    rows: board.rows.map(r => ({ ...withName(r), avatarUrl: people.get(r.userId)?.icon || null })),
+    // Each row's title badge: the title they chose to show (/scoreboard
+    // title:), as on their own card
+    rows: board.rows.map(r => ({ ...withName(r), avatarUrl: people.get(r.userId)?.icon || null, badge: r.shownTitle?.badge || null })),
     perGame: Object.fromEntries(Object.entries(board.perGame).map(([g, lead]) => [g, withName(lead)])),
     received: board.received.map(withName),
     bestStreak: withName(board.bestStreak),

@@ -599,6 +599,7 @@ Give magical potions with fun pop culture references, to a member, a whole role,
 **Options:**
 - `user` (required) - Who gets it: a member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `type` (required) - Type of potion (Health, Mana, Strength, Speed, Invisibility, Luck, Confusion, Love, Poison, Energy, Weakness, Curse, Slow)
+- `item` (optional) - An item from your Glovebox. Only 🍀 Lucky Penny fits: the potion works and your points double. The list shows only what you hold ([Items](./games#using-an-item))
 
 **Features:**
 - 13 different potion types (helpful & harmful!)
@@ -656,15 +657,17 @@ Start a food fight, after the classic BBS door game: throw food at a member, a w
 **Options (`throw`):**
 - `target` (required) - A member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `food` (optional) - Cream pie, spaghetti, pudding, mashed potatoes, Jell-O, meatloaf, creamed corn, tapioca, pizza, taco, fish sticks or split pea soup. Leave it out for a random one
+- `item` (optional) - An item from your Glovebox. Only 🥧 Golden Pie fits: a sure hit, and your points double. The list shows only what you hold ([Items](./games#using-an-item))
 
-**Options (`feed`):** the same `target` and `food`.
+**Options (`feed`):** the same `target`, `food` and `item` (a 🥧 Golden Pie makes it always tasty, +2 more for you both).
 
-**Admin/Mod:** `/foodfight lines add`, `list`, `remove` and `reset` manage your server's own lines for `action:throw` (with `{thrower}` and `{target}`) or `action:feed` (with `{feeder}` and `{target}`), each tagged with its outcome.
+**Admin/Mod:** `/foodfight lines add`, `list`, `remove` and `reset` take their `food` from a list, as you type, and manage your server's own lines for `action:throw` (with `{thrower}` and `{target}`) or `action:feed` (with `{feeder}` and `{target}`), each tagged with its outcome.
 
 **Examples:**
 ```
 /foodfight throw target:@Friend food:pie
 /foodfight throw target:@everyone
+/foodfight throw target:@Friend item:Golden Pie
 /foodfight feed target:@Friend food:taco
 ```
 
@@ -678,6 +681,7 @@ Deal someone, a whole role, or @everyone a horror-movie fate: horror-comedy that
 **Options (`fate`):**
 - `target` (required) - A member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `trope` (optional) - Zombie, monkey's paw, slasher, possession, cursed tape, haunted doll, vampire, werewolf, killer clown, Necronomicon, Ouija board or Bloody Mary. Leave it out and fate decides
+- `item` (optional) - An item from your Glovebox. Only 📼 Cursed VHS fits: it can't backfire, doubles your points, and cuts through a shield or Garlic ([Items](./games#using-an-item))
 
 **Admin/Mod:** `/doom lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{user}` and `{target}` and an outcome (doomed, escaped or backfired).
 
@@ -697,6 +701,7 @@ Save someone from a horror movie: a Final Girl, holy water, the boomstick, the d
 **Options (`attempt`):**
 - `target` (required) - A member, a role, or @everyone. You can't rescue yourself
 - `trope` (optional) - Final Girl, holy water, Ghostbusters, boomstick, salt circle, silver bullet, sunrise, getaway car, Van Helsing, survival rules, garlic or the dog
+- `item` (optional) - An item from your Glovebox. Only 💧 Holy Water fits: it can't be caught, gives you +2 more, and the shield lasts 3× as long ([Items](./games#using-an-item))
 
 **Admin/Mod:** `/rescue lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{user}` and `{target}` and an outcome (rescued, caught or sacrificed).
 
@@ -711,9 +716,9 @@ See [Social Commands › Rescue](./social#rescue).
 ---
 
 ### `/scoreboard`
-Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), and an active rescue shield. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
+Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), an active rescue shield, and your rewards: prizes in progress, nights in a row, Glovebox and titles. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
 
-**Options:** `user`, `game`, `period` (this month, this year, all time), `private`
+**Options:** `user`, `game`, `period` (this month, this year, all time), `private`, and `title` (pick which [earned title](./games#choosing-the-title-you-show) shows with your name, or *No title*; only for yourself)
 
 ```
 /scoreboard

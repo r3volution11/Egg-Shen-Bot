@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 import { resolveSocialTarget } from '../utils/socialTarget.js';
-import { beginPlay, finishPlay, tagged, pick } from '../utils/gamePlay.js';
+import { beginPlay, finishPlay, tagged, itemOption, itemChoices } from '../utils/gamePlay.js';
 import { POTION_LINES } from '../data/potionLines.js';
 
 // Available potion themes
@@ -61,6 +61,8 @@ export const data = new SlashCommandBuilder()
             { name: '🦥 Slow Potion', value: 'slow' },
           )
       )
+      // A Lucky Penny from the Glovebox: the potion works (gamePlay.js)
+      .addStringOption(itemOption)
   )
   .addSubcommandGroup(group =>
     group
@@ -238,9 +240,16 @@ const TYPE_NAMES = {
   weakness: '💔 Weakness', curse: '👹 Curse', slow: '🦥 Slow',
 };
 
-/** `type` suggestions for the responses subcommands */
+/**
+ * Suggestions: `item` on give (what's in your Glovebox that fits), `type`
+ * in the responses subcommands.
+ */
 export async function autocomplete(interaction) {
-  const typed = String(interaction.options.getFocused() || '').toLowerCase();
+  const focused = interaction.options.getFocused(true);
+  if (focused?.name === 'item') {
+    return interaction.respond(itemChoices(interaction.guildId, interaction.user.id, { game: 'potion', action: 'give' }, focused.value));
+  }
+  const typed = String(focused?.value || '').toLowerCase();
   return interaction.respond(Object.entries(TYPE_NAMES)
     .filter(([value, name]) => !typed || value.includes(typed) || name.toLowerCase().includes(typed))
     .map(([value, name]) => ({ name, value })));
@@ -272,7 +281,9 @@ export async function execute(interaction) {
       return;
     }
 
-    if (!TYPE_NAMES[interaction.options.getString('type')]) {
+    // Typed, not picked: an autocomplete value is whatever was sent, and
+    // TYPE_NAMES['constructor'] would be truthy without the own-key check
+    if (!Object.hasOwn(TYPE_NAMES, interaction.options.getString('type') ?? '')) {
       await interaction.reply({ content: `❌ Pick a potion type from the list: ${Object.keys(TYPE_NAMES).join(', ')}.`, ephemeral: true });
       return;
     }
@@ -336,20 +347,25 @@ async function handleGivePotion(interaction) {
     return;
   }
 
-  const started = await beginPlay(interaction, 'potion');
+  const started = await beginPlay(interaction, 'potion', { item: interaction.options.getString('item'), action: 'give' });
   if (!started) return;
 
-  const response = pick(await getPotionResponses(interaction.guildId, potionType));
-  const text = response.text
+  // Every response this potion could give; finishPlay draws one, with the
+  // item (a Lucky Penny always works) and the receiver's Antidote weighed
+  const lines = (await getPotionResponses(interaction.guildId, potionType))
+    .map(r => ({ ...r, outcome: r.outcome || 'worked' }));
+  const fill = (text) => text
     .replace(/{giver}/g, `<@${interaction.user.id}>`)
     .replace(/{receiver}/g, target.mention);
 
   await finishPlay(interaction, {
     game: 'potion',
+    action: 'give',
     target,
-    text,
-    outcome: response.outcome || 'worked',
+    lines,
+    fill,
     effect: HELPFUL.has(potionType) ? 'helpful' : 'harmful',
+    item: started.item,
     settings: started.settings,
   });
 }

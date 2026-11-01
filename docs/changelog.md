@@ -9,6 +9,36 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.70.0 - 2026-11-01
+
+### Added
+- **Prizes for playing.** Every 25 hits earns a 🥧 Golden Pie, every 15 tasty feeds a 🧄 Garlic, every 25 dooms a 📼 Cursed VHS, every 15 rescues a 💧 Holy Water, every 15 helpful potions an 💊 Antidote, every 20 harmful ones a 🍀 Lucky Penny, plus 3 bonus points each. Every 750 points you gain earns a random one. Only your own scoring plays count, and you can win at most 2 prizes a day: a counter that fills after that waits at 24/25 until tomorrow. Your card shows each counter's progress. See [Prizes](/commands/games#prizes)
+- **The Glovebox: items you can use.** Add `item:` to a play to use one: `/foodfight throw target:@Sam item:Golden Pie`. The list shows only what you hold and what fits that play.
+  - **🥧 Golden Pie:** a throw that can't miss and scores double, or a feed that's sure to be tasty
+  - **📼 Cursed VHS:** a doom that can't backfire, cuts through Garlic and rescue shields, and scores double
+  - **💧 Holy Water:** a rescue that can't be caught, with a shield three times as long
+  - **🍀 Lucky Penny:** a potion that's sure to work, at double points
+  - **🧄 Garlic** and **💊 Antidote** protect you by themselves, from a doom and from a harmful potion
+  - **🔦 Night Light** saves your nights row once when you miss a night
+
+  One item per play, up to 3 a day. Items do nothing on a play past the daily scoring cap; they stay in your Glovebox. See [The Glovebox and items](/commands/games#the-glovebox-and-items)
+- **Titles.** 19 titles for what you do and what's done to you, among them Pie Sniper, Final Girl, Human Dartboard, Red Shirt, Guinea Pig and Night Owl. Each is worth 10 points. Show one beside your name on your card and the leaderboard with `/scoreboard title:`. Members who had already earned some got them quietly, without the points. See [Titles](/commands/games#titles)
+- **Nights in a row.** Play on consecutive nights to climb the tiers: Regular at 3, Night Owl at 7, Creature of the Night at 14, each adding a point to your first few good plays a day. A night runs noon to noon UTC, so an evening watch party counts as one night. Your card shows the last 14 nights. See [Nights in a row](/commands/games#nights-in-a-row)
+
+### Changed
+- **Your game card** adds Rewards in progress, your nights row, your Glovebox and your titles
+- **`/foodfight lines`** picks the food from a list
+
+### Developer
+- `src/data/gameRewards.js` holds every tunable (items, prizes, caps, multipliers, nights tiers, titles); `gameRewardLines.js` holds the wording
+- `src/utils/gameRules.js`: `pickLine` draws once over per-line weights and is identical to the old `pick` at equal weights, so existing `Math.random` stubs still land on the same lines. Item effects, nights and title progress live here too. `gameLuck.js` is the second random source (`GAME_LUCK=off` in tests)
+- `gamePlay.resolvePlay` draws the line (item, shield, defences) and `recordPlay` saves, back to back with no await, in one `mutateScores` load-modify-save. `recordPlay` still accepts a bare outcome. The scores file keeps a `.bak` and recovers from it
+- Title progress and streak titles count scoring plays only (capped plays never build them); a shield, Garlic or Antidote only defends a scoring play
+- `getPlayerCardExtras` (`src/utils/gameCardData.js`) feeds the card's new sections; `getLeaderboard` rows carry `shownTitle`
+- `/foodfight lines` food is autocomplete (5,980 → 4,082 bytes) to make room for `item:` on every play
+- Tests: `game-rules`, `game-rewards`, plus new `game-commands` cases driving the real autocomplete values; each rule break-tested. An independent review ran 40,000 random plays against the invariants (items spent if and only if used, ≤3 defences, ≤2 prizes and ≤3 item uses a day, nothing scored past the cap)
+- New and changed command options: needs `deploy-commands`
+
 ## 2.69.0 - 2026-11-01
 
 ### Added

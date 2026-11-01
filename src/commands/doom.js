@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 import { resolveSocialTarget } from '../utils/socialTarget.js';
-import { beginPlay, finishPlay, tagged, pick, isShielded } from '../utils/gamePlay.js';
+import { beginPlay, finishPlay, tagged, pick, itemOption, itemChoices } from '../utils/gamePlay.js';
 import { DOOM_LINES } from '../data/doomLines.js';
 import { DOOM_BLOCKED_LINES } from '../data/rescueLines.js';
 
@@ -22,7 +22,11 @@ import { DOOM_BLOCKED_LINES } from '../data/rescueLines.js';
  *
  * A game with points (src/utils/gameScores.js): each line is tagged doomed,
  * escaped or backfired. /rescue is its helpful counterpart, and a rescue
- * shields someone: the next /doom aimed at them is blocked.
+ * shields someone: the next /doom aimed at them is blocked. `fate` takes an
+ * `item:` (a Cursed VHS can't backfire and cuts through a shield). The
+ * shield, Garlic and the item are all weighed in finishPlay (gamePlay.js),
+ * which draws the line, so this only hands it every line the doom could
+ * post.
  */
 
 const OUTCOMES = ['doomed', 'escaped', 'backfired'];
@@ -71,7 +75,8 @@ export const data = new SlashCommandBuilder()
       .setName('target')
       .setDescription('Who\'s doomed: a member, a role, or @everyone')
       .setRequired(true))
-    .addStringOption(tropeOption(false)))
+    .addStringOption(tropeOption(false))
+    .addStringOption(itemOption))
   .addSubcommandGroup(group => group
     .setName('lines')
     .setDescription('Manage this server\'s own doom lines (Admin/Mod only)')
@@ -107,6 +112,12 @@ export const data = new SlashCommandBuilder()
       .setDescription('Remove all of this server\'s lines for a trope')
       .addStringOption(tropeOption(true))));
 
+/** `item` suggestions for `fate`: what's in your Glovebox that fits */
+export async function autocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  await interaction.respond(itemChoices(interaction.guildId, interaction.user.id, { game: 'doom', action: 'fate' }, focused?.value));
+}
+
 export async function execute(interaction) {
   if (!await canUseCommand(interaction.guildId, interaction.member, 'doom')) {
     await interaction.reply({ content: '❌ /doom is turned off on this server.', ephemeral: true });
@@ -132,21 +143,19 @@ async function dealFate(interaction) {
     return;
   }
 
-  const started = await beginPlay(interaction, 'doom');
+  const started = await beginPlay(interaction, 'doom', { item: interaction.options.getString('item'), action: 'fate' });
   if (!started) return;
 
   const fill = (text) => text.replace(/{user}/g, `<@${interaction.user.id}>`).replace(/{target}/g, target.mention);
-
-  // A recent rescue shields them: this doom is blocked, and uses the shield up
-  if (isShielded(interaction, target) && target.pingUserIds[0] !== interaction.user.id) {
-    await finishPlay(interaction, { game: 'doom', target, text: fill(pick(DOOM_BLOCKED_LINES)), outcome: 'blocked', settings: started.settings });
-    return;
-  }
-
   const trope = interaction.options.getString('trope') || pick(TROPES).value;
   const lines = [...tagged(getDoomLines(started.config)[trope], 'doomed'), ...(DOOM_LINES[trope] || [])];
-  const line = pick(lines);
-  await finishPlay(interaction, { game: 'doom', target, text: fill(line.text), outcome: line.outcome, settings: started.settings });
+  // A recent rescue shields them: finishPlay posts one of the blocked lines
+  // instead, and uses the shield up (never on your own doom of yourself)
+  await finishPlay(interaction, {
+    game: 'doom', action: 'fate', target, lines, fill,
+    blockedLines: tagged(DOOM_BLOCKED_LINES, 'blocked'),
+    item: started.item, settings: started.settings,
+  });
 }
 
 async function manageLines(interaction) {

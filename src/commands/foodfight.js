@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 import { resolveSocialTarget } from '../utils/socialTarget.js';
-import { beginPlay, finishPlay, tagged, pick } from '../utils/gamePlay.js';
+import { beginPlay, finishPlay, tagged, pick, itemOption, itemChoices } from '../utils/gamePlay.js';
 import { FOODFIGHT_LINES } from '../data/foodfightLines.js';
 import { FOODFIGHT_FEED_LINES } from '../data/foodfightFeedLines.js';
 
@@ -19,6 +19,10 @@ import { FOODFIGHT_FEED_LINES } from '../data/foodfightFeedLines.js';
  * Lines use {thrower}/{feeder} and {target}; {target} may be one person, a
  * role, or @everyone. Admins add their own with /foodfight lines, stored in
  * the server config as `foodfightLines` and `foodfightFeedLines`.
+ *
+ * Throw and feed take an `item:` from the player's Glovebox (a Golden Pie
+ * can't miss): the line is drawn in finishPlay, which knows what the item
+ * does (src/utils/gamePlay.js).
  */
 
 /** The menu. One list, used by every subcommand's `food` option. */
@@ -51,12 +55,26 @@ export function getFoodfightLines(config, action = 'throw') {
 
 const foodName = (value) => FOODS.find(f => f.value === value)?.name || value;
 
-/** The `food` option, the same for every subcommand */
-const foodOption = (required, verb = 'throw') => (option) => option
+/** The `food` option on throw and feed: the menu, as choices */
+const foodOption = (verb) => (option) => option
   .setName('food')
-  .setDescription(required ? 'Which food' : `What to ${verb} (default: whatever's on the tray)`)
-  .setRequired(required)
+  .setDescription(`What to ${verb} (default: whatever's on the tray)`)
+  .setRequired(false)
   .addChoices(...FOODS.map(f => ({ name: f.name, value: f.value })));
+
+/**
+ * The `food` option in /foodfight lines: autocomplete, not choices. Four
+ * copies of the 12-food menu were a third of this command, which sat at
+ * 5980 of the 6000 bytes tests/command-size-limit.test.js allows (Discord
+ * caps a command at 8000) — no room for R3's `item:`. /potion did the same
+ * for its types. A typed value isn't checked by Discord, so manageLines
+ * checks it.
+ */
+const linesFoodOption = (option) => option
+  .setName('food')
+  .setDescription('Which food')
+  .setRequired(true)
+  .setAutocomplete(true);
 
 const actionOption = (option) => option
   .setName('action')
@@ -76,7 +94,8 @@ export const data = new SlashCommandBuilder()
     .setName('feed')
     .setDescription('Feed someone, a role, or @everyone (the nice way to play)')
     .addMentionableOption(targetOption('Who to feed: a member, a role, or @everyone'))
-    .addStringOption(foodOption(false, 'feed')))
+    .addStringOption(foodOption('feed'))
+    .addStringOption(itemOption))
   .addSubcommandGroup(group => group
     .setName('lines')
     .setDescription('Manage this server\'s own food fight lines (Admin/Mod only)')
@@ -84,7 +103,7 @@ export const data = new SlashCommandBuilder()
       .setName('add')
       .setDescription('Add a line: {thrower} or {feeder}, and {target}')
       .addStringOption(actionOption)
-      .addStringOption(foodOption(true))
+      .addStringOption(linesFoodOption)
       .addStringOption(option => option
         .setName('outcome')
         .setDescription('What happens (scores points)')
@@ -102,7 +121,7 @@ export const data = new SlashCommandBuilder()
       .setName('remove')
       .setDescription('Remove one of this server\'s lines')
       .addStringOption(actionOption)
-      .addStringOption(foodOption(true))
+      .addStringOption(linesFoodOption)
       .addIntegerOption(option => option
         .setName('number')
         .setDescription('Its number in /foodfight lines list')
@@ -112,17 +131,35 @@ export const data = new SlashCommandBuilder()
       .setName('list')
       .setDescription('Show a food\'s lines')
       .addStringOption(actionOption)
-      .addStringOption(foodOption(true)))
+      .addStringOption(linesFoodOption))
     .addSubcommand(sub => sub
       .setName('reset')
       .setDescription('Remove all of this server\'s lines for a food')
       .addStringOption(actionOption)
-      .addStringOption(foodOption(true))))
+      .addStringOption(linesFoodOption)))
   .addSubcommand(sub => sub
     .setName('throw')
     .setDescription('Throw food at someone, a role, or @everyone')
     .addMentionableOption(targetOption('Who to hit: a member, a role, or @everyone'))
-    .addStringOption(foodOption(false)));
+    .addStringOption(foodOption('throw'))
+    .addStringOption(itemOption));
+
+/**
+ * Suggestions: `item` on throw and feed (what's in your Glovebox that fits),
+ * `food` in the lines subcommands (the menu, narrowed by what's typed).
+ */
+export async function autocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  if (focused?.name === 'item') {
+    const action = interaction.options.getSubcommand() === 'feed' ? 'feed' : 'throw';
+    await interaction.respond(itemChoices(interaction.guildId, interaction.user.id, { game: 'foodfight', action }, focused.value));
+    return;
+  }
+  const typed = String(focused?.value || '').toLowerCase();
+  await interaction.respond(FOODS
+    .filter(f => !typed || f.value.includes(typed) || f.name.toLowerCase().includes(typed))
+    .map(f => ({ name: f.name, value: f.value })));
+}
 
 export async function execute(interaction) {
   if (!await canUseCommand(interaction.guildId, interaction.member, 'foodfight')) {
@@ -152,7 +189,7 @@ async function play(interaction, action) {
     return;
   }
 
-  const started = await beginPlay(interaction, 'foodfight');
+  const started = await beginPlay(interaction, 'foodfight', { item: interaction.options.getString('item'), action });
   if (!started) return;
 
   const spec = ACTIONS[action];
@@ -161,12 +198,11 @@ async function play(interaction, action) {
     ...tagged(getFoodfightLines(started.config, action)[food], spec.fallback),
     ...(spec.lines[food] || []),
   ];
-  const line = pick(lines);
-  const text = line.text
+  const fill = (text) => text
     .split(spec.actorTag).join(`<@${interaction.user.id}>`)
     .replace(/{target}/g, target.mention);
 
-  await finishPlay(interaction, { game: 'foodfight', target, text, outcome: line.outcome, settings: started.settings });
+  await finishPlay(interaction, { game: 'foodfight', action, target, lines, fill, item: started.item, settings: started.settings });
 }
 
 async function manageLines(interaction) {
@@ -174,6 +210,12 @@ async function manageLines(interaction) {
   const action = interaction.options.getString('action') || 'throw';
   const spec = ACTIONS[action];
   const food = interaction.options.getString('food');
+  const reply = (content) => interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
+  // An autocomplete value is whatever was typed: only the menu's foods have lines
+  if (!FOODS.some(f => f.value === food)) {
+    await reply(`❌ Pick a food from the list: ${FOODS.map(f => f.value).join(', ')}.`);
+    return;
+  }
   const config = await loadGuildConfig(interaction.guildId);
   const all = getFoodfightLines(config, action);
   const custom = tagged(all[food], spec.fallback);
@@ -182,7 +224,6 @@ async function manageLines(interaction) {
     if (next.length === 0) delete config[spec.configKey][food];
     await saveGuildConfig(interaction.guildId, config);
   };
-  const reply = (content) => interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
   const where = `${foodName(food)} (${action})`;
 
   if (sub === 'add') {

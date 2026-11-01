@@ -7,7 +7,7 @@ description: Interactive social features including surveys/polls, magical potion
 
 **Add fun and interactive elements** to your entertainment Discord community with surveys, polls, potions, food fights, horror-movie fates and rescues, and status quotes.
 
-`/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, a `/scoreboard` and a `/leaderboard`. See **[Games & Scores](./games)** for how points, shields and limits work.
+`/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, a `/scoreboard` and a `/leaderboard`. See **[Games & Scores](./games)** for how points, shields and limits work. Each play can take an `item:` from your [Glovebox](./games#the-glovebox-and-items), and keep playing to earn [prizes](./games#prizes) and [titles](./games#titles).
 
 ## Quick FAQ
 
@@ -293,8 +293,10 @@ Give magical potions with pop culture references, to a member, a whole role, or 
 ### Give a Potion
 
 ```
-/potion give user:<member, role, or @everyone> type:<potion-type>
+/potion give user:<member, role, or @everyone> type:<potion-type> item:[item]
 ```
+
+`item` is optional: a 🍀 Lucky Penny makes the potion work and doubles your points. The list shows only what you hold ([Items](./games#using-an-item)). A 💊 Antidote on the receiving end works by itself against a harmful potion.
 
 **Potion Types:**
 - **Helpful:** Health, Mana, Strength, Speed, Invisibility, Luck, Love, Energy
@@ -311,6 +313,7 @@ Give magical potions with pop culture references, to a member, a whole role, or 
 /potion give user:@Alice type:health
 /potion give user:@Movie Club type:confusion
 /potion give user:@everyone type:luck
+/potion give user:@Alice type:poison item:Lucky Penny
 ```
 
 **Sample Responses:**
@@ -339,10 +342,10 @@ Start a food fight, after the classic BBS door game. Throw food at a member, a w
 ### Throw Food
 
 ```
-/foodfight throw target:<member, role, or @everyone> food:[food]
+/foodfight throw target:<member, role, or @everyone> food:[food] item:[item]
 ```
 
-Leave out `food` and the bot grabs whatever's on the tray.
+Leave out `food` and the bot grabs whatever's on the tray. `item` is optional: a 🥧 Golden Pie is a sure hit and doubles your points. The list shows only what you hold ([Items](./games#using-an-item)).
 
 **Foods:** 🥧 Cream Pie, 🍝 Spaghetti, 🍮 Pudding, 🥔 Mashed Potatoes, 🟩 Jell-O, 🍖 Meatloaf, 🌽 Creamed Corn, 🥣 Tapioca, 🍕 Pizza, 🌮 Taco, 🐟 Fish Sticks, 🥬 Split Pea Soup
 
@@ -351,6 +354,7 @@ Leave out `food` and the bot grabs whatever's on the tray.
 /foodfight throw target:@Alice food:pie
 /foodfight throw target:@Moderators
 /foodfight throw target:@everyone food:pea-soup
+/foodfight throw target:@Alice item:Golden Pie
 ```
 
 **Sample lines:**
@@ -363,10 +367,10 @@ Posted publicly, with the points underneath: a hit is +3 for you and −1 for th
 ### Feed Someone
 
 ```
-/foodfight feed target:<member, role, or @everyone> food:[food]
+/foodfight feed target:<member, role, or @everyone> food:[food] item:[item]
 ```
 
-The kind half of a food fight. It's tasty (+1 for you, +2 for them), gross (−1 each), or you spill it on yourself (−2 for you, +1 for them, who still gets fed). 181 built-in lines.
+The kind half of a food fight. A 🥧 Golden Pie (`item`) makes it always tasty, with +2 more for you both. It's tasty (+1 for you, +2 for them), gross (−1 each), or you spill it on yourself (−2 for you, +1 for them, who still gets fed). 181 built-in lines.
 
 - *"🍮 @Alice makes @Bob a flan so jiggly it waved hello. @Bob waved back, then ate it."*
 
@@ -380,6 +384,8 @@ The kind half of a food fight. It's tasty (+1 for you, +2 for them), gross (−1
 /foodfight lines reset action:throw food:pie
 ```
 
+`food` is picked from a list: start typing and the bot suggests the menu. A food that isn't on it is refused.
+
 A throw line needs both `{thrower}` and `{target}` and an outcome of `hit`, `miss` or `backfire`; a feed line needs `{feeder}` and `{target}` and `tasty`, `gross` or `spill`. Your lines are used alongside the built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
 
 ---
@@ -391,10 +397,10 @@ Deal someone a horror-movie fate: a zombie bite, a monkey's paw, a cursed tape. 
 ### Deal a Fate
 
 ```
-/doom fate target:<member, role, or @everyone> trope:[trope]
+/doom fate target:<member, role, or @everyone> trope:[trope] item:[item]
 ```
 
-Leave out `trope` and fate decides.
+Leave out `trope` and fate decides. `item` is optional: a 📼 Cursed VHS can't backfire, doubles your points, and cuts through a shield or Garlic. The list shows only what you hold ([Items](./games#using-an-item)). A target with 🧄 Garlic turns a doom into an escape by itself ([Defences](./games#defences)).
 
 **Tropes:** 🧟 Zombie, 🐒 Monkey's Paw, 🪓 Slasher, 😈 Possession, 📼 Cursed Tape, 🪆 Haunted Doll, 🧛 Vampire, 🐺 Werewolf, 🤡 Killer Clown, 📖 Necronomicon, 🔮 Ouija Board, 🪞 Bloody Mary
 
@@ -403,6 +409,7 @@ Leave out `trope` and fate decides.
 /doom fate target:@Alice trope:zombie
 /doom fate target:@Camp Counselors trope:slasher
 /doom fate target:@everyone
+/doom fate target:@Alice item:Cursed VHS
 ```
 
 **Sample lines:**
@@ -432,10 +439,10 @@ A line needs both `{user}` and `{target}`, and an outcome: `doomed`, `escaped` o
 ### Attempt a Rescue
 
 ```
-/rescue attempt target:<member, role, or @everyone> trope:[trope]
+/rescue attempt target:<member, role, or @everyone> trope:[trope] item:[item]
 ```
 
-Leave out `trope` and whatever works, works.
+Leave out `trope` and whatever works, works. `item` is optional: 💧 Holy Water can't be caught, gives you +2 more, and the shield lasts 3× as long. The list shows only what you hold ([Items](./games#using-an-item)). The tropes named Holy Water, Garlic and Silver Bullet are flavour, not items.
 
 **Tropes:** 🔪 Final Girl, 💧 Holy Water, 👻 Ghostbusters, 🔫 Boomstick, 🧂 Salt Circle, 🥈 Silver Bullet, 🌅 Sunrise, 🚗 Getaway Car, 🗡️ Van Helsing, 📜 Survival Rules, 🧄 Garlic, 🐕 The Dog
 
