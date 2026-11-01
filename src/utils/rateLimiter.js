@@ -176,6 +176,11 @@ const THRESHOLD_WARNING = '\n\n⚠️ **Warning:** You have gone over this serve
  */
 const GAME_COMMANDS = new Set(['potion', 'foodfight', 'doom', 'rescue']);
 
+// Slash command names are lowercase with no spaces; anything else is a
+// right-click command ("Game card"), which is picked from a menu, not typed
+// after a slash — "/Game card" would name something that doesn't exist.
+const commandLabel = (name) => (/^[a-z0-9_-]+$/.test(name) ? `/${name}` : name);
+
 export async function checkRateLimit(guildId, userId, commandName, member = null, commandArgs = '') {
   // Load guild config to get rate limit settings
   const config = await loadGuildConfig(guildId);
@@ -328,7 +333,7 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
     return {
       limited: true,
       retryAfter,
-      message: `You're using commands too quickly! Please wait ${retryAfter} second${retryAfter !== 1 ? 's' : ''} before using **/${commandName}** again.${warningMessage}`
+      message: `You're using commands too quickly! Please wait ${retryAfter} second${retryAfter !== 1 ? 's' : ''} before using **${commandLabel(commandName)}** again.${warningMessage}`
     };
   }
   

@@ -17,6 +17,7 @@
 import { describe, test, expect, beforeAll } from '@jest/globals';
 import fs from 'fs';
 import path from 'path';
+import { ContextMenuCommandBuilder, SlashCommandBuilder, ApplicationCommandType } from 'discord.js';
 import { buildCommandCatalog, checkCommands } from '../src/utils/docsAnswer.js';
 
 const DOCS = path.join(process.cwd(), 'docs');
@@ -71,5 +72,19 @@ describe('commands in the docs', () => {
     expect(checkCommands('Run `/notifications follow`', catalog).unknown).toHaveLength(1);
     expect(checkCommands('Run `/bracket open matchups:9`', catalog).unknown).toHaveLength(1);
     expect(checkCommands('```\n/movie query:Alien\n```', catalog).unknown).toEqual([]);
+  });
+});
+
+describe('right-click commands in the catalog', () => {
+  // "Game card" is picked from Apps in a member's menu, never typed after a
+  // slash, so it must not become a "/Game card" path that docs or an AI answer
+  // could be checked against (or told to use).
+  const menu = { data: new ContextMenuCommandBuilder().setName('Game card').setType(ApplicationCommandType.User) };
+  const slash = { data: new SlashCommandBuilder().setName('ping').setDescription('Pong') };
+
+  test('are left out; a slash command beside one is kept', () => {
+    const c = buildCommandCatalog([menu, slash]);
+    expect([...c.paths.keys()]).toEqual(['/ping']);
+    expect(c.lines.join('\n')).not.toMatch(/game card/i);
   });
 });

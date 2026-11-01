@@ -243,9 +243,11 @@ export function debug(category, message, context = {}) {
  */
 export function logCommand(commandName, user, guild, options = {}, success = true, error = null) {
   const level = success ? LogLevel.INFO : LogLevel.ERROR;
-  const message = success 
-    ? `Command executed: /${commandName}`
-    : `Command failed: /${commandName}`;
+  // A right-click command ("Game card") isn't typed after a slash
+  const label = /^[a-z0-9_-]+$/.test(commandName) ? `/${commandName}` : commandName;
+  const message = success
+    ? `Command executed: ${label}`
+    : `Command failed: ${label}`;
   
   const context = {
     command: commandName,

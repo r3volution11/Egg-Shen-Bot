@@ -711,7 +711,7 @@ See [Social Commands › Rescue](./social#rescue).
 ---
 
 ### `/scoreboard`
-Points in the games, yours or anyone's: total and rank, and per game points, plays, outcomes, what they received and their best streak.
+Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), and an active rescue shield. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
 
 **Options:** `user`, `game`, `period` (this month, this year, all time), `private`
 
@@ -725,7 +725,7 @@ See [Games & Scores › Scoreboard](./games#scoreboard).
 ---
 
 ### `/leaderboard`
-The server's top 10 players in the games, each with a small avatar, plus who received the most of everything.
+The server's game card: the top 15 players one line each (medal, name, a bar against the leader, points), who leads each game, who received the most of everything, and the period's plays, points, players, most played game and best streak.
 
 **Options:** `game`, `period` (this month, this year, all time), `private`
 

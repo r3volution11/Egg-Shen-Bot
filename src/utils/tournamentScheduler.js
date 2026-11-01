@@ -12,6 +12,7 @@ import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import * as logger from './logger.js';
+import { clipText, LIMITS } from './embedFit.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -831,7 +832,7 @@ export async function repairOrphanedKnockoutTiebreakers(guild, tournament) {
 /**
  * Update voting message to show CLOSED status and disable buttons
  */
-async function updateVotingMessageClosed(guild, item, id, type) {
+export async function updateVotingMessageClosed(guild, item, id, type) {
   try {
     const channelId = type === 'group' ? item.votingMessageChannelId : item.messageChannelId;
     const messageId = type === 'group' ? item.votingMessageId : item.messageId;
@@ -848,7 +849,11 @@ async function updateVotingMessageClosed(guild, item, id, type) {
       
       // Add CLOSED indicator to title or description
       if (embed.title) {
-        newEmbed.setTitle(`${embed.title} 🔒 CLOSED`);
+        // A title can already be near Discord's 256; the whole edit is
+        // rejected if the marker pushes it over, leaving the vote open-looking.
+        // Clip the title, not the marker.
+        const marker = ' 🔒 CLOSED';
+        newEmbed.setTitle(`${clipText(embed.title, LIMITS.title - marker.length)}${marker}`);
       }
       
       newEmbed.setColor('#808080'); // Gray for closed

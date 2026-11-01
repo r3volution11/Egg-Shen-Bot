@@ -58,7 +58,10 @@ export function buildCommandCatalog(commands) {
   };
   for (const command of commands) {
     const json = command?.data?.toJSON?.();
-    if (json?.name) walk(`/${json.name}`, json.options, json.description);
+    // Right-click commands (type 2 user, 3 message) aren't typed as "/name",
+    // so a docs mention of one is not a slash command to check. A slash
+    // command's JSON may omit `type`, which means 1.
+    if (json?.name && (json.type ?? 1) === 1) walk(`/${json.name}`, json.options, json.description);
   }
   return { lines, paths, options };
 }

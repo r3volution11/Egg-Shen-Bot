@@ -61,14 +61,26 @@ A rescue that works (rescued or sacrificed) shields the member you saved for an 
 /scoreboard user:[member] game:[game] period:[period] private:[true/false]
 ```
 
-Your points, or anyone's: their name and avatar, total and rank on the server, and for each game their points, rank, plays, what they did (🎯 hits, 💀 dooms…), what they received, and their best streak. An active shield shows too.
+Your game card, or anyone's. It shows:
 
-- `user`: whose scoreboard (default: yours)
-- `game`: one game, or all of them (default)
+- **Their name and avatar**, the avatar in the top corner.
+- **Total and rank:** 🪙 `42` points · 🥈 `2nd` of 7 players. The top three get a medal.
+- **A column for each game they've played:** their points and rank in it, how many plays, what they did (2 🎯 · 1 💨), what they received (Received: 1 💀), and their 🔥 streak, the one running now and their best.
+- **In effect:** a rescue shield, and when it runs out.
+- **The footer** names the period and how to open anyone's card.
+
+Options:
+
+- `user`: whose card (default: yours)
+- `game`: one game, or all of them (default). With one game, the total and rank are for that game alone.
 - `period`: this month, this year, or all time (default)
 - `private:true`: only you see it. Otherwise it's posted in the channel.
 
-Games turned off on the server are left out.
+Games turned off on the server are left out of the card, its total and its rank. Someone who hasn't played gets a card that says so.
+
+### Game card (right-click)
+
+To see anyone's card without typing a command, right-click them (on mobile, open their profile) → **Apps** → **Game card**. It's the same card as `/scoreboard user:`, all games, all time, and only you see it.
 
 ## Leaderboard
 
@@ -76,7 +88,14 @@ Games turned off on the server are left out.
 /leaderboard game:[game] period:[period] private:[true/false]
 ```
 
-The top 10 players, each with a small avatar, their points and plays. Underneath the heading: who received the most of everything (🎯 most splatted, 💀 most doomed, 🛟 most rescued, ☠️ most poisoned, 💚 most healed, 🍽️ best fed) and the best streak.
+The server's game card, in one gold embed with the leader's avatar in the top corner:
+
+- **The standings:** the top 15, one line each, with a medal for the top three, their name, a short bar against the leader's points, and their points. Bars are left out when nobody is above zero, and on a very full card.
+- **Leading each game:** a column per game, with who leads it and their points. Only with all games shown.
+- **Most received:** 🎯 most splatted, 🍽️ best fed, 💀 most doomed, 🛟 most rescued, ☠️ most poisoned and 💚 most healed, each with how many.
+- **Server stats:** plays and points in the period, how many players, the most played game (all games only), and the best streak.
+
+Names are shown, not mentions, so nobody is pinged. Someone who has left the server keeps their place under the name Discord still knows them by, or the one they last played under. Games turned off on the server are left out of everything. The footer points to `/scoreboard` for your own card.
 
 ```
 /leaderboard period:month

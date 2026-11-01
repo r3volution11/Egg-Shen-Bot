@@ -262,9 +262,42 @@ describe('the leaderboard and resets', () => {
     expect(getLeaderboard(GUILD, 'doom', 'all-time', {}, NOW).rows.map(r => [r.userId, r.points])).toEqual([['kim', 3], ['alex', -1]]);
   });
 
+  test('each game\'s leader, and the totals the server card shows', () => {
+    const board = getLeaderboard(GUILD, 'all', 'all-time', {}, NOW);
+    expect(board.perGame).toEqual({
+      potion: null,
+      foodfight: { userId: 'sam', name: 'SAM', points: 6, plays: 2 },
+      doom: { userId: 'kim', name: 'Kim', points: 3, plays: 1 },
+      // Points given count: Sam's rescue (+2) beats Kim's own play (+1)
+      rescue: { userId: 'sam', name: 'SAM', points: 2, plays: 0 },
+    });
+    expect(board.totals).toEqual({ players: 3, plays: 4, points: 9, mostPlayed: { game: 'foodfight', plays: 2 } });
+  });
+
+  test('"all" means the games switched on: the rest are left out of everything', () => {
+    const board = getLeaderboard(GUILD, 'all', 'all-time', { games: ['foodfight', 'doom'] }, NOW);
+    expect(board.rows.map(r => [r.userId, r.points])).toEqual([['sam', 6], ['kim', 3], ['alex', -3]]);
+    expect(Object.keys(board.perGame)).toEqual(['foodfight', 'doom']);
+    expect(board.received.map(r => r.label)).toEqual(['🎯 Most splatted', '💀 Most doomed']);
+    expect(board.totals).toEqual({ players: 3, plays: 3, points: 6, mostPlayed: { game: 'foodfight', plays: 2 } });
+  });
+
+  test('the top 15 by default; the totals count everyone', () => {
+    for (let n = 0; n < 17; n++) play('doom', 'doomed', { actor: { id: `p${n}`, name: `P${n}` }, target: ROLE });
+    const board = getLeaderboard(GUILD, 'doom', 'all-time', {}, NOW);
+    expect(board.rows).toHaveLength(15);
+    expect(board.totals.players).toBe(19);
+  });
+
   test('ranks on the scoreboard follow the same order', () => {
     expect(getScoreboard(GUILD, 'kim', 'all-time', NOW).rank).toBe(2);
     expect(getScoreboard(GUILD, 'kim', 'all-time', NOW).games.doom.rank).toBe(1);
+  });
+
+  test('a scoreboard\'s total, rank and player count follow the games it shows', () => {
+    expect(getScoreboard(GUILD, 'kim', 'all-time', NOW)).toMatchObject({ total: 4, rank: 2, players: 3 });
+    expect(getScoreboard(GUILD, 'kim', 'all-time', NOW, { games: ['doom'] })).toMatchObject({ total: 3, rank: 1, players: 2 });
+    expect(getScoreboard(GUILD, 'alex', 'all-time', NOW, { games: ['foodfight', 'doom'] })).toMatchObject({ total: -3, rank: 3, players: 3 });
   });
 
   test('reset one person\'s game, one person, then everyone', () => {

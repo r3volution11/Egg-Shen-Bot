@@ -13,9 +13,11 @@
  * would see in Discord.
  */
 
-import { Embed, ActionRow, PermissionFlagsBits } from 'discord.js';
+import { Embed, ActionRow, PermissionFlagsBits, DiscordAPIError } from 'discord.js';
+import { messageProblems } from '../../src/utils/embedFit.js';
 
 const EPHEMERAL = 64;
+const CHOICE_MAX = 100; // autocomplete choice name and (string) value
 
 let nextId = 1000;
 const snowflake = () => String(nextId++);
@@ -32,9 +34,24 @@ function isEphemeral(payload) {
   return false;
 }
 
+/**
+ * What Discord answers an over-limit request with: 400, code 50035 "Invalid
+ * Form Body". The problems are also recorded in `discord.violations`,
+ * because production code often catches a failed send and only logs it
+ * (tournamentScheduler does), so the throw alone can vanish — the record is
+ * what the simulators assert on.
+ */
+function rejectInvalidForm(discord, where, problems) {
+  discord?.violations.push(`${where}: Invalid Form Body — ${problems.join('; ')}`);
+  const err = new DiscordAPIError({ message: 'Invalid Form Body', code: 50035 }, 50035, 400, 'POST', 'https://discord.com/api/v10/(fake)', {});
+  err.message = `Invalid Form Body\n${problems.join('\n')}`;
+  err.problems = problems;
+  throw err;
+}
+
 /** A message as Discord would store it. */
 export class FakeMessage {
-  constructor(channel, payload, { author = 'bot', ephemeralFor = null } = {}) {
+  constructor(channel, payload, { author = 'bot', ephemeralFor = null, via = null } = {}) {
     this.id = snowflake();
     this.channel = channel;
     this.channelId = channel?.id ?? null;
@@ -49,11 +66,25 @@ export class FakeMessage {
     this.attachments = [];
     this.history = [];
     this.deleted = false;
-    this.apply(payload);
+    this.apply(payload, via);
   }
 
-  apply(payload) {
+  /**
+   * Take a send or an edit. Discord checks the limits on what the message
+   * would BE afterwards, and an edit may carry only some fields (`{components}`
+   * alone leaves the embeds as they were), so the merged message is what's
+   * measured, not the partial payload — and a rejected request changes nothing.
+   * @param {string} [via] who is sending (the interaction), for the violation text
+   */
+  apply(payload, via = null) {
     const p = typeof payload === 'string' ? { content: payload } : (payload || {});
+    const problems = messageProblems({
+      content: 'content' in p ? (p.content ?? '') : this.content,
+      embeds: 'embeds' in p ? (p.embeds || []).map(toJSON) : this.embeds,
+    });
+    if (problems.length) {
+      rejectInvalidForm(this.channel?.guild?.discord, `${via ? `${via} → ` : ''}channel ${this.channelId}`, problems);
+    }
     if ('content' in p) this.content = p.content ?? '';
     if ('embeds' in p) this.embeds = (p.embeds || []).map(e => new Embed(toJSON(e)));
     if ('components' in p) this.components = (p.components || []).map(r => new ActionRow(toJSON(r)));
@@ -64,9 +95,9 @@ export class FakeMessage {
     this.history.push(this.snapshot());
   }
 
-  async edit(payload) {
+  async edit(payload, via = null) {
     if (this.deleted) throw new Error('Unknown Message');
-    this.apply(payload);
+    this.apply(payload, via);
     this.channel?.recordEdit?.(this);
     return this;
   }
@@ -218,6 +249,9 @@ class FakeInteraction {
   }
 
   isChatInputCommand() { return this.kind === 'command'; }
+  isUserContextMenuCommand() { return this.kind === 'usercontext'; }
+  isContextMenuCommand() { return this.kind === 'usercontext'; }
+  isCommand() { return this.kind === 'command' || this.kind === 'usercontext'; }
   isAutocomplete() { return this.kind === 'autocomplete'; }
   isButton() { return this.kind === 'button'; }
   isStringSelectMenu() { return this.kind === 'select'; }
@@ -238,13 +272,15 @@ class FakeInteraction {
   }
 
   label() {
-    return this.kind === 'command' ? `/${this.commandName} ${this.subcommand || ''}`.trim() : `${this.kind} ${this.customId}`;
+    if (this.kind === 'command') return `/${this.commandName} ${this.subcommand || ''}`.trim();
+    if (this.kind === 'usercontext') return `Apps → ${this.commandName}`;
+    return `${this.kind} ${this.customId}`;
   }
 
   /** Post a message from this interaction: ephemeral to the user, or public in the channel. */
   post(payload) {
     const ephemeral = isEphemeral(payload);
-    const msg = new FakeMessage(this.channel, payload, { ephemeralFor: ephemeral ? this.user.id : null });
+    const msg = new FakeMessage(this.channel, payload, { ephemeralFor: ephemeral ? this.user.id : null, via: this.label() });
     if (ephemeral) this.discord.ephemeral(this.user.id).push(msg);
     else this.channel.messageList.push(msg);
     this.responses.push(msg);
@@ -254,9 +290,13 @@ class FakeInteraction {
 
   async reply(payload) {
     if (this.answered()) this.fail('InteractionAlreadyReplied');
+    // As discord.js: a request the API rejects leaves the interaction
+    // unanswered (the user sees "This interaction failed"), so the flag is
+    // only set once the send succeeded
+    const posted = this.post(payload);
     this.replied = true;
     this.ephemeral = isEphemeral(payload);
-    this.replyMessage = this.post(payload);
+    this.replyMessage = posted;
     return payload?.fetchReply ? this.replyMessage : { id: this.id, interaction: this };
   }
 
@@ -272,7 +312,7 @@ class FakeInteraction {
   async editReply(payload) {
     if (!this.answered()) this.fail('InteractionNotReplied');
     const target = this.replyMessage;
-    target.apply(payload);
+    target.apply(payload, this.label());
     this.edited.push(target);
     this.discord.log({ kind: 'editReply', channel: this.channel.id, to: this.user.id, via: this.label(), message: target });
     return target;
@@ -305,9 +345,9 @@ class FakeInteraction {
   async update(payload) {
     if (this.kind !== 'button' && this.kind !== 'select') throw new Error('update on a non-component interaction');
     if (this.answered()) this.fail('InteractionAlreadyReplied');
+    this.message.apply(payload, this.label()); // may be rejected: then still unanswered
     this.replied = true;
     this.replyMessage = this.message;
-    this.message.apply(payload);
     this.edited.push(this.message);
     this.discord.log({ kind: 'update', channel: this.channel.id, to: this.user.id, via: this.label(), message: this.message });
     return { id: this.id, interaction: this };
@@ -436,6 +476,24 @@ export class FakeDiscord {
   }
 
   /**
+   * Right-click a member → Apps → `commandName` (a user context-menu
+   * command). Like discord.js, the member clicked on is the `user` option
+   * as well as targetUser / targetMember.
+   */
+  userMenu(userId, commandName, targetId) {
+    const { user, member } = this.who(userId);
+    const target = this.who(targetId);
+    const i = new FakeInteraction(this, { kind: 'usercontext', user, member, guild: this.guild, channel: this.channel });
+    i.commandName = commandName;
+    i.commandType = 2; // ApplicationCommandType.User
+    i.targetId = targetId;
+    i.targetUser = target.user;
+    i.targetMember = target.member;
+    i.options = slashOptions({ values: { user: { user: target.user, member: target.member } } });
+    return i;
+  }
+
+  /**
    * Submitting a pop-up: `values` maps each text input's customId to what
    * was typed. Like Discord, a box left empty comes back as ''.
    */
@@ -459,7 +517,18 @@ export class FakeDiscord {
     i.subcommand = subcommand;
     i.options = slashOptions({ subcommand, values: options, focused });
     i.choices = null;
-    i.respond = async (choices) => { i.choices = choices; };
+    i.respond = async (choices) => {
+      // Discord rejects the whole response, so nothing is recorded as sent
+      const problems = [];
+      if (choices.length > 25) problems.push(`${choices.length} autocomplete choices (limit 25)`);
+      choices.forEach((c, n) => {
+        const len = String(c?.name ?? '').length;
+        if (len < 1 || len > CHOICE_MAX) problems.push(`choice ${n + 1} name is ${len} characters (needs 1-${CHOICE_MAX})`);
+        if (typeof c?.value === 'string' && c.value.length > CHOICE_MAX) problems.push(`choice ${n + 1} value is ${c.value.length} characters (limit ${CHOICE_MAX})`);
+      });
+      if (problems.length) rejectInvalidForm(this, `${i.label()} (autocomplete)`, problems);
+      i.choices = choices;
+    };
     return i;
   }
 

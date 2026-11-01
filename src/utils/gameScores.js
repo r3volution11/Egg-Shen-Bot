@@ -245,8 +245,13 @@ export function periodKey(period = 'all-time', now = Date.now()) {
 /**
  * One person's stats in every game for a period, with their rank in each
  * (and overall) among everyone who has played.
+ *
+ * `games` is what the total, the overall rank and `players` count: the
+ * games switched on, or the one game a card is about. A switched-off game
+ * left in would rank someone on points their card doesn't show.
+ * `players` is how many people that rank is out of ("2nd of 7 players").
  */
-export function getScoreboard(guildId, userId, period = 'all-time', now = Date.now()) {
+export function getScoreboard(guildId, userId, period = 'all-time', now = Date.now(), { games: counted = GAMES } = {}) {
   const data = loadScores(guildId);
   const key = periodKey(period, now);
   const user = data.users[userId];
@@ -258,13 +263,15 @@ export function getScoreboard(guildId, userId, period = 'all-time', now = Date.n
       ? { ...s, streak: all?.streak || 0, rank: rankOf(data, userId, [game], key) }
       : null;
   }
-  const total = GAMES.reduce((n, g) => n + (games[g]?.points || 0), 0);
+  const total = counted.reduce((n, g) => n + (games[g]?.points || 0), 0);
   const until = data.shields?.[userId];
   return {
     name: user?.name || null,
     games,
     total,
-    rank: rankOf(data, userId, GAMES, key),
+    rank: rankOf(data, userId, counted, key),
+    // The same people rankOf ranks against, so a rank is never "3rd of 2"
+    players: Object.values(data.users).filter(u => playedIn(u, counted, key)).length,
     shieldedUntil: until && until > now ? until : null,
   };
 }
@@ -295,24 +302,41 @@ export const RECEIVED_LEADERS = [
 
 /**
  * The server's standings for a game (or 'all') in a period: top players by
- * points, the "received" leaders, and the best streak.
+ * points, each game's leader, the "received" leaders, the best streak, and
+ * the period's totals — everything /leaderboard's card shows.
+ *
+ * `games` is which games 'all' means: the ones switched on. A game an admin
+ * turned off shouldn't decide who leads the server, or be "most played".
+ *
+ * @returns {{
+ *   rows: Array<{userId, name, points, plays}>,             // top `limit`
+ *   perGame: Object<string, {userId, name, points, plays} | null>,
+ *   received: Array<{label, userId, name, count}>,
+ *   bestStreak: {userId, name, game, count} | null,
+ *   totals: {players, plays, points, mostPlayed: {game, plays} | null},
+ * }}
  */
-export function getLeaderboard(guildId, game = 'all', period = 'all-time', { limit = 10 } = {}, now = Date.now()) {
+export function getLeaderboard(guildId, game = 'all', period = 'all-time', { limit = 15, games: enabled = GAMES } = {}, now = Date.now()) {
   const data = loadScores(guildId);
   const key = periodKey(period, now);
-  const games = game === 'all' ? GAMES : [game];
+  const games = game === 'all' ? enabled : [game];
   const users = Object.entries(data.users).filter(([, u]) => playedIn(u, games, key));
 
-  const rows = users
+  // Standings over some games: anyone who played or was played on. Someone
+  // whose only record is a blocked doom (0 and 0) isn't standing anywhere.
+  const standings = (over) => users
     .map(([id, u]) => ({
       userId: id,
       name: u.name,
-      points: pointsIn(u, games, key),
-      plays: games.reduce((n, g) => n + (u.games?.[g]?.[key]?.plays || 0), 0),
+      points: pointsIn(u, over, key),
+      plays: over.reduce((n, g) => n + (u.games?.[g]?.[key]?.plays || 0), 0),
     }))
     .filter(r => r.plays > 0 || r.points !== 0)
-    .sort((a, b) => b.points - a.points || b.plays - a.plays || String(a.name).localeCompare(String(b.name)))
-    .slice(0, limit);
+    .sort((a, b) => b.points - a.points || b.plays - a.plays || String(a.name).localeCompare(String(b.name)));
+
+  const everyone = standings(games);
+  const rows = everyone.slice(0, limit);
+  const perGame = Object.fromEntries(games.map(g => [g, standings([g])[0] || null]));
 
   const received = RECEIVED_LEADERS
     .filter(r => games.includes(r.game))
@@ -328,7 +352,19 @@ export function getLeaderboard(guildId, game = 'all', period = 'all-time', { lim
     .flatMap(([id, u]) => games.map(g => ({ userId: id, name: u.name, game: g, count: u.games?.[g]?.[key]?.bestStreak || 0 })))
     .sort((a, b) => b.count - a.count)[0];
 
-  return { rows, received, bestStreak: streak && streak.count > 0 ? streak : null };
+  // Plays are counted once, by the player; points include what targets were
+  // given or lost, so the period's points are everyone's net change.
+  // Ties for most played go to the first game in GAMES order (a stable sort).
+  const playsOf = (g) => users.reduce((n, [, u]) => n + (u.games?.[g]?.[key]?.plays || 0), 0);
+  const mostPlayed = games.map(g => ({ game: g, plays: playsOf(g) })).sort((a, b) => b.plays - a.plays)[0];
+  const totals = {
+    players: everyone.length,
+    plays: everyone.reduce((n, r) => n + r.plays, 0),
+    points: everyone.reduce((n, r) => n + r.points, 0),
+    mostPlayed: mostPlayed && mostPlayed.plays > 0 ? mostPlayed : null,
+  };
+
+  return { rows, perGame, received, bestStreak: streak && streak.count > 0 ? streak : null, totals };
 }
 
 // ── admin ───────────────────────────────────────────────────────────────

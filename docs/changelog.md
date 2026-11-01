@@ -9,6 +9,36 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.69.0 - 2026-11-01
+
+### Added
+- **Right-click a member → Apps → Game card** to see their game card, just for you. No typing, no picking them from a list. See [Game card](/commands/games#game-card-right-click)
+
+### Changed
+- **`/scoreboard` is a game card.** Your avatar, your total and rank as at-a-glance numbers, then a column for each game: points and rank, plays, what you did and what was done to you, and your streak. An active rescue shield shows too. Same options as before (`user`, `game`, `period`, `private`). See [Scoreboard](/commands/games#scoreboard)
+- **`/leaderboard` is one card for the whole server**, with the leader's avatar at the top:
+  - the top 15, one line each, with a medal, a bar against the leader and their points
+  - who's leading each game
+  - who got splatted, fed, doomed, rescued, poisoned and healed the most
+  - server stats: plays, points, players, the most played game and the best streak
+
+  Games switched off on the server are left out of it entirely. See [Leaderboard](/commands/games#leaderboard)
+- **`/eggshen-config commands toggle` can switch off `/escape`, `/quote` and `/suggest-quote`.** Those switches existed but couldn't be reached
+
+### Fixed
+- **Switching off `/doom`, `/foodfight` or `/escape` failed on servers set up before those games existed.** The toggle only accepted settings the server had already saved
+- **A survey or a closed tournament card with a very long title could fail to post or update.** Titles and descriptions are now shortened to fit, without cutting an emoji, a mention or a timestamp in half
+
+### Developer
+- `src/utils/embedFit.js`: Discord's message limits (`LIMITS`), `messageProblems(payload)`, `embedTextLength`, `clipText` (never splits custom emoji, `<t:…>`, mentions, slash mentions, surrogate pairs or a backtick pill), `chooseLayout`, `fieldsFromLines`
+- `src/utils/emojiKit.js`: the kit renderers draw through (`e`, `game`, `bar`, `splitBar`, `ticks`, `ladder`, `pill`, `progressPill`), with per-family readiness. Plain emoji only in this release; the pixel-art kit and its upload follow
+- `src/utils/gameCard.js` (`renderGameCard`, `CARD_STEPS`, `replyWithGameCard`) and `src/utils/leaderboardCard.js` (`renderLeaderboard`, `LEADERBOARD_STEPS`): pure renderers that degrade step by step until the card fits. Cards are drafted as plain embed objects, because `EmbedBuilder` throws on an over-limit value instead of shrinking. `getLeaderboard` returns 15 rows, `perGame` leaders and `totals`, and both getters take the server's enabled `games`
+- `src/handlers/commandDispatch.js`: the slash-command path moved out of `index.js`, now also taking user context-menu commands. `rememberCommand` is for slash commands only. `docsAnswer`, `deploy-commands`, `check-command-size`, the rate limiter and the logger handle a command named "Game card"
+- `updateCommandPermission` validates against `defaultConfig.commandPermissions`, not the saved config
+- The fake Discord is as strict as Discord about limits. An over-limit message or autocomplete reply throws a 50035 `DiscordAPIError` and is recorded in `discord.violations`, which the tournament and Escape simulators assert stay empty. New `userMenu()` interactions
+- Tests: `embed-fit`, `emoji-kit`, `game-card`, `leaderboard-card`, `command-dispatch`, `command-permission-toggle`, `fake-discord-limits`, `embed-overflow`, plus rewritten `/scoreboard` and `/leaderboard` cases in `game-commands`. Each was break-tested
+- New user command and changed `/eggshen-config` choices: needs `deploy-commands`
+
 ## 2.68.1 - 2026-10-31
 
 ### Changed

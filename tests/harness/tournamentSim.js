@@ -355,6 +355,7 @@ export class Sim {
   /** Move the clock on, then let the scheduler do what it would. */
   async advance(ms) {
     clock.now += ms;
+    const before = this.discord.violations.length;
     const origError = console.error;
     const errors = [];
     console.error = (...a) => errors.push(a.map(String).join(' '));
@@ -364,6 +365,10 @@ export class Sim {
       console.error = origError;
     }
     const label = `${Math.round(ms / HOUR)}h pass; scheduler runs`;
+    // The scheduler catches and logs a failed send, so an over-limit card
+    // (rejected by the fake, recorded as a violation) shows up only here
+    const violations = this.discord.violations.slice(before);
+    if (violations.length) this.fail(label, `Discord would reject this:\n  ${violations.join('\n  ')}${errors.length ? `\nconsole.error:\n  ${errors.join('\n  ')}` : ''}`);
     if (errors.length) this.fail(label, `scheduler logged errors:\n  ${errors.join('\n  ')}`);
     this.steps.push(label);
     this.checkInvariants(label);

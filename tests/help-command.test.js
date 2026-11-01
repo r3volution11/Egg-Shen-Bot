@@ -235,6 +235,19 @@ describe('/eggshen-help and AI image visibility', () => {
     expect(fun).toContain('/potion');
     expect(fun).not.toContain('/foodfight');
   });
+
+  test('the right-click Game card is listed without a slash, and goes when every game is off', async () => {
+    let fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');
+    expect(fun).toContain('**🃏 Game card** - Right-click a member → Apps → Game card');
+    expect(fun).not.toContain('/Game card');
+
+    // Its card shows the scores, so it is only advertised while a game is on
+    const config = await loadGuildConfig(GUILD_ID);
+    config.commandPermissions = { ...config.commandPermissions, potion: false, foodfight: false, doom: false, rescue: false };
+    await saveGuildConfig(GUILD_ID, config);
+    fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');
+    expect(fun ?? '').not.toContain('Game card');
+  });
 });
 
 describe('/eggshen-help admin section', () => {

@@ -201,7 +201,11 @@ export class Sim {
 
   /** One scheduler pass at the current clock. */
   async tick() {
+    const before = this.discord.violations.length;
     await mods.scheduler.checkEscape(this.discord.client, clock.now, { awaitTopUp: true, only: this.guildId });
+    // The scheduler catches and logs a failed send; the fake's record survives that
+    const violations = this.discord.violations.slice(before);
+    if (violations.length) this.fail('scheduler pass', `Discord would reject this:\n  ${violations.join('\n  ')}`);
     this.checkInvariants('scheduler pass');
   }
 

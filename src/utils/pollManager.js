@@ -3,6 +3,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes, randomInt } from 'crypto';
 import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
+import { clipText, LIMITS } from './embedFit.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -538,7 +539,7 @@ export function createPollEmbed(poll, showResults = false) {
 
   const isRunoff = (poll.round || 1) >= 2;
   const embed = new EmbedBuilder()
-    .setTitle(`${isRunoff ? '🔁 Runoff: ' : '📊 '}${poll.question}`.slice(0, 256))
+    .setTitle(clipText(`${isRunoff ? '🔁 Runoff: ' : '📊 '}${poll.question}`, LIMITS.title))
     .setColor(poll.status === 'active' ? 0x5865F2 : 0x99AAB5)
     .setFooter({
       text: `Survey ID: ${poll.pollId} • ${poll.status === 'active' ? voteInstruction : 'Survey closed'} • Total votes: ${totalVotes}${poll.allowMultipleVotes ? ' • Multiple votes allowed' : ''}`,
@@ -567,7 +568,9 @@ export function createPollEmbed(poll, showResults = false) {
     }
   }).join('\n\n');
 
-  embed.setDescription(`${tieLine(poll)}${optionsText}`.slice(0, 4096));
+  // clipText, not a raw slice: option text carries custom emoji and the tie
+  // line a mention, and a slice through `<:name:id>` leaves raw markup on screen
+  embed.setDescription(clipText(`${tieLine(poll)}${optionsText}`, LIMITS.description));
 
   // Add status info
   if (poll.status === 'closed') {

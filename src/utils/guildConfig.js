@@ -475,15 +475,20 @@ export async function getCommandPermissions(guildId) {
 export async function updateCommandPermission(guildId, setting, enabled) {
   const config = await loadGuildConfig(guildId);
 
-  // Any key already present in commandPermissions (movie, tv, episode, game,
+  // Any key of defaultConfig.commandPermissions (movie, tv, episode, game,
   // boardgame, book, survey, soundtrack, bracket, enabled, ...) is a valid
-  // toggle. Checking against the config's own keys instead of a hardcoded
-  // list keeps this in sync automatically as command types are added to
-  // defaultConfig.commandPermissions.
-  if (!Object.prototype.hasOwnProperty.call(config.commandPermissions, setting)) {
+  // toggle, so it stays in sync as command types are added there.
+  //
+  // Validate against the DEFAULTS, never the saved object: there are no
+  // migrations, so a server configured before /doom, /foodfight or /escape
+  // existed has no such key saved, and checking its own keys refused the
+  // toggle on every one of those servers. canUseCommand already treats a
+  // missing key as "on", so writing it here is all the toggle needs.
+  if (!Object.prototype.hasOwnProperty.call(defaultConfig.commandPermissions, setting)) {
     return false;
   }
 
+  config.commandPermissions ??= {};
   config.commandPermissions[setting] = enabled;
   await saveGuildConfig(guildId, config);
   return true;

@@ -207,7 +207,12 @@ export const data = new SlashCommandBuilder()
                 { name: 'Potion Command', value: 'potion' },
                 { name: 'Food Fight Command', value: 'foodfight' },
                 { name: 'Doom Command', value: 'doom' },
-                { name: 'Rescue Command', value: 'rescue' }
+                { name: 'Rescue Command', value: 'rescue' },
+                // These gated their commands all along with no way to switch
+                // them: the keys existed, the choices didn't
+                { name: 'Escape Velocity Command', value: 'escape' },
+                { name: 'Quote Command', value: 'quote' },
+                { name: 'Suggest Quote Command', value: 'suggestQuote' }
               )
           )
           .addBooleanOption(option =>
@@ -556,6 +561,9 @@ export async function execute(interaction) {
         foodfight: '/foodfight command',
         doom: '/doom command',
         rescue: '/rescue command',
+        escape: '/escape command',
+        quote: '/quote command',
+        suggestQuote: '/suggest-quote command',
       }[setting] || setting;
 
       const statusText = enabled ? 'enabled' : 'disabled';

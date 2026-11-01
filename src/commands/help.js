@@ -129,6 +129,8 @@ export async function execute(interaction) {
   const scores = buildCategory([
     { enabled: anyGame, line: '**📊 /scoreboard** - Your points in the games, or anyone else\'s' },
     { enabled: anyGame, line: '**🏆 /leaderboard** - The server\'s top players this month, this year or all time' },
+    // A right-click command, so no slash; same switch as the scores it shows
+    { enabled: anyGame, line: '**🃏 Game card** - Right-click a member → Apps → Game card' },
   ]);
   if (funAndGames) {
     embed.addFields({ name: '🎉 Fun & Games', value: [funAndGames, scores].filter(Boolean).join('\n'), inline: false });

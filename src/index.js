@@ -5,7 +5,7 @@ import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
 import { loadTimers, getTimerStatus, restoreTimerTimeouts } from './utils/timerManager.js';
 import * as logger from './utils/logger.js';
-import { rememberCommand } from './utils/commandEcho.js';
+import { dispatchCommand, isCommandInteraction } from './handlers/commandDispatch.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -212,105 +212,9 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
-  // Handle slash commands
-  if (interaction.isChatInputCommand()) {
-    const command = client.commands.get(interaction.commandName);
-
-    if (!command) {
-      console.error(`No command matching ${interaction.commandName} was found.`);
-      return;
-    }
-
-    try {
-      // Check rate limits
-      const { checkRateLimit } = await import('./utils/rateLimiter.js');
-      
-      // Serialize command arguments for pattern detection
-      const commandArgs = interaction.options.data
-        .map(opt => `${opt.name}:${opt.value}`)
-        .join(' ');
-      
-      const rateCheck = await checkRateLimit(
-        interaction.guildId,
-        interaction.user.id,
-        interaction.commandName,
-        interaction.member,
-        commandArgs
-      );
-      
-      if (rateCheck.limited) {
-        await interaction.reply({
-          content: `⏱️ ${rateCheck.message}`,
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-      
-      // Remembered before execute so a public result — even one delivered
-      // later from a picker — can say which command produced it.
-      rememberCommand(interaction);
-
-      const startTime = Date.now();
-      await command.execute(interaction);
-      const duration = Date.now() - startTime;
-      
-      // Log successful command execution
-      logger.logCommand(
-        interaction.commandName,
-        interaction.user,
-        interaction.guild,
-        {
-          subcommand: interaction.options.getSubcommand?.(false),
-          channelId: interaction.channelId,
-          duration
-        },
-        true
-      );
-      
-      // Log slow commands
-      if (duration > 3000) {
-        logger.logPerformance(
-          `Command: /${interaction.commandName}`,
-          duration,
-          {
-            userId: interaction.user.id,
-            guildId: interaction.guild?.id
-          }
-        );
-      }
-    } catch (error) {
-      console.error('Command execution error:', error);
-      
-      // Log command error
-      logger.logCommand(
-        interaction.commandName,
-        interaction.user,
-        interaction.guild,
-        {
-          subcommand: interaction.options.getSubcommand?.(false),
-          channelId: interaction.channelId
-        },
-        false,
-        error
-      );
-      
-      const errorMessage = { content: 'There was an error executing this command!', flags: MessageFlags.Ephemeral };
-      
-      try {
-        if (interaction.replied || interaction.deferred) {
-          await interaction.followUp(errorMessage);
-        } else {
-          await interaction.reply(errorMessage);
-        }
-      } catch (replyError) {
-        console.error('Failed to send error message to user:', replyError.message);
-        logger.error(logger.LogCategory.COMMAND, 'Failed to send error message to user', {
-          originalError: error.message,
-          replyError: replyError.message,
-          userId: interaction.user.id
-        });
-      }
-    }
+  // Handle slash commands and right-click user commands ("Game card")
+  if (isCommandInteraction(interaction)) {
+    await dispatchCommand(interaction, client.commands);
   }
   
   // Handle button interactions (for result selection)

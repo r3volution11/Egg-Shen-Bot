@@ -1,9 +1,12 @@
 /**
  * The games end to end: /foodfight, /doom, /rescue and /potion through the
  * real commands and the fake Discord (tests/harness/fakeDiscord.js), then
- * /scoreboard, /leaderboard and /eggshen-config-games reading and changing
- * what those plays stored. What's checked is the posted text, the stored
- * points, and the embeds — not that "something was sent".
+ * /scoreboard, the right-click Game card, /leaderboard and
+ * /eggshen-config-games reading and changing what those plays stored.
+ * What's checked is the posted text, the stored points, and every line of
+ * the cards — not that "something was sent". The cards' layouts and limits
+ * are covered on their own in tests/game-card.test.js and
+ * tests/leaderboard-card.test.js.
  *
  * Lines are chosen by stubbing Math.random onto a line with the outcome
  * under test, found in the real line data, so a reshuffled data file
@@ -24,10 +27,11 @@ import { FOODFIGHT_FEED_LINES } from '../src/data/foodfightFeedLines.js';
 import { DOOM_LINES } from '../src/data/doomLines.js';
 import { RESCUE_LINES, DOOM_BLOCKED_LINES } from '../src/data/rescueLines.js';
 import { POTION_LINES } from '../src/data/potionLines.js';
+import { periodLabel } from '../src/utils/gameBoards.js';
 
 const commands = {};
 beforeAll(async () => {
-  for (const name of ['foodfight', 'doom', 'rescue', 'potion', 'scoreboard', 'leaderboard', 'eggshen-config-games', 'eggshen-config']) {
+  for (const name of ['foodfight', 'doom', 'rescue', 'potion', 'scoreboard', 'game-card', 'leaderboard', 'eggshen-config-games', 'eggshen-config']) {
     commands[name] = await import(`../src/commands/${name}.js`);
   }
 });
@@ -65,6 +69,9 @@ function stubOutcome(list, outcome) {
   jest.spyOn(Math, 'random').mockReturnValue((idx + 0.5) / list.length);
   return list[idx];
 }
+
+/** Every game card's footer: how to open anyone's */
+const HINT = 'Anyone\'s card: right-click them → Apps → Game card';
 
 const said = (message) => message.content.split('\n')[0];
 const points = (message) => message.content.split('\n')[1];
@@ -202,7 +209,7 @@ describe('limits and where games are played', () => {
   });
 });
 
-describe('/scoreboard', () => {
+describe('/scoreboard: the game card', () => {
   beforeEach(async () => {
     await saveGuildConfig(GUILD, { ...(await loadGuildConfig(GUILD)), games: { cooldownSeconds: 0 } });
     stubOutcome(FOODFIGHT_LINES.pie, 'hit');
@@ -213,43 +220,127 @@ describe('/scoreboard', () => {
     jest.restoreAllMocks();
   });
 
-  test('your own: your server name and avatar, total, rank, and each game played', async () => {
+  test('your own: your server name and avatar, total and rank, a column per game played', async () => {
     const m = await run('scoreboard', 'sam');
     expect(m.ephemeralFor).toBeNull();
-    const e = m.embeds[0];
-    expect(e.author).toMatchObject({ name: 'Sam', iconURL: 'https://cdn.example/sam-server.png' });
-    expect(e.title).toBe('📊 Scoreboard · All time');
-    expect(e.description).toBe('**5 points** · 1st on the server');
-    const fight = e.fields.find(f => f.name === '🥧 Food Fight');
-    expect(fight.value).toBe('**6 pts** · #1 · 2 plays\n2 🎯\nBest streak 2 · 🔥 2 now');
-    expect(e.fields.find(f => f.name === '🪓 Doom').value).toBe('**−1 pts** · #2 · 0 plays\nReceived: 1 💀');
+    expect(m.allowedMentions).toEqual({ parse: [] });
+    expect(m.embeds[0].toJSON()).toEqual({
+      color: 0xE67E22,
+      author: { name: 'Sam' },
+      title: 'Game card',
+      thumbnail: { url: 'https://cdn.example/sam-server.png' },
+      description: '🪙 `5` points · 🥇 `1st` of 3 players',
+      fields: [
+        { name: '🥧 Food Fight', value: '`6` pts · #1\n2 plays\n2 🎯\n🔥 2 now · best 2', inline: true },
+        { name: '🪓 Doom', value: '`−1` pts · #2\n0 plays\nReceived: 1 💀', inline: true },
+      ],
+      footer: { text: `All time · ${HINT}` },
+    });
+    expect(discord.violations).toEqual([]);
   });
 
-  test('someone else\'s, privately', async () => {
+  test('someone else\'s, privately: their name, avatar and plays', async () => {
     const m = await run('scoreboard', 'sam', { options: { user: member('kim'), private: true } });
     expect(m.ephemeralFor).toBe('sam');
-    expect(m.embeds[0].author.name).toBe('Kim');
-    expect(m.embeds[0].description).toBe('**3 points** · 2nd on the server');
+    const card = m.embeds[0].toJSON();
+    expect(card.author).toEqual({ name: 'Kim' });
+    expect(card.thumbnail).toEqual({ url: 'https://cdn.example/kim.png' });
+    expect(card.description).toBe('🪙 `3` points · 🥈 `2nd` of 3 players');
+    expect(card.fields).toEqual([{ name: '🪓 Doom', value: '`3` pts · #1\n1 play\n1 💀\n🔥 1 now · best 1', inline: true }]);
   });
 
-  test('a game switched off is left out, and its total with it', async () => {
+  test('a game switched off is left out: its column, its points, and its players from the rank', async () => {
     await run('eggshen-config', 'admin', { group: 'commands', subcommand: 'toggle', options: { setting: 'doom', enabled: false } });
-    const e = (await run('scoreboard', 'sam')).embeds[0];
-    expect(e.fields.map(f => f.name)).toEqual(['🥧 Food Fight']);
-    expect(e.description).toMatch(/^\*\*6 points\*\*/);
+    const card = (await run('scoreboard', 'sam')).embeds[0].toJSON();
+    expect(card.fields.map(f => f.name)).toEqual(['🥧 Food Fight']);
+    // Kim only played Doom, so food fight's two players are all that's left
+    expect(card.description).toBe('🪙 `6` points · 🥇 `1st` of 2 players');
+    const off = await run('scoreboard', 'sam', { options: { game: 'doom' } });
+    expect(off.ephemeralFor).toBe('sam');
+    expect(off.content).toBe('🎲 Doom is switched off on this server.');
   });
 
-  test('someone who hasn\'t played', async () => {
-    const m = await run('scoreboard', 'sam', { options: { user: member('admin') } });
-    expect(m.embeds[0].description).toBe('admin hasn\'t played yet.');
+  test('one game, one period: its own total and rank, and both named', async () => {
+    const card = (await run('scoreboard', 'sam', { options: { game: 'doom', period: 'month' } })).embeds[0].toJSON();
+    expect(card.title).toBe('Game card · Doom');
+    expect(card.description).toBe('🪙 `−1` point · 🥈 `2nd` of 2 players');
+    expect(card.fields.map(f => f.name)).toEqual(['🪓 Doom']);
+    expect(card.footer.text).toBe(`${periodLabel('month')} · ${HINT}`);
+  });
+
+  test('the period: a play from another year counts all time, not this month', async () => {
+    recordPlay(GUILD, { game: 'potion', actor: { id: 'sam', name: 'Sam' }, target: { kind: 'role', pingUserIds: [] }, outcome: 'helped' }, Date.UTC(2020, 0, 1));
+    const allTime = (await run('scoreboard', 'sam')).embeds[0].toJSON();
+    const month = (await run('scoreboard', 'sam', { options: { period: 'month' } })).embeds[0].toJSON();
+    expect(allTime.fields.map(f => f.name)).toEqual(['🧪 Potions', '🥧 Food Fight', '🪓 Doom']);
+    expect(allTime.description).toMatch(/^🪙 `6` points/);
+    expect(month.fields.map(f => f.name)).toEqual(['🥧 Food Fight', '🪓 Doom']);
+    expect(month.description).toMatch(/^🪙 `5` points/);
+  });
+
+  test('a rescue\'s shield shows while it lasts, with the games it belongs to', async () => {
+    recordPlay(GUILD, { game: 'rescue', actor: { id: 'kim', name: 'Kim' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'Alex' }, outcome: 'rescued' });
+    const shielded = (await run('scoreboard', 'sam', { options: { user: member('alex') } })).embeds[0].toJSON();
+    expect(shielded.fields.at(-1)).toMatchObject({ name: '🌀 In effect', inline: false });
+    expect(shielded.fields.at(-1).value).toMatch(/^🛡️ Safe from \/doom until <t:\d+:t>$/);
+    await run('eggshen-config', 'admin', { group: 'commands', subcommand: 'toggle', options: { setting: 'rescue', enabled: false } });
+    const rescueOff = (await run('scoreboard', 'sam', { options: { user: member('alex') } })).embeds[0].toJSON();
+    expect(rescueOff.fields.map(f => f.name)).toEqual(['🥧 Food Fight']);
+  });
+
+  test('nothing played: someone else\'s says so; your own says how to start', async () => {
+    const theirs = (await run('scoreboard', 'sam', { options: { user: member('admin') } })).embeds[0].toJSON();
+    expect(theirs.description).toBe('admin hasn\'t played yet.');
+    expect(theirs.fields).toEqual([]);
+    const oneGame = (await run('scoreboard', 'sam', { options: { user: member('alex'), game: 'doom' } })).embeds[0].toJSON();
+    expect(oneGame.description).toBe('Alex hasn\'t played Doom yet.');
+    const mine = (await run('scoreboard', 'admin')).embeds[0].toJSON();
+    expect(mine.description).toBe('No points yet. Throw some food, brew a potion, doom someone, or rescue them!');
+  });
+
+  test('bots are refused, and so is everything when the games are off', async () => {
+    const bot = await run('scoreboard', 'sam', { options: { user: { user: discord.client.user, member: null } } });
+    expect([bot.ephemeralFor, bot.content]).toEqual(['sam', '🤖 Bots don\'t play. They just keep score.']);
+    for (const setting of ['potion', 'foodfight', 'doom', 'rescue']) {
+      await run('eggshen-config', 'admin', { group: 'commands', subcommand: 'toggle', options: { setting, enabled: false } });
+    }
+    const off = await run('scoreboard', 'sam');
+    expect([off.ephemeralFor, off.content]).toEqual(['sam', '🎲 The games are switched off on this server.']);
   });
 });
 
-describe('/leaderboard', () => {
-  test('one small-avatar row per player, the heading and received leaders in the text', async () => {
+describe('right-click a member → Apps → Game card', () => {
+  test('their card, shown only to you', async () => {
+    recordPlay(GUILD, { game: 'doom', actor: { id: 'kim', name: 'Kim' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'Alex' }, outcome: 'doomed' });
+    const i = discord.userMenu('sam', 'Game card', 'kim');
+    await commands['game-card'].execute(i);
+    expect(i.replyMessage.ephemeralFor).toBe('sam');
+    expect(i.replyMessage.embeds[0].toJSON()).toEqual({
+      color: 0xE67E22,
+      author: { name: 'Kim' },
+      title: 'Game card',
+      thumbnail: { url: 'https://cdn.example/kim.png' },
+      description: '🪙 `3` points · 🥇 `1st` of 2 players',
+      fields: [{ name: '🪓 Doom', value: '`3` pts · #1\n1 play\n1 💀\n🔥 1 now · best 1', inline: true }],
+      footer: { text: `All time · ${HINT}` },
+    });
+    expect(discord.violations).toEqual([]);
+  });
+
+  test('on someone who hasn\'t played: says so, still only to you', async () => {
+    const i = discord.userMenu('sam', 'Game card', 'kim');
+    await commands['game-card'].execute(i);
+    expect(i.replyMessage.ephemeralFor).toBe('sam');
+    expect(i.replyMessage.embeds[0].toJSON().description).toBe('Kim hasn\'t played yet.');
+  });
+});
+
+describe('/leaderboard: the server card', () => {
+  test('one gold card: standings by current name, the leader\'s avatar, each game\'s leader, received leaders, the numbers', async () => {
     const now = Date.now();
-    recordPlay(GUILD, { game: 'foodfight', actor: { id: 'sam', name: 'Sam' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'Alex' }, outcome: 'hit' }, now);
-    recordPlay(GUILD, { game: 'doom', actor: { id: 'kim', name: 'Kim' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'Alex' }, outcome: 'escaped' }, now);
+    // Alex's stored name is out of date: the card shows the current one
+    recordPlay(GUILD, { game: 'foodfight', actor: { id: 'sam', name: 'Sam' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'alex-old' }, outcome: 'hit' }, now);
+    recordPlay(GUILD, { game: 'doom', actor: { id: 'kim', name: 'Kim' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'alex-old' }, outcome: 'escaped' }, now);
     // Left the server, but Discord still knows them; and one Discord doesn't
     discord.formerUsers.set('gone', { id: 'gone', username: 'gone', globalName: 'Gone Girl', displayAvatarURL: () => 'https://cdn.example/gone.png' });
     recordPlay(GUILD, { game: 'rescue', actor: { id: 'gone', name: 'Old Name' }, target: { kind: 'role', pingUserIds: [] }, outcome: 'caught' }, now);
@@ -257,33 +348,87 @@ describe('/leaderboard', () => {
 
     const m = await run('leaderboard', 'sam');
     expect(m.ephemeralFor).toBeNull();
-    expect(m.content.split('\n')).toEqual([
-      '## 🏆 Leaderboard · All games · All time',
-      '-# 🎯 Most splatted: **Alex** (1)',
-      '-# 🔥 Best streak: **Sam** (1 in Food Fight)',
-    ]);
-    expect(m.embeds.map(e => e.author)).toEqual([
-      { name: '🥇  Sam · 3 pts · 1 play', iconURL: 'https://cdn.example/sam-server.png' },
-      { name: '🥈  Alex · 1 pts · 0 plays', iconURL: 'https://cdn.example/alex.png' },
-      { name: '🥉  Kim · −1 pts · 1 play', iconURL: 'https://cdn.example/kim.png' },
-      { name: '#4  Gone Girl · −1 pts · 1 play', iconURL: 'https://cdn.example/gone.png' },
-      { name: '#5  Stored Name · −2 pts · 1 play' },
-    ]);
+    expect(m.allowedMentions).toEqual({ parse: [] });
+    expect(m.content).toBe('');
+    expect(m.embeds).toHaveLength(1);
+    expect(m.embeds[0].toJSON()).toEqual({
+      color: 0xF1C40F,
+      title: 'Leaderboard · All games · All time',
+      thumbnail: { url: 'https://cdn.example/sam-server.png' },
+      description: [
+        '🥇 Sam ▰▰▰▰▰ `3`',
+        '🥈 Alex ▰▰▱▱▱ `1`',
+        '🥉 Kim ▱▱▱▱▱ `−1`',
+        '4\\. Gone Girl ▱▱▱▱▱ `−1`',
+        '5\\. Stored Name ▱▱▱▱▱ `−2`',
+      ].join('\n'),
+      fields: [
+        { name: '🧪 Potions', value: 'Nobody yet', inline: true },
+        { name: '🥧 Food Fight', value: '👑 Sam `3`', inline: true },
+        { name: '🪓 Doom', value: '👑 Alex `2`', inline: true },
+        { name: '🛟 Rescue', value: '👑 Gone Girl `−1`', inline: true },
+        { name: '⭐ Most received', value: '🎯 Most splatted: Alex `1`', inline: false },
+        {
+          name: '📊 Server stats',
+          value: [
+            '🎲 `4` plays · 🪙 `0` points',
+            '👥 `5` players',
+            '🛟 Most played: Rescue · `2` plays',
+            '🔥 Best streak: Sam `1` in Food Fight',
+          ].join('\n'),
+          inline: false,
+        },
+      ],
+      footer: { text: 'Your own card: /scoreboard' },
+    });
+    expect(discord.violations).toEqual([]);
   });
 
-  test('never more than 10 rows: Discord\'s embed limit', async () => {
-    for (let n = 0; n < 12; n++) {
-      recordPlay(GUILD, { game: 'doom', actor: { id: `p${n}`, name: `P${n}` }, target: { kind: 'role', pingUserIds: [] }, outcome: 'doomed' });
+  test('the top 15 in one embed; the player count says how many more there are', async () => {
+    for (let n = 0; n < 17; n++) {
+      recordPlay(GUILD, { game: 'doom', actor: { id: `p${String(n).padStart(2, '0')}`, name: `P${String(n).padStart(2, '0')}` }, target: { kind: 'role', pingUserIds: [] }, outcome: 'doomed' });
     }
-    expect((await run('leaderboard', 'sam')).embeds).toHaveLength(10);
+    const m = await run('leaderboard', 'sam');
+    expect(m.embeds).toHaveLength(1);
+    const card = m.embeds[0].toJSON();
+    const rows = card.description.split('\n');
+    expect([rows.length, rows[0], rows[14]]).toEqual([15, '🥇 P00 ▰▰▰▰▰ `3`', '15\\. P14 ▰▰▰▰▰ `3`']);
+    expect(card.fields.at(-1).value.split('\n')[1]).toBe('👥 `17` players');
+    // Nobody Discord knows: stored names, and no avatar to show
+    expect(card.thumbnail).toBeUndefined();
   });
 
-  test('a game switched off can\'t be shown; nobody yet says so', async () => {
+  test('one game: its own standings, no columns', async () => {
+    recordPlay(GUILD, { game: 'doom', actor: { id: 'kim', name: 'Kim' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'Alex' }, outcome: 'doomed' });
+    recordPlay(GUILD, { game: 'foodfight', actor: { id: 'sam', name: 'Sam' }, target: { kind: 'role', pingUserIds: [] }, outcome: 'hit' });
+    const card = (await run('leaderboard', 'sam', { options: { game: 'doom' } })).embeds[0].toJSON();
+    expect(card.title).toBe('Leaderboard · Doom · All time');
+    expect(card.description).toBe('🥇 Kim ▰▰▰▰▰ `3`\n🥈 Alex ▱▱▱▱▱ `−1`');
+    expect(card.fields.map(f => f.name)).toEqual(['⭐ Most received', '📊 Server stats']);
+  });
+
+  test('a game switched off: refused by name, and left out of "all"', async () => {
+    recordPlay(GUILD, { game: 'doom', actor: { id: 'kim', name: 'Kim' }, target: { kind: 'member', pingUserIds: ['alex'], name: 'Alex' }, outcome: 'doomed' });
+    recordPlay(GUILD, { game: 'rescue', actor: { id: 'sam', name: 'Sam' }, target: { kind: 'role', pingUserIds: [] }, outcome: 'sacrificed' });
     await run('eggshen-config', 'admin', { group: 'commands', subcommand: 'toggle', options: { setting: 'rescue', enabled: false } });
-    expect((await run('leaderboard', 'sam', { options: { game: 'rescue' } })).content).toBe('🎲 Rescue is switched off on this server.');
+    const refused = await run('leaderboard', 'sam', { options: { game: 'rescue' } });
+    expect([refused.ephemeralFor, refused.content]).toEqual(['sam', '🎲 Rescue is switched off on this server.']);
+    const card = (await run('leaderboard', 'sam')).embeds[0].toJSON();
+    // Sam only played Rescue: off the board, and out of the numbers
+    expect(card.description).toBe('🥇 Kim ▰▰▰▰▰ `3`\n🥈 Alex ▱▱▱▱▱ `−1`');
+    expect(card.fields.map(f => f.name)).toEqual(['🧪 Potions', '🥧 Food Fight', '🪓 Doom', '⭐ Most received', '📊 Server stats']);
+    expect(card.fields.at(-1).value.split('\n')[0]).toBe('🎲 `1` play · 🪙 `2` points');
+  });
+
+  test('nobody yet, privately', async () => {
     const empty = await run('leaderboard', 'sam', { options: { game: 'doom', period: 'month', private: true } });
     expect(empty.ephemeralFor).toBe('sam');
-    expect(empty.content).toMatch(/^## 🏆 Leaderboard · 🪓 Doom · \w+ \d{4}\nNobody has played yet/);
+    expect(empty.embeds[0].toJSON()).toEqual({
+      color: 0xF1C40F,
+      title: `Leaderboard · Doom · ${periodLabel('month')}`,
+      description: 'Nobody has played yet. Be the first!',
+      footer: { text: 'Your own card: /scoreboard' },
+    });
   });
 });
 

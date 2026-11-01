@@ -39,8 +39,10 @@ for (const file of commandFiles) {
       }
     }
     
-    commands.push(command.data.toJSON());
-    console.log(`✓ Loaded command: ${command.data.name}`);
+    const json = command.data.toJSON();
+    commands.push(json);
+    // Type 1 (or no type) is a slash command; 2 is a right-click user command
+    console.log(`✓ Loaded command: ${command.data.name}${(json.type ?? 1) === 2 ? ' (user menu)' : ''}`);
   }
 }
 

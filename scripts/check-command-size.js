@@ -1,5 +1,5 @@
 /**
- * Report each slash command's serialized size against Discord's 8000-byte
+ * Report each slash (and right-click) command's serialized size against Discord's 8000-byte
  * per-command limit.
  *
  * Discord measures a command by the UTF-8 length of its full JSON payload —
@@ -48,7 +48,10 @@ for (const file of readdirSync(commandsPath).filter(f => f.endsWith('.js'))) {
   const bytes = byteSize(json);
 
   results.push({
-    name: json.name,
+    // Right-click commands have a capitalised, spaced name and no
+    // subcommands; tag them so the table doesn't read "Game card" as a slash
+    // command. Discord applies the same 8000-byte cap to them.
+    name: (json.type ?? 1) === 1 ? json.name : `${json.name} (${json.type === 2 ? 'user menu' : 'message menu'})`,
     file,
     bytes,
     remaining: LIMIT - bytes,
