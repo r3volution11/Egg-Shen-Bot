@@ -9,6 +9,17 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.72.1 - 2026-11-02
+
+### Fixed
+- **Typing an item's name said "That isn't an item."** `item:Golden Pie`, as the docs show it, only worked if you picked it from the suggestions. Typed names now work, in any case, with or without the emoji, or as a part only one item has (`pie`, `water`). So do typed titles in `/scoreboard title:` (`Red Shirt`, `No title`), foods in `/foodfight lines` and potion types in `/potion responses`
+- **Asking for an item you don't have** now says so and how to earn one ("Every 25 hits earns one, and `/scoreboard` shows how close you are"). An empty item list points to `/scoreboard` too. Something that isn't an item lists the ones you can use
+
+### Developer
+- `gameRules.resolveTyped(value, table, nameOf)`: the key itself, a key or name typed in any case with or without its emoji, a whole pasted choice label, or a part of a name only one entry has; otherwise null. Used by `item:`, `title:`, `/foodfight lines food:` and `/potion responses type:`. It keeps the own-key check against inherited keys
+- Tests: typed names through the real commands, with each resolution rule break-tested
+- No command changes: restart only
+
 ## 2.72.0 - 2026-11-01
 
 ### Added

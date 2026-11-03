@@ -24,7 +24,7 @@ import {
   loadScores, wouldScore, itemProblem, itemUsesToday, shieldActive, defencesLeft, defenceReady, activeStatuses,
   POINTS,
 } from './gameScores.js';
-import { pickLine, itemEffect, goodLine, liveHappenings, happeningWeights } from './gameRules.js';
+import { pickLine, itemEffect, goodLine, liveHappenings, happeningWeights, resolveTyped } from './gameRules.js';
 import { activeHappenings, noteActivity } from './happeningStore.js';
 import { ITEMS, DAILY } from '../data/gameRewards.js';
 import { ITEM_REFUSALS, ITEM_PLACEHOLDERS, itemChoiceName } from '../data/gameRewardLines.js';
@@ -112,8 +112,16 @@ export const itemOption = (option) => option
   .setRequired(false)
   .setAutocomplete(true);
 
-/** 'none' is the autocomplete's placeholder: picking it plays without an item */
-const asItem = (value) => (value && value !== 'none' ? value : null);
+/**
+ * The item asked for. 'none' is the autocomplete's placeholder: picking it
+ * plays without an item. A typed name ("Golden Pie", "pie") is the item it
+ * names (resolveTyped); something that names no item is passed on as
+ * typed, for itemProblem to refuse.
+ */
+const asItem = (value) => {
+  if (!value || value === 'none') return null;
+  return resolveTyped(value, ITEMS, (item) => item.name) ?? value;
+};
 
 /**
  * May this person play now? Replies with the reason if not. An item that

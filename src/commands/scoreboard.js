@@ -4,6 +4,10 @@ import { replyWithGameCard } from '../utils/gameCard.js';
 import { setShownTitle } from '../utils/gameScores.js';
 import { titleChoices } from '../utils/gameCardData.js';
 import { TITLE_REFUSALS } from '../data/gameRewardLines.js';
+import { TITLES } from '../data/gameRewards.js';
+import { resolveTyped, typedForm } from '../utils/gameRules.js';
+
+const TITLE_BY_KEY = Object.fromEntries(TITLES.map(t => [t.key, t]));
 
 /**
  * /scoreboard — one person's game card: points in /potion, /foodfight,
@@ -50,7 +54,11 @@ export async function execute(interaction) {
       await interaction.reply({ content: TITLE_REFUSALS.notYours, flags: MessageFlags.Ephemeral });
       return;
     }
-    const set = setShownTitle(interaction.guildId, interaction.user.id, title === 'none' ? null : title);
+    // Picked from the list the value is the title's key; typed, it's the
+    // title's name ("Red Shirt") or "No title"
+    const off = title === 'none' || ['none', 'notitle'].includes(typedForm(title));
+    const key = off ? null : (resolveTyped(title, TITLE_BY_KEY, (t) => t.title) ?? title);
+    const set = setShownTitle(interaction.guildId, interaction.user.id, key);
     if (!set.ok) {
       await interaction.reply({ content: TITLE_REFUSALS[set.reason], flags: MessageFlags.Ephemeral });
       return;

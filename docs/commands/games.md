@@ -88,7 +88,7 @@ Add `item:` to the play. It works on throw, feed, fate, attempt and give:
 /potion give user:@Sam type:poison item:Lucky Penny
 ```
 
-You don't type the name. Click the option and Discord suggests what you can use. The list shows **only items you hold that fit that play**, with how many you have and what each does (`🥧 Golden Pie ×2 · can't miss, points ×2`). If there's nothing to use, it says so, and choosing that plays with no item.
+Click the option and Discord suggests what you can use: **only items you hold that fit that play**, with how many you have and what each does (`🥧 Golden Pie ×2 · can't miss, points ×2`). If there's nothing to use, it says so, and choosing that plays with no item. You can also just type the name, in any case and with or without its emoji, or a part only one item has (`pie`, `water`).
 
 The limits:
 
@@ -97,7 +97,7 @@ The limits:
 - **Not on a play past the daily scoring cap.** The play goes ahead for fun, the item isn't used, and the reply says it stayed in your Glovebox.
 - **Garlic, the Antidote and the Night Light aren't picked.** They work by themselves.
 
-If you ask for an item you don't hold, one that doesn't fit the play, or a fourth in a day, you're told privately. The play doesn't happen and your cooldown isn't spent.
+If you ask for an item you don't hold (you're told how to earn one), one that doesn't fit the play, or a fourth in a day, you're told privately. The play doesn't happen and your cooldown isn't spent.
 
 ### Defences
 

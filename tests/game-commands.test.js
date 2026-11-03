@@ -552,7 +552,7 @@ describe('items: the `item:` option', () => {
 
   test('an item you don\'t hold is refused privately: no cooldown spent, nothing stored', async () => {
     const m = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), item: 'gpie' } });
-    expect([m.ephemeralFor, m.content]).toEqual(['sam', '🧰 You don\'t have a 🥧 Golden Pie in your Glovebox.']);
+    expect([m.ephemeralFor, m.content]).toEqual(['sam', '🧰 You don\'t have a 🥧 Golden Pie yet. Every 25 hits earns one, and `/scoreboard` shows how close you are.']);
     expect(loadScores(GUILD).users).toEqual({});
     const played = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex') } });
     expect(played.ephemeralFor).toBeNull();
@@ -584,15 +584,60 @@ describe('items: the `item:` option', () => {
   });
 });
 
+describe('typed, not picked: names', () => {
+  // Discord sends a picked choice's VALUE ("gpie"), but whatever was TYPED
+  // when someone types and sends — and the docs' own examples are typed
+  // names (`item:Golden Pie`). Doug got "That isn't an item" for exactly that.
+  const holding = (items) => mutateScores(GUILD, (d) => { d.users.sam = { name: 'Sam', games: {}, glovebox: items }; });
+
+  test.each(['Golden Pie', 'golden pie', '🥧 Golden Pie', '🥧 Golden Pie ×2 · can\'t miss', 'pie', 'gpie'])(
+    'item:%s uses the Golden Pie', async (typed) => {
+      holding({ gpie: 2 });
+      const m = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), item: typed } });
+      expect(m.ephemeralFor).toBeNull();
+      expect(m.content).toMatch(/🎯 Hit!/);
+      expect(loadScores(GUILD).users.sam.glovebox.gpie).toBe(1);
+    });
+
+  test('a typed item you don\'t hold says how to earn it, and costs no cooldown', async () => {
+    const m = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), item: 'Golden Pie' } });
+    expect([m.ephemeralFor, m.content]).toEqual(['sam', '🧰 You don\'t have a 🥧 Golden Pie yet. Every 25 hits earns one, and `/scoreboard` shows how close you are.']);
+    const next = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex') } });
+    expect(next.ephemeralFor).toBeNull();
+  });
+
+  test('an empty Glovebox\'s placeholder points at the card', async () => {
+    const i = discord.autocomplete('sam', 'foodfight', { subcommand: 'throw', focused: { name: 'item', value: '' } });
+    await commands.foodfight.autocomplete(i);
+    expect(i.choices).toEqual([{ name: '🧰 Nothing in your Glovebox for this play yet · /scoreboard shows your progress', value: 'none' }]);
+  });
+
+  test('title:Red Shirt shows it; title:No title hides it', async () => {
+    mutateScores(GUILD, (d) => { d.users.sam = { name: 'Sam', games: {}, titles: { earned: { 'red-shirt': 1 }, shown: null } }; });
+    await run('scoreboard', 'sam', { options: { title: 'Red Shirt' } });
+    expect(loadScores(GUILD).users.sam.titles.shown).toBe('red-shirt');
+    await run('scoreboard', 'sam', { options: { title: '🚫 No title' } });
+    expect(loadScores(GUILD).users.sam.titles.shown).toBeNull();
+  });
+
+  test('a typed food and potion type work for admins', async () => {
+    const food = await run('foodfight', 'admin', { group: 'lines', subcommand: 'list', options: { action: 'throw', food: 'Cream Pie' } });
+    expect(food.content).not.toMatch(/Pick a food/);
+    expect(food.content).toMatch(/Cream Pie/);
+    const type = await run('potion', 'admin', { group: 'responses', subcommand: 'list', options: { type: 'Health' } });
+    expect(type.content).not.toMatch(/Pick a potion type/);
+  });
+});
+
 describe('typed, not picked: keys an object inherits', () => {
   // An autocomplete value is whatever the client sends. A table lookup
   // without an own-key check took "constructor" for an item, a title and a
   // potion type ("undefined Object doesn't work with…").
   test.each(['constructor', '__proto__', 'toString'])('%s is not an item, a title or a potion type', async (key) => {
     const item = await run('foodfight', 'sam', { subcommand: 'throw', options: { target: member('alex'), item: key } });
-    expect([item.ephemeralFor, item.content]).toEqual(['sam', '🧰 That isn\'t an item. Pick one from the list.']);
+    expect([item.ephemeralFor, item.content]).toEqual(['sam', '🧰 That isn\'t an item. The ones you can use are Golden Pie, Cursed VHS, Holy Water, Lucky Penny.']);
     const title = await run('scoreboard', 'sam', { options: { title: key } });
-    expect([title.ephemeralFor, title.content]).toEqual(['sam', '📜 That isn\'t a title. Pick one from the list.']);
+    expect([title.ephemeralFor, title.content]).toEqual(['sam', '📜 That isn\'t a title. Pick one from the list, or type its name.']);
     const type = await run('potion', 'admin', { group: 'responses', subcommand: 'list', options: { type: key } });
     expect([type.ephemeralFor, type.content.split(':')[0]]).toEqual(['admin', '❌ Pick a potion type from the list']);
     expect(loadScores(GUILD).users).toEqual({});

@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 import { resolveSocialTarget } from '../utils/socialTarget.js';
 import { beginPlay, finishPlay, tagged, pick, itemOption, itemChoices } from '../utils/gamePlay.js';
+import { resolveTyped } from '../utils/gameRules.js';
 import { FOODFIGHT_LINES } from '../data/foodfightLines.js';
 import { FOODFIGHT_FEED_LINES } from '../data/foodfightFeedLines.js';
 
@@ -40,6 +41,9 @@ export const FOODS = [
   { value: 'fish-sticks', name: '🐟 Fish Sticks' },
   { value: 'pea-soup', name: '🥬 Split Pea Soup' },
 ];
+
+/** The menu by key, for resolving a typed food */
+const FOOD_BY_VALUE = Object.fromEntries(FOODS.map(f => [f.value, f]));
 
 /** Throw and feed: their lines, placeholder, outcomes, and config key */
 export const ACTIONS = {
@@ -209,10 +213,12 @@ async function manageLines(interaction) {
   const sub = interaction.options.getSubcommand();
   const action = interaction.options.getString('action') || 'throw';
   const spec = ACTIONS[action];
-  const food = interaction.options.getString('food');
+  // An autocomplete value is the food's key when picked, but whatever was
+  // typed otherwise ("Cream Pie", "spaghetti"): resolveTyped maps either to
+  // the menu's food, and anything else is refused — only those have lines
+  const food = resolveTyped(interaction.options.getString('food'), FOOD_BY_VALUE, (f) => f.name);
   const reply = (content) => interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
-  // An autocomplete value is whatever was typed: only the menu's foods have lines
-  if (!FOODS.some(f => f.value === food)) {
+  if (!food) {
     await reply(`❌ Pick a food from the list: ${FOODS.map(f => f.value).join(', ')}.`);
     return;
   }

@@ -96,6 +96,41 @@ export function actionFor(game, outcome) {
  */
 export const owns = (table, key) => typeof key === 'string' && !!table && Object.hasOwn(table, key);
 
+/** Letters and digits only, lowercased: "🥧 Golden Pie ×2 · can't miss" → "goldenpie2cantmiss" */
+export const typedForm = (text) => String(text ?? '').normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+/**
+ * The key someone meant in an autocomplete option. Discord sends the
+ * choice's value when one is PICKED, but whatever was TYPED when the
+ * member just types and sends — "Golden Pie", not "gpie" — and the docs'
+ * own examples are typed names. So, in order: the key itself; a key or
+ * name typed in any case, with or without its emoji; a picked choice's
+ * whole label pasted back ("🥧 Golden Pie ×2 · can't miss" starts with
+ * the name); then a part of a name that only one entry has ("pie",
+ * "water"). Anything else is null, for the caller to refuse.
+ * @param {string} value - the option's value
+ * @param {object} table - key → entry
+ * @param {(entry) => string} nameOf - the entry's display name
+ * @returns {?string} the key
+ */
+export function resolveTyped(value, table, nameOf) {
+  if (typeof value !== 'string' || !value) return null;
+  if (owns(table, value)) return value;
+  const typed = typedForm(value);
+  if (!typed) return null;
+  const keys = Object.keys(table);
+  const names = keys.map(k => typedForm(nameOf(table[k], k)));
+  const exact = keys.find((k, i) => typedForm(k) === typed || names[i] === typed);
+  if (exact) return exact;
+  const pasted = keys.filter((k, i) => names[i] && typed.startsWith(names[i]));
+  if (pasted.length === 1) return pasted[0];
+  if (typed.length >= 3) {
+    const part = keys.filter((k, i) => names[i].includes(typed));
+    if (part.length === 1) return part[0];
+  }
+  return null;
+}
+
 /** What an active item does to this play, or null when it doesn't fit it */
 export function itemEffect(key, game, action) {
   const item = owns(ITEMS, key) ? ITEMS[key] : null;

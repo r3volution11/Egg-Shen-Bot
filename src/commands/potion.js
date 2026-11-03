@@ -2,6 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 import { resolveSocialTarget } from '../utils/socialTarget.js';
 import { beginPlay, finishPlay, tagged, itemOption, itemChoices } from '../utils/gamePlay.js';
+import { resolveTyped } from '../utils/gameRules.js';
 import { POTION_LINES } from '../data/potionLines.js';
 
 // Available potion themes
@@ -281,24 +282,27 @@ export async function execute(interaction) {
       return;
     }
 
-    // Typed, not picked: an autocomplete value is whatever was sent, and
-    // TYPE_NAMES['constructor'] would be truthy without the own-key check
-    if (!Object.hasOwn(TYPE_NAMES, interaction.options.getString('type') ?? '')) {
+    // Typed, not picked: an autocomplete value is whatever was sent — the
+    // key when picked, but "Health" or "💚 Health" when typed — and
+    // TYPE_NAMES['constructor'] would be truthy without an own-key check
+    // (resolveTyped does both)
+    const potionType = resolveTyped(interaction.options.getString('type'), TYPE_NAMES, (name) => name);
+    if (!potionType) {
       await interaction.reply({ content: `❌ Pick a potion type from the list: ${Object.keys(TYPE_NAMES).join(', ')}.`, ephemeral: true });
       return;
     }
     switch (subcommand) {
       case 'add':
-        await handleAddResponse(interaction);
+        await handleAddResponse(interaction, potionType);
         break;
       case 'remove':
-        await handleRemoveResponse(interaction);
+        await handleRemoveResponse(interaction, potionType);
         break;
       case 'list':
-        await handleListResponses(interaction);
+        await handleListResponses(interaction, potionType);
         break;
       case 'reset':
-        await handleResetResponses(interaction);
+        await handleResetResponses(interaction, potionType);
         break;
     }
   } else if (subcommandGroup === 'theme') {
@@ -373,8 +377,7 @@ async function handleGivePotion(interaction) {
 /**
  * Handle /potion responses add - Add a custom response
  */
-async function handleAddResponse(interaction) {
-  const potionType = interaction.options.getString('type');
+async function handleAddResponse(interaction, potionType) {
   const response = interaction.options.getString('response');
 
   // Validate placeholders exist
@@ -407,8 +410,7 @@ async function handleAddResponse(interaction) {
 /**
  * Handle /potion responses remove - Remove a custom response
  */
-async function handleRemoveResponse(interaction) {
-  const potionType = interaction.options.getString('type');
+async function handleRemoveResponse(interaction, potionType) {
   const index = interaction.options.getInteger('index');
 
   const config = await loadGuildConfig(interaction.guildId);
@@ -443,8 +445,7 @@ async function handleRemoveResponse(interaction) {
 /**
  * Handle /potion responses list - List all responses for a type
  */
-async function handleListResponses(interaction) {
-  const potionType = interaction.options.getString('type');
+async function handleListResponses(interaction, potionType) {
 
   const config = await loadGuildConfig(interaction.guildId);
   const customResponses = config.potionResponses?.[potionType] || [];
@@ -483,8 +484,7 @@ async function handleListResponses(interaction) {
 /**
  * Handle /potion responses reset - Reset to default responses
  */
-async function handleResetResponses(interaction) {
-  const potionType = interaction.options.getString('type');
+async function handleResetResponses(interaction, potionType) {
 
   const config = await loadGuildConfig(interaction.guildId);
   if (config.potionResponses && config.potionResponses[potionType]) {

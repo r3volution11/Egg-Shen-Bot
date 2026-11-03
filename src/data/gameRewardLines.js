@@ -9,7 +9,7 @@
  * already pinged whoever it should (gamePlay.js), and these are subtext.
  */
 
-import { ITEMS, ITEM_EFFECTS, DAILY, DEFENCES, FULL_STACK_POINTS, TITLE_POINTS } from './gameRewards.js';
+import { ITEMS, ITEM_EFFECTS, DAILY, DEFENCES, FULL_STACK_POINTS, TITLE_POINTS, PRIZES } from './gameRewards.js';
 
 /** "🥧 Golden Pie"; a key that isn't an item (typed, not picked) as typed */
 export const itemLabel = (key) => (Object.hasOwn(ITEMS, key) ? `${ITEMS[key].emoji} ${ITEMS[key].name}` : String(key));
@@ -20,9 +20,21 @@ const playName = (game, action) => `${COMMAND[game] || `/${game}`}${action ? ` $
 
 // ── refusals (private, before any cooldown is spent) ────────────────────
 
+/** How an item is earned, for "you don't have one yet" */
+function howToEarn(key) {
+  const prize = PRIZES.find(p => p.item === key);
+  if (prize) return ` Every ${prize.need} ${prize.noun} earns one, and \`/scoreboard\` shows how close you are.`;
+  if (key === 'nlight') return ' Playing 3 nights in a row earns one.';
+  if (key === 'silver') return ' Winning sieges earns them.';
+  return '';
+}
+
+/** The items you can name in `item:`, for "that isn't an item" */
+const ACTIVE_ITEMS = Object.values(ITEMS).filter(i => !i.passive && i.game !== 'siege').map(i => i.name).join(', ');
+
 export const ITEM_REFUSALS = {
-  unknown: () => '🧰 That isn\'t an item. Pick one from the list.',
-  missing: (key) => `🧰 You don't have a ${itemLabel(key)} in your Glovebox.`,
+  unknown: () => `🧰 That isn't an item. The ones you can use are ${ACTIVE_ITEMS}.`,
+  missing: (key) => `🧰 You don't have a ${itemLabel(key)} yet.${howToEarn(key)}`,
   unfit: (key, { game, action }) => {
     const item = ITEMS[key];
     if (item?.passive) return `🧰 ${itemLabel(key)} works by itself: there's no need to pick it.`;
@@ -34,7 +46,7 @@ export const ITEM_REFUSALS = {
 
 /** Autocomplete placeholders: picking one plays with no item */
 export const ITEM_PLACEHOLDERS = {
-  none: '🧰 Nothing in your Glovebox for this play',
+  none: '🧰 Nothing in your Glovebox for this play yet · /scoreboard shows your progress',
   limit: `🧰 ${DAILY.itemUses} items used today: they work again tomorrow (UTC)`,
 };
 
@@ -44,7 +56,7 @@ export const itemChoiceName = (key, count, action) =>
 
 export const TITLE_REFUSALS = {
   notYours: '📜 You can only pick the title on your own card.',
-  unknown: '📜 That isn\'t a title. Pick one from the list.',
+  unknown: '📜 That isn\'t a title. Pick one from the list, or type its name.',
   notEarned: '📜 You haven\'t earned that title yet. Your card shows the ones you\'re closest to.',
 };
 
