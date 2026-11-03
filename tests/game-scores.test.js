@@ -57,6 +57,12 @@ describe('the points table', () => {
       doom: { doomed: [3, -1], escaped: [-1, 2], backfired: [-2, 1], blocked: [0, 0] },
       rescue: { rescued: [1, 2], caught: [-1, -1], sacrificed: [-2, 3] },
       potion: { helped: [1, 2], hurt: [2, -2], backfired: [-2, 1] },
+      // R5: the attacker only — a monster is no member
+      siege: {
+        splat: [1, 0], splash: [0, 0], splatback: [-1, 0],
+        smite: [2, 0], dodged: [0, 0], spooked: [-2, 0],
+        poisoned: [1, 0], fizzled: [-1, 0],
+      },
     });
   });
 
@@ -270,6 +276,8 @@ describe('the leaderboard and resets', () => {
       doom: { userId: 'kim', name: 'Kim', points: 3, plays: 1 },
       // Points given count: Sam's rescue (+2) beats Kim's own play (+1)
       rescue: { userId: 'sam', name: 'SAM', points: 2, plays: 0 },
+      // R5's fifth game keeps its column though nobody has fought yet
+      siege: null,
     });
     expect(board.totals).toEqual({ players: 3, plays: 4, points: 9, mostPlayed: { game: 'foodfight', plays: 2 } });
   });

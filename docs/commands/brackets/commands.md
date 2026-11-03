@@ -333,7 +333,7 @@ These intelligent commands automatically detect the tournament phase and perform
 - Simplifies tournament management - one command for all phases
 - Automatically detects and creates tiebreakers for tied votes
 - Advances tournament to next phase when appropriate
-- Shows detailed results with winners and vote counts, with the winner's poster as a small thumbnail on each matchup's result card
+- Shows detailed results with winners and vote counts. Each matchup's result card carries a drawn picture of the matchup: both posters, the winner framed in gold, and the vote split ([details](./knockout#closing-a-round)). If the picture can't be drawn, the card shows the winner's poster as a small thumbnail instead
 
 ---
 
@@ -754,7 +754,7 @@ Group F - 8 voters
   🥈 Hereditary (4)
 ```
 
-**Output Example (Knockout):** each open matchup appears exactly as on the live standings card, coloured bars and all:
+**Output Example (Knockout):** each open matchup appears as on the live standings card, bars and all (shown here before the bot's emoji are uploaded, as coloured squares):
 ```
 🏆 Summer Movie Madness
 Status: knockout | Phase: semifinals | Creator: @Admin
@@ -784,7 +784,8 @@ Completed: 6 matchups
 **Notes:**
 - A snapshot, posted when you run it: the live standings card is the one that keeps updating. If that card has scrolled far up, `/bracket voting-post` brings it back down
 - Shows when each matchup closes, in your own time
-- Shows up to 12 open matchups; with more open, it says how many more
+- Shows every open matchup, up to a whole round of 16. With many open, or very long titles, it uses the plainer bars (and, for 16 of the longest titles, shortens them) so the reply always fits
+- Once the bot's emoji are uploaded, the bars are drawn with them, as on the live standings
 - Tracks tournament progress with completion stats
 
 ---

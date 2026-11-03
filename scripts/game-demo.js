@@ -20,6 +20,7 @@
  * - a tasty feed → 🧄 Garlic prize and the Lunch Lady title
  * - any scored play tonight → 14 nights: Creature of the Night tier and title
  * - a good outcome extends a 14 streak → Unstoppable
+ * - a siege won (R5) → Monster Hunter; as its MVP, Siege MVP too
  * Only 2 prizes a day, so the third waits for tomorrow — that shows too.
  *
  * The bot keeps running while this writes: the write is one synchronous
@@ -49,12 +50,15 @@ const DID = {
   doom: { doomed: 98, escaped: 21, backfired: 11 },
   rescue: { rescued: 72, sacrificed: 28, caught: 10 },
   potion: { helped: 54, hurt: 59, backfired: 15 },
+  // R5: attacks on monsters (nobody receives a siege play: the target is the monster)
+  siege: { splat: 40, splash: 12, splatback: 3, smite: 18, dodged: 6, spooked: 2, poisoned: 15, fizzled: 4 },
 };
 const GOT = {
   foodfight: { hit: 120, tasty: 30, gross: 18 },
   doom: { doomed: 100, escaped: 50 },
   rescue: { rescued: 61 },
   potion: { helped: 70, hurt: 66 },
+  siege: {},
 };
 
 /** Points from counts, through the real points table */
@@ -118,6 +122,7 @@ export function demoRecord(name, now = Date.now()) {
       streak: { foodfight: 14 },
       bestStreak: 14,
       twists: 29, // the next twist earns Plot Twist
+      siege: { wins: 9, mvps: 0, kaiju: 0 }, // the next siege won earns Monster Hunter (and an MVP, Siege MVP)
     },
     titles: {
       earned: { 'on-fire': now - 20 * DAY, 'red-shirt': now - 6 * DAY, cockroach: now - 4 * DAY, 'night-owl': now - 7 * DAY, martyr: now - 2 * DAY },

@@ -22,11 +22,12 @@ import { loadGuildConfig } from './guildConfig.js';
 import {
   getGameSettings, checkPlayLimit, recordPlay, resultLine, extraLines, channelAllowed,
   loadScores, wouldScore, itemProblem, itemUsesToday, shieldActive, defencesLeft, defenceReady, activeStatuses,
-  POINTS,
+  POINTS, countSiegeEvent,
 } from './gameScores.js';
+import { siegeAssist, monsterOf } from './siegeStore.js';
 import { pickLine, itemEffect, goodLine, liveHappenings, happeningWeights, resolveTyped } from './gameRules.js';
 import { activeHappenings, noteActivity } from './happeningStore.js';
-import { ITEMS, DAILY } from '../data/gameRewards.js';
+import { ITEMS, DAILY, SIEGE, TITLES, TITLE_POINTS } from '../data/gameRewards.js';
 import { ITEM_REFUSALS, ITEM_PLACEHOLDERS, itemChoiceName } from '../data/gameRewardLines.js';
 import { allowedMentionsFor } from './socialTarget.js';
 import { nameOf } from './personCard.js';
@@ -39,6 +40,10 @@ export const OUTCOME_LABELS = {
   doomed: '💀 Doomed!', escaped: '🏃 Escaped!', backfired: '🔄 Backfired!',
   rescued: '🛟 Rescued!', caught: '🪤 Caught!', sacrificed: '🕯️ Sacrificed!',
   helped: '💚 It worked!', hurt: '☠️ It worked!',
+  // R5: siege attacks
+  splat: '💥 Splat!', splash: '💨 Splash!', splatback: '🔄 Splatback!',
+  smite: '⚡ Smite!', dodged: '💨 Dodged!', spooked: '😱 Spooked!',
+  poisoned: '🧪 Poisoned!', fizzled: '🫧 Fizzled!',
 };
 
 /**
@@ -131,13 +136,14 @@ const asItem = (value) => {
  * @param {object} [options]
  * @param {?string} [options.item] - the `item` option's value
  * @param {?string} [options.action] - 'throw'|'feed'|'fate'|'attempt'|'give'
+ * @param {?object} [options.channel] - the channel, when the caller fetched one discord.js hadn't cached (/siege)
  * @returns {Promise<{settings, config, item: ?string, action: ?string} | null>}
  */
-export async function beginPlay(interaction, game, { item = null, action = null } = {}) {
+export async function beginPlay(interaction, game, { item = null, action = null, channel = null } = {}) {
   const config = await loadGuildConfig(interaction.guildId);
   const settings = getGameSettings(config);
   // Channel rules first: a refused channel shouldn't use up a play
-  const here = channelAllowed(settings, interaction.channelId, interaction.channel?.parentId || null);
+  const here = channelAllowed(settings, interaction.channelId, (channel ?? interaction.channel)?.parentId || null);
   if (!here.ok) {
     await interaction.reply({ content: here.message, ephemeral: true });
     return null;
@@ -172,7 +178,7 @@ export function itemChoices(guildId, userId, { game, action }, typed = '', now =
   const fit = Object.keys(ITEMS).filter(key => (box[key] || 0) > 0 && itemEffect(key, game, action));
   if (!fit.length) return [{ name: ITEM_PLACEHOLDERS.none, value: 'none' }];
   if (itemUsesToday(data, userId, now) >= DAILY.itemUses) return [{ name: ITEM_PLACEHOLDERS.limit, value: 'none' }];
-  const choices = fit.map(key => ({ name: itemChoiceName(key, box[key], action), value: key }));
+  const choices = fit.map(key => ({ name: itemChoiceName(key, box[key], action, itemEffect(key, game, action)?.short), value: key }));
   const q = String(typed || '').toLowerCase();
   const matching = q ? choices.filter(c => c.value.includes(q) || c.name.toLowerCase().includes(q)) : choices;
   // Typing something that matches nothing still shows what can be used
@@ -216,8 +222,16 @@ export function itemChoices(guildId, userId, { game, action }, typed = '', now =
  * @param {object[]} [play.happenings] - happeningsNow(…): the same list finishPlay hands recordPlay
  * @param {number} [now]
  * @param {() => number} [random] - the line draw (Math.random: tests stub it)
- * @returns {{line: {text, outcome}, outcome: string, item: ?string,
+ * A siege attack (R5, game 'siege') is drawn here too — the item narrows
+ * its lines exactly as in the item's own game — but a member's statuses
+ * never shape it (recordPlay doesn't spend them on one either), and its
+ * caller passes no happenings.
+ *
+ * @returns {{line: {text, outcome}, outcome: string, item: ?string, scored: boolean, usable: boolean,
  *   mods: {defence?: string, happenings?: string[], statuses?: string[]}}}
+ *   scored: this play is inside today's cap; usable: the item will be used
+ *   (recordPlay makes the same check against the same file — a siege needs
+ *   to know before it works out the damage)
  *   mods.happenings: the happenings whose weights shaped this draw (their
  *   tags go on the label); mods.statuses: Lucky Break / Jinxed, which
  *   recordPlay then uses up
@@ -235,12 +249,12 @@ export function resolvePlay(guildId, { game, action, actor, target, lines, block
   if (game === 'doom' && targetId && scored && shieldActive(data, targetId, now) && !fx?.ignoresDefences
     && defencesLeft(data, targetId, now) && blockedLines.length) {
     const line = pickLine(blockedLines, {}, random);
-    return { line, outcome: 'blocked', item, mods: { defence: 'shield' } };
+    return { line, outcome: 'blocked', item, scored, usable: !!usable, mods: { defence: 'shield' } };
   }
 
   // The weights, by line outcome: happenings × Lucky Break × the item
   const live = liveHappenings(happenings, now);
-  const status = scored ? activeStatuses(data.users[actor.id], now) : {};
+  const status = scored && game !== 'siege' ? activeStatuses(data.users[actor.id], now) : {};
   const outcomes = [...new Set((lines || []).map(l => l?.outcome))];
   const bent = happeningWeights(live, { game, action, outcomes });
   const weights = {};
@@ -283,7 +297,43 @@ export function resolvePlay(guildId, { game, action, actor, target, lines, block
     mods.defence = 'antid';
   }
 
-  return { line, outcome, item, mods };
+  return { line, outcome, item, scored, usable: !!usable, mods };
+}
+
+/**
+ * R6: what a play did in the siege, if it was a /rescue at a fighter the
+ * monster has grabbed or a helpful /potion that worked on one it poisoned
+ * (siegeStore.siegeAssist decides). A free or a cure from a scored play
+ * counts toward Field Medic. Never throws: a broken siege file mustn't
+ * break a /rescue.
+ * @returns {string[]} `-#` lines for the reply
+ */
+function siegeHelp(guildId, { game, actor, result }, now) {
+  if ((game !== 'rescue' && game !== 'potion') || !result.targetId) return [];
+  try {
+    const holyWater = !!(result.item?.used && result.item.key === 'holyw');
+    const done = siegeAssist(guildId, { game, actor, targetId: result.targetId, outcome: result.outcome, holyWater }, now);
+    if (done.error || !done.assist) return [];
+    const a = done.assist;
+    const monster = monsterOf(done.siege.monster)?.name || 'The monster';
+    const out = [];
+    if (a.kind === 'freed') out.push(`🛟 ${actor.name} freed ${a.targetName} from ${monster}${holyWater ? ' (Holy Water: no swap)' : ''}: +${SIEGE.credit.free} to their share of the fight.`);
+    if (a.kind === 'swapped') {
+      out.push(`🕯️ ${actor.name} freed ${a.targetName}, and ${monster} grabbed ${actor.name} instead: +${SIEGE.credit.free} to their share. Someone free them with \`/rescue attempt target:@${actor.name}\` by <t:${Math.floor(a.until / 1000)}:t> (<t:${Math.floor(a.until / 1000)}:R>).`);
+    }
+    if (a.kind === 'still') out.push(`🪤 ${a.targetName} is still in ${monster}'s grip. Someone try again!`);
+    if (a.kind === 'cured') out.push(`🧪 ${actor.name} cured ${a.targetName} of ${monster}'s poison: +${SIEGE.credit.cure} to their share of the fight.`);
+    if (a.kind !== 'still' && result.scored) {
+      for (const key of countSiegeEvent(guildId, { userId: actor.id, name: actor.name, counter: 'assists', now }).titles) {
+        const t = TITLES.find(x => x.key === key);
+        if (t) out.push(`📜 ${actor.name} earned a title: ${t.badge} ${t.title} (+${TITLE_POINTS})`);
+      }
+    }
+    return out.map(l => `-# ${l}`);
+  } catch (error) {
+    console.error(`[GamePlay] Couldn't apply a siege assist for ${guildId}:`, error.message);
+    return [];
+  }
 }
 
 /**
@@ -310,6 +360,9 @@ export async function finishPlay(interaction, { game, action = null, target, lin
   // No await between these two: see the top of this file
   const drawn = resolvePlay(interaction.guildId, { game, action, actor, target, lines: pool, blockedLines, item, effect, settings, happenings }, now);
   const result = recordPlay(interaction.guildId, { game, action, actor, target, outcome: drawn.outcome, effect, settings, item: drawn.item, mods: drawn.mods, happenings }, now);
+  // R6: a /rescue or /potion at a fighter the monster has grabbed or
+  // poisoned — in the same synchronous block, so it sees what was just saved
+  const siegeLines = siegeHelp(interaction.guildId, { game, actor, result }, now);
   // Who's been playing, and where: a random happening needs a few members
   // around, and is announced where they last played. Throttled and
   // never-throwing in the store; after the save, so it can't hold the play up.
@@ -323,6 +376,7 @@ export async function finishPlay(interaction, { game, action = null, target, lin
   const tail = [
     resultLine(game, result, names, { label: outcomeLabel(result) }),
     ...extraLines(result, names),
+    ...siegeLines,
   ].join('\n');
   // Over Discord's limit, the line itself gives way — never the points or
   // what the play earned

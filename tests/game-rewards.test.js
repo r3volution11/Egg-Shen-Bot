@@ -721,6 +721,8 @@ describe('getPlayerCardExtras', () => {
       ['helpful', 'potion', 'antid', 0, 15, 'antid', 3, false],
       ['harmful', 'potion', 'penny', 0, 20, 'penny', 3, false],
       ['points', null, 'gift', 120, 750, null, 0, false],
+      // R6: a Silver Bullet every 4 siege wins
+      ['siegewins', 'siege', 'silver', 0, 4, 'silver', 10, false],
       ['nights', null, 'nlight', 2, 3, 'nlight', 0, false],
     ]);
     expect(x.progress[6].prize).toEqual({ item: null, name: 'A random item', icon: 'gift', points: 0 });

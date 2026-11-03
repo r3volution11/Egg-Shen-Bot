@@ -69,6 +69,16 @@ export async function handleSelectInteraction(interaction) {
     return;
   }
 
+  // /how-to-play's topic menu (htp:menu) answers for itself too: it edits
+  // the clicker's own private card, but on a public card — everyone's menu —
+  // it replies privately instead, so it mustn't be deferred as an update
+  // below (howToPlay.js)
+  if (interaction.customId === 'htp:menu') {
+    const { handleHowToPlayInteraction } = await import('../utils/howToPlay.js');
+    await handleHowToPlayInteraction(interaction);
+    return;
+  }
+
   const isHandled = handledIds.includes(interaction.customId) || 
                     interaction.customId.startsWith('select_bracket_title_') ||
                     interaction.customId.startsWith('select_text_channel_') ||

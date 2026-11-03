@@ -226,6 +226,7 @@ Host comprehensive tournaments for movies, TV shows, video games, board games, o
 - Dynamic wildcards: Auto-calculated to reach power-of-2 bracket
 - 4-region knockout bracket (March Madness style)
 - Visual bracket display with live vote counts
+- Live standings with vote bars that update as votes come in, drawn with the bot's own emoji once they're uploaded
 - Complete vote tracking and history
 
 **Example:**
@@ -509,7 +510,7 @@ Display comprehensive bot help with complete command list — tailored to what's
 - Random & Discovery: random with filters
 - Tournaments & Polls: bracket, survey, escape
 - AI Image Generation: image
-- Fun & Games: potion, foodfight, doom, rescue, scoreboard, leaderboard
+- Fun & Games: potion, foodfight, doom, rescue, siege, scoreboard, leaderboard, how-to-play
 - Watch Party Tools: timer, watchparty, stats
 - Admin commands shown conditionally for moderators
 - Links to full documentation at eggshenbot.com
@@ -715,8 +716,38 @@ See [Social Commands › Rescue](./social#rescue).
 
 ---
 
+### `/siege`
+A monster attacks the drive-in and the whole server fights it together with food, dooms and potions. Beat it before time runs out and everyone who fought is paid, with a bonus and loot for the top fighter. Let it escape and everyone who fought loses a few points. Every 5 minutes it fights back: it grabs a fighter (free them with `/rescue`), poisons one (cure them with a helpful `/potion`) or roars. An admin starts one, or one turns up by itself ([Random sieges](./games#random-sieges)).
+
+**Subcommands:**
+- `attack` - Hit the monster. Anyone, from the siege's channel or its threads
+- `status` - The monster, its HP and your own damage and place. Only you see it
+- `start` - A monster attacks this channel (Admin/Mod)
+- `end` - End the siege now, with no rewards and no penalties (Admin/Mod). A monster already at 0 HP counts as beaten, and one whose time is up as escaped
+
+**Options (`attack`):**
+- `weapon` (required) - `food` (throw something), `doom` (a horror fate) or `potion` (poison: damage now and for 5 minutes)
+- `item` (optional) - An item from your Glovebox. Golden Pie fits food, Cursed VHS fits doom, Lucky Penny fits potion, and the Silver Bullet fits any weapon. The list shows only what you hold ([Items in a siege](./games#items-in-a-siege))
+
+**Options (`start`):**
+- `monster` (optional) - One of 11 monsters. Without it you get a random one
+- `minutes` (optional) - How long it lasts, 30 to 60. Without it, 45, or the monster's own
+
+**Examples:**
+```
+/siege attack weapon:food
+/siege attack weapon:potion item:Lucky Penny
+/siege status
+/siege start monster:blob minutes:45
+/siege end
+```
+
+Your first 30 attacks a day score points; later ones still do damage. A fighter the monster has grabbed can't attack until someone frees them, and one it has poisoned does half damage until someone cures them ([It fights back](./games#it-fights-back)). Turn it off with `/eggshen-config commands toggle setting:siege enabled:false`. See [Games & Scores › Siege](./games#siege).
+
+---
+
 ### `/scoreboard`
-Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), an active rescue shield and any [twist](./games#twists) status, any [happening](./games#happenings) in progress, and your rewards: prizes in progress, nights in a row, Glovebox and titles. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
+Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), an active rescue shield and any [twist](./games#twists) status, any [happening](./games#happenings) or [siege](./games#siege) in progress, and your rewards: prizes in progress, nights in a row, Glovebox and titles. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
 
 **Options:** `user`, `game`, `period` (this month, this year, all time), `private`, and `title` (pick which [earned title](./games#choosing-the-title-you-show) shows with your name, or *No title*; only for yourself)
 
@@ -730,7 +761,7 @@ See [Games & Scores › Scoreboard](./games#scoreboard).
 ---
 
 ### `/leaderboard`
-The server's game card: the top 15 players one line each (medal, name, a bar against the leader, points), who leads each game, who received the most of everything, the period's plays, points, players, most played game and best streak, and any [happening](./games#happenings) in progress.
+The server's game card: the top 15 players one line each (medal, name, a bar against the leader, points), who leads each game, who received the most of everything, the period's plays, points, players, most played game, best streak and sieges won or escaped, and any [happening](./games#happenings) or [siege](./games#siege) in progress.
 
 **Options:** `game`, `period` (this month, this year, all time), `private`
 
@@ -740,6 +771,24 @@ The server's game card: the top 15 players one line each (medal, name, a bar aga
 ```
 
 See [Games & Scores › Leaderboard](./games#leaderboard).
+
+---
+
+### `/how-to-play`
+Quick help for the games: one short card per topic, with a menu and **◀ Previous** / **Next ▶** to the others. Every number on it is the one the games use, and the limits are your server's own. Games switched off on the server are left out.
+
+**Options:**
+- `topic` (optional) - **Basics** (default: the games, points, the limits and your score), **Items & Glovebox**, **Prizes & titles**, **Nights in a row**, **Twists**, **Happenings** or **Siege**
+- `private` (optional) - Only you see it. On by default; `private:false` shows it to the channel. Anyone can page through a public one: the buttons answer each person privately and never change the posted card
+
+**Examples:**
+```
+/how-to-play
+/how-to-play topic:Siege
+/how-to-play topic:Items & Glovebox private:false
+```
+
+See the [Games Quick Guides](/guides/games/) and the [Games FAQ](/guides/games/faq).
 
 ---
 
@@ -775,7 +824,7 @@ Comprehensive server configuration (Admin/Moderator only), split across 6 comman
 - `/eggshen-config-ai` - AI image limits and permissions, AI announcement text, and AI answers for `/eggshen-ask`
 - `/eggshen-config-moderation` - whitelist, cooldowns, auto-ban
 - `/eggshen-config-events` - event request system
-- `/eggshen-config-games` - game limits, game channels, [happenings and twists](./games#happenings-and-twists), score resets
+- `/eggshen-config-games` - game limits, game channels, [happenings, twists and random sieges](./games#happenings-and-twists), score resets (`/siege` included)
 
 **Example:**
 ```
@@ -822,7 +871,7 @@ Display help information and available commands.
 | **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
 | **Watch Parties** | `/timer`, `/watched` |
 | **Discovery** | `/random`, `/similar`, `/soundtrack` |
-| **Fun & Social** | `/survey`, `/potion`, `/foodfight`, `/doom`, `/rescue`, `/scoreboard`, `/leaderboard` |
+| **Fun & Social** | `/survey`, `/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`, `/scoreboard`, `/leaderboard`, `/how-to-play` |
 | **Statistics** | `/stats` |
 | **Configuration** | `/eggshen-config`, `/eggshen-config-watch-party`, `/eggshen-config-ai`, `/eggshen-config-moderation`, `/eggshen-config-events`, `/eggshen-config-games` |
 | **Help** | `/eggshen-help` |

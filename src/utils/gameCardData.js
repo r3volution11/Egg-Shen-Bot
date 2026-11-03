@@ -15,6 +15,7 @@ import {
   nightKey, nightsBetween, shiftNight, nightTier, nextNightTier, nextNightLightAt, titleProgress, liveHappenings,
 } from './gameRules.js';
 import { happeningsNow } from './gamePlay.js';
+import { siegeCardData } from './siegeStore.js';
 import { ITEMS, PRIZES, TITLES, NIGHTS_SHOWN, NIGHT_LIGHT_DAYS, TWISTS } from '../data/gameRewards.js';
 import { NO_TITLE_CHOICE } from '../data/gameRewardLines.js';
 import { STATUS_NOTES } from '../data/gameEventLines.js';
@@ -101,6 +102,7 @@ const happeningCard = (h) => ({
  *   titles: {shown: ?{key, title, badge}, earned: Array<{key, title, badge, at}>, next: Array<{key, title, badge, have, need}>},
  *   effects: Array<{kind, icon, name, about, good, playsLeft?, until}>,
  *   happenings: Array<{kind, name, emoji, tag, about, endsAt: ?number, calendar: boolean}>,
+ *   siege: ?{monster, emoji, hp, maxHp, endsAt, you: ?{damage, rank}},
  * }}
  *   progress: every recurring counter in a stable order, the nights row's
  *     Night Light last; `waiting` = held at need − 1 by the daily prize cap.
@@ -114,8 +116,10 @@ const happeningCard = (h) => ({
  *   effects: the statuses twists left (R4), beside the rescue shield the
  *     card already shows; `icon` is Unicode (the kit has no codes for them).
  *   happenings: the server's happenings in progress (R4), ended ones left out.
+ *   siege: the monster attacking now (R5), with this member's damage and
+ *     place in the fight; null when there's none.
  */
-export function getPlayerCardExtras(guildId, userId, { now = Date.now(), settings = null, happenings = undefined } = {}) {
+export function getPlayerCardExtras(guildId, userId, { now = Date.now(), settings = null, happenings = undefined, siege = undefined } = {}) {
   const data = loadScores(guildId);
   const user = data.users[userId] || null;
 
@@ -181,7 +185,10 @@ export function getPlayerCardExtras(guildId, userId, { now = Date.now(), setting
   const effects = statusesOf(user, now);
   const going = liveHappenings(happenings === undefined ? happeningsNow(guildId, now, settings) : happenings, now);
 
-  return { progress, nights, glovebox, titles, effects, happenings: going.map(happeningCard) };
+  return {
+    progress, nights, glovebox, titles, effects, happenings: going.map(happeningCard),
+    siege: siege === undefined ? siegeCardData(guildId, userId, now) : siege,
+  };
 }
 
 /**

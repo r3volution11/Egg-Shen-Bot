@@ -22,6 +22,7 @@ import { cardName, clipEmbedToFit } from './gameBoards.js';
 import { liveKit, pill } from './emojiKit.js';
 import { messageProblems, chooseLayout } from './embedFit.js';
 import { happeningLine } from '../data/gameEventLines.js';
+import { hpColour } from './siegeCard.js';
 
 /** Gold, the colour the old first row had */
 export const LEADERBOARD_COLOUR = 0xF1C40F;
@@ -116,6 +117,8 @@ function statsFields(data, { kit }) {
     const s = data.bestStreak;
     lines.push(`${kit.e('flame')} Best streak: ${cardName(s.name)} ${pill(s.count)} in ${GAME_NAMES[s.game]}`);
   }
+  // R5: the period's sieges, won and got away (only once there's been one)
+  if (t.sieges) lines.push(`${kit.game('siege')} Sieges: ${pill(t.sieges.won)} won · ${pill(t.sieges.escaped)} got away`);
   return [{ name: `${kit.e('chart')} Server stats`, value: lines.join('\n'), inline: false }];
 }
 
@@ -123,13 +126,19 @@ function statsFields(data, { kit }) {
  * "In progress" (R4): the server's happenings right now, one line each —
  * "🌕 Full Moon: dooms score double · ends <t:…:R>". A reason to play
  * now, so it's on the card even before anyone has played. One that has
- * ended by `now` isn't shown, even if handed in. A siege and its HP bar
- * join it in R5.
+ * ended by `now` isn't shown, even if handed in. R5: a monster attacking,
+ * with its HP bar — "🟢 The Blob is attacking! [bar] `412/980` HP · ends
+ * <t:…:R>" — last.
  */
 function inProgressFields(data, { kit, now }) {
   const lines = (data.happenings || [])
     .filter(h => h && !(Number.isFinite(h.endsAt) && h.endsAt <= now))
     .map(h => happeningLine(h));
+  const s = data.siege;
+  if (s && s.endsAt > now) {
+    const bar = kit.bar(s.hp, s.maxHp, { width: 8, colour: hpColour(s.hp, s.maxHp) });
+    lines.push(`${s.emoji} ${s.monster} is attacking! ${bar} ${pill(`${s.hp}/${s.maxHp}`)} HP · ends <t:${Math.floor(s.endsAt / 1000)}:R>`);
+  }
   return lines.length ? [{ name: `${kit.e('clock')} In progress`, value: lines.join('\n'), inline: false }] : [];
 }
 
@@ -178,6 +187,7 @@ const fits = (embed) => messageProblems({ embeds: [embed] }).length === 0;
  * @param {?{name, game, count}} data.bestStreak
  * @param {{players, plays, points, mostPlayed: ?{game, plays}}} data.totals
  * @param {Array<{kind, name, emoji, about, endsAt: ?number}>} [data.happenings] - in progress (R4)
+ * @param {?{monster, emoji, hp, maxHp, endsAt}} [data.siege] - a monster attacking (R5)
  * @param {object} [options] - kit (default: live), now, step (the first to try)
  * @returns {{ embed: EmbedBuilder, step: number }}
  */

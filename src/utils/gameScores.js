@@ -1,5 +1,6 @@
 /**
- * Scores for the social games: /potion, /foodfight, /doom and /rescue.
+ * Scores for the social games: /potion, /foodfight, /doom and /rescue —
+ * and, since R5, /siege attacks (the fifth game: see siegeStore.js).
  *
  * Every line those commands post is tagged with an outcome, and each outcome
  * moves points for the person playing and, when they aimed at a member, for
@@ -29,6 +30,11 @@
  * the statuses they leave in users[uid].effects, and applies the server's
  * happenings (gameHappenings.js `mods`) to the points — still inside the
  * same one save.
+ *
+ * R5 adds `siege`: an attack on a monster is a play like any other here
+ * (cap, item, streak, nights, prizes, titles) except that twists, statuses
+ * and happenings never touch it, and the monster is never scored. What a
+ * finished siege pays out arrives through applySiegeResult, in one save.
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, copyFileSync } from 'fs';
@@ -36,7 +42,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   ITEMS, DEFENCES, DAILY, FULL_STACK_POINTS, TITLE_POINTS, PRIZES, RANDOM_PRIZE_ITEMS, TITLES,
-  NIGHTS_SHOWN, NIGHT_LIGHT_DAYS, MULTIPLIER_CAPS, TWISTS, TWIST_RULES,
+  NIGHTS_SHOWN, NIGHT_LIGHT_DAYS, MULTIPLIER_CAPS, TWISTS, TWIST_RULES, SIEGE,
 } from '../data/gameRewards.js';
 import {
   ITEM_USED, ITEM_KEPT, SHIELD_BROKEN, DEFENCE_LINES, prizeLine, prizeHeldLine, titleLine, NIGHT_LINES,
@@ -52,13 +58,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Overridable so test workers each use their own directory
 const gamesDir = process.env.GUILD_GAMES_DIR || join(__dirname, '../../guild_games');
 
-export const GAMES = ['potion', 'foodfight', 'doom', 'rescue'];
+/** Every game, in the order cards and choices list them. `siege` (R5) is the fifth. */
+export const GAMES = ['potion', 'foodfight', 'doom', 'rescue', 'siege'];
 
 export const GAME_NAMES = {
   potion: 'Potions',
   foodfight: 'Food Fight',
   doom: 'Doom',
   rescue: 'Rescue',
+  siege: 'Siege',
 };
 
 /**
@@ -71,6 +79,15 @@ export const POINTS = {
   doom: { doomed: [3, -1], escaped: [-1, 2], backfired: [-2, 1], blocked: [0, 0] },
   rescue: { rescued: [1, 2], caught: [-1, -1], sacrificed: [-2, 3] },
   potion: { helped: [1, 2], hurt: [2, -2], backfired: [-2, 1] },
+  // R5: an attack on a monster. Only the attacker is scored: the monster
+  // is no member (its target is {kind: 'monster'}), so its side is 0.
+  // food: splat/splash/splatback · doom: smite/dodged/spooked · potion:
+  // poisoned/fizzled (SIEGE.outcomes maps the game lines' own outcomes).
+  siege: {
+    splat: [1, 0], splash: [0, 0], splatback: [-1, 0],
+    smite: [2, 0], dodged: [0, 0], spooked: [-2, 0],
+    poisoned: [1, 0], fizzled: [-1, 0],
+  },
 };
 
 /**
@@ -102,7 +119,14 @@ export const DEFAULT_GAME_SETTINGS = {
   happenings: true,
   happeningFrequency: 'normal', // HAPPENING_RULES.frequency: off | rare | normal | often
   happeningChannel: null, // where they're announced; null = the scheduler picks
+  // R5: how long a siege lasts, unless its monster or the admin says
+  siegeMinutes: SIEGE.minutes.default, // SIEGE.minutes.min–max
+  // R6: how often a monster attacks by itself (SIEGE.random.perWeek)
+  siegeFrequency: 'normal', // off | rare | normal | often
 };
+
+/** Admin frequency choices for random sieges, in the order offered */
+export const SIEGE_FREQUENCIES = Object.freeze(['off', 'rare', 'normal', 'often']);
 
 /** Admin frequency choices for random happenings, in the order offered */
 export const HAPPENING_FREQUENCIES = Object.freeze(['off', 'rare', 'normal', 'often']);
@@ -142,6 +166,8 @@ export function getGameSettings(config) {
     // means the scheduler picks. Whether the channel still exists, and the
     // bot can post there, is the scheduler's check at announce time.
     happeningChannel: typeof g.happeningChannel === 'string' && g.happeningChannel ? g.happeningChannel : null,
+    siegeMinutes: pick('siegeMinutes', SIEGE.minutes.min, SIEGE.minutes.max),
+    siegeFrequency: SIEGE_FREQUENCIES.includes(g.siegeFrequency) ? g.siegeFrequency : DEFAULT_GAME_SETTINGS.siegeFrequency,
   };
 }
 
@@ -245,6 +271,16 @@ function userFor(data, userId, name) {
 function statsFor(data, userId, name, game, period) {
   const g = (userFor(data, userId, name).games[game] ||= {});
   return (g[period] ||= emptyStats());
+}
+
+/**
+ * A member's points this month, every game together, bonuses included —
+ * what their card adds up. A loss that isn't a play (a twist, an escaped
+ * monster) never takes this below 0: it's a joke at your expense, not a
+ * way to lose a month.
+ */
+function monthTotal(user, monthKey) {
+  return Object.values(user?.games || {}).reduce((n, g) => n + (g?.[monthKey]?.points || 0), 0);
 }
 
 // ── the day's counters ──────────────────────────────────────────────────
@@ -533,9 +569,14 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
   const points = owns(POINTS, game) && owns(POINTS[game], outcome) ? POINTS[game][outcome] : null;
   if (!points) throw new Error(`Unknown outcome "${outcome}" for ${game}`);
   action ||= actionFor(game, outcome);
+  // A siege attack (R5) is the fight, not a game of chance with friends:
+  // no happening bends it, no twist fires on it, and a member's statuses
+  // (a twist's leftovers) wait for their next play of the other games.
+  // Enforced here, not only by what the caller passes.
+  const siege = game === 'siege';
   // Checked against the clock here too: a happening past its endsAt does
   // nothing, even if the store still holds it (gameRules.liveHappenings)
-  const live = liveHappenings(happenings, now);
+  const live = siege ? [] : liveHappenings(happenings, now);
 
   return mutateScores(guildId, (data) => {
     const keys = periodKeys(now);
@@ -596,8 +637,9 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
     const touched = new Set(Array.isArray(mods.happenings) ? mods.happenings : []);
     const good = GOOD.has(outcome);
     const bad = !good && outcome !== 'blocked';
-    // Statuses act on a scored play where something happened (see above)
-    const acts = scored && outcome !== 'blocked';
+    // Statuses act on a scored play where something happened (see above),
+    // and never on a siege attack
+    const acts = scored && outcome !== 'blocked' && !siege;
     pruneStatuses(me, now);
     const status = acts ? activeStatuses(me, now) : {};
     const statuses = [];
@@ -726,10 +768,7 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
     // What a twist may still take from the player: TWIST_RULES.dailyLoss a
     // day, all twists together, and never below 0 for the month (every
     // game this month, bonuses included, as their card adds it up)
-    const lossRoom = () => {
-      const month = Object.values(me.games).reduce((n, g) => n + (g?.[keys.month]?.points || 0), 0);
-      return Math.max(0, Math.min(TWIST_RULES.dailyLoss - (daily.twistLoss || 0), month));
-    };
+    const lossRoom = () => Math.max(0, Math.min(TWIST_RULES.dailyLoss - (daily.twistLoss || 0), monthTotal(me, keys.month)));
     /** Take up to n points as a twist loss; returns what was taken */
     const takeLoss = (n) => {
       const taken = Math.max(0, Math.min(n, lossRoom()));
@@ -936,7 +975,7 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       // The twist, last: it can cancel this play's gain (Reel Change) or
       // freeze the streak just extended (Brain Freeze), and the 30th earns
       // Plot Twist
-      if (outcome !== 'blocked') twist = rollTwist();
+      if (outcome !== 'blocked' && !siege) twist = rollTwist();
       if (twist) {
         life.twists = (life.twists || 0) + 1;
         checkTitles('actor', actor.id, actor.name, me);
@@ -982,6 +1021,212 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       happeningLines: happeningLines.map(l => ({ ...l, happening: byKind.get(l.happening) || { kind: l.happening } })),
       calendar,
     };
+  });
+}
+
+// ── a finished siege (R5) ───────────────────────────────────────────────
+
+/** How many finished sieges' payouts are remembered, to make paying one idempotent */
+const SIEGES_PAID_KEPT = 20;
+
+/**
+ * Pay out a finished siege — every fighter's points, loot, siege counters
+ * and the titles those earn — in ONE load-modify-save. What each fighter
+ * gets was decided by siegeStore.finishSiege (planSiegeRewards); this only
+ * applies it, with the rules that need the scores file:
+ *   - points go to the `siege` game, every current period, as bonus (so
+ *     they never feed the points prize, as no bonus does)
+ *   - a loss (an escape) never takes a member's month below 0, the same
+ *     floor a twist's loss has (monthTotal)
+ *   - loot goes in the Glovebox; a full stack is FULL_STACK_POINTS instead
+ *   - lifetime.siege counts wins, MVPs and kaiju beaten, and any title
+ *     that crosses its line is earned, +TITLE_POINTS, as on a play
+ *   - a win's rewards (points, loot, the counters) are paid for at most
+ *     SIEGE.rewardedPerDay sieges per member per UTC day (daily[uid].sieges):
+ *     past that the grant is `limited`, paying nothing — admins can start
+ *     sieges back to back, and nothing else stops one being farmed
+ *   - the server's sieges won and escaped are counted per period
+ *     (siegeStats), for the leaderboard — once per siege id, like the rest
+ *
+ * Idempotent by siege id: the scores file remembers the last
+ * SIEGES_PAID_KEPT payouts, and paying one again changes nothing and hands
+ * back what it paid the first time. finishSiege writes the happenings file
+ * after this one, so a kill between the two saves can't pay a siege twice.
+ *
+ * @param {string} guildId
+ * @param {object} p
+ * @param {string} p.siegeId
+ * @param {Array<{userId, name, points?, loss?, loot?: ?string, win?, mvp?, kaiju?}>} p.grants
+ * @param {'won'|'escaped'|'ended'} [p.status] - counted in siegeStats when won or escaped
+ * @returns {{grants: Array<{userId, name, points, loot: ?{item, overflow}, titles: string[], total, limited?: true}>, repeat?: true}}
+ *   points: the payout actually moved (a loss as a negative, after the floor);
+ *   total: everything this siege moved for them (points, a full stack's
+ *   +2, titles' +10s); limited: today's SIEGE.rewardedPerDay sieges were
+ *   already rewarded, so this one paid nothing; every other field of the
+ *   grant is passed through
+ */
+export function applySiegeResult(guildId, { siegeId, grants = [], status = null, now = Date.now() }) {
+  return mutateScores(guildId, (data) => {
+    const paid = (data.siegesPaid ||= {});
+    if (owns(paid, siegeId)) return { grants: paid[siegeId].grants, repeat: true };
+    const keys = periodKeys(now);
+    const periods = Object.values(keys);
+    const today = dayKey(now);
+    if (status === 'won' || status === 'escaped') {
+      for (const period of periods) {
+        const st = ((data.siegeStats ||= {})[period] ||= { won: 0, escaped: 0 });
+        st[status] = (st[status] || 0) + 1;
+      }
+    }
+
+    const out = grants.map((g) => {
+      const user = userFor(data, g.userId, g.name);
+      seedTitles(user, now);
+      // A reward (a win's points, loot or counters) past today's limit is
+      // held back whole; an escape's loss isn't a reward, and still applies
+      const rewarding = (Number(g.points) || 0) > 0 || !!g.loot || !!g.win;
+      if (rewarding) {
+        const day = dayFor(data, g.userId, today);
+        if ((day.sieges || 0) >= SIEGE.rewardedPerDay) {
+          return { ...g, points: 0, loot: null, win: false, mvp: false, kaiju: false, titles: [], total: 0, limited: true };
+        }
+        day.sieges = (day.sieges || 0) + 1;
+      }
+      const give = (pts) => {
+        if (!pts) return;
+        for (const period of periods) {
+          const s = statsFor(data, g.userId, g.name, 'siege', period);
+          s.points += pts;
+          s.bonus = (s.bonus || 0) + pts;
+        }
+      };
+      let points = Math.max(0, Math.round(Number(g.points) || 0));
+      give(points);
+      if (g.loss > 0) {
+        const taken = Math.min(Math.round(g.loss), Math.max(0, monthTotal(user, keys.month)));
+        give(-taken);
+        points -= taken;
+      }
+      let loot = null;
+      if (g.loot && owns(ITEMS, g.loot)) {
+        const overflow = !stash(user, g.loot);
+        if (overflow) give(FULL_STACK_POINTS);
+        loot = { item: g.loot, overflow };
+      }
+      const counts = (user.lifetime.siege ||= { wins: 0, mvps: 0, kaiju: 0 });
+      if (g.win) counts.wins = (counts.wins || 0) + 1;
+      if (g.win && g.mvp) counts.mvps = (counts.mvps || 0) + 1;
+      if (g.win && g.kaiju) counts.kaiju = (counts.kaiju || 0) + 1;
+      // R6: a Silver Bullet every SIEGE wins (PRIZES 'siegewins'), outside
+      // the daily prize cap: a paid win is already limited to 2 a day
+      let prize = null;
+      if (g.win) {
+        const p = PRIZE_BY_KEY.siegewins;
+        const progress = (user.progress ||= {});
+        progress.siegewins = (progress.siegewins || 0) + 1;
+        if (progress.siegewins >= p.need) {
+          progress.siegewins -= p.need;
+          const overflow = !stash(user, p.item);
+          give(p.points + (overflow ? FULL_STACK_POINTS : 0));
+          prize = { item: p.item, points: p.points, overflow };
+        }
+      }
+      const titles = [];
+      for (const title of TITLES) {
+        if (owns(user.titles.earned, title.key) || !qualifiesFor(user, title)) continue;
+        user.titles.earned[title.key] = now;
+        give(TITLE_POINTS);
+        titles.push(title.key);
+      }
+      const total = points + (loot?.overflow ? FULL_STACK_POINTS : 0) + titles.length * TITLE_POINTS
+        + (prize ? prize.points + (prize.overflow ? FULL_STACK_POINTS : 0) : 0);
+      return { ...g, points, loot, titles, total, ...(prize ? { prize } : {}) };
+    });
+
+    paid[siegeId] = { at: now, grants: out };
+    const ids = Object.keys(paid).sort((a, b) => (paid[a].at || 0) - (paid[b].at || 0));
+    for (const id of ids.slice(0, Math.max(0, ids.length - SIEGES_PAID_KEPT))) delete paid[id];
+    return { grants: out };
+  });
+}
+
+// ── the monster fights back (R6) ────────────────────────────────────────
+
+/** How many digest penalties are remembered, to make each one idempotent */
+const SIEGE_PENALTIES_KEPT = 100;
+
+/** Give `pts` to a member's siege game, every current period, as bonus */
+function giveSiege(data, userId, name, pts, now) {
+  if (!pts) return;
+  for (const period of Object.values(periodKeys(now))) {
+    const s = statsFor(data, userId, name, 'siege', period);
+    s.points += pts;
+    s.bonus = (s.bonus || 0) + pts;
+  }
+}
+
+/**
+ * A member's Antidote fires by itself the moment the monster (or their own
+ * fizzled potion) poisons them: held, off its cooldown, and a defence left
+ * today. Used up, its cooldown starts, and it counts as one of the day's
+ * defences — in ONE save of the scores file.
+ * @returns {{fired: boolean}}
+ */
+export function fireAntidote(guildId, userId, now = Date.now()) {
+  return mutateScores(guildId, (data) => {
+    if (!data.users[userId] || !defenceReady(data, userId, 'antid', now)) return { fired: false };
+    const user = data.users[userId];
+    take(user, 'antid');
+    (user.cooldowns ||= {}).antid = now + DEFENCES.antid.cooldownHours * 60 * 60 * 1000;
+    const day = dayFor(data, userId, dayKey(now));
+    day.defences = (day.defences || 0) + 1;
+    return { fired: true };
+  });
+}
+
+/**
+ * A grabbed fighter nobody freed in time: −`loss`, never taking their
+ * month below 0 (as an escape's loss), in the siege game as bonus.
+ * Idempotent by `key` (siege, fighter and grab): a pass that dies after
+ * this save and runs again can't take it twice.
+ * @returns {{points: number, repeat?: true}} the points moved (≤ 0)
+ */
+export function applySiegePenalty(guildId, { key, userId, name, loss, now = Date.now() }) {
+  return mutateScores(guildId, (data) => {
+    const done = (data.siegePenalties ||= {});
+    if (owns(done, key)) return { points: done[key].points, repeat: true };
+    const user = userFor(data, userId, name);
+    seedTitles(user, now);
+    const taken = Math.min(Math.round(loss), Math.max(0, monthTotal(user, periodKeys(now).month)));
+    giveSiege(data, userId, name, -taken, now);
+    done[key] = { at: now, points: -taken };
+    const keys = Object.keys(done).sort((a, b) => done[a].at - done[b].at);
+    for (const k of keys.slice(0, Math.max(0, keys.length - SIEGE_PENALTIES_KEPT))) delete done[k];
+    return { points: -taken };
+  });
+}
+
+/**
+ * One more of a member's siege counters that only R6 moves — `grabbed`
+ * (an announced grab) or `assists` (a fighter freed or cured with a scored
+ * play) — and any title it earns (Monster Chow, Field Medic), +TITLE_POINTS
+ * to the siege game as bonus, in one save.
+ * @returns {{titles: string[]}}
+ */
+export function countSiegeEvent(guildId, { userId, name, counter, now = Date.now() }) {
+  return mutateScores(guildId, (data) => {
+    const user = userFor(data, userId, name);
+    seedTitles(user, now);
+    const counts = (user.lifetime.siege ||= { wins: 0, mvps: 0, kaiju: 0 });
+    counts[counter] = (counts[counter] || 0) + 1;
+    const titles = [];
+    for (const title of TITLES) {
+      if (owns(user.titles.earned, title.key) || !qualifiesFor(user, title)) continue;
+      user.titles.earned[title.key] = now;
+      giveSiege(data, userId, name, TITLE_POINTS, now);
+      titles.push(title.key);
+    }
+    return { titles };
   });
 }
 
@@ -1066,8 +1311,10 @@ export const RECEIVED_LEADERS = [
  *   perGame: Object<string, {userId, name, points, plays} | null>,
  *   received: Array<{label, userId, name, count}>,
  *   bestStreak: {userId, name, game, count} | null,
- *   totals: {players, plays, points, mostPlayed: {game, plays} | null},
+ *   totals: {players, plays, points, mostPlayed: {game, plays} | null, sieges?: {won, escaped}},
  * }}
+ *   totals.sieges: the server's sieges won and escaped in the period (R5),
+ *   on the all-games and Siege boards; absent when there were none
  */
 export function getLeaderboard(guildId, game = 'all', period = 'all-time', { limit = 15, games: enabled = GAMES } = {}, now = Date.now()) {
   const data = loadScores(guildId);
@@ -1117,6 +1364,8 @@ export function getLeaderboard(guildId, game = 'all', period = 'all-time', { lim
     points: everyone.reduce((n, r) => n + r.points, 0),
     mostPlayed: mostPlayed && mostPlayed.plays > 0 ? mostPlayed : null,
   };
+  const sieges = games.includes('siege') ? data.siegeStats?.[key] : null;
+  if (sieges && ((sieges.won || 0) + (sieges.escaped || 0)) > 0) totals.sieges = { won: sieges.won || 0, escaped: sieges.escaped || 0 };
 
   return { rows, perGame, received, bestStreak: streak && streak.count > 0 ? streak : null, totals };
 }
@@ -1147,7 +1396,9 @@ export function resetScores(guildId, { game = null, userId = null } = {}) {
           if (u.waiting) delete u.waiting[p.key];
         }
         // …and its title counts, so titles not yet earned there start over
+        // (R5: the siege's own counters — wins, MVPs, kaiju — with it)
         if (u.lifetime) for (const side of ['do', 'got', 'streak']) delete u.lifetime[side]?.[game];
+        if (u.lifetime && game === 'siege') delete u.lifetime.siege;
       } else {
         delete data.users[id];
         changed++;
@@ -1157,6 +1408,9 @@ export function resetScores(guildId, { game = null, userId = null } = {}) {
       for (const id of Object.keys(data.shields)) if (!userId || id === userId) delete data.shields[id];
       for (const id of Object.keys(data.daily)) if (!userId || id === userId) delete data.daily[id];
     }
+    // The server's sieges won and escaped go with the whole server's record,
+    // or the siege game's (one person's reset leaves the server's count)
+    if (!userId && (!game || game === 'siege')) delete data.siegeStats;
     return changed;
   });
 }

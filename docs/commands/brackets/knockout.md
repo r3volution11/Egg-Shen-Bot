@@ -92,6 +92,8 @@ Live vote counts are visible to everyone:
 
 *Live standings, updated as votes come in*
 
+Once the bot's own emoji are uploaded (it does this itself on its first start; see [Installation](/installation)), the bars are drawn with them instead of squares: a bar under each title, with its votes and share, when there's room; one bar per matchup, split between the two titles' counts, when more matchups are open; and the squares above for a whole round of long titles. The card picks its look once, for the matchups it's showing, and keeps it until they close, so it never changes shape between votes. The totals underneath read `🗳️ 12 votes · 👥 6 voters · ⚔️ 2 matchups`.
+
 ---
 
 ## Opening Part of a Round
@@ -161,7 +163,7 @@ If `tiebreaker-duration` is left out, the bot uses the default set in the [setup
 
 **What happens:**
 - The title with more votes wins each matchup.
-- A tied matchup starts a tiebreaker vote. The winner moves on when it resolves, at its deadline or through `/bracket resolve-tiebreaker`.
+- A tied matchup starts a tiebreaker vote. The winner moves on when it resolves, at its deadline or through `/bracket resolve-tiebreaker`. Its bars show each option's share of the votes: gold for the one ahead (or every one sharing the lead), blue for the rest.
 - When every matchup in the round is closed, the tournament moves to the next round. Run `/bracket open` to start it.
 - Closing the Finals ends the tournament and names the champion.
 
@@ -188,7 +190,17 @@ Closed 4 matchups
 
 *A matchup's results card, posted as it closes*
 
-Each matchup's result card shows the winner's poster as a small thumbnail in its corner. Tiebreaker results and `/bracket close-matchup` show it too.
+Each matchup's result card shows the vote split as one bar between the two counts (the winner's share in green from the left, the runner-up's in orange; gold on both sides when a tie went to the higher seed).
+
+Under it is a picture of the matchup, drawn in the bot's own style:
+
+- **The two posters face off** across a crackling lightning **VS**.
+- **The winner's poster is larger,** in a gold-and-jade frame under a red **WINNER** sash with a trophy. The runner-up's is dimmed.
+- **The vote split** is a gold bar from the left and a blue one from the right, with each side's share and votes above it.
+- **An UPSET! stamp** marks a worse seed beating a better one. **"Tied: higher seed advances"** marks a tie the higher seed took.
+- **A title with no poster** (or one that didn't load in time) gets a carved placeholder with its name instead.
+
+If the picture can't be drawn within 5 seconds, or the bot can't attach files in that channel, the card posts without it and shows the winner's poster as a small thumbnail in its corner, as it used to. Tiebreaker results and `/bracket close-matchup` show the winner's poster as a thumbnail.
 
 ---
 
@@ -234,7 +246,7 @@ When the last matchup of a round closes, the tournament moves to the next round.
 /bracket status
 ```
 
-Shows the current phase, each open matchup with the same coloured vote bars and closing time as the live standings, and how many matchups are done. It's a snapshot; the live standings card is the one that keeps updating.
+Shows the current phase, each open matchup with the same vote bars and closing time as the live standings, and how many matchups are done. It's a snapshot; the live standings card is the one that keeps updating.
 
 **Who can use:** Everyone
 

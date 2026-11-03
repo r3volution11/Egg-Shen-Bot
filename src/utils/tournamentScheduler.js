@@ -7,7 +7,9 @@
 import * as bracketManager from './bracketManager.js';
 import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, AttachmentBuilder } from 'discord.js';
 import * as bracketVisualizer from './bracketVisualizer.js';
-import { setTitleThumbnail, seededTitle, upsetNote } from './tournamentUI.js';
+import { setTitleThumbnail, seededTitle, upsetNote, matchupLabel } from './tournamentUI.js';
+import { generateMatchupResultImage } from './cardImages.js';
+import { liveKit, pill } from './emojiKit.js';
 import { readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -970,20 +972,24 @@ async function postGroupResults(guild, tournament, groupId, group) {
     
     // Sort movies by votes (descending)
     const sortedMovies = [...group.movies].sort((a, b) => b.votes.length - a.votes.length);
-    
+
+    // Kit medals in the field names and a kit tick on the two that go
+    // through: field names and values are where custom emoji render (the
+    // title and footer stay Unicode). A group has at most 4 titles.
+    const kit = liveKit();
     const embed = new EmbedBuilder()
       .setColor('#00FF00') // Green for success
       .setTitle(`📊 Group ${groupId} Results - ${tournament.name}`)
       .setDescription(`Voting has closed! Here are the final results:`)
       .addFields(
         sortedMovies.map((movie, index) => {
-          const emoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '📍';
+          const place = index < 3 ? kit.e(`med${index + 1}`) : '📍';
           const voteCount = movie.votes.length;
-          const qualified = index < 2 ? ' ✅ **Advances**' : '';
-          
+          const qualified = index < 2 ? `\n${kit.e('tk1')} **Advances**` : '';
+
           return {
-            name: `${emoji} ${movie.title}`,
-            value: `**${voteCount}** vote${voteCount !== 1 ? 's' : ''}${qualified}`,
+            name: clipText(`${place} ${movie.title}`, LIMITS.fieldName),
+            value: `${pill(voteCount)} vote${voteCount !== 1 ? 's' : ''}${qualified}`,
             inline: true
           };
         })
@@ -1024,35 +1030,77 @@ async function postMatchupResults(guild, tournament, matchup) {
     
     // A tie the 'higher-seed' rule settled says so, or 4–4 reads as a
     // miscount; a worse seed winning gets called out as an upset.
+    const kit = liveKit();
     const notes = [
-      matchup.decidedBy === 'seed' ? `⚖️ Tied ${winnerVotes}–${loserVotes}: the higher seed advances.` : '',
-      upsetNote(winner, loser),
+      matchup.decidedBy === 'seed' ? `${kit.e('tie')} Tied ${winnerVotes}–${loserVotes}: the higher seed advances.` : '',
+      upsetNote(winner, loser, { kit }),
     ].filter(Boolean).map(n => `\n${n}`).join('');
+    const votes = (n) => `${pill(n)} vote${n !== 1 ? 's' : ''}`;
 
+    // The split between the counts, the winner's share from the left; the
+    // fields say who's who. Kit icons go in the description and field
+    // names only: the title and footer can't show them.
     const embed = new EmbedBuilder()
       .setColor('#00FF00')
       .setTitle(`📊 ${getMatchupTitle(matchup)} - Results`)
-      .setDescription(`**${tournament.name}**\n\nVoting has closed!${notes}`)
+      .setDescription(clipText(`**${tournament.name}**\n\nVoting has closed!\n${pill(winnerVotes)} ${kit.splitBar(winnerVotes, loserVotes, { width: 10 })} ${pill(loserVotes)}${notes}`, LIMITS.description))
       .addFields(
         {
-          name: '🏆 Winner',
-          value: `**${seededTitle(winner)}**\n${winnerVotes} vote${winnerVotes !== 1 ? 's' : ''}`,
+          name: `${kit.e('trophy')} Winner`,
+          value: clipText(`**${seededTitle(winner)}**\n${votes(winnerVotes)}`, LIMITS.fieldValue),
           inline: true
         },
         {
-          name: 'Runner-up',
-          value: `${loser ? seededTitle(loser) : 'Bye'}\n${loserVotes} vote${loserVotes !== 1 ? 's' : ''}`,
+          name: `${kit.e('med2')} Runner-up`,
+          value: clipText(`${loser ? seededTitle(loser) : 'Bye'}\n${votes(loserVotes)}`, LIMITS.fieldValue),
           inline: true
         }
       )
       .setFooter({ text: `Total votes: ${votesA + votesB}` })
       .setTimestamp();
+
+    // The drawn result (cardImages.js): both posters, the split, any upset
+    // or tie. It replaces the poster thumbnail. An image is extra — if it
+    // can't be drawn in time, or the send with it fails (no Attach Files
+    // permission, say), the text card goes out exactly as before.
+    const image = await matchupResultImage(matchup, winner, loser, winnerVotes, loserVotes);
+    if (image) {
+      try {
+        embed.setImage('attachment://matchup.png');
+        await channel.send({ embeds: [embed], files: [new AttachmentBuilder(image, { name: 'matchup.png' })] });
+        return;
+      } catch (error) {
+        console.warn('[TournamentScheduler] Result card with image failed, posting it without:', error.message);
+        embed.setImage(null);
+      }
+    }
     setTitleThumbnail(embed, winner);
-    
     await channel.send({ embeds: [embed] });
     
   } catch (error) {
     console.error('[TournamentScheduler] Error posting matchup results:', error);
+  }
+}
+
+/**
+ * The matchup result image, or null when it can't be drawn (in time).
+ * Never throws: the result card must post either way.
+ */
+async function matchupResultImage(matchup, winner, loser, winnerVotes, loserVotes) {
+  const entry = (e, votes) => (e ? { title: e.title, year: e.year, posterUrl: e.posterUrl, seed: e.seed, votes } : null);
+  try {
+    return await generateMatchupResultImage({
+      round: matchup.round,
+      label: typeof matchup.position === 'number' ? matchupLabel(matchup.position, matchup.round) : null,
+      winner: entry(winner, winnerVotes),
+      loser: entry(loser, loserVotes),
+      upset: Boolean(upsetNote(winner, loser)),
+      tieBrokenBySeed: matchup.decidedBy === 'seed',
+    });
+  } catch (error) {
+    // A warning, not an error: nothing is lost, the text card goes out
+    console.warn(`[TournamentScheduler] Matchup image for ${matchup.id} not drawn:`, error.message);
+    return null;
   }
 }
 

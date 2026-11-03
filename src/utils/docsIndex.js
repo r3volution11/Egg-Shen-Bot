@@ -95,7 +95,13 @@ function forDiscord(text) {
 
 // ─── search ───────────────────────────────────────────────────────────────────
 
-const STOPWORDS = new Set('a an and are as at be but by can do does for from how i if in into is it its me my of on or so that the their them then there these this to up want was we what when where which who why will with would you your'.split(' '));
+// The last line is what an apostrophe leaves behind ("what's" → "what" "s",
+// "you'll" → "you" "ll"): "what's a siege" matched every "the siege's
+// channel" in the docs, and went to the wrong answer. Not the "t" of
+// "can't": a negation is the question ("why can't I attack" isn't "how do
+// I attack")
+const STOPWORDS = new Set(('a an and are as at be but by can do does for from how i if in into is it its me my of on or so that the their them then there these this to up want was we what when where which who why will with would you your'
+  + ' s d m ll re ve').split(' '));
 
 // The words people use for what the docs call something else
 const SYNONYMS = {

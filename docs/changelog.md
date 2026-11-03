@@ -9,6 +9,50 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.73.0 - 2026-11-03
+
+### Added
+- **`/siege`: the whole server fights a monster.** One of 11 monsters attacks a games channel, among them the Blob, Gremlins, the Count, the Wolfman, Killer Klowns, Pod People and the Atomic Lizard (plus the Headless Horseman in October), each with a trait of its own. A card with its HP bar shows the fight.
+  - **Fight it:** `/siege attack weapon:food`, `weapon:doom` or `weapon:potion`, from its channel or a thread of it. Food is steady, a doom hits hard but can spook you, and a potion poisons it over time. A 🥈 Silver Bullet can't backfire and does triple damage.
+  - **It fights back:** every few minutes it grabs a fighter, who can't attack until someone else frees them with a normal `/rescue`, or poisons one, who does half damage until someone gives them a helpful `/potion`. Someone left grabbed for 10 minutes is out of the fight and loses 5.
+  - **Win or lose:** beat it in time and everyone who helped shares the points, by damage plus every fighter freed and cured. The MVP gets a bonus and loot. If it escapes, everyone who attacked loses 3.
+  - **When:** admins start one with `/siege start` and end it with `/siege end`. Monsters also turn up at random a few times a week while people are playing. `/eggshen-config-games happenings siege-frequency:` and `siege-minutes:` set how often and how long.
+  - **Limits:** the first 30 attacks a day score, and rewards come from at most 2 sieges per person a day. A siege won alone pays only its share of the points.
+  - **New titles:** Monster Hunter, Siege MVP, Legend of the Drive-In, Kaiju Killer, Field Medic and Monster Chow. Every 4 wins earns a Silver Bullet.
+
+  See [Siege](/commands/games#siege) and the [siege guide](/guides/games/siege)
+- **`/how-to-play`:** quick help for the games, privately, by topic: the basics, items, prizes and titles, nights in a row, twists, happenings and sieges. Every number is this server's own, so it never goes out of date. See [Games Quick Guides](/guides/games/)
+- **Games guides and FAQ** on the site, and `/eggshen-ask` answers questions about the games from them: "how do I use a Golden Pie?", "someone got grabbed, how do I save them?"
+- **Drawn results.** A decided tournament matchup posts a picture: the two posters, the winner framed in gold with a trophy, a lightning VS, the vote split, and an UPSET! stamp when there is one. A closed survey posts a chart of the results. If a picture can't be made, the card posts as before
+
+### Changed
+- **Tournaments wear the Egg Shen look.** These use the same icons and stone bars as the game cards:
+  - **Live standings and `/bracket status`:** each matchup gets stone bars (or one split bar when there are many), and the totals read 🗳️ votes · 👥 voters · ⚔️ matchups. A card picks its layout from the number of matchups and the titles, never from the votes, so it doesn't jump around while people vote. `/bracket status` now shows up to 16 matchups, up from 12
+  - **Tiebreakers:** the leader's bar is gold, the rest blue
+  - **Matchup results:** a split bar of the vote, 🏆 Winner and 🥈 Runner-up
+  - **Group results:** medals beside the titles that advance
+  - **Your ballot:** a jade tick beside each title you picked
+- **Surveys:** the leading option's bar is gold and the others blue, with `82%` · 14 votes beside each. Once a survey closes, the bars turn grey and the 🏆 marks the winner. Bars shrink to fit a survey with long options, rather than the card failing to post
+- **Escape Velocity:** the climb is three carved stone bars, and streaks show as 🔥 `3`
+- **The bracket image** uses the bot's own fonts, and its ballot and lock signs draw properly instead of as empty boxes
+- **The leaderboard's server stats** include how many sieges were won and how many got away
+
+### Fixed
+- **`/survey results` could fail to reply** when your picks had long names (10 options of 100 characters went over Discord's limit for one field). It now shortens them
+
+### Developer
+- **Siege:** `src/utils/siegeStore.js` holds the state, stored in the happenings file. Every write is keyed by siege id, and both the arrival card and the results are claimed before they're sent, so a restart can lose a post but never send one twice, and never lock `/siege`. `src/utils/siegeCard.js` draws the cards and `src/commands/siege.js` is the command. The happening scheduler runs poison ticks, monster actions (claim, announce, then void after 90 s), digests, random spawns (`p = 1 − (1 − R/7)^(1/240)`; measured 1.58, 3.09 and 5.01 a week), card edits and results. `src/data/siegeMonsters.js` holds the monsters and `siegeAttackLines.js` the 136 attack lines written for monsters. Every tunable is under `SIEGE` in `gameRewards.js`. Rescues and cures are `siegeAssist` inside `finishPlay`
+- **Siege HP** is `round(clamp((2·A7 + 45·F)·D, 40, 2000)·monster.hp)`, recomputed as each fighter joins, with no growth in the last 5 minutes. The server's difficulty dial moves ×1.05 on a win and ×0.88 on an escape. It only moves when 2 or more fought, an escape only lowers it if they did at least half the monster's HP, and it stays between 0.5 and 2.5
+- **Siege tests:** `tests/harness/siegeSim.js` sends real interactions through `dispatchCommand`, runs real scheduler passes, restarts the bot, and makes Discord fail on purpose, checking invariants after every step. Suites: `siege-sim`, `siege-sim-restarts`, `siege-sim-fights-back`, `siege-store`, `siege-commands`, plus `tests/fuzz/siege.fuzz.js`. An independent review's 8 bugs and 4 suspected ones were all fixed with scenarios, and 58 planted bugs were all caught
+- **`/how-to-play`:** `src/utils/howToPlay.js` reads every number from the reward tables and the server's settings. Public cards answer clicks privately. `docs/guides/games/` adds a 22-question FAQ and two how-to guides, and `docsIndex` treats an apostrophe's leftover letters as stopwords
+- `tournamentUI.formatStandings(matchups, round, {kit, budget})` with `STANDINGS_LAYOUTS` (`two`, `split`, `squares`, then titles held to 50). The layout is measured at 9,999 votes a side against the whole message with `messageProblems`, and falls back to `squares` when the kit isn't ready. Also `standingsTotals` and `rankedBar` (replaces `createRankedBar`). 13 unused helpers removed. `formatKnockoutVotes` clips with `clipText`
+- `pollManager.createPollEmbed(poll, showResults, {kit})`: bar width from `SURVEY_BAR_WIDTHS` [10, 8, 6, 5, 4], then squares, then none, measured at 9,999 votes. The █▓░ helper is gone
+- `escapeUI`: `kit.ladder` owns its formatting (no code span once the bars are custom)
+- `emojiKit.bar`: a muted plain-emoji bar keeps its colour, since the only plain grey square is the empty one
+- Tests: `standings-layout`, `survey-card`, `escape-ui`, and tournament simulator runs of a 32-title knockout and a groups tournament under the longest custom kit. A new invariant after every step: no custom emoji in a title, author, footer, button or menu label, or code span
+- **Images:** `src/utils/canvasKit.js` holds the bundled fonts (Anton and Barlow, OFL, in `assets/fonts/`; missing glyphs fall back by cmap), `drawKitIcon`, `loadImageCached` (an LRU of 64, 30-minute TTL) and the Egg Shen stone, stud and lightning painters. `src/utils/cardImages.js` draws the matchup result and survey chart, each with a 5-second deadline and a text-only fallback
+- **Deploy:** new commands (`/siege`, `/how-to-play`) and new options need `deploy-commands`
+
 ## 2.72.1 - 2026-11-02
 
 ### Fixed

@@ -128,6 +128,44 @@ describe('the docs index', () => {
   });
 });
 
+describe('the games guides (docs/guides/games/)', () => {
+  // The games FAQ is what /eggshen-ask should answer game questions from:
+  // each question as a member would type it lands on its own answer, and
+  // that answer carries the command to run
+  test.each([
+    ['how do I use a golden pie', 'How do I use an item, like a Golden Pie?', '/foodfight throw target:@Sam item:Golden Pie'],
+    ['what is a siege', 'What is a siege?', '/siege attack weapon:food'],
+    ['someone got grabbed by the monster how do I save them', 'Someone got grabbed by the monster. How do I save them?', '/rescue attempt target:@Sam'],
+    ["why didn't my play score", "Why didn't my play score?", '/how-to-play'],
+    ['how do I show my title', 'How do I show my title next to my name?', '/scoreboard title:Pie Sniper'],
+  ])('"%s" → the FAQ answer', (question, heading, command) => {
+    const top = docsIndex.searchDocs(question)[0];
+    expect(top.kind).toBe('faq');
+    expect(top.heading).toBe(heading);
+    expect(top.url).toMatch(/\/guides\/games\/faq\.html#/);
+    expect(top.text).toContain(command);
+  });
+
+  test('"what\'s a siege" is "what is a siege": an apostrophe\'s "s" matches nothing', () => {
+    // It matched every "the siege's channel" and went to the attack answer
+    expect(docsIndex.searchDocs("what's a siege")[0].heading).toBe('What is a siege?');
+  });
+
+  test('the quick steps are indexed too', () => {
+    const { sections } = docsIndex.getDocsIndex();
+    const play = sections.find(s => s.kind === 'steps' && s.heading === 'Play the games and earn your first prize');
+    expect(play.text).toContain('1. **Take the tour.** Run `/how-to-play`.');
+    expect(sections.find(s => s.kind === 'steps' && s.heading === 'Fight a siege').url).toMatch(/\/guides\/games\/siege\.html$/);
+  });
+
+  test('the command catalog has /how-to-play, with its options', () => {
+    const catalog = docsAnswer.buildCommandCatalog(commands);
+    expect(catalog.paths.get('/how-to-play')).toEqual(new Set(['topic', 'private']));
+    expect(docsAnswer.checkCommands('Run `/how-to-play topic:Siege private:false`', catalog).unknown).toEqual([]);
+    expect(docsAnswer.checkCommands('Run `/how-to-play topic:Monsters`', catalog).unknown).toHaveLength(1);
+  });
+});
+
 describe('semantic search', () => {
   test('embeds each section once and caches it; later questions embed only the question', async () => {
     await docsIndex.searchDocsSemantic('start a matchup');

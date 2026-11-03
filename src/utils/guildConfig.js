@@ -61,6 +61,7 @@ const defaultConfig = {
     foodfight: true,
     doom: true,
     rescue: true,
+    siege: true, // R5: the fifth game; its weapons also need their own games on
     escape: true,
   },
   notifications: {

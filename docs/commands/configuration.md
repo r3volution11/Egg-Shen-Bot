@@ -16,14 +16,15 @@ Configuration is split across 6 top-level commands (kept under Discord's per-com
 /eggshen-config-ai <group> <subcommand> [parameters]               — ai-images
 /eggshen-config-moderation <group> <subcommand> [parameters]       — moderation
 /eggshen-config-events <group> <subcommand> [parameters]           — event-requests
-/eggshen-config-games <subcommand> [parameters]                     — game limits, game channels, happenings and twists, score resets
+/eggshen-config-games <subcommand> [parameters]                     — game limits, game channels, happenings, twists and random sieges, score resets
 ```
 
-The game settings (`/eggshen-config-games`) are described on [Games & Scores](./games#game-settings-admin-mod). `/eggshen-config-games happenings` turns twists and server-wide happenings on or off, sets how often and where they're announced, and starts or ends one by hand ([details](./games#happenings-and-twists)):
+The game settings (`/eggshen-config-games`) are described on [Games & Scores](./games#game-settings-admin-mod). `/eggshen-config-games happenings` turns twists and server-wide happenings on or off, sets how often and where they're announced, and starts or ends one by hand. It also sets how often a [siege](./games#random-sieges) starts by itself (`siege-frequency`) and how long one lasts (`siege-minutes`) ([details](./games#happenings-and-twists)):
 
 ```
 /eggshen-config-games happenings frequency:rare
 /eggshen-config-games happenings start:fullmoon
+/eggshen-config-games happenings siege-frequency:rare
 ```
 
 **Required Permissions (all 6 commands):**
@@ -228,6 +229,7 @@ Enable or disable specific commands for regular users.
 - `foodfight` - Food fight command
 - `doom` - Doom command
 - `rescue` - Rescue command
+- `siege` - Siege command (members' `attack` and `status`; `start` and `end` are always admin and moderator only). Turning it off calls off a siege that's on within a minute, with no rewards or penalties, and no new one can start until it's back on
 
 **Note:** Admins and moderators can always use commands regardless of these settings. `/eggshen-help` automatically reflects these settings — a disabled command (and its whole category, if every command in it is disabled) won't appear in the help list for regular users.
 

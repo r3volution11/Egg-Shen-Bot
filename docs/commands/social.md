@@ -7,7 +7,7 @@ description: Interactive social features including surveys/polls, magical potion
 
 **Add fun and interactive elements** to your entertainment Discord community with surveys, polls, potions, food fights, horror-movie fates and rescues, and status quotes.
 
-`/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, a `/scoreboard` and a `/leaderboard`. See **[Games & Scores](./games)** for how points, shields and limits work. Each play can take an `item:` from your [Glovebox](./games#the-glovebox-and-items), and keep playing to earn [prizes](./games#prizes) and [titles](./games#titles).
+`/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, a `/scoreboard` and a `/leaderboard`, and `/siege` is a fifth, played all together against a monster. See **[Games & Scores](./games)** for how points, shields, limits and sieges work. Each play can take an `item:` from your [Glovebox](./games#the-glovebox-and-items), and keep playing to earn [prizes](./games#prizes) and [titles](./games#titles).
 
 ## Quick FAQ
 
@@ -29,8 +29,8 @@ A: Yes, all surveys are stored in JSON files per-server and persist even if the 
 **Q: Can I give a potion, throw food, deal a fate or rescue a whole role, or everyone?**  
 A: Yes. Pick a member, a role, or @everyone as the target. A role or @everyone shows in the message but nobody gets a notification; only a member you pick is pinged. Only you score points for those.
 
-**Q: Can I turn off /potion, /foodfight, /doom or /rescue?**  
-A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`, `setting:doom`, `setting:rescue`). Admins and moderators can always use them. To keep the games to certain channels, or out of them, use `/eggshen-config-games channels` ([Games & Scores](./games#where-games-can-be-played)).
+**Q: Can I turn off /potion, /foodfight, /doom, /rescue or /siege?**  
+A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`, `setting:doom`, `setting:rescue`, `setting:siege`). Admins and moderators can always use them. To keep the games to certain channels, or out of them, use `/eggshen-config-games channels` ([Games & Scores](./games#where-games-can-be-played)).
 
 **Q: The survey scrolled away. How do people find it?**  
 A: `/survey voting-post` posts it again at the bottom of the channel, with its buttons and the votes so far. The old card greys out and links to the new one.
@@ -153,18 +153,20 @@ A survey nobody voted in has no winner and no runoff, and a tie for second place
 📊 What should we watch tonight?
 
 🏆 1️⃣ **Horror**
-████████████████░░░░ 80.0% (8 votes)
+🟨🟨🟨🟨🟨🟨🟨🟨⬜⬜ `80%` · 8 votes
 
 2️⃣ Comedy
-▓▓▓▓░░░░░░░░░░░░░░░░ 20.0% (2 votes)
+🟦🟦⬜⬜⬜⬜⬜⬜⬜⬜ `20%` · 2 votes
 
 3️⃣ Action
-░░░░░░░░░░░░░░░░░░░░ 0.0% (0 votes)
+⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ `0%` · 0 votes
 
 Your Vote(s): 1️⃣ Horror
 ```
 
-The leader gets a 🏆 and a solid bar; everyone else gets a dimmer bar so the front-runner stands out at a glance. If the top spots are tied, no option is crowned.
+The leader gets a 🏆 and a gold bar; everyone else's bar is blue, so the front-runner stands out at a glance. If the top spots are tied, no option is crowned and every bar is blue.
+
+Once the bot's own emoji are uploaded (it does this itself on its first start), the bars are drawn with them, and they turn grey when the survey closes. A survey with many long options gets shorter bars so the whole card still fits; the bars keep the same length from the first vote to the last.
 
 ---
 
@@ -210,7 +212,7 @@ In a busy channel the survey scrolls up out of sight. This posts it again at the
 - Ends voting immediately
 - Disables the voting buttons on the survey message (they stay visible, just grayed out)
 - Updates the original message to show final results
-- Posts final results as a new message in the channel
+- Posts final results as a new message in the channel, with a chart of them: each option's share as a bar, most votes first, the winner's bar gold under a crown (or the 🎲 when a runoff was settled at random), and the total underneath. Emoji in the question and options are left out of the chart. If the chart can't be drawn, or the bot can't attach files in that channel, the message posts without it
 - Closed surveys can still be viewed with `/survey results`
 
 **Example:**

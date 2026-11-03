@@ -4,19 +4,21 @@ import { gameOption, periodOption, privateOption, periodLabel, enabledGames } fr
 import { renderLeaderboard } from '../utils/leaderboardCard.js';
 import { happeningsNow } from '../utils/gamePlay.js';
 import { loadGuildConfig } from '../utils/guildConfig.js';
+import { siegeCardData } from '../utils/siegeStore.js';
 
 /**
  * /leaderboard — the server's game card: the top 15 players in the games
  * this month, this year or all time, each with the badge of the title they
  * show, who leads each game, who received the most of what, and the
- * period's numbers, and (R4) any happening in progress. One gold embed
+ * period's numbers, and (R4) any happening in progress — (R5) and any
+ * monster attacking. One gold embed
  * (leaderboardCard.js); this command finds who everyone is now and hands
  * their names in.
  */
 
 export const data = new SlashCommandBuilder()
   .setName('leaderboard')
-  .setDescription('The server\'s top players in /potion, /foodfight, /doom and /rescue')
+  .setDescription('The server\'s top players in the games: /potion, /foodfight, /doom, /rescue, /siege')
   .addStringOption(gameOption)
   .addStringOption(periodOption)
   .addBooleanOption(privateOption);
@@ -78,6 +80,8 @@ export async function execute(interaction) {
     bestStreak: withName(board.bestStreak),
     totals: board.totals,
     happenings,
+    // R5: a monster attacking now, with its HP bar
+    siege: siegeCardData(interaction.guildId, null, now),
   }, { now });
 
   // Names, not mentions, but a name can still look like one: ping nobody

@@ -11,7 +11,7 @@ const TITLE_BY_KEY = Object.fromEntries(TITLES.map(t => [t.key, t]));
 
 /**
  * /scoreboard — one person's game card: points in /potion, /foodfight,
- * /doom and /rescue, their own by default or anyone's. Public unless
+ * /doom, /rescue and /siege, their own by default or anyone's. Public unless
  * private:true, like the tournament's personal cards (Doug, 2026-10-02).
  *
  * The card itself, and every refusal (games switched off, bots, "hasn't
@@ -26,7 +26,7 @@ const TITLE_BY_KEY = Object.fromEntries(TITLES.map(t => [t.key, t]));
 
 export const data = new SlashCommandBuilder()
   .setName('scoreboard')
-  .setDescription('Points in the games: /potion, /foodfight, /doom, /rescue')
+  .setDescription('Points in the games: /potion, /foodfight, /doom, /rescue, /siege')
   .addUserOption(option => option
     .setName('user')
     .setDescription('Whose scoreboard (default: yours)')

@@ -1,38 +1,14 @@
-import { createCanvas, loadImage, GlobalFonts } from '@napi-rs/canvas';
+import { createCanvas } from '@napi-rs/canvas';
 import { config } from '../config.js';
-import { existsSync } from 'fs';
 import { bracketWithWinnersSeated, winnerSide } from './bracketProgress.js';
 import { seededTitle } from './tournamentUI.js';
-
-// Register Arial font if available
-const arialPaths = [
-  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',             // Ubuntu/Debian (most common)
-  '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', // Ubuntu alternative
-  '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf',           // MS Core fonts
-  '/Library/Fonts/Arial.ttf',                                    // macOS
-  '/System/Library/Fonts/Supplemental/Arial.ttf',                // macOS alternative
-];
-
-let fontLoaded = false;
-console.log('[BracketVisualizer] Checking font paths...');
-for (const path of arialPaths) {
-  const exists = existsSync(path);
-  console.log(`[BracketVisualizer] ${path}: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
-  if (exists) {
-    try {
-      GlobalFonts.registerFromPath(path, 'Arial');
-      fontLoaded = true;
-      console.log(`[BracketVisualizer] ✓ Successfully loaded font from: ${path}`);
-      break;
-    } catch (error) {
-      console.error(`[BracketVisualizer] ✗ Failed to load font from ${path}:`, error.message);
-    }
-  }
-}
-
-if (!fontLoaded) {
-  console.warn('[BracketVisualizer] ⚠️  Could not load Arial font, using system default');
-}
+// Fonts, posters and the trophy come from the shared drawing kit. The bot
+// ships its own fonts (assets/fonts), so the bracket no longer goes looking
+// for Arial in five system paths, logging each, on every start.
+import {
+  CANVAS_COLORS, registerFonts, font, setFont, fitText, drawCoverImage, drawKitIcon,
+  loadImageCached, extractPosterColors, drawTrophyIcon, roundRectPath,
+} from './canvasKit.js';
 
 const PARTICIPANT_WIDTH = 240;
 const PARTICIPANT_HEIGHT = 50;
@@ -47,16 +23,8 @@ const CONNECTOR_EXTEND = 40; // How far connector lines extend horizontally
 // small: the two titles in a matchup are only MATCHUP_GAP apart.
 const WINNER_SCALE = 1.08;
 
-// Color scheme with primary blue rgb(78, 197, 237)
-const COLORS = {
-  primary: 'rgb(78, 197, 237)',
-  background: 'rgb(25, 30, 35)',      // Dark with blue tint
-  cardBg: 'rgb(35, 42, 48)',          // Slightly lighter with blue tint
-  cardBorder: 'rgb(50, 60, 68)',      // Border with blue tint
-  text: 'rgb(230, 235, 240)',         // Light text with blue tint
-  textMuted: 'rgb(140, 150, 160)',    // Muted text with blue tint
-  connectorLine: 'rgb(78, 110, 130)'  // Connector lines with blue tint
-};
+// Color scheme with primary blue rgb(78, 197, 237) (canvasKit.CANVAS_COLORS)
+const COLORS = CANVAS_COLORS;
 
 /**
  * Get regional label for a matchup (e.g., "1A", "2C")
@@ -104,6 +72,7 @@ export async function generateBracketImage(tournament) {
   // Each decided winner shown in their next matchup straight away, not as
   // "TBD" until the whole round is over (bracketProgress.js)
   const knockoutBracket = bracketWithWinnersSeated(tournament.knockoutBracket);
+  registerFonts();
   
   if (!knockoutBracket || knockoutBracket.length === 0) {
     throw new Error('Tournament has no knockout bracket yet');
@@ -174,7 +143,7 @@ export async function generateBracketImage(tournament) {
   
   // Title
   ctx.fillStyle = COLORS.text;
-  ctx.font = `bold ${TITLE_FONT_SIZE}px Arial, sans-serif`;
+  setFont(ctx, TITLE_FONT_SIZE, { weight: 700 }, tournament.name);
   ctx.textAlign = 'center';
   ctx.fillText(tournament.name, canvasWidth / 2, CANVAS_PADDING - 10);
   
@@ -195,7 +164,7 @@ export async function generateBracketImage(tournament) {
     
     // Finals label
     ctx.fillStyle = COLORS.primary;
-    ctx.font = `bold ${(FONT_SIZE + 2) * finalsScale}px Arial, sans-serif`;
+    ctx.font = font((FONT_SIZE + 2) * finalsScale, { weight: 700 });
     ctx.textAlign = 'center';
     ctx.fillText('Finals', canvasWidth / 2, CANVAS_PADDING + 40);
   }
@@ -250,7 +219,7 @@ async function drawRoundColumn(ctx, round, x, canvasHeight, knockoutResults, sid
   
   // Round label
   ctx.fillStyle = COLORS.primary;
-  ctx.font = `bold ${FONT_SIZE + 2}px Arial, sans-serif`;
+  ctx.font = font(FONT_SIZE + 2, { weight: 700 });
   ctx.textAlign = 'center';
   const labelX = x + (PARTICIPANT_WIDTH / 2);
   ctx.fillText(getRoundDisplayName(round.name), labelX, CANVAS_PADDING + 40);
@@ -353,7 +322,7 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1, round
   if (typeof position === 'number' && roundName) {
     const regionalLabel = getRegionalLabel(position, roundName);
     ctx.fillStyle = COLORS.primary;
-    ctx.font = `bold ${FONT_SIZE}px Arial, sans-serif`;
+    ctx.font = font(FONT_SIZE, { weight: 700 });
     ctx.textAlign = 'center';
     // Set, not inherited: the last title drawn left it at 'middle', which
     // dropped every label but the first onto the frame, touching an
@@ -372,89 +341,6 @@ async function drawMatchup(ctx, matchup, x, y, knockoutResults, scale = 1, round
   } else {
     await drawFirst();
     await drawSecond();
-  }
-}
-
-/**
- * Extract dominant color from image URL
- */
-/**
- * Calculate color difference using simple RGB distance
- */
-function colorDistance(rgb1, rgb2) {
-  const [r1, g1, b1] = rgb1.split(',').map(Number);
-  const [r2, g2, b2] = rgb2.split(',').map(Number);
-  return Math.sqrt(Math.pow(r2 - r1, 2) + Math.pow(g2 - g1, 2) + Math.pow(b2 - b1, 2));
-}
-
-/**
- * Extract multiple dominant colors from poster image for gradient
- * @param {string} imageUrl - URL of the poster image
- * @returns {Promise<string[]>} Array of 3-4 RGB color strings
- */
-async function extractPosterColors(imageUrl) {
-  try {
-    const img = await loadImage(imageUrl);
-    const tempCanvas = createCanvas(img.width, img.height);
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(img, 0, 0);
-    
-    // Sample pixels from the image
-    const imageData = tempCtx.getImageData(0, 0, img.width, img.height);
-    const data = imageData.data;
-    
-    // Count color occurrences
-    const colorCounts = {};
-    const step = 10; // Sample every 10th pixel for performance
-    
-    for (let i = 0; i < data.length; i += 4 * step) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const a = data[i + 3];
-      
-      // Skip transparent or very dark/light pixels
-      if (a < 128 || (r + g + b) < 60 || (r + g + b) > 700) continue;
-      
-      // Round to nearest 30 to group similar colors
-      const key = `${Math.round(r / 30) * 30},${Math.round(g / 30) * 30},${Math.round(b / 30) * 30}`;
-      colorCounts[key] = (colorCounts[key] || 0) + 1;
-    }
-    
-    // Sort colors by frequency
-    const sortedColors = Object.entries(colorCounts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([color]) => color);
-    
-    // Select diverse colors (filter out colors too similar to already selected ones)
-    const selectedColors = [];
-    const minDistance = 80; // Minimum color difference threshold
-    
-    for (const color of sortedColors) {
-      if (selectedColors.length === 0) {
-        selectedColors.push(color);
-      } else {
-        // Check if this color is different enough from already selected colors
-        const isDifferent = selectedColors.every(selected => 
-          colorDistance(color, selected) > minDistance
-        );
-        if (isDifferent) {
-          selectedColors.push(color);
-        }
-      }
-      if (selectedColors.length >= 3) break;
-    }
-    
-    // Ensure we have at least 2 colors
-    while (selectedColors.length < 2) {
-      selectedColors.push(selectedColors[selectedColors.length - 1] || '50,60,68');
-    }
-    
-    return selectedColors.map(color => `rgb(${color})`);
-  } catch (error) {
-    console.error('[BracketVisualizer] Error extracting colors:', error.message);
-    // Fallback gradient using cardBg
-    return [COLORS.cardBg, COLORS.cardBg];
   }
 }
 
@@ -483,7 +369,7 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
     ctx.strokeRect(x, y, width, height);
     
     ctx.fillStyle = COLORS.textMuted;
-    ctx.font = `${fontSize}px Arial, sans-serif`;
+    ctx.font = font(fontSize);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('TBD', x + width / 2, y + height / 2);
@@ -502,53 +388,23 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
     ctx.restore();
   }
 
-  // Draw poster image and gradient for participants with posters
+  // Draw poster image and gradient for participants with posters. Posters
+  // come through the kit's cache: the whole bracket is redrawn after every
+  // round, and each poster used to be downloaded twice per drawing (once
+  // here, once for its colours).
   if (movie.posterUrl) {
-    try {
-      // Load and draw poster image as background
-      const posterImg = await loadImage(movie.posterUrl);
-      
-      // Calculate scaling to cover the box while maintaining aspect ratio
-      const posterAspect = posterImg.width / posterImg.height;
-      const boxAspect = width / height;
-      
-      let drawWidth, drawHeight, offsetX, offsetY;
-      if (posterAspect > boxAspect) {
-        // Poster is wider - fit to height
-        drawHeight = height;
-        drawWidth = height * posterAspect;
-        offsetX = (width - drawWidth) / 2;
-        offsetY = 0;
-      } else {
-        // Poster is taller - fit to width
-        drawWidth = width;
-        drawHeight = width / posterAspect;
-        offsetX = 0;
-        offsetY = (height - drawHeight) / 2;
-      }
-      
-      // Save context and clip to box
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x, y, width, height);
-      ctx.clip();
-      
-      // Draw poster at reduced opacity
-      ctx.globalAlpha = 0.5;
-      ctx.drawImage(posterImg, x + offsetX, y + offsetY, drawWidth, drawHeight);
-      ctx.globalAlpha = 1.0;
-      
-      // Restore context
-      ctx.restore();
-    } catch (error) {
-      console.error('[BracketVisualizer] Error loading poster image:', error.message);
+    const posterImg = await loadImageCached(movie.posterUrl);
+    if (posterImg) {
+      // Covering the box, at reduced opacity
+      drawCoverImage(ctx, posterImg, x, y, width, height, { alpha: 0.5 });
+    } else {
       // Fall back to solid color if poster fails to load
       ctx.fillStyle = COLORS.cardBg;
       ctx.fillRect(x, y, width, height);
     }
     
     // Extract colors and create gradient overlay
-    const colors = await extractPosterColors(movie.posterUrl);
+    const colors = await extractPosterColors(posterImg);
     
     // Create extended diagonal gradient for subtle color transition
     const gradientExtend = 2.5;
@@ -592,23 +448,14 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
   ctx.strokeRect(x, y, width, height);
 
   ctx.fillStyle = COLORS.text;
-  ctx.font = `${fontSize}px Arial, sans-serif`;
+  const fullTitle = seededTitle(movie); // "(1) Halloween" in a seeded bracket
+  setFont(ctx, fontSize, {}, fullTitle);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
   // Truncate text if too long, leaving room at the right for a winner's trophy
   const maxWidth = width - (isWinner ? 48 : 40) * scale;
-  let displayText = seededTitle(movie); // "(1) Halloween" in a seeded bracket
-  let textWidth = ctx.measureText(displayText).width;
-  
-  if (textWidth > maxWidth) {
-    while (ctx.measureText(displayText + '...').width > maxWidth && displayText.length > 0) {
-      displayText = displayText.slice(0, -1);
-    }
-    displayText += '...';
-  }
-  
-  ctx.fillText(displayText, x + 10 * scale, y + height / 2);
+  ctx.fillText(fitText(ctx, fullTitle, maxWidth), x + 10 * scale, y + height / 2);
   
   // How it qualified from the groups (winner/runner-up/wildcard) - small
   // label on left. This read `type`, which every title has (its media type),
@@ -617,7 +464,7 @@ async function drawParticipant(ctx, movie, x, y, isWinner, scale = 1) {
   const qualified = movie.qualifiedAs || (['winner', 'runnerup', 'wildcard'].includes(movie.type) ? movie.type : null);
   if (qualified) {
     ctx.fillStyle = COLORS.textMuted;
-    ctx.font = `bold ${(FONT_SIZE - 2) * scale}px Arial, sans-serif`;
+    ctx.font = font((FONT_SIZE - 2) * scale, { weight: 700 });
     ctx.textAlign = 'left';
     const typeLabel = qualified === 'winner' ? 'W' : qualified === 'runnerup' ? 'R' : 'WC';
     ctx.fillText(typeLabel, x + 5 * scale, y + 12 * scale);
@@ -653,140 +500,7 @@ function drawConnectorLine(ctx, x, y, roundIndex, matchupIndex, totalMatchups, y
   ctx.moveTo(startX, startY);
 }
 
-/**
- * A shining gold trophy in the style of the 🏆 emoji, on a matchup winner's
- * tile and above the champion card. Drawn as shapes, not text: the server's
- * fonts have no colour emoji, so a 🏆 character renders as an empty box (as
- * ✓ once did here).
- * @param {number} cx - Centre x
- * @param {number} cy - Centre y
- * @param {number} size - Height of the trophy in pixels, sparkles aside
- */
-function drawTrophyIcon(ctx, cx, cy, size) {
-  const u = size / 30; // Drawn on a grid where the cup's rim is y -14 and the base's foot y +15
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(u, u);
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-
-  // Metallic gold: pale where the light catches the left, deep amber right
-  const gold = ctx.createLinearGradient(-11, 0, 11, 0);
-  gold.addColorStop(0, '#FFF3A8');
-  gold.addColorStop(0.35, '#FFD43B');
-  gold.addColorStop(0.75, '#F0A30A');
-  gold.addColorStop(1, '#B86E00');
-  const outline = '#8A5200';
-
-  const cupPath = () => {
-    ctx.beginPath();
-    ctx.moveTo(-10.5, -14);
-    ctx.lineTo(10.5, -14);
-    ctx.bezierCurveTo(10.5, -4, 6.5, 2.5, 2, 3);
-    ctx.lineTo(-2, 3);
-    ctx.bezierCurveTo(-6.5, 2.5, -10.5, -4, -10.5, -14);
-    ctx.closePath();
-  };
-
-  // The glow: every gold part casts a warm halo. shadowBlur is in canvas
-  // pixels, unaffected by the scale above, hence the * u.
-  ctx.shadowColor = 'rgba(255, 200, 40, 0.85)';
-  ctx.shadowBlur = 9 * u;
-
-  // Handles, behind the cup
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 2.6;
-  for (const side of [-1, 1]) {
-    ctx.beginPath();
-    ctx.moveTo(9.5 * side, -12);
-    ctx.bezierCurveTo(17 * side, -12.5, 16.5 * side, -2, 6 * side, -1);
-    ctx.stroke();
-  }
-
-  // Cup, stem and two-step base
-  ctx.fillStyle = gold;
-  cupPath();
-  ctx.fill();
-  ctx.fillRect(-2, 3, 4, 5);
-  roundRectPath(ctx, -6, 8, 12, 2.5, 1);
-  ctx.fill();
-  roundRectPath(ctx, -8.5, 10.5, 17, 4.5, 1.2);
-  ctx.fill();
-
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = 0.8;
-  cupPath();
-  ctx.stroke();
-  roundRectPath(ctx, -6, 8, 12, 2.5, 1);
-  ctx.stroke();
-  roundRectPath(ctx, -8.5, 10.5, 17, 4.5, 1.2);
-  ctx.stroke();
-
-  // Engraved plate on the base
-  ctx.fillStyle = 'rgba(138, 82, 0, 0.55)';
-  ctx.fillRect(-4.5, 11.8, 9, 2);
-
-  // The rim catching the light
-  ctx.strokeStyle = '#FFF8D0';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(-9.5, -13.3);
-  ctx.lineTo(9.5, -13.3);
-  ctx.stroke();
-
-  // Gloss: a white streak down the bowl's lit side
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-  ctx.beginPath();
-  ctx.moveTo(-7.5, -12);
-  ctx.quadraticCurveTo(-7.8, -4, -3.5, 0.5);
-  ctx.quadraticCurveTo(-5.6, -4.5, -5.2, -12);
-  ctx.closePath();
-  ctx.fill();
-
-  // Sparkles: the shine
-  drawSparkle(ctx, 11.5, -15, 4.2, u);
-  drawSparkle(ctx, -13, 7, 2.6, u);
-  drawSparkle(ctx, 4.5, -8.5, 1.8, u); // a glint on the cup itself
-
-  ctx.restore();
-}
-
-/** A four-pointed white sparkle with a soft glow, centred on (x, y) */
-function drawSparkle(ctx, x, y, r, u) {
-  const k = r * 0.22; // How far the sides pinch in towards the centre
-  ctx.save();
-  ctx.shadowColor = 'rgba(255, 240, 180, 0.95)';
-  ctx.shadowBlur = r * 1.5 * u;
-  ctx.fillStyle = '#FFFFFF';
-  ctx.beginPath();
-  ctx.moveTo(x, y - r);
-  ctx.quadraticCurveTo(x + k, y - k, x + r, y);
-  ctx.quadraticCurveTo(x + k, y + k, x, y + r);
-  ctx.quadraticCurveTo(x - k, y + k, x - r, y);
-  ctx.quadraticCurveTo(x - k, y - k, x, y - r);
-  ctx.fill();
-  ctx.restore();
-}
-
-/**
- * Helper function to draw a rounded rectangle path
- */
-function roundRectPath(ctx, x, y, width, height, radius) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  ctx.lineTo(x + radius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}
+// drawTrophyIcon, drawSparkle and roundRectPath moved to canvasKit.js
 
 /**
  * Draw champion section - large rectangular card with poster
@@ -801,50 +515,12 @@ async function drawChampion(ctx, winner, x, y) {
   const cardX = x - (width / 2);
   const cardY = y - (height / 2);
   
-  // Draw poster background if available
-  if (winner.posterUrl) {
-    try {
-      const posterImg = await loadImage(winner.posterUrl);
-      
-      // Calculate scaling to cover the box
-      const posterAspect = posterImg.width / posterImg.height;
-      const boxAspect = width / height;
-      
-      let drawWidth, drawHeight, offsetX, offsetY;
-      if (posterAspect > boxAspect) {
-        drawHeight = height;
-        drawWidth = height * posterAspect;
-        offsetX = (width - drawWidth) / 2;
-        offsetY = 0;
-      } else {
-        drawWidth = width;
-        drawHeight = width / posterAspect;
-        offsetX = 0;
-        offsetY = (height - drawHeight) / 2;
-      }
-      
-      // Save context and clip to rounded box
-      ctx.save();
-      roundRectPath(ctx, cardX, cardY, width, height, borderRadius);
-      ctx.clip();
-      
-      // Draw poster at 100% opacity - full visibility for champion!
-      ctx.globalAlpha = 1.0;
-      ctx.drawImage(posterImg, cardX + offsetX, cardY + offsetY, drawWidth, drawHeight);
-      
-      ctx.restore();
-    } catch (error) {
-      console.error('[BracketVisualizer] Error loading champion poster:', error.message);
-      // Fallback to gradient background
-      const gradient = ctx.createLinearGradient(cardX, cardY, cardX + width, cardY + height);
-      gradient.addColorStop(0, COLORS.primary);
-      gradient.addColorStop(1, COLORS.cardBg);
-      ctx.fillStyle = gradient;
-      roundRectPath(ctx, cardX, cardY, width, height, borderRadius);
-      ctx.fill();
-    }
+  // Draw poster background if available - full visibility for champion!
+  const posterImg = winner.posterUrl ? await loadImageCached(winner.posterUrl) : null;
+  if (posterImg) {
+    drawCoverImage(ctx, posterImg, cardX, cardY, width, height, { radius: borderRadius });
   } else {
-    // No poster - use gradient background
+    // No poster, or it failed to load - use gradient background
     const gradient = ctx.createLinearGradient(cardX, cardY, cardX + width, cardY + height);
     gradient.addColorStop(0, COLORS.primary);
     gradient.addColorStop(1, COLORS.cardBg);
@@ -870,7 +546,7 @@ async function drawChampion(ctx, winner, x, y) {
   
   // "CHAMPION" label in top band
   ctx.fillStyle = '#FFD700'; // Gold text
-  ctx.font = `bold ${32}px Arial, sans-serif`;
+  ctx.font = font(32, { weight: 700 });
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('CHAMPION', x, cardY + textBandHeight / 2);
@@ -893,22 +569,10 @@ async function drawChampion(ctx, winner, x, y) {
   
   // Winner title in bottom band
   ctx.fillStyle = COLORS.text;
-  ctx.font = `bold ${28}px Arial, sans-serif`;
+  setFont(ctx, 28, { weight: 700 }, winner.title);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  
-  const maxWidth = width - 30;
-  let displayText = winner.title;
-  let textWidth = ctx.measureText(displayText).width;
-  
-  if (textWidth > maxWidth) {
-    while (ctx.measureText(displayText + '...').width > maxWidth && displayText.length > 0) {
-      displayText = displayText.slice(0, -1);
-    }
-    displayText += '...';
-  }
-  
-  ctx.fillText(displayText, x, cardY + height - (textBandHeight / 2));
+  ctx.fillText(fitText(ctx, winner.title, width - 30), x, cardY + height - (textBandHeight / 2));
 }
 
 /**
@@ -949,6 +613,7 @@ export async function generateFullTournamentView(tournament) {
   const { groups, name, status } = tournament;
   const groupIds = Object.keys(groups).sort();
   const groupCount = groupIds.length;
+  registerFonts();
   
   // Calculate dimensions
   const GROUP_WIDTH = 300;
@@ -972,18 +637,18 @@ export async function generateFullTournamentView(tournament) {
   
   // Title
   ctx.fillStyle = COLORS.text;
-  ctx.font = `bold ${TITLE_FONT_SIZE}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+  setFont(ctx, TITLE_FONT_SIZE, { weight: 700 }, name);
   ctx.textAlign = 'center';
   ctx.fillText(name, canvasWidth / 2, 50);
   
   // Status subtitle
-  ctx.font = `${FONT_SIZE + 2}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+  ctx.font = font(FONT_SIZE + 2);
   ctx.fillStyle = COLORS.textMuted;
   const statusText = status === 'setup' ? 'Tournament Setup' : 'Group Stage';
   ctx.fillText(statusText, canvasWidth / 2, 75);
   
-  // Draw each group
-  groupIds.forEach((groupId, index) => {
+  // Draw each group (in turn: the kit icons are drawn with an await)
+  for (const [index, groupId] of groupIds.entries()) {
     const group = groups[groupId];
     const row = Math.floor(index / GROUPS_PER_ROW);
     const col = index % GROUPS_PER_ROW;
@@ -1005,7 +670,7 @@ export async function generateFullTournamentView(tournament) {
     ctx.fillRect(x, y, GROUP_WIDTH, 40);
     
     ctx.fillStyle = COLORS.background;
-    ctx.font = `bold ${FONT_SIZE + 4}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+    ctx.font = font(FONT_SIZE + 4, { weight: 700 });
     ctx.textAlign = 'center';
     ctx.fillText(`Group ${groupId}`, x + GROUP_WIDTH / 2, y + 26);
     
@@ -1014,23 +679,21 @@ export async function generateFullTournamentView(tournament) {
     const lineHeight = 50;
     
     ctx.textAlign = 'left';
-    ctx.font = `${FONT_SIZE}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
     
     group.movies.forEach((movie, i) => {
       const movieY = titleY + (i * lineHeight);
       const voteCount = movie.votes ? movie.votes.length : 0;
       
       // Position indicator
+      ctx.font = font(FONT_SIZE);
       ctx.fillStyle = COLORS.textMuted;
       ctx.fillText(`${i + 1}.`, x + 15, movieY);
       
-      // Movie title (truncated if too long)
+      // Movie title (cut to fit, clear of the vote count)
       ctx.fillStyle = COLORS.text;
-      let titleText = movie.title;
-      if (titleText.length > 25) {
-        titleText = titleText.substring(0, 22) + '...';
-      }
-      ctx.fillText(titleText, x + 40, movieY);
+      setFont(ctx, FONT_SIZE, {}, movie.title);
+      ctx.fillText(fitText(ctx, movie.title, GROUP_WIDTH - 40 - 45), x + 40, movieY);
+      ctx.font = font(FONT_SIZE);
       
       // Vote count (if voting has started)
       if (group.votingOpen || group.votingClosed) {
@@ -1041,25 +704,40 @@ export async function generateFullTournamentView(tournament) {
       }
     });
     
-    // Voting status indicator
+    // Voting status indicator: the kit's ballot box or padlock, then the
+    // words. These were 🗳️ and 🔒 characters, which drew as empty boxes on
+    // the server (no colour-emoji font).
     if (group.votingOpen) {
       ctx.fillStyle = 'rgb(88, 197, 77)'; // Green
-      ctx.font = `bold ${FONT_SIZE - 2}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
-      ctx.textAlign = 'center';
-      ctx.fillText('🗳️ VOTING OPEN', x + GROUP_WIDTH / 2, y + GROUP_HEIGHT - 15);
+      await iconLabel(ctx, 'ballot', 'VOTING OPEN', x + GROUP_WIDTH / 2, y + GROUP_HEIGHT - 15, FONT_SIZE - 2);
     } else if (group.votingClosed) {
       ctx.fillStyle = COLORS.textMuted;
-      ctx.font = `bold ${FONT_SIZE - 2}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
-      ctx.textAlign = 'center';
-      ctx.fillText('🔒 CLOSED', x + GROUP_WIDTH / 2, y + GROUP_HEIGHT - 15);
+      await iconLabel(ctx, 'lock', 'CLOSED', x + GROUP_WIDTH / 2, y + GROUP_HEIGHT - 15, FONT_SIZE - 2);
     }
-  });
+  }
   
   // Footer with instructions
   ctx.fillStyle = COLORS.textMuted;
-  ctx.font = `${FONT_SIZE - 2}px ${fontLoaded ? 'Arial' : 'sans-serif'}`;
+  ctx.font = font(FONT_SIZE - 2);
   ctx.textAlign = 'center';
   ctx.fillText('Use /bracket status for live standings • /bracket help for commands', canvasWidth / 2, canvasHeight - 20);
   
   return canvas.toBuffer('image/png');
+}
+
+/**
+ * A kit icon and a bold label, centred together on cx with the text's
+ * baseline at `baseline`, in the current fill colour. The icon is half as
+ * tall again as the text; without its PNG the label is centred alone.
+ */
+async function iconLabel(ctx, code, text, cx, baseline, px) {
+  ctx.font = font(px, { weight: 700 });
+  const icon = Math.round(px * 1.6);
+  const gap = Math.round(px * 0.4);
+  const textWidth = ctx.measureText(text).width;
+  const left = cx - (icon + gap + textWidth) / 2;
+  // The icon centred on the capitals (about 0.35 em above the baseline)
+  const drawn = await drawKitIcon(ctx, code, left, baseline - px * 0.35 - icon / 2, icon);
+  ctx.textAlign = drawn ? 'left' : 'center';
+  ctx.fillText(text, drawn ? left + icon + gap : cx, baseline);
 }

@@ -60,6 +60,17 @@ You helped create what may be the bot's most unique and cool feature with the to
 
 ---
 
+## Fonts
+
+The bot's drawn images (the tournament bracket, matchup results and survey charts) use two typefaces, both under the [SIL Open Font License 1.1](https://openfontlicense.org):
+
+- **[Barlow](https://github.com/jpt/barlow)** by Jeremy Tribby, © 2017 The Barlow Project Authors, for names, titles and numbers
+- **[Anton](https://github.com/googlefonts/AntonFont)** by Vernon Adams, © 2020 The Anton Project Authors, for headings
+
+Thank you to their designers for making them free to use. The font files and their licences ship with the bot in `assets/fonts/`.
+
+---
+
 ## To Everyone
 
 Thank you for giving me the opportunity to bounce ideas off you and get your feedback. You're all awesome!

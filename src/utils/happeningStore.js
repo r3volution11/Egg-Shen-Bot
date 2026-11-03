@@ -27,7 +27,9 @@
  *                unannounced, endedAt, endNoticeId }
  *   lastEndedAt, spawned: { day, count }, history: [≤20 {kind, source,
  *   startedAt, endedAt}]
- * Keys this module doesn't know (R5's siege) are kept as they are.
+ * Keys this module doesn't know are kept as they are: R5's siege, its
+ * siegeDial and lastSiegeAt live here (siegeStore.js), and a random
+ * happening never starts while a siege is live (spawnEligibility).
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, copyFileSync } from 'fs';
@@ -420,14 +422,18 @@ export function spawnChance(kinds, settings, now = Date.now()) {
 
 /**
  * Could a random happening start now, and which kinds? Every rule but the
- * dice: switched on, nothing in progress, the gap since the last one, the
- * daily limit, and enough members active for each kind.
+ * dice: switched on, nothing in progress (no siege either), the gap since
+ * the last one, the daily limit, and enough members active for each kind.
  * @returns {{ok: true, kinds: string[]} | {ok: false, reason: string}}
  */
 export function spawnEligibility(data, settings, now = Date.now()) {
   if (settings?.happenings === false || frequencyMultiplier(settings) <= 0) return { ok: false, reason: 'off' };
   const h = data.happening;
   if (inProgress(h, now)) return { ok: false, reason: 'in-progress' };
+  // R5: a monster attack is the server's event while it lasts. A siege is
+  // live until the scheduler finishes it, which it does earlier in the
+  // same pass, so the status is the whole check.
+  if (data.siege?.status === 'live') return { ok: false, reason: 'siege' };
   // One that ran out unended stopped at its endsAt
   const lastEnded = Math.max(data.lastEndedAt || 0, h && !h.endedAt ? h.endsAt : 0);
   if (now - lastEnded < HAPPENING_RULES.gapMinutes * MINUTE) return { ok: false, reason: 'gap' };

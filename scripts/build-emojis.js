@@ -42,7 +42,7 @@ const PNG_SIZE = 128;
 /** The uploaded name's hash: first 4 hex of the sha256 of the PNG's bytes */
 const pngHash = (bytes) => createHash('sha256').update(bytes).digest('hex').slice(0, 4);
 
-// ---- fonts: the same system-font lookup as bracketVisualizer.js (no TTFs ship with the bot)
+// ---- fonts: a system-font lookup for the contact sheet's labels only (the bot's own fonts are in assets/fonts, for cardImages.js)
 function registerFirst(family, candidates) {
   for (const p of candidates) {
     if (!existsSync(p)) continue;

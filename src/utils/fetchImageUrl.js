@@ -20,17 +20,25 @@ export const MAX_FETCHED_IMAGE_BYTES = 8 * 1024 * 1024;
 
 /**
  * @param {string} imageUrl
+ * @param {Object} [options]
+ * @param {Function} [options.fetchImpl] - fetch to use (tests inject one;
+ *   canvasKit.loadImageCached passes it through for poster downloads)
+ * @param {AbortSignal} [options.signal] - aborts the request (a timeout)
+ * @param {boolean} [options.requireImageType] - refuse a response whose
+ *   content-type isn't image/*. canvasKit turns it off for posters: some
+ *   hosts serve images as application/octet-stream, the canvas used to load
+ *   those, and it checks the bytes decode anyway.
  * @returns {Promise<{ ok: true, buffer: Buffer, contentType: string } | { ok: false, error: string }>}
  */
-export async function fetchImageUrl(imageUrl) {
+export async function fetchImageUrl(imageUrl, { fetchImpl = globalThis.fetch, signal, requireImageType = true } = {}) {
   try {
-    const response = await fetch(imageUrl);
+    const response = await (signal ? fetchImpl(imageUrl, { signal }) : fetchImpl(imageUrl));
     if (!response.ok) {
       return { ok: false, error: `Couldn't fetch that URL (server responded ${response.status}).` };
     }
 
     const contentType = response.headers.get('content-type') || '';
-    if (!contentType.startsWith('image/')) {
+    if (requireImageType && !contentType.startsWith('image/')) {
       return { ok: false, error: `That URL didn't return an image (got "${contentType || 'unknown'}").` };
     }
 

@@ -208,6 +208,7 @@ export const data = new SlashCommandBuilder()
                 { name: 'Food Fight Command', value: 'foodfight' },
                 { name: 'Doom Command', value: 'doom' },
                 { name: 'Rescue Command', value: 'rescue' },
+                { name: 'Siege Command', value: 'siege' },
                 // These gated their commands all along with no way to switch
                 // them: the keys existed, the choices didn't
                 { name: 'Escape Velocity Command', value: 'escape' },
@@ -561,6 +562,7 @@ export async function execute(interaction) {
         foodfight: '/foodfight command',
         doom: '/doom command',
         rescue: '/rescue command',
+        siege: '/siege command',
         escape: '/escape command',
         quote: '/quote command',
         suggestQuote: '/suggest-quote command',

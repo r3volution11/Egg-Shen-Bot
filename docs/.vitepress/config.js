@@ -28,6 +28,16 @@ const sidebar = [
           { text: 'Sports-Style Tournaments', link: '/guides/tournaments/sports-styles' },
           { text: 'Tournament FAQ', link: '/guides/tournaments/faq' }
         ]
+      },
+      {
+        text: 'Games Quick Guides',
+        link: '/guides/games/',
+        collapsed: false,
+        items: [
+          { text: 'Play the Games', link: '/guides/games/play' },
+          { text: 'Fight a Siege', link: '/guides/games/siege' },
+          { text: 'Games FAQ', link: '/guides/games/faq' }
+        ]
       }
     ]
   },
@@ -202,7 +212,13 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Getting Started', link: '/getting-started' },
-      { text: 'Guides', link: '/guides/tournaments/' },
+      {
+        text: 'Guides',
+        items: [
+          { text: 'Tournament Quick Guides', link: '/guides/tournaments/' },
+          { text: 'Games Quick Guides', link: '/guides/games/' }
+        ]
+      },
       { text: 'Commands', link: '/commands/' },
       { text: 'Features', link: '/features/rate-limiting' },
       { text: 'GitHub', link: 'https://github.com/r3volution11/Egg-Shen-Bot' }

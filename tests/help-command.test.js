@@ -243,10 +243,30 @@ describe('/eggshen-help and AI image visibility', () => {
 
     // Its card shows the scores, so it is only advertised while a game is on
     const config = await loadGuildConfig(GUILD_ID);
-    config.commandPermissions = { ...config.commandPermissions, potion: false, foodfight: false, doom: false, rescue: false };
+    config.commandPermissions = { ...config.commandPermissions, potion: false, foodfight: false, doom: false, rescue: false, siege: false };
     await saveGuildConfig(GUILD_ID, config);
     fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');
     expect(fun ?? '').not.toContain('Game card');
+  });
+});
+
+describe('/eggshen-help and /how-to-play', () => {
+  test('/how-to-play is listed under Fun & Games while a game is on, and goes when every game is off', async () => {
+    let fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');
+    expect(fun).toContain('**❓ /how-to-play** - How the games work: items, prizes, titles, nights, twists, happenings, sieges');
+
+    // One game on is enough: there's something to explain
+    const config = await loadGuildConfig(GUILD_ID);
+    config.commandPermissions = { ...config.commandPermissions, potion: false, foodfight: false, doom: false, siege: false };
+    await saveGuildConfig(GUILD_ID, config);
+    fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');
+    expect(fun).toContain('/how-to-play');
+
+    // Every game off: the whole Fun & Games field goes, and the line with it
+    config.commandPermissions.rescue = false;
+    await saveGuildConfig(GUILD_ID, config);
+    fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');
+    expect(fun ?? '').not.toContain('/how-to-play');
   });
 });
 

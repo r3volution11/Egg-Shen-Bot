@@ -45,7 +45,9 @@ The mission card updates as people play. Each line shows the player's score, the
 | 💥 | Failed today |
 | 🪂 | Aborted today |
 | 🌍 | Reached orbit today |
-| 🔥 | Days in a row they've launched |
+| 🔥 `3` | Days in a row they've launched (from 2) |
+
+The top three get medals. Your dashboard shows your climb as three bars, one for each stretch between stage separations; once the bot's own emoji are uploaded they're drawn with them.
 
 A new mission card is posted each day, so you get a notification that a new launch window is open. The channel also gets a short message when someone clears stage separation 10 or reaches orbit.
 

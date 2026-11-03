@@ -16,7 +16,9 @@ export const itemLabel = (key) => (Object.hasOwn(ITEMS, key) ? `${ITEMS[key].emo
 
 /** The command a play is, for "doesn't work with /doom fate" */
 const COMMAND = { foodfight: '/foodfight', doom: '/doom', rescue: '/rescue', potion: '/potion' };
-const playName = (game, action) => `${COMMAND[game] || `/${game}`}${action ? ` ${action}` : ''}`;
+const playName = (game, action) => (game === 'siege'
+  ? `/siege attack${action ? ` weapon:${action}` : ''}`
+  : `${COMMAND[game] || `/${game}`}${action ? ` ${action}` : ''}`);
 
 // ── refusals (private, before any cooldown is spent) ────────────────────
 
@@ -29,16 +31,16 @@ function howToEarn(key) {
   return '';
 }
 
-/** The items you can name in `item:`, for "that isn't an item" */
-const ACTIVE_ITEMS = Object.values(ITEMS).filter(i => !i.passive && i.game !== 'siege').map(i => i.name).join(', ');
+/** The items you can name in `item:`, for "that isn't an item": a siege adds the Silver Bullet */
+const activeItems = (siege) => Object.values(ITEMS).filter(i => !i.passive && (siege || i.game !== 'siege')).map(i => i.name).join(', ');
 
 export const ITEM_REFUSALS = {
-  unknown: () => `🧰 That isn't an item. The ones you can use are ${ACTIVE_ITEMS}.`,
+  unknown: (key, { game } = {}) => `🧰 That isn't an item. The ones you can use are ${activeItems(game === 'siege')}.`,
   missing: (key) => `🧰 You don't have a ${itemLabel(key)} yet.${howToEarn(key)}`,
   unfit: (key, { game, action }) => {
     const item = ITEMS[key];
     if (item?.passive) return `🧰 ${itemLabel(key)} works by itself: there's no need to pick it.`;
-    if (item?.game === 'siege') return `🧰 ${itemLabel(key)} is only for fighting a monster.`;
+    if (item?.game === 'siege' && game !== 'siege') return `🧰 ${itemLabel(key)} is only for fighting a monster.`;
     return `🧰 ${itemLabel(key)} doesn't work with ${playName(game, action)}.`;
   },
   limit: () => `🧰 You've used ${DAILY.itemUses} items today, the most there is. They work again tomorrow (UTC).`,
@@ -50,9 +52,13 @@ export const ITEM_PLACEHOLDERS = {
   limit: `🧰 ${DAILY.itemUses} items used today: they work again tomorrow (UTC)`,
 };
 
-/** "🥧 Golden Pie ×2 · can't miss, points ×2" (≤ 100 characters) */
-export const itemChoiceName = (key, count, action) =>
-  `${itemLabel(key)} ×${count} · ${ITEM_EFFECTS[key]?.[action]?.short || ITEMS[key]?.about || ''}`.slice(0, 100);
+/**
+ * "🥧 Golden Pie ×2 · can't miss, points ×2" (≤ 100 characters). `short`
+ * is the effect's own few words when the caller knows it (a siege attack's
+ * come from SIEGE_ITEM_EFFECTS, not ITEM_EFFECTS).
+ */
+export const itemChoiceName = (key, count, action, short = ITEM_EFFECTS[key]?.[action]?.short) =>
+  `${itemLabel(key)} ×${count} · ${short || ITEMS[key]?.about || ''}`.slice(0, 100);
 
 export const TITLE_REFUSALS = {
   notYours: '📜 You can only pick the title on your own card.',
@@ -69,17 +75,28 @@ export const ITEM_USED = {
   gpie: {
     throw: (n) => `🥧 Golden Pie: a sure hit, and ${n.actor}'s points ×2.`,
     feed: (n) => `🥧 Golden Pie: sure to be tasty. ${n.actor} +2 more${n.target ? `, ${n.target} +2 more` : ''}.`,
+    food: () => '🥧 Golden Pie: a sure splat.', // a siege attack (R5)
   },
   vhs: {
     fate: (n) => `📼 Cursed VHS: no backfire, and ${n.actor}'s points ×2.`,
+    doom: () => '📼 Cursed VHS: no backfire.', // a siege attack (R5)
   },
   holyw: {
     attempt: (n, r) => `💧 Holy Water: no getting caught, and ${n.actor} +2 more${r.shieldedUntil ? '. The shield lasts 3× as long' : ''}.`,
   },
   penny: {
     give: (n) => `🍀 Lucky Penny: the potion works, and ${n.actor}'s points ×2.`,
+    potion: () => '🍀 Lucky Penny: the poison works.', // a siege attack (R5)
+  },
+  // R5: in a siege an item narrows the draw (SIEGE_ITEM_EFFECTS), and the
+  // damage line under the points says what the Silver Bullet multiplied
+  silver: {
+    food: () => '🥈 Silver Bullet: no backfire, and extra damage.',
+    doom: () => '🥈 Silver Bullet: no backfire, and extra damage.',
+    potion: () => '🥈 Silver Bullet: no backfire, and extra damage.',
   },
 };
+
 
 /** An item that was asked for and NOT used, by why */
 export const ITEM_KEPT = {

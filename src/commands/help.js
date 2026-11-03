@@ -25,6 +25,7 @@ export async function execute(interaction) {
     foodfightAllowed,
     doomAllowed,
     rescueAllowed,
+    siegeAllowed,
     escapeAllowed,
     guildConfig,
   ] = await Promise.all([
@@ -43,6 +44,7 @@ export async function execute(interaction) {
     canUseCommand(interaction.guildId, interaction.member, 'foodfight'),
     canUseCommand(interaction.guildId, interaction.member, 'doom'),
     canUseCommand(interaction.guildId, interaction.member, 'rescue'),
+    canUseCommand(interaction.guildId, interaction.member, 'siege'),
     canUseCommand(interaction.guildId, interaction.member, 'escape'),
     loadGuildConfig(interaction.guildId),
   ]);
@@ -123,14 +125,17 @@ export async function execute(interaction) {
     { enabled: foodfightAllowed, line: '**🥧 /foodfight** - Throw food at someone, a role or @everyone' },
     { enabled: doomAllowed, line: '**🪓 /doom** - Deal someone, a role or @everyone a horror-movie fate' },
     { enabled: rescueAllowed, line: '**🛟 /rescue** - Save someone from a horror movie, and shield them for a while' },
+    { enabled: siegeAllowed, line: '**👹 /siege** - A monster attacks the drive-in: fight it together with food, dooms and potions' },
   ]);
   // The scores only mean something while at least one game is on
-  const anyGame = potionAllowed || foodfightAllowed || doomAllowed || rescueAllowed;
+  const anyGame = potionAllowed || foodfightAllowed || doomAllowed || rescueAllowed || siegeAllowed;
   const scores = buildCategory([
     { enabled: anyGame, line: '**📊 /scoreboard** - Your points in the games, or anyone else\'s' },
     { enabled: anyGame, line: '**🏆 /leaderboard** - The server\'s top players this month, this year or all time' },
     // A right-click command, so no slash; same switch as the scores it shows
     { enabled: anyGame, line: '**🃏 Game card** - Right-click a member → Apps → Game card' },
+    // Quick help for the games: only while there's a game to explain
+    { enabled: anyGame, line: '**❓ /how-to-play** - How the games work: items, prizes, titles, nights, twists, happenings, sieges' },
   ]);
   if (funAndGames) {
     embed.addFields({ name: '🎉 Fun & Games', value: [funAndGames, scores].filter(Boolean).join('\n'), inline: false });

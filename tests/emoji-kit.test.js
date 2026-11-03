@@ -100,6 +100,10 @@ describe('fallback (no uploaded emojis)', () => {
     expect(kit.bar(0, 10, { width: 3 })).toBe('⬜⬜⬜');
   });
 
+  test('a muted bar keeps its colour: there\'s no plain grey that isn\'t the empty ⬜', () => {
+    expect(kit.bar(1, 2, { width: 2, colour: 'gold', muted: true })).toBe('🟨⬜');
+  });
+
   test('a split bar: leader green, trailer orange, a tie gold on both sides', () => {
     expect(kit.splitBar(3, 1, { width: 8 })).toBe('🟩🟩🟩🟩🟩🟩🟧🟧');
     expect(kit.splitBar(1, 3, { width: 4 })).toBe('🟧🟩🟩🟩');

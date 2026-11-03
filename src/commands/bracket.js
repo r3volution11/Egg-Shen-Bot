@@ -1,5 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { setTitleThumbnail, matchupLabel, createRankedBar, formatStandingsMatchup, seededTitle, knockoutOutcome } from '../utils/tournamentUI.js';
+import { setTitleThumbnail, matchupLabel, rankedBar, formatStandings, seededTitle, knockoutOutcome } from '../utils/tournamentUI.js';
+import { liveKit } from '../utils/emojiKit.js';
+import { clipText, LIMITS } from '../utils/embedFit.js';
 import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, completeEntry, getTypeLabel } from '../utils/bracketTitles.js';
@@ -78,8 +80,9 @@ function buildTiebreakerVotingEmbed(tiebreaker) {
 
   const optionsText = tiebreaker.tiedOptions.map((opt, i) => {
     const votes = voteCounts[i] || 0;
-    // Coloured squares, as on the live standings (createRankedBar)
-    const bar = createRankedBar(votes, tiebreaker.tiedOptions.map((_, j) => voteCounts[j] || 0));
+    // The kit's bar: the leader gold, the rest blue (rankedBar). The vote
+    // handler redraws it the same way (buttonHandler.js)
+    const bar = rankedBar(votes, tiebreaker.tiedOptions.map((_, j) => voteCounts[j] || 0));
     return `**${i + 1}.** ${opt.title}\n${bar} ${votes} vote${votes !== 1 ? 's' : ''}`;
   }).join('\n\n');
 
@@ -2246,17 +2249,21 @@ async function handleVotingPost(interaction) {
     : [`**Groups:** ${groups.join(', ')} — pick your top 2 in each`];
   if (matchups.length > 16) lines.push(`…and ${matchups.length - 16} more`);
 
+  // Kit icons on the heading and the closing time only: up to 16 matchup
+  // lines with one each would be 16 × 37 more characters, so they keep a
+  // plain "vs". The title stays Unicode (custom emoji don't render there).
+  const kit = liveKit();
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
     .setTitle(`🗳️ ${roundName} - Voting Is Open`)
-    .setDescription([
-      `**${tournament.name}**`,
+    .setDescription(clipText([
+      `${kit.e('ballot')} **${tournament.name}**`,
       '',
       ...lines,
       '',
-      Number.isFinite(closes) ? `⏰ ${allSame ? 'Voting closes' : 'The first matchup closes'} <t:${Math.floor(closes / 1000)}:R>` : null,
+      Number.isFinite(closes) ? `${kit.e('clock')} ${allSame ? 'Voting closes' : 'The first matchup closes'} <t:${Math.floor(closes / 1000)}:R>` : null,
       'Click **Start Voting** for your own ballot. You can change your vote until it closes.',
-    ].filter(l => l !== null).join('\n'));
+    ].filter(l => l !== null).join('\n'), LIMITS.description));
   if (Number.isFinite(closes)) {
     embed.setFooter({ text: 'Voting closes' }).setTimestamp(closes); // a footer can't render <t:…>
   }
@@ -2354,24 +2361,26 @@ async function handleStatus(interaction) {
     const votingMatchups = tournament.knockoutBracket.filter(m => m.status === 'voting');
     const closedMatchups = Object.keys(tournament.knockoutResults).length;
     
-    let description = `**${currentRound}**\n\nSingle elimination bracket\n\n`;
-    
+    const head = `**${currentRound}**\n\nSingle elimination bracket\n\n`;
+    const completed = `\n**Completed:** ${closedMatchups} matchup${closedMatchups !== 1 ? 's' : ''}`;
+
     if (votingMatchups.length > 0) {
-      // The same bars as the live standings card (formatStandingsMatchup),
-      // so checking in shows exactly what the card does. Discord caps a
-      // description at 4096 characters; a whole round of 32 can be open
-      const shown = [...votingMatchups].sort((a, b) => a.position - b.position).slice(0, 12);
-      description += `**📊 Live Vote Counts**\n\n`;
-      description += shown.map(m => formatStandingsMatchup(m)).join('\n\n') + '\n';
-      if (votingMatchups.length > shown.length) {
-        description += `\n…and ${votingMatchups.length - shown.length} more open\n`;
-      }
+      // The same bars as the live standings card (formatStandings), so
+      // checking in shows what the card does. A round has at most 16
+      // matchups, and formatStandings' last layout fits 16 of the longest
+      // titles; the layout is measured on this whole reply.
+      const sorted = [...votingMatchups].sort((a, b) => a.position - b.position);
+      const shown = sorted.slice(0, 16);
+      const more = sorted.length > shown.length ? `\n…and ${sorted.length - shown.length} more open\n` : '';
+      const describe = (blocks) => `${head}**📊 Live Vote Counts**\n\n${blocks}\n${more}${completed}`;
+      const { text } = formatStandings(shown, undefined, {
+        // Plain JSON, unclipped: an EmbedBuilder throws on an over-long description
+        budget: (blocks) => ({ embeds: [{ ...embed.toJSON(), description: describe(blocks) }] }),
+      });
+      embed.setDescription(clipText(describe(text), LIMITS.description));
     } else {
-      description += `*No matchups currently open for voting*\n\n`;
+      embed.setDescription(`${head}*No matchups currently open for voting*\n\n${completed}`);
     }
-    
-    description += `\n**Completed:** ${closedMatchups} matchup${closedMatchups !== 1 ? 's' : ''}`;
-    embed.setDescription(description);
     
   } else if (tournament.status === 'completed') {
     const champion = tournament.champion || tournament.winner;

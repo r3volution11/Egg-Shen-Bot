@@ -1,51 +1,27 @@
 /**
- * Tournament UI Utilities
- * 
- * Visual enhancements for tournament embeds including:
- * - Progress bars for vote visualization
- * - Participation tracking displays
- * - Voting streaks
- * - Enhanced emoji-based status indicators
+ * Tournament UI: how titles, matchups, standings and ballots read in a card.
+ *
+ * The live cards here (the standings, a tiebreaker, the ballot) are edited
+ * on every vote, so they stay text: emoji-kit bars and pills (emojiKit.js)
+ * inside an ordinary embed, never a drawn image. Every renderer takes
+ * `{ kit }` (default liveKit()), so a test can draw the same card with a
+ * fake registry of uploaded emoji as well as in fallback, which is what
+ * every server sees until the kit is uploaded.
+ *
+ * Custom emoji go only where Discord draws them: an embed's description,
+ * field names and field values — never a title, author, footer or button
+ * label, and never inside a code span (a `pill`), where they show as raw
+ * `<:es_…:…>` text.
+ *
+ * (2.75.0 removed thirteen helpers nothing called — createProgressBar,
+ * getRankEmoji, createMatchupSummary and the like — left from an older
+ * standings design.)
  */
 
-/**
- * Generate a visual progress bar
- * @param {number} value - Current value
- * @param {number} max - Maximum value
- * @param {number} length - Bar length in characters (default 10)
- * @param {boolean} showPercentage - Show percentage (default true)
- * @returns {string} Progress bar string
- */
-export function createProgressBar(value, max, length = 10, showPercentage = true) {
-  if (max === 0) {
-    return '░'.repeat(length) + (showPercentage ? ' 0%' : '');
-  }
-  
-  const percentage = Math.round((value / max) * 100);
-  const filled = Math.round((value / max) * length);
-  const empty = length - filled;
-  
-  const bar = '█'.repeat(filled) + '░'.repeat(empty);
-  return showPercentage ? `${bar} ${percentage}%` : bar;
-}
+import { liveKit, pill } from './emojiKit.js';
+import { LIMITS, chooseLayout, messageProblems, clipText } from './embedFit.js';
 
-/**
- * Get color for progress bar based on percentage (for HTML rendering)
- * @param {number} percentage - Percentage value (0-100)
- * @returns {string} Hex color code
- */
-export function getProgressBarColor(percentage) {
-  if (percentage >= 67) {
-    // High performance - Green shades
-    return '#43b581'; // Discord green
-  } else if (percentage >= 34) {
-    // Medium performance - Yellow/Orange shades
-    return '#faa61a'; // Discord yellow
-  } else {
-    // Low performance - Red shades
-    return '#f04747'; // Discord red
-  }
-}
+const plural = (n, word) => `${word}${n === 1 ? '' : 's'}`;
 
 /**
  * Coloured squares for a matchup's vote bars (Doug, 2026-10-04). Discord
@@ -61,7 +37,7 @@ export const VOTE_BAR = { lead: '🟩', trail: '🟧', tie: '🟨', empty: '⬜'
  * One title's vote bar in a two-title matchup, with its count:
  *   🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 7 votes (70%)
  * Its colour comes from how it stands against the other title, whose votes
- * are the rest of totalVotes.
+ * are the rest of totalVotes. The live standings' `squares` layout.
  * @param {number} votes - this title's votes
  * @param {number} totalVotes - both titles' votes together
  * @param {number} length - squares in the bar (default 10)
@@ -133,15 +109,68 @@ export function knockoutOutcome(winner, votes1, votes2, decidedBy) {
 /**
  * "🚨 Upset! (12) knocks out (5)" when a worse seed beats a better one, else
  * ''. Unseeded entries (random brackets, groups knockouts) are never upsets.
+ * The icon is the kit's: this line goes in a description.
  */
-export function upsetNote(winner, loser) {
+export function upsetNote(winner, loser, { kit = liveKit() } = {}) {
   if (!winner?.seed || !loser?.seed || winner.seed <= loser.seed) return '';
-  return `🚨 Upset! (${winner.seed}) knocks out (${loser.seed})`;
+  return `${kit.e('upset')} Upset! (${winner.seed}) knocks out (${loser.seed})`;
 }
+
+// ── the live standings ──────────────────────────────────────────────────
+
+/**
+ * The live standings' three layouts, most graphic first:
+ *
+ *   two      a kit bar under each title, with its count and share
+ *              **1A** · closes in 2 hours
+ *              Sick
+ *              ▰▰▱▱▱▱▱▱ `3` votes · 18%
+ *              vs
+ *              A Nightmare on Elm Street (1984) 🔥
+ *              ▰▰▰▰▰▰▰▱ `14` votes · 82%
+ *
+ *   split    one bar for the matchup, the first title's share from the
+ *            left and the second's from the right, between their counts
+ *              **1A** · closes in 2 hours
+ *              Sick
+ *              vs
+ *              A Nightmare on Elm Street (1984) 🔥
+ *              `3` ▰▰▰▰▰▰▰▰▰▰ `14`
+ *
+ *   squares  the coloured squares the card has always had (createVoteBar)
+ *
+ * A custom emoji is up to 37 characters of text where a square is 2, so
+ * the graphic layouts fit only so many matchups in Discord's 4,096-character
+ * description: STANDINGS_STEPS tries each in turn, and the last step (the
+ * squares, titles held to 50 characters) fits a whole round of 32 — sixteen
+ * matchups of 80-character titles — whatever the kit.
+ */
+export const STANDINGS_LAYOUTS = Object.freeze(['two', 'split', 'squares']);
+
+/** What formatStandings tries, in order: a layout and its bar width */
+export const STANDINGS_STEPS = Object.freeze([
+  Object.freeze({ layout: 'two', width: 8 }),
+  Object.freeze({ layout: 'split', width: 10 }),
+  Object.freeze({ layout: 'split', width: 6 }),
+  Object.freeze({ layout: 'squares', width: 10 }),
+  Object.freeze({ layout: 'squares', width: 10, titleMax: 50 }),
+]);
+
+/**
+ * The vote count every matchup is measured at when the layout is chosen.
+ * More votes than any real matchup gets, so the real card is never longer
+ * than the one measured.
+ */
+export const STANDINGS_PROBE_VOTES = 9999;
+
+/** A two-title bar's colour: green ahead, orange behind, gold when level */
+const standingColour = (votes, rival) => (votes > rival ? 'green' : votes < rival ? 'orange' : 'gold');
 
 /**
  * One open matchup as the live standings show it — used by the Live
- * Standings card and /bracket status, so the two always match:
+ * Standings card and /bracket status, so the two always match. In the
+ * `squares` layout (the default, and what every server sees until the kit
+ * is uploaded):
  *   **1A** · closes <t:…:R>
  *   Sick
  *   🟧🟧⬜⬜⬜⬜⬜⬜⬜⬜ 3 votes (18%)
@@ -150,276 +179,110 @@ export function upsetNote(winner, loser) {
  *   🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ 14 votes (82%)
  * Both titles get their bar and count. (The second one's bar was once
  * built but never printed, so a matchup voted 0–2 read as "0 votes".)
+ * The leader's 🔥 and a tie's 🤝 stay Unicode in every layout: they mark
+ * the title and the matchup, not the bar.
  * @param {object} matchup - with votes.movie1/movie2 voter lists
  * @param {string} [round] - defaults to the matchup's own
+ * @param {object} [opts]
+ * @param {string} [opts.layout] - 'two' | 'split' | 'squares'
+ * @param {number} [opts.width] - bar width (default 8 for two, 10 otherwise)
+ * @param {number} [opts.titleMax] - longest title, in characters
+ * @param {[number, number]} [opts.counts] - draw these counts instead of the
+ *   real ones (formatStandings measures at STANDINGS_PROBE_VOTES)
  */
-export function formatStandingsMatchup(matchup, round = matchup.round) {
-  const votes1 = matchup.votes?.movie1?.length || 0;
-  const votes2 = matchup.votes?.movie2?.length || 0;
+export function formatStandingsMatchup(matchup, round = matchup.round, { kit = liveKit(), layout = 'squares', width, titleMax = 80, counts } = {}) {
+  const [votes1, votes2] = counts || [matchup.votes?.movie1?.length || 0, matchup.votes?.movie2?.length || 0];
   const total = votes1 + votes2;
   const lead1 = votes1 > votes2 ? ' 🔥' : '';
   const lead2 = votes2 > votes1 ? ' 🔥' : '';
   const tie = votes1 === votes2 && votes1 > 0 ? ' 🤝' : '';
   const closes = matchup.votingDeadline ? ` · closes <t:${Math.floor(matchup.votingDeadline / 1000)}:R>` : '';
-  return [
-    `**${matchupLabel(matchup.position, round)}**${tie}${closes}`,
-    `${displayTitle(matchup.movie1)}${lead1}`,
-    createVoteBar(votes1, total),
-    'vs',
-    `${displayTitle(matchup.movie2)}${lead2}`,
-    createVoteBar(votes2, total),
-  ].join('\n');
+  const head = `**${matchupLabel(matchup.position, round)}**${tie}${closes}`;
+  const title1 = `${displayTitle(matchup.movie1, titleMax)}${lead1}`;
+  const title2 = `${displayTitle(matchup.movie2, titleMax)}${lead2}`;
+
+  if (layout === 'split') {
+    // The first title reads first and takes the bar from the left
+    const bar = kit.splitBar(votes1, votes2, { width: width ?? 10 });
+    return [head, title1, 'vs', title2, `${pill(votes1)} ${bar} ${pill(votes2)}`].join('\n');
+  }
+  if (layout === 'two') {
+    const line = (votes, rival) => {
+      const bar = kit.bar(votes, total, { width: width ?? 8, colour: standingColour(votes, rival) });
+      const share = total > 0 ? Math.round((votes / total) * 100) : 0;
+      return `${bar} ${pill(votes)} ${plural(votes, 'vote')} · ${share}%`;
+    };
+    return [head, title1, line(votes1, votes2), 'vs', title2, line(votes2, votes1)].join('\n');
+  }
+  return [head, title1, createVoteBar(votes1, total, width ?? 10), 'vs', title2, createVoteBar(votes2, total, width ?? 10)].join('\n');
 }
 
 /**
- * A coloured square bar for one option among several (a tiebreaker vote),
- * without the count: green for the one clearly ahead, yellow for options
- * sharing the lead, orange for the rest, white for the unfilled part.
+ * Every open matchup's standings, one block each, in the most graphic
+ * layout that fits.
+ *
+ * The layout is chosen as if every matchup had STANDINGS_PROBE_VOTES votes
+ * a side, with the real titles and deadlines: what changes between votes
+ * (the counts, the 🔥 moving, a 🤝) is never longer than that, so the card
+ * keeps one shape for as long as these matchups are open, instead of
+ * jumping from bars to squares on the vote that tipped it over. In
+ * fallback (the kit's bars not uploaded) the graphic layouts would only be
+ * squares anyway, so it starts at `squares`, today's look.
+ *
+ * The kit's bar pieces all have the same length of markup (three-letter
+ * codes, one length of id), so a bar's length doesn't depend on its
+ * colours either.
+ *
+ * @param {object[]} matchups - in the order to show them
+ * @param {string} [round] - the label's round; each matchup's own if omitted
+ * @param {object} [opts]
+ * @param {number | ((text: string) => object)} [opts.budget] - the
+ *   characters the blocks may take, or a function that builds the message
+ *   payload around them, measured with messageProblems against every limit
+ *   (the 4,096 description and the 6,000 total)
+ * @returns {{ text: string, layout: string, step: number }} step indexes
+ *   STANDINGS_STEPS
+ */
+export function formatStandings(matchups, round, { kit = liveKit(), budget = LIMITS.description } = {}) {
+  const steps = STANDINGS_STEPS
+    .map((s, index) => ({ ...s, index }))
+    .filter(s => kit.ready.bar || s.layout === 'squares');
+  const render = (step, counts) => matchups
+    .map(m => formatStandingsMatchup(m, round ?? m.round, { kit, layout: step.layout, width: step.width, titleMax: step.titleMax, counts }))
+    .join('\n\n');
+  const fits = typeof budget === 'function'
+    ? (text) => messageProblems(budget(text)).length === 0
+    : (text) => text.length <= budget;
+  const probe = [STANDINGS_PROBE_VOTES, STANDINGS_PROBE_VOTES];
+  const { step } = chooseLayout(steps, (s) => render(s, probe), fits);
+  const chosen = steps[step];
+  return { text: render(chosen), layout: chosen.layout, step: chosen.index };
+}
+
+/**
+ * The live card's totals, on one line:
+ *   🗳️ `12` votes · 👥 `5` voters · ⚔️ `4` matchups
+ */
+export function standingsTotals({ votes, voters, matchups }, { kit = liveKit() } = {}) {
+  return [
+    `${kit.e('ballot')} ${pill(votes)} ${plural(votes, 'vote')}`,
+    `${kit.e('people')} ${pill(voters)} ${plural(voters, 'voter')}`,
+    `${kit.e('vs')} ${pill(matchups)} ${plural(matchups, 'matchup')}`,
+  ].join(' · ');
+}
+
+/**
+ * A bar for one option among several (a tiebreaker vote), without the
+ * count: its share of every vote cast, gold for the option in the lead (or
+ * every option sharing it), blue for the rest, empty while nobody has
+ * voted. The count goes beside it as text.
  * @param {number} votes - this option's votes
  * @param {number[]} allVotes - every option's votes, this one included
- * @param {number} length - squares in the bar (default 10)
  */
-export function createRankedBar(votes, allVotes, length = 10) {
+export function rankedBar(votes, allVotes, { kit = liveKit(), width = 10 } = {}) {
   const total = allVotes.reduce((a, b) => a + b, 0);
-  if (total === 0) return VOTE_BAR.empty.repeat(length);
-  const top = Math.max(...allVotes);
-  const leaders = allVotes.filter(v => v === top).length;
-  const fill = votes < top ? VOTE_BAR.trail : leaders > 1 ? VOTE_BAR.tie : VOTE_BAR.lead;
-  const filled = Math.round((votes / total) * length);
-  return fill.repeat(filled) + VOTE_BAR.empty.repeat(length - filled);
-}
-
-/**
- * Generate vote bar with color information (for HTML rendering)
- * @param {number} votes - Number of votes
- * @param {number} totalVotes - Total votes across both options
- * @param {number} length - Bar length (default 12)
- * @returns {Object} { text, percentage, color, filled, empty }
- */
-export function createVoteBarWithColor(votes, totalVotes, length = 12) {
-  if (totalVotes === 0) {
-    return {
-      text: `${votes} votes (0%)`,
-      percentage: 0,
-      color: '#4f545c', // Gray for no votes
-      filled: 0,
-      empty: length
-    };
-  }
-  
-  const percentage = Math.round((votes / totalVotes) * 100);
-  const filled = Math.round((votes / totalVotes) * length);
-  const empty = length - filled;
-  const color = getProgressBarColor(percentage);
-  
-  return {
-    text: `${votes} vote${votes !== 1 ? 's' : ''} (${percentage}%)`,
-    percentage,
-    color,
-    filled,
-    empty
-  };
-}
-
-/**
- * Get status emoji for tournament phases
- * @param {string} status - Status string
- * @returns {string} Emoji
- */
-export function getStatusEmoji(status) {
-  const emojiMap = {
-    'voting': '✅',
-    'open': '✅',
-    'closing_soon': '⏰',
-    'closed': '🏁',
-    'completed': '🏆',
-    'pending': '⏸️',
-    'setup': '🔧',
-    'cancelled': '❌',
-    'winner': '👑',
-    'advanced': '⬆️',
-  };
-  return emojiMap[status] || '📊';
-}
-
-/**
- * Get media type emoji
- * @param {string} type - Media type
- * @returns {string} Emoji
- */
-export function getMediaEmoji(type) {
-  const emojiMap = {
-    'movie': '🎬',
-    'tv': '📺',
-    'game': '🎮',
-    'boardgame': '🎲',
-    'book': '📚',
-    'episode': '📺',
-    'music': '🎵',
-  };
-  return emojiMap[type] || '🎬';
-}
-
-/**
- * Format voting streak display
- * @param {number} streak - Current streak count
- * @param {number} maxStreak - Maximum possible (default 10 shown)
- * @returns {string} Visual streak display
- */
-export function formatVotingStreak(streak, maxStreak = 10) {
-  if (streak === 0) return '⬜'.repeat(maxStreak);
-  
-  const filled = Math.min(streak, maxStreak);
-  const empty = Math.max(0, maxStreak - streak);
-  
-  return '✅'.repeat(filled) + '⬜'.repeat(empty);
-}
-
-/**
- * Calculate and format participation percentage
- * @param {number} participated - Number of rounds/matchups participated in
- * @param {number} total - Total rounds/matchups available
- * @returns {string} Formatted participation string
- */
-export function formatParticipation(participated, total) {
-  if (total === 0) return '0/0 (0%)';
-  
-  const percentage = Math.round((participated / total) * 100);
-  return `${participated}/${total} (${percentage}%)`;
-}
-
-/**
- * Get ranking emoji (1st, 2nd, 3rd, etc.)
- * @param {number} rank - Ranking position (1-based)
- * @returns {string} Emoji
- */
-export function getRankEmoji(rank) {
-  const emojiMap = {
-    1: '🥇',
-    2: '🥈', 
-    3: '🥉',
-  };
-  return emojiMap[rank] || `${rank}️⃣`;
-}
-
-/**
- * Format time remaining with appropriate emoji
- * @param {number} deadline - Deadline timestamp
- * @returns {Object} {emoji, text, isClosingSoon}
- */
-export function formatTimeRemainingWithEmoji(deadline) {
-  const now = Date.now();
-  const remaining = deadline - now;
-  
-  if (remaining <= 0) {
-    return { emoji: '🏁', text: 'Closed', isClosingSoon: false };
-  }
-  
-  const hours = Math.floor(remaining / (1000 * 60 * 60));
-  const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-  const days = Math.floor(hours / 24);
-  
-  const isClosingSoon = remaining < 2 * 60 * 60 * 1000; // Less than 2 hours
-  const emoji = isClosingSoon ? '⏰' : '🕐';
-  
-  let text;
-  if (days > 0) {
-    text = `${days}d ${hours % 24}h`;
-  } else if (hours > 0) {
-    text = `${hours}h ${minutes}m`;
-  } else {
-    text = `${minutes}m`;
-  }
-  
-  return { emoji, text, isClosingSoon };
-}
-
-/**
- * Create matchup summary line with vote bars
- * @param {string} title1 - First title
- * @param {number} votes1 - First title votes
- * @param {string} title2 - Second title
- * @param {number} votes2 - Second title votes
- * @param {string} label - Matchup label (e.g., "1A")
- * @param {number} maxTitleLength - Max characters for titles (default 25)
- * @returns {string} Formatted matchup summary
- */
-export function createMatchupSummary(title1, votes1, title2, votes2, label, maxTitleLength = 25) {
-  const totalVotes = votes1 + votes2;
-  
-  // Truncate titles if needed
-  const t1 = title1.length > maxTitleLength ? title1.substring(0, maxTitleLength - 3) + '...' : title1;
-  const t2 = title2.length > maxTitleLength ? title2.substring(0, maxTitleLength - 3) + '...' : title2;
-  
-  // Determine leader
-  let leader1 = votes1 > votes2 ? ' 🔥' : '';
-  let leader2 = votes2 > votes1 ? ' 🔥' : '';
-  const tie = votes1 === votes2 && votes1 > 0 ? ' 🤝' : '';
-  
-  // Build bars
-  const bar1 = createVoteBar(votes1, totalVotes);
-  const bar2 = createVoteBar(votes2, totalVotes);
-  
-  return `**${label}:** ${t1}${leader1}\n${bar1}\n\nvs\n\n${t2}${leader2}\n${bar2}`;
-}
-
-/**
- * Get bot avatar URL helper
- * @param {Object} client - Discord client
- * @returns {string|null} Bot avatar URL
- */
-export function getBotAvatarURL(client) {
-  return client?.user?.displayAvatarURL() || null;
-}
-
-/**
- * Create participation summary text
- * @param {Object} stats - Participation statistics
- * @returns {string} Formatted participation text
- */
-export function createParticipationSummary(stats) {
-  const {
-    userId,
-    username,
-    totalMatchups = 0,
-    votedMatchups = 0,
-    streak = 0,
-    isActive = false
-  } = stats;
-  
-  const participation = formatParticipation(votedMatchups, totalMatchups);
-  const streakDisplay = formatVotingStreak(streak, 5);
-  
-  let summary = `📊 **Participation:** ${participation}\n`;
-  summary += `🔥 **Streak:** ${streakDisplay} (${streak} rounds)\n`;
-  
-  if (isActive) {
-    summary += `✅ **Status:** Active voter`;
-  }
-  
-  return summary;
-}
-
-/**
- * Enhanced leaderboard entry with progress bar
- * @param {number} rank - User rank
- * @param {string} title - Entry title
- * @param {number} votes - Vote count
- * @param {number} maxVotes - Maximum votes in leaderboard
- * @param {number} maxTitleLength - Max title length (default 30)
- * @returns {string} Formatted leaderboard entry
- */
-export function createLeaderboardEntry(rank, title, votes, maxVotes, maxTitleLength = 30) {
-  const rankEmoji = getRankEmoji(rank);
-  const truncatedTitle = title.length > maxTitleLength 
-    ? title.substring(0, maxTitleLength - 3) + '...' 
-    : title;
-  
-  // Pad title for alignment
-  const paddedTitle = truncatedTitle.padEnd(maxTitleLength, ' ');
-  const bar = createProgressBar(votes, maxVotes, 12, false);
-  
-  return `${rankEmoji} ${paddedTitle} ${bar} ${votes}`;
+  const top = Math.max(0, ...allVotes);
+  return kit.bar(votes, total, { width, colour: total > 0 && votes === top ? 'gold' : 'blue' });
 }
 
 /**
@@ -498,6 +361,10 @@ const plain = (title) => String(title || '').replace(/([\\*_~`|>])/g, '\\$1');
  *   **Final**
  *   ✅ **Session 9** vs Scream
  *
+ * The tick is the kit's (`tk1`, ✅ in fallback): up to 37 characters of
+ * text a pick once uploaded, which the length guard below measures like
+ * any other text.
+ *
  * Rounds are numbered from the bracket's first round (an 8-title bracket
  * starts at Round 1), counting every round it has, so the numbers don't
  * shift when someone skips a round. Where a round has several matchups per
@@ -508,7 +375,7 @@ const plain = (title) => String(title || '').replace(/([\\*_~`|>])/g, '\\$1');
  * left out.
  * @returns {string|null} null when they haven't voted in the knockout yet
  */
-export function formatKnockoutVotes(tournament, userId) {
+export function formatKnockoutVotes(tournament, userId, { kit = liveKit() } = {}) {
   const votes = tournament?.votes?.[userId] || {};
   const bracket = tournament?.knockoutBracket || [];
   const byOrder = (a, b) => ROUND_ORDER.indexOf(a.round) - ROUND_ORDER.indexOf(b.round) || a.position - b.position;
@@ -518,10 +385,11 @@ export function formatKnockoutVotes(tournament, userId) {
   const roundsInBracket = ROUND_ORDER.filter(r => bracket.some(m => m.round === r));
   const roundName = (r) => (r === 'finals' ? 'Final' : `Round ${roundsInBracket.indexOf(r) + 1}`);
 
+  const tick = kit.e('tk1');
   const line = (m, label) => {
     const [one, two] = [plain(displayTitle(m.movie1)), plain(displayTitle(m.movie2))];
     const pick = votes[m.id];
-    const pair = `${pick === 1 ? `✅ **${one}**` : one} vs ${pick === 2 ? `✅ **${two}**` : two}`;
+    const pair = `${pick === 1 ? `${tick} **${one}**` : one} vs ${pick === 2 ? `${tick} **${two}**` : two}`;
     return label ? `${label}: ${pair}` : pair;
   };
 
@@ -548,7 +416,8 @@ export function formatKnockoutVotes(tournament, userId) {
     dropped += voted.filter(m => m.round === rounds[blocks.length - kept.length]).length;
     kept = kept.slice(1);
   }
-  let text = kept.join('\n\n');
-  if (text.length > VOTE_LIST_MAX) text = `${text.slice(0, VOTE_LIST_MAX - 1)}…`;
+  // One round alone still too long: clipText, not a slice, which could cut
+  // a custom tick in half and leave `<:es_tk1x…` on screen
+  const text = clipText(kept.join('\n\n'), VOTE_LIST_MAX);
   return dropped ? `-# …and ${dropped} earlier vote${dropped === 1 ? '' : 's'}\n${text}` : text;
 }

@@ -1,8 +1,9 @@
 import { SlashCommandBuilder, ChannelType } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import {
-  getGameSettings, resetScores, channelAllowed, GAMES, GAME_NAMES, HAPPENING_FREQUENCIES, TWIST_PERCENT_MAX,
+  getGameSettings, resetScores, channelAllowed, GAMES, GAME_NAMES, HAPPENING_FREQUENCIES, TWIST_PERCENT_MAX, SIEGE_FREQUENCIES,
 } from '../utils/gameScores.js';
+import { SIEGE } from '../data/gameRewards.js';
 import { HAPPENINGS } from '../data/gameHappenings.js';
 import { loadState, inProgress, startHappening, calendarHappenings } from '../utils/happeningStore.js';
 import { announceHappening, settleHappening, botCanPost } from '../utils/happeningScheduler.js';
@@ -18,7 +19,9 @@ import { announceHappening, settleHappening, botCanPost } from '../utils/happeni
  * there's no separate "view".
  *
  * `happenings` (R4) also holds the twist settings, and lets an admin start
- * or end a happening by hand. Its name sorts it ahead of `limits` in
+ * or end a happening by hand; since R6, random sieges' frequency and how
+ * long a siege lasts too (the siege's announcements go where a
+ * happening's do). Its name sorts it ahead of `limits` in
  * Discord's picker, which lists subcommands alphabetically.
  */
 
@@ -37,6 +40,11 @@ const FREQUENCY_TEXT = {
   often: 'Often',
 };
 
+/** R6: random sieges' frequency choices, with their rate a week */
+const SIEGE_FREQUENCY_TEXT = Object.fromEntries(SIEGE_FREQUENCIES.map(f => [f, f === 'off'
+  ? 'Off (only when an admin starts one)'
+  : `${f[0].toUpperCase()}${f.slice(1)} (about ${SIEGE.random.perWeek[f]} a week)`]));
+
 const MODE_TEXT = {
   all: 'Every channel',
   only: 'Only the listed channels',
@@ -45,7 +53,7 @@ const MODE_TEXT = {
 
 export const data = new SlashCommandBuilder()
   .setName('eggshen-config-games')
-  .setDescription('Game settings for /potion, /foodfight, /doom, /rescue (Admin/Moderator only)')
+  .setDescription('Game settings for /potion, /foodfight, /doom, /rescue, /siege (Admin/Moderator only)')
   .addSubcommand(sub => {
     sub.setName('limits').setDescription('Play limits and the rescue shield. No options: show them');
     for (const l of LIMITS) {
@@ -73,7 +81,7 @@ export const data = new SlashCommandBuilder()
       .setDescription('Take a channel off the list')))
   .addSubcommand(sub => sub
     .setName('happenings')
-    .setDescription('Twists and happenings: settings, or start/end one now. No options: show them')
+    .setDescription('Twists, happenings and random sieges: settings, or start/end a happening. No options: show them')
     .addBooleanOption(o => o.setName('enabled').setDescription('Happenings on or off (Halloween and Friday the 13th too)'))
     .addStringOption(o => o
       .setName('frequency')
@@ -93,7 +101,16 @@ export const data = new SlashCommandBuilder()
       .setName('start')
       .setDescription('Start one now, and announce it')
       .addChoices(...Object.entries(HAPPENINGS).map(([kind, h]) => ({ name: `${h.emoji} ${h.name}`, value: kind }))))
-    .addBooleanOption(o => o.setName('end').setDescription('End the current one now')))
+    .addBooleanOption(o => o.setName('end').setDescription('End the current one now'))
+    .addStringOption(o => o
+      .setName('siege-frequency')
+      .setDescription('How often a monster attacks by itself while people play')
+      .addChoices(...SIEGE_FREQUENCIES.map(f => ({ name: SIEGE_FREQUENCY_TEXT[f], value: f }))))
+    .addIntegerOption(o => o
+      .setName('siege-minutes')
+      .setDescription(`How long a siege lasts, ${SIEGE.minutes.min}-${SIEGE.minutes.max} minutes`)
+      .setMinValue(SIEGE.minutes.min)
+      .setMaxValue(SIEGE.minutes.max)))
   .addSubcommand(sub => sub
     .setName('reset-scores')
     .setDescription('Erase scores: everyone\'s, one game\'s, or one person\'s. Cannot be undone')
@@ -189,6 +206,11 @@ function happeningChanges(options) {
   if (twists !== null) changes.twists = twists;
   const percent = options.getInteger('twist-percent');
   if (percent !== null) changes.twistPercent = percent;
+  // R6: random sieges
+  const siegeFrequency = options.getString('siege-frequency');
+  if (siegeFrequency) changes.siegeFrequency = siegeFrequency;
+  const siegeMinutes = options.getInteger('siege-minutes');
+  if (siegeMinutes !== null) changes.siegeMinutes = siegeMinutes;
   return changes;
 }
 
@@ -280,6 +302,7 @@ function happeningSummary(guildId, settings, now) {
     ? `<#${settings.happeningChannel}>`
     : games ? `<#${games}> (the games channel)` : 'the channel the games were last played in'}`);
   lines.push(settings.twists ? `• Twists: **on**, **${settings.twistPercent}%** of scored plays` : '• Twists: **off**');
+  lines.push(`• Random sieges: **${SIEGE_FREQUENCY_TEXT[settings.siegeFrequency]}** · a siege lasts **${settings.siegeMinutes} min**`);
   const h = state.happening;
   lines.push(inProgress(h, now)
     ? `• Now: ${kindName(h.kind)}, ${until(h.endsAt)}${h.unannounced ? ' · not announced' : ''}`

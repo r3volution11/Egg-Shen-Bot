@@ -30,6 +30,8 @@ const DEFAULT_LINES = [
   '• Happenings: **on** · random ones: **Normal (about one a day when busy)**',
   '• Announced in: the channel the games were last played in',
   '• Twists: **on**, **4%** of scored plays',
+  // R6: random sieges live with the happenings' settings
+  '• Random sieges: **Normal (about 3 a week)** · a siege lasts **45 min**',
 ];
 
 const clock = { now: T0 };
@@ -134,6 +136,7 @@ describe('an admin start', () => {
       DEFAULT_LINES[0],
       '• Announced in: <#games> (the games channel)',
       DEFAULT_LINES[2],
+      DEFAULT_LINES[3],
       `• Now: 🌕 **Full Moon**, until <t:${sec(end)}:t> (<t:${sec(end)}:R>)`,
     ].join('\n'));
     expect(mods.store.loadState(GUILD).happening).toMatchObject({
@@ -340,9 +343,10 @@ describe('random happenings', () => {
 
   test('switched off, or frequency off: none, even when the dice say yes', async () => {
     played('lobby', 'sam', 'alex', 'kim');
-    await games({ happenings: false });
+    // Random sieges (R6) are their own setting: off here, so only happenings could post
+    await games({ happenings: false, siegeFrequency: 'off' });
     await tick(() => 0);
-    await games({ happeningFrequency: 'off' });
+    await games({ happeningFrequency: 'off', siegeFrequency: 'off' });
     await tick(() => 0);
     expect(sends()).toHaveLength(0);
   });
@@ -463,6 +467,7 @@ describe('the summary and settings', () => {
       '• Happenings: **off**',
       '• Announced in: <#happen>',
       '• Twists: **off**',
+      '• Random sieges: **Normal (about 3 a week)** · a siege lasts **45 min**',
       '• Now: nothing',
     ].join('\n'));
     const back = await admin({ enabled: true, frequency: 'often', twists: true });

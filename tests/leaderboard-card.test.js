@@ -91,6 +91,7 @@ describe('what the card is drawn from', () => {
       foodfight: { userId: 'sam', name: 'Sam', points: 8, plays: 2 },
       doom: { userId: 'kim', name: 'Kim', points: 3, plays: 1 },
       rescue: { userId: 'alex', name: 'Alex', points: 2, plays: 0 },
+      siege: null, // R5's fifth game: nobody has fought this month
     });
     expect(board.totals).toEqual({ players: 4, plays: 7, points: 15, mostPlayed: { game: 'foodfight', plays: 3 } });
     expect(board.bestStreak).toEqual({ userId: 'sam', name: 'Sam', game: 'foodfight', count: 2 });
@@ -117,6 +118,8 @@ describe('the card, line by line', () => {
         { name: '🥧 Food Fight', value: '👑 Sam `8`', inline: true },
         { name: '🪓 Doom', value: '👑 Kim `3`', inline: true },
         { name: '🛟 Rescue', value: '👑 Alex `2`', inline: true },
+        // A game nobody has played keeps its column, so the grid doesn't shift
+        { name: '👹 Siege', value: 'Nobody yet', inline: true },
         {
           name: '⭐ Most received',
           value: [
@@ -151,7 +154,7 @@ describe('the card, line by line', () => {
     expect(d.description.split('\n')[0]).toBe(`${E('med1')} Sam ${E('byl')}${E('bym')}${E('bym')}${E('bym')}${E('byr')} \`8\``);
     expect(d.description.split('\n')[3]).toBe(`4\\. Lee ${E('bel')}${E('bem')}${E('bem')}${E('bem')}${E('ber')} \`0\``);
     expect(d.fields[1]).toEqual({ name: `${E('food')} Food Fight`, value: `${E('crown')} Sam \`8\``, inline: true });
-    expect(d.fields[5].value.split('\n')[3]).toBe(`${E('flame')} Best streak: Sam \`2\` in Food Fight`);
+    expect(d.fields[6].value.split('\n')[3]).toBe(`${E('flame')} Best streak: Sam \`2\` in Food Fight`);
     expect(d.title).toBe('Leaderboard · All games · November 2026');
     expect(misplacedEmoji(embed)).toEqual([]);
   });

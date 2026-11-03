@@ -16,6 +16,7 @@ import {
   VOTE_EMOJIS,
 } from '../utils/pollManager.js';
 import { canUseCommand } from '../utils/guildConfig.js';
+import { clipText, LIMITS } from '../utils/embedFit.js';
 
 // Re-exported for backward compatibility — tests and any other callers
 // import createPollEmbed from here; the implementation now lives in
@@ -462,9 +463,12 @@ async function handleResults(interaction) {
       .map(opt => `${opt.emoji} ${opt.text}`)
       .join(', ');
     
+    // Ten 100-character picks on a multiple-vote survey come to 1,058
+    // characters, past a field's 1,024: addFields would throw, and the
+    // deferred reply would never arrive
     embed.addFields({
       name: 'Your Vote(s)',
-      value: votedOptions,
+      value: clipText(votedOptions, LIMITS.fieldValue),
       inline: true,
     });
   }

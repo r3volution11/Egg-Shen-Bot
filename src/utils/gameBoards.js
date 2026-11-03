@@ -15,7 +15,7 @@ import { LIMITS, clipText, embedTextLength } from './embedFit.js';
  * choice name can't hold a custom emoji. Cards draw game icons through the
  * kit (kit.game), whose fallback is this same set.
  */
-export const GAME_EMOJI = { potion: '🧪', foodfight: '🥧', doom: '🪓', rescue: '🛟' };
+export const GAME_EMOJI = { potion: '🧪', foodfight: '🥧', doom: '🪓', rescue: '🛟', siege: '👹' };
 
 /** Each outcome's emoji, for a card's "8 🎯 · 2 💨" counts */
 export const OUTCOME_EMOJI = {
@@ -24,6 +24,10 @@ export const OUTCOME_EMOJI = {
   doomed: '💀', escaped: '🏃', backfired: '🔄', blocked: '🛡️',
   rescued: '🛟', caught: '🪤', sacrificed: '🕯️',
   helped: '💚', hurt: '☠️',
+  // R5: siege attacks
+  splat: '💥', splash: '💨', splatback: '🔄',
+  smite: '⚡', dodged: '💨', spooked: '😱',
+  poisoned: '🧪', fizzled: '🫧',
 };
 
 export const PERIODS = [

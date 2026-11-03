@@ -14,6 +14,7 @@
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { LADDER, STAGES, SAFE_STAGES, standings, playerStatus, scoreOf, todaysRun, poolCounts, POOL_FLOOR, dayKey } from './escapeStore.js';
 import { ESCAPE_GENRES, getEscapeGenre, genreSupports } from '../data/escapeGenres.js';
+import { liveKit, pill } from './emojiKit.js';
 
 const COLOR = { card: 0x7B61FF, flying: 0x4EC5ED, good: 0x2ECC71, bad: 0xE74C3C, done: 0xF1C40F };
 const LETTERS = ['A', 'B', 'C', 'D'];
@@ -37,14 +38,16 @@ export function missionDay(event, now = Date.now()) {
   return { day: Math.min(Math.max(day, 1), days), days };
 }
 
-/** The 15 stages as a bar, with gaps at the stage separations: ▰▰▰▰▰ ▰▱▱▱▱ ▱▱▱▱▱ */
-export function ladderBar(cleared) {
-  let bar = '';
-  for (let s = 1; s <= STAGES; s++) {
-    bar += s <= cleared ? '▰' : '▱';
-    if (SAFE_STAGES.includes(s)) bar += ' ';
-  }
-  return bar;
+/**
+ * The 15 stages as the kit's ladder, a group per stage separation:
+ * `▰▰▰▰▰ ▰▱▱▱▱ ▱▱▱▱▱` in fallback, three capped blue bars once the kit is
+ * uploaded. The kit owns the formatting: the fallback blocks line up only
+ * in a code span, and custom emoji don't render inside one — so nothing
+ * here wraps it in backticks.
+ */
+function ladder(cleared, kit) {
+  const groups = [...SAFE_STAGES, STAGES].map((end, i, ends) => end - (ends[i - 1] || 0));
+  return kit.ladder(cleared, { groups });
 }
 
 function genreLine(event) {
@@ -72,20 +75,24 @@ export function missionButtons(disabled = false) {
   );
 }
 
-/** One line per player for the top of the standings. Mentions here display, never ping. */
-function standingsLines(data, now, limit = 10) {
+/**
+ * One line per player for the top of the standings: a kit medal for the
+ * podium, and a kit flame with the streak in a pill from two days in a row.
+ * Mentions here display, never ping.
+ */
+function standingsLines(data, now, limit = 10, kit = liveKit()) {
   const rows = standings(data).slice(0, limit);
   if (!rows.length) return '*Nobody has launched yet. Be the first!*';
-  const medal = ['🥇', '🥈', '🥉'];
   return rows.map((r, i) => {
+    const place = i < 3 ? kit.e(`med${i + 1}`) : `**${i + 1}.**`;
     const icon = data.event.status === 'live' ? ` ${STATUS_ICON[playerStatus(data, r.userId, now)]}` : '';
-    const streak = r.streak >= 2 ? ` · 🔥${r.streak}` : '';
-    return `${medal[i] || `**${i + 1}.**`} <@${r.userId}> — **${pts(r.score)}** · stage ${r.stage}${icon}${streak}`;
+    const streak = r.streak >= 2 ? ` · ${kit.e('flame')} ${pill(r.streak)}` : '';
+    return `${place} <@${r.userId}> — **${pts(r.score)}** · stage ${r.stage}${icon}${streak}`;
   }).join('\n');
 }
 
 /** The mission card: what the event is, who's leading, and the Launch button. */
-export function missionCard(data, now = Date.now()) {
+export function missionCard(data, now = Date.now(), { kit = liveKit() } = {}) {
   const { event } = data;
   const { day, days } = missionDay(event, now);
   const players = Object.keys(data.players).length;
@@ -98,7 +105,7 @@ export function missionCard(data, now = Date.now()) {
       `${genreLine(event)} · ${event.media.map(m => MEDIA_LABEL[m]).join(' & ')}\n\n` +
       'Climb 15 stages of genre trivia to reach orbit. One launch a day; your best run counts. ' +
       '🛰 Stage separations at 5 and 10 keep what you\'ve banked.\n\n' +
-      `**Standings** · ${players} ${players === 1 ? 'player' : 'players'}\n${standingsLines(data, now)}`
+      `**Standings** · ${players} ${players === 1 ? 'player' : 'players'}\n${standingsLines(data, now, 10, kit)}`
     )
     .setFooter({ text: live ? 'Press Launch for today\'s run — only you see your questions' : 'Thanks for flying' })
     .setTimestamp(now);
@@ -111,7 +118,7 @@ export function missionCard(data, now = Date.now()) {
  * A run's current question. `flash` is a line about what just happened
  * ("✅ Correct!").
  */
-export function dashboard(run, question, { flash = null } = {}) {
+export function dashboard(run, question, { flash = null, kit = liveKit() } = {}) {
   const stage = run.stage;
   const nextSafe = SAFE_STAGES.find(s => s >= stage);
   const embed = new EmbedBuilder()
@@ -125,7 +132,7 @@ export function dashboard(run, question, { flash = null } = {}) {
     .addFields(
       { name: 'Banked', value: pts(run.banked), inline: true },
       { name: 'Next separation', value: nextSafe ? `Stage ${nextSafe} (${pts(LADDER[nextSafe - 1])})` : 'None — orbit is next', inline: true },
-      { name: 'Climb', value: `\`${ladderBar(stage - 1)}\``, inline: false },
+      { name: 'Climb', value: ladder(stage - 1, kit), inline: false },
     )
     .setFooter({ text: 'Only you can see this · a wrong answer ends today\'s run' });
 
@@ -146,7 +153,7 @@ export function dashboard(run, question, { flash = null } = {}) {
 }
 
 /** How a run ended, shown in place of the dashboard. */
-export function runOver(run, { question = null, correctIndex = null, choice = null } = {}) {
+export function runOver(run, { question = null, correctIndex = null, choice = null, kit = liveKit() } = {}) {
   const reveal = question != null
     ? `\n\n**${question.text}**\n` + question.options.map((o, i) => {
       const mark = i === correctIndex ? '✅' : i === choice ? '❌' : '▫️';
@@ -162,7 +169,7 @@ export function runOver(run, { question = null, correctIndex = null, choice = nu
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(title)
-    .setDescription(`${line}${reveal}\n\n\`${ladderBar(run.status === 'orbit' ? STAGES : run.stage - 1)}\`\n\nYour next launch window opens <t:${nextDayUnix(run.day)}:R>.`)
+    .setDescription(`${line}${reveal}\n\n${ladder(run.status === 'orbit' ? STAGES : run.stage - 1, kit)}\n\nYour next launch window opens <t:${nextDayUnix(run.day)}:R>.`)
     .setFooter({ text: 'Your best run of the event is your score' });
   return { content: '', embeds: [embed], components: [] };
 }
@@ -193,11 +200,11 @@ export function myMission(data, userId, now = Date.now()) {
 
 // ── /escape standings and rules ─────────────────────────────────────────
 
-export function standingsEmbed(data, now = Date.now()) {
+export function standingsEmbed(data, now = Date.now(), { kit = liveKit() } = {}) {
   return new EmbedBuilder()
     .setColor(COLOR.card)
     .setTitle(`🏁 ${data.event.name} — standings`.slice(0, 256))
-    .setDescription(standingsLines(data, now, 10))
+    .setDescription(standingsLines(data, now, 10, kit))
     .setTimestamp(now);
 }
 

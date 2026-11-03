@@ -174,7 +174,7 @@ const THRESHOLD_WARNING = '\n\n⚠️ **Warning:** You have gone over this serve
  * @param {string} commandArgs - Command arguments for pattern detection (optional)
  * @returns {Promise<{limited: boolean, retryAfter?: number, message?: string, guildWide?: boolean}>}
  */
-const GAME_COMMANDS = new Set(['potion', 'foodfight', 'doom', 'rescue']);
+const GAME_COMMANDS = new Set(['potion', 'foodfight', 'doom', 'rescue', 'siege']);
 
 // Slash command names are lowercase with no spaces; anything else is a
 // right-click command ("Game card"), which is picked from a menu, not typed

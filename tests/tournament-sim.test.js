@@ -19,8 +19,8 @@
  * Run with: npm test -- tests/tournament-sim.test.js
  */
 
-import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import { loadSim, finishSim, clock, favorite } from './harness/tournamentSim.js';
+import { describe, test, expect, jest, beforeAll, afterAll } from '@jest/globals';
+import { loadSim, finishSim, clock, favorite, useFakeKit, longestRegistry } from './harness/tournamentSim.js';
 
 let Sim;
 let mods;
@@ -230,6 +230,83 @@ async function straightBracket(sim, name, size, type, titles) {
   for (const [title, year] of titles) await sim.addTitle(type, title, year);
 }
 
+describe('with the emoji kit uploaded: a whole 32-title tournament', () => {
+  // Every card a tournament posts, drawn with the longest custom emoji
+  // there can be (37 characters each), through the real flow. The fake
+  // rejects anything over Discord's limits, and the simulator checks after
+  // every step that no custom emoji sits where Discord would show it raw:
+  // a title, author, footer, button label, or inside a code span.
+  test('live standings, ballots, status, voting posts, results and a tiebreaker all fit, with the kit only where it renders', async () => {
+    const restore = useFakeKit();
+    try {
+      mods.bracket.resetVotingPostCooldowns();
+      const reg = longestRegistry();
+      const E = (code) => `<:${reg.get(code).name}:${reg.get(code).id}>`;
+      const sim = new Sim('sim-kit-32', { voters: 4 });
+      await straightBracket(sim, 'Kit Cup', 32, 'movie', HORROR_32);
+      const standingsCards = () => sim.channel.posted.filter(m => /Live Standings/.test(m.embeds[0]?.toJSON().title || ''));
+      const split = (m, voter) => (['voter1', 'voter2'].includes(voter) ? 1 : 2);
+
+      let tiebreakers = 0;
+      for (let n = 0; n < 20 && sim.tournament().status !== 'completed'; n++) {
+        await sim.bracket('admin', 'open', { matchups: 4, duration: '1d' });
+        if (sim.tournament().status === 'completed') break;
+        // The first batch has one 2–2 matchup, which goes to a tiebreaker vote
+        const tieId = n === 0 ? sim.openMatchups()[0].id : null;
+        await sim.everyoneVotes((m, v) => (m.id === tieId ? split(m, v) : favorite(m)));
+        await sim.bracket('voter1', 'status');
+        await sim.bracket('voter2', 'my-votes');
+
+        if (n === 0) {
+          // Four open matchups with real titles: the two-bar layout, kit bars
+          // and pills, the totals line with kit icons
+          const live = standingsCards(sim).pop().embeds[0].toJSON().description;
+          expect(live).toContain(`${E('bgl')}`);
+          expect(live).toMatch(/> `\d+` votes? · \d+%\n/);
+          expect(live).toContain(`${E('ballot')} \`${4 * 4}\` votes · ${E('people')} \`4\` voters · ${E('vs')} \`4\` matchups`);
+          const ballot = await sim.openBallot('voter3');
+          expect(ballot.embeds[0].description).toContain(`${E('tk1')} **`);
+          const post = await sim.bracket('voter3', 'voting-post');
+          const card = post.reply.embeds[0].toJSON();
+          expect(card.description.startsWith(`${E('ballot')} **Kit Cup**`)).toBe(true);
+          expect(card.description).toMatch(new RegExp(`${E('clock')} Voting closes <t:\\d+:R>`));
+        }
+
+        await sim.passDeadlines();
+        if (tieId) {
+          const post = sim.channel.posted.filter(m => m.allComponents.some(c => (c.customId || '').startsWith('tiebreaker_vote_'))).pop();
+          expect(post).toBeTruthy();
+          const option1 = post.allComponents.find(c => c.customId.endsWith('_0'));
+          for (const v of sim.voters) await sim.click(v, post, option1.customId);
+          // The leader's bar: gold kit pieces, cap to cap
+          expect(post.embeds[0].toJSON().description).toContain(`${E('byl')}${E('bym').repeat(8)}${E('byr')} ${sim.voters.length} votes`);
+          await sim.passDeadlines();
+          tiebreakers++;
+        }
+      }
+
+      const t = sim.tournament();
+      expect(t.status).toBe('completed');
+      expect(tiebreakers).toBe(1);
+      expect(t.knockoutBracket.filter(m => m.status === 'closed')).toHaveLength(31);
+
+      // The scheduler's result cards: a split bar between the counts, kit
+      // icons on the fields, the title and footer plain
+      const results = sim.channel.posted.map(m => m.embeds[0]?.toJSON()).filter(e => / - Results$/.test(e?.title || ''));
+      expect(results.length).toBeGreaterThan(0);
+      for (const card of results) {
+        expect(card.description).toMatch(/Voting has closed!\n`\d+` (<:es_b[a-z]{2}xxx_ab12:\d+>){10} `\d+`/);
+        expect(card.fields.map(f => f.name)).toEqual([`${E('trophy')} Winner`, `${E('med2')} Runner-up`]);
+        expect(card.fields[0].value).toMatch(/^\*\*.+\*\*\n`\d+` votes?$/);
+      }
+      expect(sim.discord.violations).toEqual([]);
+      sim.writeTranscript('kit-32');
+    } finally {
+      restore();
+    }
+  }, 120_000);
+});
+
 describe('one matchup at a time: 8 TV shows with /bracket open matchups:1', () => {
   test('each run closes the last matchup and opens the next, to a champion; old ballots are refused', async () => {
     const sim = new Sim('sim-one-at-a-time');
@@ -338,9 +415,11 @@ describe('ties', () => {
     expect(post).toBeTruthy();
     const option1 = post.allComponents.find(c => c.customId.endsWith('_0'));
     for (const v of sim.voters) await sim.click(v, post, option1.customId);
-    // Votes in: the leader's bar is green squares, as on the live standings
+    // Votes in: the leader's bar is gold (rankedBar; plain squares, as no
+    // kit is uploaded here), the other option's empty
     const counted = post.embeds[0].toJSON().description;
-    expect(counted).toContain(`${'🟩'.repeat(10)} ${sim.voters.length} votes`);
+    expect(counted).toContain(`${'🟨'.repeat(10)} ${sim.voters.length} votes`);
+    expect(counted).toContain(`${'⬜'.repeat(10)} 0 votes`);
     expect(counted).not.toMatch(/[█░]/);
     await sim.passDeadlines();
 
@@ -696,6 +775,53 @@ async function groupVotesWithTieInA(sim) {
 }
 
 const tiebreakerPosts = (sim) => sim.channel.posted.filter(m => m.allComponents.some(c => (c.customId || '').startsWith('tiebreaker_vote_')));
+
+describe('with the emoji kit uploaded: a groups tournament', () => {
+  test('group results get kit medals and ticks, a group tiebreaker its kit bars, to a champion', async () => {
+    const restore = useFakeKit();
+    try {
+      const reg = longestRegistry();
+      const E = (code) => `<:${reg.get(code).name}:${reg.get(code).id}>`;
+      const sim = new Sim('sim-kit-groups');
+      await openGroups(sim);
+      await groupVotesWithTieInA(sim);
+      await sim.passDeadlines();
+
+      // Group A tied for first: its tiebreaker, voted through the real
+      // handler, which redraws the bars with the kit
+      const [post] = tiebreakerPosts(sim);
+      expect(post).toBeTruthy();
+      const option1 = post.allComponents.find(c => c.customId.endsWith('_0'));
+      for (const v of sim.voters) await sim.click(v, post, option1.customId);
+      expect(post.embeds[0].toJSON().description).toContain(`${E('byl')}${E('bym').repeat(8)}${E('byr')} ${sim.voters.length} votes`);
+      await sim.passDeadlines();
+
+      // B, C and D were decided outright: medals in the field names, the
+      // counts in pills, a kit tick on the two that go through
+      const results = sim.channel.posted.map(m => m.embeds[0]?.toJSON()).filter(e => /^📊 Group [BCD] Results/.test(e?.title || ''));
+      expect(results).toHaveLength(3);
+      for (const card of results) {
+        const g = card.title.match(/Group ([BCD])/)[1];
+        const first = HORROR_16['ABCD'.indexOf(g) * 4][0];
+        expect(card.fields[0].name).toBe(`${E('med1')} ${first}`);
+        expect(card.fields.slice(1, 3).map(f => f.name.split(' ')[0])).toEqual([E('med2'), E('med3')]);
+        expect(card.fields[0].value).toMatch(new RegExp(`^\`\\d+\` votes?\\n${E('tk1')} \\*\\*Advances\\*\\*$`));
+        expect(card.fields[2].value).toMatch(/^`\d+` votes?$/);
+      }
+
+      for (let n = 0; n < 4 && sim.tournament().status !== 'completed'; n++) {
+        await sim.bracket('admin', 'open', { duration: '1d' });
+        await sim.everyoneVotes(favorite);
+        await sim.passDeadlines();
+      }
+      expect(sim.tournament().status).toBe('completed');
+      expect(sim.discord.violations).toEqual([]);
+      sim.writeTranscript('kit-groups');
+    } finally {
+      restore();
+    }
+  }, 120_000);
+});
 
 describe('group-stage ties', () => {
   for (const how of ['deadline', '/bracket close', '/bracket close-groups']) {
@@ -1126,5 +1252,117 @@ describe('the bracket after each matchup', () => {
       else await sim.bracket('admin', 'resolve-tiebreaker', { 'tiebreaker-id': tb.id, winner: 1 });
       expect(bracketPosts(sim)).toHaveLength(1);
     }
+  });
+});
+
+describe('the drawn result image on each matchup result (cardImages.js)', () => {
+  const resultPosts = (sim) => sim.channel.posted.filter(m => /- Results$/.test(m.embeds[0]?.toJSON().title || ''));
+  const split = (m, voter) => (['voter1', 'voter2'].includes(voter) ? 1 : 2);
+  const posterOf = (sim, title) => sim.tournament().titles.find(t => t.title === title).posterUrl;
+
+  test('each result card carries matchup.png, drawn from that matchup: the winner, the votes, an upset, a tie', async () => {
+    const draw = mods.cardImages.generateMatchupResultImage;
+    draw.mockClear();
+    const sim = new Sim('sim-result-image', { voters: 4 });
+    await sim.bracket('admin', 'create', { name: 'Picture Cup', 'max-titles': 8, seeding: 'ordered', ties: 'higher-seed' });
+    for (const [title, year] of HORROR_8) await sim.addTitle('movie', title, year);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    // 1A (1 v 8) ties 2–2 and goes to seed 1; 1B (4 v 5) is won by seed 5, an upset
+    const [tied, upset] = sim.openMatchups();
+    await sim.everyoneVotes((m, v) => (m.id === tied.id ? split(m, v) : m.id === upset.id ? 2 : favorite(m)));
+    await sim.passDeadlines();
+
+    const posts = resultPosts(sim);
+    expect(posts).toHaveLength(4);
+    for (const post of posts) {
+      const card = post.embeds[0].toJSON();
+      expect(post.attachments.map(a => a.name)).toEqual(['matchup.png']);
+      expect(card.image.url).toBe('attachment://matchup.png');
+      // The image replaces the poster thumbnail
+      expect(card.thumbnail).toBeUndefined();
+    }
+
+    // What was drawn is the matchup that closed, as stored
+    expect(draw).toHaveBeenCalledTimes(4);
+    const closed = sim.tournament().knockoutBracket.filter(m => m.round === 'quarterfinals');
+    for (const m of closed) {
+      const [data] = draw.mock.calls.find(([d]) => d.label === mods.tournamentUI.matchupLabel(m.position, m.round));
+      const loser = m.winner.title === m.movie1.title ? m.movie2 : m.movie1;
+      const [high, low] = [m.votes1Count, m.votes2Count].sort((a, b) => b - a);
+      expect(data).toMatchObject({
+        round: 'quarterfinals',
+        winner: { title: m.winner.title, posterUrl: posterOf(sim, m.winner.title), seed: m.winner.seed, votes: high },
+        loser: { title: loser.title, posterUrl: posterOf(sim, loser.title), seed: loser.seed, votes: low },
+      });
+      expect(data.winner.posterUrl).toMatch(/^https:\/\/image\.tmdb\.org\//);
+      expect(data.upset).toBe(m.id === upset.id);
+      expect(data.tieBrokenBySeed).toBe(m.id === tied.id);
+    }
+    expect(sim.discord.violations).toEqual([]);
+  });
+
+  test('when the image fails, the text card still posts exactly as before, with the poster thumbnail', async () => {
+    const draw = mods.cardImages.generateMatchupResultImage;
+    const warnings = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    draw.mockRejectedValue(new Error('Matchup image took longer than 5000 ms'));
+    try {
+      const sim = new Sim('sim-result-image-fails');
+      await straightBracket(sim, 'Text Only Cup', 8, 'movie', HORROR_8);
+      await sim.bracket('admin', 'open', { duration: '1d' });
+      await sim.everyoneVotes(favorite);
+      await sim.passDeadlines();
+
+      const posts = resultPosts(sim);
+      expect(posts).toHaveLength(4);
+      for (const post of posts) {
+        const card = post.embeds[0].toJSON();
+        const winner = sim.tournament().knockoutBracket.find(m => card.title.includes(`Match ${m.position + 1} `) && m.round === 'quarterfinals').winner;
+        expect(post.attachments).toEqual([]);
+        expect(card.image).toBeUndefined();
+        expect(card.thumbnail?.url).toBe(posterOf(sim, winner.title));
+        expect(card.description).toMatch(/Voting has closed!\n`\d+` .+ `\d+`/);
+        expect(card.fields[0].value).toContain(winner.title);
+      }
+      // Logged as a warning: the simulator fails a step on any console.error
+      expect(warnings.mock.calls.some(([msg]) => /Matchup image for .+ not drawn/.test(String(msg)))).toBe(true);
+      expect(sim.discord.violations).toEqual([]);
+    } finally {
+      draw.mockImplementation(async () => Buffer.from('png'));
+      warnings.mockRestore();
+    }
+  });
+
+  test("a channel that won't take attachments (no Attach Files) still gets every result card", async () => {
+    const warnings = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const sim = new Sim('sim-result-image-no-attach');
+    await straightBracket(sim, 'No Files Cup', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    await sim.everyoneVotes(favorite);
+    // Discord refuses a message with a file where the bot can't attach one
+    const send = sim.channel.send.bind(sim.channel);
+    const refused = [];
+    sim.channel.send = async (payload) => {
+      if (payload?.files?.some(f => f.name === 'matchup.png')) {
+        refused.push(payload);
+        throw Object.assign(new Error('Missing Permissions'), { code: 50013 });
+      }
+      return send(payload);
+    };
+    try {
+      await sim.passDeadlines();
+    } finally {
+      sim.channel.send = send;
+      warnings.mockRestore();
+    }
+    expect(refused).toHaveLength(4);
+    const posts = resultPosts(sim);
+    expect(posts).toHaveLength(4);
+    for (const post of posts) {
+      const card = post.embeds[0].toJSON();
+      expect(post.attachments).toEqual([]);
+      expect(card.image).toBeUndefined();
+      expect(card.thumbnail?.url).toMatch(/^https:\/\/image\.tmdb\.org\//);
+    }
+    expect(sim.discord.violations).toEqual([]);
   });
 });

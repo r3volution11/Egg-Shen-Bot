@@ -31,8 +31,8 @@ export const ITEMS = Object.freeze({
   holyw: { name: 'Holy Water', emoji: '💧', cap: 2, passive: false, game: 'rescue', kit: 'holyw', about: 'A rescue that can\'t be caught: +2 more, and a shield 3× as long.' },
   penny: { name: 'Lucky Penny', emoji: '🍀', cap: 3, passive: false, game: 'potion', kit: 'penny', about: 'The potion works, and your points ×2.' },
   antid: { name: 'Antidote', emoji: '💊', cap: 2, passive: true, game: null, kit: 'antid', about: 'A harmful potion does you no harm. 6 h cooldown.' },
-  // Defined now so the card can show it; nothing gives one or uses one
-  // until /siege (R5/R6). Never offered outside a siege.
+  // Won as siege loot (R5) and used only in `/siege attack`: never offered
+  // outside a siege (SIEGE_ITEM_EFFECTS says what it does there)
   silver: { name: 'Silver Bullet', emoji: '🥈', cap: 2, passive: false, game: 'siege', kit: 'silver', about: 'Siege only: can\'t backfire, damage ×3.' },
   nlight: { name: 'Night Light', emoji: '🔦', cap: 1, passive: true, game: null, kit: 'nlight', about: 'Saves your nights row when you miss a night. Once a week.' },
 });
@@ -123,6 +123,9 @@ export const PRIZES = Object.freeze([
   // titles, nights or overflow: a bonus can't feed the counter that pays
   // bonuses.
   { key: 'points', game: null, label: 'Points', noun: 'points', outcomes: [], need: 750, item: null, points: 0 },
+  // R6: siege wins (lifetime.siege.wins), counted by applySiegeResult when
+  // a win is paid — outside the daily prize cap, as a win is rare enough
+  { key: 'siegewins', game: 'siege', label: 'Siege wins', noun: 'siege wins', outcomes: [], need: 4, item: 'silver', points: 10 },
 ]);
 
 /** What the 750-points prize draws from (luck) */
@@ -161,9 +164,9 @@ export const NIGHT_TIERS = Object.freeze([
  * Titles, checked against what's already stored all-time: `did` counts
  * your own outcomes (games[g].all.counts), `got` what was done to you
  * (games[g].all.received), `streak` your best streak in any game,
- * `nights` your best nights in a row, and `twists` (R4) the twists that
- * happened to you. Each `did`/`got` maps game → outcomes summed. Siege
- * titles join in the release that creates them: one entry each.
+ * `nights` your best nights in a row, `twists` (R4) the twists that
+ * happened to you, and `siege` (R5) one of the siege counters. Each
+ * `did`/`got` maps game → outcomes summed.
  */
 export const TITLES = Object.freeze([
   { key: 'pie-sniper', title: 'Pie Sniper', badge: '🥧', need: 150, did: { foodfight: ['hit'] } },
@@ -187,7 +190,192 @@ export const TITLES = Object.freeze([
   { key: 'undead', title: 'Undead Regular', badge: '🧟', need: 30, nights: true },
   // R4: twists that happened to you, scored plays only (lifetime.twists)
   { key: 'plot-twist', title: 'Plot Twist', badge: '🎲', need: 30, twists: true },
+  // R5: sieges (lifetime.siege, moved only by finishSiege): `siege` names
+  // the counter — wins (every fighter of a monster beaten), mvps, and kaiju
+  // (every fighter of a beaten SIEGE.kaiju)
+  { key: 'monster-hunter', title: 'Monster Hunter', badge: '🗡️', need: 10, siege: 'wins' },
+  { key: 'siege-mvp', title: 'Siege MVP', badge: '🏆', need: 1, siege: 'mvps' },
+  { key: 'legend', title: 'Legend of the Drive-In', badge: '👑', need: 10, siege: 'mvps' },
+  { key: 'kaiju-killer', title: 'Kaiju Killer', badge: '🦖', need: 1, siege: 'kaiju' },
+  // R6: fighters freed plus poisons cured, from scored /rescue and /potion
+  // plays (lifetime.siege.assists); and times the monster grabbed you
+  // (lifetime.siege.grabbed, counted when the grab is announced)
+  { key: 'field-medic', title: 'Field Medic', badge: '🩹', need: 15, siege: 'assists' },
+  { key: 'monster-chow', title: 'Monster Chow', badge: '🍖', need: 10, siege: 'grabbed' },
 ]);
+
+// ── sieges (R5) ─────────────────────────────────────────────────────────
+
+/**
+ * /siege: a monster the whole server fights together. The monsters (HP
+ * and damage multipliers, traits, words) are in siegeMonsters.js; the
+ * rules that use these numbers in src/utils/siegeStore.js. Every number
+ * below is binding from the plan's balance run (it settles at 64–75% wins
+ * on servers of 5 to 43 players) — change one and the win rate moves.
+ */
+export const SIEGE = Object.freeze({
+  /**
+   * An attack reuses a game's own lines, re-tagged: `weapon:food` draws a
+   * random food's THROW lines, `doom` a random trope's, `potion` a random
+   * harmful potion type's. A line whose outcome isn't listed (a custom
+   * feed line, say) can't be drawn in a siege.
+   */
+  outcomes: Object.freeze({
+    food: Object.freeze({ hit: 'splat', miss: 'splash', backfire: 'splatback' }),
+    doom: Object.freeze({ doomed: 'smite', escaped: 'dodged', backfired: 'spooked' }),
+    potion: Object.freeze({ worked: 'poisoned', backfired: 'fizzled' }),
+  }),
+  /** The game each weapon is: switched off for a member, it can't be used on the monster */
+  weaponGame: Object.freeze({ food: 'foodfight', doom: 'doom', potion: 'potion' }),
+  /**
+   * Damage before the monster's multipliers. A backfire does none, and a
+   * spooked doom leaves its thrower Spooked (the next attack does
+   * `spookedMult` of its damage).
+   */
+  damage: Object.freeze({ splat: 8, splash: 3, splatback: 0, smite: 16, dodged: 0, spooked: 0, poisoned: 4, fizzled: 0 }),
+  spookedMult: 0.5,
+  /**
+   * A potion that works also poisons the monster: `perMinute` damage for
+   * `minutes`, credited to whoever gave it. One poison per fighter; a new
+   * one restarts theirs. Only the monster's traits.poisonMult changes it.
+   */
+  poison: Object.freeze({ perMinute: 2, minutes: 5 }),
+  /** The Silver Bullet's damage multiplier, unless the monster has its own (traits.silverMult) */
+  silverMult: 3,
+  /** Attacks a day that score points, per member (UTC); later ones still do damage */
+  scoredPerDay: 30,
+  /**
+   * HP = round(clamp((perActive·A7 + perFighter·F)·D, min, max) · monster.hp)
+   * A7: members with a play in the last `activeDays` days; F: fighters so
+   * far (0 at the start); D: the server's dial. Each new fighter's first
+   * attack adds round(perFighter·D·monster.hp) to max and current HP, never
+   * past the `max` ceiling.
+   */
+  hp: Object.freeze({ perActive: 2, perFighter: 45, min: 40, max: 2000, activeDays: 7 }),
+  /**
+   * A fighter who joins in the last this-many minutes doesn't grow the
+   * monster: a newcomer's last-second first attack (even one that does no
+   * damage) mustn't hand the monster the HP it needs to get away.
+   */
+  noGrowthLastMinutes: 5,
+  /**
+   * The difficulty dial, per server, kept next to the siege. After a win or
+   * an escape with at least `minFighters`, ×win or ×escape, clamped. An
+   * escape lowers it only when the fighters dealt at least
+   * `dialEscapeMinDamage` of its max HP: two members who let sieges walk
+   * away without trying mustn't make every later monster trivial (and the
+   * floor is 0.5, not lower, for the same reason).
+   */
+  dial: Object.freeze({ start: 1, win: 1.05, escape: 0.88, min: 0.5, max: 2.5, minFighters: 2 }),
+  dialEscapeMinDamage: 0.5,
+  /** How long a siege lasts, unless the monster says (monster.minutes) or the admin picks */
+  minutes: Object.freeze({ default: 45, min: 30, max: 60 }),
+  /**
+   * A win: a pool of `perFighter` points per fighter (between poolMin and
+   * poolMax) split by each one's share of the contribution, each between
+   * eachMin and eachMax. The MVP (most contribution) gets `mvpBonus` more
+   * and loot for sure; anyone else with at least `lootShare` of the
+   * contribution has a `lootChance` (× the monster's traits.loot). Loot is
+   * a Silver Bullet `silverChance` of the time, else one of
+   * RANDOM_PRIZE_ITEMS. A siege won by ONE fighter pays the pool share
+   * only — no MVP bonus, no loot, and no win, MVP or kaiju on their record:
+   * siege titles need company.
+   */
+  rewards: Object.freeze({
+    perFighter: 8, poolMin: 24, poolMax: 200, eachMin: 2, eachMax: 30,
+    mvpBonus: 5, silverChance: 0.3, lootChance: 0.25, lootShare: 0.05,
+  }),
+  /**
+   * Win rewards (the pool share, the MVP's bonus, loot, and the siege
+   * counters titles are earned from) are paid for at most this many sieges
+   * per member per UTC day. Admins can start sieges back to back, and one
+   * friend fighting alone earned every siege title in under an hour; past
+   * the limit an attack still does damage and scores its own points.
+   */
+  rewardedPerDay: 2,
+  /** An escape costs every fighter who attacked this much — only when at least `minFighters` fought */
+  escape: Object.freeze({ loss: 3, minFighters: 2 }),
+  /** Contribution = damage + free × fighters freed + cure × cures */
+  credit: Object.freeze({ free: 12, cure: 8 }),
+  /**
+   * R6: the monster fights back. Every `everyMinutes` (the first that long
+   * after the start) it acts: a grab, a poison or a roar, by `weights`
+   * (or the monster's traits.actWeights). A grab needs /rescue on for
+   * members and a poison /potion; otherwise it roars. It only acts on
+   * fighters who have attacked and are free, never grabs the last free one,
+   * and an action whose ping wasn't sent within `voidSeconds` is void.
+   */
+  actions: Object.freeze({
+    everyMinutes: 5,
+    weights: Object.freeze({ grab: 50, poison: 35, roar: 15 }),
+    voidSeconds: 90,
+  }),
+  /** A grabbed fighter can't attack; not freed (by another member's /rescue) in `freeMinutes`: −`loss` (month floor 0) and out */
+  grab: Object.freeze({ freeMinutes: 10, loss: 5 }),
+  /** A poisoned fighter's attacks do `mult` damage until cured (another member's helpful /potion, or an Antidote) or `minutes` pass */
+  poisoned: Object.freeze({ mult: 0.5, minutes: 15 }),
+  /**
+   * Random sieges (the scheduler), by the server's siegeFrequency: about
+   * `perWeek` a week on a server that plays most evenings. At least
+   * `gapHours` after the last one ended, never during a happening, and only
+   * with `minRecent` members who played in the last `recentMinutes` and
+   * `minDay` in the last 24 hours. A random siege's win pool is scaled by
+   * min(1, poolScaleAt / perWeek), so `often` doesn't simply pay more.
+   */
+  random: Object.freeze({
+    perWeek: Object.freeze({ off: 0, rare: 1.5, normal: 3, often: 5 }),
+    gapHours: 20,
+    recentMinutes: 30,
+    minRecent: 2,
+    minDay: 3,
+    poolScaleAt: 3,
+  }),
+  /** The monster whose defeat counts toward Kaiju Killer */
+  kaiju: 'lizard',
+  /** The card is edited at most this often while the fight goes on */
+  cardEditSeconds: 60,
+  /** Lines kept in the card's log */
+  logKeep: 5,
+  /** Fighters pinged by the results message, at most */
+  pingMax: 20,
+  /** Tries at posting the results before giving up (a channel gone, permissions lost) */
+  resultTries: 10,
+  /**
+   * A results claim older than this with no message recorded was cut short
+   * by a restart mid-send: it's given up (never sent twice), as a
+   * happening's late announcement is, so the next siege can start.
+   */
+  resultClaimMinutes: 2,
+  /**
+   * An arrival card claimed this long ago with no message recorded: the
+   * bot died (or Discord timed out) around the send. The pass looks for the
+   * card in the channel; if it isn't there, nobody saw the monster, and the
+   * siege is called off quietly.
+   */
+  cardClaimMinutes: 2,
+});
+
+/**
+ * What an item does in a siege attack, by weapon — like ITEM_EFFECTS, but
+ * for the siege's own outcomes. The game items narrow the draw exactly as
+ * they do in their own game (a Golden Pie can't miss) and nothing more: a
+ * siege's points come from the fight, not the item. The Silver Bullet only
+ * works here: it can't backfire, and its damage is SIEGE.silverMult (or
+ * the monster's traits.silverMult).
+ *   weights - outcome weights for pickLine, as ITEM_EFFECTS
+ *   silver  - the damage multiplier applies
+ *   short   - the autocomplete's few words
+ */
+export const SIEGE_ITEM_EFFECTS = Object.freeze({
+  gpie: Object.freeze({ food: Object.freeze({ weights: { splash: 0, splatback: 0 }, short: 'a sure splat' }) }),
+  vhs: Object.freeze({ doom: Object.freeze({ weights: { spooked: 0 }, short: 'can\'t backfire' }) }),
+  penny: Object.freeze({ potion: Object.freeze({ weights: { fizzled: 0 }, short: 'the poison always works' }) }),
+  silver: Object.freeze({
+    food: Object.freeze({ weights: { splatback: 0 }, silver: true, short: 'can\'t backfire, damage ×3' }),
+    doom: Object.freeze({ weights: { spooked: 0 }, silver: true, short: 'can\'t backfire, damage ×3' }),
+    potion: Object.freeze({ weights: { fizzled: 0 }, silver: true, short: 'can\'t backfire, damage ×3' }),
+  }),
+});
 
 // ── twists (R4) ─────────────────────────────────────────────────────────
 

@@ -58,7 +58,7 @@ export const DISCORD_CARDS = {
       embeds: [{
         color: ACCENT,
         title: '🏆 Semifinals - Live Standings',
-        description: `**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nAlien (1979) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nJaws (1975)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**3A** · closes ${SOON}\nGet Out (2017)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\nvs\nHalloween (1978) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\n\n📈 **Total votes:** 12\n👥 **Voters:** 6\n🎯 **Matchups:** 2`,
+        description: `**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nAlien (1979) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nJaws (1975)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**3A** · closes ${SOON}\nGet Out (2017)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\nvs\nHalloween (1978) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\n\n🗳️ \`12\` votes · 👥 \`6\` voters · ⚔️ \`2\` matchups`,
         footer: 'Updates in real-time as votes are cast',
         timestamp: 'Today at 8:05 PM',
         thumbnail: 'poster',
@@ -73,10 +73,10 @@ export const DISCORD_CARDS = {
       embeds: [{
         color: GREEN,
         title: '📊 Quarterfinals - Match 1 - Results',
-        description: '**Friday Frights**\n\nVoting has closed!',
+        description: '**Friday Frights**\n\nVoting has closed!\n`5` 🟩🟩🟩🟩🟩🟩🟩🟩🟧🟧 `1`',
         fields: [
-          { name: '🏆 Winner', value: '**Alien**\n5 votes', inline: true },
-          { name: 'Runner-up', value: 'The Thing\n1 vote', inline: true },
+          { name: '🏆 Winner', value: '**Alien**\n`5` votes', inline: true },
+          { name: '🥈 Runner-up', value: 'The Thing\n`1` vote', inline: true },
         ],
         footer: 'Total votes: 6',
         timestamp: 'Tomorrow at 8:04 PM',

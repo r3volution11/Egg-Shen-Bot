@@ -29,6 +29,7 @@ import { LIMITS, messageProblems, clipText, chooseLayout, fieldsFromLines } from
 import { NIGHT_TIERS } from '../data/gameRewards.js';
 import { happeningLine } from '../data/gameEventLines.js';
 import { getPlayerCardExtras } from './gameCardData.js';
+import { hpColour } from './siegeCard.js';
 import { loadGuildConfig } from './guildConfig.js';
 
 /** The games' orange, as the scoreboard has always been */
@@ -138,9 +139,23 @@ function happeningLines(data, now) {
     .map(h => happeningLine(h));
 }
 
-/** The description: the summary, the shown title, then any happening in progress */
+/**
+ * The monster attacking now (R5), one line under the happenings: its HP
+ * bar, when it ends, and how this member is doing in the fight —
+ * "🟢 **The Blob** is attacking! 🟩🟩🟩⬜⬜⬜ `412/980` HP · ends <t:…:R> ·
+ * you: `48` damage, 2nd". Gone once its time is up, even if handed in.
+ */
+function siegeLine(data, kit, now) {
+  const s = data.siege;
+  if (!s || !(s.endsAt > now)) return '';
+  const bar = kit.bar(s.hp, s.maxHp, { width: 6, colour: hpColour(s.hp, s.maxHp) });
+  const you = s.you ? `you: ${pill(s.you.damage)} damage, ${ordinal(s.you.rank)}` : 'join in with `/siege attack`';
+  return `${s.emoji} **${escapeMarkdown(String(s.monster))}** is attacking! ${bar} ${pill(`${s.hp}/${s.maxHp}`)} HP · ends <t:${Math.floor(s.endsAt / 1000)}:R> · ${you}`;
+}
+
+/** The description: the summary, the shown title, then any happening in progress and a siege */
 function description(data, kit, now) {
-  return [summary(data, kit), shownTitle(data, kit), ...happeningLines(data, now)].filter(Boolean).join('\n');
+  return [summary(data, kit), shownTitle(data, kit), ...happeningLines(data, now), siegeLine(data, kit, now)].filter(Boolean).join('\n');
 }
 
 /**
@@ -333,7 +348,7 @@ function titleFields(data, { kit, step }) {
  * `progress` (rewards in progress), `nights`, the `glovebox` and `titles`
  * side by side as two of DarcyBot's columns, then effects (the shield and,
  * since R4, a twist's statuses). R4's `happenings` are lines in the
- * description (see description). Later: a `siege` (R5).
+ * description (see description), and so is R5's `siege`.
  */
 const SECTIONS = [gameFields, rewardFields, nightsFields, gloveboxFields, titleFields, effectFields];
 
@@ -396,7 +411,10 @@ export function renderGameCard(data, options = {}) {
  * with the Glovebox on the all-games card: like an item, a status follows
  * the member into whichever game they play next. Each is added only when
  * there is one, so a card from before R4 is exactly what it was.
- * @param {?{progress, nights, glovebox, titles, effects?, happenings?}} extras
+ *
+ * R5: a live siege goes on the all-games card when the siege is one of its
+ * games, and on the Siege card — a fight that's on is the reason to play.
+ * @param {?{progress, nights, glovebox, titles, effects?, happenings?, siege?}} extras
  * @param {{game: string, shown: string[]}} on
  */
 export function cardExtras(extras, { game = 'all', shown = [] } = {}) {
@@ -406,6 +424,7 @@ export function cardExtras(extras, { game = 'all', shown = [] } = {}) {
   const r4 = {
     ...(extras.happenings?.length ? { happenings: extras.happenings } : {}),
     ...(game === 'all' && extras.effects?.length ? { effects: extras.effects } : {}),
+    ...(extras.siege && (game === 'siege' || (game === 'all' && shown.includes('siege'))) ? { siege: extras.siege } : {}),
   };
   if (game !== 'all') return { progress, titles: { shown: extras.titles?.shown || null, earned: [], next: [] }, ...r4 };
   return { progress, nights: extras.nights || null, glovebox: extras.glovebox || [], titles: extras.titles || null, ...r4 };

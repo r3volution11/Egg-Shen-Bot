@@ -4,6 +4,8 @@
 import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, GuildScheduledEventStatus } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
+import { liveKit } from '../utils/emojiKit.js';
+import { clipText, LIMITS } from '../utils/embedFit.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postPublicEventAnnouncement, buildEventCreatedReply } from '../utils/eventRequestApproval.js';
 import { formatUtcForInput, TIME_INPUT_PLACEHOLDER } from '../utils/eventTimeInput.js';
@@ -64,6 +66,15 @@ export async function handleButtonInteraction(interaction) {
     if (interaction.customId.startsWith('ev_')) {
       const { handleEscapeButton } = await import('./escapeHandler.js');
       await handleEscapeButton(interaction);
+      return;
+    }
+
+    // /how-to-play's ◀ Previous / Next ▶ (htp:<topic>). Open to everyone, as
+    // help is; on a public card it answers the clicker privately rather than
+    // turning everyone's page (howToPlay.js)
+    if (interaction.customId.startsWith('htp:')) {
+      const { handleHowToPlayInteraction } = await import('../utils/howToPlay.js');
+      await handleHowToPlayInteraction(interaction);
       return;
     }
 
@@ -2236,44 +2247,48 @@ export async function moveLiveStandingsDown(channel, tournament, matchups, clien
 }
 
 /**
- * Build public "All Votes" leaderboard for knockout round
+ * The public Live Standings card for a knockout round: every open
+ * matchup's bars (tournamentUI.formatStandings, shared with /bracket
+ * status), then the round's totals on one line. Edited on every vote.
+ *
+ * The layout is measured on this whole card — title, footer, the totals at
+ * their largest — so the one formatStandings picks is one Discord accepts,
+ * and stays the same from the first vote to the last.
  * @param {Object} tournament - Tournament data
  * @param {string} currentRound - Current round name
  * @param {Array} matchups - Array of matchups in current round
  * @param {Object} client - Discord client (for bot avatar)
  * @returns {EmbedBuilder} Public leaderboard embed
  */
-export function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups, client = null) {
+export function buildPublicKnockoutLeaderboard(tournament, currentRound, matchups, client = null, { kit = liveKit() } = {}) {
   const roundName = currentRound.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  
-  // Count total votes across all matchups
-  let totalVotes = 0;
-  matchups.forEach(matchup => {
-    totalVotes += (matchup.votes.movie1.length + matchup.votes.movie2.length);
-  });
-  
-  // Get tournament stats
+
+  const totalVotes = matchups.reduce((n, m) => n + (m.votes?.movie1?.length || 0) + (m.votes?.movie2?.length || 0), 0);
   const uniqueVoters = tournament.statistics?.uniqueVoters || Object.keys(tournament.votes || {}).length;
-  
-  // Build description with all matchup vote tallies WITH PROGRESS BARS
-  let description = `**📊 Live Vote Counts**\n\n`;
-  
-  // One block per matchup, shared with /bracket status (tournamentUI)
-  description += matchups.map(m => tournamentUI.formatStandingsMatchup(m, currentRound)).join('\n\n') + '\n\n';
-  
-  description += `📈 **Total votes:** ${totalVotes}`;
-  description += `\n👥 **Voters:** ${uniqueVoters}`;
-  description += `\n🎯 **Matchups:** ${matchups.length}`;
-  
-  const embed = new EmbedBuilder()
+
+  const title = `🏆 ${roundName} - Live Standings`;
+  const footer = 'Updates in real-time as votes are cast';
+  const describe = (blocks, totals) => `**📊 Live Vote Counts**\n\n${blocks}\n\n${totals}`;
+
+  // The totals as long as they could get, for measuring: every matchup at
+  // the probe count a side, and as many voters
+  const probe = tournamentUI.STANDINGS_PROBE_VOTES;
+  const widestTotals = tournamentUI.standingsTotals({ votes: probe * 2 * matchups.length, voters: probe, matchups: matchups.length }, { kit });
+  const { text } = tournamentUI.formatStandings(matchups, currentRound, {
+    kit,
+    // Plain JSON, unclipped: an EmbedBuilder throws on an over-long
+    // description, and a clipped one would make every layout seem to fit
+    budget: (blocks) => ({ embeds: [{ title, description: describe(blocks, widestTotals), footer: { text: footer } }] }),
+  });
+  const totals = tournamentUI.standingsTotals({ votes: totalVotes, voters: uniqueVoters, matchups: matchups.length }, { kit });
+  return new EmbedBuilder()
     .setColor(0x4EC5ED)
-    .setTitle(`🏆 ${roundName} - Live Standings`)
-    .setDescription(description)
+    .setTitle(title)
+    // The layout fits; the clip is only the guarantee
+    .setDescription(clipText(describe(text, totals), LIMITS.description))
     .setThumbnail(client?.user?.displayAvatarURL() || null)
-    .setFooter({ text: 'Updates in real-time as votes are cast' })
+    .setFooter({ text: footer })
     .setTimestamp();
-  
-  return embed;
 }
 
 /**
@@ -2597,8 +2612,9 @@ async function handleTiebreakerVote(interaction) {
 
   const optionsText = updatedTiebreaker.tiedOptions.map((opt, i) => {
     const votes = voteCounts[i] || 0;
-    // Coloured squares, as on the live standings (createRankedBar)
-    const bar = tournamentUI.createRankedBar(votes, updatedTiebreaker.tiedOptions.map((_, j) => voteCounts[j] || 0));
+    // The kit's bar: the leader gold, the rest blue (rankedBar), drawn the
+    // same as when bracket.js first posted this vote
+    const bar = tournamentUI.rankedBar(votes, updatedTiebreaker.tiedOptions.map((_, j) => voteCounts[j] || 0));
     return `**${i + 1}.** ${opt.title}\n${bar} ${votes} vote${votes !== 1 ? 's' : ''}`;
   }).join('\n\n');
 

@@ -15,6 +15,12 @@
  *     counted twice, the per-user record matches the per-matchup lists)
  *   - a ballot never needs more than 5 matchups
  *   - every closed matchup's winner is one of its two titles
+ *   - no custom emoji where Discord can't draw one: an embed's title,
+ *     author or footer, a button or menu label, or inside a code span
+ *     (the emoji kit's markup shows there as raw `<:es_…:…>` text)
+ *
+ * useFakeKit() "uploads" the whole emoji kit with the longest markup an
+ * emoji can have, so a scenario can run every card with custom emoji in it.
  *
  * Any failure names the action that caused it.
  *
@@ -54,6 +60,13 @@ export async function loadSim() {
     generateFullTournamentView: jest.fn(async () => Buffer.from('png')),
     fetchTMDBPoster: jest.fn(async () => null),
   }));
+  // Likewise the drawn result cards: what's tested is that the scheduler
+  // attaches one (and posts the text card alone when drawing fails — a
+  // scenario makes these reject), not the drawing itself
+  jest.unstable_mockModule(src('utils/cardImages.js'), () => ({
+    generateMatchupResultImage: jest.fn(async () => Buffer.from('png')),
+    generateSurveyResultsImage: jest.fn(async () => Buffer.from('png')),
+  }));
   // No AI re-ranking: results must come out in the order recorded
   process.env.OPENAI_API_KEY = '';
   // The bot narrates every step to the console; a scenario is hundreds of
@@ -75,7 +88,9 @@ async function importModules() {
   const watchlist = await import(src('utils/watchlistManager.js'));
   const tournamentImport = await import(src('utils/tournamentImport.js'));
   const tournamentUI = await import(src('utils/tournamentUI.js'));
-  const next = { bracket, bracketSetup, commands: { bracket, 'bracket-setup': bracketSetup }, handleButtonInteraction, handleSelectInteraction, bracketManager, scheduler, guildConfig, watchlist, tournamentImport, tournamentUI, Sim };
+  const emojiKit = await import(src('utils/emojiKit.js'));
+  const cardImages = await import(src('utils/cardImages.js'));
+  const next = { bracket, bracketSetup, commands: { bracket, 'bracket-setup': bracketSetup }, handleButtonInteraction, handleSelectInteraction, bracketManager, scheduler, guildConfig, watchlist, tournamentImport, tournamentUI, emojiKit, cardImages, Sim };
   // Keep the same object, so everything holding `mods` sees the reload
   if (mods) Object.assign(mods, next);
   else mods = next;
@@ -91,6 +106,26 @@ export async function restartBot() {
   const { default: freshAxios } = await import('axios');
   installHttpReplay(freshAxios);
   await importModules();
+}
+
+/**
+ * Every kit code uploaded, each with the longest markup a kit emoji can
+ * be (37 characters: a six-letter code, a 19-digit id), one name per code
+ * so a test can tell them apart: `<:es_ballot_ab12:1000…>`.
+ */
+export function longestRegistry() {
+  const { KIT_CODES } = mods.emojiKit;
+  return new Map(Object.keys(KIT_CODES).map((c, i) => [c, { id: `1${String(i).padStart(18, '0')}`, name: `es_${c.padEnd(6, 'x')}_ab12` }]));
+}
+
+/**
+ * Draw every card with the kit uploaded (longestRegistry) until the
+ * returned function is called. The kit is module-wide, so always restore:
+ *   const restore = useFakeKit(); try { … } finally { restore(); }
+ */
+export function useFakeKit() {
+  mods.emojiKit.setLiveRegistry(longestRegistry());
+  return () => mods.emojiKit.setLiveRegistry(null);
 }
 
 /** After the last scenario: save any new recordings (record mode only). */
@@ -427,6 +462,9 @@ export class Sim {
       }
     }
 
+    // Custom emoji only where Discord draws them (see misplacedEmoji)
+    for (const msg of shown) problems.push(...misplacedEmoji(msg));
+
     // A ballot holds 5 matchups
     const voting = (t.knockoutBracket || []).filter(m => m.status === 'voting');
     if (voting.length > MAX_BALLOT) problems.push(`${voting.length} matchups open at once; a ballot holds ${MAX_BALLOT}`);
@@ -480,6 +518,44 @@ export class Sim {
     fs.writeFileSync(file, transcriptHtml(name, this.discord.events));
     return file;
   }
+}
+
+/** A custom emoji's markup, the emoji kit's or any other */
+const EMOJI_MARKUP = /<a?:\w+:\d+>/;
+
+/** Discord's code spans and blocks: `x`, ``x``, ```x``` */
+const codeSpans = (text) => String(text || '').match(/```[\s\S]*?```|``[\s\S]*?``|`[^`]*`/g) || [];
+
+/**
+ * Every place in a message where custom emoji markup would show as raw
+ * text instead of an emoji: an embed's title, author and footer, a button
+ * or menu's labels, and any code span (a kit `pill`). Empty when clean.
+ */
+export function misplacedEmoji(msg) {
+  const bad = [];
+  const where = (d) => `"${d.title || (d.description || '').split('\n')[0]}"`;
+  for (const span of codeSpans(msg.content)) {
+    if (EMOJI_MARKUP.test(span)) bad.push(`message content: custom emoji inside a code span: ${span}`);
+  }
+  for (const e of msg.embeds || []) {
+    const d = e.data || e.toJSON?.() || e;
+    for (const [part, text] of [['title', d.title], ['author', d.author?.name], ['footer', d.footer?.text]]) {
+      if (EMOJI_MARKUP.test(text || '')) bad.push(`${where(d)}: custom emoji in its ${part} shows raw: "${text}"`);
+    }
+    for (const text of [d.description, ...(d.fields || []).flatMap(f => [f.name, f.value])]) {
+      for (const span of codeSpans(text)) {
+        if (EMOJI_MARKUP.test(span)) bad.push(`${where(d)}: custom emoji inside a code span shows raw: ${span}`);
+      }
+    }
+  }
+  for (const c of msg.allComponents || []) {
+    const j = c.toJSON ? c.toJSON() : (c.data || c);
+    const texts = [j.label, j.placeholder, ...(j.options || []).flatMap(o => [o.label, o.description])];
+    for (const text of texts) {
+      if (EMOJI_MARKUP.test(text || '')) bad.push(`component ${j.custom_id}: custom emoji in a label shows raw: "${text}"`);
+    }
+  }
+  return bad;
 }
 
 /** The usual voter: the title added earliest (lowest index) wins. */

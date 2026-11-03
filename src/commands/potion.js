@@ -212,9 +212,10 @@ export const data = new SlashCommandBuilder()
   );
 
 /**
- * Get all responses for a potion type (defaults + custom), filtered by active themes
+ * Get all responses for a potion type (defaults + custom), filtered by active themes.
+ * Exported for /siege (R5): a potion attack draws a harmful type's responses.
  */
-async function getPotionResponses(guildId, potionType) {
+export async function getPotionResponses(guildId, potionType) {
   const config = await loadGuildConfig(guildId);
   const customResponses = config.potionResponses?.[potionType] || [];
   const activeThemes = config.potionThemes || null; // null = all themes active
@@ -235,6 +236,9 @@ async function getPotionResponses(guildId, potionType) {
 
 /** Potions that help the receiver; the rest hurt. Decides the points (gameScores.js). */
 const HELPFUL = new Set(['health', 'mana', 'strength', 'speed', 'invisibility', 'luck', 'love', 'energy']);
+
+/** The potions that hurt: what /siege attack weapon:potion throws at a monster (R5) */
+export const HARMFUL_POTIONS = Object.freeze(POTION_TYPES.filter(t => !HELPFUL.has(t)));
 const TYPE_NAMES = {
   health: '💚 Health', mana: '💙 Mana', strength: '🔴 Strength', speed: '💨 Speed', invisibility: '👁️ Invisibility',
   luck: '🍀 Luck', confusion: '😵 Confusion', love: '💕 Love', poison: '☠️ Poison', energy: '⚡ Energy',

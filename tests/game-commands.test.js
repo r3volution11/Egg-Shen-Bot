@@ -241,7 +241,7 @@ describe('limits and where games are played', () => {
       return (await checkRateLimit(GUILD, user, cmd)).limited;
     };
     expect(await twice('movie', 'sam')).toBe(true);
-    for (const game of ['potion', 'foodfight', 'doom', 'rescue']) expect(await twice(game, 'sam')).toBe(false);
+    for (const game of ['potion', 'foodfight', 'doom', 'rescue', 'siege']) expect(await twice(game, 'sam')).toBe(false);
 
     config.rateLimits.commands.doom = { maxRequests: 1, windowSeconds: 60 };
     await saveGuildConfig(GUILD, config);
@@ -360,7 +360,7 @@ describe('/scoreboard: the game card', () => {
   test('bots are refused, and so is everything when the games are off', async () => {
     const bot = await run('scoreboard', 'sam', { options: { user: { user: discord.client.user, member: null } } });
     expect([bot.ephemeralFor, bot.content]).toEqual(['sam', '🤖 Bots don\'t play. They just keep score.']);
-    for (const setting of ['potion', 'foodfight', 'doom', 'rescue']) {
+    for (const setting of ['potion', 'foodfight', 'doom', 'rescue', 'siege']) {
       await run('eggshen-config', 'admin', { group: 'commands', subcommand: 'toggle', options: { setting, enabled: false } });
     }
     const off = await run('scoreboard', 'sam');
@@ -427,6 +427,7 @@ describe('/leaderboard: the server card', () => {
         { name: '🥧 Food Fight', value: '👑 Sam `3`', inline: true },
         { name: '🪓 Doom', value: '👑 Alex `2`', inline: true },
         { name: '🛟 Rescue', value: '👑 Gone Girl `−1`', inline: true },
+        { name: '👹 Siege', value: 'Nobody yet', inline: true },
         { name: '⭐ Most received', value: '🎯 Most splatted: Alex `1`', inline: false },
         {
           name: '📊 Server stats',
@@ -476,7 +477,7 @@ describe('/leaderboard: the server card', () => {
     const card = (await run('leaderboard', 'sam')).embeds[0].toJSON();
     // Sam only played Rescue: off the board, and out of the numbers
     expect(card.description).toBe('🥇 Kim ▰▰▰▰▰ `3`\n🥈 Alex ▱▱▱▱▱ `−1`');
-    expect(card.fields.map(f => f.name)).toEqual(['🧪 Potions', '🥧 Food Fight', '🪓 Doom', '⭐ Most received', '📊 Server stats']);
+    expect(card.fields.map(f => f.name)).toEqual(['🧪 Potions', '🥧 Food Fight', '🪓 Doom', '👹 Siege', '⭐ Most received', '📊 Server stats']);
     expect(card.fields.at(-1).value.split('\n')[0]).toBe('🎲 `1` play · 🪙 `2` points');
   });
 

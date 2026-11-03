@@ -10,7 +10,7 @@
  */
 
 import {
-  ITEMS, ITEM_EFFECTS, MULTIPLIER_CAPS, NIGHT_START_HOUR, NIGHT_TIERS, NIGHT_LIGHT_PRIZE,
+  ITEMS, ITEM_EFFECTS, MULTIPLIER_CAPS, NIGHT_START_HOUR, NIGHT_TIERS, NIGHT_LIGHT_PRIZE, SIEGE, SIEGE_ITEM_EFFECTS,
 } from '../data/gameRewards.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -21,8 +21,11 @@ const DAY = 24 * HOUR;
  * what the nights-in-a-row buff pays on. Lives here, not in gameScores.js
  * (which re-exports it), so the happening and twist rules below can use it
  * without a circular import.
+ *
+ * R5: a siege attack that lands (splat, smite, poisoned) is good too — it
+ * extends the siege's own streak and pays the nights buff like any play.
  */
-export const GOOD = new Set(['hit', 'tasty', 'doomed', 'rescued', 'helped', 'hurt']);
+export const GOOD = new Set(['hit', 'tasty', 'doomed', 'rescued', 'helped', 'hurt', 'splat', 'smite', 'poisoned']);
 
 /**
  * Is a LINE's outcome good for the player? Potion lines are tagged
@@ -85,6 +88,8 @@ const FEED_OUTCOMES = new Set(['tasty', 'gross', 'spill']);
  */
 export function actionFor(game, outcome) {
   if (game === 'foodfight') return FEED_OUTCOMES.has(outcome) ? 'feed' : 'throw';
+  // A siege attack's action is its weapon, read off the outcome's table
+  if (game === 'siege') return Object.keys(SIEGE.outcomes).find(w => Object.values(SIEGE.outcomes[w]).includes(outcome)) || null;
   return { doom: 'fate', rescue: 'attempt', potion: 'give' }[game] || null;
 }
 
@@ -131,10 +136,20 @@ export function resolveTyped(value, table, nameOf) {
   return null;
 }
 
-/** What an active item does to this play, or null when it doesn't fit it */
+/**
+ * What an active item does to this play, or null when it doesn't fit it.
+ * A siege attack (R5, action = the weapon) reads SIEGE_ITEM_EFFECTS: the
+ * game items fit the weapon of their own game (a Golden Pie is food) and
+ * the Silver Bullet fits every weapon — and fits nothing outside a siege.
+ */
 export function itemEffect(key, game, action) {
   const item = owns(ITEMS, key) ? ITEMS[key] : null;
-  if (!item || item.passive || item.game !== game) return null;
+  if (!item || item.passive) return null;
+  if (game === 'siege') {
+    const effects = owns(SIEGE_ITEM_EFFECTS, key) ? SIEGE_ITEM_EFFECTS[key] : null;
+    return owns(effects, action) ? effects[action] : null;
+  }
+  if (item.game !== game) return null;
   const effects = owns(ITEM_EFFECTS, key) ? ITEM_EFFECTS[key] : null;
   return owns(effects, action) ? effects[action] : null;
 }
@@ -299,6 +314,7 @@ export function nextNightLightAt(n) {
  *   got: { game: { outcome: n } }   // done to them by someone's scored play
  *   streak: { game: n }, bestStreak  // good outcomes in a row, scored plays only
  *   twists: n                        // R4: twists that happened to them, scored plays only
+ *   siege: { wins, mvps, kaiju }     // R5: moved only when a siege is won (finishSiege)
  * }
  *
  * Why not the all-time stats every card shows? Those count capped plays
@@ -347,6 +363,8 @@ export function titleProgress(user, title) {
   if (title.streak) return life.bestStreak || 0;
   // R4: twists start at 0 for everyone (lifetimeFrom has none to find)
   if (title.twists) return life.twists || 0;
+  // R5: siege wins, MVPs and kaiju beaten, likewise from 0
+  if (title.siege) return life.siege?.[title.siege] || 0;
   return title.did ? summed(life.do, title.did) : summed(life.got, title.got || {});
 }
 

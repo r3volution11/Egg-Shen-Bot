@@ -2,8 +2,10 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomBytes, randomInt } from 'crypto';
-import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from 'discord.js';
-import { clipText, LIMITS } from './embedFit.js';
+import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, AttachmentBuilder } from 'discord.js';
+import { clipText, LIMITS, chooseLayout, messageProblems } from './embedFit.js';
+import { liveKit, createKit, pill, formatNumber } from './emojiKit.js';
+import { generateSurveyResultsImage } from './cardImages.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -468,18 +470,6 @@ export function getUserVote(poll, userId) {
 }
 
 /**
- * Create a progress bar for vote percentage. The leader gets a solid fill
- * (█); everyone else gets a dimmer shade (▓) so the bar itself visually
- * reads as "behind" even though Discord embed text can't be colored.
- */
-function createProgressBar(percentage, length = 20, isLeader = false) {
-  const filled = Math.round((percentage / 100) * length);
-  const empty = length - filled;
-  const fillChar = isLeader ? '█' : '▓';
-  return fillChar.repeat(filled) + '░'.repeat(empty);
-}
-
-/**
  * Build the voting button rows for a poll (up to 10 options = 2 rows of 5,
  * well within Discord's 5-buttons-per-row / 5-rows-per-message limits).
  * Only meaningful for poll.votingMethod === 'buttons' — reaction-based
@@ -513,38 +503,96 @@ export function buildDisabledSurveyButtons(poll) {
  * The line above a closed survey's results that says how a tie was settled:
  * a runoff started, or a runoff's random pick. Empty otherwise.
  */
-function tieLine(poll) {
+function tieLine(poll, kit) {
   if (poll.status !== 'closed') return '';
   const names = (ids) => ids.map(id => `**${poll.options.find(o => o.id === id)?.text}**`).join(' and ');
   if (poll.randomWinnerId != null) {
     const winner = poll.options.find(o => o.id === poll.randomWinnerId)?.text;
-    return `🎲 Tied again, so the bot picked **${winner}** at random.\n\n`;
+    return `${kit.e('dice')} Tied again, so the bot picked **${winner}** at random.\n\n`;
   }
   if (poll.runoffPollId && poll.tiedOptionIds?.length) {
     const votes = poll.options.find(o => o.id === poll.tiedOptionIds[0])?.votes.length || 0;
-    return `🤝 Tied: ${names(poll.tiedOptionIds)} (${votes} vote${votes === 1 ? '' : 's'} each). Runoff below!\n\n`;
+    return `${kit.e('tie')} Tied: ${names(poll.tiedOptionIds)} (${votes} vote${votes === 1 ? '' : 's'} each). Runoff below!\n\n`;
   }
   return '';
 }
+
+/**
+ * The widths a survey's result bars try, widest first, until the card fits
+ * Discord's limits; past the narrowest, plain squares, then no bars at all
+ * (the share and count are always there as text). Ten options of 100
+ * characters with the longest custom emoji fit at 4.
+ */
+export const SURVEY_BAR_WIDTHS = Object.freeze([10, 8, 6, 5, 4]);
+
+/** The count and share every option is measured at, so the card never changes shape between votes */
+const PROBE_VOTES = 9999;
+
+/** Plain squares: the step after the narrowest custom bar */
+const PLAIN_KIT = createKit(null);
 
 /**
  * Create a poll embed. Shared by /survey create, the live-updating vote
  * handlers (buttons and legacy reactions), /survey close, and the
  * auto-expiry scheduler, so every code path that renders a poll looks the
  * same.
+ *
+ * With results, each option gets an emoji-kit bar (its share of the votes)
+ * and its numbers as text:
+ *   🏆 1️⃣ **Alien**
+ *   🟨🟨🟨🟨🟨🟨🟨🟨⬜⬜ `82%` · 14 votes
+ * The leader's bar is gold and the rest blue; once the survey closes the
+ * custom bars are muted grey. Plain squares (what every server sees until
+ * the kit is uploaded) keep their colours when closed: a muted plain bar
+ * is white squares, the same as an empty one.
+ *
+ * The bar width is the widest of SURVEY_BAR_WIDTHS at which the whole card
+ * fits, measured with every option at 9,999 votes and 100%, so a live
+ * card keeps its shape from the first vote to the last.
  */
-export function createPollEmbed(poll, showResults = false) {
+export function createPollEmbed(poll, showResults = false, { kit = liveKit(), summary = false } = {}) {
   const { totalVotes, results } = getPollResults(poll);
   const voteInstruction = poll.votingMethod === 'reactions' ? 'React to vote!' : 'Click a button to vote!';
+  const closed = poll.status === 'closed';
 
   const isRunoff = (poll.round || 1) >= 2;
-  const embed = new EmbedBuilder()
-    .setTitle(clipText(`${isRunoff ? '🔁 Runoff: ' : '📊 '}${poll.question}`, LIMITS.title))
-    .setColor(poll.status === 'active' ? 0x5865F2 : 0x99AAB5)
-    .setFooter({
-      text: `Survey ID: ${poll.pollId} • ${poll.status === 'active' ? voteInstruction : 'Survey closed'} • Total votes: ${totalVotes}${poll.allowMultipleVotes ? ' • Multiple votes allowed' : ''}`,
-    })
-    .setTimestamp(new Date(poll.createdAt));
+  const fields = [];
+  if (closed) {
+    const closedDate = new Date(poll.closedAt);
+    fields.push({
+      name: 'Closed',
+      value: `<t:${Math.floor(closedDate.getTime() / 1000)}:R>`,
+      inline: true,
+    });
+  } else if (poll.expiresAt) {
+    fields.push({
+      name: 'Voting Ends',
+      value: `<t:${Math.floor(new Date(poll.expiresAt).getTime() / 1000)}:R>`,
+      inline: true,
+    });
+  }
+  const title = clipText(`${isRunoff ? '🔁 Runoff: ' : '📊 '}${poll.question}`, LIMITS.title);
+  const footer = `Survey ID: ${poll.pollId} • ${poll.status === 'active' ? voteInstruction : 'Survey closed'} • Total votes: ${totalVotes}${poll.allowMultipleVotes ? ' • Multiple votes allowed' : ''}`;
+  const embedWith = (description) => {
+    const embed = new EmbedBuilder()
+      .setTitle(title)
+      .setColor(poll.status === 'active' ? 0x5865F2 : 0x99AAB5)
+      .setFooter({ text: footer })
+      .setTimestamp(new Date(poll.createdAt))
+      // clipText, not a raw slice: option text carries custom emoji and the
+      // tie line a mention, and a slice through `<:name:id>` leaves raw
+      // markup on screen. The layout below fits; this is the guarantee.
+      .setDescription(clipText(description, LIMITS.description));
+    if (fields.length) embed.addFields(fields);
+    return embed;
+  };
+  // A layout is measured as plain JSON, unclipped: an EmbedBuilder throws on
+  // an over-long description, and a clipped one would always seem to fit
+  const fits = (description) => messageProblems({ embeds: [{ title, description, footer: { text: footer }, fields }] }).length === 0;
+
+  if (!showResults) {
+    return embedWith(`${tieLine(poll, kit)}${results.map(option => `${option.emoji} ${option.text}`).join('\n\n')}`);
+  }
 
   // A sole leader gets a crown + bold treatment so it stands out from the
   // pack — skipped entirely when there are no votes yet, or when the top
@@ -552,43 +600,45 @@ export function createPollEmbed(poll, showResults = false) {
   const isSoleLeader = totalVotes > 0 && results[0].voteCount > (results[1]?.voteCount ?? -1);
   // A runoff that tied again is settled at random; that pick gets the crown
   const randomWinner = poll.randomWinnerId != null ? poll.randomWinnerId : null;
+  const leads = (option, index) => (randomWinner != null ? option.id === randomWinner : isSoleLeader && index === 0);
 
-  // Build options display
-  const optionsText = results.map((option, index) => {
-    const isLeader = showResults && (randomWinner != null ? option.id === randomWinner : isSoleLeader && index === 0);
-    const bar = createProgressBar(option.percentage, 20, isLeader);
-    const voteText = `${option.voteCount} vote${option.voteCount !== 1 ? 's' : ''}`;
-    const crown = isLeader ? (randomWinner != null ? '🎲 ' : '🏆 ') : '';
+  // One option's block. `probe` draws it at its widest: 9,999 votes, 100%,
+  // and (for the first option, as only one can lead) crowned and bold.
+  const block = (option, index, step, probe) => {
+    const isLeader = probe ? index === 0 : leads(option, index);
+    const votes = probe ? PROBE_VOTES : option.voteCount;
+    const share = probe ? 100 : Math.round(option.percentage);
+    const crown = isLeader ? `${kit.e(randomWinner != null ? 'dice' : 'trophy')} ` : '';
     const name = isLeader ? `**${option.text}**` : option.text;
-
-    if (showResults) {
-      return `${crown}${option.emoji} ${name}\n${bar} ${option.percentage}% (${voteText})`;
-    } else {
-      return `${option.emoji} ${option.text}`;
-    }
-  }).join('\n\n');
-
-  // clipText, not a raw slice: option text carries custom emoji and the tie
-  // line a mention, and a slice through `<:name:id>` leaves raw markup on screen
-  embed.setDescription(clipText(`${tieLine(poll)}${optionsText}`, LIMITS.description));
-
-  // Add status info
-  if (poll.status === 'closed') {
-    const closedDate = new Date(poll.closedAt);
-    embed.addFields({
-      name: 'Closed',
-      value: `<t:${Math.floor(closedDate.getTime() / 1000)}:R>`,
-      inline: true,
+    const text = `${pill(`${share}%`)} · ${formatNumber(votes)} vote${votes !== 1 ? 's' : ''}`;
+    if (!step.kit) return `${crown}${option.emoji} ${name}\n${text}`;
+    const bar = step.kit.bar(votes, probe ? PROBE_VOTES : totalVotes, {
+      width: step.width,
+      colour: isLeader ? 'gold' : 'blue',
+      muted: closed && step.kit.ready.bar,
     });
-  } else if (poll.expiresAt) {
-    embed.addFields({
-      name: 'Voting Ends',
-      value: `<t:${Math.floor(new Date(poll.expiresAt).getTime() / 1000)}:R>`,
-      inline: true,
-    });
+    return `${crown}${option.emoji} ${name}\n${bar} ${text}`;
+  };
+  const describe = (step, probe) => `${tieLine(poll, kit)}${results.map((o, i) => block(o, i, step, probe)).join('\n\n')}`;
+
+  // The Survey Closed message with its drawn chart (cardImages.js): the
+  // chart already shows every option's bar, so the text says only what
+  // the chart can't — a tie note, and the winner with its share
+  if (summary) {
+    const winner = results.find((o, i) => leads(o, i));
+    const line = winner
+      ? `${kit.e(randomWinner != null ? 'dice' : 'trophy')} ${winner.emoji} **${winner.text}** · ${pill(`${Math.round(winner.percentage)}%`)} · ${formatNumber(winner.voteCount)} vote${winner.voteCount !== 1 ? 's' : ''}`
+      : (totalVotes === 0 ? 'No votes.' : '');
+    return embedWith(`${tieLine(poll, kit)}${line}` || 'Results below.');
   }
 
-  return embed;
+  const steps = [
+    ...SURVEY_BAR_WIDTHS.map(width => ({ kit, width })),
+    ...(kit.ready.bar ? [{ kit: PLAIN_KIT, width: SURVEY_BAR_WIDTHS[0] }] : []),
+    { kit: null },
+  ];
+  const { step } = chooseLayout(steps, (s) => describe(s, true), fits);
+  return embedWith(describe(steps[step], false));
 }
 
 /**
@@ -653,7 +703,24 @@ export async function closePollAndAnnounce(client, guildId, pollId, closedBy, { 
 
     const resultsEmbed = createPollEmbed(updatedPoll, true);
     resultsEmbed.setTitle(resultsTitle(updatedPoll));
-    await channel.send({ embeds: [resultsEmbed] });
+    // The results as a drawn chart (cardImages.js) on this new message only;
+    // the edited card above keeps its text bars. An image is extra: if it
+    // can't be drawn, or the send with it fails, the text-only message goes.
+    const chart = await surveyResultsImage(updatedPoll);
+    let sent = false;
+    if (chart) {
+      try {
+        // With the chart, the text is a summary: the bars would show twice
+        const chartEmbed = createPollEmbed(updatedPoll, true, { summary: true })
+          .setTitle(resultsTitle(updatedPoll))
+          .setImage('attachment://survey-results.png');
+        await channel.send({ embeds: [chartEmbed], files: [new AttachmentBuilder(chart, { name: 'survey-results.png' })] });
+        sent = true;
+      } catch (error) {
+        console.warn(`Survey ${pollId} results with chart failed, posting without:`, error.message);
+      }
+    }
+    if (!sent) await channel.send({ embeds: [resultsEmbed] });
 
     // The runoff goes out AFTER the results, so it's the newest message —
     // the one people see and vote on
@@ -663,6 +730,17 @@ export async function closePollAndAnnounce(client, guildId, pollId, closedBy, { 
   } catch (error) {
     console.error(`Error closing poll ${pollId}:`, error);
     return { success: false, error: error.message };
+  }
+}
+
+/** The closed survey's chart, or null when it can't be drawn (in time). Never throws. */
+async function surveyResultsImage(poll) {
+  try {
+    return await generateSurveyResultsImage(poll, getPollResults(poll));
+  } catch (error) {
+    // A warning, not an error: nothing is lost, the text message goes out
+    console.warn(`Survey ${poll.pollId} chart not drawn:`, error.message);
+    return null;
   }
 }
 

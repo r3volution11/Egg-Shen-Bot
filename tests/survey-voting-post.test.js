@@ -75,8 +75,9 @@ describe('posting the card again', () => {
     expect(repost).not.toBe(card);
     expect(repost.ephemeralFor).toBeNull();
     expect(discord.channel.posted.at(-1)).toBe(repost); // at the bottom of the channel
-    expect(repost.text).toMatch(/🏆 1️⃣ \*\*Slashers\*\*\n.*66\.7% \(2 votes\)/); // the leader, crowned
-    expect(repost.text).toMatch(/Giallo\n.*33\.3% \(1 vote\)/);
+    // The leader crowned, its bar gold; the rest blue (plain squares: the kit isn't uploaded here)
+    expect(repost.text).toContain(`🏆 1️⃣ **Slashers**\n${'🟨'.repeat(7)}${'⬜'.repeat(3)} \`67%\` · 2 votes`);
+    expect(repost.text).toContain(`Giallo\n${'🟦'.repeat(3)}${'⬜'.repeat(7)} \`33%\` · 1 vote`);
     expect(repost.text).toContain('Total votes: 3');
     expect(repost.allComponents.map(b => b.label)).toEqual(['Slashers', 'Creature features', 'Giallo']);
     expect(repost.allComponents.every(b => !b.disabled)).toBe(true);
@@ -98,7 +99,7 @@ describe('posting the card again', () => {
 
     await vote('alex', repost, 1);
 
-    expect(repost.text).toMatch(/Creature features\n.*50% \(1 vote\)/);
+    expect(repost.text).toContain(`Creature features\n${'🟦'.repeat(5)}${'⬜'.repeat(5)} \`50%\` · 1 vote`);
     expect(repost.text).toContain('Total votes: 2');
   });
 

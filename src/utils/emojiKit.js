@@ -148,12 +148,15 @@ export function createKit(resolved = null) {
    * row of big squares would crowd the text.
    */
   const bar = (value, max, { width = 10, colour = 'green', muted = false, style = 'squares' } = {}) => {
-    const c = muted ? 's' : (BAR_COLOURS[colour] || 'g');
+    const c = BAR_COLOURS[colour] || 'g';
     const filled = filledSegments(value, max, width);
-    const colours = Array.from({ length: width }, (_, i) => (i < filled ? c : 'e'));
-    if (ready.bar && width >= 2) return segments(colours).map(e).join('');
+    // Muted is the kit's grey; plain emoji has no grey distinct from the
+    // empty ⬜, so a muted plain bar keeps its colour (muting it would make
+    // a closed survey's bars look empty)
+    const colours = (fill) => Array.from({ length: width }, (_, i) => (i < filled ? fill : 'e'));
+    if (ready.bar && width >= 2) return segments(colours(muted ? 's' : c)).map(e).join('');
     if (style === 'blocks') return '▰'.repeat(filled) + '▱'.repeat(width - filled);
-    return colours.map(x => SQUARE[x]).join('');
+    return colours(c).map(x => SQUARE[x]).join('');
   };
 
   /**

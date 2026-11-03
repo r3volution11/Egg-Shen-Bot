@@ -253,7 +253,7 @@ describe('createPollEmbed — Voting Ends field', () => {
 });
 
 describe('createPollEmbed — leader crown and bar shading', () => {
-  test('crowns and bolds the sole leader, and gives it a solid-fill bar', () => {
+  test('crowns and bolds the sole leader, and gives it a gold bar', () => {
     const poll = createPoll(GUILD_A, 'chan-1', 'msg-1', 'user-1', 'Q?', ['A', 'B', 'C']);
     addVote(GUILD_A, poll.pollId, 0, 'voter-1');
     addVote(GUILD_A, poll.pollId, 0, 'voter-2');
@@ -263,13 +263,13 @@ describe('createPollEmbed — leader crown and bar shading', () => {
 
     expect(embed.data.description).toContain('🏆');
     expect(embed.data.description).toContain('**A**');
-    // Leader's bar uses the solid block, not the dim shade
+    // The leader's bar is gold (plain squares here: no kit uploaded), with
+    // its share and count beside it
     const leaderLine = embed.data.description.split('\n\n').find(block => block.includes('🏆'));
-    expect(leaderLine).toMatch(/█+░*/);
-    expect(leaderLine).not.toContain('▓');
+    expect(leaderLine).toBe(`🏆 1️⃣ **A**\n${'🟨'.repeat(7)}${'⬜'.repeat(3)} \`67%\` · 2 votes`);
   });
 
-  test('gives non-leader options a dim-shaded bar instead of solid fill', () => {
+  test('gives non-leader options a blue bar instead of gold', () => {
     const poll = createPoll(GUILD_A, 'chan-1', 'msg-1', 'user-1', 'Q?', ['A', 'B']);
     addVote(GUILD_A, poll.pollId, 0, 'voter-1');
     addVote(GUILD_A, poll.pollId, 0, 'voter-2');
@@ -278,8 +278,7 @@ describe('createPollEmbed — leader crown and bar shading', () => {
     const embed = createPollEmbed(getPoll(GUILD_A, poll.pollId), true);
 
     const runnerUpLine = embed.data.description.split('\n\n').find(block => block.includes('B') && !block.includes('🏆'));
-    expect(runnerUpLine).toContain('▓');
-    expect(runnerUpLine).not.toMatch(/█/);
+    expect(runnerUpLine).toBe(`2️⃣ B\n${'🟦'.repeat(3)}${'⬜'.repeat(7)} \`33%\` · 1 vote`);
   });
 
   test('does not crown anyone when tied for first place', () => {

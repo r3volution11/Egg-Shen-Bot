@@ -1,7 +1,9 @@
 /**
- * Tournament result cards show the winner's poster as the embed thumbnail —
- * the smallest image an embed can carry — so a result is recognizable at a
- * glance without turning into a large image post.
+ * Tournament result cards show the winner's poster, so a result is
+ * recognizable at a glance: as the embed thumbnail, or — on the scheduler's
+ * matchup result card since 2.76.0 (R8) — inside the drawn result image
+ * (cardImages.js) that replaces it, with the thumbnail back whenever the
+ * image can't be drawn (tournament-sim.test.js covers that fallback).
  *
  * Driven through the tournament simulator (real /bracket command, button
  * handler and scheduler, real recorded TMDB data), and asserted on what was
@@ -16,9 +18,10 @@ import { EmbedBuilder } from 'discord.js';
 import { loadSim, finishSim, clock, favorite } from './harness/tournamentSim.js';
 
 let Sim;
+let cardImages;
 
 beforeAll(async () => {
-  ({ Sim } = await loadSim());
+  ({ Sim, cardImages } = await loadSim());
   clock.install();
 });
 
@@ -37,8 +40,14 @@ async function eightMovies(sim, name) {
 const posterOf = (sim, title) => sim.tournament().titles.find(t => t.title === title).posterUrl;
 const postsTitled = (sim, re) => sim.channel.posted.flatMap(m => m.embeds).filter(e => re.test(e.title || ''));
 
+/** The posters the matchup image for this winner was drawn from */
+const drawnFrom = (winnerTitle) => cardImages.generateMatchupResultImage.mock.calls
+  .map(([data]) => data)
+  .filter(d => d.winner.title === winnerTitle)
+  .pop();
+
 describe('result card thumbnails', () => {
-  test("the scheduler's result card for each matchup shows the winner's poster", async () => {
+  test("the scheduler's result card for each matchup shows the winner's poster, in the drawn image", async () => {
     const sim = new Sim('thumb-scheduler');
     await eightMovies(sim, 'Poster Cup');
     await sim.bracket('admin', 'open', { duration: '1d' });
@@ -52,11 +61,12 @@ describe('result card thumbnails', () => {
     for (const m of closed) {
       const card = cards.find(e => e.title.includes(`Match ${m.position + 1} `));
       expect(card.fields[0].value).toContain(m.winner.title);
-      expect(card.thumbnail?.url).toBe(posterOf(sim, m.winner.title));
-      expect(card.thumbnail.url).toMatch(/^https:\/\/image\.tmdb\.org\//);
+      // The image, drawn from the winner's own poster, instead of the thumbnail
+      expect(card.image?.url).toBe('attachment://matchup.png');
+      expect(card.thumbnail).toBeFalsy();
+      expect(drawnFrom(m.winner.title).winner.posterUrl).toBe(posterOf(sim, m.winner.title));
+      expect(drawnFrom(m.winner.title).winner.posterUrl).toMatch(/^https:\/\/image\.tmdb\.org\//);
     }
-    // Thumbnail only — no full-width image
-    expect(cards.every(e => !e.image)).toBe(true);
   });
 
   // /bracket close goes through the scheduler's close path, so it posts the
@@ -72,7 +82,8 @@ describe('result card thumbnails', () => {
     const winner = sim.tournament().knockoutBracket.find(m => m.id === matchup.id).winner;
     const [card] = postsTitled(sim, /- Results$/);
     expect(card.fields[0].value).toContain(winner.title);
-    expect(card.thumbnail?.url).toBe(posterOf(sim, winner.title));
+    expect(card.image?.url).toBe('attachment://matchup.png');
+    expect(drawnFrom(winner.title).winner.posterUrl).toBe(posterOf(sim, winner.title));
   });
 
   test("/bracket close-matchup replies with the winner's poster", async () => {
