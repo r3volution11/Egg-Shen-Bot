@@ -17,12 +17,12 @@
  * start a new one.
  *
  * Run with: npm run test:fuzz             (20 runs, 200 actions each)
- * More:     SIM_FUZZ_FIRST=3000 SIM_FUZZ_RUNS=40 npm run test:fuzz -- tests/fuzz/siege.fuzz.js
+ * More:     SIM_FUZZ_FIRST=3000 SIM_FUZZ_RUNS=40 npm run test:fuzz -- --testPathPattern siege
  *           Every restart the simulator does costs ~10 MB jest never gives
  *           back (see restartBot), so a long hunt is several runs of ~40
  *           seeds, each from its own SIM_FUZZ_FIRST, not one of hundreds.
  * A failure names its seed and lists every action. Replay one seed:
- *   SIM_SEED=1234 npm run test:fuzz -- tests/fuzz/siege.fuzz.js
+ *   SIM_SEED=1234 npm run test:fuzz -- --testPathPattern siege
  * Worth a run after changing anything in /siege, its store, card or scheduler.
  */
 
@@ -259,7 +259,7 @@ describe('random sieges', () => {
         record(sim, log);
       } catch (e) {
         sim.writeTranscript(`fuzz-${seed}`);
-        e.message = `Seed ${seed} (replay: SIM_SEED=${seed} npm run test:fuzz -- tests/fuzz/siege.fuzz.js)\nActions:\n  ${log.join('\n  ')}\n\n${e.message}`;
+        e.message = `Seed ${seed} (replay: SIM_SEED=${seed} npm run test:fuzz -- --testPathPattern siege)\nActions:\n  ${log.join('\n  ')}\n\n${e.message}`;
         throw e;
       }
     }, 120_000);
