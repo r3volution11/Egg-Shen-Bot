@@ -1,5 +1,5 @@
 ---
-title: Command Reference
+title: Bracket Command Reference - Egg Shen Bot
 description: "Every /bracket and /bracket-setup tournament command and option in Egg Shen Bot, organised by tournament phase, with examples."
 kitHeadings:
   bracket-status: chart
@@ -120,10 +120,10 @@ Create a tournament. `max-titles` decides its shape.
 
 **Examples:**
 ```
-/bracket-setup create name:"Summer Movie Madness" max-titles:32
-/bracket-setup create name:"Quick 8-Title Showdown" max-titles:8
-/bracket-setup create name:"Horror March Madness" max-titles:16 seeding:By rating ties:Higher seed wins
-/bracket-setup create name:"Epic 48-Title Championship" max-titles:48
+/bracket-setup create name:Summer Movie Madness max-titles:32
+/bracket-setup create name:Quick 8-Title Showdown max-titles:8
+/bracket-setup create name:Horror March Madness max-titles:16 seeding:By rating ties:Higher seed wins
+/bracket-setup create name:Epic 48-Title Championship max-titles:48
 ```
 
 **Notes:**
@@ -171,15 +171,15 @@ Add or remove a title during setup.
 
 **Adding:**
 ```
-/bracket-setup manage-titles action:"Add Title" group:A type:movie title:"The Thing"
-/bracket-setup manage-titles action:"Add Title" group:B type:tv title:"Breaking Bad"
-/bracket-setup manage-titles action:"Add Title" group:A type:movie title:"Evil Dead" image:[uploaded-file.jpg]
+/bracket-setup manage-titles action:Add Title group:A type:movie title:The Thing
+/bracket-setup manage-titles action:Add Title group:B type:tv title:Breaking Bad
+/bracket-setup manage-titles action:Add Title group:A type:movie title:Evil Dead image:[uploaded-file.jpg]
 ```
 
 **Removing:**
 ```
-/bracket-setup manage-titles action:"Remove Title" group:A position:2
-/bracket-setup manage-titles action:"Remove Title" position:7
+/bracket-setup manage-titles action:Remove Title group:A position:2
+/bracket-setup manage-titles action:Remove Title position:7
 ```
 
 The last example is a straight bracket, which has no groups.
@@ -224,8 +224,8 @@ Post a public announcement of the tournament.
 
 ```
 /bracket-setup announce
-/bracket-setup announce message:"Let the games begin! Vote for your favorites!"
-/bracket-setup announce message:"Welcome to the tournament!" image:[banner.jpg]
+/bracket-setup announce message:Let the games begin! Vote for your favorites!
+/bracket-setup announce message:Welcome to the tournament! image:[banner.jpg]
 ```
 
 **Notes:**
@@ -306,9 +306,9 @@ Open chosen groups.
 - `duration` (optional): `5m` to `30d`. Same default as `/bracket open`.
 
 ```
-/bracket open-groups groups:"A,B,C,D"
-/bracket open-groups groups:"A,B,C,D,E" duration:48h
-/bracket open-groups groups:"F,G,H" duration:3d
+/bracket open-groups groups:A,B,C,D
+/bracket open-groups groups:A,B,C,D,E duration:48h
+/bracket open-groups groups:F,G,H duration:3d
 ```
 
 **Notes:**
@@ -392,8 +392,8 @@ Close chosen groups and post their results.
 - `tiebreaker-duration` (optional): `5m` to `7d`. Same default as `/bracket close`.
 
 ```
-/bracket close-groups groups:"A,B,C,D"
-/bracket close-groups groups:"A,B,C,D" tiebreaker-duration:30m
+/bracket close-groups groups:A,B,C,D
+/bracket close-groups groups:A,B,C,D tiebreaker-duration:30m
 ```
 
 **Notes:**
@@ -464,13 +464,13 @@ Buttons expire after 15 minutes.
 ```
 /bracket open-matchup region:1
 /bracket open-matchup region:2 duration:48h
-/bracket open-matchup matchup:"1A"
-/bracket open-matchup matchup:"1A,1B" duration:24h
-/bracket open-matchup matchup:"Finals" duration:48h
+/bracket open-matchup matchup:1A
+/bracket open-matchup matchup:1A,1B duration:24h
+/bracket open-matchup matchup:Finals duration:48h
 /bracket open-matchup duration:24h
 ```
 
-**Opening the next matchup closes earlier ones.** Any matchup in the round that's still voting, and isn't one you're opening now, closes first, exactly as its deadline would: the winner is announced, and a tie gets a tiebreaker vote. The reply lists what closed. To have several matchups voting together, open them together (`matchup:"1A,1B"` or `region:1`).
+**Opening the next matchup closes earlier ones.** Any matchup in the round that's still voting, and isn't one you're opening now, closes first, exactly as its deadline would: the winner is announced, and a tie gets a tiebreaker vote. The reply lists what closed. To have several matchups voting together, open them together (`matchup:1A,1B` or `region:1`).
 
 **Notes:**
 - Only matchups nobody has voted on are opened. Ones already voting keep their votes, decided ones keep their results, and the reply lists both.
@@ -490,8 +490,8 @@ Close chosen matchups and move their winners on.
 
 **Examples:**
 ```
-/bracket close-matchup matchup:"1A"
-/bracket close-matchup matchup:"2A,2B" tiebreaker-duration:30m
+/bracket close-matchup matchup:1A
+/bracket close-matchup matchup:2A,2B tiebreaker-duration:30m
 /bracket close-matchup
 ```
 
@@ -520,10 +520,10 @@ Settle a tiebreaker now, by the votes so far or by your own pick.
 **Examples:**
 ```
 # Close it now and go by the votes
-/bracket resolve-tiebreaker tiebreaker-id:"abc123"
+/bracket resolve-tiebreaker tiebreaker-id:abc123
 
 # Make option 2 the winner
-/bracket resolve-tiebreaker tiebreaker-id:"abc123" winner:2
+/bracket resolve-tiebreaker tiebreaker-id:abc123 winner:2
 ```
 
 **Notes:**
@@ -626,7 +626,7 @@ A numbered list of the tournament's titles.
 **Notes:**
 - **Straight bracket:** every title as one numbered list, with its year.
 - **Groups tournament:** each group with its titles numbered 1–4, marked 🗳️ voting open or ✅ closed.
-- The numbers are the `position` that `manage-titles action:"Remove Title"` takes.
+- The numbers are the `position` that `manage-titles action:Remove Title` takes.
 
 ---
 
@@ -712,7 +712,7 @@ Rename the tournament.
 - `name` (required): the new name, up to 100 characters
 
 ```
-/bracket-setup edit-name name:"Epic Summer Movie Championship 2026"
+/bracket-setup edit-name name:Epic Summer Movie Championship 2026
 ```
 
 **Notes:**
@@ -745,8 +745,8 @@ End the tournament.
 ### Example 1: Straight Bracket (8–32 titles)
 
 ```
-/bracket-setup create name:"Quick Horror Showdown" max-titles:8
-/bracket-setup create name:"Summer Movie Madness" max-titles:32
+/bracket-setup create name:Quick Horror Showdown max-titles:8
+/bracket-setup create name:Summer Movie Madness max-titles:32
 ```
 *(or set it up in one go with `/bracket-setup setup-link` and the [setup form](./import))*
 
@@ -758,7 +758,7 @@ End the tournament.
 ### Example 2: Small Groups Tournament (16 titles, 4 groups)
 
 ```
-/bracket-setup create name:"Quick Horror Tournament" max-titles:36
+/bracket-setup create name:Quick Horror Tournament max-titles:36
 /bracket-setup resize groups:4
 ```
 
@@ -769,7 +769,7 @@ End the tournament.
 ### Example 3: Medium Groups Tournament (32 titles, 8 groups)
 
 ```
-/bracket-setup create name:"Community Choice Awards" max-titles:36
+/bracket-setup create name:Community Choice Awards max-titles:36
 /bracket-setup resize groups:8
 ```
 
@@ -780,7 +780,7 @@ End the tournament.
 ### Example 4: Large Groups Tournament (40 titles, 10 groups)
 
 ```
-/bracket-setup create name:"Ultimate Showdown" max-titles:40
+/bracket-setup create name:Ultimate Showdown max-titles:40
 ```
 
 - **Groups:** A–J, opened in two batches of 5
@@ -790,7 +790,7 @@ End the tournament.
 ### Example 5: Maximum Groups Tournament (48 titles, 12 groups)
 
 ```
-/bracket-setup create name:"Epic Community Championship" max-titles:48
+/bracket-setup create name:Epic Community Championship max-titles:48
 ```
 
 - **Groups:** A–L, opened in batches of up to 5

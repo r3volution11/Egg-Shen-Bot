@@ -1,6 +1,6 @@
 ---
 title: Game Settings for Admins - Egg Shen Bot
-description: Setting up Egg Shen Bot's Discord games with /eggshen-config-games. Play limits and rescue shields, keeping the games to certain channels, turning a game off, twists and happenings, the pace, random sieges, the Six-Demon Bag's hexes, and resetting scores.
+description: Setting up Egg Shen Bot's Discord games with /eggshen-config-games. Play limits and rescue shields, keeping the games to certain channels, turning a game off, your server's own lines, twists and happenings, the pace, random sieges, the Six-Demon Bag's hexes, and resetting scores.
 kit: true
 kitHeadings:
   limits: clock
@@ -22,7 +22,7 @@ The games work the moment the bot joins: every channel, the default limits, twis
 | `happenings` | Twists, happenings, the pace, random sieges, and the Six-Demon Bag's hexes |
 | `reset-scores` | Erases scores, for everyone or one member, all games or one |
 
-Each one with no options shows the current settings, and only you see the reply. Turning a game off altogether is done with `/eggshen-config commands toggle`, beside every other command's switch ([Turning a game off](#turning-a-game-off)).
+Each one with no options shows the current settings, and only you see the reply. Turning a game off altogether is done with `/eggshen-config commands toggle`, beside every other command's switch ([Turning a game off](#turning-a-game-off)). Each game's own lines are added with the game's own command ([Your own lines](#your-own-lines)).
 
 ::: tip A good start
 Keep the games in one channel with `/eggshen-config-games channels mode:only add:#games`, then have everyone run `/how-to-play`. Its cards show your server's own limits.
@@ -67,9 +67,9 @@ A thread counts as its channel. Someone playing in the wrong place is told priva
 /eggshen-config commands toggle setting:rescue enabled:false
 ```
 
-Each game has its own switch (`potion`, `foodfight`, `doom`, `rescue`, `siege`) beside every other command's. A game turned off disappears from `/eggshen-help`, `/how-to-play`, `/scoreboard` and `/leaderboard`, and admins and moderators can still use it.
+Each game has its own switch (`potion`, `foodfight`, `doom`, `rescue`, `siege`) beside every other command's, and so does `/six-demon-bag` (`magic`, below). A game turned off disappears from `/eggshen-help`, `/how-to-play`, `/scoreboard` and `/leaderboard`, and admins and moderators can still use it.
 
-Turning off `siege` stops `/siege attack` and `/siege status` for members, and calls off a siege that's on within a minute (no rewards, no penalty). Admins and moderators can still use all of it, but can't start a new one until it's back on. A siege's weapons are the other games, so turning off `foodfight`, `doom` or `potion` also takes that weapon off the monster, turning off `rescue` stops it grabbing, and turning off `potion` stops it poisoning. See [Siege › Turning it off](./games-siege#turning-it-off).
+Turning off `siege` stops `/siege attack`, `/siege back` and `/siege status` for members, and calls off a siege that's on within a minute (no rewards, no penalty). Admins and moderators can still use all of it, but can't start a new one until it's back on. A siege's weapons are the other games, so turning off `foodfight`, `doom` or `potion` also takes that weapon off the monster, turning off `rescue` stops it grabbing, and turning off `potion` stops it poisoning. See [Siege › Turning it off](./games-siege#turning-it-off).
 
 `/six-demon-bag` has its own switch, `magic`:
 
@@ -78,6 +78,62 @@ Turning off `siege` stops `/siege attack` and `/siege status` for members, and c
 ```
 
 Off, it's more than the command: plays stop earning Chi, blessings and hexes already cast stop working, the Red Envelope and Ching Dai's Curse twists stop coming, and the bag leaves `/how-to-play`, `/eggshen-help` and the card. Chi and charms are kept for when it's back on. To keep blessings and switch off only hexes, use `hexes:false` below. See [The Six-Demon Bag › Turning it off](./games-magic#turning-it-off).
+
+## Your own lines
+
+`/foodfight`, `/doom`, `/rescue` and `/potion` each draw from hundreds of built-in lines. Admins and moderators can add the server's own with each game's own command, and they're used alongside the built-in ones. How each game plays is on [Playing & Points](./games-playing#food-fight).
+
+### Food fight lines
+
+```
+/foodfight lines add action:throw food:pie outcome:hit line:{thrower} hurls a key lime pie at {target}!
+/foodfight lines add action:feed food:pie outcome:tasty line:{feeder} bakes {target} a perfect pie.
+/foodfight lines list action:throw food:pie
+/foodfight lines remove action:throw food:pie number:1
+/foodfight lines reset action:throw food:pie
+```
+
+`food` is picked from a list: start typing and the bot suggests the menu. A food that isn't on it is refused.
+
+A throw line needs both `{thrower}` and `{target}` and an outcome of `hit`, `miss` or `backfire`; a feed line needs `{feeder}` and `{target}` and `tasty`, `gross` or `spill`. Your lines are used alongside the built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
+
+### Doom lines
+
+```
+/doom lines add trope:zombie outcome:doomed line:{user} serves {target} brain casserole!
+/doom lines list trope:zombie
+/doom lines remove trope:zombie number:1
+/doom lines reset trope:zombie
+```
+
+A line needs both `{user}` and `{target}`, and an outcome: `doomed`, `escaped` or `backfired`. Your lines are used alongside the built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
+
+### Rescue lines
+
+```
+/rescue lines add trope:the-dog outcome:rescued line:{user} follows the dog and drags {target} out the back door!
+/rescue lines list trope:the-dog
+/rescue lines remove trope:the-dog number:1
+/rescue lines reset trope:the-dog
+```
+
+A line needs both `{user}` and `{target}`, and an outcome: `rescued`, `caught` or `sacrificed`.
+
+### Potion responses and themes
+
+```
+/potion responses add type:health outcome:worked response:{giver} hands {receiver} a juice box. 💚 +5 HP
+/potion responses list type:health
+/potion responses remove type:health index:1
+/potion responses reset type:health
+/potion theme set themes:horror,comedy
+/potion theme add theme:gaming
+/potion theme remove theme:comedy
+/potion theme list
+/potion theme reset
+```
+
+A response needs both `{giver}` and `{receiver}`, and an `outcome`: `worked` or `backfired`. Your own responses are used alongside the built-in ones; themes narrow which built-in ones are used, and `reset` goes back to all of them.
 
 ## Happenings and twists
 
@@ -151,5 +207,5 @@ Erases scores for good: everyone's, one game's, one person's, or one person's ga
 ## Related
 
 - [Admin Configuration](./configuration): every other server setting
-- [Social Commands](./social): adding your server's own lines to `/foodfight`, `/doom`, `/rescue` and `/potion`
+- [Playing & Points](./games-playing#food-fight): how `/foodfight`, `/doom`, `/rescue` and `/potion` play
 - [Siege](./games-siege): starting and ending a siege by hand

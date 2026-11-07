@@ -13,6 +13,7 @@ import { getTimerStatus } from '../utils/timerManager.js';
 import { handleWatchHistoryButton } from './watchHistoryLog.js';
 import { isAdmin, loadGuildConfig, getPublicBotUrl } from '../utils/guildConfig.js';
 import { memberHas } from '../utils/memberPermissions.js';
+import { isTournamentManager, matchupPickerExpired, MATCHUP_PICKER_TTL_MS } from '../utils/tournamentManagers.js';
 import { signCropToken } from '../utils/cropLinkToken.js';
 import { closeMatchupsNow } from '../utils/tournamentScheduler.js';
 // A ballot is private, so it shows the voter's face, not the bot's
@@ -1497,15 +1498,32 @@ async function privateNote(interaction, payload) {
  * @returns {Promise<boolean>} true when the click may proceed
  */
 async function ensureTournamentManager(interaction, action) {
-  const member = interaction.member;
-  const allowed = isAdmin(member)
-    || member?.permissions?.has?.(PermissionFlagsBits.Administrator)
-    || member?.permissions?.has?.(PermissionFlagsBits.ModerateMembers);
-
-  if (allowed) return true;
+  // Administrator or Timeout Members, exactly as the command that posted the
+  // picker checks
+  // (tournamentManagers.js). This used isAdmin(), which also lets in Manage
+  // Server, Kick Members and Ban Members: a member the command refused could
+  // still press the buttons it posted.
+  if (isTournamentManager(interaction.member)) return true;
 
   await privateNote(interaction, {
     content: `❌ Only administrators and moderators can ${action}.`,
+    flags: MessageFlags.Ephemeral,
+  });
+  return false;
+}
+
+/**
+ * The picker's footer says its buttons expire after 15 minutes; this makes
+ * that true. Nothing used to check, so a picker left in the channel opened
+ * or closed matchups hours later, from labels (and, on the close buttons,
+ * vote counts) long out of date. `command` is what to run for a fresh one.
+ *
+ * @returns {Promise<boolean>} true when the click may proceed
+ */
+async function ensureFreshPicker(interaction, command) {
+  if (!matchupPickerExpired(interaction.message)) return true;
+  await privateNote(interaction, {
+    content: `⌛ These buttons expired after ${MATCHUP_PICKER_TTL_MS / 60000} minutes; run \`/bracket ${command}\` again for fresh ones.`,
     flags: MessageFlags.Ephemeral,
   });
   return false;
@@ -1517,6 +1535,7 @@ async function ensureTournamentManager(interaction, action) {
 async function handleOpenMatchupButton(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   if (!await ensureTournamentManager(interaction, 'open matchups for voting')) return;
+  if (!await ensureFreshPicker(interaction, 'open-matchup')) return;
 
   // Parse button customId: open_matchup_{matchupId}_{durationMs}
   const [, , matchupId, durationMs] = interaction.customId.split('_');
@@ -1669,6 +1688,7 @@ async function handleOpenMatchupButton(interaction) {
 async function handleCloseMatchupButton(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   if (!await ensureTournamentManager(interaction, 'close matchups')) return;
+  if (!await ensureFreshPicker(interaction, 'close-matchup')) return;
 
   // Parse button customId: close_matchup_{matchupId}
   const [, , matchupId] = interaction.customId.split('_');
@@ -1763,6 +1783,7 @@ async function handleCloseMatchupButton(interaction) {
 async function handleOpenRegionButton(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   if (!await ensureTournamentManager(interaction, 'open matchups for voting')) return;
+  if (!await ensureFreshPicker(interaction, 'open-matchup')) return;
 
   // Parse button customId: open_region_{region}_{durationMs}
   const [, , region, durationMs] = interaction.customId.split('_');

@@ -52,7 +52,7 @@ Opens every matchup in the current round that has both titles in place.
 
 If `duration` is left out, the bot uses the default voting duration from the [setup form](./import), or 24h if the form didn't set one.
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 **A ballot holds 5 matchups.** The Round of 32 (16 matchups) and Round of 16 (8) don't fit, so plain `/bracket open` tells you to open them in parts:
 
@@ -134,7 +134,7 @@ Opening new matchups starts a new card for them. The earlier card stays where it
 - `region` (optional): 1 to 4. Opens every matchup in that region of the current round.
 - `duration` (optional): `5m` to `30d`. Same default as `/bracket open`.
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 **With nothing but `duration`**, the bot shows buttons:
 - More than 5 matchups in the round: one button per region.
@@ -182,7 +182,7 @@ Closes every open matchup in the current round and moves the winners into the ne
 
 If `tiebreaker-duration` is left out, the bot uses the default from the [setup form](./import), or 1h if the form didn't set one.
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 **What happens:**
 - The title with more votes wins each matchup.
@@ -259,7 +259,7 @@ It closes at its deadline, or when an admin runs `/bracket resolve-tiebreaker`. 
 
 ### Opening the next matchup closes earlier ones
 
-When you open matchups, any others in the round still voting close first, exactly as their deadline would: winners are announced, and ties get a tiebreaker vote. Running a round one matchup at a time (`/bracket open matchups:1`, or `/bracket open-matchup matchup:1A`, then `1B`, …) therefore always has exactly one matchup voting, and earlier votes are locked in. To keep several voting together, open them in one go: `matchups:4`, `matchup:"1A,1B"`, or `region:1`.
+When you open matchups, any others in the round still voting close first, exactly as their deadline would: winners are announced, and ties get a tiebreaker vote. Running a round one matchup at a time (`/bracket open matchups:1`, or `/bracket open-matchup matchup:1A`, then `1B`, …) therefore always has exactly one matchup voting, and earlier votes are locked in. To keep several voting together, open them in one go: `matchups:4`, `matchup:1A,1B`, or `region:1`.
 
 The `matchup` option suggests the current round's matchups that haven't been voted on yet, with both titles, so you don't need to remember labels.
 
@@ -280,7 +280,7 @@ Closes one or more open matchups and moves their winners on.
 - `matchup` (optional): one label or several, comma-separated. Leave it out to pick from buttons showing each open matchup and its votes.
 - `tiebreaker-duration` (optional): `5m` to `7d`. Same default as `/bracket close`.
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 **Examples:**
 ```

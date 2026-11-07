@@ -1,15 +1,23 @@
-// Sections that moved to a page of their own, by their old address.
+// Sections that moved to another page, by their old address.
 //
-// Until 2.74, every game rule was on one page, /commands/games, and links
-// to its sections are everywhere we can't edit: the changelog, GitHub
-// release notes, and the /how-to-play cards of bots still running an older
-// version (each operator hosts their own). So the old page stays, as the
-// games' overview, and keeps every old anchor: a hidden marker beside the
-// summary of where it went (no JavaScript needed), and this map, which
-// takes a reader straight to the section itself.
+// Links to a section are everywhere we can't edit: the changelog, GitHub
+// release notes, and the citations and /how-to-play cards of bots still
+// running an older version (each operator hosts their own copy, and its
+// /eggshen-ask cites its own docs' anchors on eggshenbot.com). So a page
+// that loses sections stays, and keeps every old anchor twice over: a
+// hidden <div id> marker on the old page (no JavaScript needed), and this
+// map, which takes a reader straight to the section itself.
 //
-// scripts: the anchor check reads MOVED too, so every old link is proven to
-// land somewhere real.
+// - /commands/games: until 2.74 every game rule was on this one page.
+// - /commands/social: until the docs were regrouped (after 2.76.0) it also
+//   held /foodfight, /doom, /rescue and /potion. How each plays went to
+//   Playing & Points, and each game's own lines to Settings for Admins.
+// - /commands/brackets/: its Quick FAQ joined the Tournament FAQ, whose
+//   questions /eggshen-ask ranks higher (they're frontmatter).
+//
+// tests/docs-moved-anchors.test.js renders the docs and proves every old
+// anchor is still on its old page and every new address is a real page
+// and heading. Never remove an entry: an old link is live forever.
 
 export const MOVED = {
   '/commands/games': {
@@ -75,14 +83,40 @@ export const MOVED = {
     'happenings-and-twists': '/commands/games-settings#happenings-and-twists',
     'resetting-scores': '/commands/games-settings#resetting-scores',
   },
+  // An index page is keyed without its slash: /commands/brackets/ → '/commands/brackets'
+  '/commands/brackets': {
+    'quick-faq': '/guides/tournaments/faq',
+  },
+  '/commands/social': {
+    // How each game plays → Playing & Points
+    'food-fight': '/commands/games-playing#food-fight',
+    'throw-food': '/commands/games-playing#throw-food',
+    'feed-someone': '/commands/games-playing#feed-someone',
+    doom: '/commands/games-playing#doom',
+    'deal-a-fate': '/commands/games-playing#deal-a-fate',
+    rescue: '/commands/games-playing#rescue',
+    'attempt-a-rescue': '/commands/games-playing#attempt-a-rescue',
+    'potion-command': '/commands/games-playing#potions',
+    'give-a-potion': '/commands/games-playing#give-a-potion',
+    'potion-issues': '/commands/games-playing#troubleshooting',
+    // Each game's own lines → Settings for Admins. Three headings were all
+    // "Your Own Lines (Admin/Mod)", so VitePress numbered them in page
+    // order: food fight, doom, rescue.
+    'your-own-lines-admin-mod': '/commands/games-settings#food-fight-lines',
+    'your-own-lines-admin-mod-1': '/commands/games-settings#doom-lines',
+    'your-own-lines-admin-mod-2': '/commands/games-settings#rescue-lines',
+    'custom-responses-and-themes-admin-mod': '/commands/games-settings#potion-responses-and-themes',
+  },
 }
 
 /** The new address for an old one, or null: '/commands/games.html', '#siege' → '/commands/games-siege.html' */
 export function movedTo(pathname, hash) {
-  const page = String(pathname || '').replace(/\.html$/, '').replace(/\/$/, '')
+  // '/commands/games.html', '/commands/brackets/' and '/commands/brackets/index.html' → their key
+  const page = String(pathname || '').replace(/\.html$/, '').replace(/\/(index)?$/, '')
   const anchor = decodeURIComponent(String(hash || '').replace(/^#/, ''))
   const to = MOVED[page]?.[anchor]
   if (!to) return null
   const [path, h] = to.split('#')
-  return `${path}.html${h ? `#${h}` : ''}`
+  // An index page's address is its folder: '/guides/tournaments/', not '….html'
+  return `${path.endsWith('/') ? path : `${path}.html`}${h ? `#${h}` : ''}`
 }

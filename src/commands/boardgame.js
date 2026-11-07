@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from 'discord.js';
 import { searchBoardGames } from '../services/bggService.js';
 import { createBoardGameSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { searchResultLimit } from '../utils/selectMenuLimits.js';
 import { config } from '../config.js';
 import { deliverResult } from '../utils/interactionResponse.js';
 
@@ -89,7 +90,7 @@ export async function execute(interaction) {
 
     // Load guild config to get maxSearchResults
     const guildConfig = await loadGuildConfig(interaction.guildId);
-    const maxResults = guildConfig.maxSearchResults || 20;
+    const maxResults = searchResultLimit(guildConfig); // at most 25, a select menu's limit
     const limitedResults = results.slice(0, maxResults);
 
     // The picker itself always stays ephemeral — the private flag travels

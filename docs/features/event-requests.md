@@ -132,17 +132,19 @@ The form's files are in `public/`. Build them and make a ready-to-serve copy for
 
 3. Point your web server's root for the domain at `domains/my-community/`.
 
-4. Forward these paths to the bot's API port (3000 by default): `/api/`, `/crop/`, `/crop-assets/` and `/shared-assets/`. The form talks to the bot at `/api/` on its own domain, so without this it can't log anyone in. Pass the `Host` and `X-Forwarded-Proto` headers, so the bot builds an `https://` login callback:
+4. Forward these paths to the bot's API port (3000 by default): `/api/`, `/crop/`, `/crop-assets/` and `/shared-assets/`. The form talks to the bot at `/api/` on its own domain, so without this it can't log anyone in. Pass the `Host` and `X-Forwarded-Proto` headers, so the bot builds an `https://` login callback, and set `X-Forwarded-For` to the visitor's address, which the form's rate limits count by:
 
    ```nginx
    location /api/ {
        client_max_body_size 10M;
        proxy_pass http://localhost:3000;
        proxy_set_header Host $host;
-       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-For $remote_addr;
        proxy_set_header X-Forwarded-Proto $scheme;
    }
    ```
+
+   The bot believes `X-Forwarded-For` only from a proxy on the same machine, and takes the address that proxy added, so `$proxy_add_x_forwarded_for` works too. Run the proxy on the bot's machine, and keep the bot's port closed to the outside: see [Installation › Keep the Bot's Port Private](/installation#keep-the-bot-s-port-private). [The Web Pages](/installation#the-web-pages) also lists the paths the tournament setup form and the quotes editor need.
 
 5. Use HTTPS.
 
@@ -174,7 +176,7 @@ Use the `/eggshen-config-events event-requests` commands in your Discord server.
 **2. Configure required settings** (the website URL is set with `/eggshen-config-website`, not an `event-requests` subcommand):
 ```
 /eggshen-config-events event-requests moderation-channel channel:#event-requests
-/eggshen-config-events event-requests server-name name:"Your Server Name"
+/eggshen-config-events event-requests server-name name:Your Server Name
 /eggshen-config-website url url:https://yourdomain.com
 ```
 
@@ -206,7 +208,7 @@ Everything is set with `/eggshen-config-events event-requests` subcommands, by a
 /eggshen-config-events event-requests view
 ```
 
-Shows every setting, including the form's link and whether its guidance has been changed.
+Shows the settings, including whether the form's guidance has been changed, and the form's link once event requests are on and the website URL is set. The where-to-watch line has its own view: run `streaming` with no options.
 
 ### Enable/Disable
 
@@ -232,7 +234,7 @@ Choose where event requests will be sent for approval. Must be a text channel.
 ### Set Server Display Name
 
 ```
-/eggshen-config-events event-requests server-name name:"My Awesome Server"
+/eggshen-config-events event-requests server-name name:My Awesome Server
 ```
 
 This name appears on the event request form.
@@ -317,19 +319,21 @@ By default (in Advanced Mode), users can select from **all text channels** and *
 
 **Whitelist text channels:**
 ```
-/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"123456,789012,345678"
+/eggshen-config-events event-requests set-allowed-text-channels channel-ids:123456,789012,345678
 ```
 
 **Whitelist voice channels:**
 ```
-/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"111222,333444"
+/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:111222,333444
 ```
 
 **Allow all channels (reset to default):**
 ```
-/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"all"
-/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"all"
+/eggshen-config-events event-requests set-allowed-text-channels channel-ids:all
+/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:all
 ```
+
+Type `all` and the IDs without quotes around them. Discord keeps the quotes, so `"all"` would be saved as a channel ID that doesn't exist, and the form would offer no channels at all.
 
 ::: tip When to Use Channel Whitelisting
 **Good use cases:**
@@ -406,11 +410,21 @@ When a request is submitted:
    - **Request with voice**: ✅ Approve Both, 💬 Text Only, ✏️ Edit, or ❌ Deny
    - Both also get **🖼️ Crop Image** when the crop page is set up (see below)
 4. **Choose one:**
-   - **Approve & Create Event** → Creates the event. If no channel was picked, you choose one first
+   - **Approve & Create Event** → Creates the event. If no channel was picked, you choose one first (see below)
    - **Approve Both** → Creates a voice channel event, with the text channel for the chat
    - **Text Only** → Creates a text-only event (drops the voice channel)
    - **Edit** → Opens a form to correct the title, description, or start/end time — saving it immediately approves the request too (see below)
    - **Deny** → Opens a form for an optional reason, then removes the request without creating an event
+
+### Picking the Channels
+
+A request without a text channel (every request in Simple Mode) can't become an event until it has one. Pressing any Approve button then shows you, privately:
+
+- **A text channel menu** (required): where the watch party's chat happens
+- **A voice channel menu** (optional): leave it empty for a text-only event
+- **✅ Create Event** and **Cancel**
+
+What you pick decides the kind of event, whichever Approve button you pressed: with a voice channel it's a voice event with the text channel for chat, without one it's text-only. **Create Event** creates it and marks the request approved. **Cancel** drops your picks; the request stays in the queue to approve later. Saving an [edit](#editing-a-request-immediately-approves-it) on a request with no channel brings up the same menus.
 
 ### Editing a Request (Immediately Approves It)
 
@@ -481,7 +495,7 @@ Approving, denying, editing and cropping requests needs the **Manage Events** or
 
 ## Rate Limiting
 
-The form has its own limits against spam, counted by IP address:
+The form has its own limits against spam, counted by IP address (the one your proxy passes in `X-Forwarded-For`; see [Step 3](#step-3-deploy-the-web-form)):
 
 - **1 request per 5 minutes**
 - **5 image uploads per 5 minutes**, counting both picked files and fetched image URLs
@@ -622,7 +636,7 @@ Configure your test server:
 ```
 /eggshen-config-events event-requests toggle enabled:true
 /eggshen-config-events event-requests moderation-channel channel:#test-events
-/eggshen-config-events event-requests server-name name:"Test Server"
+/eggshen-config-events event-requests server-name name:Test Server
 /eggshen-config-website url url:http://localhost:8080
 /eggshen-config-events event-requests view
 ```
@@ -704,7 +718,7 @@ This checks `DISCORD_CLIENT_SECRET` and the fallback `OAUTH_REDIRECT_URI`.
 
 ## API Endpoints
 
-The bot serves these for the event request system:
+The bot serves these for the event request system. The tournament setup form and the quotes editor have their own; see [Installation › Web Endpoints](/installation#web-endpoints).
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|

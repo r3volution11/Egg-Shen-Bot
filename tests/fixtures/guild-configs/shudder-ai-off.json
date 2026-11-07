@@ -1,0 +1,59 @@
+{
+  "services": {
+    "imdb": true,
+    "letterboxd": true,
+    "trakt": true,
+    "rottenTomatoes": true,
+    "justWatch": true
+  },
+  "emojis": {
+    "imdb": "<:imdb:1100000000000000011>",
+    "letterboxd": "<:letterboxd:1100000000000000012>",
+    "trakt": "",
+    "rtCritics": "",
+    "justWatch": ""
+  },
+  "region": "US",
+  "maxSearchResults": 20,
+  "maxTimerDurationMinutes": 360,
+  "stats": {
+    "enabled": true,
+    "trackMovies": true,
+    "trackShows": true,
+    "trackEpisodes": true
+  },
+  "commandPermissions": {
+    "enabled": true,
+    "movie": true,
+    "tv": true,
+    "episode": true,
+    "game": true,
+    "boardgame": true
+  },
+  "notifications": {
+    "restartAnnouncements": false
+  },
+  "watchPartyChannels": ["1200000000000000011"],
+  "administrators": [],
+  "moderation": {
+    "enabled": false,
+    "whitelist": { "enabled": false, "allowedRoles": [], "allowedUsers": [] },
+    "autoBan": { "enabled": false, "violationCount": 20, "windowHours": 24 }
+  },
+  "potionResponses": {},
+  "potionThemes": null,
+  "eventRequests": {
+    "enabled": true,
+    "moderationChannel": "1200000000000000012",
+    "serverName": "Shudder Drive-In",
+    "inviteUrl": null,
+    "allowUserChannelSelection": false,
+    "allowVoiceRequests": true,
+    "allowedTextChannels": [],
+    "allowedVoiceChannels": []
+  },
+  "aiImages": {
+    "enabled": false,
+    "permissions": "everyone"
+  }
+}

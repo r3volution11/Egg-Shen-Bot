@@ -20,8 +20,8 @@ import { clipText, LIMITS } from '../utils/embedFit.js';
 
 // Re-exported for backward compatibility — tests and any other callers
 // import createPollEmbed from here; the implementation now lives in
-// pollManager.js so both the command and the reaction handlers/scheduler
-// in src/index.js and pollScheduler.js can share it.
+// pollManager.js so the command, the vote buttons and pollScheduler.js can
+// share it.
 export { createPollEmbed };
 
 export const data = new SlashCommandBuilder()
@@ -242,7 +242,7 @@ export async function execute(interaction) {
  * - results: any survey, active or closed (read-only, no permission needed)
  * - voting-post: open surveys (anyone may bring one back down)
  * - close/delete: only surveys the invoking user can actually manage
- *   (creator, admin, or mod), so a suggestion never leads to a permission
+ *   (canManagePoll: creator, Administrator or Manage Server), so a suggestion never leads to a permission
  *   error after picking it
  */
 export async function autocomplete(interaction) {
@@ -595,7 +595,7 @@ async function handleClose(interaction) {
   // Check permissions
   if (!canManagePoll(poll, interaction.member)) {
     await interaction.editReply({
-      content: '❌ You do not have permission to close this survey. Only the survey creator, administrators, or moderators can close surveys.',
+      content: '❌ You do not have permission to close this survey. Only the person who created it, or someone with Administrator or Manage Server, can close it.',
     });
     return;
   }
@@ -634,7 +634,7 @@ async function handleDelete(interaction) {
   // Check permissions
   if (!canManagePoll(poll, interaction.member)) {
     await interaction.editReply({
-      content: '❌ You do not have permission to delete this survey. Only the survey creator, administrators, or moderators can delete surveys.',
+      content: '❌ You do not have permission to delete this survey. Only the person who created it, or someone with Administrator or Manage Server, can delete it.',
     });
     return;
   }

@@ -4,7 +4,7 @@ description: "How Egg Shen Bot's layered rate limiting stops spam, channel flood
 
 # Rate Limiting & Anti-Abuse
 
-Rate limiting stops people spamming the bot. It caps how fast each member can use commands, caps the whole server, and keeps a record of who keeps hitting the limits so moderators can act.
+Rate limiting stops people spamming the bot. It caps how fast each member can use commands, caps the whole server, and keeps a record of who keeps hitting the limits so moderators can act. The commands for viewing and changing the limits are on [Moderation Commands](/commands/moderation).
 
 ## Overview
 
@@ -18,7 +18,7 @@ The protection comes in layers:
 6. **Manual cooldowns** let moderators pause one member
 7. **Whitelist mode** limits the bot to chosen roles and members
 
-Layers 1 to 4 work out of the box. Layers 5 to 7 are moderation features: turn them on first with `/eggshen-config-moderation moderation toggle enabled:true`. See [Moderation Tools](/features/moderation-tools).
+Layers 1 to 4 work out of the box on a new server. A server set up before the rate-limiting switch existed has them off until an admin turns it on: see [Turn It All On or Off](#turn-it-all-on-or-off). Layers 5 to 7 are moderation features: turn them on first with `/eggshen-config-moderation moderation toggle enabled:true`. See [Moderation Tools](/features/moderation-tools).
 
 All of these settings belong to admins and moderators: members with Administrator, Manage Server, Timeout Members, Kick Members or Ban Members.
 
@@ -26,7 +26,7 @@ All of these settings belong to admins and moderators: members with Administrato
 
 | Setting | Default |
 |---|---|
-| Rate limiting | On |
+| Rate limiting | On for a new server; off for one set up before the switch existed |
 | Per-user limit | 1 use per 20 seconds, for each command |
 | `/suggest-quote` | 1 per 60 seconds |
 | `/recommend` | 2 per 120 seconds |
@@ -46,9 +46,15 @@ A member who hits a limit gets a private reply saying how many seconds to wait. 
 
 With rate limiting off, layers 1 to 5 stop: nothing is limited, so nothing is logged or flagged either. Manual cooldowns and whitelist mode keep working: they're moderation features, with their own switch. Turn rate limiting back on with `enabled:true`.
 
+A new server starts with rate limiting on. A server whose settings were saved before this switch existed has it off, as it always has, and keeps it off until an admin turns it on with `enabled:true`. Its other limits read as the defaults above, ready for when it's on. `/eggshen-config-watch-party rate-limit view` shows which it is.
+
 ## Layer 1: Per-User Limits
 
 Each command has its own count for each member. With the default of 1 per 20 seconds, someone can run `/movie` and then `/tv` straight away, but not `/movie` twice within 20 seconds.
+
+The count is kept per command, not per subcommand, so a command's subcommands share it. `/timer start` followed by `/timer status`, `/bracket status` then `/bracket my-votes`, or two `/watchlist add`s within 20 seconds: the second is refused ("wait N seconds before using /timer again"). If that gets in the way with `/timer`, give it a looser [limit of its own](#per-command-limits).
+
+Only typed commands and the right-click **Game card** are counted. Buttons, menus, forms and the suggestions Discord shows while you type are never limited, so voting, ready checks and game buttons aren't held up by it.
 
 ### Set the Default Limit
 
@@ -66,7 +72,7 @@ Give one command its own limit:
 /eggshen-config-watch-party rate-limit command command:episode-list max-requests:2 window-seconds:60
 ```
 
-`command` can be `movie`, `tv`, `episode`, `episode-list`, `timer` or `stats`. Leave out `window-seconds` to use the default limit's window.
+`command` can be `movie`, `tv`, `episode`, `episode-list`, `timer` or `stats`; no other command can be given its own limit from Discord. Leave out `window-seconds` to use the default limit's window.
 
 To remove a command's own limit and go back to the default:
 
@@ -74,11 +80,13 @@ To remove a command's own limit and go back to the default:
 /eggshen-config-watch-party rate-limit command command:movie max-requests:0
 ```
 
-`/suggest-quote` and `/recommend` have their own limits from the start (see the table above). `/eggshen-config-watch-party rate-limit view` lists every per-command limit in effect.
+`/suggest-quote` and `/recommend` have their own limits from the start (see the table above). They aren't among the `command` choices, so they can't be changed or removed from Discord. Whoever runs the bot can change them in the server's settings file, `guild_configs/<server ID>.json`, under `rateLimits.commands` (`"recommend": { "maxRequests": 2, "windowSeconds": 120 }`). The bot reads the file each time, so there's nothing to restart. `/eggshen-config-watch-party rate-limit view` lists every per-command limit in effect.
 
 ### The Games Have Their Own Limits
 
-`/potion`, `/foodfight`, `/doom`, `/rescue` and `/siege` don't use the default limit, so someone can send a potion and then throw food straight away. The games have their own play limits instead: by default each game once every 20 seconds per person, and 6 plays a minute across all of them. Change those with `/eggshen-config-games limits`. See [Games › Limits](/commands/games-settings#limits).
+`/potion`, `/foodfight`, `/doom`, `/rescue` and `/siege`, and the Six-Demon Bag's casts (`/six-demon-bag bless`, `hex`, `peace` and `shrug`), don't use the default limit, so someone can send a potion and then throw food straight away. The games have their own play limits instead: by default each game once every 20 seconds per person, and 6 plays a minute across all of them. Change those with `/eggshen-config-games limits`. See [Games › Limits](/commands/games-settings#limits). `/six-demon-bag status` keeps the default limit.
+
+Only the per-member limit is skipped. The [guild-wide limit](#layer-2-guild-wide-limits), whitelist mode and manual cooldowns still stop a game command. A game play doesn't add to the guild-wide count, though, and pattern detection doesn't look at it.
 
 If a per-command limit is ever set for one of the games in the server's config, that limit applies to it as well.
 
@@ -115,6 +123,8 @@ It flags two patterns:
 ```
 
 `min-users` takes 2 to 20. A lower number catches more, but flags more ordinary activity too. On a big server where people often look up the same title at once, raise it.
+
+The 60 seconds for identical commands is `rateLimits.patternDetection.windowSeconds` in the server's `guild_configs/<server ID>.json`. No command changes it; whoever runs the bot can edit the file. The 10 seconds of a burst is fixed.
 
 ### View Detected Activity
 
@@ -169,10 +179,10 @@ Lists members at or over the threshold, most violations first, with their count 
 
 ## Layer 6: Manual Cooldowns
 
-A cooldown stops one member from using any bot command for a while.
+A cooldown stops one member from using any bot command for a while. It covers typed commands and the right-click **Game card**; buttons and menus on messages already posted still work for them, such as voting in a survey or tournament.
 
 ```
-/eggshen-config-moderation moderation user-cooldown user:@spammer duration:60 reason:"Spamming commands"
+/eggshen-config-moderation moderation user-cooldown user:@spammer duration:60 reason:Spamming commands
 ```
 
 - `duration` is in minutes, 1 to 10,080 (a week)
@@ -199,7 +209,9 @@ Shows each member under a cooldown, the reason, who applied it and when, and whe
 
 ## Layer 7: Whitelist Mode
 
-Whitelist mode lets only chosen roles and members use the bot. A member gets in if they're on the list themselves or hold a role that is. Everyone else is told "This server is in whitelist mode."
+Whitelist mode lets only chosen roles and members use the bot's commands. A member gets in if they're on the list themselves or hold a role that is. Everyone else is told "This server is in whitelist mode."
+
+It stops typed commands and the right-click **Game card**, not buttons or menus. Anyone can still vote, answer a ready check or press a game button on a message that's already posted.
 
 Add roles and members first, then turn it on:
 

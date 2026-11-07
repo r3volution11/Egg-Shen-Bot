@@ -1,10 +1,10 @@
 ---
-title: Commands Reference - Egg Shen Bot
+title: Every Command - Egg Shen Bot
 description: Every Egg Shen Bot command with its options. Search movies, TV, games and books, run watch parties, tournaments, surveys, trivia and the games, and configure your server.
 head:
   - - meta
     - property: og:title
-      content: Commands Reference - Egg Shen Bot
+      content: Every Command - Egg Shen Bot
   - - meta
     - property: og:description
       content: Every Egg Shen Bot command with its options, for searches, watch parties, tournaments, surveys, trivia, games and server settings.
@@ -13,22 +13,22 @@ head:
       content: https://eggshenbot.com/commands/
   - - meta
     - name: twitter:title
-      content: Commands Reference - Egg Shen Bot
+      content: Every Command - Egg Shen Bot
   - - meta
     - name: twitter:description
       content: Every Egg Shen Bot command with its options, for searches, watch parties, tournaments, surveys, trivia, games and server settings.
 ---
 
-# Commands Overview
+# Every Command
 
 Every Egg Shen command is a slash command. Type `/` in Discord and pick one; Discord shows each option as you go. This page lists every command and its options. Follow the links for the full details.
 
-Options in `code` are the ones you type, such as `query:`. Anything not marked required is optional.
+Options in `code` are the ones you type, such as `query:`. Anything not marked required is optional. Type a value as it is, spaces and all, with no quotes around it: Discord keeps quotes as part of the value, so `name:"Movie Cup"` would name a tournament `"Movie Cup"`, quotes included.
 
 ## Quick FAQ
 
 **Q: Why don't I see all the commands?**  
-A: There are three usual reasons. `/game` and `/boardgame` are only registered when the bot has a RAWG key and a BoardGameGeek client ID. `/bracket-setup`, `/escape-setup` and `/eggshen-logs` are hidden from members without the right Discord permissions. And after an update, Discord can show an old list until you reload it (Cmd/Ctrl+R).
+A: There are three usual reasons. `/game` and `/boardgame` are only registered when the bot has a RAWG key and a BoardGameGeek client ID. Discord hides `/bracket-setup` and `/escape-setup` from anyone without the Timeout Members permission, and `/eggshen-logs` from anyone without Administrator, unless the server changes that in **Server Settings → Integrations**. And after an update, Discord can show an old list until you reload it (Cmd/Ctrl+R).
 
 **Q: How do I use slash commands?**  
 A: Type `/` and start typing the command's name. Discord lists the matches, then each option in turn.
@@ -198,9 +198,9 @@ A timer for the channel's watch party. One timer per channel, and it survives a 
 - `title` - Name what's playing and set the duration from its runtime. `title` (required)
 - `adjust` - Set a new total duration. `duration` (required, 1-1440)
 - `autostop` - `autostop:enable` with a `duration`, or `autostop:disable` so it never stops on its own
-- `remind` - Announce that the timer is about to start, with the title's art. `message`, `role`
+- `remind` - Announce that the timer is about to start, with the title's art. `message`, `role`. It needs a Discord scheduled event for this channel, running or upcoming; without one it refuses
 
-**Who can do what:** the person who started the timer, and admins and moderators, can pause, resume, stop, adjust and change auto-stop. A server can let anyone pause, resume and stop with `/eggshen-config settings timer-control`. Anyone can name a timer that has no title yet.
+**Who can do what:** the person who started the timer, and admins and moderators, can pause, resume, stop, adjust and change auto-stop. A server can let anyone pause, resume and stop with `/eggshen-config settings timer-control`. Anyone can name a timer that has no title yet, and anyone can use `remind`, with any role in `role`.
 
 ```
 /timer start movie:The Thing
@@ -218,7 +218,7 @@ A timer for the channel's watch party. One timer per channel, and it survives a 
 Get everyone ready before you press play.
 
 **Subcommands:**
-- `remind` - The same announcement as `/timer remind`. `message`, `role`
+- `remind` - The same announcement as `/timer remind`, with the same need for a scheduled event in this channel. `message`, `role`. Anyone can use it
 - `ready` - Post a ready check with **✅ Ready** and **⏳ Need a minute** buttons, and tally the answers. `message`, `role`
 - `ready-close` - Stop taking answers. The person who posted the check, or a moderator
 
@@ -304,6 +304,10 @@ Something random to watch, play or read.
 
 **Streaming filter:** `streaming` (movie and tv) only picks titles on the services you name, in the server's streaming region (`/eggshen-config settings region`). Separate several with commas: `Shudder, Tubi TV` means on *either*. Start typing to see the services available. A service includes its Amazon, Apple TV and Roku channel versions, so `Shudder` also finds what's on Shudder through Prime Video.
 
+**What you get:** the pick posts in the channel, with the same card its search command shows (`/movie`, `/tv`, `/game`, `/boardgame` or `/book`). `episode` names a random episode from a random season, with its synopsis and the `/episode` command for its full card. If several shows match `show`, a menu of them is posted in the channel to pick from first.
+
+**Switches and keys:** each subcommand follows its search command's switch, so with `/book` switched off for members, `/random book` is off too (`/random episode` follows `episode`). `game` and `boardgame` stay in the list on a bot without a RAWG key or BoardGameGeek client ID, and say the service isn't set up.
+
 ```
 /random movie genre:Horror min-rating:7
 /random movie genre:Horror streaming:Shudder, Tubi TV
@@ -358,6 +362,8 @@ Titles like one you name.
 /similar title:Dracula type:book
 ```
 
+The answer always posts in the channel; there's no `private` option. It lists up to 10 titles, with each one's year and rating. If several titles match, a menu of them is posted first, and the list comes once one is picked. Without a RAWG key or BoardGameGeek client ID, video games or board games are left out of the search. `/similar` has no switch of its own: `/eggshen-config commands toggle` can't turn it off, not even with the master switch. To limit it, use Discord's **Server Settings → Integrations**.
+
 ---
 
 ## Tournaments, Surveys and Trivia
@@ -374,7 +380,7 @@ Run a tournament: members vote with buttons, matchup by matchup. Set one up with
 - `my-votes` - Your votes and what's still open to you
 - `export` - The results. `format` (required: `markdown` or `json`)
 
-**For admins and moderators:**
+**For members with Administrator or Timeout Members only** (a moderator with only Manage Server, Kick Members or Ban Members is refused):
 - `open` - Open the next round, whatever the phase. `duration` (such as `24h` or `3d`; default 24h, 5m-30d), `matchups` (1-5: open just the next few matchups)
 - `close` - Close the current round and move on. `tiebreaker-duration` (default 1h)
 - `open-groups` - `groups` (required, such as `A,B,C`), `duration`
@@ -399,7 +405,7 @@ Run a tournament: members vote with buttons, matchup by matchup. Set one up with
 ---
 
 ### `/bracket-setup`
-Set up a tournament (admins and moderators).
+Set up a tournament. For members with Administrator or Timeout Members only, like the `/bracket` subcommands that run one; Discord hides it from everyone else unless the server changes that in **Server Settings → Integrations**.
 
 **Subcommands:**
 - `create` - `name` (required), `max-titles` (2, 4, 8, 16 or 32 for a bracket; 36, 40, 44 or 48 for groups), `seeding` (`random` (default), `ordered`, `rating`), `ties` (`runoff` (default) or `higher-seed`)
@@ -426,9 +432,9 @@ A poll with up to 10 options. Members vote with buttons.
 - `create` - `question`, `option1` and `option2` (required), `option3` to `option10`, `multiple` (allow more than one vote), `duration` (minutes, 1-20160; leave out for no auto-close), `tie-break` (`runoff` (default): a runoff vote, then a random pick; or `none`)
 - `list` - `filter` (`active`, `closed`, `all`)
 - `results` - `poll_id` (required, pick from the list)
-- `voting-post` - Post an open survey again at the bottom of the channel. `poll_id` (leave out when only one is open). Members once every 10 minutes per survey; the creator and admins any time
-- `close` - End voting and post the results. `poll_id` (required). The creator, admins and moderators
-- `delete` - Delete it for good. `poll_id` (required). The creator, admins and moderators
+- `voting-post` - Post an open survey again at the bottom of the channel. `poll_id` (leave out when only one is open). Members once every 10 minutes per survey in each channel; the creator, and anyone with Administrator or Manage Server, any time
+- `close` - End voting and post the results. `poll_id` (required). The creator, or anyone with Administrator or Manage Server
+- `delete` - Delete it for good. `poll_id` (required). The creator, or anyone with Administrator or Manage Server
 
 ```
 /survey create question:What should we watch tonight? option1:Horror option2:Comedy option3:Action duration:60
@@ -452,7 +458,7 @@ A poll with up to 10 options. Members vote with buttons.
 ---
 
 ### `/escape-setup`
-Run an Escape Velocity event (admins and moderators).
+Run an Escape Velocity event (admins and moderators). Discord hides it from anyone without the Timeout Members permission unless the server changes that in **Server Settings → Integrations**.
 
 **Subcommands:**
 - `create` - `name` (required), `days` (required, 1-30), `starts_in_hours` (0-720; default: as soon as the questions are ready), `channel`. Then pick movies and/or TV and the genres
@@ -559,6 +565,8 @@ Give magical potions with fun pop culture references, to a member, a whole role,
 
 **Note:** Every potion scores points for you and the member you gave it to. See [Games & Scores](./games).
 
+See [Playing & Points › Potions](./games-playing#potions), and [Your own lines](./games-settings#potion-responses-and-themes) for the server's own responses and themes.
+
 ---
 
 ### `/foodfight`
@@ -581,7 +589,7 @@ Start a food fight, after the classic BBS door game: throw food at a member, a w
 /foodfight feed target:@Friend food:taco
 ```
 
-See [Social Commands › Food Fight](./social#food-fight).
+See [Playing & Points › Food Fight](./games-playing#food-fight), and [Your own lines](./games-settings#your-own-lines) for the server's own.
 
 ---
 
@@ -601,7 +609,7 @@ Deal someone, a whole role, or @everyone a horror-movie fate: horror-comedy that
 /doom fate target:@everyone
 ```
 
-See [Social Commands › Doom](./social#doom).
+See [Playing & Points › Doom](./games-playing#doom), and [Your own lines](./games-settings#your-own-lines) for the server's own.
 
 ---
 
@@ -621,7 +629,7 @@ Save someone from a horror movie: a Final Girl, holy water, the boomstick, the d
 /rescue attempt target:@everyone
 ```
 
-See [Social Commands › Rescue](./social#rescue).
+See [Playing & Points › Rescue](./games-playing#rescue), and [Your own lines](./games-settings#your-own-lines) for the server's own.
 
 ---
 
@@ -687,7 +695,7 @@ Egg Shen's bag: spend the Chi your good plays earn to bless a friend or hex a ri
 /six-demon-bag status
 ```
 
-Two casts a day (UTC), at most one a hex. A cast shares the games' cooldown and 6-a-minute limit, and works in the channels the games are played in; `status` works anywhere. Like the games, casting, `shrug` and `peace` aren't under the bot's general rate limit; `status` is. A refused cast costs nothing. Chi comes from good plays (+1, at most 4 a day) and from freeing and curing in a siege (+2, at most 6 a day), and the bag holds 20. Turn it off with `/eggshen-config commands toggle setting:magic enabled:false`, or switch off only hexes with `/eggshen-config-games happenings hexes:false`. See [The Six-Demon Bag](./games-magic).
+Two casts a day (UTC), at most one a hex. A cast shares the games' cooldown and 6-a-minute limit, and works in the channels the games are played in; `status` works anywhere. Like the games, casting, `shrug` and `peace` skip the bot's per-member rate limit; `status` doesn't. A refused cast costs nothing. Chi comes from good plays (+1, at most 4 a day) and from freeing and curing in a siege (+2, at most 6 a day), and the bag holds 20. Turn it off with `/eggshen-config commands toggle setting:magic enabled:false`, or switch off only hexes with `/eggshen-config-games happenings hexes:false`. See [The Six-Demon Bag](./games-magic).
 
 ---
 
@@ -825,6 +833,30 @@ Server settings, split across 8 commands to stay under Discord's size limit for 
 | `/eggshen-config-quotes` | The status quote rotation and quote suggestions |
 | `/eggshen-config-website` | This server's web pages: form address, bot address, theme |
 
+**Subcommands**, by command and group:
+- `/eggshen-config`
+  - `settings`: `view`, `toggle`, `emoji`, `region`, `max-results`, `max-timer-duration`, `timer-ceiling`, `timer-control`
+  - `stats`: `toggle`, `clear`
+  - `commands`: `toggle`
+  - `notifications`: `toggle`
+- `/eggshen-config-watch-party`
+  - `watch-party`: `add`, `remove`, `list`, `episode-buffer`, `auto-detect`, `starting-soon`
+  - `watchlist`: `settings`, `view`
+  - `rate-limit`: `toggle`, `global`, `command`, `bypass`, `clear`, `view`, `guild-wide`, `pattern-detection`, `suspicious-activity`, `abuse-log`
+- `/eggshen-config-ai`
+  - `ai-images`: `view`, `feature-toggle`, `set-permissions`, `toggle`, `user-cooldown`, `user-daily-limit`, `guild-daily-limit`, `admin-bypass`, `reset-user`, `reset-guild`, `whitelist-add`, `whitelist-remove`, `whitelist-list`
+  - `ai-text`: `feature-toggle`, `view`
+  - `ai-ask`: `feature-toggle`, `view`
+- `/eggshen-config-moderation`
+  - `moderation`: `toggle`, `user-cooldown`, `user-cooldown-remove`, `user-cooldown-list`, `whitelist-toggle`, `whitelist-add-role`, `whitelist-add-user`, `whitelist-remove-role`, `whitelist-remove-user`, `whitelist-list`, `auto-ban-toggle`, `auto-ban-threshold`, `auto-ban-list`
+- `/eggshen-config-events`
+  - `event-requests`: `view`, `toggle`, `moderation-channel`, `server-name`, `invite-url`, `allow-voice-requests`, `announce-decisions`, `announcement-channel`, `allow-user-channel-selection`, `set-allowed-text-channels`, `set-allowed-voice-channels`, `guidance`, `streaming`, `get-link`
+- `/eggshen-config-games`: `limits`, `channels`, `happenings`, `reset-scores`
+- `/eggshen-config-quotes`: `add`, `edit`, `delete`, `list`, `moderation-channel`, `max-pending-per-user`, `admin-link`
+- `/eggshen-config-website`: `view`, `url`, `bot-url`, `theme`
+
+Each one's options are on [Admin Configuration](/commands/configuration), and the moderation ones on [Moderation Commands](/commands/moderation).
+
 ```
 /eggshen-config settings view
 /eggshen-config commands toggle setting:game enabled:false
@@ -884,12 +916,17 @@ Restart the bot. It shuts down and relies on PM2 (or another process manager) to
 **Admins and moderators** are members with any of these Discord permissions: Administrator, Manage Server, Timeout Members, Kick Members or Ban Members. They can always use every command, even one switched off for regular members.
 
 **Admins and moderators only:**
-- `/announce`, `/bracket-setup`, `/escape-setup`, `/eggshen-stats`, `/eggshen-restart`, and all eight `/eggshen-config` commands
-- `/bracket` subcommands that run the tournament (`open`, `close`, `open-groups`, `close-groups`, `open-matchup`, `close-matchup`, `extend-voting`, `resolve-tiebreaker`, `regenerate`, `cancel`)
+- `/announce`, `/escape-setup`, `/eggshen-stats`, `/eggshen-restart`, and all eight `/eggshen-config` commands
 - `/siege start` and `/siege end`, `/watchlist clear`, and the `lines`, `responses` and `theme` groups of the games
-- Closing or deleting someone else's survey, and removing someone else's watchlist title
+- Removing someone else's watchlist title
+
+**Administrator or Timeout Members only:** `/bracket-setup`, and the `/bracket` subcommands that run the tournament (`open`, `close`, `open-groups`, `close-groups`, `open-matchup`, `close-matchup`, `extend-voting`, `resolve-tiebreaker`, `regenerate`, `cancel`). A moderator with only Manage Server, Kick Members or Ban Members can't use them.
+
+**The creator, Administrator or Manage Server:** closing or deleting a survey. A moderator with only Timeout Members, Kick Members or Ban Members can't close or delete someone else's.
 
 **Administrator permission only:** `/eggshen-logs`.
+
+**Hidden in Discord by default:** `/bracket-setup` and `/escape-setup` from anyone without Timeout Members, and `/eggshen-logs` from anyone without Administrator. Administrator includes every permission, so admins see all three. A server can show them to others in **Server Settings → Integrations**, but the rules above still decide who can use them.
 
 **Everyone else:** every other command, unless an admin switches it off with `/eggshen-config commands toggle`. Some actions are limited to the person who started them: stopping someone else's timer, or closing someone else's ready check, needs an admin or moderator.
 

@@ -393,7 +393,7 @@ Siege is also a game column like the others, with your points, plays and streak.
 /eggshen-config commands toggle setting:siege enabled:false
 ```
 
-Admins and moderators can always use it. `/siege start` and `/siege end` are for admins and moderators only. A siege that's on when you turn it off is called off within a minute (no rewards, no penalty, backers' stakes back), since members can't fight it any more, and no new one can be started until it's back on. Turning off `/foodfight`, `/doom` or `/potion` takes that weapon away. Turning off `/rescue` stops the monster grabbing (the grabbed are let go), and turning off `/potion` stops it poisoning (the poisoned are cured). See [Turning a game off](./games-settings#turning-a-game-off).
+Members lose `/siege attack`, `/siege status` and `/siege back`; admins and moderators can always use them. `/siege start` and `/siege end` are for admins and moderators only. A siege that's on when you turn it off is called off within a minute (no rewards, no penalty, backers' stakes back), since members can't fight it any more, and no new one can be started until it's back on. Turning off `/foodfight`, `/doom` or `/potion` takes that weapon away. Turning off `/rescue` stops the monster grabbing (the grabbed are let go), and turning off `/potion` stops it poisoning (the poisoned are cured). See [Turning a game off](./games-settings#turning-a-game-off).
 
 ## Related
 

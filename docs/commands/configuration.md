@@ -91,10 +91,10 @@ The country for where-to-watch information, as a 2-letter code (`US`, `CA`, `GB`
 #### Max Search Results
 
 ```
-/eggshen-config settings max-results count:<1-50>
+/eggshen-config settings max-results count:<1-25>
 ```
 
-How many matches the "which one did you mean" list shows. 20 by default.
+How many matches the "which one did you mean" list shows. 20 by default; 25 is the most a Discord menu holds, and a server set higher before 2.76.1 shows 25.
 
 **Example:**
 ```
@@ -109,7 +109,7 @@ How many matches the "which one did you mean" list shows. 20 by default.
 /eggshen-config settings max-timer-duration minutes:<1-1440> unlimited:<true|false>
 ```
 
-The **fallback** duration, used only when a timer has no real duration at all: no `duration` was typed, the title matched nothing, or "Skip" was chosen from the title list. A timer with a real duration (typed, adjusted, or from a runtime) always runs its full length. See [Timer Durations & the Expiry Warning](/commands/watch-party#timer-durations-the-expiry-warning).
+The **fallback** duration, used only when a timer has no real duration at all: no `duration` was typed, the title matched nothing, or "Skip" was chosen from the title list. A timer with a real duration (typed, or from a runtime) always runs its full length, and so does one whose length was set with `/timer adjust` or the **Extend Timer** button. See [Timer Durations & the Expiry Warning](/commands/watch-party#timer-durations-the-expiry-warning).
 
 - `minutes` - The fallback, in minutes. 360 (6 hours) by default
 - `unlimited` - `true` lets a timer with no real duration run until someone stops it, instead of using the fallback
@@ -199,7 +199,7 @@ Switch commands off for regular members.
 ```
 
 **Settings:**
-- `enabled` - All Commands: the master switch. Off turns off every command in this list at once
+- `enabled` - All Commands: the master switch. Off turns off every command in this list at once, and `/recommend` too, which has no switch of its own
 - Search: `movie`, `tv`, `episode`, `game`, `boardgame`, `book`, `soundtrack`
 - `survey`, `bracket` (covers `/bracket` and `/bracket-setup`), `watchlist`, `escape` (Escape Velocity)
 - Games: `potion`, `foodfight`, `doom`, `rescue`, `siege`, `magic` (the Six-Demon Bag, `/six-demon-bag`)
@@ -208,8 +208,9 @@ Switch commands off for regular members.
 Everything is on by default.
 
 - **Admins and moderators can always use every command,** whatever these say.
-- **Commands not on the list can't be switched off here,** such as `/timer`, `/watched`, `/image` or `/stats`. Use Discord's **Server Settings → Integrations** to limit those to certain roles or channels. `/image` has [its own switch](#ai-images-group).
-- **`siege` covers members' `attack` and `status`.** Turning it off calls off a siege that's running within a minute, with no rewards or penalties, and no new one can start until it's back on.
+- **Commands not on the list can't be switched off here,** such as `/timer`, `/watched`, `/similar`, `/image` or `/stats`, not even by the master switch. Use Discord's **Server Settings → Integrations** to limit those to certain roles or channels. `/image` has [its own switch](#ai-images-group).
+- **`/random` follows the search switches,** subcommand by subcommand: `/random book` is off when `book` is, `/random episode` when `episode` is, and so on.
+- **`siege` covers members' `attack`, `status` and `back`.** Turning it off calls off a siege that's running within a minute, with no rewards or penalties, and no new one can start until it's back on.
 - **`magic` switches the whole Six-Demon Bag off,** not just the command: plays stop earning Chi, and every blessing and hex already cast stops working until it's back on. Admins and moderators can still open `/six-demon-bag status`, but nothing else in the bag works for anyone. To switch off only hexes, use `/eggshen-config-games happenings hexes:false` ([details](./games-magic#turning-it-off)).
 - **`/eggshen-help` follows these switches.** A command that's off doesn't appear in a regular member's help.
 
@@ -229,6 +230,8 @@ Everything is on by default.
 ```
 
 **Off by default.** When on, after a restart the bot posts a notice in each channel that had a running timer. Timers are restored either way.
+
+Everything else the bot posts by itself, and how to turn each off, is on [What the Bot Posts on Its Own](/features/notifications).
 
 **Example:**
 ```
@@ -326,7 +329,7 @@ Limits on how often commands can be used, with `/eggshen-config-watch-party rate
 
 | Limit | Default |
 |---|---|
-| Rate limiting | On |
+| Rate limiting | On for a new server; off for one set up before the switch existed ([below](#toggle-rate-limiting)) |
 | Each member, each command | 1 use per 20 seconds |
 | `/recommend` | 2 uses per 2 minutes |
 | `/suggest-quote` | 1 use per minute |
@@ -334,7 +337,7 @@ Limits on how often commands can be used, with `/eggshen-config-watch-party rate
 | Pattern detection | On, flags 3 or more members |
 | Admins and moderators | Not limited |
 
-The games (`/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`) have [limits of their own](/commands/games-settings#limits) instead of the per-command one.
+The games (`/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`, and the Six-Demon Bag's casts) have [limits of their own](/commands/games-settings#limits) instead of the per-command one. Buttons and menus are never rate limited.
 
 #### Toggle Rate Limiting
 
@@ -344,13 +347,15 @@ The games (`/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`) have [limits o
 
 The master switch for the rate limits. Moderation's whitelist mode and user cooldowns have [their own switch](#moderation-group) and keep working with rate limiting off.
 
+A new server starts with it on. A server set up before the switch existed has it off, and keeps it off until an admin turns it on here; `rate-limit view` shows which.
+
 #### Global Rate Limits
 
 ```
 /eggshen-config-watch-party rate-limit global max-requests:<1-100> window-seconds:<1-3600>
 ```
 
-How often each member can use each command.
+How often each member can use each command. A command's subcommands share one count: `/timer start` then `/timer status` is two uses of `/timer`.
 
 **Example:**
 ```
@@ -363,7 +368,7 @@ How often each member can use each command.
 /eggshen-config-watch-party rate-limit command command:<name> max-requests:<0-100> window-seconds:[1-3600]
 ```
 
-A limit for one command, instead of the global one. **Commands:** `movie`, `tv`, `episode`, `episode-list`, `timer`, `stats`. `max-requests:0` removes the command's own limit.
+A limit for one command, instead of the global one. **Commands:** `movie`, `tv`, `episode`, `episode-list`, `timer`, `stats`; no others are offered. `max-requests:0` removes the command's own limit. The built-in limits for `/recommend` and `/suggest-quote` can't be changed here, only in the server's settings file ([how](/features/rate-limiting#per-command-limits)).
 
 **Example:**
 ```
@@ -376,7 +381,7 @@ A limit for one command, instead of the global one. **Commands:** `movie`, `tv`,
 /eggshen-config-watch-party rate-limit bypass enabled:<true|false>
 ```
 
-**On by default:** admins and moderators aren't rate limited and skip user cooldowns. Whitelist mode lets them in either way.
+**On by default:** admins and moderators aren't rate limited and skip user cooldowns. Whitelist mode lets them in either way. For these, members with Manage Messages or Manage Channels count as moderators too, along with Administrator, Manage Server, Timeout Members, Kick Members and Ban Members.
 
 #### Guild-Wide Rate Limiting
 
@@ -397,7 +402,7 @@ A cap on commands from everyone together, which stops one person flooding the bo
 /eggshen-config-watch-party rate-limit pattern-detection enabled:<true|false> min-users:[2-20]
 ```
 
-Flags signs of coordinated spam: several members running the same command with the same options within a minute, or a burst of commands from several members within 10 seconds. On by default, flagging 3 or more members. Admins and moderators aren't counted. It records what it sees for `suspicious-activity`; it doesn't block anyone.
+Flags signs of coordinated spam: several members running the same command with the same options within a minute, or a burst of commands from several members within 10 seconds. On by default, flagging 3 or more members. Admins and moderators aren't counted while moderator bypass is on. It records what it sees for `suspicious-activity`; it doesn't block anyone. The one-minute window can only be changed in the server's settings file ([how](/features/rate-limiting#layer-3-pattern-detection)).
 
 #### View, Clear and Review
 
@@ -491,7 +496,9 @@ Members fill in a form on your website. Moderators approve or deny each request 
 
 The website address itself is set with [`/eggshen-config-website url`](#website-group).
 
-**Moderators approve with buttons:** a request that asks for a voice channel gets **Approve Both**, **Text Only**, **Edit** and **Deny**; a text-only one gets **Approve & Create Event**, **Edit** and **Deny**. **Crop Image** appears when there's an image.
+**Moderators approve with buttons:** a request that asks for a voice channel gets **Approve Both**, **Text Only**, **Edit** and **Deny**; a text-only one gets **Approve & Create Event**, **Edit** and **Deny**. **Crop Image** appears on every request, with an image or without one, whenever the bot has an address (this server's [bot URL](#bot-url) or the bot's `PUBLIC_BOT_URL`) and its operator has set `EVENT_CROP_LINK_SECRET`. The crop page is also how a moderator adds an image to a request that has none. See [Cropping or Replacing the Image](/features/event-requests#cropping-or-replacing-the-image).
+
+When a request has no text channel yet (Simple Mode), any Approve button first asks you, privately, to pick a text channel and, optionally, a voice channel, then **✅ Create Event** or **Cancel**. Your pick decides the kind of event: with a voice channel it's a voice event with the text channel for chat; without one it's text-only, whichever Approve button you pressed.
 
 #### Simple and Advanced Mode
 
@@ -607,7 +614,17 @@ The bot's status line shows a rotating movie quote. Members post one with `/quot
 | `max-pending-per-user max:` | How many suggestions a member can have waiting, 1-50 (default 3) |
 | `admin-link` | A one-time link (10 minutes) to the bot's quotes admin web page, already unlocked |
 
-Suggestions are approved or rejected on that quotes admin page. It, and `admin-link`, only work when the bot's operator has set `QUOTES_ADMIN_SECRET`. Without a moderation channel, suggestions still wait there.
+**Reviewing suggestions.** With a `moderation-channel` set, each suggestion is posted there with **✅ Approve**, **✏️ Edit** and **❌ Reject** buttons. Only admins and moderators can press them. **Edit** opens a form filled in with the quote, its title and its author; saving it approves the suggestion with your changes, in one step. Leave Title or Author empty to clear it. The buttons work whether or not the web page below is set up. Without a moderation channel, suggestions wait on the web page's **Suggestions** tab instead.
+
+#### The Quotes Editor Page
+
+The bot serves a web page for the quote list on its own address (this server's [bot URL](#bot-url), or the bot's `PUBLIC_BOT_URL`), such as `https://yourdomain.com/quotes-admin`. It needs the bot's operator to set `QUOTES_ADMIN_SECRET`; without it, neither the page nor `admin-link` works.
+
+- **Getting in:** `admin-link` gives you a private link that opens the page already unlocked, in this server's [theme](#website-group). It works once, within 10 minutes. Visiting the address directly asks for the `QUOTES_ADMIN_SECRET` itself, and shows the default theme. The page doesn't remember it: you unlock it on each visit.
+- **Quotes tab:** the live rotation. The row editor adds, edits and deletes one quote at a time. The bulk editor shows the whole list as text, one quote a line as `Title | Quote | Author` (leave Title or Author empty between the bars). **Save All** checks every line first and saves nothing if one is wrong, naming the line.
+- **Suggestions tab:** what's waiting from `/suggest-quote`, to approve or reject. It's the same queue the moderation channel's buttons work on.
+
+Whoever runs the bot has to forward the page's paths to it; see [Installation › The Web Pages](/installation#the-web-pages).
 
 The quote list belongs to the bot, not to one server: a bot that serves several servers shares one rotation between them.
 

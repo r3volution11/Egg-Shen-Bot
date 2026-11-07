@@ -7,7 +7,7 @@ howto:
   totalTime: PT10M
   steps:
     - name: Get the link
-      text: In Discord, run `/bracket-setup setup-link` (admins and moderators). The bot replies privately with a link that works for an hour.
+      text: In Discord, run `/bracket-setup setup-link` (Administrator or Timeout Members only). The bot replies privately with a link that works for an hour.
     - name: Fill in a template
       text: Download the [straight-bracket CSV](/templates/tournaments/straight-bracket.csv) or the [groups CSV](/templates/tournaments/groups.csv), and put one title per row. Add a `year` to each title for the best matches.
     - name: Upload it

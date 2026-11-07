@@ -6,6 +6,8 @@ import * as bracketManager from '../utils/bracketManager.js';
 import * as bracketVisualizer from '../utils/bracketVisualizer.js';
 import { searchTitleCandidates, buildEntryFromResult, completeEntry, getTypeLabel } from '../utils/bracketTitles.js';
 import { avatarOf } from '../utils/personCard.js';
+import { searchResultLimit } from '../utils/selectMenuLimits.js';
+import { isTournamentManager, MATCHUP_PICKER_FOOTER } from '../utils/tournamentManagers.js';
 import { parseDuration, isValidDuration, isValidTiebreakerDuration, buildExport, DEFAULT_VOTING_DURATION, DEFAULT_TIEBREAKER_DURATION } from '../utils/tournamentImport.js';
 import { signSetupToken, SETUP_LINK_TTL_MS } from '../utils/tournamentSetupLinkToken.js';
 import { loadGuildConfig, isAdmin, canUseCommand, getPublicBotUrl } from '../utils/guildConfig.js';
@@ -257,7 +259,7 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('resolve-tiebreaker')
-      .setDescription('Manually resolve a tiebreaker (Admin/Mod/Creator only)')
+      .setDescription('Manually resolve a tiebreaker (Admin/Mod only)')
       .addStringOption(option =>
         option
           .setName('tiebreaker-id')
@@ -481,12 +483,9 @@ export async function execute(interaction) {
   // Check admin/mod permissions for management commands
   const requiresAdmin = ADMIN_SUBCOMMANDS;
   if (requiresAdmin.includes(subcommand)) {
-    // memberHas: an uncached interaction.member has a bitfield-string
-    // `permissions` with no .has() (see utils/memberPermissions.js)
-    const isAdmin = memberHas(interaction.member, PermissionFlagsBits.Administrator);
-    const isMod = memberHas(interaction.member, PermissionFlagsBits.ModerateMembers);
-    
-    if (!isAdmin && !isMod) {
+    // Administrator or Timeout Members (tournamentManagers.js), the same
+    // check the buttons these subcommands post make
+    if (!isTournamentManager(interaction.member)) {
       await interaction.reply({
         content: '❌ Only administrators and moderators can manage tournaments.',
         ephemeral: true,
@@ -990,7 +989,7 @@ async function handleAddTitle(interaction) {
   
   // Multiple results - show selection menu
   const guildConfig = await loadGuildConfig(interaction.guildId);
-  const maxResults = guildConfig.maxSearchResults || 20;
+  const maxResults = searchResultLimit(guildConfig); // at most 25, a select menu's limit
   const limitedResults = results.slice(0, maxResults);
   
   // Store custom image in cache if provided
@@ -2663,7 +2662,7 @@ async function showRegionSelector(interaction, tournament, durationMs) {
       `⏰ **Voting duration:** ${timeRemaining}\n` +
       `💡 **Tip:** Opening by region keeps voting manageable and builds anticipation!`
     )
-    .setFooter({ text: 'Buttons expire after 15 minutes' });
+    .setFooter({ text: MATCHUP_PICKER_FOOTER });
   
   // Create region buttons (2 rows of 2 buttons each)
   const row1 = new ActionRowBuilder().addComponents(
@@ -2723,7 +2722,7 @@ async function showMatchupSelector(interaction, tournament, durationMs) {
       `⏰ **Voting duration:** ${timeRemaining}\n` +
       `💡 **Tip:** You can click multiple buttons to open several matchups at once!`
     )
-    .setFooter({ text: 'Buttons expire after 15 minutes' });
+    .setFooter({ text: MATCHUP_PICKER_FOOTER });
   
   // Create buttons (max 25 buttons, 5 per row)
   const components = [];
@@ -2778,7 +2777,7 @@ async function showCloseMatchupSelector(interaction, tournament) {
       `Click button(s) below to close matchup(s) and advance winner(s).\n\n` +
       `💡 **Tip:** You can click multiple buttons to close several matchups at once!`
     )
-    .setFooter({ text: 'Buttons expire after 15 minutes' });
+    .setFooter({ text: MATCHUP_PICKER_FOOTER });
   
   // Create buttons (max 25 buttons, 5 per row)
   const components = [];

@@ -4,7 +4,7 @@ description: "Built-in moderation tools in Egg Shen Bot that keep movie, TV and 
 
 # Moderation Tools
 
-Tools for keeping spam and abuse of the bot under control on your server.
+Tools for keeping spam and abuse of the bot under control on your server. The commands themselves, with every option, are on [Moderation Commands](/commands/moderation).
 
 ## Overview
 
@@ -20,7 +20,9 @@ The bot limits how fast people can use it, records who keeps hitting those limit
 4. **Abuse logging:** records every blocked command
 5. **Auto-ban threshold:** flags repeat offenders for moderators (the bot never bans anyone itself)
 6. **Manual cooldowns:** a moderator pauses one member
-7. **Whitelist mode:** only chosen roles and members can use the bot
+7. **Whitelist mode:** only chosen roles and members can use the bot's commands
+
+Manual cooldowns and whitelist mode stop typed and right-click commands. Buttons and menus on messages already posted, such as votes and ready checks, still work for everyone.
 
 Learn more: [Rate Limiting & Anti-Abuse](/features/rate-limiting)
 

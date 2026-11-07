@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Partials, Options, Collection, EmbedBuilder, MessageFlags } from 'discord.js';
+import { Client, GatewayIntentBits, Options, Collection, EmbedBuilder, MessageFlags } from 'discord.js';
 import { config } from './config.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -24,14 +24,19 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMessageReactions,
   ],
-  // GuildMessages is only needed so reaction events resolve messages the bot
-  // hasn't personally sent/fetched this session (e.g. survey/poll messages
-  // from before a restart) — the bot doesn't read message content, so cap
-  // the message cache instead of accepting discord.js's 200-per-channel
-  // default, keeping memory bounded as the bot sees more channel traffic.
-  partials: [Partials.Message, Partials.Reaction],
+  // No GuildMessageReactions and no Message/Reaction partials: they existed
+  // for survey voting by reaction (1️⃣–🔟), which buttons replaced. The
+  // handlers outlived it, counting a number reaction on any survey as a
+  // vote and deleting every other reaction, so they were removed.
+  // Nothing else listens for reactions.
+  //
+  // GuildMessages stays: its update and delete events keep the copies of
+  // messages discord.js has cached current. Tournament, siege and survey
+  // code fetches its own posted messages again later (channel.messages.fetch
+  // answers from that cache first), and without those events a copy could
+  // be stale. The bot never reads message content, so the cache is capped
+  // instead of accepting discord.js's 200-per-channel default.
   makeCache: Options.cacheWithLimits({
     ...Options.DefaultMakeCacheSettings,
     MessageManager: 50,
@@ -660,127 +665,6 @@ client.on('interactionCreate', async (interaction) => {
         autoDetectMode: 'full',
       });
     }
-  }
-});
-
-// Event: Message Reaction Add (for polls)
-client.on('messageReactionAdd', async (reaction, user) => {
-  // Ignore bot reactions
-  if (user.bot) return;
-  
-  try {
-    // Fetch the reaction if it's partial
-    if (reaction.partial) {
-      await reaction.fetch();
-    }
-    
-    // Fetch the message if it's partial
-    if (reaction.message.partial) {
-      await reaction.message.fetch();
-    }
-    
-    const { getPollByMessageId, addVote, createPollEmbed, VOTE_EMOJIS } = await import('./utils/pollManager.js');
-
-    // Check if this message is a poll
-    const poll = getPollByMessageId(reaction.message.guildId, reaction.message.id);
-
-    if (!poll) return;
-
-    // Check if poll is still active
-    if (poll.status !== 'active') {
-      // Remove reaction from closed poll
-      await reaction.users.remove(user.id);
-      return;
-    }
-
-    // Check if the emoji is valid for this poll
-    const emojiIndex = VOTE_EMOJIS.indexOf(reaction.emoji.name);
-
-    if (emojiIndex === -1 || emojiIndex >= poll.options.length) {
-      // Invalid emoji for this poll
-      await reaction.users.remove(user.id);
-      return;
-    }
-
-    // Add the vote
-    try {
-      const updatedPoll = addVote(reaction.message.guildId, poll.pollId, emojiIndex, user.id);
-
-      // If multiple votes are not allowed, remove user's reactions from other options
-      if (!poll.allowMultipleVotes) {
-        for (let i = 0; i < poll.options.length; i++) {
-          if (i !== emojiIndex) {
-            const otherReaction = reaction.message.reactions.cache.find(r => r.emoji.name === VOTE_EMOJIS[i]);
-            if (otherReaction) {
-              await otherReaction.users.remove(user.id);
-            }
-          }
-        }
-      }
-
-      // Reflect the new vote counts on the survey message itself.
-      await reaction.message.edit({ embeds: [createPollEmbed(updatedPoll, true)] }).catch(error => {
-        console.error('Error updating poll message after vote:', error.message);
-      });
-
-    } catch (error) {
-      console.error('Error adding vote:', error);
-      await reaction.users.remove(user.id);
-    }
-
-  } catch (error) {
-    console.error('Error handling reaction add:', error);
-  }
-});
-
-// Event: Message Reaction Remove (for polls)
-client.on('messageReactionRemove', async (reaction, user) => {
-  // Ignore bot reactions
-  if (user.bot) return;
-  
-  try {
-    // Fetch the reaction if it's partial
-    if (reaction.partial) {
-      await reaction.fetch();
-    }
-    
-    // Fetch the message if it's partial
-    if (reaction.message.partial) {
-      await reaction.message.fetch();
-    }
-    
-    const { getPollByMessageId, removeVote, createPollEmbed, VOTE_EMOJIS } = await import('./utils/pollManager.js');
-
-    // Check if this message is a poll
-    const poll = getPollByMessageId(reaction.message.guildId, reaction.message.id);
-
-    if (!poll) return;
-
-    // A closed poll's reactions were already stripped via removeAll() when
-    // it closed — nothing to reflect on the message here.
-    if (poll.status !== 'active') return;
-
-    // Check if the emoji is valid for this poll
-    const emojiIndex = VOTE_EMOJIS.indexOf(reaction.emoji.name);
-
-    if (emojiIndex === -1 || emojiIndex >= poll.options.length) {
-      return;
-    }
-
-    // Remove the vote
-    try {
-      const updatedPoll = removeVote(reaction.message.guildId, poll.pollId, emojiIndex, user.id);
-
-      // Reflect the new vote counts on the survey message itself.
-      await reaction.message.edit({ embeds: [createPollEmbed(updatedPoll, true)] }).catch(error => {
-        console.error('Error updating poll message after vote removal:', error.message);
-      });
-    } catch (error) {
-      console.error('Error removing vote:', error);
-    }
-
-  } catch (error) {
-    console.error('Error handling reaction remove:', error);
   }
 });
 

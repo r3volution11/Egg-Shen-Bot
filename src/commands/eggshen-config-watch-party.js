@@ -581,7 +581,9 @@ export async function execute(interaction) {
     // View rate limit configuration
     const config = await loadGuildConfig(guildId);
 
-    const rateLimitEnabled = config.rateLimits?.enabled ?? true;
+    // As checkRateLimit reads it, not `?? true`: see the settings view in
+    // eggshen-config.js
+    const rateLimitEnabled = !!config.rateLimits?.enabled;
     const rateLimitBypass = config.rateLimits?.bypassForModerators ?? true;
     const globalLimit = config.rateLimits?.global || { maxRequests: 1, windowSeconds: 20 };
     const guildWide = config.rateLimits?.guildWide || { enabled: true, maxRequests: 10, windowSeconds: 60 };
@@ -589,6 +591,11 @@ export async function execute(interaction) {
     const moderation = config.moderation || { enabled: false, whitelist: { enabled: false }, autoBan: { enabled: false } };
 
     let description = `**Rate Limiting:** ${rateLimitEnabled ? '✅ Enabled' : '❌ Disabled'}\n`;
+    // The limits below are still listed with ✅ when it's off: they're
+    // filled in, ready for when it goes on, but none of them is applied
+    if (!rateLimitEnabled) {
+      description += 'While it\'s off, none of the rate limits below are applied. Turn it on with `/eggshen-config-watch-party rate-limit toggle enabled:true`\n';
+    }
     description += `**Moderation Features:** ${moderation.enabled ? '✅ Enabled' : '❌ Disabled'}\n`;
     description += `**Moderator Bypass:** ${rateLimitBypass ? '✅ Enabled' : '❌ Disabled'}\n\n`;
     description += `**Global Limit (Per User):**\n• ${globalLimit.maxRequests} requests per ${globalLimit.windowSeconds} seconds\n`;

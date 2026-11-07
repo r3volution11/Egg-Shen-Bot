@@ -46,7 +46,7 @@ A: Yes. When a timer that knows its title stops, it's logged to the server's wat
 | A few minutes before | `/announce starting` |
 | The moment you start the timer | `/timer remind` (or `/watchparty remind`) |
 
-Every `/announce` subcommand posts to the channel itself, and all of them are Admin/Moderator only.
+Every `/announce` subcommand posts to the channel itself, and all of them are Admin/Moderator only. The starting-soon card and scheduled announcements are among the things the bot posts by itself, listed with how to turn each off on [What the Bot Posts on Its Own](/features/notifications).
 
 ### The Advance Notice
 
@@ -56,7 +56,7 @@ Every `/announce` subcommand posts to the channel itself, and all of them are Ad
 
 **Parameters:**
 - `title1` (required) - First movie or TV show title
-- `time` (required) - Start time to include, used exactly as typed (e.g. `"8:00 PM EST"`)
+- `time` (required) - Start time to include, used exactly as typed (e.g. `8:00 PM EST`)
 - `message` (optional) - **Your own announcement text, posted exactly as written.** Skips AI entirely
 - `channel` (optional) - Where to post it. Defaults to the channel you run the command in
 - `role` (optional) - Role to ping. Pinged in the message itself, so it genuinely notifies
@@ -64,7 +64,7 @@ Every `/announce` subcommand posts to the channel itself, and all of them are Ad
 - `title2` / `episodes2` (optional) - A second title, for back-to-back watch parties (e.g. two episodes then a movie)
 - `host` (optional) - Who's hosting — a persona name (like a horror-host character) or a literal `@mention`, your choice
 - `tone` (optional) - One of `Funny`, `Scary`, `Dramatic`, `Wholesome`, `Mysterious`. Only applies to AI-written text
-- `custom-tone` (optional) - Describe your own tone/style instead (e.g. `"like a noir detective"`) — overrides `tone` if both are given
+- `custom-tone` (optional) - Describe your own tone/style instead (e.g. `like a noir detective`) — overrides `tone` if both are given
 
 **Which text gets posted:**
 
@@ -83,7 +83,7 @@ Every `/announce` subcommand posts to the channel itself, and all of them are Ad
 
 **Example:**
 ```
-/announce party title1:"Tales From the Crypt" episodes1:"S3E9-E12" title2:"Hellraiser" time:"8:00 PM EST" host:"Cryptkeeper" tone:Scary role:@Movie Night
+/announce party title1:Tales From the Crypt episodes1:S3E9-E12 title2:Hellraiser time:8:00 PM EST host:Cryptkeeper tone:Scary role:@Movie Night
 ```
 
 ### The Final Nudge
@@ -93,7 +93,7 @@ Every `/announce` subcommand posts to the channel itself, and all of them are Ad
 ```
 
 **Parameters:**
-- `message` (required) - e.g. `"Starting in 10 minutes"` or `"Starting at 9:35 pm"`. Always posted exactly as written
+- `message` (required) - e.g. `Starting in 10 minutes` or `Starting at 9:35 pm`. Always posted exactly as written
 - `title` (optional) - What's being watched. Adds the artwork and the canonical title
 - `channel` (optional) - Where to post it. Defaults to the current channel
 - `role` (optional) - Role to ping, in the message content
@@ -102,7 +102,7 @@ AI is never involved here — a timing claim is the one thing that must not be p
 
 **Example:**
 ```
-/announce starting message:"Starting in 10 minutes" title:"Hellraiser" role:@Movie Night
+/announce starting message:Starting in 10 minutes title:Hellraiser role:@Movie Night
 ```
 
 **Tip:** An unrecognised `title` won't lose your announcement — it posts with what you typed, just without the artwork.
@@ -147,6 +147,10 @@ It posts once per event. If the event is moved, it posts again for the new time.
 
 Announce that you're about to start the timer right before beginning the watch party. `/watchparty remind` does the same thing.
 
+::: warning It needs a scheduled event
+`/timer remind` works from a Discord scheduled event for **this channel**, one that's running or still to come. That's a voice or stage event in this channel (run it in the voice channel's own chat), or an event whose location names this channel: `#movie-night`, its mention or its ID. An approved [event request](/features/event-requests) gives you one. Without such an event it refuses with "No scheduled event found for this channel!" and posts nothing. An `/announce party` post on its own isn't enough.
+:::
+
 ### Remind Everyone
 
 ```
@@ -155,7 +159,7 @@ Announce that you're about to start the timer right before beginning the watch p
 
 **Parameters:**
 - `message` (optional) - Custom message to show (e.g., "Everyone ready?")
-- `role` (optional) - Role to ping/mention
+- `role` (optional) - Role to ping. Any role can be picked
 
 **Features:**
 - **Auto-detects from Discord scheduled events** - Automatically finds the event linked to the current channel
@@ -170,8 +174,12 @@ Announce that you're about to start the timer right before beginning the watch p
 /timer remind message:Everyone ready? Let's go! role:@Movie Night
 ```
 
+**Who can use it:** anyone, with any role in `role`. Neither `/timer` nor `/watchparty` has a switch in `/eggshen-config commands toggle`; to limit who can ping, limit the whole command in Discord's **Server Settings → Integrations**.
+
+The title comes from the event's name, looked up on TMDB (a year in the name, such as "The Thing (1982)", is fine). If nothing matches, it posts a plain card with the event's name.
+
 **How It Works:**
-1. You've already announced the watch party, with `/announce` or a Discord event
+1. The watch party has a Discord scheduled event for this channel
 2. Everyone is gathered
 3. Run `/timer remind` to give final notice, showing what you're watching with TMDB details
 4. Optionally run `/watchparty ready` to see who's actually ready ([Ready Check](#ready-check))
@@ -234,7 +242,7 @@ Start simple stopwatch timers for watch parties.
 **Parameters:**
 - `label` (optional) - Label for what you're watching (e.g., "Movie night", "The Matrix"). Also triggers a movie/TV/board-game runtime lookup — see below
 - `movie` (optional) - Movie title to look up and time automatically. An alternative to `label` for when you specifically mean a movie — skips the ambiguous merged search and goes straight to a movie-only lookup
-- `tv` (optional) - TV show title to look up, optionally with an episode or episode range (e.g. `"The Office"` or `"Tales from the Crypt S5E5-E8"`) — an alternative to `label` for TV specifically
+- `tv` (optional) - TV show title to look up, optionally with an episode or episode range (e.g. `The Office` or `Tales from the Crypt S5E5-E8`) — an alternative to `label` for TV specifically
 - `duration` (optional) - Duration in minutes (1-1440) for auto-stop timer — used exactly as given by default (see [Timer Durations & the Expiry Warning](#timer-durations-the-expiry-warning) below for the one case where the bot picks a duration for you)
 - `theme` (optional) - Timer countdown theme (default: modern)
   - `modern` - Colorful animated countdown (default)
@@ -263,7 +271,7 @@ Use only **one** of `label`, `movie`, or `tv` — providing more than one is rej
 /timer start label:Movie Night theme:classic
 /timer start movie:The Thing
 /timer start tv:The Office
-/timer start tv:"Tales from the Crypt S5E5-E8"
+/timer start tv:Tales from the Crypt S5E5-E8
 /timer start duration:30
 /timer start
 ```
@@ -440,9 +448,11 @@ The one exception is when **nobody said anything at all** — no `duration` was 
 
 `unlimited:true` disables the fallback entirely — a no-duration timer just runs forever, same as `/timer autostop disable`. See [Configuration](/commands/configuration#max-timer-duration) for details.
 
-**About an hour before one of these fallback-duration timers is due to auto-stop**, the bot posts a warning in the channel, mentioning whoever started it, with an **Extend Timer** button for them or an admin or moderator. Clicking it opens a small form to enter how many additional minutes to add. Once extended, the timer's duration is a real, user-chosen value from that point on — it won't warn again unless it's later extended and re-enters the last-hour window.
+**Shortly before one of these fallback-duration timers is due to auto-stop**, the bot posts a **⏰ Timer Ending Soon** warning in the channel, mentioning whoever started it, with an **Extend Timer** button for them or an admin or moderator. How far ahead depends on the timer's length: the last 15% of it, but never more than an hour or less than 10 minutes. That's 54 minutes before the end of the 6-hour default, 18 minutes for a 2-hour timer, and 10 minutes for anything an hour or shorter.
 
-This warning **only ever fires for fallback-duration timers.** A timer with a real duration — typed manually, adjusted with `/timer adjust`, or auto-detected from a movie/TV runtime — never gets this warning, no matter how long it runs.
+Clicking **Extend Timer** opens a small form for how many minutes to add (capped at the server's [timer ceiling](/commands/configuration#timer-ceiling), if it has one). Extending doesn't tell the bot how long the film is, so the timer is still a fallback-duration timer: it warns again before its new end, and again after every extension. `/timer adjust` on one of these timers works the same way, and the warning comes back before the adjusted end.
+
+This warning **only ever fires for fallback-duration timers.** A timer with a real duration — typed with `duration`, or found from a movie/TV runtime, including one set later by [naming the timer](#name-a-running-timer) with `/timer title` — never gets this warning, no matter how long it runs.
 
 `/timer autostop disable` remains the way to start a timer with **no expiry at all** from the outset.
 

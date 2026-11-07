@@ -38,7 +38,7 @@ The bot runs **single elimination**: each matchup is one vote, and the winner mo
 **In Egg Shen Bot:**
 
 ```
-/bracket-setup create name:"Horror Madness" max-titles:32 seeding:By rating ties:Runoff vote
+/bracket-setup create name:Horror Madness max-titles:32 seeding:By rating ties:Runoff vote
 ```
 
 - **By rating** acts as the selection committee. The best-rated title is seed 1, and round one pairs 1 v 32, 16 v 17, 8 v 25 and so on down the bracket. Choose **The order I add them** instead to be the committee yourself.
@@ -53,7 +53,7 @@ The bot runs **single elimination**: each matchup is one vote, and the winner mo
 **In Egg Shen Bot**, this layout comes out exactly. Add 12 titles to a 16-slot bracket and seed them:
 
 ```
-/bracket-setup create name:"The Playoff" max-titles:16 seeding:The order I add them ties:Higher seed wins
+/bracket-setup create name:The Playoff max-titles:16 seeding:The order I add them ties:Higher seed wins
 ```
 
 - **Twelve titles in a 16-slot bracket means four byes,** and byes always go to the top seeds. Seeds 1–4 skip round one.
@@ -68,7 +68,7 @@ The bot runs **single elimination**: each matchup is one vote, and the winner mo
 **In Egg Shen Bot:**
 
 ```
-/bracket-setup create name:"Wild Card Weekend" max-titles:16 seeding:The order I add them ties:Higher seed wins
+/bracket-setup create name:Wild Card Weekend max-titles:16 seeding:The order I add them ties:Higher seed wins
 ```
 
 - **Add 14 titles.** That leaves two byes in a 16-slot bracket, so seeds 1 and 2 rest, like the two conference #1 seeds.
@@ -82,7 +82,7 @@ The bot runs **single elimination**: each matchup is one vote, and the winner mo
 **In Egg Shen Bot:**
 
 ```
-/bracket-setup create name:"October Classic" max-titles:16 seeding:The order I add them
+/bracket-setup create name:October Classic max-titles:16 seeding:The order I add them
 ```
 
 Then open each round with a long window, such as `/bracket open duration:3d`.
@@ -98,7 +98,7 @@ Then open each round with a long window, such as `/bracket open duration:3d`.
 **In Egg Shen Bot:**
 
 ```
-/bracket-setup create name:"Playoff Picture" max-titles:16 seeding:The order I add them
+/bracket-setup create name:Playoff Picture max-titles:16 seeding:The order I add them
 ```
 
 - **Exactly 16 titles means no byes.** Everyone plays round one.
@@ -111,7 +111,7 @@ Then open each round with a long window, such as `/bracket open duration:3d`.
 **In Egg Shen Bot**, this layout comes out exactly too:
 
 ```
-/bracket-setup create name:"The Cinema Cup" max-titles:48
+/bracket-setup create name:The Cinema Cup max-titles:48
 ```
 
 - **48 titles makes 12 groups of four.** Each voter picks their top two in each group. A ballot holds 5 groups, so they vote in batches: `/bracket open` opens A–E, then F–J once those close, then K–L. `/bracket open-groups` lets you choose the batches yourself.
@@ -127,7 +127,7 @@ Then open each round with a long window, such as `/bracket open duration:3d`.
 **In Egg Shen Bot:**
 
 ```
-/bracket-setup create name:"The Lucky Dip" max-titles:16
+/bracket-setup create name:The Lucky Dip max-titles:16
 ```
 
 - **Random seeding is the default,** so there's nothing to set. The bracket is shuffled when it's built, and no seeds are shown.

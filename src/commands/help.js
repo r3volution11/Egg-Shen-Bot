@@ -78,7 +78,7 @@ export async function execute(interaction) {
     // Not "all episodes": one card holds 25, and a longer season is refused
     // (episode-list.js, seasonTooLongMessage)
     { enabled: true, line: '**📋 /episode-list** - List a season\'s episodes with ratings (seasons of up to 25 episodes)' },
-    { enabled: true, line: '**🔍 /similar** - Find similar movies or TV shows' },
+    { enabled: true, line: '**🔍 /similar** - Find similar movies, TV shows, games, board games or books' },
     { enabled: true, line: '**📝 /watched** - Log or view watch history' },
     { enabled: watchlistAllowed, line: '**📌 /watchlist** - The server\'s watch-next list: add titles, vote with `want`, `pick` one' },
   ]);

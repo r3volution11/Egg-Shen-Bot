@@ -36,7 +36,7 @@ You can set up a tournament with the commands below, one title at a time, or all
 - `seeding` (optional, straight brackets) - **Random** (default), **The order I add them** or **By rating**. See [How a straight bracket is built](#how-a-straight-bracket-is-built).
 - `ties` (optional, straight brackets) - **Runoff vote** (default) or **Higher seed wins**
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 **Notes:**
 - The reply is private (only you see it). Use `/bracket-setup announce` when you're ready to tell the server.
@@ -45,9 +45,9 @@ You can set up a tournament with the commands below, one title at a time, or all
 
 **Examples:**
 ```
-/bracket-setup create name:"Quick Horror Showdown" max-titles:8
-/bracket-setup create name:"Monthly Movie Madness" max-titles:32 seeding:By rating
-/bracket-setup create name:"The Ultimate Horror Cup" max-titles:48
+/bracket-setup create name:Quick Horror Showdown max-titles:8
+/bracket-setup create name:Monthly Movie Madness max-titles:32 seeding:By rating
+/bracket-setup create name:The Ultimate Horror Cup max-titles:48
 ```
 
 ---
@@ -69,7 +69,7 @@ You can set up a tournament with the commands below, one title at a time, or all
 - `position` (required when removing) - The title's number from `/bracket list-groups`
 - `image` (optional, adding only) - Custom image that replaces the poster or cover art
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 **Adding:**
 - Searches TMDB (movies/TV), RAWG (games), BoardGameGeek (board games), or Google Books.
@@ -84,13 +84,13 @@ You can set up a tournament with the commands below, one title at a time, or all
 **Examples:**
 ```
 # Straight bracket
-/bracket-setup manage-titles action:add type:movie title:"The Thing"
-/bracket-setup manage-titles action:add title:"Halloween"
+/bracket-setup manage-titles action:add type:movie title:The Thing
+/bracket-setup manage-titles action:add title:Halloween
 /bracket-setup manage-titles action:remove position:7
 
 # Groups tournament
-/bracket-setup manage-titles action:add group:A type:movie title:"The Exorcist"
-/bracket-setup manage-titles action:add group:D title:"Akira" image:[upload file]
+/bracket-setup manage-titles action:add group:A type:movie title:The Exorcist
+/bracket-setup manage-titles action:add group:D title:Akira image:[upload file]
 /bracket-setup manage-titles action:remove group:A position:3
 ```
 
@@ -131,13 +131,13 @@ Post a public announcement of the tournament.
 - `message` (optional) - Your own announcement text
 - `image` (optional) - A banner image
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 **Examples:**
 ```
 /bracket-setup announce
-/bracket-setup announce message:"🎬 The Ultimate Horror Cup starts NOW! Vote for your favorites!"
-/bracket-setup announce message:"🔥 Monthly Movie Madness starts NOW!" image:[upload banner]
+/bracket-setup announce message:🎬 The Ultimate Horror Cup starts NOW! Vote for your favorites!
+/bracket-setup announce message:🔥 Monthly Movie Madness starts NOW! image:[upload banner]
 ```
 
 ---
@@ -206,7 +206,7 @@ After round one opens, continue with [Knockout Rounds](./knockout).
 - `groups` (required) - Comma-separated letters, e.g., `A,B,C,D`
 - `duration` (optional) - 5m to 30d. Same default as `/bracket open`.
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 ::: warning Up to 5 groups at a time
 A member's ballot shows one row of buttons for every group voting, and Discord allows 5 rows, so at most 5 groups vote at once. `/bracket open` keeps to that by itself. `/bracket open-groups` refuses groups that would make more than 5 voting, counting those already open, and then opens none of them. `/bracket-setup create` makes 9 to 12 groups, so this applies unless you resize to 5 or fewer.

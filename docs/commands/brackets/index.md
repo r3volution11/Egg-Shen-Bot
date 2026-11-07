@@ -24,47 +24,10 @@ head:
 Run a bracket tournament in your Discord server for movies, TV shows, video games, board games, or books. Members vote with buttons; the bot tallies votes, settles ties, and moves winners on to the next round.
 
 ::: tip New to tournaments?
-The [Tournament Quick Guides](/guides/tournaments/) walk through the most popular setups in a few steps each: a [movie night bracket](/guides/tournaments/movie-night), [one matchup at a time](/guides/tournaments/one-at-a-time), a [32-title bracket](/guides/tournaments/big-bracket) and a [groups tournament](/guides/tournaments/groups).
+Start with the [Tournament Quick Guides](/guides/tournaments/). They walk through the most popular setups in a few steps each: a [movie night bracket](/guides/tournaments/movie-night), [one matchup at a time](/guides/tournaments/one-at-a-time), a [32-title bracket](/guides/tournaments/big-bracket) and a [groups tournament](/guides/tournaments/groups). The [Tournament FAQ](/guides/tournaments/faq) answers the common questions, from the shapes of tournament and wildcards to ties and starting over. This page explains how the whole system works.
 :::
 
-## Quick FAQ
-
-**Q: What shapes of tournament are there?**  
-A: Two:
-- **Straight bracket** - 2 to 32 titles, no groups. Head-to-head matchups from round one.
-- **Groups tournament** - 4 to 12 groups of exactly 4 titles. Members vote in groups first, then the qualifiers go into a knockout.
-
-**Q: How do I choose?**  
-A: With `max-titles` when you create the tournament. 2, 4, 8, 16, or 32 makes a straight bracket; 36, 40, 44, or 48 makes a groups tournament with 9–12 groups. You can change the group count later with `/bracket-setup resize` (4–12). A straight bracket doesn't have to be full: with 12 titles in a 16-title bracket, 4 titles get byes.
-
-**Q: Do I have to add titles one at a time?**  
-A: No. The [setup form](./import) lets you set up a whole tournament by uploading a CSV or JSON file, or by filling it in. Run `/bracket-setup setup-link` to get a private link to it.
-
-**Q: What types of tournaments can I run?**  
-A: Movies, TV shows, video games, board games, or books. Each tournament is a single type.
-
-**Q: How does the search work?**  
-A: `/bracket-setup manage-titles action:add` searches TMDB (movies/TV), RAWG (games), BoardGameGeek (board games), or Google Books. One match is added right away. Several matches show a menu so you can pick the right one.
-
-**Q: Who can create and manage tournaments?**  
-A: Server administrators and moderators. Everyone can vote.
-
-**Q: How do wildcards work?**  
-A: Groups tournaments only. The top 2 from each group go through. The best third-place finishers then fill the knockout up to the next power of 2 (4, 8, 16, or 32), at most one per group. For example: 12 groups = 24 + 8 wildcards = 32; 9 groups = 18 + 9 wildcards = 27. Leftover slots (5 of 32 in that case) become byes, and the group winners get them.
-
-**Q: What happens if there's a tie?**  
-A: The bot starts a short tiebreaker vote (1 hour by default) with a button for each tied option. At the deadline it counts the votes and resolves the tie, picking at random if it's still tied or nobody voted. Admins can settle one early with `/bracket resolve-tiebreaker`: leave `winner` blank to go by the current votes, or give a number to choose the winner. A seeded bracket created with `ties:Higher seed wins` skips the vote and sends the better seed through. In the group stage, a tie for 3rd is settled at random.
-
-**Q: Can users change their votes?**  
-A: Yes, any time before the group or matchup closes. In the group stage, pick both of your top 2: a single pick is thrown out when the group closes.
-
-**Q: How many matchups or groups can vote at once?**  
-A: Five. That's what a member's ballot holds. Bigger rounds are opened a few matchups at a time (`/bracket open matchups:4`) or by region, and more than 5 groups in batches.
-
-**Q: Can we run more than one tournament at once?**  
-A: No. One tournament per server. Cancel or finish the current one before starting another.
-
----
+<div id="quick-faq" />
 
 ## Quick Start Guide
 
@@ -73,7 +36,7 @@ This walks through a small straight bracket from creation to a champion. For a g
 ### Step 1: Create the Tournament (Admin Only)
 
 ```
-/bracket-setup create name:"Horror Movie Showdown" max-titles:8
+/bracket-setup create name:Horror Movie Showdown max-titles:8
 ```
 
 ✅ Only you can see the reply, so you can set up privately.
@@ -85,10 +48,10 @@ Instead of Steps 1–2, run `/bracket-setup setup-link` and use the [setup form]
 ### Step 2: Add Titles (Admin Only)
 
 ```
-/bracket-setup manage-titles action:add type:movie title:"The Thing"
-/bracket-setup manage-titles action:add title:"Alien"
-/bracket-setup manage-titles action:add title:"The Exorcist"
-/bracket-setup manage-titles action:add title:"The Shining"
+/bracket-setup manage-titles action:add type:movie title:The Thing
+/bracket-setup manage-titles action:add title:Alien
+/bracket-setup manage-titles action:add title:The Exorcist
+/bracket-setup manage-titles action:add title:The Shining
 ```
 
 Add up to 8. `type` is only needed on the first one.
@@ -98,7 +61,7 @@ Add up to 8. `type` is only needed on the first one.
 ### Step 3: Announce the Tournament (Admin Only)
 
 ```
-/bracket-setup announce message:"🎬 Horror Movie Showdown starts NOW! Vote for your favorites!"
+/bracket-setup announce message:🎬 Horror Movie Showdown starts NOW! Vote for your favorites!
 ```
 
 📢 Now everyone can see it.

@@ -30,6 +30,7 @@ const NOT_COMMANDS = {
   'features/event-requests.md': [/^\/(public|callbacks?)\b/],
   'commands/configuration.md': [/^\/eggshen-config(-[a-z-]+)? (<group> )?<subcommand>/], // eggshen-config-games has no groups
   'commands/brackets/import.md': [/^\/tournament-setup \{/], // an nginx location block
+  'installation.md': [/^\/(quotes-admin|tournament-setup)\b/], // the web pages' paths, and nginx location blocks
 };
 
 function markdownFiles(dir) {

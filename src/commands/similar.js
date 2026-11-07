@@ -3,17 +3,18 @@ import { searchMovies, searchTVShows, getSimilarMovies, getSimilarTV, getMovieDe
 import { searchGames } from '../services/rawgService.js';
 import { searchBoardGames } from '../services/bggService.js';
 import { loadGuildConfig } from '../utils/guildConfig.js';
+import { searchResultLimit } from '../utils/selectMenuLimits.js';
 import { trackSearch } from '../utils/statsTracker.js';
 import { config } from '../config.js';
 import { withCommandEcho } from '../utils/commandEcho.js';
 
 export const data = new SlashCommandBuilder()
   .setName('similar')
-  .setDescription('Find similar movies, TV shows, games, or board games')
+  .setDescription('Find similar movies, TV shows, games, board games, or books')
   .addStringOption(option =>
     option
       .setName('title')
-      .setDescription('Movie, TV show, game, or board game title')
+      .setDescription('Movie, TV show, game, board game, or book title')
       .setRequired(true)
   )
   .addStringOption(option =>
@@ -160,7 +161,7 @@ export async function execute(interaction) {
     
     // Load guild config to get maxSearchResults
     const guildConfig = await loadGuildConfig(interaction.guildId);
-    const maxResults = guildConfig.maxSearchResults || 20;
+    const maxResults = searchResultLimit(guildConfig); // at most 25, a select menu's limit
     
     const options = allResults.slice(0, maxResults).map((result) => {
       const title = result.title || result.name;

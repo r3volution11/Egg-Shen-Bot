@@ -1,0 +1,66 @@
+{
+  "services": {
+    "imdb": true,
+    "letterboxd": true,
+    "trakt": false,
+    "rottenTomatoes": true,
+    "justWatch": true
+  },
+  "emojis": {
+    "imdb": "<:imdb:1100000000000000001>",
+    "letterboxd": "",
+    "trakt": "",
+    "rtCritics": "",
+    "justWatch": ""
+  },
+  "region": "GB",
+  "maxSearchResults": 50,
+  "maxTimerDurationMinutes": 240,
+  "stats": {
+    "enabled": true,
+    "trackMovies": true,
+    "trackShows": true,
+    "trackEpisodes": false
+  },
+  "commandPermissions": {
+    "enabled": true,
+    "movie": true,
+    "tv": true,
+    "episode": true,
+    "survey": false,
+    "bracket": true
+  },
+  "notifications": {
+    "restartAnnouncements": true
+  },
+  "watchPartyChannels": ["1200000000000000001", "1200000000000000002"],
+  "administrators": [],
+  "rateLimits": {
+    "enabled": true,
+    "bypassForModerators": true,
+    "global": { "maxRequests": 1, "windowSeconds": 20 },
+    "commands": {
+      "movie": { "maxRequests": 3, "windowSeconds": 30 }
+    }
+  },
+  "moderation": {
+    "enabled": true,
+    "whitelist": { "enabled": false, "allowedRoles": [], "allowedUsers": ["1300000000000000001"] },
+    "autoBan": { "enabled": false, "violationCount": 20, "windowHours": 24 }
+  },
+  "potionResponses": {
+    "health": ["{giver} hands {receiver} a suspicious green vial."]
+  },
+  "potionThemes": null,
+  "doomLines": {
+    "final-girl": ["{target} survives, somehow, and the sequel is greenlit."]
+  },
+  "games": {
+    "channelMode": "list",
+    "channels": ["1200000000000000003"]
+  },
+  "website": {
+    "botUrl": "https://bot.example.org",
+    "theme": "shudder"
+  }
+}

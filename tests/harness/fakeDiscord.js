@@ -56,6 +56,8 @@ function rejectInvalidForm(discord, where, problems) {
 export class FakeMessage {
   constructor(channel, payload, { author = 'bot', ephemeralFor = null, via = null } = {}) {
     this.id = snowflake();
+    // As Message.createdTimestamp; Date.now() is the simulators' clock
+    this.createdTimestamp = Date.now();
     this.channel = channel;
     this.channelId = channel?.id ?? null;
     this.author = author;

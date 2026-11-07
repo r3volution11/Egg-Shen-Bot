@@ -1,19 +1,32 @@
 ---
-title: Social Commands - Egg Shen Bot
-description: Surveys with live vote bars, runoffs and a drawn results chart, the /potion, /foodfight, /doom and /rescue games, and the bot's status quotes.
+title: Surveys & Status Quotes - Egg Shen Bot
+description: Surveys with live vote bars, runoffs and a drawn results chart, and the quotes the bot shows as its status.
 kitHeadings:
   survey-commands: chart
-  potion-command: potion
-  food-fight: food
-  doom: doom
-  rescue: rescue
 ---
 
-# Social Commands
+# Surveys & Status Quotes
 
-Surveys, four quick games to play on each other, and the quotes the bot shows as its status.
+Surveys, and the quotes the bot shows as its status.
 
-`/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, a `/scoreboard` and a `/leaderboard`, and `/siege` is a fifth, played all together against a monster. See **[Games & Scores](./games)** for how points, shields, limits and sieges work. Each play can take an `item:` from your [Glovebox](./games-rewards#the-glovebox-and-items), and keep playing to earn [prizes](./games-rewards#prizes) and [titles](./games-rewards#titles).
+<div id="potion-command" />
+<div id="give-a-potion" />
+<div id="custom-responses-and-themes-admin-mod" />
+<div id="food-fight" />
+<div id="throw-food" />
+<div id="feed-someone" />
+<div id="your-own-lines-admin-mod" />
+<div id="doom" />
+<div id="deal-a-fate" />
+<div id="your-own-lines-admin-mod-1" />
+<div id="rescue" />
+<div id="attempt-a-rescue" />
+<div id="your-own-lines-admin-mod-2" />
+<div id="potion-issues" />
+
+::: tip Looking for the games?
+How `/foodfight`, `/doom`, `/rescue` and `/potion` play, with their options and lines, is on **[Playing & Points](./games-playing#food-fight)**, and adding your server's own lines is on **[Settings for Admins](./games-settings#your-own-lines)**. Everything else about the games is under [Games & Scores](./games).
+:::
 
 ## Quick FAQ
 
@@ -31,12 +44,6 @@ A: Yes! Click a different button to switch your vote. In multiple-vote mode, cli
 
 **Q: Are survey results stored permanently?**  
 A: Yes, all surveys are stored in JSON files per-server and persist even if the bot restarts.
-
-**Q: Can I give a potion, throw food, deal a fate or rescue a whole role, or everyone?**  
-A: Yes. Pick a member, a role, or @everyone as the target. A role or @everyone shows in the message but nobody gets a notification; only a member you pick is pinged. Only you score points for those.
-
-**Q: Can I turn off /potion, /foodfight, /doom, /rescue or /siege?**  
-A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`, `setting:doom`, `setting:rescue`, `setting:siege`). Admins and moderators can always use them. To keep the games to certain channels, or out of them, use `/eggshen-config-games channels` ([Games & Scores](./games-settings#where-games-can-be-played)).
 
 **Q: The survey scrolled away. How do people find it?**  
 A: `/survey voting-post` posts it again at the bottom of the channel, with its buttons and the votes so far. The old card greys out and links to the new one.
@@ -78,13 +85,13 @@ Ask the server a question with up to 10 answers. Members vote with buttons, the 
 
 **Examples:**
 ```
-/survey create question:"What should we watch tonight?" option1:"Horror" option2:"Comedy" option3:"Action"
+/survey create question:What should we watch tonight? option1:Horror option2:Comedy option3:Action
 
-/survey create question:"Which genres do you like?" option1:"Sci-Fi" option2:"Fantasy" option3:"Drama" option4:"Thriller" multiple:true
+/survey create question:Which genres do you like? option1:Sci-Fi option2:Fantasy option3:Drama option4:Thriller multiple:true
 
-/survey create question:"Best 80s movie?" option1:"The Breakfast Club" option2:"Back to the Future" option3:"Blade Runner" option4:"Die Hard" option5:"E.T."
+/survey create question:Best 80s movie? option1:The Breakfast Club option2:Back to the Future option3:Blade Runner option4:Die Hard option5:E.T.
 
-/survey create question:"Movie night pick?" option1:"The Thing" option2:"Alien" duration:120
+/survey create question:Movie night pick? option1:The Thing option2:Alien duration:120
 ```
 
 **How It Works:**
@@ -193,7 +200,7 @@ In a busy channel the survey scrolls up out of sight. This posts it again at the
 - The new card is the survey from then on: votes on it update it, and it's the one that shows the final result when the survey closes
 - The old card greys out its buttons and gets a link down to the new one, so there's never an out-of-date count with working buttons left behind
 - Anyone who can use `/survey` can run it. Members can post the same survey once every 10 minutes per channel; the survey's creator, and anyone with the Administrator or Manage Server permission, any time
-- Closed surveys can't be posted again; use `/survey results` to see how they ended. Very old surveys that were voted on with reactions can't move either, and you get a link to the original instead
+- Closed surveys can't be posted again; use `/survey results` to see how they ended. Very old surveys that were voted on with reactions can't move either, and you get a link to the original instead. New reactions on one no longer count; it keeps the votes it had, and `/survey close` ends it
 
 **Example:**
 ```
@@ -209,7 +216,7 @@ In a busy channel the survey scrolls up out of sight. This posts it again at the
 ```
 
 **Parameters:**
-- `poll_id` (required) - The survey to close — autocomplete only suggests surveys you're actually allowed to close (your own, or any if you're an admin/mod)
+- `poll_id` (required) - The survey to close — autocomplete only suggests surveys you're actually allowed to close (your own, or any if you have the Administrator or Manage Server permission)
 
 **Permissions:**
 - Survey creator
@@ -243,7 +250,7 @@ In a busy channel the survey scrolls up out of sight. This posts it again at the
 ```
 
 **Parameters:**
-- `poll_id` (required) - The survey to delete — autocomplete only suggests surveys you're actually allowed to delete (your own, or any if you're an admin/mod)
+- `poll_id` (required) - The survey to delete — autocomplete only suggests surveys you're actually allowed to delete (your own, or any if you have the Administrator or Manage Server permission)
 
 **Permissions:**
 - Survey creator
@@ -294,197 +301,9 @@ This is useful if your server already has a preferred polling bot (like top.gg o
 
 ---
 
-## Potion Command
-
-Give magical potions with pop culture references, to a member, a whole role, or @everyone.
-
-### Give a Potion
-
-```
-/potion give user:<member, role, or @everyone> type:<potion-type> item:[item]
-```
-
-`item` is optional: a 🍀 Lucky Penny makes the potion work and doubles your points. The list shows only what you hold ([Items](./games-rewards#using-an-item)). A 💊 Antidote on the receiving end works by itself against a harmful potion.
-
-**Potion Types:**
-- **Helpful:** Health, Mana, Strength, Speed, Invisibility, Luck, Love, Energy
-- **Harmful:** Confusion, Poison, Weakness, Curse, Slow
-
-**Features:**
-- 339 built-in responses with references from movies, TV shows, video games, and more
-- Themed responses based on genre (Horror, Comedy, Fantasy, Sci-Fi, Gaming, Action, Classics, Animation, Drama)
-- Posted publicly. A member you pick is pinged; a role or @everyone is shown but not pinged
-- Scores points: a helpful potion that works gives you +1 and them +2; a harmful one gives you +2 and them −2; a backfire costs you 2 ([Games & Scores](./games))
-
-**Examples:**
-```
-/potion give user:@Alice type:health
-/potion give user:@Movie Club type:confusion
-/potion give user:@everyone type:luck
-/potion give user:@Alice type:poison item:Lucky Penny
-```
-
-**Sample Responses:**
-- *"🧪 Alice hands Bob a suspicious red liquid. 'This... is my BOOMSTICK of healing!' 💚 +50 HP (Army of Darkness approved)"*
-- *"🍷 Charlie gives Dave Joffrey's wedding wine. Should've skipped the reception... 💀 -75 HP (Game of Thrones)"*
-- *"🐒 Eve wishes on a Monkey's Paw for Frank's luck. A finger curls. Eve stubs every toe for a week. 💔 -60 LUCK"* (a backfire)
-
-### Custom Responses and Themes (Admin/Mod)
-
-```
-/potion responses add type:health outcome:worked response:{giver} hands {receiver} a juice box. 💚 +5 HP
-/potion responses list type:health
-/potion responses remove type:health index:1
-/potion responses reset type:health
-/potion theme set themes:horror,comedy
-/potion theme add theme:gaming
-/potion theme remove theme:comedy
-/potion theme list
-/potion theme reset
-```
-
-A response needs both `{giver}` and `{receiver}`, and an `outcome`: `worked` or `backfired`. Your own responses are used alongside the built-in ones; themes narrow which built-in ones are used, and `reset` goes back to all of them.
-
----
-
-## Food Fight
-
-Start a food fight, after the classic BBS door game. Throw food at a member, a whole role, or @everyone, and the bot says what happened: a hit, a miss, or a throw that backfires on you. Or be nice and feed them instead.
-
-### Throw Food
-
-```
-/foodfight throw target:<member, role, or @everyone> food:[food] item:[item]
-```
-
-Leave out `food` and the bot grabs whatever's on the tray. `item` is optional: a 🥧 Golden Pie is a sure hit and doubles your points. The list shows only what you hold ([Items](./games-rewards#using-an-item)).
-
-**Foods:** 🥧 Cream Pie, 🍝 Spaghetti, 🍮 Pudding, 🥔 Mashed Potatoes, 🟩 Jell-O, 🍖 Meatloaf, 🌽 Creamed Corn, 🥣 Tapioca, 🍕 Pizza, 🌮 Taco, 🐟 Fish Sticks, 🥬 Split Pea Soup
-
-**Examples:**
-```
-/foodfight throw target:@Alice food:pie
-/foodfight throw target:@Moderators
-/foodfight throw target:@everyone food:pea-soup
-/foodfight throw target:@Alice item:Golden Pie
-```
-
-**Sample lines:**
-- *"🥧 @Alice winds up like a Three Stooges short and plants a cream pie square on @Bob. Nyuk nyuk nyuk."* (a hit)
-- *"🐟 @Bob swats @Alice's fish stick aside with a pool noodle. Where did the pool noodle come from? Doesn't matter. Clean miss."*
-- *"🍝 @Alice grabs the spaghetti by the sauce end. Rookie. @Alice is marinara to the elbows and @Bob is laughing their ass off."* (a backfire)
-
-Posted publicly, with the points underneath: a hit is +3 for you and −1 for them; a miss −1 / +1; a backfire −2 / +2. A member you hit is pinged; a role or @everyone is shown but not pinged. Bots dodge everything. 300 built-in lines.
-
-### Feed Someone
-
-```
-/foodfight feed target:<member, role, or @everyone> food:[food] item:[item]
-```
-
-The kind half of a food fight. A 🥧 Golden Pie (`item`) makes it always tasty, with +2 more for you both. It's tasty (+1 for you, +2 for them), gross (−1 each), or you spill it on yourself (−2 for you, +1 for them, who still gets fed). 181 built-in lines.
-
-- *"🍮 @Alice makes @Bob a flan so jiggly it waved hello. @Bob waved back, then ate it."*
-
-### Your Own Lines (Admin/Mod)
-
-```
-/foodfight lines add action:throw food:pie outcome:hit line:{thrower} hurls a key lime pie at {target}!
-/foodfight lines add action:feed food:pie outcome:tasty line:{feeder} bakes {target} a perfect pie.
-/foodfight lines list action:throw food:pie
-/foodfight lines remove action:throw food:pie number:1
-/foodfight lines reset action:throw food:pie
-```
-
-`food` is picked from a list: start typing and the bot suggests the menu. A food that isn't on it is refused.
-
-A throw line needs both `{thrower}` and `{target}` and an outcome of `hit`, `miss` or `backfire`; a feed line needs `{feeder}` and `{target}` and `tasty`, `gross` or `spill`. Your lines are used alongside the built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
-
----
-
-## Doom
-
-Deal someone a horror-movie fate: a zombie bite, a monkey's paw, a cursed tape. It's horror-comedy, so things go wrong for the victim, backfire on whoever did the dooming, or occasionally end in a narrow escape. Aim it at a member, a whole role, or @everyone.
-
-### Deal a Fate
-
-```
-/doom fate target:<member, role, or @everyone> trope:[trope] item:[item]
-```
-
-Leave out `trope` and fate decides. `item` is optional: a 📼 Cursed VHS can't backfire, doubles your points, and cuts through a shield or Garlic. The list shows only what you hold ([Items](./games-rewards#using-an-item)). A target with 🧄 Garlic turns a doom into an escape by itself ([Defences](./games-rewards#defences)).
-
-**Tropes:** 🧟 Zombie, 🐒 Monkey's Paw, 🪓 Slasher, 😈 Possession, 📼 Cursed Tape, 🪆 Haunted Doll, 🧛 Vampire, 🐺 Werewolf, 🤡 Killer Clown, 📖 Necronomicon, 🔮 Ouija Board, 🪞 Bloody Mary
-
-**Examples:**
-```
-/doom fate target:@Alice trope:zombie
-/doom fate target:@Camp Counselors trope:slasher
-/doom fate target:@everyone
-/doom fate target:@Alice item:Cursed VHS
-```
-
-**Sample lines:**
-- *"🪓 @Bob tries to call for help. No bars. One bar. Zero bars. @Alice cuts the landline anyway, purely for style points."* (doomed)
-- *"🧟 @Bob gets bitten, turns, and immediately eats @Alice. Somebody should have aimed for the head."* (backfired)
-- *"🔮 @Alice asks the spirits to haunt @Bob. The planchette spells "N-O-P-E," floats across the room, and bonks @Alice on the forehead every hour, on the hour."* (backfired)
-
-Posted publicly, with the points underneath: doomed is +3 for you and −1 for them; an escape −1 / +2; a backfire −2 / +1. Someone recently saved with `/rescue` is shielded: the doom is blocked, nobody scores, and the shield is used up. A member you doom is pinged; a role or @everyone is shown but not pinged. Bots are already undead. 300 built-in lines.
-
-### Your Own Lines (Admin/Mod)
-
-```
-/doom lines add trope:zombie outcome:doomed line:{user} serves {target} brain casserole!
-/doom lines list trope:zombie
-/doom lines remove trope:zombie number:1
-/doom lines reset trope:zombie
-```
-
-A line needs both `{user}` and `{target}`, and an outcome: `doomed`, `escaped` or `backfired`. Your lines are used alongside the built-in ones. `{target}` can be one person, a role, or @everyone, so write lines that read for any of them.
-
----
-
-## Rescue
-
-`/doom`'s opposite: save someone from a horror movie. A Final Girl drags them out of the cabin, holy water, the boomstick, the dog that always survives. A rescue that works **shields** them from the next `/doom` for an hour.
-
-### Attempt a Rescue
-
-```
-/rescue attempt target:<member, role, or @everyone> trope:[trope] item:[item]
-```
-
-Leave out `trope` and whatever works, works. `item` is optional: 💧 Holy Water can't be caught, gives you +2 more, and the shield lasts 3× as long. The list shows only what you hold ([Items](./games-rewards#using-an-item)). The tropes named Holy Water, Garlic and Silver Bullet are flavour, not items.
-
-**Tropes:** 🔪 Final Girl, 💧 Holy Water, 👻 Ghostbusters, 🔫 Boomstick, 🧂 Salt Circle, 🥈 Silver Bullet, 🌅 Sunrise, 🚗 Getaway Car, 🗡️ Van Helsing, 📜 Survival Rules, 🧄 Garlic, 🐕 The Dog
-
-**Outcomes:**
-- **Rescued:** +1 for you, +2 for them, and they're shielded.
-- **Caught:** you both get caught, −1 each.
-- **Sacrificed:** you save them and take the hit yourself: −2 for you, +3 for them, and they're shielded.
-
-**Sample lines:**
-- *"🗡️ @Alice beats the vampire in a staring contest, then stakes it while it's blinking. @Bob is saved, and slightly confused."*
-- *"🔪 @Alice tries to save @Bob, but they both trip over absolutely nothing while running from a guy who is walking. Both caught."*
-
-You can't rescue yourself ("Final Girls don't save themselves for points"), or a bot. Rescuing a role or @everyone scores only you and shields nobody. 300 built-in lines.
-
-### Your Own Lines (Admin/Mod)
-
-```
-/rescue lines add trope:the-dog outcome:rescued line:{user} follows the dog and drags {target} out the back door!
-/rescue lines list trope:the-dog
-/rescue lines remove trope:the-dog number:1
-/rescue lines reset trope:the-dog
-```
-
-A line needs both `{user}` and `{target}`, and an outcome: `rescued`, `caught` or `sacrificed`.
-
----
-
 ## Status Quote Commands
 
-The bot rotates its Discord status once an hour through a list of short quotes, each optionally tagged with a title (movie/show/game/etc.) and an author (character or real person). See [`QUOTES_ADMIN_SETUP.md`](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/QUOTES_ADMIN_SETUP.md) for how server admins manage that list (the quotes-admin web page, opened with a one-click link from `/eggshen-config-quotes admin-link`, or the other `/eggshen-config-quotes` subcommands).
+The bot rotates its Discord status once an hour through a list of short quotes, each optionally tagged with a title (movie/show/game/etc.) and an author (character or real person). Admins manage that list with `/eggshen-config-quotes`, or on the quotes editor web page that `/eggshen-config-quotes admin-link` opens: see [Admin Configuration › Quotes](./configuration#quotes).
 
 ### Post a Random Quote
 
@@ -501,9 +320,9 @@ If both `title` and `author` are given, a quote matching *either* one is returne
 **Examples:**
 ```
 /quote
-/quote title:"The Thing"
-/quote author:"MacReady"
-/quote title:"The Thing" author:"MacReady"
+/quote title:The Thing
+/quote author:MacReady
+/quote title:The Thing author:MacReady
 ```
 
 ### Suggest a Quote
@@ -519,12 +338,14 @@ If both `title` and `author` are given, a quote matching *either* one is returne
 
 **How It Works:**
 1. Your suggestion is added to a review queue — it does **not** go straight into the bot's status rotation
-2. If the server has a quote-suggestions moderation channel configured, moderators see it there with Approve/Edit/Reject buttons
+2. If the server has a quote-suggestions moderation channel configured, moderators see it there with **✅ Approve**, **✏️ Edit** and **❌ Reject** buttons. Without one, it waits on the quotes editor page's **Suggestions** tab
 3. Once approved, it becomes part of the live rotation `/quote` and the bot's status can pull from
+
+**For moderators:** only admins and moderators (Administrator, Manage Server, Timeout Members, Kick Members or Ban Members) can press the buttons. **Approve** adds the quote as it was suggested, and **Reject** drops it; either way the message changes to say who decided, and its buttons go. **Edit** opens a form filled in with the quote, title and author. Saving it approves the suggestion with your changes in the same step, so there's no separate Approve. Leave Title or Author empty to clear it. The buttons don't depend on the quotes editor page being set up.
 
 **Example:**
 ```
-/suggest-quote quote:"Trust no one." title:"The Thing" author:"MacReady"
+/suggest-quote quote:Trust no one. title:The Thing author:MacReady
 ```
 
 ---
@@ -566,22 +387,11 @@ If both `title` and `author` are given, a quote matching *either* one is returne
 **Problem:** Lost the survey ID  
 **Solution:** Use `/survey list` to find all surveys and their IDs.
 
-### Potion issues
-
-**Problem:** Potion responses are repetitive  
-**Solution:** Administrators can add their own with `/potion responses add`, used alongside the 339 built-in ones.
-
-**Problem:** A role or @everyone didn't get a notification  
-**Solution:** That's on purpose: /potion, /foodfight, /doom and /rescue show a role or @everyone without pinging anyone, so a game doesn't notify a whole server. Pick a member to ping them.
-
-**Problem:** "⏳ cooldown" or "🎲 Games are played in…"  
-**Solution:** Each game can be played once every 20 seconds per person, and the games can be limited to certain channels. See [Games & Scores](./games-playing#limits).
-
 ---
 
 ## Related Documentation
 
-- [Games & Scores](/commands/games) - Points, shields, scoreboards and game settings
-- [Configuration Commands](/commands/configuration) - Customize survey and potion settings
+- [Games & Scores](/commands/games) - `/foodfight`, `/doom`, `/rescue`, `/potion` and `/siege`, their points and their settings
+- [Configuration Commands](/commands/configuration) - Customize survey settings
 - [Watch Party Commands](/commands/watch-party) - Host watch parties with timers
 - [Statistics](/features/statistics) - Track command usage

@@ -25,9 +25,11 @@ beforeAll(async () => {
   configCommand = await import('../src/commands/eggshen-config.js');
 });
 
+const CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR, `${GUILD}.json`);
+
 /** A config as an older release wrote it: none of the later games' keys */
 function writeLegacyConfig() {
-  const file = path.join(process.env.GUILD_CONFIGS_DIR, `${GUILD}.json`);
+  const file = CONFIG_FILE;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify({
     commandPermissions: { enabled: true, movie: true, tv: false, potion: true },
@@ -49,7 +51,10 @@ beforeEach(() => {
 
 describe('/eggshen-config commands toggle on an older server', () => {
   test.each(['doom', 'foodfight', 'rescue'])('%s can be switched off, and is stored', async (setting) => {
-    expect((await loadGuildConfig(GUILD)).commandPermissions).not.toHaveProperty(setting);
+    // The file lacks the key (loading it now reads the default, true, in
+    // its place: guildConfig.withDefaults)
+    expect(JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')).commandPermissions).not.toHaveProperty(setting);
+    expect((await loadGuildConfig(GUILD)).commandPermissions[setting]).toBe(true);
 
     const m = await toggle(setting, false);
 

@@ -28,7 +28,7 @@ A groups tournament starts like the World Cup. Titles are split into **groups of
 
 - **Pick a group count with no byes:** 4, 6, 7, 8, 11 or 12 groups give a full knockout bracket (see the table below).
 - **Every group needs exactly 4 titles** before voting can open. `/bracket open` names any group that's short.
-- **Up to 5 groups vote at a time.** A ballot shows one row per group, and Discord allows 5. `/bracket open` opens the next 5 by itself, in letter order; run it again once they close. Or choose a batch with `/bracket open-groups groups:"A,B,C,D,E"`, which won't go past 5.
+- **Up to 5 groups vote at a time.** A ballot shows one row per group, and Discord allows 5. `/bracket open` opens the next 5 by itself, in letter order; run it again once they close. Or choose a batch with `/bracket open-groups groups:A,B,C,D,E`, which won't go past 5.
 - **Both picks count, or neither.** A voter who picks only 1 title in a group has it thrown out when the group closes.
 - **The setup form is easiest** for groups, since you can give each title its group letter in the spreadsheet. Leave a cell empty and the title goes into the first group with room.
 - **With commands instead,** `/bracket-setup create max-titles:36` makes 9 groups, and `/bracket-setup resize groups:<4-12>` changes the count.
@@ -55,7 +55,7 @@ The top 2 of each group always qualify. When that doesn't fill a bracket of 8, 1
 
 ### Opening groups in batches
 
-`/bracket open` opens the groups that haven't voted yet, the next ones in letter order, with at most 5 voting at once, and says which are still to come. While 5 are voting, it opens nothing until some close. To choose a batch, use `/bracket open-groups groups:"A,B,C"`. It refuses, and opens nothing, if that would make more than 5 voting. A group that has closed is never reopened.
+`/bracket open` opens the groups that haven't voted yet, the next ones in letter order, with at most 5 voting at once, and says which are still to come. While 5 are voting, it opens nothing until some close. To choose a batch, use `/bracket open-groups groups:A,B,C`. It refuses, and opens nothing, if that would make more than 5 voting. A group that has closed is never reopened.
 
 A member's ballot keeps the groups it was opened with. When the next batch opens, they press **Start Voting** on its message for those groups.
 

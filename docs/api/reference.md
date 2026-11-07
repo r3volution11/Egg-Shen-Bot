@@ -2,7 +2,7 @@
 description: "Technical reference for developers extending Egg Shen Bot: its Node.js and discord.js v14 architecture, modules, services and data files."
 ---
 
-# API Reference
+# Developer Reference
 
 Technical reference for developers working with or extending Egg Shen Bot.
 
@@ -46,7 +46,7 @@ src/
 - **Runtime:** Node.js 20+
 - **Discord library:** discord.js v14
 - **APIs:** TMDB (required); OMDB, Trakt, RAWG, BoardGameGeek, Google Books, Watchmode, Spotify and OpenAI are optional
-- **Storage:** JSON files on disk — `guild_configs/`, `guild_stats/`, `guild_watch_history/`, `guild_watchlists/`, `guild_tournaments/`, `active_timers.json`. There is no database.
+- **Storage:** JSON files on disk. Per server: `guild_configs/`, `guild_stats/`, `guild_watch_history/`, `guild_watchlists/`, `guild_tournaments/`, `guild_polls/`, `guild_games/`, `guild_happenings/`, `guild_escape/`. Bot-wide: `active_timers.json`, `ready_checks.json`, `scheduled_announcements.json`, `pending_event_requests.json`, `pending_event_channel_selections.json`, `event_request_images/`, `movie_quotes.json`, `movie_quotes_pending.json`, plus `docs_embeddings.json` (a cache) and `logs/`. There is no database. [Installation › Back Up the Bot's Data](/installation#back-up-the-bot-s-data) says what each holds.
 - **Tests:** Jest, run with `--experimental-vm-modules`
 
 ## Core Utilities
@@ -63,7 +63,8 @@ import {
   getEpisodeBufferMinutes,
 } from './utils/guildConfig.js';
 
-// Load (returns a deep copy of the defaults if the server has never saved one)
+// Load: the saved config with any missing defaultConfig keys filled in,
+// or a deep copy of the defaults if the server has never saved one
 const config = await loadGuildConfig(guildId);
 
 // Read through the normalizing getters, not the raw field
@@ -71,12 +72,15 @@ const mode = getAutoDetectMode(config);          // 'ask' | 'full' | 'off'
 const buffer = getEpisodeBufferMinutes(config);  // 0-30, default 5
 
 // Change a setting: load, mutate, save the whole object
-config.watchlist ??= {};
 config.watchlist.maxSize = 200;
 await saveGuildConfig(guildId, config);
 ```
 
-**There are no migrations.** A config saved before a key was added simply lacks it, and nested objects can be missing too. Read through a getter where one exists, and otherwise use optional chaining with the default (`config.watchlist?.autoRemoveWatched !== false`).
+**Missing keys read as their defaults.** There are no migrations, but `loadGuildConfig` fills in every key of `defaultConfig` that a saved config lacks, at any depth (`withDefaults`), and keeps every key the file has, `false`, `0` and `null` included. Nothing is written until something saves the config, and then it is saved whole.
+
+One exception: a saved config that never set `rateLimits.enabled` reads it as `false`, so a server set up before rate limiting existed keeps it off until an admin turns it on. A server with no saved config gets `true`. An explicit `true` or `false` is kept.
+
+Keys outside `defaultConfig` (`aiAsk`, `games`, `doomLines`, `website.botUrl`) can still be missing. Read them through a getter where one exists, and otherwise with optional chaining and the default (`config.aiAsk?.enabled !== false`). `missingDefaults(saved)` lists what a saved config lacks, and `node scripts/config-defaults-report.js` prints it for every server.
 
 | Getter | Returns |
 |---|---|
@@ -86,7 +90,7 @@ await saveGuildConfig(guildId, config);
 | `getAiAskEnabled(config)` | `true` unless `aiAsk.enabled` is explicitly `false` |
 | `getPublicBotUrl(config)` | `website.botUrl`, else `PUBLIC_BOT_URL`, else `null` |
 
-Other exports: `isAdmin(member)`, `isTrueAdmin(member)`, `isModerator(member)`, `canUseCommand(guildId, member, commandName)`, `getEnabledServices(guildId)`, `toggleService()`, `getEmojis(guildId)`, `setEmoji()`, `getStatsConfig(guildId)`, `updateStatsTracking()`, `getCommandPermissions(guildId)`, `updateCommandPermission()`.
+Other exports: `withDefaults(saved)` (a parsed config file as `loadGuildConfig` returns it), `missingDefaults(saved)` (every key it lacks, with the value it reads as), `isAdmin(member)`, `isTrueAdmin(member)`, `isModerator(member)`, `canUseCommand(guildId, member, commandName)`, `getEnabledServices(guildId)`, `toggleService()`, `getEmojis(guildId)`, `setEmoji()`, `getStatsConfig(guildId)`, `updateStatsTracking()`, `getCommandPermissions(guildId)`, `updateCommandPermission()`.
 
 **Configuration shape** (main keys; see `defaultConfig` at the top of `src/utils/guildConfig.js` for every default):
 
@@ -97,7 +101,7 @@ interface GuildConfig {
   };
   emojis: Record<string, string>;   // Custom emoji ID per service ('' = default)
   region: string;                   // Streaming region, ISO 3166-1 (default 'US')
-  maxSearchResults: number;         // Picker size, 1-50 (default 20)
+  maxSearchResults: number;         // Picker size, 1-25 (default 20); read via searchResultLimit(), which caps an older 26-50 at 25
 
   // Timers
   maxTimerDurationMinutes: number;  // Fallback auto-stop for timers with no real duration (360)
@@ -125,16 +129,17 @@ interface GuildConfig {
   administrators: string[];
 
   rateLimits: {
-    enabled: boolean;
+    enabled: boolean;               // A saved config that never set it reads false (above)
     bypassForModerators: boolean;
     global: { maxRequests: number; windowSeconds: number };        // Per user (1 per 20s)
     commands: Record<string, { maxRequests: number; windowSeconds: number }>;
     guildWide: { enabled: boolean; maxRequests: number; windowSeconds: number };
-    patternDetection: { enabled: boolean; windowSeconds: number; minUsers: number };
+    patternDetection: { enabled: boolean; windowSeconds: number; minUsers: number };  // windowSeconds: no command sets it
     aiImages: {                     // Image generation limits
       enabled: boolean; perUserCooldown: number; perUserDailyLimit: number;
       perGuildDailyLimit: number; adminsBypassCooldown: boolean;
-      costPerImage: number; whitelistedUsers: string[];
+      costPerImage: number;         // USD, for the cost shown in `ai-images view`; no command sets it
+      whitelistedUsers: string[];
     };
   };
   moderation: {
@@ -170,12 +175,12 @@ interface GuildConfig {
 
 ### Rate Limiter
 
-Every slash command passes through `checkRateLimit` in `src/index.js` before its `execute` runs, so a command file doesn't need to call it.
+Every slash command, and the right-click Game card, passes through `checkRateLimit` in `dispatchCommand` (`src/handlers/commandDispatch.js`) before its `execute` runs, so a command file doesn't need to call it. Buttons, select menus, modals and autocomplete never pass through it, so whitelist mode, cooldowns and rate limits don't apply to them. The per-user count is keyed on the top-level command name, so subcommands share it.
 
 ```javascript
 import { checkRateLimit } from './utils/rateLimiter.js';
 
-const result = await checkRateLimit(guildId, userId, commandName, member, commandArgs);
+const result = await checkRateLimit(guildId, userId, commandName, member, commandArgs, subcommand);
 // => { limited: false }
 // => { limited: true, message, retryAfter?, guildWide? }
 
@@ -188,7 +193,7 @@ The checks, in order, all driven by `rateLimits` and `moderation` in the guild c
 
 1. Whitelist mode (`moderation.whitelist`) — only listed roles/users; admins and moderators always pass
 2. Manual cooldowns applied by a moderator (`applyUserCooldown`) — skipped by admins and moderators while `rateLimits.bypassForModerators` is on
-3. Master switch (`rateLimits.enabled`) and moderator bypass (`rateLimits.bypassForModerators`): off, or a bypassing moderator, and nothing below applies
+3. Master switch (`rateLimits.enabled`, false for a saved config that never set it: see [Guild Configuration](#guild-configuration)) and moderator bypass (`rateLimits.bypassForModerators`): off, or a bypassing moderator, and nothing below applies
 4. Guild-wide limit across all users (`rateLimits.guildWide`, default 10 per 60s)
 5. Per-user, per-command limit (`rateLimits.commands[name]`, else `rateLimits.global`, default 1 per 20s)
 
@@ -385,7 +390,7 @@ Also `discoverRandomGame(filters)` and `getSimilarGames(id)`.
 
 Commands are auto-discovered: any file in `src/commands/` that exports `data` and `execute` is loaded. Add it to `src/commands/help.js` by hand, and run `node src/deploy-commands.js` whenever a command's definition (name, options, choices, descriptions) changes.
 
-Rate limiting and command logging already happen in `src/index.js` before `execute` is called.
+Rate limiting and command logging already happen in `dispatchCommand` (`src/handlers/commandDispatch.js`) before `execute` is called.
 
 ```javascript
 import { SlashCommandBuilder } from 'discord.js';
@@ -518,7 +523,8 @@ DISCORD_TOKEN=your_discord_bot_token
 DISCORD_CLIENT_ID=your_discord_client_id
 TMDB_API_KEY=your_tmdb_api_key
 
-# Optional services — commands that need a missing key are skipped at startup
+# Optional services. Only /game (RAWG) and /boardgame (BGG) are skipped without their key;
+# the rest of the bot works without any of these, with less in its results
 OMDB_API_KEY=
 TRAKT_CLIENT_ID=
 RAWG_API_KEY=
@@ -562,6 +568,8 @@ npm test                      # Full suite
 npm test -- tests/foo.test.js # One file
 npm run check:commands        # Command definitions fit Discord's size limit
 ```
+
+Other scripts: `npm run test:unit` (the `tests/services` suites only), `test:watch`, `test:coverage`, `test:simulate` (`tests/simulate-tournament.js`), `test:e2e` (Playwright browser tests; `test:e2e:install` fetches Chromium once) and `test:fuzz` (random tournament action sequences, not part of `npm test`; run it after changing the tournament flow).
 
 Both `npm test` and `npm run check:commands` must pass before a change ships. `tests/jest.setup.js` points the data-file environment variables (`GUILD_STATS_DIR`, `GUILD_WATCH_HISTORY_DIR`, `ACTIVE_TIMERS_FILE`, …) at a scratch directory, so tests never touch real data.
 
@@ -610,7 +618,7 @@ npm run dev                   # restarts on file changes
 
 ## Version History
 
-See the [Changelog](/changelog) for version history and updates.
+See the [Changelog](/changelog) for version history and updates, and [Acknowledgements](/acknowledgements) for the people who helped shape the bot.
 
 ## License
 

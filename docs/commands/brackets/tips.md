@@ -23,7 +23,7 @@ Utility commands, plus ideas for pacing and keeping members engaged at different
 - `duration` (required) - The new time left, from now. 5m to 30d. Examples: `30m`, `12h`, `2d`.
 - `group` (required when `type` is `group`) - The group letter, e.g., `A`
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 **How it works:**
 
@@ -67,7 +67,7 @@ Versus images for matchups are made with the separate `/image` command, not `/br
 
 ```
 /image matchup:1A
-/image title1:"Godzilla" title2:"King Kong"
+/image title1:Godzilla title2:King Kong
 /image
 ```
 
@@ -83,7 +83,7 @@ Start typing in `matchup:` to pick from this tournament's matchups, voting ones 
 /bracket cancel
 ```
 
-**Who can use:** Administrators and Moderators only
+**Who can use:** members with the Administrator or Timeout Members permission only
 
 - Ends the active tournament right away. It can't be undone.
 - Clears the tournament's votes and voting stats.

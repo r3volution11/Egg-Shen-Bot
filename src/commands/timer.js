@@ -90,8 +90,11 @@ export function buildEpisodeRangeBreakdownMessage(breakdown) {
  * @param {string} label - the auto-detected title
  * @param {number} matchCount - how many candidates the search returned
  * @param {string} theme - 'modern' or 'classic'
+ * @param {object} [episodeRange]
+ * @param {object} [guildConfig] - for what Start Now really does: the
+ *   server's fallback limit, or no limit at all
  */
-export function buildAmbiguousTitlePrompt(label, matchCount, theme, episodeRange = null) {
+export function buildAmbiguousTitlePrompt(label, matchCount, theme, episodeRange = null, guildConfig = null) {
   // A range recovered from the event's description isn't in the label, so
   // encode it in the button ids — otherwise "Look Up Title" would re-search
   // the bare show name and lose the episodes the host told us about.
@@ -105,7 +108,7 @@ export function buildAmbiguousTitlePrompt(label, matchCount, theme, episodeRange
     .setColor(0x0099FF)
     .setTitle(`🎬 Start the timer for "${label}"?`)
     .setDescription(
-      `**Start Now** begins the countdown right away — the timer runs until someone stops it.\n\n` +
+      `**Start Now** begins the countdown right away. ${startNowLimitNote(guildConfig)}\n\n` +
       `**Look Up Title** finds it on TMDB so the timer can stop on its own when the movie ends ` +
       `(${matchCount} possible matches to choose from).`
     )
@@ -123,6 +126,20 @@ export function buildAmbiguousTitlePrompt(label, matchCount, theme, episodeRange
   );
 
   return { embeds: [embed], components: [row] };
+}
+
+/**
+ * What happens to a timer started with no duration, as Start Now starts one.
+ * It used to say "the timer runs until someone stops it", but such a timer
+ * gets the server's fallback duration (startTimerCountdown) unless the
+ * server made no-duration timers unlimited.
+ */
+function startNowLimitNote(guildConfig) {
+  if (guildConfig?.maxTimerDurationUnlimited === true) {
+    return 'With no runtime to go on, the timer runs until someone stops it.';
+  }
+  const minutes = guildConfig?.maxTimerDurationMinutes || 360; // as startTimerCountdown
+  return `With no runtime to go on, it stops on its own after ${minutes} minutes (this server's limit for a timer with no set length), with a warning first that lets you extend it.`;
 }
 
 /**
@@ -245,7 +262,7 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
         // different years) - show a picker carrying the range through.
         if (promptWhenAmbiguous) {
           console.log(`[Timer] Found ${showResults.length} shows matching "${episodeRange.showName}" — offering start/look-up instead of a picker`);
-          await interaction.editReply(buildAmbiguousTitlePrompt(label, showResults.length, theme, episodeRange));
+          await interaction.editReply(buildAmbiguousTitlePrompt(label, showResults.length, theme, episodeRange, guildConfig));
           return;
         }
 
@@ -429,7 +446,7 @@ export async function runTitleSearchAndDecide(interaction, { channelId, userId, 
         // Multiple results - show selection menu
         if (promptWhenAmbiguous) {
           console.log(`[Timer] Found ${allResults.length} results for "${label}" — offering start/look-up instead of a picker`);
-          await interaction.editReply(buildAmbiguousTitlePrompt(label, allResults.length, theme));
+          await interaction.editReply(buildAmbiguousTitlePrompt(label, allResults.length, theme, null, guildConfig));
           return;
         }
 

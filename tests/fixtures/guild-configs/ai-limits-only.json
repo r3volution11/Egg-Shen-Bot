@@ -1,0 +1,70 @@
+{
+  "services": {
+    "imdb": true,
+    "letterboxd": true,
+    "trakt": true,
+    "rottenTomatoes": true,
+    "justWatch": true
+  },
+  "emojis": {
+    "imdb": "",
+    "letterboxd": "",
+    "trakt": "",
+    "rtCritics": "",
+    "justWatch": ""
+  },
+  "region": "US",
+  "maxSearchResults": 20,
+  "stats": {
+    "enabled": true,
+    "trackMovies": true,
+    "trackShows": true,
+    "trackEpisodes": true,
+    "trackGames": true,
+    "trackBoardGames": true
+  },
+  "commandPermissions": {
+    "enabled": true,
+    "movie": true,
+    "tv": true,
+    "episode": true,
+    "game": true,
+    "boardgame": true
+  },
+  "notifications": {
+    "restartAnnouncements": false
+  },
+  "watchPartyChannels": ["1200000000000000021"],
+  "administrators": [],
+  "eventRequests": {
+    "enabled": true,
+    "moderationChannel": "1200000000000000021",
+    "serverName": "Test Server",
+    "inviteUrl": null,
+    "timezone": "America/New_York"
+  },
+  "quoteSuggestions": {
+    "moderationChannel": "1200000000000000021"
+  },
+  "website": {
+    "url": "https://dev.example.org",
+    "botUrl": "https://dev.example.org"
+  },
+  "rateLimits": {
+    "aiImages": {
+      "enabled": true,
+      "perUserCooldown": 300,
+      "perUserDailyLimit": 10,
+      "perGuildDailyLimit": 50,
+      "adminsBypassCooldown": true,
+      "costPerImage": 0.04,
+      "whitelistedUsers": ["1300000000000000021"]
+    }
+  },
+  "games": {
+    "cooldownSeconds": 0,
+    "perMinute": 60,
+    "dailyScoredPlays": 1000,
+    "twistPercent": 15
+  }
+}

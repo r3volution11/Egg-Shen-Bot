@@ -47,6 +47,17 @@ Each category gets its own file. These are the ones the bot writes to:
 
 Those five are the only log files the bot writes. Tournament deadlines and timer warnings are in **scheduler**; the commands that run them are in **command**.
 
+::: warning Some background jobs only write to the console
+These write nothing to the log files, so `/eggshen-logs` never shows their errors:
+
+- Scheduled announcements (`/announce schedule`) and the starting-soon cards
+- Escape Velocity: launching, the daily mission card, the results and topping up the questions
+- Happenings and sieges: starting them, the monster's moves, the siege card, the nightly report and the results
+- Ready checks, and uploading the card icons (`[EmojiKit]`)
+
+Their messages go to the console only: with PM2, read them with `pm2 logs egg-shen-bot`. A timer's auto-stop and its watch-history entry are console-only too.
+:::
+
 ## Log File Format
 
 Each line is one JSON entry:
@@ -292,6 +303,6 @@ There are no environment variables for these besides `NODE_ENV`. To change them,
 
 ## See Also
 
-- [Commands Reference](/commands/index)
+- [Every Command](/commands/index)
 - [Getting Started](/getting-started)
 - [Configuration](/configuration)

@@ -9,8 +9,8 @@ Instead of adding titles one command at a time, you can set up a whole tournamen
 
 ## Getting started
 
-1. In Discord, run `/bracket-setup setup-link` (administrators and moderators only). The bot replies privately with a link.
-2. Open the link. It works for **60 minutes** and only for your server. Anyone you give it to can change your tournament setup, so keep it to yourself.
+1. In Discord, run `/bracket-setup setup-link` (members with Administrator or Timeout Members only). The bot replies privately with a link.
+2. Open the link. It works for **60 minutes** and only for your server. Anyone you give it to can change your tournament setup, so keep it to yourself. Saving checks again that the person the link was made for still has Administrator or Timeout Members: if they've lost it since, the form can't save.
 3. Choose the **type** (movies, TV shows, video games, board games or books).
 4. Upload a CSV or JSON file, or add titles by hand. Download a template below to start from.
 5. Press **Find matches**. Each title shows the poster and year it matched. If a title has several matches (remakes, sequels, common names), pick the right one from its menu. If nothing was found, fix the spelling and press **Find matches** again.
@@ -28,7 +28,7 @@ Behind nginx or another reverse proxy, forward the form's two paths to the bot, 
 location = /tournament-setup {
     proxy_pass http://localhost:3000;
     proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 
@@ -38,7 +38,7 @@ location /tournament-setup-assets/ {
 }
 ```
 
-The page also uses `/shared-assets/`, which you already forward if the crop or quotes-admin pages work.
+The page also uses `/shared-assets/`, which you already forward if the crop or quotes-admin pages work. Its data goes through `/api/tournament-setup/…`, under the `/api/` block, at up to 120 requests a minute per visitor; the endpoints are listed in [Installation › Web Endpoints](/installation#web-endpoints).
 :::
 
 ## Templates

@@ -4,6 +4,7 @@ import { createSearchResults } from '../utils/embedBuilder.js';
 import { saveWatchHistory, getWatchHistory } from '../utils/watchHistoryManager.js';
 import { trackSearch } from '../utils/statsTracker.js';
 import { loadGuildConfig } from '../utils/guildConfig.js';
+import { searchResultLimit } from '../utils/selectMenuLimits.js';
 import { deliverResult } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
@@ -156,7 +157,7 @@ export async function execute(interaction) {
       
       // Load guild config to get maxSearchResults
       const guildConfig = await loadGuildConfig(interaction.guildId);
-      const maxResults = guildConfig.maxSearchResults || 20;
+      const maxResults = searchResultLimit(guildConfig); // at most 25, a select menu's limit
       
       const options = allResults.slice(0, maxResults).map((result) => {
         const title = result.title || result.name;

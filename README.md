@@ -17,8 +17,8 @@ Look up movies, TV shows, games, board games and books with ratings from several
 - **[Installation](https://eggshenbot.com/installation)**: run your own copy, from creating the Discord application to registering the commands
 - **[API Keys](https://eggshenbot.com/api-keys)**: which keys you need, and what each optional one adds
 - **[Getting Started](https://eggshenbot.com/getting-started)**: your first commands
-- **[Configuration](https://eggshenbot.com/configuration)**: who can change settings, and the defaults
-- **[Command Reference](https://eggshenbot.com/commands/)**: every command
+- **[Setting Up Your Server](https://eggshenbot.com/configuration)**: who can change settings, and the defaults
+- **[Every Command](https://eggshenbot.com/commands/)**: every command
 
 ---
 
@@ -55,35 +55,60 @@ Per-server settings with the `/eggshen-config` commands: rating services, region
 
 ## 📚 Documentation
 
-### Guides
+The site is grouped the same way: start here, then by what you're doing, then the pages for server admins and for running your own copy.
 
-- **[Installation](https://eggshenbot.com/installation)**, **[API Keys](https://eggshenbot.com/api-keys)**, **[Getting Started](https://eggshenbot.com/getting-started)**, **[Configuration](https://eggshenbot.com/configuration)**
-- **[Tournament quick guides](https://eggshenbot.com/guides/tournaments/)** and **[games quick guides](https://eggshenbot.com/guides/games/)**
+### Start here
 
-### Commands
+- **[Getting Started](https://eggshenbot.com/getting-started)**: your first commands
+- **[Ask the Bot](https://eggshenbot.com/commands/ask)**: `/eggshen-ask` answers from these docs
+- **[Every Command](https://eggshenbot.com/commands/)**: every command and its options
 
-- **[Command index](https://eggshenbot.com/commands/)**: every command at a glance
-- **[Search](https://eggshenbot.com/commands/search)**: `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`
-- **[Watch Parties](https://eggshenbot.com/commands/watch-party)**: `/timer`, `/watchparty`, `/announce`, `/watchlist`
-- **[Tournament Brackets](https://eggshenbot.com/commands/brackets/)**: `/bracket-setup`, `/bracket`
-- **[Games](https://eggshenbot.com/commands/games)**: `/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`, `/scoreboard`, `/leaderboard`, `/how-to-play`
-- **[Escape Velocity](https://eggshenbot.com/commands/escape-velocity)**: `/escape`, `/escape-setup`
-- **[Social](https://eggshenbot.com/commands/social)**: `/survey`, the games' own options and lines, and status quotes (`/quote`, `/suggest-quote`)
-- **[AI Images](https://eggshenbot.com/commands/ai-images)**: `/image`
-- **[Ask the Bot](https://eggshenbot.com/commands/ask)**: `/eggshen-ask`
-- **[Admin Configuration](https://eggshenbot.com/commands/configuration)**: the `/eggshen-config` commands
-- **[Moderation](https://eggshenbot.com/commands/moderation)**: rate limits, member cooldowns and whitelist mode
+### Look it up
 
-### Features
+- **[Search](https://eggshenbot.com/commands/search)**: `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`, `/soundtrack`
+- **[Discovery](https://eggshenbot.com/commands/#discovery-commands)**: `/random`, `/recommend`, `/similar`
+- **[Statistics](https://eggshenbot.com/features/statistics)**: `/stats`, `/eggshen-stats`
 
+### Watch parties
+
+- **[Watch Party Commands](https://eggshenbot.com/commands/watch-party)**: `/timer`, `/watchparty`, `/announce`, `/watched`, `/watchlist`
+- **[Watch History](https://eggshenbot.com/features/watch-history)**: the server's watch log
 - **[Event Requests](https://eggshenbot.com/features/event-requests)**: the optional web form
-- **[Rate Limiting](https://eggshenbot.com/features/rate-limiting)** and **[Moderation Tools](https://eggshenbot.com/features/moderation-tools)**
-- **[Watch History](https://eggshenbot.com/features/watch-history)** and **[Statistics](https://eggshenbot.com/features/statistics)**
-- **[Notifications](https://eggshenbot.com/features/notifications)** and **[Logging](https://eggshenbot.com/features/logging)**
+- **[What the Bot Posts on Its Own](https://eggshenbot.com/features/notifications)**: restart notices, starting-soon cards and scheduled announcements
 
-### Reference
+### Tournaments and surveys
 
-- **[API Reference](https://eggshenbot.com/api/reference)**: the bot's web API
+- **[Tournament quick guides](https://eggshenbot.com/guides/tournaments/)**: the place to start, and the **[Tournament FAQ](https://eggshenbot.com/guides/tournaments/faq)**
+- **[How Tournaments Work](https://eggshenbot.com/commands/brackets/)** and the **[Bracket Command Reference](https://eggshenbot.com/commands/brackets/commands)**: `/bracket-setup`, `/bracket`
+- **[Surveys & Status Quotes](https://eggshenbot.com/commands/social)**: `/survey`, `/quote`, `/suggest-quote`
+
+### Games and trivia
+
+- **[Games & Scores](https://eggshenbot.com/commands/games)**: `/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`, `/six-demon-bag`, `/scoreboard`, `/leaderboard`, `/how-to-play`
+- **[Games quick guides](https://eggshenbot.com/guides/games/)**: play the games, fight a siege, and the FAQ
+- **The rules:** **[Playing & Points](https://eggshenbot.com/commands/games-playing)** (each game's options and lines), **[Your Card & the Leaderboard](https://eggshenbot.com/commands/games-card)**, **[Items, Prizes & Titles](https://eggshenbot.com/commands/games-rewards)**, **[Twists & Happenings](https://eggshenbot.com/commands/games-happenings)**, **[Siege](https://eggshenbot.com/commands/games-siege)**, **[Six-Demon Bag](https://eggshenbot.com/commands/games-magic)**
+- **[Settings for Admins](https://eggshenbot.com/commands/games-settings)**: `/eggshen-config-games`, and your server's own lines
+- **[Escape Velocity](https://eggshenbot.com/commands/escape-velocity)**: `/escape`, `/escape-setup`
+
+### More
+
+- **[AI Images](https://eggshenbot.com/commands/ai-images)**: `/image`
+
+### Server admins
+
+- **[Setting Up Your Server](https://eggshenbot.com/configuration)**: who can change settings, and the defaults
+- **[Every Setting](https://eggshenbot.com/commands/configuration)**: the `/eggshen-config` commands
+- **[Moderation Tools](https://eggshenbot.com/features/moderation-tools)**, **[Rate Limiting](https://eggshenbot.com/features/rate-limiting)** and **[Moderation Commands](https://eggshenbot.com/commands/moderation)**: rate limits, member cooldowns and whitelist mode
+
+### Self-hosting
+
+- **[Installation](https://eggshenbot.com/installation)**: run your own copy
+- **[API Keys & .env](https://eggshenbot.com/api-keys)**: every key, and every `.env` setting
+- **[Logging](https://eggshenbot.com/features/logging)**: the bot's log files
+- **[Developer Reference](https://eggshenbot.com/api/reference)**: how the code is laid out, for changing or extending it
+
+### About
+
 - **[Changelog](https://eggshenbot.com/changelog)**: what changed in each release
 - **[Acknowledgements](https://eggshenbot.com/acknowledgements)**: credits and thanks
 

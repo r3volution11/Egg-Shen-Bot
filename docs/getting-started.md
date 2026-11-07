@@ -207,11 +207,11 @@ The [command reference](/commands/) lists every command and option.
 
 - Check your keys are copied correctly, with no spaces
 - TMDB is required for movie and TV commands
-- Recent errors are in `/eggshen-logs errors` (Administrator only)
+- Recent errors are in `/eggshen-logs errors` (Administrator only), and [Logging](/features/logging) covers the log files
 
 ### "You're using commands too quickly!"
 
-That's the rate limit. Admins can check it with `/eggshen-config-watch-party rate-limit view`, and clear one member with `/eggshen-config-watch-party rate-limit clear user:@someone`.
+That's the rate limit: by default each command once every 20 seconds. A command's subcommands share it, so `/timer start` followed straight away by `/timer status` is refused too; wait the seconds it says. Buttons and menus are never limited. Admins can check it with `/eggshen-config-watch-party rate-limit view`, and clear one member with `/eggshen-config-watch-party rate-limit clear user:@someone`.
 
 ## Support
 

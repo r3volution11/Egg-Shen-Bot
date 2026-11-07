@@ -246,6 +246,18 @@
   background-color: var(--vp-c-brand-soft);
 }
 
+/* The top nav's six items need about 1,200px beside the sidebar. VitePress
+   keeps them in the bar down to 768px, so between the two they ran off the
+   right edge, taking Admins, Self-Hosting, the theme switch and GitHub with
+   them. There, use the phone's menu button instead: it opens the same
+   items, the theme switch and the GitHub link as a full-width menu. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .VPNavBar .VPNavBarMenu,
+  .VPNavBar .VPNavBarExtra { display: none !important; }
+  .VPNavBar .VPNavBarHamburger { display: flex !important; }
+  .VPNavScreen { display: block !important; }
+}
+
 
 /* Quick steps box at the top of a guide (components/QuickSteps.vue) */
 .quick-steps {

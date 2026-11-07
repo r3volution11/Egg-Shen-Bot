@@ -2,7 +2,7 @@
 description: "Set up Egg Shen Bot for your Discord server: who can change settings, which command covers what, and the defaults every server starts with."
 ---
 
-# Configuration
+# Setting Up Your Server
 
 Each Discord server sets up Egg Shen with its own commands. Settings are saved per server, and a server that hasn't changed anything uses the defaults on this page. This page is an overview of the common settings; [Admin Configuration](/commands/configuration) has every subcommand.
 
@@ -61,7 +61,7 @@ Where-to-watch results follow one country, US by default. Use an ISO 3166-1 code
 
 ### Maximum Search Results
 
-How many results appear in a selection menu, from 1 to 50. The default is 20.
+How many results appear in a selection menu, from 1 to 25 (the most a Discord menu holds). The default is 20. A server set higher before 2.76.1 shows 25.
 
 ```
 /eggshen-config settings max-results count:10
@@ -91,7 +91,7 @@ Switch a command off for members:
 /eggshen-config commands toggle setting:foodfight enabled:false
 ```
 
-Each of these can be switched off: `movie`, `tv`, `episode`, `game`, `boardgame`, `book`, `survey`, `soundtrack`, `bracket`, `watchlist`, `potion`, `foodfight`, `doom`, `rescue`, `siege`, `magic` (the Six-Demon Bag), `escape`, `quote` and `suggestQuote`. `setting:enabled` is the master switch for all of them. Admins and moderators can always use every command.
+Each of these can be switched off: `movie`, `tv`, `episode`, `game`, `boardgame`, `book`, `survey`, `soundtrack`, `bracket`, `watchlist`, `potion`, `foodfight`, `doom`, `rescue`, `siege`, `magic` (the Six-Demon Bag), `escape`, `quote` and `suggestQuote`. `setting:enabled` is the master switch for all of them, and for `/recommend`. `/random` follows the search switches (`/random book` is off when `book` is). Admins and moderators can always use every command.
 
 ## Notifications
 
@@ -99,7 +99,7 @@ Each of these can be switched off: `movie`, `tv`, `episode`, `game`, `boardgame`
 /eggshen-config notifications toggle setting:restartAnnouncements enabled:true
 ```
 
-Off by default. When it's on, after a restart the bot posts in each channel with a running timer to say the timer was restored.
+Off by default. When it's on, after a restart the bot posts in each channel with a running timer to say the timer was restored. Everything else the bot posts by itself is on [What the Bot Posts on Its Own](/features/notifications).
 
 ## Watch Party Configuration
 
@@ -189,7 +189,7 @@ Images, announcement text and `/eggshen-ask` answers each have their own switch,
 
 ## Rate Limiting
 
-Rate limiting is on by default:
+Rate limiting is on by default for a new server:
 
 - each member can use each command once every 20 seconds (`/recommend` twice in 2 minutes, `/suggest-quote` once a minute; the games have [their own limits](#games))
 - the whole server can use 10 commands a minute
@@ -203,7 +203,9 @@ Rate limiting is on by default:
 /eggshen-config-watch-party rate-limit clear user:@Sam
 ```
 
-Per-command limits can be set for `movie`, `tv`, `episode`, `episode-list`, `timer` and `stats`; `max-requests:0` removes one. See [Rate Limiting](/features/rate-limiting) for tuning and the server-wide limit.
+A server set up before the switch existed has rate limiting off, and keeps it off until an admin turns it on with `/eggshen-config-watch-party rate-limit toggle enabled:true`. `rate-limit view` shows which.
+
+The count is kept per command, not per subcommand: `/timer start` then `/timer status` within 20 seconds is refused. Buttons and menus are never limited. Per-command limits can be set for `movie`, `tv`, `episode`, `episode-list`, `timer` and `stats`; `max-requests:0` removes one. See [Rate Limiting](/features/rate-limiting) for tuning and the server-wide limit.
 
 ## Moderation Features
 
@@ -214,7 +216,7 @@ Moderation is off by default. Whitelist mode, user cooldowns and the repeat-offe
 ```
 
 - **User cooldowns** stop one member using the bot for up to a week: `/eggshen-config-moderation moderation user-cooldown user:@Sam duration:60 reason:Spamming`
-- **Whitelist mode** lets only listed roles and members use commands: `whitelist-toggle`, `whitelist-add-role`, `whitelist-add-user`
+- **Whitelist mode** lets only listed roles and members use commands: `whitelist-toggle`, `whitelist-add-role`, `whitelist-add-user`. Like cooldowns, it stops typed and right-click commands only; anyone can still press buttons and use menus on messages already posted
 - **Auto-ban list** tracks members who break rate limits too often (20 times in 24 hours by default). Someone over the threshold is warned in their reply and appears in `/eggshen-config-moderation moderation auto-ban-list`. Nobody is banned automatically, and moderators aren't sent a message, so check the list.
 
 See [Moderation Tools](/features/moderation-tools).

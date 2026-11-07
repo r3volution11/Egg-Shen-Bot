@@ -214,9 +214,11 @@ You can ask for a bigger quota in the Google Cloud Console.
 | Variable | Default | What it does |
 |----------|---------|--------------|
 | `GUILD_ID` | empty | When set to a server's ID, `npm run deploy-commands` registers the commands to that server only, where they appear at once. Empty registers them globally |
-| `DOCS_URL` | `https://eggshenbot.com` | Where the bot's documentation links point: `/eggshen-help`, `/bracket help`, `/how-to-play` and `/eggshen-ask`. Change it only if you publish your own docs |
+| `DOCS_URL` | `https://eggshenbot.com` | Where the bot's documentation links point: `/eggshen-help`, `/bracket help`, `/how-to-play`, `/eggshen-ask` and the tournament setup form. Change it only if you publish your own docs (below) |
 | `EMOJI_SYNC` | `auto` | `auto` uploads the card icons to your application on startup. `off` uses plain emoji everywhere |
 | `API_PORT` | `3000` | The port of the bot's web server, which serves the health check and the optional web pages |
+
+**Publishing your own docs.** These docs are the repository's `docs/` folder, built with VitePress. `npm run docs:dev` serves them locally as you edit, `npm run docs:build` builds the site into `docs/.vitepress/dist`, `npm run docs:preview` serves that build, and `npm run docs:check` checks the built pages' search-engine markup. Host the build anywhere and point `DOCS_URL` at it; the site's own address is also written in `docs/.vitepress/config.js` and `docs/.vitepress/seo.js`. `/eggshen-ask` doesn't need the build: it reads `docs/` itself, so restart the bot to pick up your edits.
 
 ### The web pages (optional)
 
@@ -226,14 +228,14 @@ You need these only for the web pages: the event request form, its moderator ima
 |----------|---------|--------------|
 | `PUBLIC_BOT_URL` | empty | The bot's own public address, used in the links it posts: the setup form, the crop page and the quotes editor. A server can override it with `/eggshen-config-website bot-url` |
 | `DISCORD_CLIENT_SECRET` | empty | Lets the event request form sign members in with Discord |
-| `OAUTH_REDIRECT_URI` | `http://localhost:3000/api/auth/discord/callback` | The form's login callback. Must match a redirect in the Developer Portal |
-| `FORM_URL` | `http://localhost:8080` | Where the event request form is hosted |
+| `OAUTH_REDIRECT_URI` | `http://localhost:3000/api/auth/discord/callback` | A fallback only. The bot builds each login's callback from the domain the login started on (`https://<that domain>/api/auth/discord/callback`), so register that address in the Developer Portal for every domain the form is on. This is used only when the domain can't be told, which doesn't happen behind a proxy that passes `Host` |
+| `FORM_URL` | `http://localhost:8080` | A fallback only: where to send someone after logging in when the domain the login started on can't be told. Normally they go back to that domain |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated addresses allowed to call the bot's web API. Include the form's address |
-| `EVENT_CROP_LINK_SECRET` | empty | Signs moderators' image-crop links. Without it, no crop link is posted |
+| `EVENT_CROP_LINK_SECRET` | empty | Signs moderators' image-crop links. The **Crop Image** button appears on event requests only when this is set and the bot has an address (`PUBLIC_BOT_URL`, or the server's own `bot-url`) |
 | `SESSION_SECRET` | derived from `DISCORD_CLIENT_SECRET` | Signs the form's login cookie. Changing it signs everyone out |
 | `TOURNAMENT_SETUP_LINK_SECRET` | derived from `DISCORD_TOKEN` | Signs tournament setup links. Changing it invalidates every open link |
 | `QUOTES_ADMIN_SECRET` | empty | Turns on the status-quotes editor page. Empty leaves it off. See [QUOTES_ADMIN_SETUP.md](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/QUOTES_ADMIN_SETUP.md) |
-| `WEB_PRIMARY_COLOR` | `#1ac3ff` | The web pages' accent colour. Takes effect after `npm run build:web` |
+| `WEB_PRIMARY_COLOR` | `#1ac3ff` | The accent colour of the `default` theme, and of any theme in `scripts/web-themes.json` without a colour of its own (`shudder` has one). Takes effect after `npm run build:web`. See [Themes](/installation#themes) |
 
 To make a secret, run:
 
@@ -241,7 +243,7 @@ To make a secret, run:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-The included PM2 config (`ecosystem.config.js`) also sets `NODE_ENV=production`, which makes the form's login cookie HTTPS-only and keeps debug lines out of the logs.
+The included PM2 config (`ecosystem.config.js`) also sets `NODE_ENV=production`, which makes the form's login cookie HTTPS-only and keeps debug lines out of the logs. See [Installation › NODE_ENV](/installation#node-env) for everything it changes, and [The Web Pages](/installation#the-web-pages) for the paths to forward and why the bot's port should stay closed.
 
 ## Security
 

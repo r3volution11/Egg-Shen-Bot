@@ -13,6 +13,7 @@ import {
   DEFAULT_MAX_SIZE,
 } from '../utils/watchlistManager.js';
 import { loadGuildConfig, isAdmin, isModerator, canUseCommand } from '../utils/guildConfig.js';
+import { searchResultLimit } from '../utils/selectMenuLimits.js';
 import { trackSearch } from '../utils/statsTracker.js';
 
 const TYPE_ICON = { movie: '🎬', tv: '📺' };
@@ -250,7 +251,7 @@ async function handleAdd(interaction, settings) {
 
     // Several matches — let the requester disambiguate.
     const guildConfig = await loadGuildConfig(interaction.guildId);
-    const maxResults = guildConfig.maxSearchResults || 20;
+    const maxResults = searchResultLimit(guildConfig); // at most 25, a select menu's limit
 
     // By nonce rather than inline: Discord caps an option value at 100
     // characters, and a note of roughly 30 characters pushed the base64 past

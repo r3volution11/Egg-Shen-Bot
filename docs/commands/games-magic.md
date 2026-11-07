@@ -61,7 +61,7 @@ Egg Shen's bag holds six demons. Your good plays fill it with **Chi**, and `/six
 - **It's public.** The cast posts a new message in the channel, naming who cast it and pinging the member it landed on, once. Nobody else is pinged, and no cast is anonymous. Under it, what it cost: `-# Sam 14 → 8 Chi · 1 cast left today`.
 - **One blessing and one hex at a time.** A second blessing on someone already blessed is refused, unless it [lifts](#cancelling) their hex; a second hex is always refused.
 - **Not on yourself, and not on a bot.**
-- **The same limits as a play.** A cast has the games' cooldown (20 seconds between casts) and counts toward the 6 plays a minute ([Limits](./games-playing#limits)). Like the games, casting, `shrug` and `peace` aren't under the bot's general rate limit, since they have limits of their own; `status` is.
+- **The same limits as a play.** A cast has the games' cooldown (20 seconds between casts) and counts toward the 6 plays a minute ([Limits](./games-playing#limits)). Like the games, casting, `shrug` and `peace` skip the bot's per-member rate limit, since they have limits of their own; `status` doesn't. The server-wide limit, whitelist mode and manual cooldowns still apply to all of them ([Rate Limiting](/features/rate-limiting#the-games-have-their-own-limits)).
 - **Where:** a channel where the games can be played, or a thread of one ([Where you can play](./games-playing#where-you-can-play)). `/six-demon-bag status` works anywhere.
 - **A refusal costs nothing.** If a cast can't go ahead (not enough Chi, they're already blessed, they've made peace, a limit in [Fair play](#fair-play)), you're told why, privately, and nothing is spent: no Chi, no cast, no cooldown.
 

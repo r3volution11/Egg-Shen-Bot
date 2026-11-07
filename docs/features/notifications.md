@@ -2,7 +2,7 @@
 description: "What Egg Shen Bot posts on its own: restart announcements, starting-soon cards, scheduled watch-party announcements and more, and how to turn each off."
 ---
 
-# Notifications
+# What the Bot Posts on Its Own
 
 Most of what the bot posts comes from a command someone runs. This page covers the settings under `/eggshen-config notifications`, the watch-party announcements, and the other things the bot posts on its own.
 
@@ -10,7 +10,9 @@ The bot has no release alerts, trending digests or follow lists.
 
 ## Restart Announcements
 
-Running timers are saved to disk. When the bot restarts (after a deploy or a crash, say), it restores every timer that was running, and auto-stop keeps working with the time it had left.
+Running timers are saved to disk. When the bot restarts (after a deploy or a crash, say), it restores every timer that was running, and auto-stop keeps working with the time it had left. A paused timer comes back paused.
+
+A timer whose end passed while the bot was down is stopped as soon as the bot is back, just as if it had stopped on time: the usual **⏰ Timer Completed** post, logged to watch history when the timer knows its title, or with the **📝 Log to Watch History** button when it doesn't. Its total time runs to the moment the bot came back, so it can be longer than the timer was set for. This happens whether or not restart announcements are on.
 
 With restart announcements on, the bot also posts a **🔄 Bot Restarted** embed in each channel that had a timer running, saying the timer has been restored. The embed shows:
 

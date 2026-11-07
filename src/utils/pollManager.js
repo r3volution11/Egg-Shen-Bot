@@ -224,32 +224,6 @@ export function addVote(guildId, pollId, optionId, userId) {
 }
 
 /**
- * Remove a vote from a poll
- */
-export function removeVote(guildId, pollId, optionId, userId) {
-  const polls = loadGuildPolls(guildId);
-  const poll = polls.find(p => p.pollId === pollId);
-  
-  if (!poll) {
-    throw new Error('Poll not found');
-  }
-  
-  const option = poll.options.find(o => o.id === optionId);
-  
-  if (!option) {
-    throw new Error('Invalid option');
-  }
-  
-  const voteIndex = option.votes.indexOf(userId);
-  if (voteIndex !== -1) {
-    option.votes.splice(voteIndex, 1);
-  }
-  
-  saveGuildPolls(guildId, polls);
-  return poll;
-}
-
-/**
  * Cast a button vote for a single-select poll — overwrites the user's
  * previous vote entirely (equivalent to addVote, but named for clarity at
  * the button-handler call site, and always enforces single-select
@@ -537,7 +511,7 @@ const PLAIN_KIT = createKit(null);
 
 /**
  * Create a poll embed. Shared by /survey create, the live-updating vote
- * handlers (buttons and legacy reactions), /survey close, and the
+ * buttons, /survey close, and the
  * auto-expiry scheduler, so every code path that renders a poll looks the
  * same.
  *

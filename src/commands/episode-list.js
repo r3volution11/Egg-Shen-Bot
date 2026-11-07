@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder } from 'discord.js';
 import { searchTVShows, getSeasonDetails, getTVShowDetails } from '../services/tmdbService.js';
 import { loadGuildConfig } from '../utils/guildConfig.js';
+import { searchResultLimit } from '../utils/selectMenuLimits.js';
 import { deliverResult, encodePrivateFlag } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
@@ -67,7 +68,7 @@ export async function execute(interaction) {
     if (searchResults.length > 1) {
       // Load guild config to get maxSearchResults
       const guildConfig = await loadGuildConfig(interaction.guildId);
-      const maxResults = guildConfig.maxSearchResults || 20;
+      const maxResults = searchResultLimit(guildConfig); // at most 25, a select menu's limit
       const limitedResults = searchResults.slice(0, maxResults);
       
       // Create selection menu

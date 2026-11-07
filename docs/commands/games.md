@@ -11,7 +11,7 @@ topics:
   - title: Playing & Points
     link: /commands/games-playing
     icon: coin
-    text: The five games, the points for every outcome, streaks, rescue shields and the limits.
+    text: The five games and how each plays, the points for every outcome, streaks, rescue shields and the limits.
   - title: Your Card & the Leaderboard
     link: /commands/games-card
     icon: chart
@@ -35,7 +35,7 @@ topics:
   - title: Settings for Admins
     link: /commands/games-settings
     icon: lock
-    text: Limits, the games' channels, turning a game off, twists, happenings, the pace and resets.
+    text: Limits, the games' channels, turning a game off, your own lines, twists, happenings, the pace and resets.
 ---
 
 # Games & Scores
@@ -173,7 +173,8 @@ Egg Shen's *Big Trouble in Little China* expansion has begun with the [Six-Demon
 
 ## Related Documentation
 
-- [Social Commands](./social) - How each game plays, and adding your server's own lines
+- [Playing & Points](./games-playing#food-fight) - How each game plays, with its options and lines
+- [Your own lines](./games-settings#your-own-lines) - Adding your server's own lines to each game
 - [Games Quick Guides](/guides/games/) - Play the games, fight a siege, and the FAQ
 - [Escape Velocity](./escape-velocity) - A separate trivia event, with its own scores
 - [Admin Configuration](./configuration) - Every other server setting

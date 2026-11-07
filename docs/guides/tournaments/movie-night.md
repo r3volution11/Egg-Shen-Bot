@@ -7,9 +7,9 @@ howto:
   totalTime: PT1H15M
   steps:
     - name: Create the tournament
-      text: Run `/bracket-setup create name:"Friday Frights" max-titles:8`.
+      text: Run `/bracket-setup create name:Friday Frights max-titles:8`.
     - name: Add 8 titles
-      text: Run `/bracket-setup manage-titles action:add type:movie title:"The Thing"` once per title. After the first, you can leave `type` out.
+      text: Run `/bracket-setup manage-titles action:add type:movie title:The Thing` once per title. After the first, you can leave `type` out.
     - name: Announce it
       text: Run `/bracket-setup announce` so everyone knows a tournament is coming.
     - name: Open round one

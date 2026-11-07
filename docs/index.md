@@ -196,4 +196,4 @@ For the games, `/how-to-play` shows a short card on each topic, with your server
 
 </div>
 
-Found a bug or have an idea? [Open an issue on GitHub](https://github.com/r3volution11/Egg-Shen-Bot/issues) · [What's new](/changelog) {.eh-help}
+Found a bug or have an idea? [Open an issue on GitHub](https://github.com/r3volution11/Egg-Shen-Bot/issues) · [What's new](/changelog) · [Acknowledgements](/acknowledgements) {.eh-help}

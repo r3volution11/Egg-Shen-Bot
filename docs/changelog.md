@@ -9,6 +9,59 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.76.1 - 2026-11-07
+
+### Changed
+- **eggshenbot.com has new navigation.** The sidebar is grouped by what you're doing, not by kind of page: Start Here, Look It Up, Watch Parties, Tournaments & Surveys, Games & Trivia, Server Admins, Self-Hosting and About. The top bar has six menus: Getting Started, Tournaments, Games, Commands, Admins and Self-Hosting. On tablets and small laptops, where the menus ran off the edge, they open from the menu button.
+- **The games' sections moved to the games pages.** How `/foodfight`, `/doom`, `/rescue` and `/potion` play is now on [Playing & Points](/commands/games-playing), and each game's own lines on [Settings for Admins](/commands/games-settings). What was Social Commands is now [Surveys & Status Quotes](/commands/social). The tournament overview's Quick FAQ joined the [Tournament FAQ](/guides/tournaments/faq). **Old links still work:** they go straight to the section's new place.
+- **Settings an older server never saved now read as their defaults.** A server set up before a setting existed used to get "off" or nothing for it, while a newer server got the default. It now gets the default too, so the Metacritic badge shows, `/recommend` and `/suggest-quote` get their own limits, and the other limits fill in. Nothing is written to the server's settings file until something else changes it.
+  - **Rate limiting is the exception: it stays as it is today.** A server whose settings never set the rate-limiting switch keeps rate limiting off, as it has always been, until an admin turns it on with `/eggshen-config-watch-party rate-limit toggle enabled:true`. A new server still starts with it on, and a server that set it on or off keeps its choice.
+- **`/eggshen-config settings max-results` takes 1 to 25**, the most a Discord menu holds. It took up to 50. A server set higher shows 25.
+- **The bot no longer needs the Manage Messages permission.** It was only for clearing reactions off surveys, which are voted on with buttons. You can take it away from the bot's role.
+- **eggshenbot.com, checked against the code:**
+  - `/timer remind` and `/watchparty remind` need a Discord scheduled event for the channel; the docs said an `/announce` was enough.
+  - Running a tournament takes Administrator or Timeout Members, and closing or deleting someone else's survey takes Administrator or Manage Server. The command reference listed both under every moderator permission.
+  - The **⏰ Timer Ending Soon** warning comes in the last 15% of the timer (10 to 60 minutes before), and again after each extension.
+  - The **Crop Image** button appears on every event request once crop links are set up, image or not. It's how a moderator adds one.
+  - Typing quotes around an option's value keeps them in it: the event-request examples that did so now don't.
+  - Members with Manage Messages or Manage Channels count as moderators for the rate limits, and settings only the server's settings file can change, such as the built-in `/recommend` and `/suggest-quote` limits and the AI image cost estimate, say so.
+  - New for anyone running their own copy: the quotes editor page, every web endpoint, `NODE_ENV`, which files to back up, every `.env` setting, keeping the bot's port private, commands that appear twice, `scripts/migrate-website-config.js`, `scripts/game-demo.js`, and building your own copy of these docs.
+  - Rate limiting's pages say a server set up before the switch existed has it off, and how to turn it on.
+
+### Fixed
+- **Search pickers failed on servers set to more than 25 results.** `max-results` allowed up to 50, but a Discord menu holds 25, so on such a server every search with more than 25 matches failed. Every picker now shows at most 25.
+- **Reacting to a survey with a number counted as a vote**, even on surveys voted with buttons, and the bot deleted every other reaction on a survey. Reactions are left alone now. A survey from before button voting keeps the votes it had; new reactions on it don't count, and `/survey close` ends it.
+- **The matchup buttons from `/bracket open-matchup` and `/bracket close-matchup`** said they expired after 15 minutes but never did, so an old picker could open or close matchups hours later. They now expire, and say to run the command again. They also let in moderators with Manage Server, Kick Members or Ban Members, whom the command itself refuses; now only Administrator or Timeout Members can press them, as with the command.
+- **The settings views said rate limiting was on** for a server that had never set it, where it was off. `/eggshen-config settings view` and `/eggshen-config-watch-party rate-limit view` now show it off, and the second says none of the limits it lists apply until it's turned on.
+- **Metacritic in `/eggshen-config settings toggle` and `settings emoji`:** both refused it on a server set up before Metacritic was added, and where they took it, the reply called it "undefined".
+- **Text that didn't match what the bot does:**
+  - The survey close and delete refusals said moderators could; it takes the creator, Administrator or Manage Server.
+  - `/bracket resolve-tiebreaker` said a tournament's creator could use it; it takes an admin or moderator.
+  - `/similar` and its line in `/eggshen-help` left out books (and `/eggshen-help` games and board games), which it searches.
+  - **Start Now** on `/timer start` said the timer runs until someone stops it. It says when it will stop on its own (the server's limit for a timer with no set length, 6 hours by default), unless the server made those unlimited.
+
+### Security
+- **The web pages' rate limits could be dodged.** The event request form, image uploads, title artwork lookups, the quotes editor and the tournament setup form count requests per visitor address, which the bot took from the first `X-Forwarded-For` entry: one the visitor writes. A made-up address on each request got a fresh limit every time. The bot now believes the header only from a proxy on the same machine, and takes the address that proxy added. **If your proxy runs on another machine or in another container,** every visitor now shares the proxy's address and one limit: see [Keep the Bot's Port Private](/installation#keep-the-bot-s-port-private).
+- **A test-only route was live on self-hosted bots.** `POST /api/__test__/reset-rate-limit` cleared the caller's own event-request and upload limits, and it was on whenever `NODE_ENV` wasn't `production`. Plain `npm start` sets none. It's now there only with `NODE_ENV=test`, which only the test suites use.
+
+### Developer
+- **Config defaults:**
+  - `guildConfig.loadGuildConfig` returns `withDefaults(saved)`: every `defaultConfig` key the file lacks, at any depth, cloned in; every key it has kept as saved (`false`, `0`, `''` and `null` included); arrays and keys outside `defaultConfig` untouched. Nothing is written on load. `missingDefaults(saved)` lists what a file lacks, with the value it reads as. Both are exported.
+  - **Doug's decision (2026-11-07):** a saved config fills from `savedConfigDefaults`, which is `defaultConfig` with `rateLimits.enabled: false`. So a file that never set it keeps rate limiting off, as `checkRateLimit` always read a missing switch; a server with no file gets `defaultConfig` (on); an explicit value is kept. Both live servers are in that state (Shudder has no `rateLimits`; the test server only `rateLimits.aiImages`). The first save after load writes `enabled: false` out.
+  - The two rate-limit views read the switch as `checkRateLimit` does (`!!enabled`, was `?? true`).
+  - `scripts/config-defaults-report.js` (`--json` too): every server's missing keys and what changes. A config that never set the switch reports `rateLimits.enabled = false` as "rate limiting stays off (never set; turn on with …)", and its other missing `rateLimits` keys as "no effect while rate limiting is off" (`bypassForModerators` as a change if moderation is on: it also skips manual cooldowns). A wholly missing `rateLimits` is listed key by key.
+  - `toggleService` and `setEmoji` validate against `defaultConfig`, as `updateCommandPermission` does; `eggshen-config` names Metacritic.
+- **Pickers:** `src/utils/selectMenuLimits.js` (`MAX_SELECT_OPTIONS`, `searchResultLimit`), used by all 13 picker sites; the `max-results` option's max is `MAX_SELECT_OPTIONS`, and the settings view shows the capped value.
+- **Matchup pickers:** `src/utils/tournamentManagers.js` (`isTournamentManager`, `MATCHUP_PICKER_TTL_MS`, `MATCHUP_PICKER_FOOTER`, `matchupPickerExpired`), shared by `bracket.js`'s gate and the three button handlers. The fake Discord stamps `createdTimestamp` on messages.
+- **Reactions:** `src/index.js` drops `GuildMessageReactions`, the Message and Reaction partials and both reaction handlers; `GuildMessages` stays for cache coherence. `pollManager.removeVote` (dead) is gone. `tests/harness/botEntry.js` loads the real `src/index.js` with a `Client` whose `login()` does nothing, so `discord-client-config` tests the real options and listeners.
+- **Web:** `app.set('trust proxy', 'loopback')` (was `true`, which takes the left-most `X-Forwarded-For` entry). The reset route needs `NODE_ENV === 'test'`; `tests/e2e/harness/serve.js` sets it. Not fixed, reported: the web limiters key on host + address, and the `Host` header is the client's, so a request straight to the port can still vary it.
+- **Docs site:** `docs/.vitepress/config.js` (sidebar and nav, still one sidebar array for `seo.js`), `custom.css` (the menu button between 768 and 1199 px), `movedAnchors.js` (`/commands/social`'s game sections, `/commands/brackets/`'s Quick FAQ, index-page keys), hidden anchor markers on the old pages.
+- **Tests:**
+  - New suites: `config-defaults` (24, through the real config load, `checkRateLimit`, the command dispatcher, `/eggshen-config`, `/eggshen-config-watch-party`, `/eggshen-config-moderation`, `/image` and the report script, on fixtures shaped like the two live servers: `shudder-ai-off.json`, `ai-limits-only.json`, `pre-metacritic.json`), `search-picker-limit`, `tournament-sim-matchup-pickers`, `text-matches-behavior`, `timer-start-now-promise`, `test-reset-route`, `web-rate-limit-client-address`, `docs-moved-anchors` (renders the docs and proves every old anchor is on its old page and every new address is a real heading). `discord-client-config` rewritten; `bot-url-per-server` and `command-permission-toggle` updated for loaded configs having every key.
+  - Every fix was break-tested: 44 planted bugs (30 in the code fixes, 14 for the rate-limiting rule, its views, the report and `/eggshen-help`), each caught, each file restored byte-identical (sha-256).
+  - Suite: 201 files, 3347 tests; fuzz 3 files, 43 passed, 4 skipped.
+- **Deploy:** `deploy-commands` is needed: `max-results` (max 25 and its description), `/bracket resolve-tiebreaker`'s description, and `/similar`'s description and `title` option. Before restarting, `node scripts/config-defaults-report.js` on the server shows what each server will read as a default. The web limits need nginx to reach the bot over loopback (`proxy_pass http://localhost:3000`).
+
 ## 2.76.0 - 2026-11-07
 
 *"Wind, fire, all that kind of thing!"* Egg Shen opens his bag: the first part of the *Big Trouble in Little China* expansion.

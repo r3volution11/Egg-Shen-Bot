@@ -14,6 +14,7 @@ import {
 import { createDetailedEmbed } from '../utils/embedBuilder.js';
 import { getEnabledServices, getEmojis, loadGuildConfig } from '../utils/guildConfig.js';
 import { canUseCommand } from '../utils/guildConfig.js';
+import { searchResultLimit } from '../utils/selectMenuLimits.js';
 import { trackSearch } from '../utils/statsTracker.js';
 import { config } from '../config.js';
 import { withCommandEcho } from '../utils/commandEcho.js';
@@ -535,7 +536,7 @@ export async function execute(interaction) {
       
       // Load guild config to get maxSearchResults
       const guildConfig = await loadGuildConfig(interaction.guildId);
-      const maxResults = guildConfig.maxSearchResults || 20;
+      const maxResults = searchResultLimit(guildConfig); // at most 25, a select menu's limit
       
       const options = showResults.slice(0, maxResults).map((show) => {
         const year = show.first_air_date ? ` (${show.first_air_date.split('-')[0]})` : '';

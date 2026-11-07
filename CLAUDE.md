@@ -193,9 +193,16 @@ Other hard-won Discord behavior:
 ## Conventions
 
 - **Per-guild config** lives in `guild_configs/<id>.json`. There are **no
-  migrations** — a config written before your key exists simply lacks it, so
-  read through a normalizing helper (`getAutoDetectMode`,
-  `getEpisodeBufferMinutes`) rather than touching the field directly.
+  migrations**, but `loadGuildConfig` fills in every `defaultConfig` key a
+  saved file lacks (`withDefaults`), so a key you add there reaches every
+  existing server on its next load. One exception: a saved config that never
+  set `rateLimits.enabled` reads it as `false` (Doug's call — both live
+  servers lack it; a new server still gets `true`). If older servers must
+  keep today's behavior for a new key, override it in `savedConfigDefaults`
+  the same way. A key *outside* `defaultConfig` is still simply missing from
+  older configs: read it through a normalizing helper (`getAiAskEnabled`,
+  `getAutoDetectMode`) rather than touching the field directly.
+  `node scripts/config-defaults-report.js` shows what each config reads as.
 - **`private` vs `public` option.** Most commands take `private` (default
   public) and route the answer through `deliverResult()`. `/timer status` uses
   `public`, read with `?? true` — `getBoolean` returns `null` when unset, and

@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, toggleService, setEmoji, updateStatsTracking, getCommandPermissions, updateCommandPermission, isAdmin, getAutoDetectMode } from '../utils/guildConfig.js';
 import { clearStats } from '../utils/statsTracker.js';
+import { MAX_SELECT_OPTIONS, searchResultLimit } from '../utils/selectMenuLimits.js';
 
 export const data = new SlashCommandBuilder()
   .setName('eggshen-config')
@@ -81,14 +82,14 @@ export const data = new SlashCommandBuilder()
       .addSubcommand(subcommand =>
         subcommand
           .setName('max-results')
-          .setDescription('Set maximum number of search results to display (1-50)')
+          .setDescription('Set maximum number of search results to display (1-25)')
           .addIntegerOption(option =>
             option
               .setName('count')
-              .setDescription('Number of results to show in selection menus (1-50)')
+              .setDescription('Number of results to show in selection menus (1-25)')
               .setRequired(true)
               .setMinValue(1)
-              .setMaxValue(50)
+              .setMaxValue(MAX_SELECT_OPTIONS) // a select menu holds 25 (selectMenuLimits.js)
           )
       )
       .addSubcommand(subcommand =>
@@ -370,7 +371,7 @@ export async function execute(interaction) {
     const autoDetectDisplay = autoDetectLabels[getAutoDetectMode(config)];
 
     const regionDisplay = config.region || 'US';
-    const maxResultsDisplay = config.maxSearchResults || 20;
+    const maxResultsDisplay = searchResultLimit(config); // what the pickers really show
     const timerFallbackDisplay = config.maxTimerDurationUnlimited
       ? 'Unlimited (no-duration timers run forever)'
       : `${config.maxTimerDurationMinutes || 360} minutes`;
@@ -381,8 +382,11 @@ export async function execute(interaction) {
       ? 'Anyone can pause/resume/stop'
       : 'Starter or admin/mod only';
 
-    // Rate limiting display
-    const rateLimitEnabled = config.rateLimits?.enabled ?? true;
+    // Rate limiting display. Read exactly as checkRateLimit reads it: the old
+    // `?? true` said Enabled for a config that never set the switch, which
+    // the limiter has always treated as off (loadGuildConfig now fills in
+    // `false` for those, savedConfigDefaults in guildConfig.js)
+    const rateLimitEnabled = !!config.rateLimits?.enabled;
     const guildWide = config.rateLimits?.guildWide || { enabled: true, maxRequests: 10, windowSeconds: 60 };
 
     const embed = new EmbedBuilder()
@@ -406,7 +410,7 @@ export async function execute(interaction) {
       })
       .addFields({
         name: 'Max Search Results',
-        value: `🔢 **${maxResultsDisplay}** results (use \`/eggshen-config settings max-results count:<1-50>\` to change)`,
+        value: `🔢 **${maxResultsDisplay}** results (use \`/eggshen-config settings max-results count:<1-25>\` to change)`,
         inline: false,
       })
       .addFields({
@@ -474,6 +478,7 @@ export async function execute(interaction) {
         letterboxd: 'Letterboxd',
         trakt: 'Trakt',
         rottenTomatoes: 'Rotten Tomatoes',
+        metacritic: 'Metacritic',
         justWatch: 'JustWatch',
       }[serviceName];
 
@@ -503,6 +508,7 @@ export async function execute(interaction) {
         letterboxd: 'Letterboxd',
         trakt: 'Trakt',
         rtCritics: 'RT Critics',
+        metacritic: 'Metacritic',
         justWatch: 'JustWatch',
       }[serviceName];
 

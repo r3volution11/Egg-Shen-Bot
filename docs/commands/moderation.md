@@ -10,7 +10,7 @@ Tools to stop spam and abuse of the bot: rate limits, cooldowns for a member, wh
 
 ## Rate Limits
 
-Rate limiting is **on by default**: each member can use a given command once every 20 seconds, and the whole server 10 commands a minute. The commands are in the `rate-limit` group of `/eggshen-config-watch-party`. Every option is on [Admin Configuration](/commands/configuration#rate-limit-group).
+Rate limiting is **on by default** for a new server: each member can use a given command once every 20 seconds, and the whole server 10 commands a minute. A server set up before the switch existed has it off until an admin turns it on with `/eggshen-config-watch-party rate-limit toggle enabled:true`; `rate-limit view` shows which. The commands are in the `rate-limit` group of `/eggshen-config-watch-party`. Every option is on [Admin Configuration](/commands/configuration#rate-limit-group).
 
 ### View the Limits
 
@@ -26,8 +26,8 @@ Rate limiting is **on by default**: each member can use a given command once eve
 /eggshen-config-watch-party rate-limit guild-wide enabled:<true|false> max-requests:[1-100] window-seconds:[10-600]
 ```
 
-- `global` - How often each member can use each command
-- `command` - A different limit for `movie`, `tv`, `episode`, `episode-list`, `timer` or `stats`. `max-requests:0` removes it
+- `global` - How often each member can use each command. Subcommands share their command's count, so `/timer start` then `/timer status` counts twice against `/timer`
+- `command` - A different limit for `movie`, `tv`, `episode`, `episode-list`, `timer` or `stats`, the only commands it offers. `max-requests:0` removes it. The built-in limits for `/recommend` and `/suggest-quote` can only be changed in the server's settings file ([details](/features/rate-limiting#per-command-limits))
 - `guild-wide` - A cap on everyone together, which stops one person flooding from several accounts
 
 ### Clear a Member's Limits
@@ -76,7 +76,7 @@ Whitelist mode and cooldowns don't depend on rate limiting: they keep working if
 /eggshen-config-moderation moderation user-cooldown-list
 ```
 
-Stops one member using the bot for a number of minutes (up to 7 days). They see the reason and how long is left. `user-cooldown-list` shows everyone on a cooldown, why, who applied it and when it ends.
+Stops one member using the bot's commands for a number of minutes (up to 7 days). They see the reason and how long is left. Buttons and menus on messages already posted still work for them. `user-cooldown-list` shows everyone on a cooldown, why, who applied it and when it ends.
 
 Cooldowns are kept in memory, so a bot restart ends them.
 
@@ -96,7 +96,7 @@ Cooldowns are kept in memory, so a bot restart ends them.
 /eggshen-config-moderation moderation whitelist-list
 ```
 
-With whitelist mode on, only the roles and members on the list can use the bot: a member who's listed, or who holds a listed role. Admins and moderators are always let in, listed or not, so you can't lock yourself out. Everyone else is told the server is in whitelist mode. It's an emergency measure, such as during a raid.
+With whitelist mode on, only the roles and members on the list can use the bot: a member who's listed, or who holds a listed role. Admins and moderators are always let in, listed or not, so you can't lock yourself out. Everyone else is told the server is in whitelist mode. It's an emergency measure, such as during a raid. It stops typed and right-click commands only: anyone can still press buttons and use menus on messages already posted, such as survey and tournament votes.
 
 Add a role (such as your members' role) rather than people one by one, then add any individuals on top. Set up the list before you turn whitelist mode on.
 

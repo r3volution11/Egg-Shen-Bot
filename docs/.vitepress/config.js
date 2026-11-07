@@ -2,21 +2,47 @@ import { defineConfig } from 'vitepress'
 import { buildPageHead } from './seo.js'
 import { kitIconsPlugin } from './kitIcons.js'
 
+// One sidebar, grouped by what a page is about and who it's for. It stays a
+// single array: seo.js walks it for each page's breadcrumbs, and takes the
+// first entry that links a page, so list each page once. A '#anchor' item
+// (/random…, the Watchlist, Status Quotes) is fine: it points into a page
+// listed elsewhere, and neither seo.js nor the sidebar counts it as the page.
+//
+// Groups with `collapsed` start closed (true) or open (false) and can be
+// folded; VitePress opens the group holding the page you're on either way.
 const sidebar = [
   {
-    text: 'Introduction',
+    text: 'Start Here',
     items: [
       { text: 'Getting Started', link: '/getting-started' },
-      { text: 'Installation', link: '/installation' },
-      { text: 'API Keys Guide', link: '/api-keys' },
-      { text: 'Configuration', link: '/configuration' }
+      { text: 'Ask the Bot', link: '/commands/ask' },
+      { text: 'Every Command', link: '/commands/' }
     ]
   },
   {
-    text: 'Guides',
+    text: 'Look It Up',
+    items: [
+      { text: 'Search Commands', link: '/commands/search' },
+      { text: '/random, /recommend, /similar', link: '/commands/#discovery-commands' },
+      { text: 'Statistics', link: '/features/statistics' }
+    ]
+  },
+  {
+    text: 'Watch Parties',
+    items: [
+      { text: 'Watch Party Commands', link: '/commands/watch-party' },
+      { text: 'The Watchlist', link: '/commands/watch-party#watchlist' },
+      { text: 'Watch History', link: '/features/watch-history' },
+      { text: 'Event Requests', link: '/features/event-requests' },
+      { text: 'What the Bot Posts on Its Own', link: '/features/notifications' }
+    ]
+  },
+  {
+    text: 'Tournaments & Surveys',
+    collapsed: true,
     items: [
       {
-        text: 'Tournament Quick Guides',
+        text: 'Quick Guides',
         link: '/guides/tournaments/',
         collapsed: false,
         items: [
@@ -30,8 +56,22 @@ const sidebar = [
           { text: 'Tournament FAQ', link: '/guides/tournaments/faq' }
         ]
       },
+      { text: 'How Tournaments Work', link: '/commands/brackets/' },
+      { text: 'Setup & Group Stage', link: '/commands/brackets/setup' },
+      { text: 'Setup Form & Templates', link: '/commands/brackets/import' },
+      { text: 'Knockout Rounds', link: '/commands/brackets/knockout' },
+      { text: 'Tips & Strategies', link: '/commands/brackets/tips' },
+      { text: 'Bracket Command Reference', link: '/commands/brackets/commands' },
+      { text: 'Surveys', link: '/commands/social' }
+    ]
+  },
+  {
+    text: 'Games & Trivia',
+    collapsed: true,
+    items: [
+      { text: 'Games & Scores', link: '/commands/games' },
       {
-        text: 'Games Quick Guides',
+        text: 'Quick Guides',
         link: '/guides/games/',
         collapsed: false,
         items: [
@@ -39,65 +79,55 @@ const sidebar = [
           { text: 'Fight a Siege', link: '/guides/games/siege' },
           { text: 'Games FAQ', link: '/guides/games/faq' }
         ]
-      }
-    ]
-  },
-  {
-    text: 'Commands',
-    items: [
-      { text: 'Overview', link: '/commands/' },
-      { text: 'Ask the Bot', link: '/commands/ask' },
-      { text: 'Search Commands', link: '/commands/search' },
-      {
-        text: 'Tournament Brackets',
-        collapsed: false,
-        items: [
-          { text: 'Overview & Quick Start', link: '/commands/brackets/' },
-          { text: 'Setup & Group Stage', link: '/commands/brackets/setup' },
-          { text: 'Setup Form & Templates', link: '/commands/brackets/import' },
-          { text: 'Knockout Rounds', link: '/commands/brackets/knockout' },
-          { text: 'Command Reference', link: '/commands/brackets/commands' },
-          { text: 'Tips & Strategies', link: '/commands/brackets/tips' }
-        ]
       },
       {
-        text: 'Games',
+        // New game pages (the rest of Big Trouble) go here
+        text: 'The Rules',
         collapsed: false,
         items: [
-          { text: 'Overview', link: '/commands/games' },
           { text: 'Playing & Points', link: '/commands/games-playing' },
           { text: 'Your Card & the Leaderboard', link: '/commands/games-card' },
           { text: 'Items, Prizes & Titles', link: '/commands/games-rewards' },
           { text: 'Twists & Happenings', link: '/commands/games-happenings' },
           { text: 'Siege', link: '/commands/games-siege' },
-          { text: 'The Six-Demon Bag', link: '/commands/games-magic' },
-          { text: 'Settings for Admins', link: '/commands/games-settings' }
+          { text: 'Six-Demon Bag', link: '/commands/games-magic' }
         ]
       },
-      { text: 'Escape Velocity', link: '/commands/escape-velocity' },
-      { text: 'AI Image Generation', link: '/commands/ai-images' },
-      { text: 'Watch Parties', link: '/commands/watch-party' },
-      { text: 'Social Commands', link: '/commands/social' },
-      { text: 'Admin Configuration', link: '/commands/configuration' },
-      { text: 'Moderation', link: '/commands/moderation' }
+      { text: 'Settings for Admins', link: '/commands/games-settings' },
+      { text: 'Escape Velocity', link: '/commands/escape-velocity' }
     ]
   },
   {
-    text: 'Features',
+    text: 'More',
     items: [
-      { text: 'Logging System', link: '/features/logging' },
-      { text: 'Rate Limiting', link: '/features/rate-limiting' },
+      { text: 'AI Images', link: '/commands/ai-images' },
+      { text: 'Status Quotes', link: '/commands/social#status-quote-commands' }
+    ]
+  },
+  {
+    text: 'Server Admins',
+    items: [
+      { text: 'Setting Up Your Server', link: '/configuration' },
+      { text: 'Every Setting', link: '/commands/configuration' },
       { text: 'Moderation Tools', link: '/features/moderation-tools' },
-      { text: 'Watch History', link: '/features/watch-history' },
-      { text: 'Statistics', link: '/features/statistics' },
-      { text: 'Notifications', link: '/features/notifications' },
-      { text: 'Event Requests', link: '/features/event-requests' }
+      { text: 'Rate Limiting', link: '/features/rate-limiting' },
+      { text: 'Moderation Commands', link: '/commands/moderation' }
     ]
   },
   {
-    text: 'Reference',
+    text: 'Self-Hosting',
+    collapsed: true,
     items: [
-      { text: 'API Reference', link: '/api/reference' },
+      { text: 'Installation', link: '/installation' },
+      { text: 'API Keys & .env', link: '/api-keys' },
+      { text: 'Logging', link: '/features/logging' },
+      { text: 'Developer Reference', link: '/api/reference' }
+    ]
+  },
+  {
+    text: 'About',
+    collapsed: true,
+    items: [
       { text: 'Changelog', link: '/changelog' },
       { text: 'Acknowledgements', link: '/acknowledgements' }
     ]
@@ -229,30 +259,53 @@ export default defineConfig({
       }
     },
     
+    // Six items, with the GitHub icon after them. The logo is the way home
     nav: [
-      { text: 'Home', link: '/' },
       { text: 'Getting Started', link: '/getting-started' },
       {
-        text: 'Guides',
+        text: 'Tournaments',
+        // Every tournament page lights it, not only the ones listed
+        activeMatch: '^/(commands/brackets|guides/tournaments)/|^/commands/social$',
         items: [
-          { text: 'Tournament Quick Guides', link: '/guides/tournaments/' },
-          { text: 'Games Quick Guides', link: '/guides/games/' }
+          {
+            text: 'Guides',
+            items: [
+              { text: 'Quick Guides', link: '/guides/tournaments/' },
+              { text: 'Movie Night Bracket', link: '/guides/tournaments/movie-night' },
+              { text: 'One Matchup at a Time', link: '/guides/tournaments/one-at-a-time' },
+              { text: 'Groups Tournament', link: '/guides/tournaments/groups' },
+              { text: 'Seeded Bracket', link: '/guides/tournaments/seeded' },
+              { text: 'Sports-Style Tournaments', link: '/guides/tournaments/sports-styles' },
+              { text: 'Tournament FAQ', link: '/guides/tournaments/faq' }
+            ]
+          },
+          {
+            text: 'Reference',
+            items: [
+              { text: 'How Tournaments Work', link: '/commands/brackets/' },
+              { text: 'Setup & Group Stage', link: '/commands/brackets/setup' },
+              { text: 'Setup Form & Templates', link: '/commands/brackets/import' },
+              { text: 'Knockout Rounds', link: '/commands/brackets/knockout' },
+              { text: 'Bracket Command Reference', link: '/commands/brackets/commands' }
+            ]
+          },
+          { text: 'Surveys', link: '/commands/social' }
         ]
       },
       {
         text: 'Games',
-        activeMatch: '^/(commands|guides)/games',
+        activeMatch: '^/(commands|guides)/games|^/commands/escape-velocity$',
         items: [
           {
             text: 'The games',
             items: [
-              { text: 'Overview', link: '/commands/games' },
+              { text: 'Games & Scores', link: '/commands/games' },
               { text: 'Playing & Points', link: '/commands/games-playing' },
               { text: 'Your Card & the Leaderboard', link: '/commands/games-card' },
               { text: 'Items, Prizes & Titles', link: '/commands/games-rewards' },
               { text: 'Twists & Happenings', link: '/commands/games-happenings' },
               { text: 'Siege', link: '/commands/games-siege' },
-              { text: 'The Six-Demon Bag', link: '/commands/games-magic' },
+              { text: 'Six-Demon Bag', link: '/commands/games-magic' },
               { text: 'Settings for Admins', link: '/commands/games-settings' }
             ]
           },
@@ -263,12 +316,55 @@ export default defineConfig({
               { text: 'Fight a Siege', link: '/guides/games/siege' },
               { text: 'Games FAQ', link: '/guides/games/faq' }
             ]
+          },
+          {
+            text: 'Trivia',
+            items: [
+              { text: 'Escape Velocity', link: '/commands/escape-velocity' }
+            ]
           }
         ]
       },
       { text: 'Commands', link: '/commands/' },
-      { text: 'Features', link: '/features/rate-limiting' },
-      { text: 'GitHub', link: 'https://github.com/r3volution11/Egg-Shen-Bot' }
+      {
+        text: 'Admins',
+        items: [
+          {
+            text: 'Setting up',
+            items: [
+              { text: 'Setting Up Your Server', link: '/configuration' },
+              { text: 'Every Setting', link: '/commands/configuration' },
+              { text: 'Game Settings', link: '/commands/games-settings' }
+            ]
+          },
+          {
+            text: 'Moderation',
+            items: [
+              { text: 'Moderation Tools', link: '/features/moderation-tools' },
+              { text: 'Rate Limiting', link: '/features/rate-limiting' },
+              { text: 'Moderation Commands', link: '/commands/moderation' }
+            ]
+          },
+          {
+            text: 'Watch parties',
+            items: [
+              { text: 'Event Requests', link: '/features/event-requests' },
+              { text: 'What the Bot Posts on Its Own', link: '/features/notifications' }
+            ]
+          }
+        ]
+      },
+      {
+        text: 'Self-Hosting',
+        items: [
+          { text: 'Getting Started', link: '/getting-started' },
+          { text: 'Installation', link: '/installation' },
+          { text: 'API Keys & .env', link: '/api-keys' },
+          { text: 'Logging', link: '/features/logging' },
+          { text: 'Developer Reference', link: '/api/reference' },
+          { text: 'Changelog', link: '/changelog' }
+        ]
+      }
     ],
     
     sidebar,

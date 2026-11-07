@@ -17,12 +17,12 @@ Pick the guide that matches what you want to run. Each one starts with the handf
 | Make the best titles meet late, with seeds and upsets shown | [Seeded bracket](./seeded) | 2–32 | 5 minutes to set up |
 | Run it like March Madness, the College Football Playoff, the NFL or the World Cup | [Sports-style tournaments](./sports-styles) | 12–48 | Depends on the style |
 
-Questions such as "why does the ballot show several matchups?" or "how long is left?" are answered in the [Tournament FAQ](./faq).
+Questions such as "why does the ballot show several matchups?" or "how long is left?" are answered in the [Tournament FAQ](./faq). How the whole system fits together, from creating a tournament to its champion, is on [How Tournaments Work](/commands/brackets/).
 
 ## The basics, in four lines
 
 - **Every vote is head-to-head:** one title against one title. The winner moves on, and each round halves the field until one champion is left.
-- **Admins and moderators set it up** with `/bracket-setup` (create, add titles, announce) and **run it** with `/bracket`. **Everyone votes** by pressing **Start Voting**.
+- **Members with Administrator or Timeout Members set it up** with `/bracket-setup` (create, add titles, announce) and **run it** with `/bracket`. **Everyone votes** by pressing **Start Voting**.
 - **`/bracket open` always opens the next thing to vote on**, and `/bracket close` ends voting early. Deadlines also close voting on their own.
 - **One tournament per server** at a time. Run `/bracket cancel` to start over.
 
@@ -36,7 +36,7 @@ When you create a straight bracket, you choose how much seeding counts. None of 
 | `ties` | **Runoff vote** (default) · **Higher seed wins** | What a tied matchup does: a short extra vote, or the better seed goes through. Higher seed wins needs Ordered or By rating seeding. |
 
 ```
-/bracket-setup create name:"Horror Madness" max-titles:16 seeding:By rating ties:Higher seed wins
+/bracket-setup create name:Horror Madness max-titles:16 seeding:By rating ties:Higher seed wins
 ```
 
 Not sure which to pick? [Sports-style tournaments](./sports-styles) matches each choice to a format you know, from March Madness to the World Cup.

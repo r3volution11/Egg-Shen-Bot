@@ -133,7 +133,8 @@ describe('/eggshen-config-website bot-url', () => {
     await execute(i);
 
     const config = await loadGuildConfig(GUILD_ID);
-    expect(config.website).toEqual({ theme: 'default' });
+    expect(config.website).not.toHaveProperty('botUrl');
+    expect(config.website.theme).toBe('default');
     expect(replyText(i)).toContain('https://live.example');
   });
 });

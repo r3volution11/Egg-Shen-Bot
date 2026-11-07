@@ -41,9 +41,9 @@ Discord only shows a bot what other people wrote if the bot has the **Message Co
 ### Mode 3: Versus Battle Between Two Titles
 
 ```
-/image title1:"The Thing 1982" title2:"Alien 1979"
-/image title1:"Breaking Bad" title2:"The Wire" prompt:"dramatic neon lighting"
-/image title1:"Elden Ring" title2:"Dark Souls"
+/image title1:The Thing 1982 title2:Alien 1979
+/image title1:Breaking Bad title2:The Wire prompt:dramatic neon lighting
+/image title1:Elden Ring title2:Dark Souls
 ```
 
 Looks up both titles on TMDB, RAWG, BoardGameGeek and Google Books (movie, TV show, video game, board game or book), then draws a split-screen "versus" poster. The two can be different kinds, such as a movie against a video game. If a title matches several things, the first match is used and the reply says so.
@@ -53,7 +53,7 @@ Looks up both titles on TMDB, RAWG, BoardGameGeek and Google Books (movie, TV sh
 ```
 /image matchup:1A
 /image matchup:Finals
-/image matchup:"The Thing vs Alien"
+/image matchup:The Thing vs Alien
 ```
 
 If your server has a [tournament](./brackets/) under way, this draws a versus poster from one of its matchups. Start typing in `matchup:` and pick from the list (matchups being voted on come first), or type a label such as `1A` or `Finals`, or its two titles. Run `/image` with no options to see this round's matchups by label.
@@ -134,6 +134,8 @@ Admins (Administrator or Manage Server) skip the cooldown by default, but never 
 ### What the Limits Save
 
 At the bot's $0.04 an image, the default server limit of 50 a day caps spending at $2 a day, about $60 a month. With the limits off, 100 members making 20 images each would be $80 a day.
+
+The $0.04 is only the bot's estimate, used for the cost `view` shows and the bot's log. No command changes it: it's `rateLimits.aiImages.costPerImage` in the server's settings file, `guild_configs/<server ID>.json`, which whoever runs the bot can edit if OpenAI charges something else.
 
 ### Whitelisted Members
 

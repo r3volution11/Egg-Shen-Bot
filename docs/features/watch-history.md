@@ -27,7 +27,7 @@ It's a shared record, not personal tracking:
 
 Tell the timer what you're watching with one of:
 - `movie`: a movie title
-- `tv`: a show, optionally with episodes, like `"Severance S2: E1-E3"`
+- `tv`: a show, optionally with episodes, like `Severance S2: E1-E3`
 - `label`: any text; the bot searches movies, shows and board games for it
 
 Other options:
@@ -41,7 +41,7 @@ In a watch-party channel, a `/timer start` with no title uses the name of the Di
 **Examples:**
 ```
 /timer start movie:Jaws
-/timer start tv:"Tales from the Crypt S5: E5-E8"
+/timer start tv:Tales from the Crypt S5: E5-E8
 /timer start label:Movie Night duration:120
 /timer start
 ```
@@ -236,7 +236,7 @@ Check what you've watched before picking the next one:
 Name the episodes when you start, and the whole party is logged as one entry with the episodes in its notes:
 
 ```
-/timer start tv:"Breaking Bad S1: E1-E3"
+/timer start tv:Breaking Bad S1: E1-E3
 ```
 
 Adding one by hand? Put the episode in the notes, since entries are saved against the show:

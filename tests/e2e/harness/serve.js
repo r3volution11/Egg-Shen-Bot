@@ -24,7 +24,10 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.join(__dirname, '../../..');
 const PORT = process.env.E2E_PORT || 3000;
 
-process.env.NODE_ENV = process.env.NODE_ENV || 'test'; // non-production: secure:false cookies, enables the rate-limit reset route
+// Always 'test', whatever the shell has: secure:false cookies, and the
+// rate-limit reset route, which server.js registers only when NODE_ENV is
+// exactly 'test' (a 'development' left in the shell would hide it).
+process.env.NODE_ENV = 'test';
 // The specs sign links in their own process, so both sides need the same
 // secret. Without a default here, event-image-crop.spec.js failed on any
 // machine that didn't happen to have EVENT_CROP_LINK_SECRET set.

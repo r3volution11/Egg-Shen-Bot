@@ -3,6 +3,7 @@ import { searchMovies, searchTVShows, getMovieAlternativeTitles, getTVAlternativ
 import { hybridSearch } from '../services/aiService.js';
 import { createSoundtrackSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { searchResultLimit } from '../utils/selectMenuLimits.js';
 import { deliverResult } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
@@ -64,7 +65,7 @@ export async function execute(interaction) {
     
     // Load guild config for max results
     const guildConfig = await loadGuildConfig(interaction.guildId);
-    const maxResults = guildConfig?.maxSearchResults || 20;
+    const maxResults = searchResultLimit(guildConfig); // at most 25, a select menu's limit
     
     // Limit results
     const limitedResults = allResults.slice(0, maxResults);

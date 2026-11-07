@@ -3,6 +3,7 @@ import { searchTVShows, getTVAlternativeTitles } from '../services/tmdbService.j
 import { hybridSearch, pickLandslideWinner } from '../services/aiService.js';
 import { createSearchResults } from '../utils/embedBuilder.js';
 import { canUseCommand, loadGuildConfig } from '../utils/guildConfig.js';
+import { searchResultLimit } from '../utils/selectMenuLimits.js';
 import { deliverResult } from '../utils/interactionResponse.js';
 
 export const data = new SlashCommandBuilder()
@@ -122,7 +123,7 @@ export async function execute(interaction) {
 
     // Load guild config to get maxSearchResults
     const guildConfig = await loadGuildConfig(interaction.guildId);
-    const maxResults = guildConfig.maxSearchResults || 20;
+    const maxResults = searchResultLimit(guildConfig); // at most 25, a select menu's limit
     const limitedResults = results.slice(0, maxResults);
 
     // The picker itself always stays ephemeral — the private flag travels

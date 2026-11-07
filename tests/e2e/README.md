@@ -36,7 +36,7 @@ The only thing stubbed out is the Discord connection itself:
   way the bot does at login (`src/utils/sessionCookie.js`), with the harness's
   `SESSION_SECRET`, instead of driving real Discord OAuth.
 - A test-only `POST /api/__test__/reset-rate-limit` route in `src/api/server.js`,
-  compiled out whenever `NODE_ENV === 'production'`, lets tests reset the real 1-per-5-minute
+  registered only when `NODE_ENV === 'test'` (the harness sets it), lets tests reset the real 1-per-5-minute
   submission limiter instead of waiting it out or weakening it for tests.
 
 None of the fixture guild IDs, names, or channels are real — they're placeholders

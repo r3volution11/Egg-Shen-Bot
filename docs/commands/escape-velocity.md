@@ -65,8 +65,10 @@ A new mission card is posted each day, so the new launch window shows up as a ne
 
 ## Running an event (admins and moderators)
 
+`/escape-setup` is for admins and moderators: Administrator, Manage Server, Timeout Members, Kick Members or Ban Members. Discord hides it from anyone without Timeout Members unless the server changes that in **Server Settings → Integrations**, so a moderator with only Manage Server, Kick or Ban won't see it until then.
+
 ```
-/escape-setup create name:"Halloween Launch" days:7
+/escape-setup create name:Halloween Launch days:7
 ```
 
 | Option | |

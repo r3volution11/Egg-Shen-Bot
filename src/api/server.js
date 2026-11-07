@@ -174,7 +174,19 @@ export function createApiServer(client) {
   }
   
   // Middleware
-  app.set('trust proxy', true); // Trust Nginx proxy for X-Forwarded-For headers
+  // Which X-Forwarded-For entry is the visitor: trust only a proxy on this
+  // machine (nginx in front of the bot), so req.ip, and every per-IP limit
+  // keyed on it, is the address that proxy saw and appended: the right-most
+  // entry. It was `true`, which takes the LEFT-most entry, and that one is
+  // whatever the visitor sent: nginx's $proxy_add_x_forwarded_for keeps the
+  // visitor's own header and appends after it, and a request straight to the
+  // bot's port can send anything. Changing it on each request dodged the
+  // event-request, upload, artwork, quotes-admin and tournament-setup
+  // limits. A request from anywhere but loopback now has its header ignored.
+  // A proxy on another machine or in another container isn't trusted either:
+  // every request through one would share the proxy's address, so such a
+  // setup needs that proxy's address here instead of 'loopback'.
+  app.set('trust proxy', 'loopback');
   app.use(cors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
     credentials: true
@@ -1406,7 +1418,14 @@ export function createApiServer(client) {
   
   // Test-only: lets the e2e harness reset event-request-related rate
   // limiters for the calling host+IP without waiting out their real
-  // windows. Inert in production. See tests/e2e/README.md.
+  // windows. See tests/e2e/README.md.
+  //
+  // Registered only when NODE_ENV is exactly 'test' (the e2e harness,
+  // tests/e2e/harness/serve.js, and Jest both set it). It used to be on
+  // whenever NODE_ENV wasn't 'production', and plain `npm start` sets no
+  // NODE_ENV at all — so on a self-hosted bot started that way anyone could
+  // POST here and clear their own limits, and the 1-request-per-5-minutes
+  // event-request limit (and the image-upload one) didn't hold.
   //
   // Resets both eventRequestLimiter (the main submission limit) and
   // imageUploadLimiter (shared by /upload-image and /fetch-image-url,
@@ -1418,7 +1437,7 @@ export function createApiServer(client) {
   // (which subnet-masks IPv6 via express-rate-limit's own ipKeyGenerator
   // helper) — resetKey(req.ip) alone would silently no-op, both because it
   // skips that transform and because it omits the host prefix.
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV === 'test') {
     app.post('/api/__test__/reset-rate-limit', async (req, res) => {
       const key = hostAndIpKeyGenerator(req);
       await eventRequestLimiter.resetKey(key);

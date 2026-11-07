@@ -29,7 +29,7 @@ const defaultConfig = {
     justWatch: '',
   },
   region: 'US', // Default region for streaming availability (ISO 3166-1 country code)
-  maxSearchResults: 20, // Maximum number of search results to display in selection menus (1-50)
+  maxSearchResults: 20, // Maximum number of search results to display in selection menus (1-25, Discord's limit). Read through searchResultLimit() in selectMenuLimits.js: a config saved before the cap can hold up to 50.
   maxTimerDurationMinutes: 360, // Fallback auto-stop duration (6 hours) for timers with NO real duration — no manual duration given and nothing auto-detected. An explicit or auto-detected duration is never affected by this value.
   maxTimerDurationUnlimited: false, // When true, a timer with no real duration just runs forever (like /timer autostop disable) instead of getting the fallback above
   timerCeilingMinutes: null, // Optional hard ceiling applied to explicit/detected timer durations too (start, adjust, autostop enable, extend). Off by default — see timerCeilingEnabled.
@@ -211,16 +211,129 @@ function getConfigPath(guildId) {
   return path.join(configDir, `${guildId}.json`);
 }
 
+const isPlainObject = (value) =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
 /**
- * Load guild configuration
+ * The defaults a SAVED config is filled from: defaultConfig, except that
+ * rate limiting stays off. A server that has never saved a config gets
+ * defaultConfig itself, rate limiting on (loadGuildConfig).
+ *
+ * Why: before defaults were filled in (2.76.1), a saved config without
+ * `rateLimits.enabled` read as rate limiting OFF (checkRateLimit tests it
+ * for truthiness), and both live servers were in that state, one with no
+ * `rateLimits` at all, the other with only `rateLimits.aiImages`. Filling
+ * the default would have switched rate limiting on for them overnight, and
+ * members who had never been held to one command per 20 seconds would
+ * start being refused. Doug's call (2026-11-07): preserve today's behaviour.
+ * Such a server keeps it off until an admin turns it on
+ * (/eggshen-config-watch-party rate-limit toggle). An explicit true or false
+ * is kept as saved, as every value is, and every other default still fills
+ * in, the rest of rateLimits included: those keys do nothing while the
+ * switch is off, and are ready when it goes on. (bypassForModerators is the
+ * one that still acts: it also lets admins and moderators skip manual
+ * cooldowns, which apply whenever moderation is on.)
+ *
+ * Once such a config is saved for any reason it is saved whole, so the
+ * `enabled: false` this adds is written and the file says what it means.
+ */
+const savedConfigDefaults = structuredClone(defaultConfig);
+savedConfigDefaults.rateLimits.enabled = false;
+
+/**
+ * A saved config with the defaults filled in under it: every key the file
+ * lacks reads as its default, and every key the file has keeps its value.
+ * The defaults are defaultConfig's, but for one exception: a saved config
+ * that never set `rateLimits.enabled` keeps rate limiting off (see
+ * savedConfigDefaults just above).
+ *
+ * There are no config migrations, so a config saved before a key existed
+ * simply lacks it, and code that read it directly saw `undefined`, which
+ * usually meant "off". On those servers the Metacritic badge never showed
+ * (and `settings toggle`/`emoji` refused it), /recommend and /suggest-quote
+ * fell back to the general rate limit, and guild-wide limits and pattern
+ * detection were off, all while a server set up later got them. Older
+ * configs now read like a new server's, apart from that one switch.
+ *
+ * The rules:
+ *  - Only where the default and the saved value are both objects does it
+ *    recurse. An array is used as saved, never merged item by item (a
+ *    whitelist of ids stays exactly the ids an admin listed).
+ *  - A value that is present is kept, whatever it is: `false`, `0`, `''`,
+ *    and `null`, which means "set to nothing" (a channel cleared, all potion
+ *    themes on), not "missing".
+ *  - Keys defaultConfig doesn't have are kept untouched: the top-level
+ *    `aiImages` switch (a server that turned AI images off keeps them off),
+ *    and maps keyed by id or name stored outside it (doomLines, games,
+ *    website.botUrl, a per-command limit for /movie) come back exactly as
+ *    saved. The maps
+ *    inside it either default to empty (potionResponses), so nothing is
+ *    added, or hold built-in entries every server should have:
+ *    rateLimits.commands gains the default /recommend and /suggest-quote
+ *    limits when the file lacks them, and keeps every other entry.
+ *
+ * Defaults are cloned, never shared: a caller that changes the result and
+ * saves it must not change defaultConfig for every other server.
+ *
+ * Nothing is written here. A config with defaults filled in is saved only
+ * when something changes it anyway, through saveGuildConfig, and then it is
+ * saved whole, defaults included. That is what a new server's config already
+ * is: its first save writes all of defaultConfig. So an older server ends up
+ * in the same state a new one does, without a write on every read.
+ *
+ * @param {object} saved - the parsed file
+ * @param {object} [defaults] - savedConfigDefaults unless given
+ * @returns {object} a new object; `saved` is not changed
+ */
+export function withDefaults(saved, defaults = savedConfigDefaults) {
+  if (!isPlainObject(saved)) return structuredClone(defaults);
+  const merged = { ...saved };
+  for (const [key, fallback] of Object.entries(defaults)) {
+    if (!Object.prototype.hasOwnProperty.call(saved, key) || saved[key] === undefined) {
+      merged[key] = structuredClone(fallback);
+    } else if (isPlainObject(fallback) && isPlainObject(saved[key])) {
+      merged[key] = withDefaults(saved[key], fallback);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Every key a saved config lacks that now reads as its default, outermost
+ * first: a missing object is one entry with its whole default, not one per
+ * key inside it. The value is what withDefaults gives it, so a missing
+ * `rateLimits.enabled` is listed as false. Used by
+ * scripts/config-defaults-report.js.
+ *
+ * @param {object} saved - the parsed file
+ * @returns {{ path: string, value: * }[]}
+ */
+export function missingDefaults(saved, defaults = savedConfigDefaults, prefix = '') {
+  if (!isPlainObject(saved)) return [{ path: prefix || '(whole config)', value: defaults }];
+  const missing = [];
+  for (const [key, fallback] of Object.entries(defaults)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (!Object.prototype.hasOwnProperty.call(saved, key) || saved[key] === undefined) {
+      missing.push({ path, value: fallback });
+    } else if (isPlainObject(fallback) && isPlainObject(saved[key])) {
+      missing.push(...missingDefaults(saved[key], fallback, path));
+    }
+  }
+  return missing;
+}
+
+/**
+ * Load guild configuration: the saved file with the defaults filled in under
+ * it (withDefaults; rate limiting stays off if the file never set it), or
+ * defaultConfig, rate limiting on, for a server that never saved one.
  */
 export async function loadGuildConfig(guildId) {
   await ensureConfigDir();
   const configPath = getConfigPath(guildId);
-  
+
   try {
     const data = await fs.readFile(configPath, 'utf8');
-    return JSON.parse(data);
+    return withDefaults(JSON.parse(data));
   } catch (error) {
     // If config doesn't exist, return default. Must be a deep clone —
     // a shallow `{ ...defaultConfig }` shares nested objects (commandPermissions,
@@ -394,15 +507,18 @@ export function isModerator(member) {
  * Update service toggle
  */
 export async function toggleService(guildId, serviceName, enabled) {
-  const config = await loadGuildConfig(guildId);
-  
-  if (config.services.hasOwnProperty(serviceName)) {
-    config.services[serviceName] = enabled;
-    await saveGuildConfig(guildId, config);
-    return true;
+  // Validated against the defaults, as updateCommandPermission is: a config
+  // saved before a service existed (Metacritic, 2026-09) lacked its key, and
+  // checking the saved object refused the toggle on every such server.
+  if (!Object.prototype.hasOwnProperty.call(defaultConfig.services, serviceName)) {
+    return false;
   }
-  
-  return false;
+
+  const config = await loadGuildConfig(guildId);
+  config.services ??= {};
+  config.services[serviceName] = enabled;
+  await saveGuildConfig(guildId, config);
+  return true;
 }
 
 /**
@@ -417,15 +533,16 @@ export async function getEnabledServices(guildId) {
  * Update emoji for a service
  */
 export async function setEmoji(guildId, serviceName, emojiId) {
-  const config = await loadGuildConfig(guildId);
-  
-  if (config.emojis.hasOwnProperty(serviceName)) {
-    config.emojis[serviceName] = emojiId;
-    await saveGuildConfig(guildId, config);
-    return true;
+  // Against the defaults, for the same reason as toggleService
+  if (!Object.prototype.hasOwnProperty.call(defaultConfig.emojis, serviceName)) {
+    return false;
   }
-  
-  return false;
+
+  const config = await loadGuildConfig(guildId);
+  config.emojis ??= {};
+  config.emojis[serviceName] = emojiId;
+  await saveGuildConfig(guildId, config);
+  return true;
 }
 
 /**
