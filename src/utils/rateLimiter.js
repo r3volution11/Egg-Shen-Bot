@@ -1,4 +1,5 @@
 import { loadGuildConfig } from './guildConfig.js';
+import { memberHas, memberRoleIds } from './memberPermissions.js';
 
 /**
  * Rate limiter storage
@@ -143,8 +144,10 @@ setInterval(() => {
 function hasModeratorPermissions(member) {
   if (!member) return false;
   
-  // Check for Administrator permission
-  if (member.permissions.has('Administrator')) {
+  // memberHas, not member.permissions.has: for a member discord.js hasn't
+  // cached, `permissions` is a bitfield string with no .has(), and this ran
+  // before every command — each one failed (see memberPermissions.js).
+  if (memberHas(member, 'Administrator')) {
     return true;
   }
   
@@ -157,7 +160,7 @@ function hasModeratorPermissions(member) {
     'BanMembers',
   ];
   
-  return moderatorPermissions.some(perm => member.permissions.has(perm));
+  return moderatorPermissions.some(perm => memberHas(member, perm));
 }
 
 // Said to someone past the auto-ban threshold. It used to add "Server
@@ -211,7 +214,9 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
       }
       // Check if user has an allowed role
       else if (allowedRoles.length > 0) {
-        const hasAllowedRole = member.roles.cache.some(role => allowedRoles.includes(role.id));
+        // memberRoleIds: an uncached member's `roles` is an array of ids
+        // with no .cache, and reading .cache.some threw here
+        const hasAllowedRole = memberRoleIds(member).some(id => allowedRoles.includes(id));
         if (!hasAllowedRole) {
           return {
             limited: true,

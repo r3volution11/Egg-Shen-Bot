@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import * as logger from '../utils/logger.js';
+import { memberHas } from '../utils/memberPermissions.js';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -59,8 +60,10 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction) {
-  // Only administrators can view logs
-  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+  // Only administrators can view logs. memberHas: an uncached
+  // interaction.member has a bitfield-string `permissions` with no .has()
+  // (see utils/memberPermissions.js)
+  if (!memberHas(interaction.member, PermissionFlagsBits.Administrator)) {
     await interaction.reply({
       content: '❌ Only administrators can view bot logs.',
       ephemeral: true

@@ -6,6 +6,7 @@ import { readdirSync } from 'fs';
 import { loadTimers, getTimerStatus, restoreTimerTimeouts } from './utils/timerManager.js';
 import * as logger from './utils/logger.js';
 import { dispatchCommand, isCommandInteraction } from './handlers/commandDispatch.js';
+import { memberHas } from './utils/memberPermissions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -378,8 +379,10 @@ client.on('interactionCreate', async (interaction) => {
     } else if (interaction.customId.startsWith('edit_event_modal_')) {
       const requestId = interaction.customId.replace('edit_event_modal_', '');
 
-      if (!interaction.member.permissions.has('ManageEvents') &&
-          !interaction.member.permissions.has('Administrator')) {
+      // memberHas: an uncached interaction.member has a bitfield-string
+      // `permissions` with no .has() (see utils/memberPermissions.js)
+      if (!memberHas(interaction.member, 'ManageEvents') &&
+          !memberHas(interaction.member, 'Administrator')) {
         await interaction.reply({
           content: '❌ Only moderators and administrators can edit event requests.',
           flags: MessageFlags.Ephemeral,
@@ -569,8 +572,9 @@ client.on('interactionCreate', async (interaction) => {
     } else if (interaction.customId.startsWith('deny_event_modal_')) {
       const requestId = interaction.customId.replace('deny_event_modal_', '');
 
-      if (!interaction.member.permissions.has('ManageEvents') &&
-          !interaction.member.permissions.has('Administrator')) {
+      // memberHas reads either member shape — see the edit modal above
+      if (!memberHas(interaction.member, 'ManageEvents') &&
+          !memberHas(interaction.member, 'Administrator')) {
         await interaction.reply({
           content: '❌ Only moderators and administrators can approve/deny event requests.',
           flags: MessageFlags.Ephemeral,

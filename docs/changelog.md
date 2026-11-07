@@ -9,6 +9,19 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.74.1 - 2026-11-06
+
+### Fixed
+- **Commands failed with "There was an error executing this command!"** for members the bot hadn't loaded yet. Every command they ran failed, because the rate limit's moderator check couldn't read their permissions. They now work.
+- **Admins and moderators among those members are recognised again.** That covers the event-request buttons (approve, deny, edit, crop, channels), tournament management, `/eggshen-logs`, Log to Watch History, whitelist-mode roles, and a survey creator managing their own survey.
+
+### Developer
+- **Why:** discord.js gives `interaction.member` as the raw API member when the guild isn't cached. Its `permissions` is a bitfield string, `roles` is an array of ids, and there's no `id`, only `user.id`.
+- **The fix:** a new `src/utils/memberPermissions.js` (`permissionsOf`, `memberHas`, `memberRoleIds`, `memberId`) reads both shapes. A cached member's own `PermissionsBitField` is used untouched. `interaction.memberPermissions` was not used, because for a cached member it applies the channel's overwrites, which would change who passes some checks.
+- **Where it's used:** `rateLimiter` (moderator bypass, whitelist roles), `guildConfig` (`isAdmin`, `isTrueAdmin`, `isModerator`), `pollManager.canManagePoll`, the event-request and Log to Watch History buttons and pop-ups, `/bracket`'s manager gate and `/eggshen-logs`.
+- **Tests:** `tests/uncached-member-permissions.test.js` (43 tests) runs every gate through the real dispatcher and button handler, once with a cached member and once with a raw one. Each fix was reverted to see its tests fail. The fake gains `addUser(id, { uncachedMember: true })`.
+- No command changes: restart only.
+
 ## 2.74.0 - 2026-11-06
 
 ### Changed

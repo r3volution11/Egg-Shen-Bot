@@ -166,6 +166,11 @@ Other hard-won Discord behavior:
   See `ensureTournamentManager` in `src/handlers/buttonHandler.js`.
 - **A select customId not in `handledIds`** (top of `selectHandler.js`) is
   silently dropped, with nothing in the logs.
+- **`interaction.member` can be the raw API member** when the guild isn't
+  cached: `permissions` is a bitfield *string* (no `.has()`), `roles` is an
+  array of ids (no `.cache`), and there's no `id`, only `user.id`. Calling
+  `member.permissions.has` on it failed every command for those members
+  (2.74.1). Read members through `src/utils/memberPermissions.js`.
 
 ---
 

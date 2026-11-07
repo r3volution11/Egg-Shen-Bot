@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { randomBytes, randomInt } from 'crypto';
 import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, AttachmentBuilder } from 'discord.js';
 import { clipText, LIMITS, chooseLayout, messageProblems } from './embedFit.js';
+import { memberHas, memberId } from './memberPermissions.js';
 import { liveKit, createKit, pill, formatNumber } from './emojiKit.js';
 import { generateSurveyResultsImage } from './cardImages.js';
 
@@ -370,13 +371,16 @@ export function deletePoll(guildId, pollId) {
  * Check if a user can manage a poll (admin, mod, or creator)
  */
 export function canManagePoll(poll, member) {
-  // Check if user is admin or has manage server permission
-  if (member.permissions.has('Administrator') || member.permissions.has('ManageGuild')) {
+  // Check if user is admin or has manage server permission. memberHas and
+  // memberId read either member shape: one discord.js hasn't cached has a
+  // bitfield-string `permissions` (no .has()) and no `id`, only `user.id`.
+  if (memberHas(member, 'Administrator') || memberHas(member, 'ManageGuild')) {
     return true;
   }
   
   // Check if user is the poll creator
-  if (poll.creatorId === member.id) {
+  const id = memberId(member);
+  if (id && poll.creatorId === id) {
     return true;
   }
   

@@ -13,7 +13,7 @@
  * would see in Discord.
  */
 
-import { Embed, ActionRow, PermissionFlagsBits, DiscordAPIError } from 'discord.js';
+import { Embed, ActionRow, PermissionFlagsBits, DiscordAPIError, Collection } from 'discord.js';
 import { messageProblems } from '../../src/utils/embedFit.js';
 
 const EPHEMERAL = 64;
@@ -203,7 +203,7 @@ export class FakeGuild {
  * permission; a plain member holds none. Code asks with both string names
  * ('Administrator') and bigint flags (PermissionFlagsBits.Administrator).
  */
-export function fakeMember(user, { admin = false, permissions = [], guildAvatar = null, nickname = null } = {}) {
+export function fakeMember(user, { admin = false, permissions = [], guildAvatar = null, nickname = null, roles = [] } = {}) {
   const held = new Set(permissions.map(p => (typeof p === 'bigint' ? p : PermissionFlagsBits[p])));
   return {
     user,
@@ -211,7 +211,8 @@ export function fakeMember(user, { admin = false, permissions = [], guildAvatar 
     displayName: nickname || user.username,
     // As GuildMember: the server avatar if set, else the account's
     displayAvatarURL: () => guildAvatar || user.displayAvatarURL(),
-    roles: { cache: new Map() },
+    // As GuildMemberRoleManager: a Collection of role objects keyed by id
+    roles: { cache: new Collection(roles.map(id => [id, { id }])) },
     permissions: {
       has(flag) {
         if (admin) return true;
@@ -219,6 +220,39 @@ export function fakeMember(user, { admin = false, permissions = [], guildAvatar 
         return held.has(bit);
       },
     },
+  };
+}
+
+/**
+ * A member as discord.js passes it on when it has NOT cached the guild:
+ * BaseInteraction keeps Discord's raw APIInteractionGuildMember
+ * (`guild?.members._add(data.member) ?? data.member`). Unlike a GuildMember
+ * it has no `id`, `displayName` or `displayAvatarURL`; `roles` is an array of
+ * role ids; and `permissions` is the bitfield as a decimal STRING — Discord's
+ * computed total, every bit for an Administrator. `.permissions.has(...)`
+ * on it throws "member.permissions.has is not a function", which failed
+ * every command for such members in production (2026-11).
+ *
+ * Build one with addUser(id, { uncachedMember: true }).
+ */
+export function apiMember(user, { admin = false, permissions = [], nickname = null, roles = [] } = {}) {
+  const flag = (p) => (typeof p === 'bigint' ? p : PermissionFlagsBits[p]);
+  const bits = admin
+    ? Object.values(PermissionFlagsBits).reduce((all, b) => all | b, 0n)
+    : permissions.reduce((all, p) => all | flag(p), 0n);
+  return {
+    user: { id: user.id, username: user.username, global_name: null, avatar: null, discriminator: '0' },
+    nick: nickname,
+    avatar: null,
+    roles: [...roles],
+    joined_at: '2024-01-01T00:00:00.000Z',
+    premium_since: null,
+    deaf: false,
+    mute: false,
+    flags: 0,
+    pending: false,
+    communication_disabled_until: null,
+    permissions: String(bits),
   };
 }
 
@@ -452,9 +486,16 @@ export class FakeDiscord {
     return this.ephemerals.get(userId);
   }
 
-  addUser(id, { admin = false, permissions = [], guildAvatar = null, nickname = null } = {}) {
+  /**
+   * `uncachedMember`: the member arrives as the raw API object discord.js
+   * hands over when the guild isn't cached (see apiMember), not a
+   * GuildMember. `interaction.user` is a full User either way.
+   */
+  addUser(id, { admin = false, permissions = [], guildAvatar = null, nickname = null, roles = [], uncachedMember = false } = {}) {
     const user = { id, username: id, displayAvatarURL: () => `https://cdn.example/${id}.png` };
-    const member = fakeMember(user, { admin, permissions, guildAvatar, nickname });
+    const member = uncachedMember
+      ? apiMember(user, { admin, permissions, nickname, roles })
+      : fakeMember(user, { admin, permissions, guildAvatar, nickname, roles });
     this.users.set(id, { user, member });
     return user;
   }

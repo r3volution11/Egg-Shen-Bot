@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { permissionsOf } from './memberPermissions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -347,35 +348,41 @@ export function getAiTextEnabled(guildConfig) {
  * - BanMembers (can ban users)
  */
 export function isAdmin(member) {
-  if (!member) return false;
+  // permissionsOf, not member.permissions: interaction.member is a raw API
+  // member when discord.js hasn't cached it, and its `permissions` is a
+  // bitfield string with no .has() (see memberPermissions.js).
+  const perms = permissionsOf(member);
+  if (!perms) return false;
   
   // Check Discord permissions - admins and typical moderator permissions
-  return member.permissions.has('Administrator') ||
-         member.permissions.has('ManageGuild') ||
-         member.permissions.has('ModerateMembers') ||
-         member.permissions.has('KickMembers') ||
-         member.permissions.has('BanMembers');
+  return perms.has('Administrator') ||
+         perms.has('ManageGuild') ||
+         perms.has('ModerateMembers') ||
+         perms.has('KickMembers') ||
+         perms.has('BanMembers');
 }
 
 /**
  * Check if a user is a true administrator (not just moderator)
  */
 export function isTrueAdmin(member) {
-  if (!member) return false;
-  return member.permissions.has('Administrator') || member.permissions.has('ManageGuild');
+  const perms = permissionsOf(member); // either member shape, as isAdmin
+  if (!perms) return false;
+  return perms.has('Administrator') || perms.has('ManageGuild');
 }
 
 /**
  * Check if a user is a moderator (has mod permissions but not admin)
  */
 export function isModerator(member) {
-  if (!member) return false;
+  const perms = permissionsOf(member); // either member shape, as isAdmin
+  if (!perms) return false;
   
-  const hasModPerms = member.permissions.has('ModerateMembers') ||
-                      member.permissions.has('KickMembers') ||
-                      member.permissions.has('BanMembers');
-  const hasAdminPerms = member.permissions.has('Administrator') ||
-                        member.permissions.has('ManageGuild');
+  const hasModPerms = perms.has('ModerateMembers') ||
+                      perms.has('KickMembers') ||
+                      perms.has('BanMembers');
+  const hasAdminPerms = perms.has('Administrator') ||
+                        perms.has('ManageGuild');
   
   return hasModPerms && !hasAdminPerms;
 }

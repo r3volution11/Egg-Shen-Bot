@@ -9,6 +9,7 @@ import { avatarOf } from '../utils/personCard.js';
 import { parseDuration, isValidDuration, isValidTiebreakerDuration, buildExport, DEFAULT_VOTING_DURATION, DEFAULT_TIEBREAKER_DURATION } from '../utils/tournamentImport.js';
 import { signSetupToken, SETUP_LINK_TTL_MS } from '../utils/tournamentSetupLinkToken.js';
 import { loadGuildConfig, isAdmin, canUseCommand, getPublicBotUrl } from '../utils/guildConfig.js';
+import { memberHas } from '../utils/memberPermissions.js';
 import { config } from '../config.js';
 import { closeMatchupsNow, afterKnockoutDecided } from '../utils/tournamentScheduler.js';
 
@@ -480,8 +481,10 @@ export async function execute(interaction) {
   // Check admin/mod permissions for management commands
   const requiresAdmin = ADMIN_SUBCOMMANDS;
   if (requiresAdmin.includes(subcommand)) {
-    const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
-    const isMod = interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers);
+    // memberHas: an uncached interaction.member has a bitfield-string
+    // `permissions` with no .has() (see utils/memberPermissions.js)
+    const isAdmin = memberHas(interaction.member, PermissionFlagsBits.Administrator);
+    const isMod = memberHas(interaction.member, PermissionFlagsBits.ModerateMembers);
     
     if (!isAdmin && !isMod) {
       await interaction.reply({

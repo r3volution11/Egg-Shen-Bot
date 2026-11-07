@@ -11,6 +11,7 @@ import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventReques
 import { formatUtcForInput, TIME_INPUT_PLACEHOLDER } from '../utils/eventTimeInput.js';
 import { getTimerStatus } from '../utils/timerManager.js';
 import { isAdmin, loadGuildConfig, getPublicBotUrl } from '../utils/guildConfig.js';
+import { memberHas } from '../utils/memberPermissions.js';
 import { signCropToken } from '../utils/cropLinkToken.js';
 import { closeMatchupsNow } from '../utils/tournamentScheduler.js';
 // A ballot is private, so it shows the voter's face, not the bot's
@@ -208,8 +209,11 @@ export async function handleButtonInteraction(interaction) {
     if (interaction.customId.startsWith('crop_event_')) {
       const requestId = interaction.customId.replace('crop_event_', '');
 
-      if (!interaction.member.permissions.has('ManageEvents') &&
-          !interaction.member.permissions.has('Administrator')) {
+      // memberHas, here and in every gate below: an interaction.member
+      // discord.js hasn't cached has a bitfield-string `permissions` with no
+      // .has(), which threw (see utils/memberPermissions.js)
+      if (!memberHas(interaction.member, 'ManageEvents') &&
+          !memberHas(interaction.member, 'Administrator')) {
         await interaction.reply({
           content: '❌ Only moderators and administrators can change an event request\'s image.',
           flags: MessageFlags.Ephemeral
@@ -257,8 +261,8 @@ export async function handleButtonInteraction(interaction) {
       const requestId = interaction.customId.replace('edit_event_', '');
 
       // Check if user has moderation permissions
-      if (!interaction.member.permissions.has('ManageEvents') &&
-          !interaction.member.permissions.has('Administrator')) {
+      if (!memberHas(interaction.member, 'ManageEvents') &&
+          !memberHas(interaction.member, 'Administrator')) {
         await interaction.reply({
           content: '❌ Only moderators and administrators can edit event requests.',
           flags: MessageFlags.Ephemeral
@@ -376,8 +380,8 @@ export async function handleButtonInteraction(interaction) {
       }
       
       // Check if user has moderation permissions
-      if (!interaction.member.permissions.has('ManageEvents') && 
-          !interaction.member.permissions.has('Administrator')) {
+      if (!memberHas(interaction.member, 'ManageEvents') &&
+          !memberHas(interaction.member, 'Administrator')) {
         await interaction.reply({
           content: '❌ Only moderators and administrators can approve/deny event requests.',
           flags: MessageFlags.Ephemeral
@@ -532,8 +536,8 @@ export async function handleButtonInteraction(interaction) {
       const requestId = customIdParts.join('_'); // Rejoin the rest
       
       // Check if user has moderation permissions
-      if (!interaction.member.permissions.has('ManageEvents') && 
-          !interaction.member.permissions.has('Administrator')) {
+      if (!memberHas(interaction.member, 'ManageEvents') &&
+          !memberHas(interaction.member, 'Administrator')) {
         await interaction.update({
           content: '❌ Only moderators and administrators can approve event requests.',
           components: [],
@@ -2324,9 +2328,10 @@ export async function handleWatchHistoryButton(interaction) {
     const [, , channelId, starterUserId] = interaction.customId.split('_');
     
     // Check if user is the timer starter OR has admin/mod permissions
-    const isModerator = interaction.member.permissions.has('Administrator') || 
-                       interaction.member.permissions.has('ManageGuild') ||
-                       interaction.member.permissions.has('ModerateMembers');
+    // (memberHas reads an uncached member's bitfield string too)
+    const isModerator = memberHas(interaction.member, 'Administrator') ||
+                       memberHas(interaction.member, 'ManageGuild') ||
+                       memberHas(interaction.member, 'ModerateMembers');
     
     if (interaction.user.id !== starterUserId && !isModerator) {
       await interaction.reply({
