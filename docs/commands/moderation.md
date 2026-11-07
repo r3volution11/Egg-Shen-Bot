@@ -6,7 +6,7 @@ description: "Moderation commands for Egg Shen Bot: rate limits, member cooldown
 
 Tools to stop spam and abuse of the bot: rate limits, cooldowns for a member, whitelist mode, and a threshold that flags repeat offenders. For how they work together, see [Moderation Tools](/features/moderation-tools) and [Rate Limiting](/features/rate-limiting).
 
-**Who can use them:** admins and moderators, meaning members with Administrator, Manage Server, Timeout Members, Kick Members or Ban Members. Admins and moderators are never limited or blocked by these tools themselves (as long as [moderator bypass](#moderator-bypass) is on, which it is by default).
+**Who can use them:** admins and moderators, meaning members with Administrator, Manage Server, Timeout Members, Kick Members or Ban Members. Whitelist mode never blocks admins and moderators. While [moderator bypass](#moderator-bypass) is on (the default), rate limits and cooldowns don't apply to them either.
 
 ## Rate Limits
 
@@ -44,7 +44,7 @@ For a member who's stuck waiting.
 /eggshen-config-watch-party rate-limit bypass enabled:<true|false>
 ```
 
-On by default: admins and moderators aren't rate limited.
+On by default: admins and moderators aren't rate limited and skip cooldowns. Turned off, both apply to them as to anyone. Whitelist mode lets them in either way. For these, members with Manage Messages or Manage Channels count as moderators too.
 
 ### Spot Coordinated Spam
 
@@ -66,7 +66,7 @@ The rest is in `/eggshen-config-moderation moderation`. **Moderation is off by d
 /eggshen-config-moderation moderation toggle enabled:true
 ```
 
-Moderation runs alongside rate limiting. If you turn rate limiting off, whitelist mode and cooldowns stop applying too.
+Whitelist mode and cooldowns don't depend on rate limiting: they keep working if you turn rate limiting off.
 
 ### Cooldown a Member
 
@@ -96,7 +96,7 @@ Cooldowns are kept in memory, so a bot restart ends them.
 /eggshen-config-moderation moderation whitelist-list
 ```
 
-With whitelist mode on, only the roles and members on the list can use the bot: a member who's listed, or who holds a listed role. Everyone else is told the server is in whitelist mode. It's an emergency measure, such as during a raid.
+With whitelist mode on, only the roles and members on the list can use the bot: a member who's listed, or who holds a listed role. Admins and moderators are always let in, listed or not, so you can't lock yourself out. Everyone else is told the server is in whitelist mode. It's an emergency measure, such as during a raid.
 
 Add a role (such as your members' role) rather than people one by one, then add any individuals on top. Set up the list before you turn whitelist mode on.
 

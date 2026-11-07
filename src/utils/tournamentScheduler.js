@@ -687,7 +687,8 @@ async function autoCloseMatchup(guild, tournament, matchup, tiebreakerDurationMs
  * own and never posted a tie's tiebreaker vote.
  * @param {import('discord.js').Guild} guild
  * @param {string[]} matchupIds - only those still voting are closed
- * @param {{tiebreakerDurationMs?: number}} [options] - default: 1 hour
+ * @param {{tiebreakerDurationMs?: number}} [options] - default: the
+ *   tournament's own tiebreaker time (setup form), else 1 hour
  * @returns {Promise<Array<{id, tied, winner?, votes1?, votes2?, tiebreaker?}>>}
  */
 export async function closeMatchupsNow(guild, matchupIds, { tiebreakerDurationMs } = {}) {
@@ -702,6 +703,24 @@ export async function closeMatchupsNow(guild, matchupIds, { tiebreakerDurationMs
   }
   await postBracketAfter(guild, summaries);
   return summaries;
+}
+
+/**
+ * What a matchup closed outside autoCloseMatchup posts, as autoCloseMatchup
+ * would: its voting message marked closed, and once it's decided, its result
+ * card with the drawn picture (cardImages.js). `/bracket close-matchup` with
+ * a typed label closes through bracketManager itself, for its own reply and
+ * tiebreaker posts, and used to post neither: a matchup closed that way never
+ * got its result card. Call afterKnockoutDecided for the bracket after.
+ */
+export async function announceMatchupClosed(guild, matchupId) {
+  const tournament = bracketManager.loadTournament(guild.id);
+  const matchup = tournament?.knockoutBracket?.find(m => m.id === matchupId);
+  if (!matchup || matchup.status === 'voting' || matchup.status === 'pending') return;
+  if (matchup.messageChannelId && matchup.messageId) {
+    await updateVotingMessageClosed(guild, matchup, matchup.id, 'matchup');
+  }
+  if (matchup.status === 'closed' && matchup.winner) await postMatchupResults(guild, tournament, matchup);
 }
 
 /**
@@ -850,11 +869,13 @@ export async function updateVotingMessageClosed(guild, item, id, type) {
       const newEmbed = EmbedBuilder.from(embed);
       
       // Add CLOSED indicator to title or description
-      if (embed.title) {
+      const marker = ' 🔒 CLOSED';
+      // Once: one card holds several groups (open-groups), each closed on
+      // its own at the deadline, and each added another — "🔒 CLOSED 🔒 CLOSED"
+      if (embed.title && !embed.title.endsWith(marker)) {
         // A title can already be near Discord's 256; the whole edit is
         // rejected if the marker pushes it over, leaving the vote open-looking.
         // Clip the title, not the marker.
-        const marker = ' 🔒 CLOSED';
         newEmbed.setTitle(`${clipText(embed.title, LIMITS.title - marker.length)}${marker}`);
       }
       

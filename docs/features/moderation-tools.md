@@ -47,7 +47,7 @@ Rate limiting and abuse logging work as soon as the bot joins. The whitelist, ma
 /eggshen-config-moderation moderation toggle enabled:true
 ```
 
-They also need rate limiting itself to be on (it is by default). Turning rate limiting off with `/eggshen-config-watch-party rate-limit toggle enabled:false` switches the whitelist and cooldowns off with it.
+They don't depend on rate limiting: with rate limiting off (`/eggshen-config-watch-party rate-limit toggle enabled:false`), whitelist mode and manual cooldowns keep working. The auto-ban threshold counts rate-limit violations, so with rate limiting off it has nothing new to count.
 
 ## Moderation Workflow
 
@@ -95,7 +95,7 @@ Admins can switch individual commands off for regular members with `/eggshen-con
 - Kick Members
 - Ban Members
 
-The bot calls these members "admins and moderators" throughout. With moderator bypass on (the default), they also skip every rate limit, the whitelist and cooldowns.
+The bot calls these members "admins and moderators" throughout. Whitelist mode always lets them in, listed or not, so whoever turns it on can always turn it off. With moderator bypass on (the default), they also skip every rate limit and manual cooldown; with it off, those apply to them as to anyone. Members with Manage Messages or Manage Channels count as moderators for these three too.
 
 ## Abuse Prevention Strategies
 

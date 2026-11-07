@@ -151,11 +151,16 @@ function hasModeratorPermissions(member) {
     return true;
   }
   
-  // Check for moderator-like permissions
+  // Check for moderator-like permissions. ModerateMembers (Timeout
+  // Members) since 2.75.1: it's one of the permissions isAdmin accepts for
+  // /eggshen-config-moderation, so a moderator holding only it could turn
+  // whitelist mode on and then be refused by it, the command that turns it
+  // off included. Everyone who can run that command passes here too.
   const moderatorPermissions = [
     'ManageMessages',
     'ManageChannels',
     'ManageGuild',
+    'ModerateMembers',
     'KickMembers',
     'BanMembers',
   ];
@@ -187,24 +192,25 @@ const commandLabel = (name) => (/^[a-z0-9_-]+$/.test(name) ? `/${name}` : name);
 export async function checkRateLimit(guildId, userId, commandName, member = null, commandArgs = '') {
   // Load guild config to get rate limit settings
   const config = await loadGuildConfig(guildId);
-  
-  // Check if rate limiting is enabled
-  if (!config.rateLimits?.enabled) {
-    return { limited: false };
-  }
-  
-  // Bypass rate limits for moderators/admins if configured
-  const isModerator = config.rateLimits.bypassForModerators && hasModeratorPermissions(member);
-  if (isModerator) {
-    return { limited: false };
-  }
-  
   const now = Date.now();
-  
-  // Apply moderation features if enabled
+
+  // Admins and moderators (hasModeratorPermissions). Moderator bypass
+  // (rateLimits.bypassForModerators) lets them skip the rate limits and
+  // manual cooldowns; whitelist mode lets them in whatever it says.
+  const isStaff = hasModeratorPermissions(member);
+  const isModerator = !!config.rateLimits?.bypassForModerators && isStaff;
+
+  // Moderation features first, and whether or not rate limiting is on. They
+  // used to sit behind the rate-limiting switch: turning rate limiting off
+  // silently turned off whitelist mode and every manual cooldown with it,
+  // while /eggshen-config-moderation still showed them on (2.75.1).
   if (config.moderation?.enabled) {
-    // Check whitelist mode
-    if (config.moderation.whitelist?.enabled && member) {
+    // Whitelist mode. Admins and moderators always pass, as the
+    // whitelist-toggle reply and whitelist-list promise: it used to let them
+    // in only through moderator bypass, so with bypass off an admin who
+    // wasn't listed was refused every command, including the one that turns
+    // whitelist mode off.
+    if (config.moderation.whitelist?.enabled && member && !isStaff) {
       const allowedRoles = config.moderation.whitelist.allowedRoles || [];
       const allowedUsers = config.moderation.whitelist.allowedUsers || [];
 
@@ -227,8 +233,8 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
       }
     }
     
-    // Check if user has an active temporary cooldown
-    if (userCooldowns.has(guildId)) {
+    // A manual cooldown. Moderator bypass covers these, as it always has.
+    if (!isModerator && userCooldowns.has(guildId)) {
       const guildCooldowns = userCooldowns.get(guildId);
       if (guildCooldowns.has(userId)) {
         const cooldown = guildCooldowns.get(userId);
@@ -245,6 +251,11 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
         }
       }
     }
+  }
+
+  // Rate limiting itself: off, or a moderator with bypass on, and nothing below applies
+  if (!config.rateLimits?.enabled || isModerator) {
+    return { limited: false };
   }
   
   // Check guild-wide rate limit first (if enabled)

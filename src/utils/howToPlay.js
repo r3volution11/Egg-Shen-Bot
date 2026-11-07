@@ -502,11 +502,15 @@ function siege(ctx, kit) {
   if (back.length) {
     // 2.75.0: saving always works, but help from plays that don't score is
     // capped (siegeAssist) — "+12 to your share" and "unlimited" said
-    // otherwise (review R2, 2026-11-06). With scored plays off, none score.
+    // otherwise (review R2, 2026-11-06). 2.75.1: with scored plays off, the
+    // siege counts the default cap's worth a day as if they scored
+    // (gamePlay.siegeHelp), and the cap starts past those.
     const n = pill(SIEGE.credit.unscoredPerNight);
+    const N = pill(DEFAULT_GAME_SETTINGS.dailyScoredPlays);
+    const helps = [on('rescue') && `${N} rescues`, on('potion') && `${N} potions`].filter(Boolean).join(' and ');
     back.push(ctx.settings.dailyScoredPlays > 0
       ? `Saving someone always works, but past a game's daily scoring cap only your first ${n} frees and cures a night count toward your share.`
-      : `Saving someone always works, but plays don't score here, so only your first ${n} frees and cures a night count toward your share.`);
+      : `Saving someone always works. Plays don't score here, but frees and cures from your first ${helps} a day count toward your share as if they did; past those, only your first ${n} a night do.`);
     back.unshift(back0.busy
       ? `Every ${duration(back0.everyMinutes * 60)} of fighting or so the monster acts, only while people are attacking. Someone else has to save you.`
       : `Every ${duration(back0.everyMinutes * 60)} or so the monster acts. Someone else has to save you.`);

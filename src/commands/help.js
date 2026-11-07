@@ -73,7 +73,9 @@ export async function execute(interaction) {
     { enabled: movieAllowed, line: '**🎥 /movie** - Search for movies with ratings' },
     { enabled: tvAllowed, line: '**📺 /tv** - Search for TV shows with ratings' },
     { enabled: episodeAllowed, line: '**🎞️ /episode** - Search for specific episodes by name' },
-    { enabled: true, line: '**📋 /episode-list** - List all episodes in a season' },
+    // Not "all episodes": one card holds 25, and a longer season is refused
+    // (episode-list.js, seasonTooLongMessage)
+    { enabled: true, line: '**📋 /episode-list** - List a season\'s episodes with ratings (seasons of up to 25 episodes)' },
     { enabled: true, line: '**🔍 /similar** - Find similar movies or TV shows' },
     { enabled: true, line: '**📝 /watched** - Log or view watch history' },
     { enabled: watchlistAllowed, line: '**📌 /watchlist** - The server\'s watch-next list: add titles, vote with `want`, `pick` one' },

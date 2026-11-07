@@ -80,7 +80,9 @@ When a timer with a title stops, whether by `/timer stop` or by running out its 
 2. If the timer only has text it couldn't match, it searches TMDB and takes the first result
 3. It saves the entry and posts a confirmation. The confirmation has no button, since there's nothing left to log
 
-A timer for a board game is never logged.
+A timer for a board game is never logged. Its stop card says "Board games aren't logged to watch history" and has no button.
+
+If saving the entry worked but something after it went wrong (posting the card, say), the card still says it was logged, and has no button: the entry is there once.
 
 **What's saved:**
 - The movie or show's title and year from TMDB, and whether it's a movie or TV
@@ -93,7 +95,7 @@ A multi-episode party is saved as **one** entry for the show, with the episodes 
 
 ### 5. The Log to Watch History Button
 
-A stop card that **wasn't** logged has a **📝 Log to Watch History** button. That's a timer with no title, a title TMDB couldn't find, or a save that failed. A card that says it was logged has no button.
+A stop card that **wasn't** logged has a **📝 Log to Watch History** button. That's a timer with no title, a movie or show TMDB couldn't find, or a save that failed. A card that says it was logged has no button, and neither does a board game's.
 
 The button opens a form:
 
@@ -103,6 +105,8 @@ The button opens a form:
 Submitting it searches TMDB for the title and saves the first match, checking movies before shows. The entry has your notes, the timer's channel, and you as the one who saved it. The bot posts **✅ Added to Watch History** in the channel and takes the button off the card.
 
 If TMDB finds nothing, the button stays. Fix the title and press it again.
+
+A card posted before 2.75.1 that says "Could not find this title on TMDB to log automatically" is refused: board-game timers got that same card, so the bot can't tell from it whether the timer was for a board game. Pressing its button says so and takes the button off. If it was a movie or show, add it with `/watched add`.
 
 Each card is logged once. A second form submitted from the same card is turned away, and an older card that still has a button after it was logged replies with what it's already in the history as.
 
@@ -250,13 +254,16 @@ Watch history is for the group: what your server watched, together, in public. F
 ### The timer stopped but nothing was logged
 
 - The timer had no title, or its title couldn't be found on TMDB. The stop card says so and has a **📝 Log to Watch History** button: type or correct the title there. Or add it with `/watched add`, which lets you pick from a list.
+- The timer was for a board game. Those are never logged.
 - Next time, start with `movie:` or `tv:`, or name the timer with `/timer title` before it ends.
 
 ### Can't use the Log to Watch History button
 
 Only the person who started the timer, or a member with Administrator, Manage Server or Timeout Members, can. Anyone can use `/watched add` instead.
 
-A card that was logged has no button: it's already in the history. Check with `/watched history`.
+A card that was logged has no button: it's already in the history. Check with `/watched history`. A board game's card has none either.
+
+On a "Could not find this title on TMDB" card from before 2.75.1, the button refuses (see [the button](#_5-the-log-to-watch-history-button)). Use `/watched add`.
 
 ### The wrong title was logged
 

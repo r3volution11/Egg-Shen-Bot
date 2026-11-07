@@ -118,3 +118,25 @@ export function buildPauseHint(timer) {
 
   return 'Tip: use /timer pause during breaks instead of stopping — it keeps your elapsed time.';
 }
+
+/**
+ * Board games are never logged to watch history (it holds TMDB movies and
+ * shows). A board-game timer's stop card used to say "Could not find this
+ * title on TMDB" and carry the Log to Watch History button, whose form
+ * searches TMDB for the label: a movie or show sharing the game's name
+ * ("Jaws", "Clue", "Alien") would be logged in its place.
+ */
+export function isBoardGameTimer(timer) {
+  return timer?.type === 'boardgame';
+}
+
+/** What a board-game timer's stop card says instead (it has no Log button) */
+export const BOARD_GAME_NOT_LOGGED = "🎲 Board games aren't logged to watch history.";
+
+/**
+ * What a movie or TV timer's stop card says when its title couldn't be
+ * identified. It was "Could not find this title on TMDB to log
+ * automatically.", on board-game timers' cards too, so a card with the old
+ * wording can't be told apart: handlers/watchHistoryLog.js refuses those.
+ */
+export const NOT_ON_TMDB = "⚠️ Couldn't find this on TMDB as a movie or show, so it wasn't logged automatically.";

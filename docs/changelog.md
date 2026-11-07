@@ -9,6 +9,67 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.75.1 - 2026-11-07
+
+### Fixed
+- **Group tournaments with more than 5 groups broke the ballot.** A member's ballot has a row of buttons per group voting, and Discord shows 5 rows.
+  - `/bracket open` opened every group at once, so with 9 to 12 groups every ballot was refused ("This interaction failed"). It now opens at most 5, the next ones in letter order, and names the groups still to come. Run it again once they close for the next batch. While 5 are voting, it opens nothing and says so.
+  - `/bracket open-groups` refuses groups that would make more than 5 voting, counting those already open, and opens none of them. A letter listed twice counts once.
+  - A ballot opened before another batch keeps its own groups. It used to take in every group open, grow past 5 rows, and stop working.
+  - An old ballot showing more than 5 groups says so, instead of failing.
+- **`/bracket close` in the group stage didn't say who went through.** It answered only "Closed groups: A, B, C, D". It now posts each decided group's top three with their votes, as `/bracket close-groups` does.
+- **`/bracket close-groups` with a tie** showed only the tiebreakers, never the results of the groups it had decided. It now shows both: the decided groups, then a **🔀 Tiebreakers** field with when their vote closes.
+- **A tied group stayed open to old ballots.** Votes could still change while its tiebreaker ran, and closing it again started a second tiebreaker. A tied group now stops taking votes, close commands skip it, and `/bracket status` and `/bracket voting-post` no longer list it as voting.
+- **`/bracket close-matchup` with a typed matchup** never posted the result card and drawn picture that every other close posts. It does now. When some tie and others don't, its reply lists the decided ones too, and the bot posts the bracket.
+- **Tiebreaker votes ignored the tournament's tiebreaker time.** A tie found at the deadline, by opening the next matchups or by a close button always ran 1 hour, whatever the setup form said. They now use the form's time (1 hour if none is set).
+- **The ballot's voting streak counted votes, not rounds.** Four quarterfinal votes read "Streak: 4 rounds". It's now the rounds in a row you've voted in, and a round missed ends it.
+- **`/bracket my-votes`** showed "#NaN (undefined)" for a group with one pick, and counted a group whose picks were taken back as voted. It now says to pick one more, because a single pick isn't counted.
+- **`/bracket help`** said selected votes show blue (they're purple) and promised "1-hour warnings". It now gives the real reminder times.
+- **The `/bracket open-groups` card** had a broken character in its title, and a card for several groups added "🔒 CLOSED" again for each group that closed.
+- **Board-game timers offered Log to Watch History.** Board games are never logged, but the stop card said the title wasn't on TMDB, and its button could log a movie or show with the same name. A board-game timer's card now says board games aren't logged, and has no button.
+  - A "Could not find this title on TMDB" card from before this update looks the same whether the timer was for a board game or a movie, so its button now refuses, points to `/watched add`, and is taken off the card.
+  - A movie or show TMDB can't find now gets "Couldn't find this on TMDB as a movie or show", with the button as before.
+- **A watch party could be logged twice** when saving it worked but a later step failed, such as posting the card. The error card's button saved it again. That card now says it was logged and has no button. Only a save that failed keeps the button.
+- **`/eggshen-help`** said `/episode-list` lists all episodes in a season. It lists seasons of up to 25 episodes.
+
+### Changed
+- **Whitelist mode and manual cooldowns no longer depend on rate limiting.** Turning rate limiting off used to switch them off too, without saying so, while the moderation settings still showed them on. They now work whether rate limiting is on or off.
+  - **Admins and moderators always pass the whitelist.** With moderator bypass off, an admin who wasn't listed was refused every command, including the one that turns whitelist mode off. The whitelist replies already promised they're always allowed.
+  - Moderator bypass still decides whether admins and moderators skip the rate limits, and it now says it covers manual cooldowns too.
+  - Members with **Timeout Members** count as moderators here, as they do for `/eggshen-config-moderation`. A moderator with only that permission could turn whitelist mode on and then be locked out by it. While bypass is on, they also skip the rate limits, as the docs always said.
+  - The rate-limiting, bypass and whitelist replies say what now happens.
+- **Siege help on a server where plays don't score counts as it would where they do.** Every play there is unscored, so only 2 frees and cures a night counted, from the first. Now your first 20 rescues and 20 potions a day (the daily scoring cap a scoring server starts with) count as if they scored, Field Medic included, and the 2-a-night cap starts after those. The reply and `/how-to-play` say so.
+
+### Developer
+- **Rate limiter:**
+  - `checkRateLimit` runs the moderation checks (whitelist, then cooldowns) before the rate-limiting switch, and only then returns early for `rateLimits.enabled === false` or a bypassing moderator.
+  - Whitelist: anyone `hasModeratorPermissions` passes, whatever `bypassForModerators` says. Cooldowns are skipped only when `bypassForModerators` is on and the member is a moderator, as before.
+  - `hasModeratorPermissions` adds `ModerateMembers`, so everyone `guildConfig.isAdmin` accepts passes the whitelist.
+  - Members are read through `memberPermissions.js`, so both member shapes work.
+- **Siege help with scoring off:**
+  - `recordPlay` returns `playOfDay`, this play's number today in its game (the daily count it already kept on every server).
+  - `gamePlay.siegeHelp` treats a play as scored when `result.scored`, or when scoring is off (`dailyScoredPlays` 0) and `playOfDay <= SCORING_OFF_HELP` (`DEFAULT_GAME_SETTINGS.dailyScoredPlays`, 20). That decides both `siegeAssist({ scored })` and the Field Medic count.
+  - The siege simulator's credit model knows the rule: it reads the server's game settings and the member's daily count.
+- **Watch history:**
+  - `timerWatchLog.js` gains `isBoardGameTimer`, `BOARD_GAME_NOT_LOGGED` and `NOT_ON_TMDB`.
+  - Both copies of `autoLogTimerToWatchHistory` (`commands/timer.js` for `/timer stop`, `utils/timerManager.js` for auto-stop) post a buttonless card for a board game, and set `savedAs` once `saveWatchHistory` returns. With `savedAs` set, the catch posts the logged card with no button.
+  - `watchHistoryLog.js` refuses a card with the old not-found wording (`PRE_FIX_NOT_FOUND`), on the button (and removes it) and on a form submitted from one.
+- **Tournaments:**
+  - `bracketManager`: `MAX_GROUPS_VOTING` (5), `isGroupVoting` (open, and not tied or closed), `groupsVotingNow` and `groupsYetToVote`. `closeGroupVoting` closes a tied group's ballot too.
+  - `bracket.js` `closeGroupsAndReply` is shared by `/bracket close` (group stage) and `close-groups`, and `close-groups` closes only groups still voting.
+  - `buttonHandler` `buildGroupBallot` is shared by Start Voting and every click, and a ballot is scoped to its own groups (`groupsOnBallot`, read from its buttons). More than 5 rows gets a refusal.
+  - `tournamentScheduler.announceMatchupClosed` posts a typed close's result card and picture.
+  - Durations (`parseDuration`, `isValid*`, `DEFAULT_*`) moved to `bracketManager`, and `tournamentImport` re-exports them (an import cycle otherwise). `tiebreakerMsFor(tournament)` is the default for `closeGroupVoting`, `closeKnockoutMatchup` and `recreateKnockoutTiebreaker`.
+  - Streaks: `ROUND_ORDER`, `roundFollows` and `currentStreak`. Participation stores `lastRound`, and a record from before this reads as no streak.
+  - The fake Discord now checks components too (`embedFit.COMPONENT_LIMITS`, `componentProblems`): at most 5 rows of 5 buttons, as Discord does.
+  - The tournament fuzz now also runs 9 to 12 groups and a random `/bracket open-groups`.
+- **Tests:**
+  - New scenarios in `whitelist-mode` (cached and uncached members, through the real dispatcher and config commands), `siege-sim` (d2 rewritten, d3 new, through the real `/rescue` and `/potion`), `how-to-play`, `watch-history-log-button` (board games, pre-update cards, a failure after the save, a failed save) and `eggshen-help-every-command`.
+  - The tournament batch: 18 new `tournament-sim` scenarios (24 cases) and 8 `fake-discord-limits` tests.
+  - Every fix was break-tested: 52 plants (22 here, 30 in the tournament batch), each caught, and each file restored byte-identical (sha-256).
+- **Docs:** moderation-tools, rate-limiting, commands/moderation, commands/configuration and api/reference (the order of the rate limiter's checks); games-siege and the games FAQ; watch-history and watch-party; the tournament pages (setup, commands, knockout, the groups and sports-styles guides); the home page's `/episode-list` line.
+- **Deploy:** `deploy-commands` is not needed. No command definition changed: each changed command's registered JSON matches 2.75.0's. Restart only.
+
 ## 2.75.0 - 2026-11-07
 
 In *Big Trouble in Little China* the hero isn't really the hero: the sidekick is. Sieges now work that way.

@@ -10,7 +10,7 @@
  */
 
 import { describe, test, expect, beforeEach } from '@jest/globals';
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { FakeDiscord } from './harness/fakeDiscord.js';
 
 let discord;
@@ -108,6 +108,71 @@ describe('interaction replies and edits', () => {
     await msg.edit({ content: 'still ok' });
     expect(msg.content).toBe('still ok');
     expect(msg.embeds).toHaveLength(1);
+    expect(discord.violations).toEqual([]);
+  });
+});
+
+describe('components', () => {
+  // A group ballot drew one row of buttons per open group, and Discord takes
+  // five: with 9–12 groups open every ballot was refused, while the fake,
+  // which counted no rows, let it through
+  const button = (id, label = id) => new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(ButtonStyle.Secondary);
+  const row = (...items) => new ActionRowBuilder().addComponents(...items);
+  const rows = (n, perRow = 1) => Array.from({ length: n }, (_, r) => row(...Array.from({ length: perRow }, (__, b) => button(`b${r}_${b}`))));
+  const select = (id, n = 1) => ({ type: 3, custom_id: id, options: Array.from({ length: n }, (_, i) => ({ label: `o${i}`, value: `v${i}` })) });
+
+  test('5 rows of 5 buttons, and a row with one select, are accepted', async () => {
+    await discord.channel.send({ content: 'ok', components: rows(5, 5) });
+    await discord.channel.send({ content: 'ok', components: [row(button('a')), { type: 1, components: [select('s', 25)] }] });
+    expect(discord.violations).toEqual([]);
+  });
+
+  test('a sixth action row is rejected, and nothing is posted', async () => {
+    await expectRejected(discord.channel.send({ content: 'ballot', components: rows(6) }), '6 action rows (limit 5)');
+    expect(discord.channel.posted).toHaveLength(0);
+  });
+
+  test('a sixth button in a row is rejected', async () => {
+    await expectRejected(discord.channel.send({ content: 'x', components: rows(1, 6) }), 'row 1 has 6 buttons (limit 5)');
+  });
+
+  test('a second select in a row, or a select beside buttons, is rejected', async () => {
+    await expectRejected(discord.channel.send({ content: 'x', components: [{ type: 1, components: [select('s1'), select('s2')] }] }), 'row 1 has 2 select menus');
+    discord.violations.length = 0;
+    await expectRejected(discord.channel.send({ content: 'x', components: [{ type: 1, components: [select('s1'), button('b').toJSON()] }] }), 'row 1 mixes a select menu with buttons');
+  });
+
+  test('a custom id used twice, or over 100 characters, is rejected', async () => {
+    await expectRejected(discord.channel.send({ content: 'x', components: [row(button('same')), row(button('same'))] }), 'custom_id "same" is already used');
+    discord.violations.length = 0;
+    // Plain JSON: ButtonBuilder refuses this itself; the API's check is what's modelled
+    await expectRejected(discord.channel.send({ content: 'x', components: [{ type: 1, components: [{ type: 2, style: 2, label: 'l', custom_id: 'c'.repeat(101) }] }] }), 'custom_id is 101 characters');
+  });
+
+  test('a select with 26 options, or an option value over 100 characters, is rejected', async () => {
+    await expectRejected(discord.channel.send({ content: 'x', components: [{ type: 1, components: [select('s', 26)] }] }), 'has 26 options');
+    discord.violations.length = 0;
+    const long = { type: 3, custom_id: 's', options: [{ label: 'l', value: 'v'.repeat(101) }] };
+    await expectRejected(discord.channel.send({ content: 'x', components: [{ type: 1, components: [long] }] }), 'option 1 value is 101 characters');
+  });
+
+  test('a reply or update with a sixth row is rejected and leaves the interaction unanswered', async () => {
+    const i = discord.command('u1', 'demo', {});
+    await expectRejected(i.reply({ content: 'ballot', components: rows(6), flags: 64 }), '6 action rows', '/demo');
+    expect(i.answered()).toBe(false);
+    expect(discord.ephemeral('u1')).toHaveLength(0);
+
+    discord.violations.length = 0;
+    const msg = await discord.channel.send({ content: 'card', components: rows(1) });
+    const click = discord.button('u1', msg, 'b0_0');
+    await expectRejected(click.update({ components: rows(6) }), '6 action rows', 'button b0_0');
+    expect(msg.components).toHaveLength(1); // the rejected edit changed nothing
+  });
+
+  test('an edit that leaves components alone is measured with the ones the message keeps', async () => {
+    const msg = await discord.channel.send({ content: 'ok', components: rows(5) });
+    await msg.edit({ content: 'still ok' });
+    expect(msg.components).toHaveLength(5);
     expect(discord.violations).toEqual([]);
   });
 });

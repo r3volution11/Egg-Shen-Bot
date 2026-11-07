@@ -44,7 +44,7 @@ A member who hits a limit gets a private reply saying how many seconds to wait. 
 /eggshen-config-watch-party rate-limit toggle enabled:false
 ```
 
-With rate limiting off, nothing on this page applies: no limits, and the whitelist and manual cooldowns stop working too. Turn it back on with `enabled:true`.
+With rate limiting off, layers 1 to 5 stop: nothing is limited, so nothing is logged or flagged either. Manual cooldowns and whitelist mode keep working: they're moderation features, with their own switch. Turn rate limiting back on with `enabled:true`.
 
 ## Layer 1: Per-User Limits
 
@@ -179,6 +179,8 @@ A cooldown stops one member from using any bot command for a while.
 - `reason` is required, and the member sees it with the time remaining whenever they try a command
 - It ends on its own when the time is up
 
+A cooldown applies whether or not rate limiting is on. Admins and moderators skip it while [moderator bypass](#moderator-bypass) is on.
+
 Cooldowns are held in memory, so a bot restart lifts them.
 
 ### Lift a Cooldown
@@ -220,13 +222,15 @@ See the list:
 /eggshen-config-moderation moderation whitelist-list
 ```
 
-Admins and moderators are always allowed while moderator bypass is on (the default). The whitelist is saved with the server's settings, so it survives a restart.
+Admins and moderators are always allowed, listed or not, whatever [moderator bypass](#moderator-bypass) is set to, so whoever turns whitelist mode on can always turn it off. It works whether or not rate limiting is on. The whitelist is saved with the server's settings, so it survives a restart.
 
 **Good for:** a private community, keeping the bot to a subscriber role, or shutting out a raid while you clean up.
 
 ## Moderator Bypass
 
-Admins and moderators skip every limit on this page, including the whitelist and cooldowns. It's on by default.
+Admins and moderators skip the rate limits (layers 1 and 2) and manual cooldowns. It's on by default. Whitelist mode lets them in either way.
+
+Here "admins and moderators" means members with Administrator, Manage Server, Timeout Members, Kick Members, Ban Members, Manage Messages or Manage Channels.
 
 ```
 /eggshen-config-watch-party rate-limit bypass enabled:true
@@ -309,7 +313,7 @@ Raise `min-users`:
 - **Check the abuse log regularly**: it only covers 48 hours
 - **Try a cooldown before a ban**
 - **Leave the guild-wide limit on**: it's what stops multi-account floods
-- **Don't turn rate limiting off entirely**: the whitelist and cooldowns stop working with it
+- **Don't turn rate limiting off entirely**: without it nothing limits spam (whitelist mode and cooldowns still work)
 - **Tell members the limits** so a wait message doesn't surprise them
 
 ## Related Documentation

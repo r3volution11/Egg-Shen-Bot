@@ -27,7 +27,7 @@ hero:
 features:
   - icon: { src: /emojis/star.png, alt: '', width: 56, height: 56 }
     title: Look It Up, Ratings and All
-    details: Movies, shows, episodes, video games, board games and books, rated by IMDb, Letterboxd, Trakt, Rotten Tomatoes and more, plus where to stream it. /episode-list rates a whole season at once.
+    details: Movies, shows, episodes, video games, board games and books, rated by IMDb, Letterboxd, Trakt, Rotten Tomatoes and more, plus where to stream it. /episode-list rates a season of up to 25 episodes at once.
     link: /commands/search
     linkText: Search commands
 

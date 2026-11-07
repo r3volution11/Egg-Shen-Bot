@@ -531,11 +531,11 @@ A multi-episode party is one entry for the show, with the episodes in its note.
 **Nothing is logged when:**
 - **The timer has no title.** Name it with `/timer title` before you stop it. Afterwards, the stop card's button asks what you watched
 - **The title isn't found on TMDB.** The card says so. Correct the title with the card's button, or log it with `/watched add`
-- **The timer was for a board game.** Watch history is for movies and TV
+- **The timer was for a board game.** Watch history is for movies and TV. The card says board games aren't logged, and has no button
 
-A stop card that wasn't logged has a **📝 Log to Watch History** button, for the person who started the timer or a member with Administrator, Manage Server or Timeout Members. A card that was logged has none.
+A stop card that wasn't logged has a **📝 Log to Watch History** button, for the person who started the timer or a member with Administrator, Manage Server or Timeout Members. A card that was logged has none, including one where the save worked and something after it failed.
 
-The button opens a form with a title box, filled in when the card shows a title, and up to 1,000 characters of notes. It saves the first TMDB match, movies before shows. If there's no match, the button stays so you can fix the title and try again. Each card is logged once: a second submit from the same card is turned away. For a show, or a title with several matches, `/watched add` is more reliable, since you pick from a list. See [The Log to Watch History Button](/features/watch-history#_5-the-log-to-watch-history-button).
+The button opens a form with a title box, filled in when the card shows a title, and up to 1,000 characters of notes. It saves the first TMDB match, movies before shows. If there's no match, the button stays so you can fix the title and try again. Each card is logged once: a second submit from the same card is turned away. A "Could not find this title on TMDB" card from before 2.75.1 is refused, since a board-game timer's card looked the same; use `/watched add`. For a show, or a title with several matches, `/watched add` is more reliable, since you pick from a list. See [The Log to Watch History Button](/features/watch-history#_5-the-log-to-watch-history-button).
 
 A logged title also comes off the [watchlist](#watchlist), unless an admin has turned that off.
 

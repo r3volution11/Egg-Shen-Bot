@@ -39,6 +39,15 @@ const MOVIES = [
   ['Psycho', 1960], ['The Exorcist', 1973], ['Poltergeist', 1982], ['The Fly', 1986],
   ['Carrie', 1976], ['It Follows', 2015], ['The Babadook', 2014], ['Midsommar', 2019],
 ];
+// The rest of the recorded searches: a 9–12 group tournament draws 36–48
+// titles from what these 32 searches found (Sim.groupsFromForm)
+const SEARCHES = [
+  ...MOVIES,
+  ['Rosemary\'s Baby', 1968], ['Night of the Living Dead', 1968], ['Suspiria', 1977], ['The Evil Dead', 1983],
+  ['A Nightmare on Elm Street', 1984], ['The Texas Chain Saw Massacre', 1974], ['Dawn of the Dead', 1978], ['The Ring', 2002],
+  ['The Descent', 2005], ['The Conjuring', 2013], ['The Witch', 2015], ['Us', 2019],
+  ['Ringu', 1998], ['The Blair Witch Project', 1999], ['28 Days Later', 2002], ['Train to Busan', 2016],
+];
 
 /** A small seeded PRNG (mulberry32), so a failing run can be replayed exactly. */
 function rng(seed) {
@@ -167,6 +176,14 @@ async function randomAction(sim, r) {
         return `/bracket close-groups ${open.join(',')}`;
       }
     }
+    // Open some groups by letter, any of them: one already voting or closed,
+    // or more than a ballot holds (a ballot is a row per group; 5 at most)
+    if (choice === 6 && t.mode === 'groups' && ['setup', 'group_stage'].includes(t.status)) {
+      const letters = Object.keys(t.groups);
+      const picked = [...new Set(Array.from({ length: 1 + r.int(6) }, () => r.pick(letters)))].sort();
+      await sim.bracket('admin', 'open-groups', { groups: picked.join(','), duration: r.pick(['2h', '1d']) });
+      return `/bracket open-groups ${picked.join(',')}`;
+    }
     await sim.bracket('admin', 'status');
     return '/bracket status';
   }
@@ -218,6 +235,13 @@ async function finish(sim) {
 
 async function setUp(sim, r) {
   const groups = r.chance(0.3);
+  // Sometimes the size /bracket-setup create makes for 36–48 titles: more
+  // groups than one ballot holds
+  if (groups && r.chance(0.5)) {
+    const count = 9 + r.int(4);
+    await sim.groupsFromForm(SEARCHES, count, { name: 'Fuzz World Cup' });
+    return `${count} groups of 4 (setup form)`;
+  }
   if (groups) {
     await sim.bracket('admin', 'create', { name: 'Fuzz Groups', 'max-titles': 36 });
     await sim.bracket('admin', 'resize', { groups: 4 });

@@ -568,7 +568,7 @@ export function shieldedUntil(guildId, userId, now = Date.now()) {
  *   own points go into the pot — the win pool, paid at the end — so it scores 0 here, and what it
  *   would have scored comes back as `potPoints`. It's still a scored play: the cap, the item, the
  *   streak, nights, prizes and titles all count it.
- * @returns {{outcome, action, scored, capped, potted, potPoints, actorDelta, targetDelta, actorPoints, streak, shieldedUntil, targetId,
+ * @returns {{outcome, action, scored, capped, playOfDay, potted, potPoints, actorDelta, targetDelta, actorPoints, streak, shieldedUntil, targetId,
  *   item: ?{key, used, note}, defence: ?{key, readyAt?}, shieldBroken, rewards: object[], titles: object[],
  *   nights: ?object, bonus: number, targetBonus: number,
  *   twist: ?object, statuses: object[], happenings: Array<{kind, tag}>, happeningLines: object[], calendar: object[]}}
@@ -1028,6 +1028,10 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       action,
       scored,
       capped: !scored,
+      // This play's number today in this game, scored or not (1 = the
+      // first): siege help on a server whose plays don't score counts the
+      // first DEFAULT_GAME_SETTINGS.dailyScoredPlays as if they did (gamePlay.siegeHelp)
+      playOfDay: playsToday + 1,
       potted,
       potPoints,
       actorDelta: actorPts,

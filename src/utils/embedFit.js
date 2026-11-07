@@ -24,6 +24,87 @@ export const LIMITS = {
   total: 6000, // all embeds in one message, together
 };
 
+/**
+ * https://discord.com/developers/docs/components/reference — the classic
+ * components (action rows of buttons or a select). A group ballot with one
+ * row per group went past 5 rows once 6 groups were open, and Discord
+ * refused the whole message: "This interaction failed" for every voter.
+ */
+export const COMPONENT_LIMITS = {
+  rows: 5, // action rows in one message
+  rowButtons: 5, // buttons in one row
+  customId: 100,
+  buttonLabel: 80,
+  selectOptions: 25,
+  optionText: 100, // a select option's label, value and description
+  placeholder: 150,
+};
+
+// Discord's component type numbers
+const ACTION_ROW = 1;
+const BUTTON = 2;
+const SELECTS = new Set([3, 5, 6, 7, 8]); // string, user, role, mentionable, channel
+
+/** The JSON of a builder, or a plain component as-is */
+const componentJson = (c) => (c && typeof c.toJSON === 'function' ? c.toJSON() : (c?.data ?? c ?? {}));
+
+/**
+ * Everything about a message's components that Discord would reject:
+ * at most 5 action rows; each row 1–5 buttons or exactly one select, never
+ * both; custom ids unique and at most 100 characters; button labels at
+ * most 80; a select's 1–25 options at most 100 characters each.
+ * @param {Array} components - action rows, as builders or JSON
+ * @returns {string[]} one entry per problem; empty when it would be accepted
+ */
+export function componentProblems(components = []) {
+  const problems = [];
+  const rows = (components || []).map(componentJson);
+  if (rows.length > COMPONENT_LIMITS.rows) problems.push(`${rows.length} action rows (limit ${COMPONENT_LIMITS.rows})`);
+  const ids = new Map();
+  rows.forEach((row, r) => {
+    const at = `row ${r + 1}`;
+    if (row.type !== undefined && row.type !== ACTION_ROW) {
+      problems.push(`${at} is component type ${row.type}, not an action row`);
+      return;
+    }
+    const items = (row.components || []).map(componentJson);
+    if (items.length === 0) problems.push(`${at} is empty`);
+    const buttons = items.filter(c => c.type === BUTTON);
+    const selects = items.filter(c => SELECTS.has(c.type));
+    if (buttons.length > COMPONENT_LIMITS.rowButtons) problems.push(`${at} has ${buttons.length} buttons (limit ${COMPONENT_LIMITS.rowButtons})`);
+    if (selects.length > 1) problems.push(`${at} has ${selects.length} select menus (limit 1)`);
+    if (selects.length && buttons.length) problems.push(`${at} mixes a select menu with buttons`);
+    items.forEach((c, i) => {
+      const where = `${at} component ${i + 1}`;
+      const id = c.custom_id;
+      if (id !== undefined) {
+        if (String(id).length > COMPONENT_LIMITS.customId) problems.push(`${where} custom_id is ${String(id).length} characters (limit ${COMPONENT_LIMITS.customId})`);
+        if (ids.has(id)) problems.push(`${where} custom_id "${id}" is already used by ${ids.get(id)}`);
+        else ids.set(id, where);
+      }
+      if (c.type === BUTTON && (c.label?.length || 0) > COMPONENT_LIMITS.buttonLabel) {
+        problems.push(`${where} label is ${c.label.length} characters (limit ${COMPONENT_LIMITS.buttonLabel})`);
+      }
+      if ((c.placeholder?.length || 0) > COMPONENT_LIMITS.placeholder) {
+        problems.push(`${where} placeholder is ${c.placeholder.length} characters (limit ${COMPONENT_LIMITS.placeholder})`);
+      }
+      if (c.type === 3) {
+        const options = c.options || [];
+        if (options.length < 1 || options.length > COMPONENT_LIMITS.selectOptions) {
+          problems.push(`${where} has ${options.length} options (needs 1-${COMPONENT_LIMITS.selectOptions})`);
+        }
+        options.forEach((o, j) => {
+          for (const part of ['label', 'value', 'description']) {
+            const len = o?.[part]?.length || 0;
+            if (len > COMPONENT_LIMITS.optionText) problems.push(`${where} option ${j + 1} ${part} is ${len} characters (limit ${COMPONENT_LIMITS.optionText})`);
+          }
+        });
+      }
+    });
+  });
+  return problems;
+}
+
 /** The JSON of an EmbedBuilder, or a plain embed object as-is */
 const json = (embed) => embed?.data ?? embed ?? {};
 
@@ -69,6 +150,9 @@ export function messageProblems(payload = {}) {
     total += embedTextLength(e);
   });
   if (total > LIMITS.total) problems.push(`embeds total ${total} characters (limit ${LIMITS.total})`);
+  // Components only when the payload carries them: most callers measure a
+  // card's text before deciding its layout, with no buttons in hand
+  if (payload.components) problems.push(...componentProblems(payload.components));
   return problems;
 }
 

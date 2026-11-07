@@ -98,6 +98,63 @@ describe('movie night: 8 movies, whole rounds, run by the scheduler', () => {
   });
 });
 
+describe('the ballot\'s streak counts rounds voted in a row, not votes', () => {
+  // It added one for every vote within 48 hours of the last: 4 votes in
+  // the quarterfinals and 2 in the semifinals read "Streak: 6 rounds"
+  const streakOf = (ballot) => /🔥 \*\*Streak:\*\* [^\n]*/.exec(ballot.embeds[0].description)?.[0] ?? null;
+  const voteAll = async (sim, v, pick = 1) => {
+    const ballot = await sim.openBallot(v);
+    for (const m of sim.openMatchups()) await sim.voteMatchup(v, ballot, m.id, pick);
+    return ballot;
+  };
+
+  test('one a round, however many votes; a round missed starts it again; a ballot doesn\'t show a broken streak', async () => {
+    const sim = new Sim('sim-ballot-streak', { voters: 3 });
+    await straightBracket(sim, 'Streaks', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+
+    // Quarterfinals: voter1 votes in all four, and changes one twice;
+    // voter2 votes; voter3 doesn't
+    const ballot = await voteAll(sim, 'voter1');
+    expect(streakOf(ballot)).toBe('🔥 **Streak:** 1 round');
+    for (const pick of [2, 1]) await sim.voteMatchup('voter1', ballot, sim.openMatchups()[0].id, pick);
+    expect(streakOf(ballot)).toBe('🔥 **Streak:** 1 round');
+    await voteAll(sim, 'voter2');
+    await sim.passDeadlines();
+
+    // Semifinals: voter1 and voter3 vote, voter2 sits it out
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    expect(sim.tournament().phase).toBe('semifinals');
+    expect(streakOf(await voteAll(sim, 'voter1'))).toBe('🔥 **Streak:** 2 rounds');
+    expect(streakOf(await voteAll(sim, 'voter3'))).toBe('🔥 **Streak:** 1 round');
+    await sim.passDeadlines();
+
+    // The final
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    expect(sim.tournament().phase).toBe('finals');
+    // Before voting: voter3's streak from the semifinals is alive; voter2's
+    // ended when the semifinals went by without a vote
+    expect(streakOf(await sim.openBallot('voter3'))).toBe('🔥 **Streak:** 1 round');
+    expect(streakOf(await sim.openBallot('voter2'))).toBeNull();
+    expect(streakOf(await voteAll(sim, 'voter1'))).toBe('🔥 **Streak:** 3 rounds');
+    expect(streakOf(await voteAll(sim, 'voter2'))).toBe('🔥 **Streak:** 1 round');
+    expect(streakOf(await voteAll(sim, 'voter3'))).toBe('🔥 **Streak:** 2 rounds');
+    expect(sim.tournament().statistics.highestStreak).toBe(3);
+  });
+
+  test('in a groups tournament the group stage is one round, however many groups and clicks', async () => {
+    const sim = new Sim('sim-ballot-streak-groups', { voters: 5 });
+    await openGroups(sim);
+    await voteInGroups(sim, ['A', 'B', 'C', 'D']);
+    expect(sim.tournament().participation.voter1.streak).toBe(1);
+    await sim.passDeadlines();
+    // 4 groups: the knockout starts at the quarterfinals, the round after the groups
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    expect(sim.tournament().phase).toBe('quarterfinals');
+    expect(streakOf(await voteAll(sim, 'voter1'))).toBe('🔥 **Streak:** 2 rounds');
+  });
+});
+
 describe('the ballot lists every vote you\'ve cast', () => {
   test('under Round headings, your pick ticked; it updates as you vote, and earlier rounds stay', async () => {
     const sim = new Sim('sim-ballot-votes');
@@ -467,6 +524,142 @@ describe('ties', () => {
     await sim.click('admin', picker.reply, button.customId);
     const post = sim.channel.posted.filter(m => m.allComponents.some(c => (c.customId || '').startsWith('tiebreaker_vote_'))).pop();
     expect(post).toBeTruthy();
+  });
+});
+
+describe('/bracket my-votes in the group stage', () => {
+  // Every group record was read as two picks: one pick showed
+  // "#NaN (undefined)", and none (both deselected) "#NaN (undefined) and #NaN (undefined)"
+  const fieldOf = (reply, prefix) => (reply.embeds[0].toJSON().fields || []).find(f => f.name.startsWith(prefix))?.value;
+
+  test('one pick, two picks and none each read as what they are', async () => {
+    const sim = new Sim('sim-my-votes-groups', { voters: 1 });
+    await openGroups(sim);
+    const [a0, a1] = sim.tournament().groups.A.movies;
+    const b0 = sim.tournament().groups.B.movies[0];
+    const ballot = await sim.openBallot('voter1');
+    await sim.click('voter1', ballot, 'group_vote_A_0');
+    await sim.click('voter1', ballot, 'group_vote_A_1');
+    await sim.click('voter1', ballot, 'group_vote_B_0');
+    await sim.click('voter1', ballot, 'group_vote_C_2');
+    await sim.click('voter1', ballot, 'group_vote_C_2'); // and takes it back
+
+    const mine = await sim.bracket('voter1', 'my-votes');
+    expect(mine.reply.ephemeralFor).toBe('voter1');
+    expect(mine.reply.text).not.toMatch(/NaN|undefined/);
+    expect(fieldOf(mine.reply, '✅ Groups Voted')).toBe(
+      `**Group A** - Voted for #1 (${a0.title}) and #2 (${a1.title})\n⏰ 2d 0h remaining\n\n` +
+      `**Group B** - Picked #1 (${b0.title}). Pick 1 more: a single pick isn't counted\n⏰ 2d 0h remaining`,
+    );
+    expect(fieldOf(mine.reply, '✅ Groups Voted').startsWith('**Group A**')).toBe(true);
+    expect(mine.reply.embeds[0].toJSON().fields.find(f => f.name.startsWith('✅ Groups Voted')).name).toBe('✅ Groups Voted (2)');
+    // C, with its pick taken back, is still to vote, with D
+    expect(fieldOf(mine.reply, '🗳️ Groups Available')).toMatch(/^\*\*Group C\*\* - ⏰ 2d 0h remaining\n\*\*Group D\*\* - ⏰ 2d 0h remaining\n\n/);
+  });
+});
+
+describe('/bracket help says what the bot does', () => {
+  // It said picks show blue (they're purple: ButtonStyle.Primary) and
+  // promised "1-hour warnings", which only votes of 2 to 6 hours get
+  const fieldOf = (reply, name) => reply.embeds[0].toJSON().fields.find(f => f.name === name).value;
+
+  test('purple picks, and the reminder timing the scheduler really uses', async () => {
+    const sim = new Sim('sim-help', { voters: 1 });
+    const help = await sim.bracket('voter1', 'help');
+    expect(help.reply.ephemeralFor).toBe('voter1');
+    const auto = fieldOf(help.reply, '⚡ Automatic Features').split('\n');
+    expect(auto).toContain('✅ **"Closing soon" reminder** 2 hours before the deadline (1 hour before for votes of 2-6h; 5-10 minutes in for shorter ones)');
+    expect(auto).toContain('✅ **Button feedback** - selected votes show purple');
+    expect(fieldOf(help.reply, '🗳️ How to Vote (Everyone)')).toContain('• Select your **top 2** in each group - your picks turn purple, and ✅ marks a group once you have both');
+    expect(fieldOf(help.reply, '🎮 Smart Commands (Admin)')).toContain('• `/bracket open` - Opens next round (any phase; groups 5 at a time, as a ballot holds 5)');
+    expect(help.reply.text).not.toMatch(/blue|1-hour warning|checkmarks show your picks/i);
+  });
+
+  // The reminder the help describes, as the scheduler sends it
+  const MIN = 60 * 1000;
+  for (const [duration, lengthMs, remindAt, says] of [
+    ['1d', 24 * 60 * MIN, 22 * 60 * MIN, '2 hours before'],
+    ['4h', 4 * 60 * MIN, 3 * 60 * MIN, '1 hour before'],
+    ['1h', 60 * MIN, 10 * MIN, '10 minutes in'],
+    ['20m', 20 * MIN, 5 * MIN, '5 minutes in'],
+  ]) {
+    test(`a ${duration} vote is reminded ${says}`, async () => {
+      const sim = new Sim(`sim-help-reminder-${duration}`, { voters: 1 });
+      await straightBracket(sim, 'Reminders', 2, 'movie', HORROR_8.slice(0, 2));
+      await sim.bracket('admin', 'open', { duration });
+      expect(sim.openMatchups()[0].votingDeadline - clock.now).toBe(lengthMs);
+      const reminders = () => sim.channel.posted.filter(m => m.embeds[0]?.toJSON().title === '⏰ Voting Closing Soon!');
+      await sim.advance(remindAt - MIN);
+      expect(reminders()).toHaveLength(0);
+      await sim.advance(MIN);
+      expect(reminders()).toHaveLength(1);
+    });
+  }
+});
+
+describe('a tie\'s vote runs for the tournament\'s own tiebreaker time', () => {
+  // The setup form's "Tiebreaker time" was used only by the close
+  // commands. A tie found at the deadline, by opening the next matchup, or
+  // with a Close button always got 1 hour.
+  const HOUR = 60 * 60 * 1000;
+  const split = (m, voter) => (['voter1', 'voter2'].includes(voter) ? 1 : 2);
+  const tiebreakerPost = (sim) => sim.channel.posted.filter(m => m.allComponents.some(c => (c.customId || '').startsWith('tiebreaker_vote_'))).pop();
+
+  /** An 8-movie bracket saved by the setup form with these settings. */
+  async function bracketFromForm(sim, settings) {
+    const results = await mods.tournamentImport.resolveRows('movie', HORROR_8.map(([title, year]) => ({ title, year: String(year), id: '' })));
+    const rows = results.map((r, i) => ({ entry: r.status === 'matched' ? r.entry : r.candidates.find(c => String(c.year) === String(HORROR_8[i][1])), group: '' }));
+    const saved = mods.tournamentImport.saveImportedTournament(sim.guildId, { settings: { name: 'Tie Time', type: 'movie', ...settings }, rows, creatorId: 'admin' });
+    expect(saved.errors).toBeUndefined();
+  }
+
+  /** The tie's stored deadline is `ms` after it was found, and its card says so. */
+  function expectTiebreakerRuns(sim, ms) {
+    const [tb] = sim.tournament().tiebreakers.filter(t => t.status === 'active');
+    expect(tb.deadline - tb.createdAt).toBe(ms);
+    expect(tb.createdAt).toBe(clock.now);
+    const closes = tiebreakerPost(sim).embeds[0].toJSON().fields.find(f => f.name === '⏰ Closes');
+    expect(closes.value).toBe(`<t:${Math.floor((clock.now + ms) / 1000)}:R>`);
+  }
+
+  test('the setup form stores its default as 1h, and a tie with nothing set gets 1 hour', async () => {
+    const sim = new Sim('sim-tie-time-default', { voters: 4 });
+    await bracketFromForm(sim, { tiebreakerDuration: '' });
+    expect(sim.tournament().tiebreakerDuration).toBe('1h');
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const [tied] = sim.openMatchups();
+    await sim.everyoneVotes((m, v) => (m.id === tied.id ? split(m, v) : favorite(m)));
+    await sim.passDeadlines();
+    expectTiebreakerRuns(sim, HOUR);
+  });
+
+  for (const how of ['the deadline', 'opening the next matchup', 'the Close button', '/bracket close']) {
+    test(`a knockout tie found by ${how} gets the form's 3h`, async () => {
+      const sim = new Sim(`sim-tie-time-${how.replace(/\W+/g, '-')}`, { voters: 4 });
+      await bracketFromForm(sim, { tiebreakerDuration: '3h' });
+      await sim.bracket('admin', 'open', how === 'opening the next matchup' ? { duration: '1d', matchups: 1 } : { duration: '1d' });
+      const [tied] = sim.openMatchups();
+      await sim.everyoneVotes((m, v) => (m.id === tied.id ? split(m, v) : favorite(m)));
+      if (how === 'the deadline') await sim.passDeadlines();
+      else if (how === 'opening the next matchup') await sim.bracket('admin', 'open', { duration: '1d', matchups: 1 });
+      else if (how === '/bracket close') await sim.bracket('admin', 'close', {});
+      else {
+        const picker = await sim.bracket('admin', 'close-matchup', {});
+        await sim.click('admin', picker.reply, `close_matchup_${tied.id}`);
+      }
+      expect(sim.tournament().knockoutBracket.find(m => m.id === tied.id).status).toBe('tiebreaker');
+      expectTiebreakerRuns(sim, 3 * HOUR);
+    });
+  }
+
+  test('a group tie found at the deadline gets the form\'s 3h', async () => {
+    const sim = new Sim('sim-tie-time-groups', { voters: 5 });
+    await groupsFromForm(sim, 4, 'Group Tie Time', { tiebreakerDuration: '3h' });
+    await sim.bracket('admin', 'open', { duration: '2d' });
+    await groupVotesWithTieInA(sim);
+    await sim.passDeadlines();
+    expect(sim.tournament().groups.A.status).toBe('tiebreaker');
+    expectTiebreakerRuns(sim, 3 * HOUR);
   });
 });
 
@@ -861,6 +1054,235 @@ describe('group-stage ties', () => {
       expect(sim.tournament().status).toBe('completed');
     });
   }
+});
+
+/** A groups tournament of `groupCount` × 4 recorded movies, from the setup form (Sim.groupsFromForm). */
+async function groupsFromForm(sim, groupCount, name = 'World Cup of Horror', settings = {}) {
+  const entries = await sim.groupsFromForm(HORROR_32, groupCount, { name, ...settings });
+  expect(entries).toHaveLength(groupCount * 4);
+  return entries;
+}
+
+const groupsVoting = (sim) => Object.entries(sim.tournament().groups).filter(([, g]) => g.votingOpen).map(([id]) => id).sort();
+
+/** The groups a ballot shows, in order, from its vote buttons (a row each). */
+const ballotGroups = (ballot) => ballot.components.map(row => /^group_vote_([A-L])_\d$/.exec(row.components[0].customId)?.[1]);
+
+/**
+ * Each voter opens a ballot from the newest voting post and votes in every
+ * group on it: voters 1–3 pick titles 1 and 2, the rest titles 1 and 3, so
+ * title 1 wins each group outright. Checks every ballot shows `letters`, a
+ * row each, when opened and after every click.
+ */
+async function voteInGroups(sim, letters) {
+  const post = sim.votingPost();
+  for (const v of sim.voters) {
+    const ballot = await sim.openBallot(v, post);
+    expect(ballotGroups(ballot)).toEqual(letters);
+    for (const g of letters) {
+      for (const idx of (['voter1', 'voter2', 'voter3'].includes(v) ? [0, 1] : [0, 2])) {
+        await sim.click(v, ballot, `group_vote_${g}_${idx}`);
+        expect(ballotGroups(ballot)).toEqual(letters);
+      }
+    }
+  }
+}
+
+describe('a 48-title groups tournament: 12 groups, at most 5 voting at once', () => {
+  // A member's ballot is a row of buttons per group, and Discord shows 5
+  // rows. /bracket open used to open all 12 groups at once, and Discord
+  // refused every ballot ("This interaction failed"); /bracket open-groups
+  // opened any number, and with 10 or more its card went past 10 embeds.
+
+  test('/bracket open opens the groups five at a time, every ballot fits, and it runs to a champion', async () => {
+    const sim = new Sim('sim-groups-12', { voters: 5 });
+    await groupsFromForm(sim, 12);
+    expect(sim.tournament().groupCount).toBe(12);
+
+    const first = await sim.bracket('admin', 'open', { duration: '2d' });
+    expect(groupsVoting(sim)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(first.reply.text).toContain('**Opened groups:** A, B, C, D, E');
+    expect(first.reply.text).toContain('**Still to come:** F, G, H, I, J, K, L.');
+    expect(sim.votingPost().findComponent('start_group_voting_A,B,C,D,E')).toBeTruthy();
+    await voteInGroups(sim, ['A', 'B', 'C', 'D', 'E']);
+
+    // No sixth group while five vote, by either command, and nothing changes
+    const more = await sim.bracket('admin', 'open-groups', { groups: 'F', duration: '1d' });
+    expect(more.reply.text).toContain('A ballot holds 5 groups');
+    expect(more.reply.text).toContain('5 are voting now (A, B, C, D, E), so none can open until some close.');
+    const again = await sim.bracket('admin', 'open', { duration: '1d' });
+    expect(again.reply.text).toContain('5 groups are already voting** (A, B, C, D, E)');
+    expect(groupsVoting(sim)).toEqual(['A', 'B', 'C', 'D', 'E']);
+
+    await sim.passDeadlines();
+    expect(Object.keys(sim.tournament().groupResults).sort()).toEqual(['A', 'B', 'C', 'D', 'E']);
+
+    // The next five with /bracket open, the last two with /bracket open-groups
+    const second = await sim.bracket('admin', 'open', { duration: '2d' });
+    expect(groupsVoting(sim)).toEqual(['F', 'G', 'H', 'I', 'J']);
+    expect(second.reply.text).toContain('**Still to come:** K, L.');
+    await voteInGroups(sim, ['F', 'G', 'H', 'I', 'J']);
+    await sim.passDeadlines();
+    const kl = await sim.bracket('admin', 'open-groups', { groups: 'K,L', duration: '2d' });
+    expect(groupsVoting(sim)).toEqual(['K', 'L']);
+    await voteInGroups(sim, ['K', 'L']);
+    await sim.passDeadlines();
+    // Its card closed once for both groups: K and L each closing added
+    // another "🔒 CLOSED". (Its emoji was a broken character, too.)
+    expect(kl.reply.embeds[0].toJSON().title).toBe('🗳️ Group Stage Voting is Now Open! 🔒 CLOSED');
+    expect(kl.reply.allComponents.every(c => c.disabled)).toBe(true);
+
+    const t = sim.tournament();
+    expect(Object.keys(t.groupResults)).toHaveLength(12);
+    for (const g of mods.bracket.GROUP_LETTERS) expect(t.groupResults[g].first.title).toBe(t.groups[g].movies[0].title);
+
+    // 24 through and 8 wildcards: a Round of 32, opened four at a time
+    for (let n = 0; n < 16 && sim.tournament().status !== 'completed'; n++) {
+      await sim.bracket('admin', 'open', { duration: '1d', matchups: 4 });
+      if (n === 0) expect(sim.tournament().phase).toBe('round_of_32');
+      await sim.everyoneVotes(favorite);
+      await sim.passDeadlines();
+    }
+    expect(sim.tournament().status).toBe('completed');
+    expect(sim.discord.violations).toEqual([]);
+    sim.writeTranscript('groups-12');
+  }, 60_000);
+
+  test('/bracket open-groups with more than 5 groups is refused and opens nothing', async () => {
+    const sim = new Sim('sim-groups-10-at-once', { voters: 2 });
+    await groupsFromForm(sim, 10);
+    const i = await sim.bracket('admin', 'open-groups', { groups: 'A,B,C,D,E,F,G,H,I,J', duration: '1d' });
+    expect(i.reply.text).toContain('A ballot holds 5 groups');
+    expect(i.reply.text).toContain('Nothing was opened.');
+    expect(groupsVoting(sim)).toEqual([]);
+    expect(sim.hasVotingPost()).toBe(false);
+
+    // Five is fine: its card has the opening embed and one per group, 6 of Discord's 10
+    const ok = await sim.bracket('admin', 'open-groups', { groups: 'A,B,C,D,E', duration: '1d' });
+    expect(ok.reply.embeds).toHaveLength(6);
+    expect(groupsVoting(sim)).toEqual(['A', 'B', 'C', 'D', 'E']);
+  });
+
+  test('batches opened one after another: each ballot keeps its own groups, and a sixth group is refused', async () => {
+    const sim = new Sim('sim-groups-batches', { voters: 2 });
+    await groupsFromForm(sim, 9);
+    await sim.bracket('admin', 'open-groups', { groups: 'A,B,C', duration: '1d' });
+    const firstPost = sim.votingPost();
+    const ballot = await sim.openBallot('voter1', firstPost);
+    expect(ballotGroups(ballot)).toEqual(['A', 'B', 'C']);
+
+    await sim.bracket('admin', 'open-groups', { groups: 'D,E', duration: '1d' });
+    expect(groupsVoting(sim)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    // A click on the first ballot redraws A–C, not every group now open
+    await sim.click('voter1', ballot, 'group_vote_A_0');
+    expect(ballotGroups(ballot)).toEqual(['A', 'B', 'C']);
+    expect(sim.tournament().votes.voter1.A).toEqual([0]);
+    // ...and the second batch's ballot shows its own
+    expect(ballotGroups(await sim.openBallot('voter2'))).toEqual(['D', 'E']);
+
+    const sixth = await sim.bracket('admin', 'open-groups', { groups: 'F', duration: '1d' });
+    expect(sixth.reply.text).toContain('none can open until some close');
+    expect(groupsVoting(sim)).toEqual(['A', 'B', 'C', 'D', 'E']);
+  });
+
+  test('a voting card an earlier version posted for 12 open groups gets a clear refusal, not a failed interaction', async () => {
+    const sim = new Sim('sim-groups-12-legacy', { voters: 1 });
+    // What 2.74.1's /bracket open left behind: all 12 groups voting, one card
+    sim.groupsVotingLimit = 12;
+    await groupsFromForm(sim, 12);
+    const letters = mods.bracket.GROUP_LETTERS;
+    mods.bracketManager.openGroupVoting(sim.guildId, letters, clock.now + DAY, sim.channel.id);
+    await sim.channel.send({
+      content: 'Group Stage Voting Opened',
+      components: [{ type: 1, components: [{ type: 2, style: 3, label: '🗳️ Start Voting', custom_id: `start_group_voting_${letters.join(',')}` }] }],
+    });
+    const click = await sim.click('voter1', sim.votingPost(), `start_group_voting_${letters.join(',')}`);
+    const [answer] = click.responses;
+    expect(answer.ephemeralFor).toBe('voter1');
+    expect(answer.text).toBe('❌ **Too many groups open** (12)\n\nA ballot holds 5 groups: Discord shows 5 rows of buttons. Ask an admin to close some groups and open the rest 5 at a time.');
+    expect(answer.components).toHaveLength(0);
+  });
+});
+
+describe('closing groups by command posts their results', () => {
+  // As the deadline does (a results card per group) and close-groups did
+  // (top three per group). /bracket close replied only "Closed groups: A, B,
+  // C, D", so a group stage closed with it never said who went through.
+  const fieldsOf = (reply) => reply.embeds[0].toJSON().fields || [];
+  const top3 = (sim, g) => {
+    const [first, second, third] = sim.tournament().groups[g].movies;
+    return `🥇 **${first.title}** (5 votes)\n🥈 **${second.title}** (3 votes)\n🥉 **${third.title}** (2 votes)`;
+  };
+
+  test('/bracket close in the group stage posts every group\'s top three', async () => {
+    const sim = new Sim('sim-close-group-results');
+    await openGroups(sim);
+    await voteInGroups(sim, ['A', 'B', 'C', 'D']);
+    const close = await sim.bracket('admin', 'close', {});
+    const card = close.reply.embeds[0].toJSON();
+    expect(card.title).toBe('🏁 Group A, B, C, D Results');
+    expect(fieldsOf(close.reply)).toEqual(['A', 'B', 'C', 'D'].map(g => ({ name: `Group ${g}`, value: top3(sim, g), inline: false })));
+    expect(Object.values(sim.tournament().groups).every(g => g.status === 'closed')).toBe(true);
+  });
+
+  test('/bracket close-groups with a tie in one group still posts the others\' results, and the tie\'s vote', async () => {
+    const sim = new Sim('sim-close-groups-tie-results');
+    await openGroups(sim);
+    await groupVotesWithTieInA(sim);
+    const close = await sim.bracket('admin', 'close-groups', { groups: 'A,B,C,D' });
+    const fields = fieldsOf(close.reply);
+    // B, C and D are decided: their top three, as with no tie
+    expect(fields.filter(f => /^Group [BCD]$/.test(f.name)).map(f => f.name)).toEqual(['Group B', 'Group C', 'Group D']);
+    expect(fields.find(f => f.name === 'Group B').value).toBe(top3(sim, 'B'));
+    // A isn't: its tie is named, and its vote posted
+    const [a0, a1] = sim.tournament().groups.A.movies;
+    const tie = fields.find(f => f.name === '🔀 Tiebreakers');
+    expect(tie.value).toContain(`**Group A** - 1st place tie: ${a0.title} vs ${a1.title}`);
+    expect(tiebreakerPosts(sim)).toHaveLength(1);
+  });
+
+  test('a group closed on a tie takes no more votes, so its places can\'t change before the tiebreaker decides it', async () => {
+    const sim = new Sim('sim-tied-group-closed');
+    await openGroups(sim);
+    const ballots = await groupVotesWithTieInA(sim);
+    await sim.bracket('admin', 'close', {});
+    const before = JSON.stringify(sim.tournament().groups.A.movies.map(m => m.votes));
+    // voter1 picked titles 1 and 2 in A; dropping title 2 would have been
+    // counted, and finalizing the tiebreaker reads 2nd and 3rd from the votes
+    await sim.click('voter1', ballots.voter1, 'group_vote_A_1');
+    expect(JSON.stringify(sim.tournament().groups.A.movies.map(m => m.votes))).toBe(before);
+    expect(sim.tournament().groups.A.votingOpen).toBe(false);
+    // ...and closing it again, either way, doesn't (a second tiebreaker)
+    await sim.bracket('admin', 'close', {});
+    const again = await sim.bracket('admin', 'close-groups', { groups: 'A' });
+    expect(again.reply.text).toBe('❌ Group A isn\'t open for voting.');
+    expect(sim.tournament().tiebreakers.filter(t => t.groupId === 'A')).toHaveLength(1);
+  });
+
+  test('a tied group an earlier version saved still marked open is treated as waiting on its tiebreaker', async () => {
+    const sim = new Sim('sim-tied-group-legacy');
+    await openGroups(sim);
+    const ballots = await groupVotesWithTieInA(sim);
+    await sim.bracket('admin', 'close-groups', { groups: 'A' });
+    // As 2.74.1 left a tie: status 'tiebreaker', votingOpen still true
+    const t = sim.tournament();
+    t.groups.A.votingOpen = true;
+    mods.bracketManager.saveTournament(sim.guildId, t);
+
+    const before = JSON.stringify(sim.tournament().groups.A.movies.map(m => m.votes));
+    await sim.click('voter1', ballots.voter1, 'group_vote_A_1');
+    expect(JSON.stringify(sim.tournament().groups.A.movies.map(m => m.votes))).toBe(before);
+    // Status and the voting card don't list it as voting
+    const status = await sim.bracket('voter1', 'status');
+    expect(status.reply.text).not.toContain('**Group A**');
+    expect(status.reply.text).toContain('**Group B**');
+    const card = await sim.bracket('admin', 'voting-post');
+    expect(card.reply.text).toContain('**Groups:** B, C, D');
+    // /bracket close takes B, C and D, not A again
+    const close = await sim.bracket('admin', 'close', {});
+    expect(close.reply.embeds[0].toJSON().title).toBe('🏁 Group B, C, D Results');
+    expect(sim.tournament().tiebreakers.filter(x => x.groupId === 'A')).toHaveLength(1);
+  });
 });
 
 describe('/bracket extend-voting', () => {
@@ -1299,6 +1721,56 @@ describe('the drawn result image on each matchup result (cardImages.js)', () => 
       expect(data.tieBrokenBySeed).toBe(m.id === tied.id);
     }
     expect(sim.discord.violations).toEqual([]);
+  });
+
+  test('/bracket close-matchup with a typed label posts each result card with its picture, as the Close button does', async () => {
+    // It closed through bracketManager on its own and answered with its
+    // reply alone: matchups closed by label never got their result card,
+    // picture and all, nor had their voting message marked closed
+    const draw = mods.cardImages.generateMatchupResultImage;
+    draw.mockClear();
+    const sim = new Sim('sim-close-matchup-image', { voters: 3 });
+    await straightBracket(sim, 'Typed Close', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    await sim.everyoneVotes(favorite);
+    const [a, b] = sim.openMatchups();
+    const label = (m) => mods.tournamentUI.matchupLabel(m.position, m.round);
+    await sim.bracket('admin', 'close-matchup', { matchup: `${label(a)},${label(b)}` });
+
+    const posts = resultPosts(sim);
+    expect(posts.map(p => p.embeds[0].toJSON().title)).toEqual([a, b].map(m => `📊 Quarterfinals - Match ${m.position + 1} - Results`));
+    for (const post of posts) {
+      expect(post.attachments.map(x => x.name)).toEqual(['matchup.png']);
+      expect(post.embeds[0].toJSON().image.url).toBe('attachment://matchup.png');
+    }
+    expect(draw.mock.calls.map(([d]) => d.label)).toEqual([label(a), label(b)]);
+    for (const m of [a, b]) {
+      const closed = sim.tournament().knockoutBracket.find(x => x.id === m.id);
+      const [data] = draw.mock.calls.find(([d]) => d.label === label(m));
+      expect(data.winner).toMatchObject({ title: closed.winner.title, votes: 3 });
+    }
+    // The two still voting are left alone
+    expect(sim.openMatchups().map(m => m.id)).toEqual(sim.tournament().knockoutBracket.filter(m => m.round === 'quarterfinals' && ![a.id, b.id].includes(m.id)).map(m => m.id));
+    expect(sim.discord.violations).toEqual([]);
+  });
+
+  test('a typed close of a tie and a decided matchup: the tie\'s vote, the other\'s result card, both in the reply, and the bracket', async () => {
+    const sim = new Sim('sim-close-matchup-tie-and-win', { voters: 4 });
+    await straightBracket(sim, 'Typed Mixed', 8, 'movie', HORROR_8);
+    await sim.bracket('admin', 'open', { duration: '1d' });
+    const [tied, won] = sim.openMatchups();
+    await sim.everyoneVotes((m, v) => (m.id === tied.id ? split(m, v) : favorite(m)));
+    const label = (m) => mods.tournamentUI.matchupLabel(m.position, m.round);
+    const close = await sim.bracket('admin', 'close-matchup', { matchup: `${label(tied)},${label(won)}` });
+
+    const reply = close.reply.embeds[0].toJSON();
+    expect(reply.title).toBe('🔀 Tiebreaker Voting Started');
+    // Seeding is random: the 4–0 is title 1's or title 2's
+    const decided = sim.tournament().knockoutBracket.find(m => m.id === won.id);
+    const counts = decided.winner.title === decided.movie1.title ? '4 vs 0' : '0 vs 4';
+    expect(reply.fields.find(f => f.name === '🏆 Decided').value).toBe(`**${label(won)}**: ${decided.winner.title} wins (${counts})`);
+    expect(resultPosts(sim).map(p => p.embeds[0].toJSON().title)).toEqual([`📊 Quarterfinals - Match ${won.position + 1} - Results`]);
+    expect(sim.channel.posted.filter(m => /— Bracket So Far$/.test(m.embeds[0]?.toJSON().title || ''))).toHaveLength(1);
   });
 
   test('when the image fails, the text card still posts exactly as before, with the poster thumbnail', async () => {

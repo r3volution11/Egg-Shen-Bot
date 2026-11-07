@@ -89,13 +89,29 @@ afterEach(() => {
 
 const history = () => getWatchHistory(discord.guild.id, 'all', Infinity);
 
-/** Start a timer, then the real /timer stop: the card it posts */
-async function stopCard(label = '') {
-  timerManager.startTimer(CHANNEL, STARTER, STARTER, label);
+/**
+ * Start a timer, then the real /timer stop: the card it posts. `media` is
+ * what /timer start stores for a title it identified ({ tmdbId, type }; a
+ * board game's id is BoardGameGeek's). `before(i)` gets the stop
+ * interaction before it runs.
+ */
+async function stopCard(label = '', { media = null, before = null } = {}) {
+  timerManager.startTimer(CHANNEL, STARTER, STARTER, label, null, null, false, media);
   const i = discord.command(STARTER, 'timer', { subcommand: 'stop' });
+  if (before) before(i);
   await timer.execute(i);
   expect(discord.violations).toEqual([]);
   return i.replyMessage;
+}
+
+/** Let an auto-stop run: a 1-minute timer, its timeout fired, its awaits finished */
+async function autoStop(label, media = null) {
+  jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+  timerManager.startTimer(CHANNEL, STARTER, STARTER, label, 1, discord.client, false, media);
+  await jest.advanceTimersByTimeAsync(60_000);
+  jest.useRealTimers();
+  await new Promise(r => setTimeout(r, 50));
+  return discord.channel.posted.at(-1);
 }
 
 const logButtonId = (card) => card.allComponents.find(c => c.customId?.startsWith('log_watched_'))?.customId;
@@ -166,7 +182,7 @@ describe('a card with a title', () => {
   test('a long label TMDB can\'t find: the form fits Discord\'s limits, shows the label to correct, and logs the correction', async () => {
     const label = 'Buffy the Vampire Slayer - S3: E1-E4 (Marathon Night, Part Two)';
     const card = await stopCard(label);
-    expect(card.embeds[0].description).toContain('Could not find this title on TMDB');
+    expect(card.embeds[0].description).toBe(`**${label}**\n\n⚠️ Couldn't find this on TMDB as a movie or show, so it wasn't logged automatically.`);
 
     const click = await clickLog(STARTER, card);
     expect(click.modal).toBeDefined(); // the old base64 customId was over 100 and couldn't be built
@@ -273,6 +289,133 @@ describe('logging a card only once', () => {
 
     expect(again.modal).toBeUndefined();
     expect(again.replyMessage.content).toContain('already in the watch history as **Alien (1979)**');
+    expect(await history()).toHaveLength(1);
+  });
+});
+
+// ── 2.75.1: board games, and a log that half failed ─────────────────────
+
+// What /timer start stores for a board game it identified (BoardGameGeek's
+// id), named like a movie TMDB has: the old card's form searched TMDB for
+// the label and logged the movie
+const CLUE_BOARD_GAME = { tmdbId: 1294, type: 'boardgame', episodeRange: null };
+
+describe('2.75.1: a board-game timer is never logged to watch history', () => {
+  test('/timer stop on a board game named like a movie: says board games aren\'t logged, no Log button, nothing logged, TMDB never asked', async () => {
+    const card = await stopCard('Alien', { media: CLUE_BOARD_GAME });
+
+    expect(card.embeds[0].title).toBe('⏹️ Timer Stopped 🛑');
+    expect(card.embeds[0].description).toBe('**Alien**\n\n🎲 Board games aren\'t logged to watch history.');
+    expect(logButtonId(card)).toBeUndefined();
+    expect(await history()).toHaveLength(0);
+    expect(tmdb.searchMovies).not.toHaveBeenCalled();
+  });
+
+  test('an auto-stopped board-game timer: the same card, the starter pinged, no Log button', async () => {
+    const card = await autoStop('Alien', CLUE_BOARD_GAME);
+
+    expect(card.content).toBe(`⏰ <@${STARTER}> your watch party timer has finished.`);
+    expect(card.embeds[0].title).toBe('⏰ Timer Completed 🛑');
+    expect(card.embeds[0].description).toBe('**Alien**\n\n🎲 Board games aren\'t logged to watch history.');
+    expect(logButtonId(card)).toBeUndefined();
+    expect(await history()).toHaveLength(0);
+  });
+
+  test('a "Could not find this title on TMDB" card from before the fix: refused and its button removed; a form opened from it before the deploy is refused too; nothing logged', async () => {
+    // As the previous version posted a board-game timer's card (a movie
+    // label TMDB couldn't find got the very same card)
+    const legacy = await discord.channel.send({
+      embeds: [{ title: '⏹️ Timer Stopped 🛑', description: '**Alien**\n\n⚠️ Could not find this title on TMDB to log automatically.' }],
+      components: [new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`log_watched_${CHANNEL}_${STARTER}`).setLabel('Log to Watch History').setStyle(ButtonStyle.Primary)
+      )],
+    });
+    const REFUSED = '❌ This card was posted before board-game timers stopped offering this button, and it doesn\'t say whether the timer was for a board game (never logged to watch history) or for a movie or show. If it was a movie or show, add it with `/watched add`.';
+
+    // A form opened from it before the deploy, submitted after: the title box pre-filled "Alien"
+    const early = discord.modalSubmit(STARTER, `watched_modal_${CHANNEL}_${STARTER}`, { title: 'Alien', notes: '' });
+    early.message = legacy;
+    await handleWatchedModalSubmit(early);
+    expect([early.replyMessage.content, early.replyMessage.ephemeralFor]).toEqual([REFUSED, STARTER]);
+
+    // A plain member is still told they can't log at all
+    const member = await clickLog(MEMBER, legacy);
+    expect(member.replyMessage.content).toMatch(/^❌ Only the person who started the timer/);
+    expect(logButtonId(legacy)).toBeDefined();
+
+    const click = await clickLog(STARTER, legacy);
+    expect(click.modal).toBeUndefined();
+    expect([click.replyMessage.content, click.replyMessage.ephemeralFor]).toEqual([REFUSED, STARTER]);
+    expect(logButtonId(legacy)).toBeUndefined();
+    expect(await history()).toHaveLength(0);
+    expect(discord.violations).toEqual([]);
+  });
+});
+
+describe('2.75.1: a step after the save fails — the card says logged, with no button to log it twice', () => {
+  test('/timer stop: Discord refuses the logged card once; the card in its place says logged, no Log button, one entry', async () => {
+    let refused = 0;
+    const card = await stopCard('Alien', {
+      before: (i) => {
+        const editReply = i.editReply.bind(i);
+        i.editReply = async (payload) => {
+          // The first edit is the logged card, after the save: Discord says no
+          if (refused++ === 0) throw Object.assign(new Error('Service Unavailable'), { status: 503 });
+          return editReply(payload);
+        };
+      },
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(refused).toBe(2);
+    expect(card.embeds[0].title).toBe('⏹️ Timer Stopped & Logged 🛑📝');
+    expect(card.embeds[0].description).toBe('**Alien (1979)**\n\n✅ Automatically logged to watch history');
+    expect(logButtonId(card)).toBeUndefined();
+    const saved = await history();
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ tmdbId: 348, title: 'Alien' });
+  });
+
+  test('auto-stop: Discord refuses the logged card once; the one sent in its place says logged, no Log button, one entry', async () => {
+    const send = discord.channel.send.bind(discord.channel);
+    let refused = 0;
+    discord.channel.send = async (payload) => {
+      if (refused++ === 0) throw Object.assign(new Error('Service Unavailable'), { status: 503 });
+      return send(payload);
+    };
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const card = await autoStop('Alien');
+
+    expect(refused).toBe(2);
+    expect(card.embeds[0].title).toBe('⏰ Timer Completed & Logged 🛑📝');
+    expect(card.embeds[0].description).toBe('**Alien (1979)**\n\n✅ Automatically logged to watch history');
+    expect(card.content).toBe(`⏰ <@${STARTER}> your watch party timer has finished.`);
+    expect(logButtonId(card)).toBeUndefined();
+    expect(await history()).toHaveLength(1);
+  });
+
+  test('the save itself fails: nothing logged, so the error card keeps the Log button, and it logs once', async () => {
+    // The guild's watch-history file can't be written, once (the timers file still can)
+    const { default: fsp } = await import('fs/promises');
+    const writeFile = fsp.writeFile;
+    let failed = 0;
+    jest.spyOn(fsp, 'writeFile').mockImplementation(async (file, ...rest) => {
+      if (String(file).endsWith(`${discord.guild.id}_history.json`) && failed++ === 0) {
+        throw Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' });
+      }
+      return writeFile(file, ...rest);
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const card = await stopCard('Alien');
+
+    expect(failed).toBe(1);
+
+    expect(card.embeds[0].description).toBe('**Alien**\n\n❌ Error logging to watch history: ENOSPC: no space left on device');
+    expect(await history()).toHaveLength(0);
+    const click = await clickLog(STARTER, card);
+    await submit(STARTER, card, click.modal);
     expect(await history()).toHaveLength(1);
   });
 });

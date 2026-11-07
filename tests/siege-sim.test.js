@@ -729,19 +729,63 @@ describe('2.75.0: the Wang Chi, the Jack Burton and backing, through the real co
     sim.finalChecks();
   });
 
-  test('d2. scored plays off (daily-scored-plays 0): every rescue is unscored, so the first 2 a night count — and the 3rd says why without a cap it isn\'t past', async () => {
+  // 2.75.1: with scored plays off, every play is unscored, so the 2-a-night
+  // cap on unscored help used to apply from the first rescue (the third
+  // free of a night counted for nothing). Doug's decision (2026-11-07):
+  // count it like a server that scores plays — the first 20 (the default
+  // daily scoring cap) /rescue plays and /potion plays a day count as if
+  // scored, and the 2-a-night cap starts past them.
+  test('d2. scored plays off (daily-scored-plays 0): ben\'s first 20 rescues a day count as if scored, the 20th included (Field Medic too); past them 2 a night count, the 3rd says why', async () => {
     const sim = fresh('sim-unscored-off', 6);
     await sim.command('admin', 'eggshen-config-games', { subcommand: 'limits', options: { 'daily-scored-plays': 0 } });
     await sim.start({ monster: 'klowns' });
     for (const u of ['ana', 'ben', 'cat']) await sim.attack(u, 'food', { force: 'splash' });
     const said = [];
+    // Rescues 1–3 free ana
     for (let i = 0; i < 3; i++) said.push(await grabAndFree(sim));
+    // Rescues 4–19 at cat, who isn't grabbed: plays, nothing to free
+    for (let i = 0; i < 16; i++) {
+      await sim.advance(21 * SEC);
+      const r = await sim.rescue('ben', 'cat', { force: 'caught' });
+      expect(lines(r.reply).some(l => / freed /.test(l))).toBe(false);
+    }
+    expect(sim.scores().daily.ben.plays.rescue).toBe(19);
+    // Rescue 20 (the last that counts as scored), then 21–23
+    for (let i = 0; i < 4; i++) said.push(await grabAndFree(sim));
+    expect(sim.scores().daily.ben.plays.rescue).toBe(23);
+    const credited = '-# 🛟 ben freed ana from Killer Klowns: +12 to their share of the fight.';
     expect(said).toEqual([
-      '-# 🛟 ben freed ana from Killer Klowns: +12 to their share of the fight.',
-      '-# 🛟 ben freed ana from Killer Klowns: +12 to their share of the fight.',
-      '-# 🛟 ben freed ana from Killer Klowns. Plays don\'t score on this server, so this one doesn\'t count toward ben\'s share (the first 2 a night do).',
+      credited, credited, credited,
+      credited, // the 20th
+      credited, credited, // 21st and 22nd: the first 2 a night past them
+      '-# 🛟 ben freed ana from Killer Klowns. Plays don\'t score on this server, but the siege counts the first 20 Rescue plays a day as if they did, and this is past them: it doesn\'t count toward ben\'s share (the first 2 a night past them do).',
     ]);
-    expect(sim.siege().participants.ben).toMatchObject({ frees: 2, unscored: { n: 2 } });
+    const ben = sim.siege().participants.ben;
+    expect(ben).toMatchObject({ frees: 6, unscored: { night: '2026-11-09', n: 2 } });
+    expect(mods.store.contributionOf(ben)).toBe(ben.damage + 6 * 12);
+    // Field Medic counts the four that counted as scored, not the two past them
+    expect(sim.scores().users.ben.lifetime.siege?.assists).toBe(4);
+    sim.finalChecks();
+  });
+
+  test('d3. scored plays off: three cures in a night through the real /potion, all three count (they used to stop at 2)', async () => {
+    const sim = fresh('sim-unscored-off-cure', 7);
+    await sim.command('admin', 'eggshen-config-games', { subcommand: 'limits', options: { 'daily-scored-plays': 0 } });
+    await sim.start({ monster: 'klowns' });
+    for (const u of ['ana', 'ben', 'cat']) await sim.attack(u, 'food', { force: 'splash' });
+    const said = [];
+    for (let i = 0; i < 3; i++) {
+      await sim.act('poison', ['ana']);
+      expect(sim.siege().participants.ana.poisoned).toMatchObject({ by: 'monster' });
+      await sim.advance(21 * SEC);
+      const r = await sim.cure('dev', 'ana', { force: 'worked' });
+      expect(sim.siege().participants.ana.poisoned).toBeNull();
+      said.push(lines(r.reply).at(-1));
+    }
+    expect(said).toEqual(Array(3).fill('-# 🧪 dev cured ana of Killer Klowns\'s poison: +8 to their share of the fight.'));
+    expect(sim.siege().participants.dev).toMatchObject({ cures: 3 });
+    expect(sim.siege().participants.dev).not.toHaveProperty('unscored');
+    expect(sim.scores().users.dev.lifetime.siege?.assists).toBe(3);
     sim.finalChecks();
   });
 

@@ -162,13 +162,47 @@ export function restartTiebreakerClock(guildId, tiebreakerId) {
   return saveTournament(guildId, tournament) ? { tournament, tiebreaker } : null;
 }
 
+// Every round a tournament can have, in the order they're played. The
+// group stage is one round however many groups or batches it has.
+const ROUND_ORDER = ['groups', 'round_of_32', 'round_of_16', 'quarterfinals', 'semifinals', 'finals'];
+
+/**
+ * Whether `later` is the round this tournament played straight after
+ * `earlier`: no round of its own between them. A 4-group tournament goes
+ * from the groups to the quarterfinals; a 32-title bracket starts at the
+ * Round of 32 (every round's matchups exist from the start, empty).
+ */
+function roundFollows(tournament, earlier, later) {
+  const a = ROUND_ORDER.indexOf(earlier);
+  const b = ROUND_ORDER.indexOf(later);
+  if (a < 0 || b <= a) return false;
+  const has = (round) => (round === 'groups'
+    ? tournament.mode === 'groups'
+    : (tournament.knockoutBracket || []).some(m => m.round === round));
+  return ROUND_ORDER.slice(a + 1, b).every(round => !has(round));
+}
+
+/**
+ * A member's voting streak as it stands: the rounds in a row they've voted
+ * in, up to this one. 0 once a round has gone by without their vote, and
+ * for a record kept before rounds were (2.74.1 and earlier), whose count was
+ * of votes: "Streak: 6 rounds" after six votes in two rounds.
+ */
+export function currentStreak(tournament, userId) {
+  const stats = tournament?.participation?.[userId];
+  if (!stats?.lastRound || !stats.streak) return 0;
+  const now = tournament.phase;
+  return stats.lastRound === now || roundFollows(tournament, stats.lastRound, now) ? stats.streak : 0;
+}
+
 /**
  * Update participation stats for a user (Tatsu-style tracking)
  * @param {Object} tournament - Tournament object
  * @param {string} userId - User ID
  * @param {string} voteType - 'group' or 'knockout'
+ * @param {string} round - the round voted in: 'groups', or a knockout round
  */
-function updateParticipationStats(tournament, userId, voteType = 'group') {
+function updateParticipationStats(tournament, userId, voteType = 'group', round = null) {
   // Initialize participation tracking if it doesn't exist (for older tournaments)
   if (!tournament.participation) {
     tournament.participation = {};
@@ -204,26 +238,22 @@ function updateParticipationStats(tournament, userId, voteType = 'group') {
     userStats.knockoutVotes++;
   }
   
-  // Update streak (consecutive rounds voted in)
-  const lastVoted = userStats.lastVoted;
-  const now = Date.now();
-  
-  if (!lastVoted) {
-    // First vote
-    userStats.streak = 1;
+  // Streak: consecutive rounds voted in. Another vote in the same round
+  // changes nothing; a vote in the round straight after the last one voted
+  // in adds one; anything else — a round missed, or a record from before
+  // rounds were kept — starts again at 1. It used to add one for every vote
+  // within 48 hours of the last, so it counted votes: four quarterfinal
+  // votes and two semifinal ones read "Streak: 6 rounds".
+  const last = userStats.lastRound;
+  if (round && last === round) {
+    // same round
+  } else if (round && last && roundFollows(tournament, last, round)) {
+    userStats.streak++;
   } else {
-    // Check if this is a new round/group (different day or different phase)
-    const hoursSinceLastVote = (now - lastVoted) / (1000 * 60 * 60);
-    if (hoursSinceLastVote < 48) {
-      // Within 48 hours - continue streak
-      userStats.streak++;
-    } else {
-      // Reset streak if too long between votes
-      userStats.streak = 1;
-    }
+    userStats.streak = 1;
   }
-  
-  userStats.lastVoted = now;
+  userStats.lastRound = round;
+  userStats.lastVoted = Date.now();
   
   // Update tournament-wide statistics
   tournament.statistics.totalVotes++;
@@ -294,6 +324,52 @@ export const SEEDING_MODES = ['random', 'ordered', 'rating'];
 // What a tied knockout matchup does: a runoff vote (the long-standing rule)
 // or the better seed advances at once, as in college sports.
 export const TIE_RULES = ['runoff', 'higher-seed'];
+
+// ─── durations ────────────────────────────────────────────────────────────────
+// Here rather than in tournamentImport.js (which re-exports them), so the
+// tiebreaker default below can read a tournament's own setting:
+// tournamentImport imports this module, so importing it back would be a cycle.
+
+export const DEFAULT_VOTING_DURATION = '24h';
+export const DEFAULT_TIEBREAKER_DURATION = '1h';
+
+/**
+ * Parse a duration like "24h", "3d" or "45m" to milliseconds.
+ * @returns {number|null} null if it isn't one
+ */
+export function parseDuration(durationStr) {
+  if (!durationStr || typeof durationStr !== 'string') return null;
+  const match = durationStr.trim().match(/^(\d+)([mhd])$/i);
+  if (!match) return null;
+  const multipliers = { m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+  return parseInt(match[1]) * multipliers[match[2].toLowerCase()];
+}
+
+/** Voting durations run 5 minutes to 30 days. */
+export function isValidDuration(durationMs) {
+  return durationMs >= 5 * 60 * 1000 && durationMs <= 30 * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Tiebreakers run 5 minutes to 7 days. Every message and doc said 7 days,
+ * but close-groups and close-matchup checked the 30-day voting limit and
+ * `/bracket close` checked nothing at all.
+ */
+export function isValidTiebreakerDuration(durationMs) {
+  return durationMs >= 5 * 60 * 1000 && durationMs <= 7 * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * How long a tiebreaker runs when no command says: the tournament's own
+ * "Tiebreaker time" from the setup form, stored as typed ('2h'), else 1 hour.
+ * Only the close commands take `tiebreaker-duration`; a tie found at a
+ * deadline, by opening the next matchups, or with a Close button always got
+ * 1 hour, whatever the form said.
+ */
+export function tiebreakerMsFor(tournament) {
+  const ms = parseDuration(tournament?.tiebreakerDuration);
+  return ms && isValidTiebreakerDuration(ms) ? ms : parseDuration(DEFAULT_TIEBREAKER_DURATION);
+}
 
 /**
  * The tournament's seeding mode. Tournaments made before a mode was stored
@@ -672,7 +748,7 @@ export function createTournament(guildId, name, creatorId, maxTitles = 32, { see
     seeding: SEEDING_MODES.includes(seeding) ? seeding : 'random',
     ties: TIE_RULES.includes(ties) ? ties : 'runoff',
     // Participation tracking (Tatsu-style)
-    participation: {}, // userId -> { totalVotes: number, groupVotes: number, knockoutVotes: number, streak: number, lastVoted: timestamp }
+    participation: {}, // userId -> { totalVotes, groupVotes, knockoutVotes, streak (rounds in a row), lastRound, lastVoted: timestamp }
     statistics: { // Tournament-wide stats
       totalVotes: 0,
       uniqueVoters: 0,
@@ -1044,6 +1120,43 @@ export function removeGroupTitle(guildId, groupId, titleIndex) {
 }
 
 /**
+ * How many groups may vote at once. A member's group ballot is one row of
+ * buttons per group (4 titles fit on a row), and Discord allows 5 rows on a
+ * message: with more, every ballot was refused and voters saw "This
+ * interaction failed". `/bracket open` and `/bracket open-groups` keep
+ * within it, as the knockout keeps to 5 matchups a ballot.
+ */
+export const MAX_GROUPS_VOTING = 5;
+
+/**
+ * Whether a group's own vote is open. A group that closed on a tie used to
+ * keep `votingOpen` (closeGroupVoting now clears it), so one saved like that
+ * is waiting on its tiebreaker, not voting.
+ */
+export function isGroupVoting(group) {
+  return Boolean(group?.votingOpen) && group.status !== 'tiebreaker' && group.status !== 'closed';
+}
+
+/** The groups voting now, by letter. */
+export function groupsVotingNow(tournament) {
+  return Object.entries(tournament?.groups || {})
+    .filter(([, g]) => isGroupVoting(g))
+    .map(([id]) => id)
+    .sort();
+}
+
+/**
+ * The groups that haven't voted yet — not voting, not closed, not waiting
+ * on a tiebreaker — by letter: what `/bracket open` opens next.
+ */
+export function groupsYetToVote(tournament) {
+  return Object.entries(tournament?.groups || {})
+    .filter(([, g]) => !g.votingOpen && g.status !== 'closed' && g.status !== 'tiebreaker')
+    .map(([id]) => id)
+    .sort();
+}
+
+/**
  * Open voting for specific groups
  */
 /**
@@ -1139,7 +1252,7 @@ export function voteGroupStage(guildId, userId, groupId, movieIndexes) {
   }
   
   const group = tournament.groups[groupId];
-  if (!group || !group.votingOpen) {
+  if (!isGroupVoting(group)) {
     return { success: false, error: 'This group is not open for voting' };
   }
   
@@ -1178,7 +1291,7 @@ export function voteGroupStage(guildId, userId, groupId, movieIndexes) {
   
   // Update participation stats (Tatsu-style tracking)
   if (movieIndexes.length > 0) {
-    updateParticipationStats(tournament, userId, 'group');
+    updateParticipationStats(tournament, userId, 'group', 'groups');
   }
   
   return saveTournament(guildId, tournament)
@@ -1191,13 +1304,15 @@ export function voteGroupStage(guildId, userId, groupId, movieIndexes) {
  * Handles ties by creating tiebreaker rounds
  * @param {string} guildId 
  * @param {Array} groupIds - Array of group IDs to close
- * @param {number} tiebreakerDurationMs - Duration for any tiebreaker rounds (default 1 hour)
+ * @param {number} [tiebreakerDurationMs] - Duration for any tiebreaker rounds
+ *   (default: the tournament's own tiebreaker time, see tiebreakerMsFor)
  */
-export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 3600000) {
+export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs) {
   let tournament = loadTournament(guildId);
   if (!tournament) {
     return { success: false, error: 'No tournament found' };
   }
+  tiebreakerDurationMs ??= tiebreakerMsFor(tournament);
 
   const tiebreakersCreated = [];
   const partialVotersDiscarded = []; // { groupId, userId, votedFor (count) }
@@ -1261,6 +1376,11 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
         if (existing === -1) tournament.tiebreakers.push(result.tiebreaker);
         const currentGroup = tournament.groups[groupId];
         currentGroup.status = 'tiebreaker'; // Mark group as waiting for tiebreaker
+        // Its own voting is over. It stayed open, so a ballot could still
+        // change its votes, and finalizeGroupAfterTiebreaker reads 2nd and
+        // 3rd place from them; a second /bracket close re-closed it, with a
+        // second tiebreaker.
+        closeGroupBallot(currentGroup);
         // Store partial results (all positions TBD after tiebreaker)
         tournament.groupResults[groupId] = {
           first: null, // To be determined by tiebreaker
@@ -1302,6 +1422,7 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
         if (existing === -1) tournament.tiebreakers.push(result.tiebreaker);
         const currentGroup = tournament.groups[groupId];
         currentGroup.status = 'tiebreaker';
+        closeGroupBallot(currentGroup); // as for a tie for 1st
         // Store partial results
         tournament.groupResults[groupId] = {
           first: winner,
@@ -1339,8 +1460,7 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
     
     // Finalize group
     group.status = 'closed';
-    group.votingOpen = false;
-    group.votingClosed = Date.now();
+    closeGroupBallot(group);
     
     tournament.groupResults[groupId] = {
       first: winner,
@@ -1353,6 +1473,12 @@ export function closeGroupVoting(guildId, groupIds, tiebreakerDurationMs = 36000
   return saveTournament(guildId, tournament)
     ? { success: true, tournament, tiebreakersCreated, partialVotersDiscarded }
     : { success: false, error: 'Failed to save' };
+}
+
+/** A group's own vote is over: its ballot buttons are refused from now on. */
+function closeGroupBallot(group) {
+  group.votingOpen = false;
+  group.votingClosed = Date.now();
 }
 
 /**
@@ -1398,7 +1524,7 @@ export function createTiebreaker(guildId, groupId, position, tiedOptions, durati
  * bug). Created and linked in one save, so the two can't disagree again.
  * @returns {{success: true, tournament, matchup, tiebreaker} | {success: false, error}}
  */
-export function recreateKnockoutTiebreaker(guildId, matchupId, durationMs = 60 * 60 * 1000) {
+export function recreateKnockoutTiebreaker(guildId, matchupId, durationMs = tiebreakerMsFor(loadTournament(guildId))) {
   const created = createTiebreaker(guildId, matchupId, 'knockout', null, durationMs);
   if (!created.success) return created;
 
@@ -2118,7 +2244,7 @@ export function voteKnockout(guildId, userId, matchupId, choice) {
   tournament.votes[userId][matchupId] = choice;
   
   // Update participation stats (Tatsu-style tracking)
-  updateParticipationStats(tournament, userId, 'knockout');
+  updateParticipationStats(tournament, userId, 'knockout', matchup.round);
   
   return saveTournament(guildId, tournament)
     ? { success: true, tournament }
@@ -2132,14 +2258,16 @@ export function voteKnockout(guildId, userId, matchupId, choice) {
  * Close a knockout matchup and determine winner
  * @param {string} guildId 
  * @param {string} matchupId 
- * @param {number} tiebreakerDurationMs - Duration for tiebreaker if needed (default 1 hour)
+ * @param {number} [tiebreakerDurationMs] - Duration for tiebreaker if needed
+ *   (default: the tournament's own tiebreaker time, see tiebreakerMsFor)
  * @returns {object}
  */
-export function closeKnockoutMatchup(guildId, matchupId, tiebreakerDurationMs = 3600000) {
+export function closeKnockoutMatchup(guildId, matchupId, tiebreakerDurationMs) {
   const tournament = loadTournament(guildId);
   if (!tournament) {
     return { success: false, error: 'No tournament found' };
   }
+  tiebreakerDurationMs ??= tiebreakerMsFor(tournament);
   
   const matchup = tournament.knockoutBracket.find(m => m.id === matchupId);
   if (!matchup) {
@@ -2344,19 +2472,15 @@ export function getUserVotingStatus(guildId, userId) {
     Object.keys(tournament.groups).forEach(groupId => {
       const group = tournament.groups[groupId];
       
-      if (group.votingOpen) {
-        // Check if user has voted
-        if (userVotes[groupId]) {
-          const choices = userVotes[groupId];
-          const movie1 = group.movies[choices[0]];
-          const movie2 = group.movies[choices[1]];
-          
+      if (isGroupVoting(group)) {
+        // Check if user has voted. A record is 0, 1 or 2 picks: it was read
+        // as two, so one pick showed "#NaN (undefined)" for the second, and
+        // one taken back to none showed two of them
+        const picks = Array.isArray(userVotes[groupId]) ? userVotes[groupId] : [];
+        if (picks.length > 0) {
           status.groupVotes.push({
             group: groupId,
-            choices: [
-              { position: choices[0] + 1, title: movie1?.title },
-              { position: choices[1] + 1, title: movie2?.title }
-            ],
+            choices: picks.map(i => ({ position: i + 1, title: group.movies[i]?.title })),
             deadline: group.votingDeadline,
             timeRemaining: group.votingDeadline ? Math.max(0, group.votingDeadline - Date.now()) : null
           });

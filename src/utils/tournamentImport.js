@@ -28,8 +28,6 @@ export const GROUPS_MIN = 4;
 export const GROUPS_MAX = 12;
 export const MAX_ROWS = GROUPS_MAX * GROUP_SIZE;
 
-export const DEFAULT_VOTING_DURATION = '24h';
-export const DEFAULT_TIEBREAKER_DURATION = '1h';
 export const SEEDING_OPTIONS = bracketManager.SEEDING_MODES; // random, ordered, rating
 export const TIE_OPTIONS = bracketManager.TIE_RULES; // runoff, higher-seed
 export const MAX_NAME_LENGTH = bracketManager.MAX_TOURNAMENT_NAME_LENGTH;
@@ -46,32 +44,12 @@ const ANNOUNCEMENT_FIELDS = ['message', 'imageUrl'];
 const MAX_CANDIDATES = 10;
 
 // ─── durations ────────────────────────────────────────────────────────────────
-
-/**
- * Parse a duration like "24h", "3d" or "45m" to milliseconds.
- * @returns {number|null} null if it isn't one
- */
-export function parseDuration(durationStr) {
-  if (!durationStr || typeof durationStr !== 'string') return null;
-  const match = durationStr.trim().match(/^(\d+)([mhd])$/i);
-  if (!match) return null;
-  const multipliers = { m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
-  return parseInt(match[1]) * multipliers[match[2].toLowerCase()];
-}
-
-/** Voting durations run 5 minutes to 30 days. */
-export function isValidDuration(durationMs) {
-  return durationMs >= 5 * 60 * 1000 && durationMs <= 30 * 24 * 60 * 60 * 1000;
-}
-
-/**
- * Tiebreakers run 5 minutes to 7 days. Every message and doc said 7 days,
- * but close-groups and close-matchup checked the 30-day voting limit and
- * `/bracket close` checked nothing at all.
- */
-export function isValidTiebreakerDuration(durationMs) {
-  return durationMs >= 5 * 60 * 1000 && durationMs <= 7 * 24 * 60 * 60 * 1000;
-}
+// Defined in bracketManager.js, so a tie can use the tournament's own
+// tiebreaker time wherever it's found; re-exported here, where the form's
+// settings are checked.
+const { parseDuration, isValidDuration, isValidTiebreakerDuration } = bracketManager;
+export { parseDuration, isValidDuration, isValidTiebreakerDuration };
+export const { DEFAULT_VOTING_DURATION, DEFAULT_TIEBREAKER_DURATION } = bracketManager;
 
 // ─── parsing ──────────────────────────────────────────────────────────────────
 

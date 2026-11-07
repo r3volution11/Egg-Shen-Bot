@@ -251,8 +251,8 @@ Open whatever comes next.
 
 **What it does:**
 - **Setup, straight bracket:** builds the bracket and opens round one. If round one has more than 5 matchups, it builds the bracket and tells you to open it in parts: `/bracket open matchups:1`, `/bracket open matchups:4` or `/bracket open-matchup region:1`.
-- **Setup, groups tournament:** opens every group, once each has 4 titles. If any are short, it lists them.
-- **Group stage:** opens the groups that haven't voted yet. Once every group is closed and every tiebreaker settled, it builds the knockout and opens its first round. It never reopens a finished group.
+- **Setup, groups tournament:** opens the groups, once each has 4 titles: at most 5, in letter order. If any are short, it lists them.
+- **Group stage:** opens the groups that haven't voted yet, the next ones in letter order, with at most 5 voting at once, and names any still to come. While 5 are voting it opens nothing and says so. Once every group is closed and every tiebreaker settled, it builds the knockout and opens its first round. It never reopens a finished group.
 - **Knockout:** opens every matchup in the current round, up to 5. Matchups still voting from earlier in the round close first. A bigger round gets the same "open it in parts" reply as above.
 
 **Examples:**
@@ -263,7 +263,7 @@ Open whatever comes next.
 ```
 
 ::: warning More than 5 groups
-A member's group ballot shows one row of buttons per open group, and Discord allows 5 rows. With more than 5 groups, open them in batches of up to 5 with [`/bracket open-groups`](#bracket-open-groups), and close each batch before opening the next.
+A member's group ballot shows one row of buttons per open group, and Discord allows 5 rows, so at most 5 groups vote at once. `/bracket open` opens the next 5 by itself: run it again once they close. To pick a batch yourself, use [`/bracket open-groups`](#bracket-open-groups), which won't go past 5.
 :::
 
 Nothing opens the next round on its own. Run `/bracket open` after each close.
@@ -280,7 +280,7 @@ Close everything voting now.
 - `tiebreaker-duration` (optional): how long a tiebreaker vote runs, from `5m` to `7d`. Default: the tournament's tiebreaker duration from the [setup form](./import), else 1h.
 
 **What it does:**
-- **Group stage:** closes every open group and works out its places. The reply lists the groups it closed and any tiebreakers. To post each group's top three, use `/bracket close-groups` instead.
+- **Group stage:** closes every open group and works out its places. The reply is the one [`/bracket close-groups`](#bracket-close-groups) gives: each decided group's top three with their votes, and a **🔀 Tiebreakers** field for any ties.
 - **Knockout:** closes every open matchup in the round, exactly as their deadline would. Each one gets its results card with a drawn picture of the matchup ([details](./knockout#closing-a-round)), and the bot posts the bracket as it now stands. The reply lists the winners: `1A: **The Thing** wins 15–8`.
 - Ties start a tiebreaker vote, posted in the channel.
 
@@ -314,7 +314,7 @@ Open chosen groups.
 **Notes:**
 - Each group needs exactly 4 titles.
 - It posts a voting message with a **Start Voting** button and each group's current standings. The standings update as people vote.
-- Keep it to 5 groups voting at once: a ballot holds 5.
+- At most 5 groups vote at once: a ballot holds 5. If the groups you list, with those already voting, would make more than 5, it refuses and opens none of them. A letter listed twice counts once.
 - Use `/bracket extend-voting` to give a group more time.
 
 **How members vote:**
@@ -375,7 +375,7 @@ Quarterfinals #2 - Jaws vs The Shining
 ```
 
 **Notes:**
-- In the group stage it shows each open group you've voted in, with your two picks, and the open groups you haven't.
+- In the group stage it shows each open group you've voted in, with your two picks, and the open groups you haven't. With only one pick in a group, it says so: pick one more, or that vote isn't counted.
 - Matchups are numbered in bracket order (#1, #2…), not by label.
 - It only covers what's open. Your ballot (**Start Voting**) lists every knockout vote you've cast, by round.
 
@@ -398,7 +398,8 @@ Close chosen groups and post their results.
 
 **Notes:**
 - Each pick counts as one vote. A voter who picked only 1 title in a group has it thrown out, and the reply names them.
-- The reply lists each group's 1st, 2nd and 3rd with their votes. The footer says how many third-place titles will become wildcards.
+- The reply lists each decided group's 1st, 2nd and 3rd with their votes, even when other groups tied. Ties are in a **🔀 Tiebreakers** field, with when their vote closes. The footer says how many third-place titles will become wildcards.
+- It closes only groups still voting. A group that's closed or waiting on a tiebreaker is skipped, and if none you list is voting, it says so.
 - A tie for 1st or 2nd starts a tiebreaker vote. A tie for 3rd is settled at random.
 - A closed group can't be reopened.
 - When every group is closed and every tiebreaker settled, run `/bracket open` to start the knockout.

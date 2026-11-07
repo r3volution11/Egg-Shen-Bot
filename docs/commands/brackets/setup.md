@@ -168,7 +168,7 @@ The numbers are the `position` that `manage-titles action:remove` takes.
 `/bracket open` works out what comes next and opens it. From setup:
 
 - **Straight bracket:** builds the bracket and opens round one. This is how a straight bracket starts. A ballot holds 5 matchups, so if round one has more, the bot builds the bracket and tells you to open it in parts: `/bracket open matchups:4`, or one region with [`/bracket open-matchup`](./knockout#open-by-region).
-- **Groups tournament:** opens every group, as long as each one has 4 titles. If any are short, it lists them instead. With more than 5 groups, open them in batches instead (see [Opening groups](#opening-groups)).
+- **Groups tournament:** opens the groups, as long as each one has 4 titles. If any are short, it lists them instead. A ballot holds 5 groups, so it opens at most 5, in letter order, and names the rest as still to come (see [Opening groups](#opening-groups)).
 
 **Parameters:**
 - `duration` (optional) - How long voting stays open, from 5m to 30d. Examples: `45m`, `24h`, `3d`.
@@ -196,7 +196,7 @@ After round one opens, continue with [Knockout Rounds](./knockout).
 
 ### Opening groups
 
-`/bracket open` opens every group that hasn't voted yet. To open only some groups, use `/bracket open-groups`:
+`/bracket open` opens the groups that haven't voted yet, the next ones in letter order, with at most 5 voting at once. With 9 groups, the first run opens A to E and says F to I are still to come; once those five close, the next run opens F to I. While 5 groups are voting it opens nothing, and says which are still to open. To choose the groups yourself, use `/bracket open-groups`:
 
 ```
 /bracket open-groups groups:<letters> duration:<time>
@@ -209,15 +209,15 @@ After round one opens, continue with [Knockout Rounds](./knockout).
 **Who can use:** Administrators and Moderators only
 
 ::: warning Up to 5 groups at a time
-A member's ballot shows one row of buttons for every group voting, and Discord allows 5 rows. With more than 5 groups, open them in batches of up to 5, and close each batch before opening the next. `/bracket-setup create` makes 9 to 12 groups, so this applies unless you resize to 5 or fewer.
+A member's ballot shows one row of buttons for every group voting, and Discord allows 5 rows, so at most 5 groups vote at once. `/bracket open` keeps to that by itself. `/bracket open-groups` refuses groups that would make more than 5 voting, counting those already open, and then opens none of them. `/bracket-setup create` makes 9 to 12 groups, so this applies unless you resize to 5 or fewer.
 :::
 
 **Examples:**
 ```
-# 4 or 5 groups: open everything that's ready
+# Open the next groups, up to 5 (run it again once they close)
 /bracket open
 
-# More groups: open them in batches of up to 5
+# Or choose each batch yourself
 /bracket open-groups groups:A,B,C,D,E duration:48h
 /bracket close-groups groups:A,B,C,D,E
 /bracket open-groups groups:F,G,H,I,J duration:48h
@@ -231,6 +231,8 @@ The voting message has a **Start Voting** button, and shows each group's current
 2. Pick your top 2 titles in each open group. Selected buttons turn purple.
 3. Click a selected title again to deselect it. A third pick is refused until you deselect one.
 4. You can change your picks any time before the group closes.
+
+A ballot keeps the groups it opened with. When the next batch opens, press **Start Voting** on its message for a ballot with those groups.
 
 <DiscordCard name="group-dashboard" />
 
@@ -262,7 +264,9 @@ Members can check their votes in the open groups with `/bracket my-votes` (only 
 - `groups` (`close-groups` only, required) - Comma-separated letters
 - `tiebreaker-duration` (optional) - How long a tiebreaker vote runs, from 5m to 7d
 
-If `tiebreaker-duration` is left out, the bot uses the default set in the [setup form](./import), or 1h if the form didn't set one. A group that closes at its deadline gets a 1-hour tiebreaker.
+If `tiebreaker-duration` is left out, the bot uses the tiebreaker time set in the [setup form](./import), or 1h if the form didn't set one. A group that closes at its deadline gets the same.
+
+`/bracket close-groups` closes only groups that are voting. One that has closed, or is waiting on its tiebreaker, is left alone, and if none of those you list is voting, the reply says so.
 
 **What happens:**
 - Each group's 1st, 2nd, and 3rd place are worked out from the votes. Single picks are thrown out first.
@@ -280,8 +284,7 @@ If `tiebreaker-duration` is left out, the bot uses the default set in the [setup
 **What gets posted** depends on how the group closed:
 
 - **At its deadline:** a results card for each group, every title in order with its votes: 🥇, 🥈, 🥉, then 📍 for fourth. The top two are marked **✅ Advances**, and the footer gives the number of voters. Once the bot's own emoji are uploaded, the medals and ticks are drawn in its style.
-- **`/bracket close-groups`:** one reply with each group's top three and their votes, plus anyone whose single pick was thrown out.
-- **`/bracket close`:** a short reply listing the groups it closed, and any tiebreakers.
+- **`/bracket close` or `/bracket close-groups`:** one reply with each decided group's top three and their votes, plus anyone whose single pick was thrown out. Any ties are in a **🔀 Tiebreakers** field, with when their vote closes, and each tiebreaker vote follows as its own message. The decided groups are shown even when others tied.
 
 ```
 📊 Group A Results - The Ultimate Horror Cup

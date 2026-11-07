@@ -13,7 +13,8 @@
  *   - nothing answered with the generic "An error occurred" (a caught crash)
  *   - stored votes agree with each other (no one in both columns, no one
  *     counted twice, the per-user record matches the per-matchup lists)
- *   - a ballot never needs more than 5 matchups
+ *   - a ballot never needs more than 5 matchups, or 5 groups (a row each;
+ *     the fake Discord refuses a sixth row on any message, too)
  *   - every closed matchup's winner is one of its two titles
  *   - no custom emoji where Discord can't draw one: an embed's title,
  *     author or footer, a button or menu label, or inside a code span
@@ -157,6 +158,9 @@ export class Sim {
     this.voters = [];
     for (let i = 1; i <= voters; i++) this.voters.push(this.discord.addUser(`voter${i}`).id);
     this.steps = [];
+    // How many groups may vote at once (MAX_GROUPS_VOTING). A scenario can
+    // raise it to model a tournament an earlier version left with more.
+    this.groupsVotingLimit = MAX_BALLOT;
     this.removeFiles();
   }
 
@@ -311,6 +315,37 @@ export class Sim {
       this.fail(`add ${type} "${query}"`, `title count went ${before} → ${this.titleCount()}. Reply: ${reply.text}`);
     }
     return this.lastAdded();
+  }
+
+  /**
+   * A groups tournament of `groupCount` groups of 4 movies, saved as the
+   * setup form saves one, from `searches` ([title, year] pairs whose TMDB
+   * searches are recorded). Each search returned up to 10 films, so 32
+   * searches give 48 titles with no new recording: real recorded data, taken
+   * round-robin (every search's top match, then every search's second…) so
+   * the familiar titles come first. Group A is the first four, and so on.
+   * @returns the entries, in group order
+   */
+  async groupsFromForm(searches, groupCount, { name = 'World Cup of Horror', ...settings } = {}) {
+    const found = await mods.tournamentImport.resolveRows('movie', searches.map(([title]) => ({ title, year: '', id: '' })));
+    const lists = found.map(r => (r.status === 'matched' ? [r.entry] : r.candidates || []));
+    const entries = [];
+    const seen = new Set();
+    for (let depth = 0; depth < 10 && entries.length < groupCount * 4; depth++) {
+      for (const list of lists) {
+        const e = list[depth];
+        const key = e && e.title.toLowerCase();
+        if (!e || !e.year || seen.has(e.id) || seen.has(key)) continue;
+        seen.add(e.id).add(key);
+        entries.push(e);
+        if (entries.length === groupCount * 4) break;
+      }
+    }
+    if (entries.length < groupCount * 4) this.fail('groups from the form', `only ${entries.length} distinct titles in the recorded searches`);
+    const rows = entries.map((entry, i) => ({ entry, group: 'ABCDEFGHIJKL'[Math.floor(i / 4)] }));
+    const saved = mods.tournamentImport.saveImportedTournament(this.guildId, { settings: { name, type: 'movie', ...settings }, rows, creatorId: 'admin' });
+    if (!saved.success) this.fail('groups from the form', JSON.stringify(saved.errors));
+    return entries;
   }
 
   titleCount() {
@@ -468,6 +503,10 @@ export class Sim {
     // A ballot holds 5 matchups
     const voting = (t.knockoutBracket || []).filter(m => m.status === 'voting');
     if (voting.length > MAX_BALLOT) problems.push(`${voting.length} matchups open at once; a ballot holds ${MAX_BALLOT}`);
+
+    // A group ballot holds 5 groups, a row each
+    const groupsVoting = Object.values(t.groups || {}).filter(g => g.votingOpen).length;
+    if (groupsVoting > this.groupsVotingLimit) problems.push(`${groupsVoting} groups voting at once; a ballot holds ${MAX_BALLOT}`);
 
     // Groups: no one counted twice, at most two picks, records agree
     for (const [gid, g] of Object.entries(t.groups || {})) {

@@ -186,11 +186,13 @@ if (result.limited) {
 
 The checks, in order, all driven by `rateLimits` and `moderation` in the guild config:
 
-1. Master switch (`rateLimits.enabled`) and moderator bypass (`rateLimits.bypassForModerators`)
-2. Whitelist mode (`moderation.whitelist`) — only listed roles/users
-3. Manual cooldowns applied by a moderator (`applyUserCooldown`)
+1. Whitelist mode (`moderation.whitelist`) — only listed roles/users; admins and moderators always pass
+2. Manual cooldowns applied by a moderator (`applyUserCooldown`) — skipped by admins and moderators while `rateLimits.bypassForModerators` is on
+3. Master switch (`rateLimits.enabled`) and moderator bypass (`rateLimits.bypassForModerators`): off, or a bypassing moderator, and nothing below applies
 4. Guild-wide limit across all users (`rateLimits.guildWide`, default 10 per 60s)
 5. Per-user, per-command limit (`rateLimits.commands[name]`, else `rateLimits.global`, default 1 per 20s)
+
+1 and 2 need `moderation.enabled`, and apply whether or not rate limiting is on (since 2.75.1).
 
 Pattern detection (`rateLimits.patternDetection`) runs on commands that were allowed; it records coordinated activity for `getSuspiciousActivity` rather than blocking anything. Limit violations go to the abuse log, and with `moderation.autoBan` enabled, users with `violationCount` (default 20) violations in `windowHours` (24) are flagged via `getUsersExceedingThreshold` for moderators to review — nobody is banned automatically.
 

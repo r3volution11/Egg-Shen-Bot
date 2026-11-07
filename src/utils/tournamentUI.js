@@ -13,7 +13,7 @@
  * label, and never inside a code span (a `pill`), where they show as raw
  * `<:es_…:…>` text.
  *
- * (2.75.0 removed thirteen helpers nothing called — createProgressBar,
+ * (2.73.0 removed thirteen helpers nothing called — createProgressBar,
  * getRankEmoji, createMatchupSummary and the like — left from an older
  * standings design.)
  */

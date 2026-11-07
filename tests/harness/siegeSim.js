@@ -326,6 +326,13 @@ export class Sim {
   siege() { return mods.store.currentSiege(this.guildId); }
   state() { return mods.happenings.loadState(this.guildId); }
   scores() { return mods.scores.loadScores(this.guildId); }
+
+  /** The server's game settings, read from its config file as the bot would (sync, for the checks) */
+  gameSettings() {
+    const file = path.join(process.env.GUILD_CONFIGS_DIR, `${this.guildId}.json`);
+    const config = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+    return mods.scores.getGameSettings(config);
+  }
   monster(key = this.siege()?.monster) { return mods.monsters.MONSTERS[key]; }
 
   /** Each member's all-time siege points, as stored */
@@ -996,7 +1003,11 @@ export class Sim {
     // happens, but only the first SIEGE.credit.unscoredPerNight a member a
     // night are credited — modelled here from the replies: a scored play's
     // always counts; an unscored one counts while the member has fewer than
-    // that tonight, and says so when it doesn't
+    // that tonight, and says so when it doesn't. 2.75.1: on a server whose
+    // plays don't score, a member's first DEFAULT_GAME_SETTINGS
+    // .dailyScoredPlays plays of the game a day count as scored here (the
+    // number from the scores file's daily count, which this play just took)
+    const scoringOff = this.gameSettings().dailyScoredPlays === 0;
     if (s && !ctx.crashed) {
       for (const i of ctx.interactions || []) {
         if (!['rescue', 'potion'].includes(i.commandName)) continue;
@@ -1010,7 +1021,9 @@ export class Sim {
         const cured = /^-# 🧪 .+ cured .+ of .+'s poison.*$/m.exec(reply.content)?.[0];
         const line = freed || cured;
         if (line) {
-          const unscored = /scoring cap: just for fun now/.test(reply.content);
+          const playOfDay = this.scores().daily?.[u]?.plays?.[i.commandName] || 0;
+          const asScored = scoringOff && playOfDay <= mods.scores.DEFAULT_GAME_SETTINGS.dailyScoredPlays;
+          const unscored = /scoring cap: just for fun now/.test(reply.content) && !asScored;
           const credited = !/doesn't count toward/.test(line);
           // The siege's night (a campaign's folded first hours are its night 1), as its tallies count it
           const night = `${u}@${this.campaignNightKey(s, clock.now)}`;

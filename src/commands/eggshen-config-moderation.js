@@ -192,8 +192,8 @@ export async function execute(interaction) {
     const statusText = enabled ? 'enabled' : 'disabled';
     const emoji = enabled ? '✅' : '❌';
     const description = enabled
-      ? '\n\nModeration features are now active:\n• Whitelist mode (role/user based access control)\n• Temporary user cooldowns (manual restrictions)\n• Auto-ban threshold notifications\n\nConfigure each feature using `/eggshen-config-moderation` commands.'
-      : '\n\nAll moderation features are now disabled. Rate limiting and abuse logging will still function.';
+      ? '\n\nModeration features are now active:\n• Whitelist mode (role/user based access control)\n• Temporary user cooldowns (manual restrictions)\n• Auto-ban threshold notifications\n\nWhitelist mode and cooldowns work whether rate limiting is on or off. Configure each feature using `/eggshen-config-moderation` commands.'
+      : '\n\nAll moderation features are now disabled. Rate limiting and abuse logging have their own switch and aren\'t affected.';
 
     await interaction.reply({
       content: `${emoji} Moderation features have been **${statusText}**.${description}`,
@@ -300,7 +300,9 @@ export async function execute(interaction) {
     const emoji = enabled ? '🔒' : '✅';
     const description = enabled
       ? '\n\n⚠️ **Only whitelisted users and roles can now use bot commands!**\n\nAdd allowed roles/users:\n• `/eggshen-config-moderation moderation whitelist-add-role`\n• `/eggshen-config-moderation moderation whitelist-add-user`\n\nAdministrators and moderators are always allowed.'
-      : '\n\nAll users can now use bot commands (subject to rate limits).';
+      // Rate limits are their own switch: "(subject to rate limits)" was
+      // said even with them off
+      : `\n\nEveryone can use bot commands again${config.rateLimits?.enabled ? ', within the rate limits' : ''}.`;
 
     await interaction.reply({
       content: `${emoji} Whitelist mode has been **${statusText}**.${description}`,

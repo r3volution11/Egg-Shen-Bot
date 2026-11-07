@@ -36,7 +36,10 @@ function isEphemeral(payload) {
 
 /**
  * What Discord answers an over-limit request with: 400, code 50035 "Invalid
- * Form Body". The problems are also recorded in `discord.violations`,
+ * Form Body" — too much text, more than 10 embeds, more than 5 action rows,
+ * more than 5 buttons (or a second select) in a row, a custom id used twice
+ * (messageProblems / componentProblems in embedFit.js). The problems are
+ * also recorded in `discord.violations`,
  * because production code often catches a failed send and only logs it
  * (tournamentScheduler does), so the throw alone can vanish — the record is
  * what the simulators assert on.
@@ -78,9 +81,14 @@ export class FakeMessage {
    */
   apply(payload, via = null) {
     const p = typeof payload === 'string' ? { content: payload } : (payload || {});
+    // Text and embeds (10 embeds, 6000 characters…) and components alike:
+    // 5 action rows, 5 buttons or one select a row, unique custom ids
+    // (embedFit.js). A ballot with a row per group passed here at any size
+    // until the rows were counted, though Discord refuses a sixth.
     const problems = messageProblems({
       content: 'content' in p ? (p.content ?? '') : this.content,
       embeds: 'embeds' in p ? (p.embeds || []).map(toJSON) : this.embeds,
+      components: 'components' in p ? (p.components || []).map(toJSON) : this.components.map(toJSON),
     });
     if (problems.length) {
       rejectInvalidForm(this.channel?.guild?.discord, `${via ? `${via} → ` : ''}channel ${this.channelId}`, problems);

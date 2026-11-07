@@ -341,7 +341,7 @@ The games (`/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`) have [limits o
 /eggshen-config-watch-party rate-limit toggle enabled:<true|false>
 ```
 
-The master switch. Turning it off also turns off moderation's whitelist mode and user cooldowns, which are checked by the same system.
+The master switch for the rate limits. Moderation's whitelist mode and user cooldowns have [their own switch](#moderation-group) and keep working with rate limiting off.
 
 #### Global Rate Limits
 
@@ -375,7 +375,7 @@ A limit for one command, instead of the global one. **Commands:** `movie`, `tv`,
 /eggshen-config-watch-party rate-limit bypass enabled:<true|false>
 ```
 
-**On by default:** admins and moderators aren't rate limited.
+**On by default:** admins and moderators aren't rate limited and skip user cooldowns. Whitelist mode lets them in either way.
 
 #### Guild-Wide Rate Limiting
 

@@ -28,6 +28,12 @@
  *   from (`cardMessageId`) so a second submit is refused; and a card being
  *   logged right now is claimed in memory, synchronously, so two submits a
  *   moment apart can't both pass the history check.
+ * - A board-game timer's card carried the button (2.75.1). Board games are
+ *   never logged, but its card said "Could not find this title on TMDB",
+ *   and the form searches TMDB for the label, so a movie or show sharing
+ *   the game's name was logged instead. Those cards have no button now, and
+ *   a movie or TV card says NOT_ON_TMDB; a card with the old wording can't
+ *   be told apart from a board game's, so it's refused (PRE_FIX_NOT_FOUND).
  */
 
 import { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js';
@@ -40,6 +46,24 @@ import { clipText, LIMITS } from '../utils/embedFit.js';
 // the button, but ones posted before that still carry it; this is how the
 // handler knows not to log them again.
 const AUTO_LOGGED = 'Automatically logged to watch history';
+
+// What a stop card said, before 2.75.1, when its title couldn't be logged
+// automatically — on board-game timers' cards too, and nothing else on the
+// card or in its customId says which kind of timer it was. Since 2.75.1 a
+// board-game card has no button, and a movie or TV card says NOT_ON_TMDB
+// (utils/timerWatchLog.js); a card that still says this is from before, so
+// it's refused rather than risk logging a movie named like a board game.
+const PRE_FIX_NOT_FOUND = 'Could not find this title on TMDB to log automatically.';
+
+const preFixReply = {
+  content: '❌ This card was posted before board-game timers stopped offering this button, and it doesn\'t say whether the timer was for a board game (never logged to watch history) or for a movie or show. If it was a movie or show, add it with `/watched add`.',
+  flags: MessageFlags.Ephemeral,
+};
+
+/** A pre-2.75.1 "Could not find this title on TMDB" card (see PRE_FIX_NOT_FOUND) */
+function isPreFixNotFound(card) {
+  return (card?.embeds?.[0]?.description || '').includes(PRE_FIX_NOT_FOUND);
+}
 
 // Cards being logged right now, `${guildId}:${messageId}`. Claimed before
 // the first await so two submits from one card can't both get through.
@@ -113,6 +137,13 @@ export async function handleWatchHistoryButton(interaction) {
     return;
   }
 
+  if (isPreFixNotFound(interaction.message)) {
+    await interaction.reply(preFixReply);
+    // It will never log: the button goes, as it does once a card is logged
+    await interaction.message.edit({ components: [] }).catch(() => {});
+    return;
+  }
+
   // Fixed length: two snowflakes, nothing else
   const modal = new ModalBuilder()
     .setCustomId(`watched_modal_${channelId}_${starterUserId}`)
@@ -170,6 +201,12 @@ export async function handleWatchedModalSubmit(interaction) {
 
   if (!title) {
     await interaction.reply({ content: '❌ Type the title of what you watched.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  // A form opened from a pre-2.75.1 card before the deploy, submitted after
+  if (isPreFixNotFound(interaction.message)) {
+    await interaction.reply(preFixReply);
     return;
   }
 

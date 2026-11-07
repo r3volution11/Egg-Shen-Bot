@@ -454,8 +454,15 @@ export async function execute(interaction) {
     const statusText = enabled ? 'enabled' : 'disabled';
     const emoji = enabled ? '✅' : '❌';
 
+    // Whitelist mode and manual cooldowns are moderation features with
+    // their own switch, and keep working with rate limiting off (2.75.1:
+    // they used to stop with it, and nothing here said so)
+    const moderationNote = !enabled && config.moderation?.enabled
+      ? ' Whitelist mode and manual cooldowns still apply: they\'re moderation features, with their own switch.'
+      : '';
+
     await interaction.reply({
-      content: `${emoji} Rate limiting has been **${statusText}** for this server.\n\n${enabled ? 'Users will be limited based on the configured limits.' : 'All users can now use commands without rate limiting.'}`,
+      content: `${emoji} Rate limiting has been **${statusText}** for this server.\n\n${enabled ? 'Users will be limited based on the configured limits.' : 'All users can now use commands without rate limiting.'}${moderationNote}`,
       ephemeral: true,
     });
   } else if (group === 'rate-limit' && subcommand === 'global') {
@@ -546,8 +553,10 @@ export async function execute(interaction) {
     const statusText = enabled ? 'can now' : 'can no longer';
     const emoji = enabled ? '✅' : '❌';
 
+    // What bypass covers (rateLimiter.checkRateLimit): the rate limits and
+    // manual cooldowns. Whitelist mode lets admins and moderators in either way.
     await interaction.reply({
-      content: `${emoji} Moderators and administrators **${statusText}** bypass rate limits.`,
+      content: `${emoji} Admins and moderators **${statusText}** skip rate limits and manual cooldowns. Whitelist mode always lets them in.`,
       ephemeral: true,
     });
   } else if (group === 'rate-limit' && subcommand === 'clear') {

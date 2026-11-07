@@ -82,3 +82,17 @@ describe('/eggshen-help', () => {
     expect(named(await helpText('admin')).has('watchlist')).toBe(true);
   });
 });
+
+describe('/eggshen-help describes what each command does', () => {
+  // It said "List all episodes in a season", but one card holds 25 and
+  // /episode-list refuses a longer season (seasonTooLongMessage) — a soap
+  // or anime season was promised and then turned away
+  test('/episode-list: a season\'s episodes, for seasons of up to 25 — the limit the command enforces', async () => {
+    const text = await helpText('member');
+    const line = text.split('\n').find(l => l.includes('/episode-list'));
+    expect(line).toBe('**📋 /episode-list** - List a season\'s episodes with ratings (seasons of up to 25 episodes)');
+
+    const { seasonTooLongMessage } = await import('../src/commands/episode-list.js');
+    expect(seasonTooLongMessage('Dark Shadows', 1, 26)).toContain('more than the 25 one message can list');
+  });
+});

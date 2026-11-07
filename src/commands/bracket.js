@@ -11,7 +11,7 @@ import { signSetupToken, SETUP_LINK_TTL_MS } from '../utils/tournamentSetupLinkT
 import { loadGuildConfig, isAdmin, canUseCommand, getPublicBotUrl } from '../utils/guildConfig.js';
 import { memberHas } from '../utils/memberPermissions.js';
 import { config } from '../config.js';
-import { closeMatchupsNow, afterKnockoutDecided } from '../utils/tournamentScheduler.js';
+import { closeMatchupsNow, afterKnockoutDecided, announceMatchupClosed } from '../utils/tournamentScheduler.js';
 
 export const GROUP_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
@@ -648,7 +648,7 @@ async function handleHelp(interaction) {
           '**Group Stage** (if applicable):\n' +
           '• Click **"Start Voting"** button\n' +
           '• Get your personal voting dashboard (only you see it)\n' +
-          '• Select **top 2 favorites** - checkmarks show your picks ✅\n' +
+          '• Select your **top 2** in each group - your picks turn purple, and ✅ marks a group once you have both\n' +
           '• Change votes anytime before deadline\n\n' +
           '**Knockout Stage:**\n' +
           '• Click **"Start Voting"** button\n' +
@@ -660,7 +660,7 @@ async function handleHelp(interaction) {
         name: '🎮 Smart Commands (Admin)',
         value:
           '**🤖 Auto-Detection Commands:**\n' +
-          '• `/bracket open` - Opens next round (any phase)\n' +
+          '• `/bracket open` - Opens next round (any phase; groups 5 at a time, as a ballot holds 5)\n' +
           '• `/bracket close` - Closes current round (any phase)\n\n' +
           '**Granular Control:**\n' +
           '• `/bracket open-groups groups:"A,B,C"` - Open specific groups\n' +
@@ -695,11 +695,14 @@ async function handleHelp(interaction) {
         name: '⚡ Automatic Features',
         value:
           '✅ **Auto-close voting** at deadline\n' +
-          '✅ **1-hour warnings** before deadline\n' +
+          // As tournamentScheduler's calculateWarningTime: under 30 minutes,
+          // 5 minutes in; under 2 hours, 10 minutes in; under 6 hours, 1 hour
+          // before; longer, 2 hours before. This said "1-hour warnings".
+          '✅ **"Closing soon" reminder** 2 hours before the deadline (1 hour before for votes of 2-6h; 5-10 minutes in for shorter ones)\n' +
           '✅ **Live vote counts** update in real-time\n' +
           '✅ **Tiebreaker voting** for tied results\n' +
           '✅ **Results announcement** when rounds close\n' +
-          '✅ **Button feedback** - selected votes show blue\n' +
+          '✅ **Button feedback** - selected votes show purple\n' +
           '✅ **Interactive selectors** - click to choose regions/matchups',
         inline: false
       },
@@ -1364,7 +1367,7 @@ async function handleOpenGroups(interaction) {
   await interaction.deferReply();
   
   const groupsStr = interaction.options.getString('groups');
-  const groupIds = groupsStr.split(',').map(g => g.trim().toUpperCase());
+  const groupIds = [...new Set(groupsStr.split(',').map(g => g.trim().toUpperCase()).filter(Boolean))];
   const durationStr = votingDurationFor(interaction);
   
   // Parse and validate duration
@@ -1380,6 +1383,28 @@ async function handleOpenGroups(interaction) {
   }
   
   const deadline = Date.now() + durationMs;
+
+  // At most 5 groups vote at once: a member's ballot is a row of buttons per
+  // group, and Discord shows 5 rows (bracketManager.MAX_GROUPS_VOTING). This
+  // opened any number — 10 or more also put this card past Discord's 10
+  // embeds — and a batch opened while another was voting overfilled the
+  // ballots of both.
+  const current = bracketManager.loadTournament(interaction.guildId);
+  const votingNow = bracketManager.groupsVotingNow(current);
+  const known = groupIds.filter(id => current?.groups?.[id]);
+  const wouldVote = new Set([...votingNow, ...known]);
+  if (wouldVote.size > bracketManager.MAX_GROUPS_VOTING) {
+    const max = bracketManager.MAX_GROUPS_VOTING;
+    const room = Math.max(0, max - votingNow.length);
+    await interaction.editReply(
+      `❌ **A ballot holds ${max} groups**, so at most ${max} can vote at once. ` +
+      (votingNow.length
+        ? `${votingNow.length} ${votingNow.length === 1 ? 'is' : 'are'} voting now (${votingNow.join(', ')}), so ${room === 0 ? 'none can open until some close' : `${room} more can open`}.`
+        : `Open these ${max} at a time, and the next batch once they close.`) +
+      `\n\nNothing was opened.`
+    );
+    return;
+  }
   
   const result = bracketManager.openGroupVoting(interaction.guildId, groupIds, deadline, interaction.channelId);
   
@@ -1396,7 +1421,7 @@ async function handleOpenGroups(interaction) {
   // Main announcement embed
   const mainEmbed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle(`�️ Group Stage Voting is Now Open!`)
+    .setTitle(`🗳️ Group Stage Voting is Now Open!`)
     .setDescription(
       `Voting is now open for **Groups ${groupIds.join(', ')}**!\n\n` +
       `**📝 How to Vote:**\n` +
@@ -1468,7 +1493,7 @@ async function handleCloseGroups(interaction) {
   await interaction.deferReply();
   
   const groupsStr = interaction.options.getString('groups');
-  const groupIds = groupsStr.split(',').map(g => g.trim().toUpperCase());
+  const groupIds = [...new Set(groupsStr.split(',').map(g => g.trim().toUpperCase()).filter(Boolean))];
   
   // Get tiebreaker duration (default to 1 hour)
   const tiebreakerDurationStr = tiebreakerDurationFor(interaction);
@@ -1483,7 +1508,31 @@ async function handleCloseGroups(interaction) {
     await interaction.editReply('❌ Tiebreaker duration must be between 5 minutes (5m) and 7 days (7d)');
     return;
   }
+
+  // Only groups still voting. Closing one again recomputed its results, and
+  // one waiting on a tiebreaker got a second tiebreaker
+  const tournament = bracketManager.loadTournament(interaction.guildId);
+  const voting = groupIds.filter(id => bracketManager.isGroupVoting(tournament?.groups?.[id]));
+  if (voting.length === 0) {
+    await interaction.editReply(`❌ ${groupIds.length === 1 ? `Group ${groupIds[0]} isn't` : `None of groups ${groupIds.join(', ')} is`} open for voting.`);
+    return;
+  }
   
+  await closeGroupsAndReply(interaction, voting, tiebreakerDurationMs);
+}
+
+/**
+ * Close groups by command — `/bracket close-groups`, and `/bracket close` in
+ * the group stage — and answer with what came of it: each decided group's
+ * top three, anyone whose single pick was thrown out, each tie, then each
+ * tie's vote as its own message (as the deadline posts them).
+ *
+ * `/bracket close` used to answer only "Closed groups: A, B, C, D", so a
+ * group stage closed with it never said who went through. close-groups, if
+ * any group tied, showed only the tiebreakers, and never the results of the
+ * groups it had decided.
+ */
+async function closeGroupsAndReply(interaction, groupIds, tiebreakerDurationMs) {
   const result = bracketManager.closeGroupVoting(interaction.guildId, groupIds, tiebreakerDurationMs);
 
   if (!result.success) {
@@ -1505,57 +1554,48 @@ async function handleCloseGroups(interaction) {
     partialVoteWarning = `\n\n⚠️ **Partial votes discarded (1/2 selections):**\n${lines}\nThese users started voting but didn't select their second title. Their votes were removed to ensure fair results.`;
   }
 
-  // Check if tiebreakers were created
-  if (result.tiebreakersCreated && result.tiebreakersCreated.length > 0) {
-    const tiebreakerInfo = result.tiebreakersCreated.map(tb => {
-      const optionNames = tb.tiebreaker.tiedOptions.map(o => o.title).join(' vs ');
-      return `**Group ${tb.groupId}** - ${tb.position} place tie: ${optionNames}`;
-    }).join('\n');
+  const tournament = result.tournament;
+  const ties = result.tiebreakersCreated || [];
+  const decided = groupIds.filter(id => tournament.groups[id]?.status === 'closed' && tournament.groupResults?.[id]?.first);
 
-    const tiebreakerDuration = formatTimeRemaining(Date.now() + tiebreakerDurationMs);
-
-    const summaryEmbed = new EmbedBuilder()
-      .setColor(0xFFAA00)
-      .setTitle('🔀 Tiebreaker Voting Started')
-      .setDescription(`Some groups have ties! Tiebreaker voting is now open.\n\n${tiebreakerInfo}${partialVoteWarning}`)
-      .addFields({ name: '⏰ Time Remaining', value: tiebreakerDuration, inline: false })
-      .setFooter({ text: 'See below to cast your vote!' });
-
-    await interaction.editReply({ embeds: [summaryEmbed] });
-
-    // Post individual voting embeds with buttons for each tiebreaker
-    for (const tb of result.tiebreakersCreated) {
-      const tiebreaker = tb.tiebreaker;
-      const votingEmbed = buildTiebreakerVotingEmbed(tiebreaker);
-      const buttons = buildTiebreakerButtons(tiebreaker);
-      const msg = await interaction.followUp({ embeds: [votingEmbed], components: buttons });
-      bracketManager.storeTiebreakerMessage(interaction.guildId, tiebreaker.id, interaction.channelId, msg.id);
-    }
-    return;
-  }
-  
   const embed = new EmbedBuilder()
-    .setColor(0xFF9900)
-    .setTitle(`🏁 Group ${groupIds.join(', ')} Results`)
-    .setDescription(`Voting closed! Here are the results:${partialVoteWarning}`);
-  
-  groupIds.forEach(groupId => {
-    const groupResult = result.tournament.groupResults[groupId];
-    if (groupResult) {
-      const resultText = [
-        `🥇 **${groupResult.first.title}** (${groupResult.first.voteCount} votes)`,
-        `🥈 **${groupResult.second.title}** (${groupResult.second.voteCount} votes)`,
-        groupResult.third ? `🥉 **${groupResult.third.title}** (${groupResult.third.voteCount} votes)` : '',
-      ].filter(Boolean).join('\n');
-      
-      embed.addFields({ name: `Group ${groupId}`, value: resultText, inline: false });
-    }
+    .setColor(ties.length ? 0xFFAA00 : 0xFF9900)
+    .setTitle(clipText(`🏁 Group ${groupIds.join(', ')} Results`, LIMITS.title))
+    .setDescription(clipText(
+      (decided.length ? 'Voting closed! Here are the results:' : 'Voting closed, with ties to break first:') + partialVoteWarning,
+      LIMITS.description,
+    ));
+
+  decided.forEach(groupId => {
+    const groupResult = tournament.groupResults[groupId];
+    const resultText = [
+      `🥇 **${groupResult.first.title}** (${groupResult.first.voteCount} votes)`,
+      groupResult.second ? `🥈 **${groupResult.second.title}** (${groupResult.second.voteCount} votes)` : '',
+      groupResult.third ? `🥉 **${groupResult.third.title}** (${groupResult.third.voteCount} votes)` : '',
+    ].filter(Boolean).join('\n');
+    embed.addFields({ name: `Group ${groupId}`, value: clipText(resultText, LIMITS.fieldValue), inline: false });
   });
-  
-  const wildcardsNeeded = bracketManager.calculateWildcardCount(result.tournament.groupCount);
+
+  if (ties.length) {
+    const lines = ties.map(tb => `**Group ${tb.groupId}** - ${tb.position} place tie: ${tb.tiebreaker.tiedOptions.map(o => o.title).join(' vs ')}`);
+    const closes = Math.min(...ties.map(tb => tb.tiebreaker.deadline));
+    embed.addFields({
+      name: '🔀 Tiebreakers',
+      value: clipText(`${lines.join('\n')}\n\n⏰ Tiebreaker voting closes <t:${Math.floor(closes / 1000)}:R>. Vote below!`, LIMITS.fieldValue),
+      inline: false,
+    });
+  }
+
+  const wildcardsNeeded = bracketManager.calculateWildcardCount(tournament.groupCount);
   embed.setFooter({ text: wildcardsNeeded > 0 ? `Top 2 advance automatically • Best ${wildcardsNeeded} third-place finishers will be wildcards` : 'Top 2 advance automatically to knockout stage' });
-  
+
   await interaction.editReply({ embeds: [embed] });
+
+  // Each tie's vote, with its buttons, as its own message
+  for (const { tiebreaker } of ties) {
+    const msg = await interaction.followUp({ embeds: [buildTiebreakerVotingEmbed(tiebreaker)], components: buildTiebreakerButtons(tiebreaker) });
+    bracketManager.storeTiebreakerMessage(interaction.guildId, tiebreaker.id, interaction.channelId, msg.id);
+  }
 }
 
 /**
@@ -1943,11 +1983,9 @@ async function handleSmartOpen(interaction) {
     // already closed with results — so after the group stage it reopened
     // finished groups instead of moving on.
     const groups = Object.entries(tournament.groups);
-    const closedGroups = groups
-      .filter(([_, g]) => !g.votingOpen && g.status !== 'closed' && g.status !== 'tiebreaker')
-      .map(([id, _]) => id);
+    const waiting = bracketManager.groupsYetToVote(tournament);
 
-    if (closedGroups.length === 0) {
+    if (waiting.length === 0) {
       const unfinished = groups
         .filter(([_, g]) => g.status !== 'closed')
         .map(([id, g]) => `${id}${g.status === 'tiebreaker' ? ' (tiebreaker)' : ''}`);
@@ -1962,7 +2000,24 @@ async function handleSmartOpen(interaction) {
       return;
     }
 
-    const result = bracketManager.openGroupVoting(interaction.guildId, closedGroups, deadline, interaction.channelId);
+    // At most 5 groups vote at once (bracketManager.MAX_GROUPS_VOTING): a
+    // ballot is a row per group, and Discord shows 5 rows. With 9–12 groups
+    // this opened every one, and every ballot was refused. Now it opens the
+    // next ones in letter order, as many as there's room for; running it
+    // again once they close opens the next batch, then the knockout.
+    const votingNow = bracketManager.groupsVotingNow(tournament);
+    const room = bracketManager.MAX_GROUPS_VOTING - votingNow.length;
+    if (room <= 0) {
+      await interaction.editReply(
+        `❌ **${votingNow.length} groups are already voting** (${votingNow.join(', ')}), and a ballot holds ${bracketManager.MAX_GROUPS_VOTING}.\n\n` +
+        `Still to open: ${waiting.join(', ')}. Once these close (at their deadline, or with \`/bracket close\`), run \`/bracket open\` again.`
+      );
+      return;
+    }
+    const toOpen = waiting.slice(0, room);
+    const later = waiting.slice(room);
+
+    const result = bracketManager.openGroupVoting(interaction.guildId, toOpen, deadline, interaction.channelId);
     
     if (!result.success) {
       await interaction.editReply(`❌ ${result.error}`);
@@ -1974,12 +2029,15 @@ async function handleSmartOpen(interaction) {
       .setColor(0x00FF00)
       .setTitle('📊 Group Stage Voting Opened')
       .setDescription(
-        `**Opened groups:** ${closedGroups.join(', ')}\n\n` +
+        `**Opened groups:** ${toOpen.join(', ')}\n\n` +
         `**📝 How to Vote:**\n` +
         `🔹 Click the "Start Voting" button below\n` +
         `🔹 Select your top 2 favorites in each group\n` +
         `🔹 Your choices are saved instantly\n\n` +
-        `⏰ **Voting closes in:** ${timeRemaining}`
+        `⏰ **Voting closes in:** ${timeRemaining}` +
+        (later.length
+          ? `\n\n**Still to come:** ${later.join(', ')}. A ballot holds ${bracketManager.MAX_GROUPS_VOTING} groups, so they open next: run \`/bracket open\` again once these close.`
+          : '')
       )
       .setFooter({ text: 'Top 2 from each group advance to knockout bracket' });
     
@@ -1988,7 +2046,7 @@ async function handleSmartOpen(interaction) {
         // The handler routes on the `start_group_voting_` prefix and reads the
         // groups after it; a bare 'start_group_voting' matched nothing, so this
         // button failed for everyone.
-        .setCustomId(`start_group_voting_${closedGroups.join(',')}`)
+        .setCustomId(`start_group_voting_${toOpen.join(',')}`)
         .setLabel('🗳️ Start Voting')
         .setStyle(ButtonStyle.Success)
     );
@@ -2089,49 +2147,16 @@ async function handleSmartClose(interaction) {
   
   // Auto-detect phase
   if (tournament.status === 'group_stage') {
-    // Close all groups that are voting
-    const votingGroups = Object.entries(tournament.groups)
-      .filter(([_, g]) => g.status === 'voting' || g.votingOpen)
-      .map(([id, _]) => id);
+    // Close all groups that are voting (not ones waiting on a tiebreaker:
+    // closing one of those again opened a second tiebreaker)
+    const votingGroups = bracketManager.groupsVotingNow(tournament);
     
     if (votingGroups.length === 0) {
       await interaction.editReply('❌ No groups are currently open for voting.');
       return;
     }
     
-    const result = bracketManager.closeGroupVoting(interaction.guildId, votingGroups, tiebreakerDurationMs);
-    
-    if (!result.success) {
-      await interaction.editReply(`❌ ${result.error}`);
-      return;
-    }
-    
-    const embed = new EmbedBuilder()
-      .setColor(0xFF0000)
-      .setTitle('✅ Group Voting Closed')
-      .setDescription(`Closed groups: ${votingGroups.join(', ')}`);
-    
-    if (result.tiebreakersCreated && result.tiebreakersCreated.length > 0) {
-      // Each entry is { groupId, position, tiebreaker }: reading tb.tiedOptions
-      // threw after the groups had closed, so the admin saw an error and no
-      // tiebreaker vote was ever posted
-      const tiebreakerText = result.tiebreakersCreated
-        .map(tb => `• Group ${tb.groupId} ${tb.position} place: ${tb.tiebreaker.tiedOptions.map(o => o.title).join(' vs ')}`)
-        .join('\n');
-      embed.addFields({
-        name: '⚖️ Tiebreakers Created',
-        value: tiebreakerText + `\n\nVoting duration: ${tiebreakerDurationStr}`,
-        inline: false
-      });
-    }
-    
-    await interaction.editReply({ embeds: [embed] });
-
-    // Post each tiebreaker's vote, as /bracket close-groups does
-    for (const { tiebreaker } of result.tiebreakersCreated || []) {
-      const msg = await interaction.followUp({ embeds: [buildTiebreakerVotingEmbed(tiebreaker)], components: buildTiebreakerButtons(tiebreaker) });
-      bracketManager.storeTiebreakerMessage(interaction.guildId, tiebreaker.id, interaction.channelId, msg.id);
-    }
+    await closeGroupsAndReply(interaction, votingGroups, tiebreakerDurationMs);
     
   } else if (tournament.status === 'knockout') {
     // Close all voting matchups in current round
@@ -2221,7 +2246,7 @@ async function handleVotingPost(interaction) {
     .filter(m => m.status === 'voting')
     .sort((a, b) => a.position - b.position);
   const groups = Object.entries(tournament.groups || {})
-    .filter(([, g]) => g.votingOpen && (!g.votingDeadline || g.votingDeadline > now))
+    .filter(([, g]) => bracketManager.isGroupVoting(g) && (!g.votingDeadline || g.votingDeadline > now))
     .map(([id]) => id);
   if (!matchups.length && !groups.length) {
     await interaction.reply({ content: '🗳️ Nothing is open for voting right now. `/bracket status` shows where the tournament is.', ephemeral: true });
@@ -2324,7 +2349,7 @@ async function handleStatus(interaction) {
     
   } else if (tournament.status === 'group_stage') {
     const openGroups = Object.entries(tournament.groups)
-      .filter(([_, g]) => g.status === 'voting' || g.votingOpen);
+      .filter(([_, g]) => bracketManager.isGroupVoting(g));
     
     const closedGroups = Object.keys(tournament.groupResults).length;
     
@@ -3029,6 +3054,9 @@ async function handleCloseMatchup(interaction) {
   const successes = [];
   const errors = [];
   const tiebreakersCreated = [];
+  // Where results and the bracket are posted; a stand-in guild just means
+  // nowhere to post (tests, or a guild not cached)
+  const guild = interaction.guild || { id: interaction.guildId, channels: { fetch: async () => null } };
   
   for (const matchupLabel of matchupLabels) {
     // Parse regional label to position
@@ -3060,6 +3088,11 @@ async function handleCloseMatchup(interaction) {
       errors.push(`❌ ${matchupLabel}: ${result.error}`);
       continue;
     }
+
+    // Its result card and picture, where it was voted on, as the deadline,
+    // /bracket close and the Close button post them (a tie posts its vote
+    // below instead)
+    await announceMatchupClosed(guild, matchup.id);
     
     // Check if tiebreaker was created
     if (result.tiebreakerCreated) {
@@ -3108,6 +3141,14 @@ async function handleCloseMatchup(interaction) {
       .setDescription(`Some matchups ended in ties! Tiebreaker voting is now open.\n\n${tiebreakerInfo}`)
       .addFields({ name: '⏰ Time Remaining', value: tiebreakerDuration, inline: false })
       .setFooter({ text: 'See below to cast your vote!' });
+    // The ones it did decide, which this reply used to leave out
+    if (successes.length > 0) {
+      summaryEmbed.addFields({
+        name: '🏆 Decided',
+        value: clipText(successes.map(s => `**${s.label}**: ${s.winner} ${s.decidedBy === 'seed' ? 'advances on a tie as the higher seed' : 'wins'} (${s.votes1} vs ${s.votes2})`).join('\n'), LIMITS.fieldValue),
+        inline: false,
+      });
+    }
 
     await interaction.editReply({ embeds: [summaryEmbed] });
 
@@ -3119,6 +3160,7 @@ async function handleCloseMatchup(interaction) {
       const msg = await interaction.followUp({ embeds: [votingEmbed], components: buttons });
       bracketManager.storeTiebreakerMessage(interaction.guildId, tiebreaker.id, interaction.channelId, msg.id);
     }
+    if (successes.length > 0) await afterKnockoutDecided(guild, interaction.channelId);
     return;
   }
   
@@ -3207,7 +3249,6 @@ async function handleCloseMatchup(interaction) {
 
   // The bracket as it now stands, and the champion's watchlist entry if that
   // was the final (closeMatchupsNow does both on its own path)
-  const guild = interaction.guild || { id: interaction.guildId, channels: { fetch: async () => null } };
   await afterKnockoutDecided(guild, interaction.channelId);
 }
 
@@ -3338,12 +3379,15 @@ async function handleMyVotes(interaction) {
   if (status.groupVotes.length > 0) {
     const groupText = status.groupVotes.map(v => {
       const timeLeft = formatTime(v.timeRemaining);
-      return `**Group ${v.group}** - Voted for #${v.choices[0].position} (${v.choices[0].title}) and #${v.choices[1].position} (${v.choices[1].title})\n⏰ ${timeLeft} remaining`;
+      const [first, second] = v.choices.map(c => `#${c.position} (${c.title})`);
+      // One pick is thrown out when the group closes (closeGroupVoting), so say so
+      const picks = second ? `Voted for ${first} and ${second}` : `Picked ${first}. Pick 1 more: a single pick isn't counted`;
+      return `**Group ${v.group}** - ${picks}\n⏰ ${timeLeft} remaining`;
     }).join('\n\n');
     
     embed.addFields({ 
       name: `✅ Groups Voted (${status.groupVotes.length})`, 
-      value: groupText, 
+      value: clipText(groupText, LIMITS.fieldValue),
       inline: false 
     });
   }
@@ -3357,7 +3401,7 @@ async function handleMyVotes(interaction) {
     
     embed.addFields({ 
       name: `🗳️ Groups Available (${status.availableGroupVotes.length})`, 
-      value: availText + '\n\nClick the buttons on the group voting message to vote',
+      value: clipText(availText, LIMITS.fieldValue - 60) + '\n\nClick the buttons on the group voting message to vote',
       inline: false 
     });
   }

@@ -88,7 +88,7 @@ Its **Start Voting** button opens a ballot only that member sees:
   1A: ✅ Session 9 vs Halloween (1978)
   ```
   Once the bot's own emoji are uploaded, the ✅ is its jade tick.
-- Your voting streak, and when voting closes, as a countdown.
+- Your voting streak: how many rounds in a row you've voted in, up to this one. A round that goes by without your vote ends it. And when voting closes, as a countdown.
 - Votes save right away. Change them until the matchup closes.
 
 <DiscordCard name="voting-dashboard" />
@@ -219,7 +219,7 @@ Voting also closes by itself at the deadline, exactly as `/bracket close` would.
 | 2 to 6 hours | 1 hour before it closes |
 | Over 6 hours | 2 hours before it closes |
 
-A tie found at the deadline, or when opening the next matchups closes earlier ones, gets a 1-hour tiebreaker vote. Only the close commands take `tiebreaker-duration`.
+A tie found at the deadline, when opening the next matchups closes earlier ones, or by a close button, gets a tiebreaker vote that runs for the tournament's tiebreaker time from the [setup form](./import) (1 hour if none is set). Only the close commands take `tiebreaker-duration`, and they use the same default.
 
 ### The results card
 
@@ -247,7 +247,7 @@ Under the card is a picture of the matchup, drawn in the bot's own style:
 
 If the picture can't be drawn within 5 seconds, or the bot can't attach files in that channel, the card posts without it and shows the winner's poster as a small thumbnail instead.
 
-Every way of closing a matchup posts this card and picture: the deadline, `/bracket close`, the close buttons, and opening the next matchups. Two don't: `/bracket close-matchup` with a typed `matchup`, which replies with the winners and a poster thumbnail, and a tiebreaker, whose result shows the winner's poster as a thumbnail.
+Every way of closing a matchup posts this card and picture: the deadline, `/bracket close`, `/bracket close-matchup` (a typed `matchup` too, which also replies with the winners and a poster thumbnail), the close buttons, and opening the next matchups. A tiebreaker doesn't: its result shows the winner's poster as a thumbnail.
 
 ### Tiebreakers
 
@@ -288,6 +288,8 @@ Closes one or more open matchups and moves their winners on.
 /bracket close-matchup matchup:1A,2A tiebreaker-duration:30m
 /bracket close-matchup
 ```
+
+Each matchup it decides gets its [results card and picture](#the-results-card). If some tie and others don't, the reply lists the decided ones under **🏆 Decided** beside the tiebreakers, and the bot posts the bracket.
 
 When the last matchup of a round closes, the tournament moves to the next round.
 

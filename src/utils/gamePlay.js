@@ -22,7 +22,7 @@ import { loadGuildConfig } from './guildConfig.js';
 import {
   getGameSettings, checkPlayLimit, recordPlay, resultLine, extraLines, channelAllowed,
   loadScores, wouldScore, itemProblem, itemUsesToday, shieldActive, defencesLeft, defenceReady, activeStatuses,
-  POINTS, countSiegeEvent, GAME_NAMES,
+  POINTS, countSiegeEvent, GAME_NAMES, DEFAULT_GAME_SETTINGS,
 } from './gameScores.js';
 import { siegeAssist, monsterOf } from './siegeStore.js';
 import { pickLine, itemEffect, goodLine, liveHappenings, happeningWeights, resolveTyped } from './gameRules.js';
@@ -301,16 +301,32 @@ export function resolvePlay(guildId, { game, action, actor, target, lines, block
 }
 
 /**
+ * 2.75.1: on a server whose plays don't score, how many /rescue and how
+ * many /potion plays a day count for the siege as if they did: the daily
+ * scoring cap a server that scores plays has by default. Every play there
+ * is unscored, so the 2-a-night cap on help from unscored plays used to
+ * apply from a member's first rescue — three frees in a night and the third
+ * counted for nothing, where a server that scores plays credits every free
+ * from a member's first 20 rescues a day. Doug's
+ * decision (2026-11-07): count it like a scoring server, the 2-a-night cap
+ * starting only past these.
+ */
+const SCORING_OFF_HELP = DEFAULT_GAME_SETTINGS.dailyScoredPlays;
+
+/**
  * 2.75.0: why a free or cure past the game's daily scoring cap doesn't
- * count toward the helper's share — and how many a night do. A server with
- * scored plays off (dailyScoredPlays 0) has no cap to be past: none of its
- * plays score, so it says that instead.
+ * count toward the helper's share — and how many a night do.
+ *
+ * 2.75.1: a server with scored plays off (dailyScoredPlays 0) has no cap of
+ * its own; the siege counts the first SCORING_OFF_HELP plays of each game a
+ * day as if they scored (siegeHelp), so one past those says so.
  */
 function uncreditedNote(game, name, scoringOff = false) {
   const n = SIEGE.credit.unscoredPerNight;
-  const which = n > 0 ? `(the first ${n} a night do)` : '(only scored ones do)';
-  if (scoringOff) return `Plays don't score on this server, so this one doesn't count toward ${name}'s share ${which}.`;
-  return `Past today's ${GAME_NAMES[game]} scoring cap, so this one doesn't count toward ${name}'s share ${which}.`;
+  if (scoringOff) {
+    return `Plays don't score on this server, but the siege counts the first ${SCORING_OFF_HELP} ${GAME_NAMES[game]} plays a day as if they did, and this is past them: it doesn't count toward ${name}'s share ${n > 0 ? `(the first ${n} a night past them do)` : '(none past them do)'}.`;
+  }
+  return `Past today's ${GAME_NAMES[game]} scoring cap, so this one doesn't count toward ${name}'s share ${n > 0 ? `(the first ${n} a night do)` : '(only scored ones do)'}.`;
 }
 
 /**
@@ -324,13 +340,18 @@ function uncreditedNote(game, name, scoringOff = false) {
  * past the game's daily cap still frees or cures, but only the first
  * SIEGE.credit.unscoredPerNight a night count toward the helper's share
  * and the Wang Chi — and the reply says which it was.
+ *
+ * 2.75.1: on a server whose plays don't score, the first SCORING_OFF_HELP
+ * plays of the game a day count as scored here — credited, and toward
+ * Field Medic — as they would on a server that scores them.
  * @returns {string[]} `-#` lines for the reply
  */
 function siegeHelp(guildId, { game, actor, result, scoringOff = false }, now) {
   if ((game !== 'rescue' && game !== 'potion') || !result.targetId) return [];
   try {
     const holyWater = !!(result.item?.used && result.item.key === 'holyw');
-    const done = siegeAssist(guildId, { game, actor, targetId: result.targetId, outcome: result.outcome, holyWater, scored: !!result.scored }, now);
+    const scored = !!result.scored || (scoringOff && result.playOfDay <= SCORING_OFF_HELP);
+    const done = siegeAssist(guildId, { game, actor, targetId: result.targetId, outcome: result.outcome, holyWater, scored }, now);
     if (done.error || !done.assist) return [];
     const a = done.assist;
     const monster = monsterOf(done.siege.monster)?.name || 'The monster';
@@ -352,7 +373,7 @@ function siegeHelp(guildId, { game, actor, result, scoringOff = false }, now) {
         ? `🧪 ${actor.name} cured ${a.targetName} of ${monster}'s poison: +${SIEGE.credit.cure} to their share of the fight.`
         : `🧪 ${actor.name} cured ${a.targetName} of ${monster}'s poison. ${uncreditedNote(game, actor.name, scoringOff)}`);
     }
-    if (a.kind !== 'still' && result.scored) {
+    if (a.kind !== 'still' && scored) {
       for (const key of countSiegeEvent(guildId, { userId: actor.id, name: actor.name, counter: 'assists', now }).titles) {
         const t = TITLES.find(x => x.key === key);
         if (t) out.push(`📜 ${actor.name} earned a title: ${t.badge} ${t.title} (+${TITLE_POINTS})`);

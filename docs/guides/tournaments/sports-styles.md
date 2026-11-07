@@ -114,7 +114,7 @@ Then open each round with a long window, such as `/bracket open duration:3d`.
 /bracket-setup create name:"The Cinema Cup" max-titles:48
 ```
 
-- **48 titles makes 12 groups of four.** Each voter picks their top two in each group. A ballot holds 5 groups, so open them in batches, such as A–E, F–J, then K–L, with `/bracket open-groups`.
+- **48 titles makes 12 groups of four.** Each voter picks their top two in each group. A ballot holds 5 groups, so they vote in batches: `/bracket open` opens A–E, then F–J once those close, then K–L. `/bracket open-groups` lets you choose the batches yourself.
 - **The top two in each group plus the 8 best third-placed titles** (wildcards) make a Round of 32. Then it's a straight knockout.
 - **Seeding and ties options don't apply to groups.** The knockout is seeded from the group results: group winners are placed first, and titles from the same group are kept apart in the first round where possible. Ties for 1st or 2nd in a group get a runoff vote.
 - **The 2022 format** (32 teams, 8 groups, top two through) works too. Upload 32 titles in 8 groups on the [setup form](/commands/brackets/import). Or create with `max-titles:36` and run `/bracket-setup resize groups:8`.

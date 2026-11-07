@@ -5,7 +5,7 @@ import * as logger from '../utils/logger.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, PermissionFlagsBits, GuildScheduledEventStatus } from 'discord.js';
 import * as tournamentUI from '../utils/tournamentUI.js';
 import { liveKit } from '../utils/emojiKit.js';
-import { clipText, LIMITS } from '../utils/embedFit.js';
+import { clipText, LIMITS, COMPONENT_LIMITS } from '../utils/embedFit.js';
 import { saveEventRequests, saveEventChannelSelections } from '../api/server.js';
 import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postPublicEventAnnouncement, buildEventCreatedReply } from '../utils/eventRequestApproval.js';
 import { formatUtcForInput, TIME_INPUT_PLACEHOLDER } from '../utils/eventTimeInput.js';
@@ -948,38 +948,24 @@ export async function handleButtonInteraction(interaction) {
 }
 
 /**
- * Handle group stage voting button clicks
+ * A member's group ballot: for each of `groupIds` still open, a line saying
+ * how many of its 2 picks they've made and a row of its titles, their picks
+ * purple. Start Voting and every click build it here, so the two can't drift.
+ *
+ * It shows exactly the groups it was opened with. A click used to redraw it
+ * with every group then open, so a ballot grew when another batch opened,
+ * and with a sixth row Discord refused the redraw.
+ * @param {object} bracketManager - the module (this file imports it lazily)
+ * @returns {{embed: EmbedBuilder, components: ActionRowBuilder[], groups: string[]}}
  */
-/**
- * Handle "Start Voting" button for group stage
- * Sends user a personal voting dashboard with all open groups
- */
-async function handleStartGroupVoting(interaction) {
-  // No manager check: this only shows the clicker their own ballot. The
-  // 2026-09-16 permissions fix gated it with the management buttons, which
-  // left everyone but admins and mods unable to vote.
-
-  const groupIdsStr = interaction.customId.replace('start_group_voting_', '');
-  const groupIds = groupIdsStr.split(',');
-  
-  // Dynamically import bracketManager
-  const bracketManager = await import('../utils/bracketManager.js');
-  const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
-  
-  // Load tournament
-  const tournament = bracketManager.loadTournament(interaction.guild.id);
-  if (!tournament) {
-    await interaction.reply({
-      content: '❌ No tournament found.',
-      flags: MessageFlags.Ephemeral
-    });
-    return;
-  }
-  
-  // Get user's current votes
+function buildGroupBallot(interaction, tournament, groupIds, bracketManager) {
   const userVotes = tournament.votes?.[interaction.user.id] || {};
-  
-  // Build personal voting dashboard
+  const now = Date.now();
+  const groups = [...new Set(groupIds)].filter((id) => {
+    const g = tournament.groups?.[id];
+    return bracketManager.isGroupVoting(g) && (!g.votingDeadline || now <= g.votingDeadline);
+  });
+
   const embed = new EmbedBuilder()
     .setColor(0x4EC5ED)
     .setTitle('🗳️ Your Group Voting Dashboard')
@@ -991,39 +977,56 @@ async function handleStartGroupVoting(interaction) {
     .setThumbnail(avatarOf(interaction))
     .setFooter({ text: 'Only you can see this • Your votes update in real-time' })
     .setTimestamp();
-  
-  // Create buttons for each group
+
   const components = [];
-  
-  for (const groupId of groupIds) {
-    const group = tournament.groups[groupId];
-    if (!group || !group.votingOpen) continue;
-    
-    // Check deadline
-    if (group.votingDeadline && Date.now() > group.votingDeadline) continue;
-    
-    const userGroupVotes = userVotes[groupId] || [];
-    
-    // Add separator text
-    const groupLabel = `\n**Group ${groupId}** - Select 2:`;
-    embed.addFields({ name: '\u200b', value: groupLabel, inline: false });
-    
-    // Create buttons for each movie in this group
-    const buttons = group.movies.map((movie, index) => {
-      const isSelected = userGroupVotes.includes(index);
-      return new ButtonBuilder()
-        .setCustomId(`group_vote_${groupId}_${index}`)
-        .setLabel(`${index + 1}. ${movie.title.length > 50 ? movie.title.substring(0, 47) + '...' : movie.title}`)
-        .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
-    });
-    
-    // Split into rows (5 buttons max per row)
+  for (const gId of groups) {
+    const g = tournament.groups[gId];
+    const picks = userVotes[gId] || [];
+    embed.addFields({ name: '\u200b', value: `**Group ${gId}** - ${picks.length === 2 ? '✅' : `${picks.length}/2`}`, inline: false });
+    const buttons = g.movies.map((movie, index) => new ButtonBuilder()
+      .setCustomId(`group_vote_${gId}_${index}`)
+      .setLabel(`${index + 1}. ${movie.title.length > 50 ? movie.title.substring(0, 47) + '...' : movie.title}`)
+      .setStyle(picks.includes(index) ? ButtonStyle.Primary : ButtonStyle.Secondary));
+    // 5 buttons to a row; a group of 4 is one row
     for (let i = 0; i < buttons.length; i += 5) {
-      const row = new ActionRowBuilder().addComponents(buttons.slice(i, i + 5));
-      components.push(row);
+      components.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
     }
   }
-  
+  return { embed, components, groups };
+}
+
+/** The groups a ballot already shows, from its own vote buttons. */
+function groupsOnBallot(message) {
+  const ids = (message?.components || [])
+    .flatMap(row => row.components || [])
+    .map(c => /^group_vote_([A-Z])_\d+$/.exec(c.customId || '')?.[1])
+    .filter(Boolean);
+  return [...new Set(ids)];
+}
+
+/**
+ * Handle "Start Voting" button for group stage
+ * Sends user a personal voting dashboard with the groups on that button
+ */
+async function handleStartGroupVoting(interaction) {
+  // No manager check: this only shows the clicker their own ballot. The
+  // 2026-09-16 permissions fix gated it with the management buttons, which
+  // left everyone but admins and mods unable to vote.
+
+  const groupIds = interaction.customId.replace('start_group_voting_', '').split(',');
+
+  const bracketManager = await import('../utils/bracketManager.js');
+  const tournament = bracketManager.loadTournament(interaction.guild.id);
+  if (!tournament) {
+    await interaction.reply({
+      content: '❌ No tournament found.',
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  const { embed, components, groups } = buildGroupBallot(interaction, tournament, groupIds, bracketManager);
+
   if (components.length === 0) {
     await interaction.reply({
       content: '❌ No groups are currently open for voting.',
@@ -1031,11 +1034,23 @@ async function handleStartGroupVoting(interaction) {
     });
     return;
   }
-  
+
+  // A row of buttons per group, and Discord allows 5 rows. /bracket open and
+  // open-groups keep to 5 groups voting; a voting card posted before they
+  // did can still list more, and gets this instead of "This interaction
+  // failed" (the knockout's ballot says the same of a sixth matchup)
+  if (components.length > COMPONENT_LIMITS.rows) {
+    await interaction.reply({
+      content: `❌ **Too many groups open** (${groups.length})\n\nA ballot holds ${bracketManager.MAX_GROUPS_VOTING} groups: Discord shows 5 rows of buttons. Ask an admin to close some groups and open the rest ${bracketManager.MAX_GROUPS_VOTING} at a time.`,
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
   // Send ephemeral (private) voting dashboard
   await interaction.reply({
     embeds: [embed],
-    components: components,
+    components,
     flags: MessageFlags.Ephemeral
   });
 }
@@ -1052,7 +1067,6 @@ async function handleGroupVote(interaction) {
   
   // Dynamically import bracketManager
   const bracketManager = await import('../utils/bracketManager.js');
-  const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = await import('discord.js');
   
   // Load tournament to check current votes
   const tournament = bracketManager.loadTournament(interaction.guild.id);
@@ -1066,7 +1080,7 @@ async function handleGroupVote(interaction) {
   
   const group = tournament.groups[groupId];
   
-  if (!group || !group.votingOpen) {
+  if (!bracketManager.isGroupVoting(group)) {
     await interaction.followUp({
       content: `❌ Group ${groupId} is not open for voting.`,
       flags: MessageFlags.Ephemeral
@@ -1166,58 +1180,9 @@ async function handleGroupVote(interaction) {
   
   // Vote feedback is provided by button color change in dashboard - no need for additional messages
   
-  // Rebuild the entire personal voting dashboard with all groups
-  const updatedTournament = result.tournament;
-  const allUserVotes = updatedTournament.votes?.[interaction.user.id] || {};
-  
-  // Get all open groups (from the original dashboard)
-  const originalEmbed = interaction.message.embeds[0];
-  const openGroups = [];
-  for (const gId in updatedTournament.groups) {
-    const g = updatedTournament.groups[gId];
-    if (g.votingOpen && (!g.votingDeadline || Date.now() <= g.votingDeadline)) {
-      openGroups.push(gId);
-    }
-  }
-  
-  openGroups.sort();
-  
-  // Rebuild embed
-  const embed = EmbedBuilder.from(originalEmbed);
-  embed.setFields([]); // Clear fields
-  
-  // Rebuild buttons for all open groups
-  const components = [];
-  
-  for (const gId of openGroups) {
-    const g = updatedTournament.groups[gId];
-    if (!g) continue;
-    
-    const userGroupVotes = allUserVotes[gId] || [];
-    const voteStatus = userGroupVotes.length === 2 ? '✅' : `${userGroupVotes.length}/2`;
-    
-    // Add group label
-    embed.addFields({ 
-      name: '\u200b', 
-      value: `\n**Group ${gId}** - ${voteStatus}`, 
-      inline: false 
-    });
-    
-    // Create buttons
-    const buttons = g.movies.map((movie, index) => {
-      const isSelected = userGroupVotes.includes(index);
-      return new ButtonBuilder()
-        .setCustomId(`group_vote_${gId}_${index}`)
-        .setLabel(`${index + 1}. ${movie.title.length > 50 ? movie.title.substring(0, 47) + '...' : movie.title}`)
-        .setStyle(isSelected ? ButtonStyle.Primary : ButtonStyle.Secondary);
-    });
-    
-    // Split into rows
-    for (let i = 0; i < buttons.length; i += 5) {
-      components.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
-    }
-  }
-  
+  // Redraw the ballot with the groups it shows (buildGroupBallot)
+  const { embed, components } = buildGroupBallot(interaction, result.tournament, groupsOnBallot(interaction.message), bracketManager);
+
   // Update user's personal dashboard (use editReply because we already deferred)
   await interaction.editReply({
     embeds: [embed],
@@ -1273,7 +1238,7 @@ async function handleKnockoutVote(interaction) {
   // Get user's current votes for ALL matchups
   const userVotes = tournament.votes?.[interaction.user.id] || {};
   
-  const statsText = ballotVotesText(tournament, interaction.user.id);
+  const statsText = ballotVotesText(tournament, interaction.user.id, bracketManager);
   
   // Rebuild all buttons with updated states
   const components = [];
@@ -1429,7 +1394,7 @@ async function handleStartKnockoutVoting(interaction) {
   // Get user's current votes
   const userVotes = tournament.votes?.[interaction.user.id] || {};
   
-  const statsText = ballotVotesText(tournament, interaction.user.id);
+  const statsText = ballotVotesText(tournament, interaction.user.id, bracketManager);
   
   // Build voting dashboard with all matchups
   const embed = new EmbedBuilder()
@@ -2105,8 +2070,9 @@ function knockoutLabel(position, round) {
  * matchup, the pick ticked (formatKnockoutVotes). It used to be only a
  * count ("📊 Total votes: 12"), which said nothing about what you picked.
  */
-function ballotVotesText(tournament, userId) {
-  const streak = tournament.participation?.[userId]?.streak;
+function ballotVotesText(tournament, userId, bracketManager) {
+  // Rounds in a row, and none once a round went by without a vote
+  const streak = bracketManager.currentStreak(tournament, userId);
   const list = tournamentUI.formatKnockoutVotes(tournament, userId);
   if (!list) return '✨ Cast your first vote below!';
   return `${streak ? `🔥 **Streak:** ${streak} round${streak === 1 ? '' : 's'}\n\n` : ''}**Your votes**\n${list}`;

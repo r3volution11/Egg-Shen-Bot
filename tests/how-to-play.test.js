@@ -255,13 +255,17 @@ describe('numbers come from the code and the server\'s own settings', () => {
     expect(field(evening, 'Win or lose').value).toContain('gets `+8` and loot; 🔪 the Jack Burton (the killing blow) `+3`.');
   });
 
-  test('R2 review: the unscored-help cap — saving always works, but past a game\'s scoring cap only the first few a night count (and with scored plays off, none score)', () => {
+  test('R2 review: the unscored-help cap — saving always works, but past a game\'s scoring cap only the first few a night count (with scored plays off, past the first 20 a day)', () => {
     const n = pill(SIEGE.credit.unscoredPerNight);
     const capped = field(renderTopic('siege', ctxOf({ games: { dailyScoredPlays: 12 } }), { kit: fallback }), 'It fights back').value.split('\n');
     expect(capped.at(-1)).toBe(`Saving someone always works, but past a game's daily scoring cap only your first ${n} frees and cures a night count toward your share.`);
     expect(n).toBe('`2`');
+    // 2.75.1: with scored plays off, the first 20 (the default cap) rescues and potions a day count as if scored; the 2 a night only past them
     const off = field(renderTopic('siege', ctxOf({ games: { dailyScoredPlays: 0 } }), { kit: fallback }), 'It fights back').value.split('\n');
-    expect(off.at(-1)).toBe(`Saving someone always works, but plays don't score here, so only your first ${n} frees and cures a night count toward your share.`);
+    expect(off.at(-1)).toBe(`Saving someone always works. Plays don't score here, but frees and cures from your first \`20\` rescues and \`20\` potions a day count toward your share as if they did; past those, only your first ${n} a night do.`);
+    // Only the games that are on: /potion off, no potions
+    const noPotion = field(renderTopic('siege', ctxOf({ games: { dailyScoredPlays: 0 }, off: ['potion'] }), { kit: fallback }), 'It fights back').value.split('\n');
+    expect(noPotion.at(-1)).toBe(`Saving someone always works. Plays don't score here, but frees and cures from your first \`20\` rescues a day count toward your share as if they did; past those, only your first ${n} a night do.`);
     // Nothing promises unlimited help any more
     for (const e of [renderTopic('siege', ctxOf(), { kit: fallback }), renderTopic('siege', ctxOf({ games: { pace: 'quick' } }), { kit: fallback })]) {
       expect(JSON.stringify(e)).not.toMatch(/unlimited/);

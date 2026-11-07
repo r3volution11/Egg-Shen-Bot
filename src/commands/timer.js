@@ -2030,23 +2030,49 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
   // Defer reply
   await interaction.deferReply();
 
+  // The entry, once saveWatchHistory has written it. A step after the save
+  // that throws (the stats, the card) lands in the catch below, which used
+  // to post the error card with the Log to Watch History button: the
+  // auto-saved entry has no cardMessageId, so that button's form would save
+  // the same watch party a second time. Logged means no button.
+  let savedAs = null;
+
   try {
     const tmdb = await import('../services/tmdbService.js');
     const { saveWatchHistory } = await import('../utils/watchHistoryManager.js');
     const { trackSearch } = await import('../utils/statsTracker.js');
-    const { resolveWatchedTitle, buildWatchLogNotes, buildPauseHint } = await import('../utils/timerWatchLog.js');
+    const { resolveWatchedTitle, buildWatchLogNotes, buildPauseHint, isBoardGameTimer, BOARD_GAME_NOT_LOGGED, NOT_ON_TMDB } = await import('../utils/timerWatchLog.js');
+
+    const pauseHint = buildPauseHint(timer);
+
+    // Board games are never logged, so no Log button: its form searches
+    // TMDB for the label and would log a movie or show of the same name
+    if (isBoardGameTimer(timer)) {
+      const embed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle('⏹️ Timer Stopped 🛑')
+        .setDescription(`**${title}**\n\n${BOARD_GAME_NOT_LOGGED}`)
+        .addFields(
+          { name: 'Total Time', value: elapsedTime, inline: true },
+          { name: 'Started by', value: startedBy, inline: true },
+          { name: 'Stopped by', value: stoppedBy, inline: true },
+        )
+        .setFooter({ text: pauseHint })
+        .setTimestamp();
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
 
     // Prefer the title the start flow already pinned down over re-searching
     // the label and hoping the first hit is right.
     const resolved = await resolveWatchedTitle(timer, title, tmdb);
-    const pauseHint = buildPauseHint(timer);
 
     if (!resolved) {
       // Could not find title - show timer stopped message with manual log button
       const embed = new EmbedBuilder()
         .setColor(0xFF0000)
         .setTitle('⏹️ Timer Stopped 🛑')
-        .setDescription(`**${title}**\n\n⚠️ Could not find this title on TMDB to log automatically.`)
+        .setDescription(`**${title}**\n\n${NOT_ON_TMDB}`)
         .addFields(
           {
             name: 'Total Time',
@@ -2100,6 +2126,7 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
       channelId: channelId,
       channelName: interaction.channel?.name || 'Unknown Channel',
     });
+    savedAs = `${fullTitle}${yearStr ? ` (${yearStr})` : ''}`;
     
     // Track in stats
     await trackSearch(
@@ -2157,6 +2184,25 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
     
   } catch (error) {
     console.error('[Timer] Error auto-logging to watch history:', error);
+
+    // Saved before the error: it's logged, so say so, with no Log button
+    // (see savedAs above). Worded as the logged card is, which the button
+    // handler also reads as logged.
+    if (savedAs) {
+      const logged = new EmbedBuilder()
+        .setColor(0x00FF00)
+        .setTitle('⏹️ Timer Stopped & Logged 🛑📝')
+        .setDescription(`**${savedAs}**\n\n✅ Automatically logged to watch history`)
+        .addFields(
+          { name: 'Total Time', value: elapsedTime, inline: true },
+          { name: 'Started by', value: startedBy, inline: true },
+          { name: 'Stopped by', value: stoppedBy, inline: true },
+        )
+        .setFooter({ text: 'Use /watched history to view watch history' })
+        .setTimestamp();
+      await interaction.editReply({ embeds: [logged], components: [] });
+      return;
+    }
     
     // Show timer stopped message with error
     const embed = new EmbedBuilder()
@@ -2183,6 +2229,7 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
       .setFooter({ text: 'Use the button below to manually log to watch history • Only timer starter/mods/admins can log • Use /timer pause during breaks' })
       .setTimestamp();
     
+    // Nothing was saved (savedAs is null), so the button can't double it.
     // Add button for manual logging (timer starter/mods/admins only)
     const button = new ButtonBuilder()
       .setCustomId(`log_watched_${channelId}_${starterUserId}`)
