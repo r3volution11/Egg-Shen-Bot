@@ -40,6 +40,9 @@ A: No. Only Discord token and TMDB are required. Other APIs enable additional fe
 **Q: Can I use this on shared hosting?**  
 A: You need a server that can run Node.js applications 24/7 (VPS, dedicated server, or cloud hosting).
 
+**Q: Do the games need setting up?**  
+A: No. `/foodfight`, `/doom`, `/rescue`, `/potion` and `/siege` need no API keys and work as soon as the bot joins. Most servers keep them to one channel with `/eggshen-config-games channels mode:only add:#games`. See [Set up the games](#set-up-the-games).
+
 ---
 
 ## Prerequisites
@@ -221,12 +224,37 @@ Try these commands in your server:
 /timer start label:Movie Night
 ```
 
+## Set Up the Games
+
+The games are ready the moment the bot joins: food fights, horror-movie dooms, rescues and potions with points, a game card and a leaderboard, items, prizes and titles, twists and happenings, and now and then a monster the whole server fights together. They need no API keys. Three things are worth doing on day one:
+
+1. **Pick where they're played.** By default it's every channel. To keep them in one:
+
+   ```
+   /eggshen-config-games channels mode:only add:#games
+   ```
+
+   Or keep them out of a few with `mode:except`. Happenings and random sieges are announced only where the games can be played.
+
+2. **Pick a pace.** By default a siege is a week-long campaign, with 8 attacks a night each and a report each night, and happenings last about a day. If your server plays in one busy session, `/eggshen-config-games happenings pace:quick` makes sieges 45 minutes and happenings an hour or less. See [Choosing a pace](/commands/games-settings#choosing-a-pace).
+
+3. **Tell everyone about `/how-to-play`.** It shows a short card on each part of the games, with your server's own limits, privately. Then try a play:
+
+   ```
+   /how-to-play
+   /foodfight throw target:@Sam
+   /scoreboard
+   ```
+
+On its first start the bot uploads its own emoji, the drawn icons and bars on the game cards, to your Discord application ([Installation](/installation)). Until they're up, the cards use plain emoji. To switch a game off, use `/eggshen-config commands toggle setting:siege enabled:false` (or `potion`, `foodfight`, `doom`, `rescue`). Everything else is on [Settings for Admins](/commands/games-settings).
+
 ## Next Steps
 
 ### Explore Commands
 
 - [Learn about all commands](/commands/)
 - **[🏆 Run Your First Tournament](/commands/brackets/#quick-start-guide)** - Complete step-by-step guide for hosting bracket tournaments
+- **[🎮 The Games](/commands/games)** - Points, cards, items, titles, happenings and sieges, and the [Games Quick Guides](/guides/games/) for members
 
 ### Configure Features
 

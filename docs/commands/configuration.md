@@ -16,14 +16,15 @@ Configuration is split across 6 top-level commands (kept under Discord's per-com
 /eggshen-config-ai <group> <subcommand> [parameters]               — ai-images
 /eggshen-config-moderation <group> <subcommand> [parameters]       — moderation
 /eggshen-config-events <group> <subcommand> [parameters]           — event-requests
-/eggshen-config-games <subcommand> [parameters]                     — game limits, game channels, happenings, twists and random sieges, score resets
+/eggshen-config-games <subcommand> [parameters]                     — game limits, game channels, happenings, twists, the pace and random sieges, score resets
 ```
 
-The game settings (`/eggshen-config-games`) are described on [Games & Scores](./games#game-settings-admin-mod). `/eggshen-config-games happenings` turns twists and server-wide happenings on or off, sets how often and where they're announced, and starts or ends one by hand. It also sets how often a [siege](./games#random-sieges) starts by itself (`siege-frequency`) and how long one lasts (`siege-minutes`) ([details](./games#happenings-and-twists)):
+The game settings (`/eggshen-config-games`) are described on [Game Settings for Admins](./games-settings). `/eggshen-config-games happenings` turns twists and server-wide happenings on or off, sets how often and where they're announced, and starts or ends one by hand. It also sets the server's [pace](./games-siege#pace) (`pace`: quick, evening, day, 3 days or week, the default), which decides how long a siege and a happening last and how often each comes, how often a [siege](./games-siege#random-sieges) starts by itself (`siege-frequency`), and how long a quick-pace siege lasts (`siege-minutes`) ([details](./games-settings#happenings-and-twists)):
 
 ```
 /eggshen-config-games happenings frequency:rare
 /eggshen-config-games happenings start:fullmoon
+/eggshen-config-games happenings pace:quick
 /eggshen-config-games happenings siege-frequency:rare
 ```
 

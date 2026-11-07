@@ -77,6 +77,20 @@ export const KIT_CODES = Object.freeze({
   effect: icon('🌀', 'effects'),
   // Escape Velocity
   rocket: icon('🚀', 'rocket'),
+  // Big Trouble: the Six-Demon Bag's elements, in their opposed pairs
+  // (Rain/Fire, Wind/Smoke, Lightning/Thunder)
+  erain: icon('🌧️', 'rain'), efire: icon('🔥', 'fire'),
+  ewind: icon('💨', 'wind'), esmoke: icon('🌫️', 'smoke'),
+  elite: icon('⚡', 'lightning'), ethund: icon('🌩️', 'thunder'),
+  // Big Trouble: magic, items, gifts, the pact, honours, backing
+  chi: icon('☯️', 'chi'), bag: icon('🎒', 'six-demon bag'),
+  bblood: icon('🖤', 'black blood of the earth'), jade: icon('🧿', 'jade charm'),
+  truck: icon('🚚', 'pork-chop express'), sidek: icon('🤝', 'sidekick'),
+  wang: icon('🗡️', 'the wang chi'), jack: icon('🔪', 'the jack burton'), back: icon('🎲', 'backing'),
+  // Big Trouble: bosses and happenings
+  wildmn: icon('🦧', 'the wild man'), guard: icon('👁️', 'the guardian'),
+  storms: icon('⛈️', 'the three storms'), lopan: icon('🏮', 'lo pan'),
+  upside: icon('🙃', 'upside-down sinners'), bus: icon('🚌', 'egg shen\'s tour bus'),
 });
 
 /** Each game's kit code ('foodfight' is too long to be a code) */

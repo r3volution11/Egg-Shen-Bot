@@ -21,7 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import { PermissionFlagsBits, HTTPError } from 'discord.js';
 import { FakeDiscord } from './harness/fakeDiscord.js';
-import { saveGuildConfig } from '../src/utils/guildConfig.js';
+import { saveGuildConfig, loadGuildConfig } from '../src/utils/guildConfig.js';
 import { pickLine } from '../src/utils/gameRules.js';
 import { SIEGE, SIEGE_ITEM_EFFECTS, ITEMS } from '../src/data/gameRewards.js';
 import { MONSTERS, MONSTER_KEYS } from '../src/data/siegeMonsters.js';
@@ -80,8 +80,11 @@ beforeEach(async () => {
   clock.now = T0;
   jest.spyOn(Date, 'now').mockImplementation(() => clock.now);
   jest.spyOn(console, 'log').mockImplementation(() => {});
+  // These are quick-pace sieges, as /siege was before 2.74 (a server that
+  // never chose a pace is on week: tests/siege-sim-pace.test.js)
   const config = path.join(process.env.GUILD_CONFIGS_DIR, `${GUILD}.json`);
   if (fs.existsSync(config)) fs.unlinkSync(config);
+  await saveGuildConfig(GUILD, { ...await loadGuildConfig(GUILD), games: { pace: 'quick' } });
   // This suite's files only: the directories are shared with the worker's other suites
   for (const f of happeningFiles()) fs.unlinkSync(f);
   await load();
@@ -191,13 +194,13 @@ describe('an admin start', () => {
     expect(edits()).toHaveLength(0);
   });
 
-  test('HP comes from who played this week; minutes from the option, the monster, or the setting', async () => {
+  test('HP comes from who played this week; at quick pace, the length from the option, the monster, or the setting', async () => {
     for (const id of ['sam', 'alex', 'kim']) mods.happenings.noteActivity(GUILD, { channelId: 'games', userId: id }, T0 - 2 * 24 * 60 * MIN);
     for (let i = 0; i < 27; i++) mods.happenings.noteActivity(GUILD, { channelId: 'games', userId: `m${i}` }, T0 - MIN);
-    await start({ monster: 'klowns', minutes: 30 });
+    await start({ monster: 'klowns', length: 30 });
     expect(siege()).toMatchObject({ a7: 30, hp: 60, endsAt: T0 + 30 * MIN });
     await slash('admin', 'end');
-    await saveGuildConfig(GUILD, { games: { siegeMinutes: 55 } });
+    await saveGuildConfig(GUILD, { games: { siegeMinutes: 55, pace: 'quick' } });
     await start({ monster: 'blob' });
     expect(siege().endsAt).toBe(clock.now + 55 * MIN);
     await slash('admin', 'end');
@@ -209,10 +212,10 @@ describe('an admin start', () => {
     const member = await slash('sam', 'start', { monster: 'klowns' });
     expect([member.ephemeralFor, member.content]).toEqual(['sam', '❌ Only administrators and moderators can start or end a siege.']);
 
-    await saveGuildConfig(GUILD, { games: { channelMode: 'only', channels: ['lobby'] } });
+    await saveGuildConfig(GUILD, { games: { channelMode: 'only', channels: ['lobby'], pace: 'quick' } });
     const barred = await start();
     expect(barred.content).toBe('❌ The games aren\'t played in this channel, so a monster can\'t attack here. Start it in a games channel.');
-    await saveGuildConfig(GUILD, {});
+    await saveGuildConfig(GUILD, { games: { pace: 'quick' } });
 
     grant(discord.guild.channelMap.get('games'), ['ViewChannel', 'SendMessages']);
     const noEmbeds = await start();

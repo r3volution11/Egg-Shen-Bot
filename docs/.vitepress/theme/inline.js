@@ -29,14 +29,17 @@ export function inlineToText(text) {
 /**
  * Discord-flavoured markdown → safe HTML, for the Discord message mock-ups
  * (components/DiscordMessage.vue). Escapes first, then: **bold**, *italic*,
- * `code`, [links](/path), "-# " subtext and "## " headings per line, and two
- * stand-ins for what Discord draws itself: [ts:in 9 minutes] (a timestamp,
- * shown as Discord's grey chip) and [mention:@Doug] (a mention).
+ * `code`, [links](/path), "-# " subtext and "## " headings per line, and
+ * three stand-ins for what Discord draws itself: [ts:in 9 minutes] (a
+ * timestamp, shown as Discord's grey chip), [mention:@Doug] (a mention) and
+ * [kit:coin] (one of the bot's own custom emoji, the kit in assets/emojis:
+ * its art is copied to docs/public/emojis/<code>.png).
  */
 export function discordMarkdown(text, { inline = false } = {}) {
   const fmt = (s) => escapeHtml(s)
     .replace(/\[ts:([^\]]+)\]/g, '<span class="dm-chip">$1</span>')
     .replace(/\[mention:([^\]]+)\]/g, '<span class="dm-mention">$1</span>')
+    .replace(/\[kit:([a-z0-9]{1,6})\]/g, '<img class="dm-emoji" src="/emojis/$1.png" alt=":$1:" width="22" height="22">')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')

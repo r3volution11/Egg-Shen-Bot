@@ -97,7 +97,7 @@ The dated views are rebuilt from a rolling log of recent activity kept for about
 
 The **👥 Most Active Users** section of `/stats` (or `/eggshen-stats`) is the bot's usage leaderboard: the top 10 users by tracked command use, with a per-category breakdown, for whichever `filter` period you pick.
 
-`/leaderboard` is a different thing: the standings in the games (`/potion`, `/foodfight`, `/doom`, `/rescue`). See [Games & Scores](/commands/games#leaderboard).
+`/leaderboard` is a different thing: the standings in the games (`/potion`, `/foodfight`, `/doom`, `/rescue`). See [Your Card & the Leaderboard](/commands/games-card#leaderboard).
 
 For tournament standings, see [Tournaments](/guides/tournaments/).
 

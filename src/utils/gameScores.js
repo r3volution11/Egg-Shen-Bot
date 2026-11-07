@@ -42,7 +42,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   ITEMS, DEFENCES, DAILY, FULL_STACK_POINTS, TITLE_POINTS, PRIZES, RANDOM_PRIZE_ITEMS, TITLES,
-  NIGHTS_SHOWN, NIGHT_LIGHT_DAYS, MULTIPLIER_CAPS, TWISTS, TWIST_RULES, SIEGE,
+  NIGHTS_SHOWN, NIGHT_LIGHT_DAYS, MULTIPLIER_CAPS, TWISTS, TWIST_RULES, SIEGE, SIEGE_PACE_KEYS,
 } from '../data/gameRewards.js';
 import {
   ITEM_USED, ITEM_KEPT, SHIELD_BROKEN, DEFENCE_LINES, prizeLine, prizeHeldLine, titleLine, NIGHT_LINES,
@@ -123,10 +123,19 @@ export const DEFAULT_GAME_SETTINGS = {
   siegeMinutes: SIEGE.minutes.default, // SIEGE.minutes.min–max
   // R6: how often a monster attacks by itself (SIEGE.random.perWeek)
   siegeFrequency: 'normal', // off | rare | normal | often
+  // 2.74.0: how long the games' events take (SIEGE_PACES): a siege's
+  // default length and timings, how often a random one comes, how long
+  // happenings last. `siegeMinutes` above is a QUICK siege's length.
+  // Doug, 2026-11-04: every server moves to week, existing ones included
+  // (there are no migrations: a config without the key reads as week).
+  pace: 'week', // quick | evening | day | days3 | week
 };
 
 /** Admin frequency choices for random sieges, in the order offered */
 export const SIEGE_FREQUENCIES = Object.freeze(['off', 'rare', 'normal', 'often']);
+
+/** The paces an admin can pick, shortest first (SIEGE_PACE_KEYS) */
+export const GAME_PACES = SIEGE_PACE_KEYS;
 
 /** Admin frequency choices for random happenings, in the order offered */
 export const HAPPENING_FREQUENCIES = Object.freeze(['off', 'rare', 'normal', 'often']);
@@ -168,6 +177,7 @@ export function getGameSettings(config) {
     happeningChannel: typeof g.happeningChannel === 'string' && g.happeningChannel ? g.happeningChannel : null,
     siegeMinutes: pick('siegeMinutes', SIEGE.minutes.min, SIEGE.minutes.max),
     siegeFrequency: SIEGE_FREQUENCIES.includes(g.siegeFrequency) ? g.siegeFrequency : DEFAULT_GAME_SETTINGS.siegeFrequency,
+    pace: GAME_PACES.includes(g.pace) ? g.pace : DEFAULT_GAME_SETTINGS.pace,
   };
 }
 
@@ -554,7 +564,11 @@ export function shieldedUntil(guildId, userId, now = Date.now()) {
  * @param {object} [play.mods] - from resolvePlay: { defence?: 'garlic'|'antid'|'shield',
  *   happenings?: kinds whose weights shaped the draw, statuses?: ['luckybreak'|'jinxed'] that shaped it }
  * @param {object[]} [play.happenings] - activeHappenings(guildId, now): the SAME list resolvePlay drew with
- * @returns {{outcome, action, scored, capped, actorDelta, targetDelta, actorPoints, streak, shieldedUntil, targetId,
+ * @param {boolean} [play.pot] - a siege attack at a day+ pace (the siege's timings say `pot`): its
+ *   own points go into the pot — the win pool, paid at the end — so it scores 0 here, and what it
+ *   would have scored comes back as `potPoints`. It's still a scored play: the cap, the item, the
+ *   streak, nights, prizes and titles all count it.
+ * @returns {{outcome, action, scored, capped, potted, potPoints, actorDelta, targetDelta, actorPoints, streak, shieldedUntil, targetId,
  *   item: ?{key, used, note}, defence: ?{key, readyAt?}, shieldBroken, rewards: object[], titles: object[],
  *   nights: ?object, bonus: number, targetBonus: number,
  *   twist: ?object, statuses: object[], happenings: Array<{kind, tag}>, happeningLines: object[], calendar: object[]}}
@@ -564,7 +578,7 @@ export function shieldedUntil(guildId, userId, now = Date.now()) {
  *   happeningLines: { kind: 'goodBonus'|'keptStreak', happening, points? }
  *   calendar: calendar happenings to mention (once per member per UTC day)
  */
-export function recordPlay(guildId, { game, action = null, actor, target, outcome, effect, settings = DEFAULT_GAME_SETTINGS, item = null, mods = {}, happenings = [] }, now = Date.now()) {
+export function recordPlay(guildId, { game, action = null, actor, target, outcome, effect, settings = DEFAULT_GAME_SETTINGS, item = null, mods = {}, happenings = [], pot = false }, now = Date.now()) {
   if (game === 'potion' && outcome === 'worked') outcome = effect === 'harmful' ? 'hurt' : 'helped';
   const points = owns(POINTS, game) && owns(POINTS[game], outcome) ? POINTS[game][outcome] : null;
   if (!points) throw new Error(`Unknown outcome "${outcome}" for ${game}`);
@@ -574,6 +588,11 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
   // (a twist's leftovers) wait for their next play of the other games.
   // Enforced here, not only by what the caller passes.
   const siege = game === 'siege';
+  // 2.74.0: at a day+ pace an attack pays into the pot, not the attacker.
+  // Measured: with attacks scoring their own points a typical member's
+  // share ran 1–2 points above quick over the same 90 days; with the pot
+  // every long pace sits at or below it (design §0.4).
+  const potted = siege && pot === true;
   // Checked against the clock here too: a happening past its endsAt does
   // nothing, even if the store still holds it (gameRules.liveHappenings)
   const live = siege ? [] : liveHappenings(happenings, now);
@@ -651,7 +670,10 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       statuses.push({ key });
     }
 
-    // Points: base, then multipliers, then flat additions
+    // Points: base, then multipliers, then flat additions. A potted siege
+    // attack works them out too, then scores 0: what it would have scored
+    // is `potPoints`, kept on the fighter (siegeStore.notePotPoints) for a
+    // win the daily reward limit holds back (applySiegeResult)
     let [actorPts, targetPts] = scored ? points : [0, 0];
     if (defence?.key === 'antid') [actorPts, targetPts] = DEFENCES.antid.points;
     // Happenings multiply BOTH sides; items and Director's Cut only your
@@ -672,6 +694,12 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
     [actorPts, targetPts] = scaled;
     if (fx?.actorPlus) actorPts += fx.actorPlus;
     if (fx?.targetPlus && targetId) targetPts += fx.targetPlus;
+    // No happening, status or twist ever acts on a siege attack (above and
+    // below), so this is all it would have scored — a backfire's −1 too, as
+    // it would have at quick. A monster isn't a member: there's no target's
+    // side to zero.
+    const potPoints = potted ? actorPts : 0;
+    if (potted) actorPts = 0;
 
     // Bitten: this play's gain halved, rounded down. Each acting play uses
     // one of its plays, gain or not — "for your next 3 plays".
@@ -1000,6 +1028,8 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       action,
       scored,
       capped: !scored,
+      potted,
+      potPoints,
       actorDelta: actorPts,
       targetDelta: targetId ? targetPts : null,
       actorPoints: me.games[game].all.points,
@@ -1044,7 +1074,9 @@ const SIEGES_PAID_KEPT = 20;
  *   - a win's rewards (points, loot, the counters) are paid for at most
  *     SIEGE.rewardedPerDay sieges per member per UTC day (daily[uid].sieges):
  *     past that the grant is `limited`, paying nothing — admins can start
- *     sieges back to back, and nothing else stops one being farmed
+ *     sieges back to back, and nothing else stops one being farmed — but
+ *     at a pot pace what its attacks would have scored (`g.own`), as they
+ *     would have at quick
  *   - the server's sieges won and escaped are counted per period
  *     (siegeStats), for the leaderboard — once per siege id, like the rest
  *
@@ -1082,16 +1114,6 @@ export function applySiegeResult(guildId, { siegeId, grants = [], status = null,
     const out = grants.map((g) => {
       const user = userFor(data, g.userId, g.name);
       seedTitles(user, now);
-      // A reward (a win's points, loot or counters) past today's limit is
-      // held back whole; an escape's loss isn't a reward, and still applies
-      const rewarding = (Number(g.points) || 0) > 0 || !!g.loot || !!g.win;
-      if (rewarding) {
-        const day = dayFor(data, g.userId, today);
-        if ((day.sieges || 0) >= SIEGE.rewardedPerDay) {
-          return { ...g, points: 0, loot: null, win: false, mvp: false, kaiju: false, titles: [], total: 0, limited: true };
-        }
-        day.sieges = (day.sieges || 0) + 1;
-      }
       const give = (pts) => {
         if (!pts) return;
         for (const period of periods) {
@@ -1100,6 +1122,25 @@ export function applySiegeResult(guildId, { siegeId, grants = [], status = null,
           s.bonus = (s.bonus || 0) + pts;
         }
       };
+      // A reward (a win's points, loot or counters) past today's limit is
+      // held back whole; an escape's loss isn't a reward, and still applies
+      const rewarding = (Number(g.points) || 0) > 0 || !!g.loot || !!g.win;
+      if (rewarding) {
+        const day = dayFor(data, g.userId, today);
+        if ((day.sieges || 0) >= SIEGE.rewardedPerDay) {
+          // At a pot pace the attacks' own points went into the pot, so
+          // holding the share back left the member nothing for the fight —
+          // where at quick the limit leaves exactly those points (they
+          // scored as they landed). So they're paid here: what the attacks
+          // would have scored (`own`, planSiegeRewards from notePotPoints),
+          // never below 0. The limit still stops the farming it's for: no
+          // share, no MVP bonus, no loot, no win (review, 2026-11-06).
+          const own = Math.max(0, Math.round(Number(g.own) || 0));
+          give(own);
+          return { ...g, points: own, loot: null, win: false, mvp: false, kaiju: false, titles: [], total: own, limited: true };
+        }
+        day.sieges = (day.sieges || 0) + 1;
+      }
       let points = Math.max(0, Math.round(Number(g.points) || 0));
       give(points);
       if (g.loss > 0) {

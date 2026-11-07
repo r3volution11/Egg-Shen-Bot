@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress'
 import { buildPageHead } from './seo.js'
+import { kitIconsPlugin } from './kitIcons.js'
 
 const sidebar = [
   {
@@ -59,11 +60,23 @@ const sidebar = [
           { text: 'Tips & Strategies', link: '/commands/brackets/tips' }
         ]
       },
+      {
+        text: 'Games',
+        collapsed: false,
+        items: [
+          { text: 'Overview', link: '/commands/games' },
+          { text: 'Playing & Points', link: '/commands/games-playing' },
+          { text: 'Your Card & the Leaderboard', link: '/commands/games-card' },
+          { text: 'Items, Prizes & Titles', link: '/commands/games-rewards' },
+          { text: 'Twists & Happenings', link: '/commands/games-happenings' },
+          { text: 'Siege', link: '/commands/games-siege' },
+          { text: 'Settings for Admins', link: '/commands/games-settings' }
+        ]
+      },
       { text: 'Escape Velocity', link: '/commands/escape-velocity' },
       { text: 'AI Image Generation', link: '/commands/ai-images' },
       { text: 'Watch Parties', link: '/commands/watch-party' },
       { text: 'Social Commands', link: '/commands/social' },
-      { text: 'Games & Scores', link: '/commands/games' },
       { text: 'Admin Configuration', link: '/commands/configuration' },
       { text: 'Moderation', link: '/commands/moderation' }
     ]
@@ -101,6 +114,12 @@ export default defineConfig({
 
   // Real "Updated" dates on each page, and dateModified in its structured data
   lastUpdated: true,
+
+  // The bot's drawn emoji kit beside game words (kit: true in a page's
+  // frontmatter) and before chosen headings (kitHeadings): see kitIcons.js
+  markdown: {
+    config: (md) => md.use(kitIconsPlugin)
+  },
 
   // Per-page canonical URL, social tags and schema.org JSON-LD (see seo.js)
   transformHead: (ctx) => buildPageHead(ctx, sidebar),
@@ -217,6 +236,32 @@ export default defineConfig({
         items: [
           { text: 'Tournament Quick Guides', link: '/guides/tournaments/' },
           { text: 'Games Quick Guides', link: '/guides/games/' }
+        ]
+      },
+      {
+        text: 'Games',
+        activeMatch: '^/(commands|guides)/games',
+        items: [
+          {
+            text: 'The games',
+            items: [
+              { text: 'Overview', link: '/commands/games' },
+              { text: 'Playing & Points', link: '/commands/games-playing' },
+              { text: 'Your Card & the Leaderboard', link: '/commands/games-card' },
+              { text: 'Items, Prizes & Titles', link: '/commands/games-rewards' },
+              { text: 'Twists & Happenings', link: '/commands/games-happenings' },
+              { text: 'Siege', link: '/commands/games-siege' },
+              { text: 'Settings for Admins', link: '/commands/games-settings' }
+            ]
+          },
+          {
+            text: 'Guides',
+            items: [
+              { text: 'Play the Games', link: '/guides/games/play' },
+              { text: 'Fight a Siege', link: '/guides/games/siege' },
+              { text: 'Games FAQ', link: '/guides/games/faq' }
+            ]
+          }
         ]
       },
       { text: 'Commands', link: '/commands/' },

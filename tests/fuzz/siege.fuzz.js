@@ -16,6 +16,14 @@
  * At the end, whatever state it's in, the admin can end the siege and
  * start a new one.
  *
+ * Pace (2.74.0): each run is a server at a pace — week (the default) or
+ * quick by default, any of the five with SIM_FUZZ_PACES=all (or a list:
+ * SIM_FUZZ_PACES=day,days3). A run at a slow pace also lets hours and nights
+ * go by, so the busy clock, the allowance, digests nobody was around for,
+ * the daily report, held results and night-boundary ends all happen in
+ * random orders, deploys and faults included — and the simulator's pace
+ * invariants hold after every step.
+ *
  * Run with: npm run test:fuzz             (20 runs, 200 actions each)
  * More:     SIM_FUZZ_FIRST=3000 SIM_FUZZ_RUNS=40 npm run test:fuzz -- --testPathPattern siege
  *           Every restart the simulator does costs ~10 MB jest never gives
@@ -50,6 +58,13 @@ function rng(seed) {
 const WEAPONS = ['food', 'doom', 'potion'];
 const GAMES = ['foodfight', 'doom', 'potion', 'rescue'];
 const ITEMS = ['gpie', 'vhs', 'penny', 'silver', 'garlic', 'antid', 'holyw'];
+/** The paces runs are drawn from: week and quick unless SIM_FUZZ_PACES says (`all`, or a comma list) */
+const PACE_LIST = (() => {
+  const env = process.env.SIM_FUZZ_PACES;
+  if (!env) return ['week', 'quick'];
+  return env === 'all' ? ['quick', 'evening', 'day', 'days3', 'week'] : env.split(',').map(x => x.trim()).filter(Boolean);
+})();
+
 const FAULTS = [
   { on: 'send', kind: 'card', mode: 'crash-before' }, { on: 'send', kind: 'card', mode: 'crash-after' },
   { on: 'send', kind: 'card', mode: 'fail' }, { on: 'send', kind: 'card', mode: 'abort-after' },
@@ -62,6 +77,9 @@ const FAULTS = [
   // R6: the monster's action pings (and digest notices) — 'other' messages
   { on: 'send', kind: 'other', mode: 'crash-before' }, { on: 'send', kind: 'other', mode: 'crash-after' },
   { on: 'send', kind: 'other', mode: 'fail' }, { on: 'send', kind: 'other', mode: 'abort-after' },
+  // 2.74.0: the daily report
+  { on: 'send', kind: 'report', mode: 'crash-before' }, { on: 'send', kind: 'report', mode: 'crash-after' },
+  { on: 'send', kind: 'report', mode: 'fail' }, { on: 'send', kind: 'report', mode: 'abort-after' },
 ];
 
 const live = (sim) => sim.siege()?.status === 'live';
@@ -75,7 +93,8 @@ async function randomAction(sim, r) {
   if (!live(sim) && roll < 0.35) {
     const opts = {};
     if (r.chance(0.8)) opts.monster = r.pick(mods.monsters.MONSTER_KEYS);
-    if (r.chance(0.5)) opts.minutes = 30 + r.int(31);
+    // A length from /siege start's own choices, or (half the time) the server's pace
+    if (r.chance(0.5)) opts.length = r.pick(mods.commands.get('siege').LENGTHS).value;
     opts.channel = r.chance(0.85) ? 'games' : r.pick(['thread', 'lobby']);
     const i = await sim.start(opts);
     return `admin starts ${JSON.stringify(opts)} → ${i.reply?.content?.slice(0, 40) ?? '(died)'}`;
@@ -102,6 +121,16 @@ async function randomAction(sim, r) {
     return `${s}s pass`;
   }
   if (roll < 0.77) {
+    // 2.74.0: a campaign over days also sees hours and nights go by, the bot
+    // asleep between (a pass when it wakes): reports, digests nobody was
+    // around for, a day out ending, a night-boundary end, held results
+    const s = sim.siege();
+    if (s && mods.pace.timingsOf(s).busy && r.chance(0.4)) {
+      const to = r.chance(0.2) && live(sim) ? s.endsAt - r.int(3) * MINUTE : clock.now + (1 + r.int(20)) * 60 * MINUTE;
+      sim.jumpTo(Math.max(clock.now, to));
+      await sim.advance(MINUTE);
+      return `jump to ${new Date(clock.now).toISOString().slice(5, 16)}`;
+    }
     const m = r.chance(0.7) ? 1 + r.int(5) : 1 + r.int(30);
     await sim.advance(m * MINUTE);
     return `${m} min pass`;
@@ -157,9 +186,9 @@ async function randomAction(sim, r) {
     await sim.restart();
     return 'restart (deploy)';
   }
-  // R6: a quiet day goes by, then people play and the dice favour a random siege
+  // R6: a quiet day goes by (2.74.0: the pace's gap), then people play and the dice favour a random siege
   if (roll < 0.92 && !live(sim) && sim.randomFrequency !== 'off') {
-    sim.jumpTo(clock.now + 21 * 60 * MINUTE);
+    sim.jumpTo(clock.now + (mods.pace.randomGapHours(sim.pace, sim.randomFrequency) + 1) * 60 * MINUTE);
     for (const [i, u] of sim.members.slice(0, 3).entries()) await sim.play(u, 'doom', sim.members[(i + 1) % 3]);
     sim.luckQueue.push(0, r.float());
     await sim.advance(MINUTE);
@@ -200,6 +229,8 @@ async function finish(sim) {
   const start = await sim.start({ monster: 'blob' });
   expect(start.reply?.content).toMatch(/^🟢 \*\*The Blob\*\* is attacking <#games>/);
   expect(sim.siege()).toMatchObject({ monster: 'blob', status: 'live' });
+  // With no length, the server's pace's
+  expect(sim.siege().t.key).toBe(sim.pace);
   // …and a member can hit it
   await sim.advance(25 * SEC);
   const hit = await sim.attack(sim.members[0], 'doom');
@@ -233,6 +264,12 @@ function record(sim, log) {
   count('poisons cured', replies.filter(c => /^-# 🧪 .+ cured /m.test(c)).length);
   count('attacks refused: grabbed', sim.discord.events.filter(e => e.kind === 'ephemeral' && /has you!/.test(e.snap?.content || '')).length);
   count('random sieges started', log.filter(l => /dice say yes → random/.test(l)).length);
+  // 2.74.0
+  count(`runs at ${sim.pace} pace`);
+  count('daily reports', sim.sends().filter(x => x.kindTag === 'report').length);
+  count('attacks refused: allowance', sim.discord.events.filter(e => e.kind === 'ephemeral' && /attacks tonight\. The next/.test(e.snap?.content || '')).length);
+  count('attacks refused: out for a day', sim.discord.events.filter(e => e.kind === 'ephemeral' && /you're out until/.test(e.snap?.content || '')).length);
+  count('escapes whose results were held', [...sim.sieges.values()].filter(rec => rec.held).length);
 }
 
 const RUNS = Number(process.env.SIM_FUZZ_RUNS || 20);
@@ -245,13 +282,20 @@ describe('random sieges', () => {
     test(`seed ${seed}: ${STEPS} random actions, every invariant holding, then a fresh siege`, async () => {
       const r = rng(seed);
       clock.now = Date.UTC(2026, 10, 9, 18, 0, 0) + r.int(24 * 60) * MINUTE;
-      const sim = new Sim(`siege-fuzz-${seed}`, { seed, members: MEMBERS.slice(0, 3 + r.int(MEMBERS.length - 2)) });
+      // The server's pace (2.74.0): week or quick, or any of the five with SIM_FUZZ_PACES
+      const pace = PACE_LIST[seed % PACE_LIST.length];
+      const sim = new Sim(`siege-fuzz-${seed}`, { seed, members: MEMBERS.slice(0, 3 + r.int(MEMBERS.length - 2)), pace });
       // Random sieges (R6) for some runs: often enough to see a few in 200 steps
       const frequency = r.pick(['off', 'off', 'normal', 'often']);
       // (random happenings off in those: their dice are drawn first in a pass)
       await sim.configure(frequency === 'off' ? { siegeFrequency: frequency } : { siegeFrequency: frequency, happeningFrequency: 'off' });
       sim.randomFrequency = frequency;
-      const log = [`random sieges: ${frequency}`];
+      // A server that's been playing: members around in the last week set
+      // a campaign's HP (a fresh server's monster sits at the 40-HP floor,
+      // and is beaten before the allowance, a digest or a report can happen)
+      const regulars = pace === 'quick' ? 0 : 4 + r.int(10);
+      for (let i = 0; i < regulars; i++) mods.happenings.noteActivity(sim.guildId, { channelId: 'games', userId: `regular${i}` }, clock.now - (1 + r.int(5)) * 24 * 60 * MINUTE);
+      const log = [`pace: ${pace} · random sieges: ${frequency} · ${regulars} regulars this week`];
       try {
         for (let i = 0; i < STEPS; i++) log.push(await randomAction(sim, r));
         log.push('— finishing —');

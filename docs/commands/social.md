@@ -7,7 +7,7 @@ description: Interactive social features including surveys/polls, magical potion
 
 **Add fun and interactive elements** to your entertainment Discord community with surveys, polls, potions, food fights, horror-movie fates and rescues, and status quotes.
 
-`/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, a `/scoreboard` and a `/leaderboard`, and `/siege` is a fifth, played all together against a monster. See **[Games & Scores](./games)** for how points, shields, limits and sieges work. Each play can take an `item:` from your [Glovebox](./games#the-glovebox-and-items), and keep playing to earn [prizes](./games#prizes) and [titles](./games#titles).
+`/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, a `/scoreboard` and a `/leaderboard`, and `/siege` is a fifth, played all together against a monster. See **[Games & Scores](./games)** for how points, shields, limits and sieges work. Each play can take an `item:` from your [Glovebox](./games-rewards#the-glovebox-and-items), and keep playing to earn [prizes](./games-rewards#prizes) and [titles](./games-rewards#titles).
 
 ## Quick FAQ
 
@@ -30,7 +30,7 @@ A: Yes, all surveys are stored in JSON files per-server and persist even if the 
 A: Yes. Pick a member, a role, or @everyone as the target. A role or @everyone shows in the message but nobody gets a notification; only a member you pick is pinged. Only you score points for those.
 
 **Q: Can I turn off /potion, /foodfight, /doom, /rescue or /siege?**  
-A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`, `setting:doom`, `setting:rescue`, `setting:siege`). Admins and moderators can always use them. To keep the games to certain channels, or out of them, use `/eggshen-config-games channels` ([Games & Scores](./games#where-games-can-be-played)).
+A: Yes: `/eggshen-config commands toggle setting:potion enabled:false` (or `setting:foodfight`, `setting:doom`, `setting:rescue`, `setting:siege`). Admins and moderators can always use them. To keep the games to certain channels, or out of them, use `/eggshen-config-games channels` ([Games & Scores](./games-settings#where-games-can-be-played)).
 
 **Q: The survey scrolled away. How do people find it?**  
 A: `/survey voting-post` posts it again at the bottom of the channel, with its buttons and the votes so far. The old card greys out and links to the new one.
@@ -215,6 +215,10 @@ In a busy channel the survey scrolls up out of sight. This posts it again at the
 - Posts final results as a new message in the channel, with a chart of them: each option's share as a bar, most votes first, the winner's bar gold under a crown (or the 🎲 when a runoff was settled at random), and the total underneath. Emoji in the question and options are left out of the chart. If the chart can't be drawn, or the bot can't attach files in that channel, the message posts without it
 - Closed surveys can still be viewed with `/survey results`
 
+<img class="result-image" src="/images/survey-5.webp" alt="A drawn survey results chart for 'What should we watch for the Friday double feature?'. Halloween (1978) leads under a crown with 47%, 14 votes, on a gold bar; The Thing 30%, 9 votes; Alien 17%, 5 votes; Jaws 7%, 2 votes; Night of the Living Dead 0%. 30 votes in all." width="960" height="480" loading="lazy">
+
+*The chart posted with a closed survey's results*
+
 **Example:**
 ```
 /survey close poll_id:a1b2c3d4e5f6g7h8
@@ -298,7 +302,7 @@ Give magical potions with pop culture references, to a member, a whole role, or 
 /potion give user:<member, role, or @everyone> type:<potion-type> item:[item]
 ```
 
-`item` is optional: a 🍀 Lucky Penny makes the potion work and doubles your points. The list shows only what you hold ([Items](./games#using-an-item)). A 💊 Antidote on the receiving end works by itself against a harmful potion.
+`item` is optional: a 🍀 Lucky Penny makes the potion work and doubles your points. The list shows only what you hold ([Items](./games-rewards#using-an-item)). A 💊 Antidote on the receiving end works by itself against a harmful potion.
 
 **Potion Types:**
 - **Helpful:** Health, Mana, Strength, Speed, Invisibility, Luck, Love, Energy
@@ -347,7 +351,7 @@ Start a food fight, after the classic BBS door game. Throw food at a member, a w
 /foodfight throw target:<member, role, or @everyone> food:[food] item:[item]
 ```
 
-Leave out `food` and the bot grabs whatever's on the tray. `item` is optional: a 🥧 Golden Pie is a sure hit and doubles your points. The list shows only what you hold ([Items](./games#using-an-item)).
+Leave out `food` and the bot grabs whatever's on the tray. `item` is optional: a 🥧 Golden Pie is a sure hit and doubles your points. The list shows only what you hold ([Items](./games-rewards#using-an-item)).
 
 **Foods:** 🥧 Cream Pie, 🍝 Spaghetti, 🍮 Pudding, 🥔 Mashed Potatoes, 🟩 Jell-O, 🍖 Meatloaf, 🌽 Creamed Corn, 🥣 Tapioca, 🍕 Pizza, 🌮 Taco, 🐟 Fish Sticks, 🥬 Split Pea Soup
 
@@ -402,7 +406,7 @@ Deal someone a horror-movie fate: a zombie bite, a monkey's paw, a cursed tape. 
 /doom fate target:<member, role, or @everyone> trope:[trope] item:[item]
 ```
 
-Leave out `trope` and fate decides. `item` is optional: a 📼 Cursed VHS can't backfire, doubles your points, and cuts through a shield or Garlic. The list shows only what you hold ([Items](./games#using-an-item)). A target with 🧄 Garlic turns a doom into an escape by itself ([Defences](./games#defences)).
+Leave out `trope` and fate decides. `item` is optional: a 📼 Cursed VHS can't backfire, doubles your points, and cuts through a shield or Garlic. The list shows only what you hold ([Items](./games-rewards#using-an-item)). A target with 🧄 Garlic turns a doom into an escape by itself ([Defences](./games-rewards#defences)).
 
 **Tropes:** 🧟 Zombie, 🐒 Monkey's Paw, 🪓 Slasher, 😈 Possession, 📼 Cursed Tape, 🪆 Haunted Doll, 🧛 Vampire, 🐺 Werewolf, 🤡 Killer Clown, 📖 Necronomicon, 🔮 Ouija Board, 🪞 Bloody Mary
 
@@ -444,7 +448,7 @@ A line needs both `{user}` and `{target}`, and an outcome: `doomed`, `escaped` o
 /rescue attempt target:<member, role, or @everyone> trope:[trope] item:[item]
 ```
 
-Leave out `trope` and whatever works, works. `item` is optional: 💧 Holy Water can't be caught, gives you +2 more, and the shield lasts 3× as long. The list shows only what you hold ([Items](./games#using-an-item)). The tropes named Holy Water, Garlic and Silver Bullet are flavour, not items.
+Leave out `trope` and whatever works, works. `item` is optional: 💧 Holy Water can't be caught, gives you +2 more, and the shield lasts 3× as long. The list shows only what you hold ([Items](./games-rewards#using-an-item)). The tropes named Holy Water, Garlic and Silver Bullet are flavour, not items.
 
 **Tropes:** 🔪 Final Girl, 💧 Holy Water, 👻 Ghostbusters, 🔫 Boomstick, 🧂 Salt Circle, 🥈 Silver Bullet, 🌅 Sunrise, 🚗 Getaway Car, 🗡️ Van Helsing, 📜 Survival Rules, 🧄 Garlic, 🐕 The Dog
 
@@ -565,7 +569,7 @@ If both `title` and `author` are given, a quote matching *either* one is returne
 **Solution:** That's on purpose: /potion, /foodfight, /doom and /rescue show a role or @everyone without pinging anyone, so a game doesn't notify a whole server. Pick a member to ping them.
 
 **Problem:** "⏳ cooldown" or "🎲 Games are played in…"  
-**Solution:** Each game can be played once every 20 seconds per person, and the games can be limited to certain channels. See [Games & Scores](./games#limits).
+**Solution:** Each game can be played once every 20 seconds per person, and the games can be limited to certain channels. See [Games & Scores](./games-playing#limits).
 
 ---
 

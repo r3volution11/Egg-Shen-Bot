@@ -361,11 +361,18 @@
 }
 .dm-embed-main { min-width: 0; flex: 1; }
 .dm-embed-title { color: var(--dm-heading); font-weight: 600; font-size: 16px; margin: 2px 0 6px; }
+/* The embed's author line: a name beside a small avatar (a stand-in, like the thumbnail) */
+.dm-embed-author { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; color: var(--dm-heading); font-size: 14px; font-weight: 600; }
+.dm-embed-author-icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-size: 13px; background: linear-gradient(135deg, #5865f2, #2ab5e5); }
+/* The bot's own custom emoji ([kit:code]), sized and spaced as Discord draws them:
+   a bar is a row of them, so the spacing is what members actually see */
+.dm-emoji { display: inline-block; width: 1.375em; height: 1.375em; object-fit: contain; vertical-align: -0.4em; margin: 0 0.05em 0 0.1em; }
+.dm-sub .dm-emoji { width: 1.25em; height: 1.25em; vertical-align: -0.3em; }
 .dm-embed-desc { white-space: normal; overflow-wrap: anywhere; }
 .dm-embed-footer { margin-top: 8px; color: var(--dm-muted); font-size: 12px; }
 
-/* Inline fields sit up to three across, and wrap rather than overlap when narrow */
-.dm-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px 12px; margin-top: 8px; }
+/* Inline fields sit up to three across, as Discord's do, and wrap rather than overlap when narrow */
+.dm-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; margin-top: 8px; }
 .dm-field-name, .dm-field-value { overflow-wrap: anywhere; }
 .dm-field { grid-column: 1 / -1; }
 .dm-field-inline { grid-column: auto; }
@@ -419,6 +426,7 @@
 
 @media (max-width: 640px) {
   .dm { padding: 10px 10px 10px 4px; font-size: 14px; }
+  .dm-fields { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
   .dm-avatar { width: 32px; height: 32px; }
   .dm-row-main { gap: 8px; }
   .dm-embed { gap: 10px; padding: 8px 10px 10px; }
@@ -426,3 +434,36 @@
   .dm-thumb-poster { width: 52px; height: 78px; }
   .dm-pair { grid-template-columns: 1fr; }
 }
+
+/* ── The emoji kit on the docs pages (docs/.vitepress/kitIcons.js) ──────
+   The bot's drawn icons beside the names they stand for. Each is a 128 px
+   PNG with its own light-and-dark-safe outline, so one image serves both
+   themes. */
+.kit-icon { display: inline-block; width: 1.35em; height: 1.35em; margin: 0 0.12em 0 0; vertical-align: -0.32em; }
+.vp-doc table .kit-icon { width: 1.5em; height: 1.5em; vertical-align: -0.4em; }
+/* An icon and the name it stands for stay on one line: "🥧 Golden Pie" never splits */
+.vp-doc td:has(> img.kit-icon:first-child) { white-space: nowrap; }
+.vp-doc .kit-heading { width: 1.1em; height: 1.1em; margin: 0 0.35em 0 0; vertical-align: -0.12em; }
+
+/* ── Topic cards (components/TopicCards.vue): a section's pages at a glance ── */
+.topic-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 20px 0; }
+.vp-doc a.topic-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 12px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
+  text-decoration: none;
+  transition: border-color 0.2s;
+}
+.vp-doc a.topic-card:hover { border-color: var(--vp-c-brand-1); }
+.topic-card img { width: 40px; height: 40px; }
+.topic-card-title { font-weight: 600; font-size: 16px; line-height: 1.3; }
+.topic-card-text { color: var(--vp-c-text-2); font-size: 14px; line-height: 1.5; }
+.topic-card-text code { font-size: 0.85em; }
+
+/* A picture the bot draws (a matchup's result, a survey's chart), shown as members see it */
+.vp-doc img.result-image { display: block; width: 100%; max-width: 640px; height: auto; margin: 16px 0 4px; border-radius: 8px; }

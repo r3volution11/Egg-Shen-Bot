@@ -160,7 +160,7 @@ You should see:
 ✓ Logged in as YourBot#1234
 ```
 
-On the first start you'll also see `[EmojiKit] Uploading 64 of 64 in the background…` and, a minute or so later, `[EmojiKit] Ready: 64`. Those are the small icons on the game cards, leaderboard and tournament cards: the bot uploads them to your own application (Developer Portal → your app → **Emojis**) by itself. Until they're up, cards use plain emoji. To skip it, set `EMOJI_SYNC=off` in `.env`. If you also run a development bot, give it its own Discord application, since emojis belong to the application.
+On the first start you'll also see `[EmojiKit] Uploading 85 of 85 in the background…` and, a minute or so later, `[EmojiKit] Ready: 85`. Those are the small icons on the game cards, leaderboard, siege cards and tournament cards: the bot uploads them to your own application (Developer Portal → your app → **Emojis**) by itself. Until they're up, cards use plain emoji. To skip it, set `EMOJI_SYNC=off` in `.env`. If you also run a development bot, give it its own Discord application, since emojis belong to the application.
 
 ## Verification
 

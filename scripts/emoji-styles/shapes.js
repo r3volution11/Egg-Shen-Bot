@@ -120,3 +120,51 @@ export function bulletTipPath(ctx, x0, L, W) {
   ctx.bezierCurveTo(x0 + L, W * 0.3, x0 + L * 0.62, W / 2, x0, W / 2);
   ctx.closePath();
 }
+
+/**
+ * A band along a polyline whose width runs from w0 to w1 (a tapering bolt,
+ * a gust, a motion streak). Corners are mitred, capped so a sharp zigzag
+ * doesn't spike.
+ */
+export function ribbonPath(ctx, pts, w0, w1 = w0) {
+  const n = pts.length;
+  const dir = (i) => {
+    const [ax, ay] = pts[i]; const [bx, by] = pts[i + 1];
+    const l = Math.hypot(bx - ax, by - ay) || 1;
+    return [(bx - ax) / l, (by - ay) / l];
+  };
+  const left = []; const right = [];
+  for (let i = 0; i < n; i++) {
+    const d0 = dir(Math.max(0, i - 1)); const d1 = dir(Math.min(n - 2, i));
+    let nx = -(d0[1] + d1[1]); let ny = d0[0] + d1[0];
+    const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    const cos = Math.max(0.4, nx * -d1[1] + ny * d1[0]);
+    const w = (w0 + (w1 - w0) * (i / (n - 1))) / 2 / cos;
+    left.push([pts[i][0] + nx * w, pts[i][1] + ny * w]);
+    right.push([pts[i][0] - nx * w, pts[i][1] - ny * w]);
+  }
+  ctx.beginPath();
+  [...left, ...right.reverse()].forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+}
+
+/** A raindrop: round bottom centred on (cx, cy), radius r, point straight up */
+export function dropPath(ctx, cx, cy, r) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r * 2.4);
+  ctx.bezierCurveTo(cx + r * 0.35, cy - r * 1.5, cx + r, cy - r * 0.95, cx + r, cy);
+  ctx.arc(cx, cy, r, 0, Math.PI);
+  ctx.bezierCurveTo(cx - r, cy - r * 0.95, cx - r * 0.35, cy - r * 1.5, cx, cy - r * 2.4);
+  ctx.closePath();
+}
+
+/** A wisp in local coords: round base on the origin, tapering to a point L up */
+export function wispPath(ctx, L, W) {
+  const r = W / 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -L);
+  ctx.bezierCurveTo(r * 0.5, -L * 0.62, r, -r * 1.7, r, -r);
+  ctx.arc(0, -r, r, 0, Math.PI);
+  ctx.bezierCurveTo(-r, -r * 1.7, -r * 0.5, -L * 0.62, 0, -L);
+  ctx.closePath();
+}

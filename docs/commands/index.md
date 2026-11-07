@@ -40,6 +40,9 @@ A: Most search commands work in DMs. Server-specific features (timers, watch his
 **Q: What happens if a movie/show isn't found?**  
 A: The bot will show a "not found" message. Try different spelling, year, or check TMDB to see if it exists.
 
+**Q: Where do I start with the games?**  
+A: Run `/how-to-play` for a short card on each topic, with your server's own limits. Admins can keep the games to one channel with `/eggshen-config-games channels mode:only add:#games`. Every rule is in [Games & Scores](./games).
+
 ---
 
 # Commands Overview
@@ -562,6 +565,8 @@ Search for movie and TV show soundtracks with iTunes and Spotify integration.
 
 ## Fun & Social Commands
 
+`/potion`, `/foodfight`, `/doom`, `/rescue` and `/siege` are games with points, items, prizes, titles and a leaderboard. This page lists their options; how the games work is in its own section, [Games & Scores](./games): [Playing & Points](./games-playing), [Your Card & the Leaderboard](./games-card), [Items, Prizes & Titles](./games-rewards), [Twists & Happenings](./games-happenings), [Siege](./games-siege) and [Settings for Admins](./games-settings).
+
 ### `/survey`
 Create interactive polls and surveys with up to 10 options and real-time vote tracking.
 
@@ -600,7 +605,7 @@ Give magical potions with fun pop culture references, to a member, a whole role,
 **Options:**
 - `user` (required) - Who gets it: a member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `type` (required) - Type of potion (Health, Mana, Strength, Speed, Invisibility, Luck, Confusion, Love, Poison, Energy, Weakness, Curse, Slow)
-- `item` (optional) - An item from your Glovebox. Only 🍀 Lucky Penny fits: the potion works and your points double. The list shows only what you hold ([Items](./games#using-an-item))
+- `item` (optional) - An item from your Glovebox. Only 🍀 Lucky Penny fits: the potion works and your points double. The list shows only what you hold ([Items](./games-rewards#using-an-item))
 
 **Features:**
 - 13 different potion types (helpful & harmful!)
@@ -658,7 +663,7 @@ Start a food fight, after the classic BBS door game: throw food at a member, a w
 **Options (`throw`):**
 - `target` (required) - A member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `food` (optional) - Cream pie, spaghetti, pudding, mashed potatoes, Jell-O, meatloaf, creamed corn, tapioca, pizza, taco, fish sticks or split pea soup. Leave it out for a random one
-- `item` (optional) - An item from your Glovebox. Only 🥧 Golden Pie fits: a sure hit, and your points double. The list shows only what you hold ([Items](./games#using-an-item))
+- `item` (optional) - An item from your Glovebox. Only 🥧 Golden Pie fits: a sure hit, and your points double. The list shows only what you hold ([Items](./games-rewards#using-an-item))
 
 **Options (`feed`):** the same `target`, `food` and `item` (a 🥧 Golden Pie makes it always tasty, +2 more for you both).
 
@@ -682,7 +687,7 @@ Deal someone, a whole role, or @everyone a horror-movie fate: horror-comedy that
 **Options (`fate`):**
 - `target` (required) - A member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `trope` (optional) - Zombie, monkey's paw, slasher, possession, cursed tape, haunted doll, vampire, werewolf, killer clown, Necronomicon, Ouija board or Bloody Mary. Leave it out and fate decides
-- `item` (optional) - An item from your Glovebox. Only 📼 Cursed VHS fits: it can't backfire, doubles your points, and cuts through a shield or Garlic ([Items](./games#using-an-item))
+- `item` (optional) - An item from your Glovebox. Only 📼 Cursed VHS fits: it can't backfire, doubles your points, and cuts through a shield or Garlic ([Items](./games-rewards#using-an-item))
 
 **Admin/Mod:** `/doom lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{user}` and `{target}` and an outcome (doomed, escaped or backfired).
 
@@ -702,7 +707,7 @@ Save someone from a horror movie: a Final Girl, holy water, the boomstick, the d
 **Options (`attempt`):**
 - `target` (required) - A member, a role, or @everyone. You can't rescue yourself
 - `trope` (optional) - Final Girl, holy water, Ghostbusters, boomstick, salt circle, silver bullet, sunrise, getaway car, Van Helsing, survival rules, garlic or the dog
-- `item` (optional) - An item from your Glovebox. Only 💧 Holy Water fits: it can't be caught, gives you +2 more, and the shield lasts 3× as long ([Items](./games#using-an-item))
+- `item` (optional) - An item from your Glovebox. Only 💧 Holy Water fits: it can't be caught, gives you +2 more, and the shield lasts 3× as long ([Items](./games-rewards#using-an-item))
 
 **Admin/Mod:** `/rescue lines add`, `list`, `remove` and `reset` manage your server's own lines, which need `{user}` and `{target}` and an outcome (rescued, caught or sacrificed).
 
@@ -717,7 +722,7 @@ See [Social Commands › Rescue](./social#rescue).
 ---
 
 ### `/siege`
-A monster attacks the drive-in and the whole server fights it together with food, dooms and potions. Beat it before time runs out and everyone who fought is paid, with a bonus and loot for the top fighter. Let it escape and everyone who fought loses a few points. Every 5 minutes it fights back: it grabs a fighter (free them with `/rescue`), poisons one (cure them with a helpful `/potion`) or roars. An admin starts one, or one turns up by itself ([Random sieges](./games#random-sieges)).
+A monster attacks the drive-in and the whole server fights it together with food, dooms and potions. Beat it before time runs out and everyone who fought is paid, with a bonus and loot for the top fighter. Let it escape and everyone who fought loses a few points. While people are fighting it fights back: it grabs a fighter (free them with `/rescue`), poisons one (cure them with a helpful `/potion`) or roars. An admin starts one, or one turns up by itself ([Random sieges](./games-siege#random-sieges)). By default a siege is a campaign over a week, with 8 attacks a night each and a report each night; the server's [pace](./games-siege#pace) sets how long it lasts and its timings.
 
 **Subcommands:**
 - `attack` - Hit the monster. Anyone, from the siege's channel or its threads
@@ -727,41 +732,42 @@ A monster attacks the drive-in and the whole server fights it together with food
 
 **Options (`attack`):**
 - `weapon` (required) - `food` (throw something), `doom` (a horror fate) or `potion` (poison: damage now and for 5 minutes)
-- `item` (optional) - An item from your Glovebox. Golden Pie fits food, Cursed VHS fits doom, Lucky Penny fits potion, and the Silver Bullet fits any weapon. The list shows only what you hold ([Items in a siege](./games#items-in-a-siege))
+- `item` (optional) - An item from your Glovebox. Golden Pie fits food, Cursed VHS fits doom, Lucky Penny fits potion, and the Silver Bullet fits any weapon. The list shows only what you hold ([Items in a siege](./games-siege#items-in-a-siege))
 
 **Options (`start`):**
 - `monster` (optional) - One of 11 monsters. Without it you get a random one
-- `minutes` (optional) - How long it lasts, 30 to 60. Without it, 45, or the monster's own
+- `length` (optional) - How long it lasts: 30 minutes, 45 minutes, 1 hour, 4 hours, 1 day, 3 days, 5 days, 7 days or 10 days. It runs to the timings of the nearest [pace](./games-siege#pace). Without it, the server's pace (a week by default; at quick pace 45 minutes, or the monster's own)
 
 **Examples:**
 ```
 /siege attack weapon:food
 /siege attack weapon:potion item:Lucky Penny
 /siege status
-/siege start monster:blob minutes:45
+/siege start monster:blob length:45
+/siege start length:10080
 /siege end
 ```
 
-Your first 30 attacks a day score points; later ones still do damage. A fighter the monster has grabbed can't attack until someone frees them, and one it has poisoned does half damage until someone cures them ([It fights back](./games#it-fights-back)). Turn it off with `/eggshen-config commands toggle setting:siege enabled:false`. See [Games & Scores › Siege](./games#siege).
+Your first 30 attacks a day score points, and later ones still do damage; from evening pace on each member also has a number of attacks a night (8 at week pace, back at 12:00 UTC), and from day pace on an attack's points go into the pot, paid out when it's beaten. A fighter the monster has grabbed can't attack until someone frees them, and one it has poisoned does half damage until someone cures them ([It fights back](./games-siege#it-fights-back)). Turn it off with `/eggshen-config commands toggle setting:siege enabled:false`. See [Siege](./games-siege).
 
 ---
 
 ### `/scoreboard`
-Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), an active rescue shield and any [twist](./games#twists) status, any [happening](./games#happenings) or [siege](./games#siege) in progress, and your rewards: prizes in progress, nights in a row, Glovebox and titles. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
+Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), an active rescue shield and any [twist](./games-happenings#twists) status, any [happening](./games-happenings#happenings) or [siege](./games-siege) in progress, and your rewards: prizes in progress, nights in a row, Glovebox and titles. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
 
-**Options:** `user`, `game`, `period` (this month, this year, all time), `private`, and `title` (pick which [earned title](./games#choosing-the-title-you-show) shows with your name, or *No title*; only for yourself)
+**Options:** `user`, `game`, `period` (this month, this year, all time), `private`, and `title` (pick which [earned title](./games-rewards#choosing-the-title-you-show) shows with your name, or *No title*; only for yourself)
 
 ```
 /scoreboard
 /scoreboard user:@Friend period:month
 ```
 
-See [Games & Scores › Scoreboard](./games#scoreboard).
+See [Your Card & the Leaderboard](./games-card#scoreboard).
 
 ---
 
 ### `/leaderboard`
-The server's game card: the top 15 players one line each (medal, name, a bar against the leader, points), who leads each game, who received the most of everything, the period's plays, points, players, most played game, best streak and sieges won or escaped, and any [happening](./games#happenings) or [siege](./games#siege) in progress.
+The server's game card: the top 15 players one line each (medal, name, a bar against the leader, points), who leads each game, who received the most of everything, the period's plays, points, players, most played game, best streak and sieges won or escaped, and any [happening](./games-happenings#happenings) or [siege](./games-siege) in progress.
 
 **Options:** `game`, `period` (this month, this year, all time), `private`
 
@@ -770,7 +776,7 @@ The server's game card: the top 15 players one line each (medal, name, a bar aga
 /leaderboard game:doom
 ```
 
-See [Games & Scores › Leaderboard](./games#leaderboard).
+See [Your Card & the Leaderboard](./games-card#leaderboard).
 
 ---
 
@@ -824,7 +830,7 @@ Comprehensive server configuration (Admin/Moderator only), split across 6 comman
 - `/eggshen-config-ai` - AI image limits and permissions, AI announcement text, and AI answers for `/eggshen-ask`
 - `/eggshen-config-moderation` - whitelist, cooldowns, auto-ban
 - `/eggshen-config-events` - event request system
-- `/eggshen-config-games` - game limits, game channels, [happenings, twists and random sieges](./games#happenings-and-twists), score resets (`/siege` included)
+- `/eggshen-config-games` - game limits, game channels, [happenings, twists, the pace and random sieges](./games-settings#happenings-and-twists), score resets (`/siege` included)
 
 **Example:**
 ```

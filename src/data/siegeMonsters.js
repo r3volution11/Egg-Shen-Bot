@@ -17,7 +17,8 @@
  *   months           null, or an array of UTC month numbers 1-12 it can
  *                    appear in (Headless Horseman: [10])
  *   hp               HP multiplier (1 = normal)
- *   minutes          null (server default) or a fixed length in minutes
+ *   minutes          null (server default) or a fixed length in minutes — at
+ *                    quick pace only (2.74.0: any other pace runs its own length)
  *   damage           { food, doom, potion } — damage multiplier per weapon
  *                    (1 = normal)
  *   traits           only the ones that apply; every one is optional:
@@ -321,7 +322,9 @@ export const MONSTERS = Object.freeze({
     weight: 4, months: null, hp: 1.15, minutes: 60,
     damage: { food: 1, doom: 1, potion: 1 },
     traits: { loot: 2 },
-    about: 'Rare and radioactive: twice the loot, but it only gives you an hour.',
+    // Its own `minutes` (an hour) apply at quick pace only (gamePace.defaultSiegeMinutes):
+    // a week campaign is a week whatever comes for the drive-in, so its words don't promise an hour
+    about: 'Rare and radioactive: twice the loot, and a tougher hide.',
     lines: {
       arrive: 'The screen shows a giant lizard. Then the screen *is* a giant lizard. Then the screen is gone.',
       defeat: '{mvp} hits it right in the glowing bits. It wobbles, roars, and wades back to the ocean.',

@@ -417,13 +417,13 @@ describe('random sieges', () => {
     expect(sim.siege()).toMatchObject({ source: 'random', status: 'live' });
   });
 
-  test('the rate: on a server that plays 4 hours every evening, about 1.5, 3 and 5 a week (rare, normal, often) — 100 weeks each, measured', () => {
+  test('the rate at quick pace: on a server that plays 4 hours every evening, about 1.5, 3 and 5 a week (rare, normal, often) — 100 weeks each, measured', () => {
     const { randomSiegeEligibility, randomSiegeChance } = mods.store;
     const DAYM = 24 * HOUR;
     const rates = {};
     for (const frequency of ['rare', 'normal', 'often']) {
       const luck = seeded(99);
-      const settings = { siegeFrequency: frequency };
+      const settings = { siegeFrequency: frequency, pace: 'quick' };
       const state = { activity: { recent: {} }, siege: null, happening: null };
       let count = 0;
       const start = Date.UTC(2026, 0, 5);

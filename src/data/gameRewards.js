@@ -290,7 +290,9 @@ export const SIEGE = Object.freeze({
    * counters titles are earned from) are paid for at most this many sieges
    * per member per UTC day. Admins can start sieges back to back, and one
    * friend fighting alone earned every siege title in under an hour; past
-   * the limit an attack still does damage and scores its own points.
+   * the limit an attack still does damage and scores its own points. At a
+   * pot pace (2.74.0) those points went into the pot, so a win held back is
+   * paid what its attacks would have scored instead (applySiegeResult).
    */
   rewardedPerDay: 2,
   /** An escape costs every fighter who attacked this much — only when at least `minFighters` fought */
@@ -353,6 +355,250 @@ export const SIEGE = Object.freeze({
    * siege is called off quietly.
    */
   cardClaimMinutes: 2,
+});
+
+// ── pace (2.74.0): how long the games' events take ─────────────────────
+
+/**
+ * Doug, 2026-11-03: "the game is happening too quickly." Each server picks a
+ * pace (`/eggshen-config-games happenings pace:`, read through
+ * getGameSettings; a server that never chose is on `week`), and every
+ * siege and happening timing comes from it. Twists, cooldowns, the daily
+ * caps and statuses stay per play at every pace.
+ *
+ * A siege takes the preset NEAREST its length on a log scale
+ * (gamePace.siegeTimings: 5 days takes week's), and that preset is copied
+ * onto the siege record when it starts (`siege.t`). A running siege reads
+ * only its copy, so changing the pace never touches one in progress — and
+ * a siege from before 2.74 has no copy, and reads `quick`: today's rules,
+ * exactly, which is why quick's numbers point at SIEGE's.
+ *
+ * The derivation (design §0.2) — `S` is the length:
+ *   actEvery    the monster acts every clamp(S/16, 5, 30) minutes; from
+ *               `evening` on, BUSY minutes: its clock only runs while
+ *               someone has attacked in the last `busyMinutes`, so every
+ *               grab and poison lands while people are playing, never at
+ *               3 a.m. (quick keeps the wall clock: in 45 minutes it's the same)
+ *   freeMinutes a grabbed fighter must be freed within ≈ S/7 (10 min–22 h)
+ *   poisonMinutes a poisoning wears off after ≈ 1.5 × that (15 min–22 h)
+ *   outMinutes  a digested fighter is out for this long, then back in;
+ *               null: out for the rest of the siege (as before 2.74)
+ *   noGrowth    no growth from fighters in the last ≈ S/9 (5 min–24 h)
+ *   allowance   attacks a member may make a NIGHT (12:00 to 12:00 UTC, as
+ *               fighter-nights and the report count them; null: no limit,
+ *               the first SIEGE.scoredPerDay a UTC day score); freeing and
+ *               curing are /rescue and /potion plays, with those games' own
+ *               caps, and never count. Doug set week's to 8 (2026-11-04;
+ *               designed at 4).
+ *   pot         an attack's own points go into the pot — the win pool,
+ *               paid at the end by contribution — instead of to the
+ *               attacker. Still a scored play (items, streak, nights).
+ *   hp          HP = round(clamp((base·B·N + growth·FN)·D, min, max·N) ·
+ *               monster.hp): N the nights in the siege (≥ 1), FN fighters
+ *               (`growthPer: 'fighter'`, quick: each once) or fighter-nights
+ *               (`'night'`: each member's first attack each night), D the
+ *               dial, and B, by `hpBase`:
+ *                 'members'  A7, members who played in the last 7 days
+ *                            (quick and evening: a small base, the HP is
+ *                            the fighters'; quick's is 2.73's formula)
+ *                 'fighters' E, the fighters the server can expect:
+ *                            clamp(round(A7 × participation), 2, A7), the
+ *                            participation learned from its own finished
+ *                            campaigns (PACE_RULES.participation)
+ *               A long siege's damage per fighter-night is capped by the
+ *               allowance, so its HP is mostly base: with growth alone, win
+ *               or lose was a cliff (+20% HP took wins from 52% to 4%). But
+ *               a base on A7 assumed every member fights: a fighter-night of
+ *               8 attacks deals at most ~96, a week's base was 94.5 per
+ *               member, and a server of 60 with 8 fighters could never win
+ *               (review, 2026-11-04). So from `day` on the base counts the
+ *               fighters it expects, and learns how many come.
+ *   pool        the win pool: `perFighter` points a fighter (quick) or a
+ *               fighter-night, between poolMin and poolMax, each fighter's
+ *               share at most eachMax
+ *   honour      the MVP's bonus (and, from R2, the Wang Chi's and Jack
+ *               Burton's) × this: about 3 campaigns a month at week pace
+ *               against 10 quick sieges, so each honour is worth more
+ *   dial        the server's dial for this preset (siegeDials) moves ×win
+ *               or ×escape; bigger steps where sieges are rarer, chosen so
+ *               the long-run win rate ln(1/esc)/(ln win + ln(1/esc)) ≈ 72%.
+ *               An escape only eases it when the fighters tried: they
+ *               dealt SIEGE.dialEscapeMinDamage of its HP (at quick the only
+ *               test, as before) or, with an allowance, used
+ *               PACE_RULES.escapeEffort of the attacks their fighter-nights
+ *               allowed. From `day` on a campaign whose turnout explains
+ *               its end leaves it alone: that teaches the participation
+ *   gapHours    a random siege waits this long after the last one ended
+ *               (rare ×2, often ×½ — see gamePace.randomGapHours); quick
+ *               and evening keep SIEGE.random.perWeek's chance instead
+ *   report      a daily report each night (a NEW message, pinging nobody)
+ *   nightEnd    the siege ends at the night boundary (NIGHT_START_HOUR UTC)
+ *               after its length: a week-long campaign never escapes at 4 a.m.
+ *   holdResults an escape's results wait for the next game played on the
+ *               server (or `holdResultsHours`); a win posts at once
+ *   cardEditSeconds the card is edited at most this often: edits never
+ *               notify, so a campaign's card needn't move every minute
+ *   happenings  how long a random happening lasts (`k` × its minutes, at
+ *               most 24 h) and whether its limits are per day or per week
+ *   heal        × a monster's per-event heals: Gremlins' traits.missHeal
+ *               (each missed throw) and the Wolfman's traits.actHeal (each
+ *               action). They were sized for a 45-minute siege's ~40
+ *               attacks and ~9 actions; a week has ~300 and ~50, and healed
+ *               about half its HP back (review sweep, 2026-11-04). Scaled
+ *               so a whole siege heals about what a quick one does.
+ *
+ * The HP numbers were tuned on the real engine (tests/harness/balanceSim.js,
+ * whose campaigns run over days): 26 months of a 15-player server and 52 of
+ * a 5-player one per preset, with the allowances Doug set (week 8 a night),
+ * re-tuned after the review (2026-11-05). Wins in a fresh server's first
+ * month, 15 / 5 players — from its second campaign on in brackets, as a
+ * fresh server's first is sized on a guess — and a typical member's bonus +
+ * siege share:
+ *   quick   81% / 59%, 24% (2.73.0's game, unchanged: the fuzz's baseline)
+ *   evening 77% / 69%, 27% / 27%
+ *   day     70% / 72% (66% / 69%), 24% / 28%
+ *   3 days  74% / 65% (69% / 60%), 25% / 26%
+ *   week    83% / 80% (77% / 70%), 25% / 26%
+ * and over 90 days with the dial free: evening 72% / 71%, day 71% / 72%,
+ * 3 days 74% / 73%, week 78% / 76%, shares 28–30% (targets: 55–85%,
+ * ≤ 35%). A fresh server's first campaign is easy (it expects 35% of A7 to
+ * fight); it has learned by the third. With 15%, 35% or 70% of A7 fighting,
+ * on 15- and 60-member servers, a week campaign wins 61–75% from the third
+ * on (pooled; 39 seeds a cell, 78 for 60 members at 70%), each campaign
+ * number within a few points of that as the dial's ×1.10 / ×0.78 steps
+ * settle (the table is in the 2.74 report).
+ * `npm run test:fuzz -- --testPathPattern game-balance` holds week and quick
+ * to the targets; BALANCE_PACES=all all five.
+ */
+export const SIEGE_PACE_KEYS = Object.freeze(['quick', 'evening', 'day', 'days3', 'week']);
+
+const quickPace = Object.freeze({
+  key: 'quick', name: 'Quick', span: SIEGE.minutes.default,
+  busy: false, actEvery: SIEGE.actions.everyMinutes,
+  freeMinutes: SIEGE.grab.freeMinutes, poisonMinutes: SIEGE.poisoned.minutes, outMinutes: null,
+  noGrowth: SIEGE.noGrowthLastMinutes, allowance: null, pot: false,
+  hpBase: 'members', base: SIEGE.hp.perActive, growth: SIEGE.hp.perFighter, growthPer: 'fighter',
+  pool: Object.freeze({ perFighter: SIEGE.rewards.perFighter, poolMin: SIEGE.rewards.poolMin, poolMax: SIEGE.rewards.poolMax, eachMax: SIEGE.rewards.eachMax }),
+  honour: 1, dial: Object.freeze({ win: SIEGE.dial.win, escape: SIEGE.dial.escape }),
+  gapHours: SIEGE.random.gapHours, report: false, nightEnd: false, holdResults: false,
+  cardEditSeconds: SIEGE.cardEditSeconds,
+  happenings: Object.freeze({ k: 1, per: 'day' }),
+  heal: Object.freeze({ miss: 1, act: 1 }),
+});
+
+export const SIEGE_PACES = Object.freeze({
+  quick: quickPace,
+  evening: Object.freeze({
+    key: 'evening', name: 'Evening', span: 240,
+    busy: true, actEvery: 15,
+    freeMinutes: 30, poisonMinutes: 45, outMinutes: null,
+    noGrowth: 30, allowance: 20, pot: false,
+    hpBase: 'members', base: 2, growth: 60, growthPer: 'night',
+    pool: Object.freeze({ perFighter: 6, poolMin: 24, poolMax: 200, eachMax: 30 }),
+    honour: 1, dial: Object.freeze({ win: 1.05, escape: 0.88 }),
+    gapHours: 20, report: false, nightEnd: false, holdResults: false,
+    cardEditSeconds: 60,
+    happenings: Object.freeze({ k: 4, per: 'day' }),
+    heal: Object.freeze({ miss: 0.5, act: 0.9 }),
+  }),
+  day: Object.freeze({
+    key: 'day', name: 'Day', span: 1440,
+    busy: true, actEvery: 30,
+    freeMinutes: 180, poisonMinutes: 240, outMinutes: null,
+    noGrowth: 180, allowance: 12, pot: true,
+    hpBase: 'fighters', base: 53, growth: 40, growthPer: 'night',
+    pool: Object.freeze({ perFighter: 6, poolMin: 24, poolMax: 200, eachMax: 30 }),
+    honour: 1, dial: Object.freeze({ win: 1.08, escape: 0.82 }),
+    gapHours: 48, report: true, nightEnd: false, holdResults: true,
+    cardEditSeconds: 600,
+    happenings: Object.freeze({ k: 24, per: 'week' }),
+    heal: Object.freeze({ miss: 0.3, act: 0.5 }),
+  }),
+  days3: Object.freeze({
+    key: 'days3', name: '3 days', span: 3 * 1440,
+    busy: true, actEvery: 30,
+    freeMinutes: 600, poisonMinutes: 900, outMinutes: 1440,
+    noGrowth: 480, allowance: 10, pot: true,
+    hpBase: 'fighters', base: 18, growth: 34, growthPer: 'night',
+    pool: Object.freeze({ perFighter: 5, poolMin: 24, poolMax: 600, eachMax: 45 }),
+    honour: 2, dial: Object.freeze({ win: 1.10, escape: 0.78 }),
+    gapHours: 48, report: true, nightEnd: true, holdResults: true,
+    cardEditSeconds: 600,
+    happenings: Object.freeze({ k: 24, per: 'week' }),
+    heal: Object.freeze({ miss: 0.2, act: 0.3 }),
+  }),
+  week: Object.freeze({
+    key: 'week', name: 'Week', span: 7 * 1440,
+    busy: true, actEvery: 30,
+    freeMinutes: 1320, poisonMinutes: 1320, outMinutes: 1440,
+    noGrowth: 1440, allowance: 8, pot: true,
+    hpBase: 'fighters', base: 13.5, growth: 27, growthPer: 'night',
+    pool: Object.freeze({ perFighter: 4, poolMin: 24, poolMax: 1400, eachMax: 60 }),
+    honour: 3, dial: Object.freeze({ win: 1.10, escape: 0.78 }),
+    gapHours: 72, report: true, nightEnd: true, holdResults: true,
+    cardEditSeconds: 600,
+    happenings: Object.freeze({ k: 24, per: 'week' }),
+    heal: Object.freeze({ miss: 0.15, act: 0.2 }),
+  }),
+});
+
+/**
+ * What every pace shares. `busyMinutes`: an attack this recent makes the
+ * siege busy. `holdResultsHours`: an escape's held results post by then
+ * even if nobody plays. `reportLatestHours`: the daily report waits for the
+ * first game played after the night boundary, or this long at the latest
+ * (12:00 UTC + 12 h = 00:00 UTC, a US evening).
+ */
+export const PACE_RULES = Object.freeze({
+  busyMinutes: 30,
+  /**
+   * From `day` on, how many of A7 a campaign can expect to fight (hpBase
+   * 'fighters'): learned per server and pace from its finished campaigns —
+   * an EWMA of the members who attacked ÷ A7 as it ended, `weight` the
+   * newest's — kept beside the dials (siegeParticipation). It starts low
+   * (`start`): a first campaign that's too easy costs a few points, one
+   * that's unwinnable costs everyone 3 and teaches nothing. The first
+   * finished campaign replaces that guess outright (`first`): at 0.7 a
+   * small server where everyone fights still expected 75% of them in its
+   * second campaign, won it 98 times in 100, and raised the dial for its
+   * third (re-tune, 2026-11-05). A campaign whose turnout missed by more
+   * than `sized` of who came, and more than `slack` fighters, the way that
+   * explains its end — it escaped with fewer than expected, or was won with
+   * more — leaves the dial alone: that's the estimate's to learn
+   * (siegeStore.turnoutExplains; the slack leans the players' way).
+   */
+  participation: Object.freeze({ start: 0.35, first: 1, weight: 0.7, min: 0.02, sized: 0.25, slack: Object.freeze({ escaped: 2, won: 1 }) }),
+  /**
+   * With an allowance, an escape eases the dial when the fighters used at
+   * least this share of the attacks their fighter-nights allowed — or took
+   * SIEGE.dialEscapeMinDamage of its HP (siegeStore.nextDial): two members
+   * who join and walk away mustn't make every monster trivial
+   */
+  escapeEffort: 0.6,
+  /**
+   * A night boundary this soon after a 3-day or week campaign starts isn't
+   * one of its nights (gamePace.campaignNight): an 11:59 start would
+   * otherwise report "Night 1 is over" a minute later, and run a day short.
+   * Its hours before the first boundary that counts are its night 1 for the
+   * allowance and growth too (gamePace.campaignNightKey).
+   */
+  firstNightMinHours: 6,
+  /**
+   * A day siege's one 12:00 UTC gets a report if it comes at least this
+   * long after the start. The 6 hours above left one started 06:00–12:00
+   * UTC with no report at all (review, 2026-11-06); a day siege's length
+   * doesn't hang on it, so only the minutes-old report is ruled out.
+   */
+  dayReportMinHours: 1,
+  holdResultsHours: 12,
+  reportLatestHours: 12,
+  // The last few nights' tallies kept on a siege for its daily report
+  nightsKept: 3,
+  // Tries at a night's report Discord refused for now (429, 5xx) before giving that night up
+  reportTries: 3,
+  // From `day` on, once the gap has passed, a random campaign starts with
+  // this chance a busy minute: 1 − (1 − p)^240 ≈ 70% within an evening
+  randomChance: 0.005,
 });
 
 /**

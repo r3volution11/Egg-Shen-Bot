@@ -188,6 +188,7 @@ export function buildPageHead({ pageData }, sidebar) {
         'Video game, board game and book search',
         'Watch-party timers with runtime detection',
         'Community tournaments: brackets and group stages with button voting',
+        'Server games with points, a game card, items, titles, a leaderboard and monster sieges',
         'Server watch history, watchlists and statistics',
         'Event requests from a website form',
         'Per-server configuration and moderation tools',

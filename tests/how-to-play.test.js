@@ -29,11 +29,12 @@ import * as howToPlay from '../src/commands/how-to-play.js';
 import { createKit, KIT_CODES, pill, formatNumber } from '../src/utils/emojiKit.js';
 import { messageProblems } from '../src/utils/embedFit.js';
 import { DEFAULT_GAME_SETTINGS, POINTS } from '../src/utils/gameScores.js';
-import { PRIZES, ITEMS, SIEGE, TWISTS, TITLES } from '../src/data/gameRewards.js';
+import { PRIZES, ITEMS, SIEGE, SIEGE_PACES, TWISTS, TITLES } from '../src/data/gameRewards.js';
 import { HAPPENINGS } from '../src/data/gameHappenings.js';
 import { MONSTER_KEYS } from '../src/data/siegeMonsters.js';
 import { loadGuildConfig, saveGuildConfig } from '../src/utils/guildConfig.js';
 import { FakeDiscord } from './harness/fakeDiscord.js';
+import { slugify } from '../src/utils/docsIndex.js';
 
 const GUILD = 'how-to-play-guild';
 const CONFIG_FILE = path.join(process.env.GUILD_CONFIGS_DIR || path.join(process.cwd(), 'guild_configs'), `${GUILD}.json`);
@@ -110,11 +111,53 @@ describe('every topic fits, with custom emoji only where they render', () => {
   });
 });
 
+// ── the full guide ──────────────────────────────────────────────────────
+
+describe('"Read more in the full guide" lands on the section the card shortens', () => {
+  // 2.74.0 split the games' one long page into docs/commands/games-*.md. A
+  // link to a page or heading that isn't there opens the right site and
+  // the wrong place, and nothing else would notice.
+  const DOCS = path.join(process.cwd(), 'docs');
+
+  /** Why a docs link doesn't land, or null when it does */
+  function landingProblem(url) {
+    const m = String(url).match(/^https:\/\/eggshenbot\.com\/([a-z0-9/-]+?)(?:\.html)?(?:#([a-z0-9_-]+))?$/);
+    if (!m) return `not a docs link: ${url}`;
+    const file = path.join(DOCS, `${m[1]}.md`);
+    if (!fs.existsSync(file)) return `no page docs/${m[1]}.md`;
+    if (!m[2]) return null;
+    let fence = false;
+    const ids = [];
+    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+      if (/^```/.test(line)) fence = !fence;
+      const h = !fence && line.match(/^#{2,6}\s+(.+?)\s*$/);
+      if (h) ids.push(slugify(h[1].replace(/`/g, '')));
+    }
+    return ids.includes(m[2]) ? null : `no heading #${m[2]} on docs/${m[1]}.md`;
+  }
+
+  const readMore = (key) => renderTopic(key, ALL_ON, { kit: fallback }).description.match(/\[Read more in the full guide\]\(([^)]+)\)/)?.[1];
+
+  test.each(TOPICS.map(t => [t.key]))('%s', (key) => {
+    const url = readMore(key);
+    expect(url).toBeTruthy();
+    expect(landingProblem(url)).toBeNull();
+  });
+
+  test('the check catches a page or a heading that isn\'t there', () => {
+    // So a pass above means something
+    expect(landingProblem('https://eggshenbot.com/commands/games-rewards#prizes')).toBeNull();
+    expect(landingProblem('https://eggshenbot.com/commands/games-rewards#the-prizes')).toMatch(/no heading/);
+    expect(landingProblem('https://eggshenbot.com/commands/games/siege')).toMatch(/no page/);
+    expect(landingProblem('https://eggshenbot.com/commands/games#prizes')).toMatch(/no heading/);
+  });
+});
+
 // ── the numbers ─────────────────────────────────────────────────────────
 
 describe('numbers come from the code and the server\'s own settings', () => {
   test('the basics show this server\'s limits, not the defaults', () => {
-    const own = renderTopic('basics', ctxOf({ games: { cooldownSeconds: 45, perMinute: 4, dailyScoredPlays: 12, shieldMinutes: 30 } }), { kit: fallback });
+    const own = renderTopic('basics', ctxOf({ games: { cooldownSeconds: 45, perMinute: 4, dailyScoredPlays: 12, shieldMinutes: 30, pace: 'quick' } }), { kit: fallback });
     expect(field(own, 'Limits on this server').value).toBe(
       'Each game every `45s` · `4` plays a minute\n'
       + `The first \`12\` plays of each game a day score (siege: ${pill(SIEGE.scoredPerDay)} attacks). After that, play for fun.`,
@@ -126,6 +169,26 @@ describe('numbers come from the code and the server\'s own settings', () => {
     const plain = renderTopic('basics', ALL_ON, { kit: fallback });
     expect(field(plain, 'Limits on this server').value.split('\n')[0]).toBe(`Each game every \`${d.cooldownSeconds}s\` · ${pill(d.perMinute)} plays a minute`);
     expect(field(plain, 'Limits on this server').value).toContain(`The first ${pill(d.dailyScoredPlays)} plays of each game a day score`);
+  });
+
+  test('2.74.0: how siege attacks score, at this server\'s pace — the pot from day on, the allowance from evening (review, 2026-11-06: "30 attacks" at every pace)', () => {
+    const limits = (games) => field(renderTopic('basics', ctxOf({ games }), { kit: fallback }), 'Limits on this server').value.split('\n').slice(1).join('\n');
+    // Quick: the first 30 a day score, as before 2.74
+    expect(limits({ pace: 'quick' })).toBe(`The first ${pill(DEFAULT_GAME_SETTINGS.dailyScoredPlays)} plays of each game a day score (siege: ${pill(SIEGE.scoredPerDay)} attacks). After that, play for fun.`);
+    expect(limits({ pace: 'quick', dailyScoredPlays: 0 })).toBe(`Plays here are for fun: none score points, but the first ${pill(SIEGE.scoredPerDay)} siege attacks a day do.`);
+    // Evening: each scores, the allowance a night
+    const ev = SIEGE_PACES.evening.allowance;
+    expect(limits({ pace: 'evening' })).toBe(`The first ${pill(DEFAULT_GAME_SETTINGS.dailyScoredPlays)} plays of each game a day score (siege: ${pill(ev)} attacks a night each). After that, play for fun.`);
+    expect(limits({ pace: 'evening', dailyScoredPlays: 0 })).toBe(`Plays here are for fun: none score points, but siege attacks do (${pill(ev)} a night each).`);
+    // Day on (week is the default): into the pot, never "the first 30 score"
+    for (const [pace, games] of [['week', {}], ['week', { pace: 'week' }], ['days3', { pace: 'days3' }], ['day', { pace: 'day' }]]) {
+      const pot = `Siege attacks: ${pill(SIEGE_PACES[pace].allowance)} a night each, and their points go into the pot, paid out when the monster's beaten.`;
+      expect(limits(games)).toBe(`The first ${pill(DEFAULT_GAME_SETTINGS.dailyScoredPlays)} plays of each game a day score. After that, play for fun.\n${pot}`);
+      expect(limits({ ...games, dailyScoredPlays: 0 })).toBe(`Plays here are for fun: none score points.\n${pot}`);
+      expect(limits(games)).not.toContain(`${SIEGE.scoredPerDay}`);
+    }
+    // No siege on the server: no siege words at all
+    expect(field(renderTopic('basics', ctxOf({ off: ['siege'] }), { kit: fallback }), 'Limits on this server').value).not.toMatch(/siege/i);
   });
 
   test('each game\'s line carries its POINTS', () => {
@@ -152,8 +215,8 @@ describe('numbers come from the code and the server\'s own settings', () => {
     expect(field(happenings, 'How often').value).toContain('This server: **Rare**');
   });
 
-  test('the siege: damage, rewards, and how long one lasts here', () => {
-    const e = renderTopic('siege', ctxOf({ games: { siegeMinutes: 60 } }), { kit: fallback });
+  test('the siege: damage, rewards, and how long one lasts here (quick pace)', () => {
+    const e = renderTopic('siege', ctxOf({ games: { siegeMinutes: 60, pace: 'quick' } }), { kit: fallback });
     expect(field(e, 'Fight').value).toContain(`Damage: 🥧 food ${pill(SIEGE.damage.splat)} · 🪓 doom ${pill(SIEGE.damage.smite)} · 🧪 potion ${pill(SIEGE.damage.poisoned)}`);
     expect(field(e, 'Win or lose').value).toContain(`${pill(SIEGE.rewards.perFighter)} points a fighter`);
     expect(field(e, 'When').value).toContain('One lasts `1h`.');
@@ -161,6 +224,40 @@ describe('numbers come from the code and the server\'s own settings', () => {
     // R6's numbers, from the one block that holds them until R6 lands
     expect(field(e, 'It fights back').value).toContain(`Not freed in \`${FIGHTS_BACK.freeMinutes}m\`: ${pill(signed(-FIGHTS_BACK.notFreedLoss))}`);
     expect(field(e, 'It fights back').value).toContain(`(${pill(signed(SIEGE.credit.cure))} to your share)`);
+  });
+
+  test('2.74.0: the siege at this server\'s pace — a server that never chose is on week, with week\'s windows, allowance, pot and report', () => {
+    const week = SIEGE_PACES.week;
+    for (const e of [renderTopic('siege', ctxOf(), { kit: fallback }), renderTopic('siege', ctxOf({ games: { pace: 'week' } }), { kit: fallback })]) {
+      const back = field(e, 'It fights back').value;
+      expect(back).toContain(`Every \`${week.actEvery}m\` of fighting or so the monster acts, only while people are attacking.`);
+      expect(back).toContain(`Not freed in \`${week.freeMinutes / 60} hours\`: ${pill(signed(-SIEGE.grab.loss))} and out for a day.`);
+      expect(back).toContain(`It wears off after \`${week.poisonMinutes / 60} hours\`.`);
+      const win = field(e, 'Win or lose').value;
+      expect(win).toContain(`Win: the pot, ${pill(week.pool.perFighter)} points a fighter a night, split by what each did, ${pill(SIEGE.rewards.eachMin)}–${pill(week.pool.eachMax)} each. The MVP gets ${pill(signed(SIEGE.rewards.mvpBonus * week.honour))} and loot.`);
+      expect(win).toContain(`${pill(week.allowance)} attacks a night each (12:00 to 12:00 UTC); freeing and curing are unlimited.`);
+      expect(field(e, 'When').value).toBe(`At random: the next comes \`${week.gapHours / 24} days\` after the last one ends, once people are playing, or when an admin runs \`/siege start\`. One lasts \`a week\`, ending at 12:00 UTC, with a report each night.`);
+    }
+    // Each pace reads its own preset; a server's siege-minutes only matters at quick
+    const day = renderTopic('siege', ctxOf({ games: { pace: 'day', siegeMinutes: 60 } }), { kit: fallback });
+    // A day siege holds one 12:00 UTC, and reports at it unless it began within the hour before (review, 2026-11-06)
+    expect(field(day, 'When').value).toContain('One lasts `a day`, with a report at 12:00 UTC (unless it started in the hour before).');
+    expect(field(day, 'Win or lose').value).toContain(`${pill(SIEGE_PACES.day.allowance)} attacks a night each`);
+    const evening = renderTopic('siege', ctxOf({ games: { pace: 'evening' } }), { kit: fallback });
+    expect(field(evening, 'When').value).toContain('about `3` a week here');
+    expect(field(evening, 'When').value).toContain('One lasts `4 hours`.');
+    expect(field(evening, 'Win or lose').value).toContain(`Win: ${pill(SIEGE_PACES.evening.pool.perFighter)} points a fighter a night`);
+  });
+
+  test('2.74.0: happenings at this server\'s pace — about a day long and weekly from `day` on', () => {
+    const week = renderTopic('happenings', ctxOf(), { kit: fallback });
+    expect(field(week, 'The random ones').value).toContain('🌕 **Full Moon** `24h`');
+    expect(field(week, 'The random ones').value).toContain('🎞️ **Double Feature** `12h`');
+    expect(field(week, 'How often').value).toContain('This server: **Normal**, about one a week on a busy server.');
+    expect(field(week, 'How often').value).toContain('at least `24h` apart, at most `2` a week');
+    const evening = renderTopic('happenings', ctxOf({ games: { pace: 'evening' } }), { kit: fallback });
+    expect(field(evening, 'The random ones').value).toContain('🌕 **Full Moon** `4h`');
+    expect(field(evening, 'How often').value).toContain('at most `3` a day');
   });
 });
 

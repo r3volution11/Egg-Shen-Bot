@@ -54,6 +54,22 @@
  *
  * Transcripts: SIM_REPORT=dir writes every message, as it looked when it
  * was posted or edited, under the step that caused it (writeTranscript).
+ *
+ * Pace (2.74.0): `new Sim(id, { pace })` sets the server's pace before the
+ * first step (default `quick`, what every scenario before 2.74 was written
+ * against; `null` leaves it unset, so the server reads as week). Every
+ * timing the checks use is the siege's own (`t`, gamePace.timingsOf), and
+ * from `evening` on these hold too:
+ *   - the monster acts, and a digest pings, only while the drive-in is
+ *     busy (someone attacked in the last PACE_RULES.busyMinutes)
+ *   - nobody makes more than the day's allowance of attacks; a refusal for
+ *     it changes nothing
+ *   - max HP is the formula's with every fighter-night that grew it
+ *   - one daily report a night at most, never on the night it arrived,
+ *     pinging nobody; a digest nobody was pinged for is in the next one
+ *   - an escape's held results wait for a game played after it got away
+ *     (or holdUntil); a win's post at once
+ *   - a 3-day or week siege ends at a night boundary
  */
 
 import { jest } from '@jest/globals';
@@ -120,6 +136,7 @@ async function loadBot() {
     rateLimiter: await import(src('utils/rateLimiter.js')),
     scheduler: await import(src('utils/happeningScheduler.js')),
     store: await import(src('utils/siegeStore.js')),
+    pace: await import(src('utils/gamePace.js')),
     happenings: await import(src('utils/happeningStore.js')),
     scores: await import(src('utils/gameScores.js')),
     luck: await import(src('utils/gameLuck.js')),
@@ -179,11 +196,12 @@ export class SimFailure extends Error {}
 const footerOf = (snap) => snap?.embeds?.[0]?.footer?.text || '';
 const titleOf = (snap) => snap?.embeds?.[0]?.title || '';
 const descriptionOf = (snap) => snap?.embeds?.[0]?.description || '';
-/** What a payload or message is, by its footer: the siege card, its results, or something else */
+/** What a payload or message is, by its footer: the siege card, its results, its daily report (2.74.0), or something else */
 function kindOf(snap) {
   const footer = footerOf(snap);
   if (footer.startsWith('Siege results')) return 'results';
   if (footer.startsWith('Siege ·')) return 'card';
+  if (footer.startsWith('Nightly siege report')) return 'report';
   return 'other';
 }
 const snapOf = (payload) => {
@@ -196,11 +214,14 @@ const fmtTime = (ms) => new Date(ms).toISOString().slice(11, 19);
 const SIEGE_NOW = () => mods.rewards.SIEGE;
 
 export class Sim {
-  constructor(guildId, { seed = 1, members = MEMBERS } = {}) {
+  constructor(guildId, { seed = 1, members = MEMBERS, pace = 'quick' } = {}) {
     if (!mods) throw new Error('await loadSim() first');
     current = this;
     this.guildId = guildId;
     this.seed = seed;
+    // The server's pace, saved before the first step (configure is async)
+    this.pace = pace;
+    this.paceSaved = pace === null;
     this.members = [...members];
     this.discord = new FakeDiscord({ guildId, channelId: 'games' });
     const guild = this.discord.guild;
@@ -409,6 +430,8 @@ export class Sim {
     }
     message.siegeId = message.kindTag === 'other' ? null : (s?.id ?? null);
     message.sentAt = clock.now;
+    // 2.74.0: which night a daily report is for (it's posted on that night)
+    if (message.kindTag === 'report') message.night = mods.rules.nightKey(clock.now);
     const real = message.edit.bind(message);
     message.edit = async (payload, via) => {
       const fault = this.takeFault('edit', snapOf(payload));
@@ -512,6 +535,10 @@ export class Sim {
    * inside it abandons it and restarts the bot. Then every invariant.
    */
   async step(label, fn, ctx = {}) {
+    if (!this.paceSaved) {
+      this.paceSaved = true;
+      await this.configure({ pace: this.pace });
+    }
     this.stepNo += 1;
     this.stepFaults = [];
     const before = this.before();
@@ -599,10 +626,11 @@ export class Sim {
     return this.command(userId, 'siege', { subcommand, options, ...extra });
   }
 
-  start({ monster, minutes, channel = 'games', by = 'admin' } = {}) {
+  /** `/siege start` — `minutes` is the `length:` option (one of siege.js's LENGTHS) */
+  start({ monster, minutes, length, channel = 'games', by = 'admin' } = {}) {
     const options = {};
     if (monster) options.monster = monster;
-    if (minutes) options.minutes = minutes;
+    if (minutes || length) options.length = minutes || length;
     return this.siegeCmd(by, 'start', options, { channel });
   }
 
@@ -665,7 +693,23 @@ export class Sim {
    * giveItem — every invariant still holds.
    */
   calm() {
-    mods.happenings.mutate(this.guildId, (d) => { if (d.siege) d.siege.nextActionAt = d.siege.endsAt + 60 * MINUTE; });
+    mods.happenings.mutate(this.guildId, (d) => {
+      if (!d.siege) return;
+      d.siege.nextActionAt = d.siege.endsAt + 60 * MINUTE;
+      // From evening on its clock is busy minutes: past any it could gather
+      d.siege.nextActionBusy = 1e9;
+    });
+  }
+
+  /**
+   * From evening on (2.74.0): bring the monster's next action forward to
+   * now on its busy clock — a test's knob, like calm(). It still only acts
+   * while the drive-in is busy: that's the rule under test, not this.
+   */
+  hurry() {
+    mods.happenings.mutate(this.guildId, (d) => {
+      if (d.siege) d.siege.nextActionBusy = mods.store.busyNow(d.siege, clock.now);
+    });
   }
 
   /** The guild config's games settings (twists off, siege frequency…), as an admin would set them */
@@ -685,7 +729,7 @@ export class Sim {
   async act(kind, victims = [], { line = 0.5 } = {}) {
     const s = this.siege();
     const m = this.monster(s.monster);
-    const { isFree, poisonedNow, fightersOf } = mods.store;
+    const { poisonedNow } = mods.store;
     const weights = { ...(m.traits?.actWeights || mods.rewards.SIEGE.actions.weights) };
     if (m.traits?.poisonOnly) weights.grab = 0;
     const entries = Object.entries(weights).filter(([, w]) => w > 0);
@@ -698,8 +742,9 @@ export class Sim {
     }
     if (r === null) throw new Error(`${m.name} can't ${kind}`);
     const draws = [r];
-    const at2 = s.nextActionAt;
-    let pool = fightersOf(s).filter(f => isFree(s.participants[f.userId]));
+    const at2 = mods.pace.timingsOf(s).busy ? clock.now + MINUTE : s.nextActionAt;
+    // Who it picks from: the free fighters — from evening on, only those here (targetsOf)
+    let pool = mods.store.targetsOf(s, at2);
     if (kind === 'poison') pool = pool.filter(f => !poisonedNow(s.participants[f.userId], at2));
     if (!(kind === 'grab' && m.traits?.grabTop)) {
       for (const v of victims) {
@@ -711,6 +756,9 @@ export class Sim {
     }
     draws.push(line);
     this.luckQueue.push(...draws);
+    // From evening on its clock is busy minutes: brought forward to now (it
+    // still waits for someone to be fighting)
+    if (mods.pace.timingsOf(s).busy) this.hurry();
     const before = s.lastAction?.id;
     for (let n = 0; n < 8 && this.siege()?.lastAction?.id === before && this.siege()?.status === 'live'; n++) await this.advance(MINUTE);
     this.luckQueue.length = 0;
@@ -822,9 +870,10 @@ export class Sim {
       rec = {
         id: s.id,
         monster: s.monster,
-        // The spec: round(clamp((2·A7 + 45·F)·D, 40, 2000)·monster.hp), F the
-        // fighters who joined before its last few minutes
-        hpFor: (fighters) => mods.store.siegeHp({ a7: s.a7, fighters, dial: s.dial, monsterHp: Number(m.hp) || 1 }),
+        // The spec: round(clamp((b·A7·N + g·F)·D, 40, 2000·N)·monster.hp), F the
+        // fighters (or, from evening on, fighter-nights) who joined before
+        // its last few minutes; b, g, N the siege's own timings (2, 45, 1 at quick)
+        hpFor: (fighters) => mods.store.siegeHp({ a7: s.a7, expected: Number(s.expected) || 0, fighters, dial: s.dial, monsterHp: Number(m.hp) || 1, t: mods.pace.timingsOf(s) }),
         heals: 0,
         assists: {}, // userId → frees and cures the replies announced
         finished: null,
@@ -845,8 +894,17 @@ export class Sim {
     // ── Discord ──
     for (const v of this.discord.violations.slice(before.violations)) say(`Discord would reject this: ${v}`);
     if (!ctx.crashed) {
+      const stepEvents = this.discord.events.slice(before.events);
       for (const i of ctx.interactions || []) {
         if (!i.answered()) say(`${i.label()} never answered — Discord shows "This interaction failed"`);
+        // Answered (a reply, or a defer) before the bot sends anything else:
+        // Discord allows 3 seconds, and a send before the answer can take
+        // longer (rate limits). /siege start posted the card first (review,
+        // 2026-11-06).
+        // (In a race a scheduler pass may send meanwhile: not this command's.)
+        const answer = stepEvents.findIndex(e => ['reply', 'ephemeral'].includes(e.kind) && e.via === i.label());
+        const sent = stepEvents.findIndex(e => e.kind === 'send');
+        if (!ctx.race && sent >= 0 && (answer < 0 || sent < answer)) say(`${i.label()} sent a message before answering: a slow send would blow Discord's 3 seconds to answer`);
         for (const m of new Set([...i.responses, ...i.edited])) {
           if (GENERIC_ERROR.test(m.text)) say(`${i.label()} answered with a generic error: "${m.text.split('\n')[0]}"`);
         }
@@ -908,12 +966,19 @@ export class Sim {
       // last try — and then start a random siege
       const lastTry = ctx.kind === 'tick' && before.siege?.id === this.lastId && (before.siege.result?.tries || 0) >= mods.rewards.SIEGE.resultTries - 1;
       const postedNow = events.some(e => e.kind === 'send' && e.message.kindTag === 'results' && e.message.siegeId === this.lastId);
+      // …or an admin's start posts the last one's held results, Discord
+      // refuses them for good (the channel gone) or never answers (it may
+      // have posted them), they're given up, and the start goes ahead — in
+      // one step. (A refusal for now releases them, and the start waits.)
+      const refusedNow = ctx.kind !== 'tick' && this.stepFaults.some(f => f.on === 'send' && f.kind === 'results' && ['gone', 'abort-before'].includes(f.mode));
       if (!prev?.finished) say(`siege ${this.lastId} was replaced while still live`);
-      else if (!prev.settled && !lastTry && !postedNow) say(`siege ${this.lastId} was replaced before its results were settled`);
+      else if (!prev.settled && !lastTry && !postedNow && !refusedNow) say(`siege ${this.lastId} was replaced before its results were settled`);
       this.checkMessageCounts(prev, say, { final: true });
     }
 
     if (s) {
+      // The file as the siege found it: its participation, for the expected fighters (2.74.0)
+      if (!this.sieges.has(s.id)) (this.stateAtStart ||= {})[s.id] = before.happeningsRaw ? JSON.parse(before.happeningsRaw) : {};
       const rec = this.track(s);
       this.checkSiege(s, rec, before, ctx, say);
       this.checkCard(s, rec, before, ctx, events, say);
@@ -922,6 +987,7 @@ export class Sim {
     }
 
     // ── what the bot posted in this step ──
+    this.noteToldDigests(events);
     for (const e of events) {
       if (e.kind !== 'send') continue;
       const m = e.message;
@@ -964,11 +1030,12 @@ export class Sim {
     if (s.hp < 0 || s.hp > s.maxHp) say(`HP out of range: ${s.hp}/${s.maxHp}`);
     const parts = Object.entries(s.participants || {});
     // maxHp: the formula's, with every fighter who joined before the last
-    // SIEGE.noGrowthLastMinutes counted (it only grows on a first attack)
-    const cutoff = s.endsAt - mods.rewards.SIEGE.noGrowthLastMinutes * MINUTE;
-    const growers = parts.filter(([, p]) => p.attacks > 0 && p.firstAttackAt < cutoff).length;
+    // `t.noGrowth` minutes counted (it only grows on a first attack) — or,
+    // from evening on, every fighter-night: each member's first attack of a night
+    const growers = this.growers(s);
     const expectedMax = rec.hpFor(growers);
-    if (s.maxHp !== expectedMax) say(`maxHp ${s.maxHp}, but the formula with ${growers} fighters (of ${parts.length}) is ${expectedMax}`);
+    if (s.maxHp !== expectedMax) say(`maxHp ${s.maxHp}, but the formula with ${growers} ${mods.pace.timingsOf(s).growthPer === 'night' ? 'fighter-nights' : 'fighters'} (of ${parts.length}) is ${expectedMax}`);
+    this.checkPace(s, rec, before, ctx, say);
     // Credit is the HP actually removed
     let dealt = 0;
     for (const [uid, p] of parts) {
@@ -1014,6 +1081,14 @@ export class Sim {
       if (s.pending) say('a finished siege still has a pending action');
       for (const [u, p] of all) if (isCaught(p) || p.poisoned) say(`${u} is still caught or poisoned after the siege ended`);
       return;
+    }
+    // 2.74.0: every window stored is the siege's own (its timings, never a fixed number):
+    // a grab (or a sacrifice's swap) t.freeMinutes, a poisoning that wears off t.poisonMinutes
+    const t = mods.pace.timingsOf(s);
+    for (const [u, p] of all) {
+      if (p.caught?.at && p.caught.until - p.caught.at !== t.freeMinutes * MINUTE) say(`${u}'s grab lasts ${(p.caught.until - p.caught.at) / MINUTE} min, the siege's window is ${t.freeMinutes}`);
+      if (p.poisoned && p.poisoned.until !== null && p.poisoned.until - p.poisoned.at !== t.poisonMinutes * MINUTE) say(`${u}'s poisoning lasts ${(p.poisoned.until - p.poisoned.at) / MINUTE} min, the siege's is ${t.poisonMinutes}`);
+      if (p.out && Number.isFinite(p.outUntil) && !t.outMinutes) say(`${u} is out until a time at a pace that digests for the siege`);
     }
     // Every grab and poison by the monster reached its victim: their action's message pinged them
     for (const [u, p] of all) {
@@ -1067,7 +1142,8 @@ export class Sim {
     const editFaulted = this.stepFaults.some(f => f.on === 'edit' && f.kind === 'card');
     if (settledStep && !ctx.race && !editFaulted && !card.gone) {
       if (finished && card.dirty) say('a finished siege\'s card is still waiting for its last edit after a pass');
-      if (!finished && ctx.kind === 'tick' && card.dirty && clock.now - (card.editedAt || 0) >= mods.rewards.SIEGE.cardEditSeconds * 1000) {
+      // (2.74.0: at the siege's own cadence, busy or not)
+      if (!finished && ctx.kind === 'tick' && card.dirty && clock.now - (card.editedAt || 0) >= mods.pace.timingsOf(s).cardEditSeconds * 1000) {
         say(`the card is stale after a pass: dirty, last edited ${Math.round((clock.now - card.editedAt) / 1000)}s ago`);
       }
     }
@@ -1076,7 +1152,7 @@ export class Sim {
       if (e.kind !== 'edit' || e.message.id !== card.messageId) continue;
       const live = /is attacking the drive-in!$/.test(titleOf(e.snap));
       const prev = rec.cardEdits.at(-1);
-      if (live && prev?.live && e.at - prev.at < mods.rewards.SIEGE.cardEditSeconds * 1000 && prev.at !== this.lastEditFaultAt) {
+      if (live && prev?.live && e.at - prev.at < mods.pace.timingsOf(s).cardEditSeconds * 1000 && prev.at !== this.lastEditFaultAt) {
         say(`the live card was edited ${Math.round((e.at - prev.at) / 1000)}s after the last edit`);
       }
       rec.cardEdits.push({ at: e.at, live });
@@ -1102,8 +1178,19 @@ export class Sim {
       for (const u of users) if (!fighters.has(u)) say(`the results ping ${u}, who didn't fight`);
       const shown = mentionsIn(m.content);
       if (JSON.stringify([...new Set(shown)].sort()) !== JSON.stringify([...new Set(users)].sort())) say(`the results mention ${shown} but may ping ${users}`);
-      const grants = (s.result?.grants || []).slice(0, mods.rewards.SIEGE.pingMax).map(g => g.userId);
-      if (JSON.stringify(users) !== JSON.stringify(grants)) say(`the results ping ${users}, but the first ${mods.rewards.SIEGE.pingMax} grants are ${grants}`);
+      // The fighters best first, up to pingMax — and every digest no report
+      // reached (result.told, the claim's unreported), who take the last
+      // places if they aren't among the first (2.74.0)
+      const max = mods.rewards.SIEGE.pingMax;
+      const told = [...new Set(s.result?.told || [])];
+      const ids = (s.result?.grants || []).map(g => g.userId);
+      const want = new Set([...told, ...ids.filter(id => !told.includes(id)).slice(0, Math.max(0, max - told.length))]);
+      if (JSON.stringify([...want].sort()) !== JSON.stringify([...users].sort())) say(`the results ping ${users}, but the first ${max} grants with the untold digests are ${[...want]}`);
+      for (const id of told) {
+        const name = s.participants?.[id]?.name;
+        const line = (m.content || '').split('\n').find(l => l.startsWith('😋 Digested while nobody was around:')) || '';
+        if (name && !line.includes(name)) say(`the results don't name ${name}, digested while nobody was around and never reported`);
+      }
       if (s.status === 'ended') say('an admin\'s end posted results');
     }
     if (s.status === 'ended' && results.length) say('an ended siege has a results message');
@@ -1117,14 +1204,140 @@ export class Sim {
     const r = s.result || {};
     const postable = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks].every(f => this.perms.get(s.channelId)?.has(f));
     const refusedNow = this.stepFaults.some(f => f.kind === 'results' && ['fail', 'gone', 'abort-before'].includes(f.mode));
+    // 2.74.0: an escape's held results wait for a game played after it (or holdUntil)
+    const held = mods.store.resultsHeld(s, this.state(), clock.now);
     if (!r.announcedAt) {
-      if (postable && !refusedNow && !r.claimedAt) say(`a ${s.status} siege's results are still waiting after a pass the bot could post in`);
+      if (postable && !refusedNow && !r.claimedAt && !held) say(`a ${s.status} siege's results are still waiting after a pass the bot could post in`);
     } else if (!r.unannounced) {
       if (results.length !== 1) say(`a ${s.status} siege has ${results.length} results messages after a pass`);
       else if (r.messageId && r.messageId !== results[0].id) say('the stored results message isn\'t the one posted');
     } else if (['no-channel', 'send-failed', 'refused'].includes(r.unannounced) && results.length) {
       say(`results given up as "${r.unannounced}" but ${results.length} were posted`);
     }
+  }
+
+  /**
+   * The night key a siege counts `at` toward, by the spec rather than the
+   * store: 12:00 to 12:00 UTC, but a 3-day or week campaign's hours before
+   * its first counted boundary (6 hours on at least) are its night 1
+   */
+  campaignNightKey(s, at) {
+    const t = mods.pace.timingsOf(s);
+    if (t.nightEnd) {
+      const first = mods.pace.nightBoundaryAtOrAfter(s.startedAt + mods.rewards.PACE_RULES.firstNightMinHours * 60 * MINUTE);
+      if (at < first) return mods.rules.nightKey(first - 1);
+    }
+    return mods.rules.nightKey(at);
+  }
+
+  /**
+   * The fighters (quick) or fighter-nights (from evening on) that grew the
+   * monster: those before its last `t.noGrowth` minutes
+   */
+  growers(s) {
+    const t = mods.pace.timingsOf(s);
+    const cutoff = s.endsAt - t.noGrowth * MINUTE;
+    const parts = Object.values(s.participants || {});
+    if (t.growthPer === 'night') return parts.reduce((n, p) => n + Object.values(p.nights || {}).filter(at => at < cutoff).length, 0);
+    return parts.filter(p => p.attacks > 0 && p.firstAttackAt < cutoff).length;
+  }
+
+  /**
+   * 2.74.0, the pace's promises (see the top of this file): busy-only
+   * actions and digest pings, the allowance, the fighter-night count, one
+   * report a night pinging nobody, held results, the night-boundary end.
+   */
+  checkPace(s, rec, before, ctx, say) {
+    const t = mods.pace.timingsOf(s);
+    const { isBusy, attacksTonight } = mods.store;
+    const events = this.discord.events.slice(before.events).filter(e => e.kind === 'send');
+    const was = before.siege?.id === s.id ? before.siege : null;
+    const DAYMS = 24 * 60 * MINUTE;
+    // The night boundary: a 3-day or week campaign ends at the one closing its Nth counted night
+    if (t.nightEnd && s.endsAt !== mods.pace.firstNightBoundary(s.startedAt, t) + (t.N - 1) * DAYMS) {
+      say(`a ${t.key} siege of ${t.N} nights ends at ${new Date(s.endsAt).toISOString()}, not its ${t.N}th counted night boundary`);
+    }
+    if (t.growthPer === 'night' && (Number(s.fn) || 0) !== this.growers(s)) say(`the store counts ${s.fn} fighter-nights that grew it, the sim ${this.growers(s)}`);
+    // From day on its base counts the fighters it expects: E = clamp(round(A7 × participation), 2, A7)
+    if (t.hpBase === 'fighters' && s.t) {
+      const p = mods.store.participationOf(this.stateAtStart?.[s.id] ?? {}, t.key);
+      if (this.stateAtStart?.[s.id] && s.expected !== mods.store.expectedFighters(s.a7, p)) say(`siege expects ${s.expected} fighters, A7 ${s.a7} × participation ${p} says ${mods.store.expectedFighters(s.a7, p)}`);
+      if (!(s.expected >= Math.min(2, s.a7) && s.expected <= s.a7)) say(`siege expects ${s.expected} fighters of A7 ${s.a7}`);
+    }
+    for (const [u, p] of Object.entries(s.participants || {})) {
+      if (t.allowance && attacksTonight(p, clock.now, s) > t.allowance) say(`${u} made ${attacksTonight(p, clock.now, s)} attacks tonight, over the allowance of ${t.allowance}`);
+      // A campaign over days has N allowance windows for its N nights, and a member at most N fighter-nights
+      if (t.nightEnd && Object.keys(p.nights || {}).length > t.N) say(`${u} has ${Object.keys(p.nights).length} fighter-nights in a campaign of ${t.N} nights`);
+      if (t.allowance && p.night !== undefined && Object.keys(p.nights || {}).length && !Object.hasOwn(p.nights, p.night)) say(`${u}'s allowance counts night ${p.night}, a night they never fought`);
+      if (!t.allowance && (p.night !== undefined || p.nightAttacks !== undefined)) say(`${u} has an attack count at a pace with no allowance`);
+    }
+    // Busy: the monster acts only while someone fought in the last 30 minutes, and only on those
+    // who did (attacked, freed or cured) — and at a pace with a report, a digest pings only then
+    for (const e of events) {
+      const m = e.message;
+      if (m.siegeId !== s.id || !was) continue;
+      if (m.kindTag === 'action' && t.busy && !isBusy(was, clock.now)) say(`a ${m.actionKind} message went out while nobody was fighting (last attack ${was.lastAttackAt ? `${Math.round((clock.now - was.lastAttackAt) / MINUTE)} min` : 'never'} ago)`);
+      if (m.kindTag === 'action' && t.busy) {
+        for (const v of m.victims || []) {
+          const last = Number(was.participants?.[v]?.lastAt) || 0;
+          if (!(clock.now - last < mods.rewards.PACE_RULES.busyMinutes * MINUTE)) say(`the monster's ${m.actionKind} took ${v}, who last fought ${Math.round((clock.now - last) / MINUTE)} min ago`);
+        }
+      }
+      // …unless no report is left to keep it for: then it's told at once, whatever the hour (review, 2026-11-06)
+      if (m.kindTag === 'digest' && t.report && !isBusy(was, clock.now) && mods.store.reportToCome(was, clock.now)) say(`a digest message went out while nobody was fighting (last attack ${was.lastAttackAt ? `${Math.round((clock.now - was.lastAttackAt) / MINUTE)} min` : 'never'} ago), with a report still to come`);
+    }
+    // A digest is told: pinged at once — or, at a pace with a report and nobody around, kept for the report
+    if (was && s.status === 'live') {
+      const pinged = new Set(events.filter(e => e.message.kindTag === 'digest').flatMap(e => e.message.allowedMentions?.users || []));
+      const reported = events.some(e => e.message.kindTag === 'report');
+      const postable = ['ViewChannel', 'SendMessages', 'EmbedLinks'].every(f => this.perms.get(s.channelId)?.has(PermissionFlagsBits[f]));
+      const faulted = this.stepFaults.some(f => f.on === 'send' && f.kind === 'other');
+      for (const [u, p] of Object.entries(s.participants || {})) {
+        if (!p.out || was.participants?.[u]?.out || ctx.crashed) continue;
+        const kept = (s.unreported || []).some(d => d.userId === u);
+        if (!t.report && !pinged.has(u) && postable && !faulted) say(`${u} was digested at a pace with no report and wasn't told`);
+        if (t.report && !pinged.has(u) && !reported && !kept) say(`${u} was digested and neither pinged nor kept for the report`);
+      }
+    }
+    // Every digest kept for a report is told in the end: named in a report's
+    // digest field or in the results' digest line. One kept on a campaign's
+    // last night waited for a report that never came (review, 2026-11-06);
+    // finalChecks fails any still untold once the results are out.
+    // (Told: noteToldDigests, for every siege's messages — an admin's start
+    // can post the last one's held results in the step that replaces it.)
+    rec.kept ||= new Map();
+    rec.told ||= new Set();
+    for (const d of s.unreported || []) {
+      const k = `${d.userId}:${d.at}`;
+      if (!rec.told.has(k)) rec.kept.set(k, d.name);
+    }
+    // The daily report: one a night at most, never before its first counted night is over, pinging nobody, from `day` on
+    const reports = this.messagesFor(s.id, 'report');
+    if (!t.report && reports.length) say(`a ${t.key} siege posted a daily report`);
+    const nights = new Map();
+    for (const m of reports) nights.set(m.night, (nights.get(m.night) || 0) + 1);
+    for (const [night, n] of nights) if (n > 1) say(`siege ${s.id} posted ${n} reports for the night of ${night}`);
+    for (const m of reports) if (m.sentAt < mods.pace.firstNightBoundary(s.startedAt, t)) say(`a report went out ${Math.round((m.sentAt - s.startedAt) / MINUTE)} min into the siege, before its first night was over`);
+    for (const e of events) {
+      if (e.message.kindTag !== 'report' || e.message.siegeId !== s.id) continue;
+      const am = e.message.allowedMentions || {};
+      if ((am.parse || []).length || (am.users || []).length || mentionsIn(e.message.content).length) say(`a daily report may ping someone: ${JSON.stringify(am)}`);
+      // Every digest kept for it is named in it, and the night it names is the one just closed
+      const named = JSON.stringify(e.snap?.embeds || []);
+      for (const d of was?.unreported || []) if (!named.includes(d.name)) say(`the report doesn't name ${d.name}, digested while nobody was around`);
+      const number = mods.pace.campaignNight(s.startedAt, clock.now, t) - 1;
+      if (!e.snap?.content?.startsWith(`📰 **Night ${number} is over**`)) say(`the report says "${e.snap?.content?.split('\n')[0]}", but night ${number} just closed`);
+    }
+    // Held results: posted by a pass only after someone played (or holdUntil)
+    if (ctx.kind === 'tick' && s.result?.holdUntil) {
+      for (const e of events) {
+        if (e.message.kindTag !== 'results' || e.message.siegeId !== s.id) continue;
+        const played = Number(this.state().activity?.at) || 0;
+        if (!(played > s.finishedAt) && clock.now < s.result.holdUntil) say('held results were posted with nobody having played since the escape');
+      }
+    }
+    if (s.result?.holdUntil && (s.status !== 'escaped' || !t.holdResults)) say(`a ${s.status} siege at ${t.key} pace has its results held`);
+    if (s.result?.holdUntil) rec.held = true;
   }
 
   checkMessageCounts(rec, say, { final = false } = {}) {
@@ -1270,11 +1483,22 @@ export class Sim {
     const was = before.siege?.id === s.id ? before.siege.participants?.[u] : null;
     if (was && (mods.store.isCaught(was) || was.out)) say(`${u} landed an attack while ${was.out ? 'digested' : 'caught'}`);
     const maxBefore = before.siege?.id === s.id ? before.siege.maxHp : rec.hpFor(0);
-    const late = clock.now >= s.endsAt - SIEGE_NOW().noGrowthLastMinutes * MINUTE;
-    const growers = Object.values(s.participants).filter(x => x.attacks > 0 && x.firstAttackAt < s.endsAt - SIEGE_NOW().noGrowthLastMinutes * MINUTE).length;
+    const t = mods.pace.timingsOf(s);
+    const late = clock.now >= s.endsAt - t.noGrowth * MINUTE;
+    const growers = this.growers(s);
     const first = !(was?.attacks > 0);
-    const want = !first || late ? 0 : Math.max(0, rec.hpFor(growers) - maxBefore);
-    if (joined !== want) say(`${u} ${!first ? 'attacked again' : late ? 'joined in the last minutes' : 'joined'}: the monster grew +${joined} HP, expected +${want}`);
+    // From evening on it's a member's first attack of each night that grows
+    // it — a 3-day or week campaign's first hours being its night 1, worked
+    // out here from its first counted boundary, not read from the store
+    const tn = this.campaignNightKey(s, clock.now);
+    const grows = t.growthPer === 'night' ? !Object.hasOwn(was?.nights || {}, tn) : first;
+    // The allowance, counted here per campaign night: never more than it a night
+    if (t.allowance) {
+      const n = ((rec.attacksByNight ||= {})[`${u}:${tn}`] = (rec.attacksByNight[`${u}:${tn}`] || 0) + 1);
+      if (n > t.allowance) say(`${u} landed ${n} attacks in the campaign's night ${tn}, over the allowance of ${t.allowance}`);
+    }
+    const want = !grows || late ? 0 : Math.max(0, rec.hpFor(growers) - maxBefore);
+    if (joined !== want) say(`${u} ${!grows ? 'attacked again' : late ? 'joined in the last minutes' : 'joined'}: the monster grew +${joined} HP, expected +${want}`);
     // Damage: base × the monster's weapon multiplier (× silver) + hitBonus, halved when Spooked, never more than was left
     const { SIEGE } = mods.rewards;
     const silver = /🥈 ×/.test(hpLine[2] || '');
@@ -1292,7 +1516,7 @@ export class Sim {
     }
     if (outcome !== 'poisoned') {
       const left = hpBefore - damage;
-      const heal = weapon === 'food' && outcome === 'splash' && (m.traits?.missHeal || 0) > 0 && left > 0 ? Math.min(Math.round(m.traits.missHeal * s.maxHp), s.maxHp - left) : 0;
+      const heal = weapon === 'food' && outcome === 'splash' && (m.traits?.missHeal || 0) > 0 && left > 0 ? Math.min(Math.round(m.traits.missHeal * mods.pace.timingsOf(s).heal.miss * s.maxHp), s.maxHp - left) : 0;
       if (healed !== heal) say(`${u}'s ${outcome} healed ${healed}, the rules say ${heal}`);
       if (s.hp !== left + healed) say(`after ${u}'s attack the store has ${s.hp} HP, expected ${left} + ${healed}`);
     }
@@ -1322,10 +1546,36 @@ export class Sim {
     }
   }
 
+  /**
+   * A digest kept for a report (checkPace's rec.kept) is told when a report
+   * names it in its digest field, or the results in their digest line — of
+   * whichever siege the message is, the current one or the last
+   */
+  noteToldDigests(events) {
+    for (const e of events) {
+      if (e.kind !== 'send') continue;
+      const rec = this.sieges.get(e.message.siegeId);
+      if (!rec?.kept?.size) continue;
+      let where = '';
+      if (e.message.kindTag === 'report') where = (e.snap?.embeds?.[0]?.fields || []).find(f => f.name === '😋 Digested while nobody was around')?.value || '';
+      if (e.message.kindTag === 'results') where = (e.snap?.content || '').split('\n').find(l => l.startsWith('😋 Digested while nobody was around:')) || '';
+      for (const [k, name] of rec.kept) {
+        if (!where.includes(name)) continue;
+        rec.kept.delete(k);
+        rec.told.add(k);
+      }
+    }
+  }
+
   /** At the end: every siege's arrivals and results, as promised */
   finalChecks() {
     const problems = [];
     for (const rec of this.sieges.values()) this.checkMessageCounts(rec, (m) => problems.push(m), { final: true });
+    // 2.74.0: a digest kept for a report, never told — once its siege's results are out
+    for (const rec of this.sieges.values()) {
+      const posted = this.messagesFor(rec.id, 'results').length > 0;
+      if (posted && rec.kept?.size) problems.push(`siege ${rec.id}: ${[...rec.kept.values()].join(', ')} digested while nobody was around, and never told in a report or the results`);
+    }
     if (problems.length) this.fail('final checks', problems.join('\n'));
   }
 

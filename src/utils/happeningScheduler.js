@@ -9,9 +9,10 @@
  *   start (saved) → claimAnnouncement (saved) → send a NEW message → record
  * so a restart can drop an announcement but never send two: once the claim
  * is saved the send is never tried again, and a happening that has waited
- * more than ANNOUNCE_WITHIN_MS for its first try (the bot was down) is
- * never announced late. An unannounced happening still applies — every
- * play it changes carries its tag.
+ * more than announceWithinMs for its first try (the bot was down: 2 minutes,
+ * or for one over an hour long, until half of it has gone) is never
+ * announced late. An unannounced happening still applies — every play it
+ * changes carries its tag.
  *
  * Announcements are new messages because edits never notify (CLAUDE.md);
  * the end of one is only an edit of that announcement, because nobody needs
@@ -23,6 +24,25 @@
  * freeze it), and the results, a NEW message that pings the fighters,
  * posted claim-before-send like an announcement. And no random happening
  * starts while a siege is live (happeningStore.spawnEligibility).
+ *
+ * 2.74.0, pace: from `day` on a siege is a campaign over days. The pass
+ * posts its daily report each night (a NEW message pinging nobody, claimed
+ * per night before the send; a try Discord refused for now is tried again),
+ * only lets the monster act while the drive-in is busy and only on those
+ * fighting then, tells a digested fighter nobody was around for in that
+ * report instead of pinging them (at a pace with no report, or with no
+ * report left before the end, it pings them anyway; one the siege ends
+ * before reporting is in the results), edits the card at most every 10
+ * minutes, holds an escape's results until someone plays a game, and lets
+ * happenings and campaigns run side by side. Every timing comes from the
+ * siege's own `t` (gamePace.timingsOf), never the settings.
+ *
+ * Channels: everything here posts only in a channel the games are allowed
+ * in (/eggshen-config-games channels, channelAllowed — a thread counting
+ * as its channel). A siege's channel was one when it started; if an admin
+ * takes it off the list mid-fight, the monster stops acting there, the
+ * report isn't posted, and the results go where a happening would be
+ * announced instead (siegeChannel, chooseChannel).
  *
  * Wired in src/index.js: initialize(client) once the client is ready, and
  * shutdown() beside the other schedulers'.
@@ -41,14 +61,28 @@ import {
   currentSiege, siegeTick, finishSiege, markCardEdited, markCardGone, claimResults, recordResults, releaseResults,
   giveUpResults, resultsClaimStale, closeOrphanSiege, claimCard, recordSiegeCard, cardClaimStale, monsterOf,
   decideAction, markAnnounced, voidAction, actionStale, digestDue, releaseWhenOff, randomSiegeEligibility,
-  randomSiegeChance, randomPoolScale, randomMonster, spawnSiege,
+  randomSiegeChance, randomPoolScale, randomMonster, spawnSiege, resultsHeld, reportDue, claimReport, recordReport,
+  releaseReport, digestUntold,
 } from './siegeStore.js';
-import { cardPayload, resultsPayload, actionPayload, digestPayload } from './siegeCard.js';
-import { SIEGE, TITLES } from '../data/gameRewards.js';
+import { cardPayload, resultsPayload, actionPayload, digestPayload, reportPayload } from './siegeCard.js';
+import { TITLES } from '../data/gameRewards.js';
+import { timingsOf, paceOf, defaultSiegeMinutes, forTheNext } from './gamePace.js';
 
 const CHECK_INTERVAL_MS = 60_000;
 /** A happening not announced within this long of starting is never announced (no late news) */
 export const ANNOUNCE_WITHIN_MS = 2 * 60_000;
+
+/**
+ * …unless it lasts longer than an hour (2.74.0: 4 hours at evening pace, a
+ * day from `day` on): then it's still news while half of it is left. A
+ * day-long Full Moon that missed its 2 minutes across a restart would
+ * otherwise run silently for the rest of the day (review, 2026-11-04).
+ * Quick's happenings (an hour at most) keep the 2 minutes.
+ */
+export function announceWithinMs(happening) {
+  const length = (happening?.endsAt || 0) - (happening?.startedAt || 0);
+  return length > 60 * 60_000 ? Math.max(ANNOUNCE_WITHIN_MS, length / 2) : ANNOUNCE_WITHIN_MS;
+}
 
 /** Each happening's embed colour */
 export const HAPPENING_COLORS = Object.freeze({
@@ -73,14 +107,25 @@ const unix = (ms) => Math.floor(ms / 1000);
 
 // ── messages ────────────────────────────────────────────────────────────
 
-/** The announcement: the kind's own words, and an embed saying what changes and until when */
-export function announcementPayload(happening) {
+/**
+ * The announcement: the kind's own words, and an embed saying what changes
+ * and until when. Its `{for}` says how long, from its own start and end
+ * (2.74.0: an hour at quick pace, a day from `day` on) — or, announced late
+ * (announceWithinMs: a long one the bot was down for), what's left of it,
+ * in whole hours: "for the next 21 hours", not the 24 it started with.
+ */
+export function announcementPayload(happening, now = happening.startedAt) {
   const def = HAPPENINGS[happening.kind];
+  const late = now - happening.startedAt > ANNOUNCE_WITHIN_MS;
+  const left = happening.endsAt - (late ? now : happening.startedAt);
+  const minutes = late && left >= 60 * 60_000
+    ? Math.floor(left / (60 * 60_000)) * 60
+    : Math.max(1, Math.round(left / 60_000));
   const embed = new EmbedBuilder()
     .setColor(HAPPENING_COLORS[happening.kind] ?? 0x5865F2)
     .setTitle(`${def.emoji} ${def.name}`)
     .setDescription(`${def.about}\nEnds <t:${unix(happening.endsAt)}:R>`);
-  return { content: def.announce, embeds: [embed], allowedMentions: { parse: [] } };
+  return { content: def.announce.split('{for}').join(forTheNext(minutes)), embeds: [embed], allowedMentions: { parse: [] } };
 }
 
 /** The same announcement once it's over */
@@ -147,7 +192,7 @@ export async function chooseChannel(guild, settings, state, fallback = null) {
  */
 export async function announceHappening(guild, settings, happening, { now = Date.now(), fallback = null } = {}) {
   const def = HAPPENINGS[happening.kind];
-  if (now - happening.startedAt > ANNOUNCE_WITHIN_MS) {
+  if (now - happening.startedAt > announceWithinMs(happening)) {
     // The bot was down when it started: old news is worse than none
     markUnannounced(guild.id, happening.id, 'late');
     console.warn(`[Happenings] ${def.name} in ${guild.id} started ${Math.round((now - happening.startedAt) / 60_000)} min ago and was never announced; not announcing it late`);
@@ -167,7 +212,7 @@ export async function announceHappening(guild, settings, happening, { now = Date
   if (claim.error) return { error: claim.error };
   let message;
   try {
-    message = await channel.send(announcementPayload(claim.happening));
+    message = await channel.send(announcementPayload(claim.happening, now));
   } catch (error) {
     markUnannounced(guild.id, happening.id, 'send-failed');
     console.error(`[Happenings] Couldn't announce ${def.name} in ${channel.id} (guild ${guild.id}):`, error.message);
@@ -237,18 +282,21 @@ export function sendVerdict(error) {
 
 /**
  * Edit siege `siegeId`'s card to show what it is now — when something has
- * changed since the last edit (dirty), and no sooner than
- * SIEGE.cardEditSeconds after it while the fight is on. The edit that
- * freezes a finished card goes straight away (`force`, or a status that
- * isn't live): it's the last one. A message that's gone is left alone from
- * then on.
+ * changed since the last edit (dirty), and no sooner than the siege's
+ * `t.cardEditSeconds` after it while the fight is on (a minute at quick and
+ * evening, 10 from `day` on): an edit never notifies anyone. Busy or not —
+ * a member freeing someone at noon mustn't leave the card showing them held
+ * (review, 2026-11-04). The edit that freezes a finished card goes straight away (`force`, or a
+ * status that isn't live): it's the last one. A message that's gone is
+ * left alone from then on.
  * @returns {Promise<boolean>} whether it edited
  */
 export async function editSiegeCard(guild, siegeId, { now = Date.now(), force = false } = {}) {
   const s = currentSiege(guild.id);
   if (!s || s.id !== siegeId || !s.card?.messageId || s.card.gone || !s.card.dirty) return false;
   const live = s.status === 'live';
-  if (live && !force && now - (s.card.editedAt || 0) < SIEGE.cardEditSeconds * 1000) return false;
+  const t = timingsOf(s);
+  if (live && !force && now - (s.card.editedAt || 0) < t.cardEditSeconds * 1000) return false;
   const rev = s.rev || 0;
   try {
     const channel = await guild.channels.fetch(s.channelId);
@@ -272,16 +320,35 @@ export async function editSiegeCard(guild, siegeId, { now = Date.now(), force = 
 }
 
 /**
+ * The siege's channel, if the games may still be played there: an admin
+ * can take it off /eggshen-config-games channels mid-fight. Null if it's
+ * gone or no longer allowed (without `settings`, only whether it exists).
+ */
+async function siegeChannel(guild, s, settings) {
+  const channel = await guild.channels.fetch(s.channelId).catch(() => null);
+  if (!channel) return null;
+  if (settings && !channelAllowed(settings, channel.id, channel.parentId || null).ok) return null;
+  return channel;
+}
+
+/**
  * Post siege `siegeId`'s results — a NEW message pinging the fighters —
  * at most once ever: the claim is saved before the send, so a bot that
  * dies mid-send never sends them again. Anything that stops the send
  * before it goes (no channel, no permission, Discord refusing) releases
  * the claim for the next pass, up to SIEGE.resultTries.
- * @returns {Promise<{message} | {error: string} | null>} null when there's nothing to post
+ *
+ * 2.74.0: an escape's results held at a day+ pace (siegeStore.resultsHeld)
+ * wait for the next game anyone plays, unless `force` (an admin's
+ * /siege start, who is plainly around). With `settings`, a siege channel
+ * the games are no longer allowed in sends them where a happening would
+ * be announced instead.
+ * @returns {Promise<{message, channel} | {error: string} | {held: true} | null>} null when there's nothing to post
  */
-export async function postSiegeResults(guild, siegeId, { now = Date.now() } = {}) {
+export async function postSiegeResults(guild, siegeId, { now = Date.now(), force = false, settings = null } = {}) {
   const s = currentSiege(guild.id);
   if (!s || s.id !== siegeId || !s.result || s.result.announcedAt) return null;
+  if (!force && !s.result.claimedAt && resultsHeld(s, loadState(guild.id), now)) return { held: true };
   if (s.result.claimedAt) {
     // Claimed long ago and never recorded: the bot died mid-send. It may or
     // may not have gone out, so it's never tried again — given up, so it
@@ -291,7 +358,10 @@ export async function postSiegeResults(guild, siegeId, { now = Date.now() } = {}
     }
     return null;
   }
-  const channel = await guild.channels.fetch(s.channelId).catch(() => null);
+  let channel = await guild.channels.fetch(s.channelId).catch(() => null);
+  if (channel && settings && !channelAllowed(settings, channel.id, channel.parentId || null).ok) {
+    channel = await chooseChannel(guild, settings, loadState(guild.id));
+  }
   if (!channel || !(await botCanPost(guild, channel))) {
     const gave = releaseResults(guild.id, s.id, 'no-channel', now);
     if (gave.gaveUp) console.warn(`[Siege] Gave up posting the results of siege ${s.id} in guild ${guild.id}: no channel I can post in`);
@@ -316,8 +386,9 @@ export async function postSiegeResults(guild, siegeId, { now = Date.now() } = {}
     }
     return { error: 'send-failed' };
   }
-  recordResults(guild.id, s.id, message.id, now);
-  return { message };
+  recordResults(guild.id, s.id, message.id, now, channel.id);
+  // The channel too: not always the siege's (see above), and /siege end names it
+  return { message, channel };
 }
 
 /**
@@ -388,8 +459,8 @@ async function reconcileCard(guild, s, now, luck) {
  * when they were told. A send that doesn't go (no channel, Discord
  * refusing, no answer) voids it: nobody is grabbed or poisoned unpinged.
  */
-async function announceAction(guild, s, action, now) {
-  const channel = await guild.channels.fetch(s.channelId).catch(() => null);
+async function announceAction(guild, s, action, now, settings = null) {
+  const channel = await siegeChannel(guild, s, settings);
   if (!channel || !(await botCanPost(guild, channel))) {
     voidAction(guild.id, s.id, action.id, 'no-channel', now);
     return;
@@ -408,7 +479,7 @@ async function announceAction(guild, s, action, now) {
       if (chow && !u?.titles?.earned?.[chow.key] && ((u?.lifetime?.siege?.grabbed || 0) + 1) >= chow.need) titles[id] = [chow.key];
     }
   }
-  const heal = Number(monster?.traits?.actHeal) || 0;
+  const heal = (Number(monster?.traits?.actHeal) || 0) * timingsOf(fresh).heal.act;
   const healed = heal > 0 && fresh.hp > 0 ? Math.min(Math.round(heal * fresh.maxHp), fresh.maxHp - fresh.hp) : 0;
   let message;
   try {
@@ -425,21 +496,28 @@ async function announceAction(guild, s, action, now) {
  * A live siege's minute, each step a synchronous store call keyed by the
  * siege's id (so the order is safe across a restart):
  *   1. a card the bot never recorded: found, or the siege called off (R6)
- *   2. poison ticks on the monster; a fighter's own poisoning wearing off
+ *   2. poison ticks on the monster; a fighter's own poisoning wearing off;
+ *      a digested fighter's day out over (2.74.0)
  *   3. grabbed fighters let go, and the poisoned cured, if members can no
  *      longer /rescue or /potion (R6)
- *   4. grabbed fighters nobody freed in time: digested, and told (R6)
+ *   4. grabbed fighters nobody freed in time: digested, and told — with a
+ *      NEW message; from `day` on, only while the drive-in is busy,
+ *      otherwise in the next daily report, pinging nobody (2.74.0) — if
+ *      one is still to come (siegeStore.reportToCome), else at once
  *   5. the finish: won at 0 HP; called off (no rewards, no penalties) once
- *      an admin has switched /siege off; escaped once its time is up
- *   6. the monster's action, when due (R6): an unannounced one past
- *      SIEGE.actions.voidSeconds is void first
- *   7. the card (at most one edit a minute while it's on, then frozen) and
- *      the results, a NEW message pinging the fighters
+ *      an admin has switched /siege off; escaped once its time is up (from
+ *      `day` on, its results held for the next game played)
+ *   6. the daily report (2.74.0, from `day` on): one NEW message a night
+ *   7. the monster's action, when due (R6) — from `evening` on, only while
+ *      busy: an unannounced one past SIEGE.actions.voidSeconds is void first
+ *   8. the card (at the siege's edit cadence while it's on, then frozen)
+ *      and the results, a NEW message pinging the fighters
  * A live siege whose monster no longer exists is closed first: nothing else
  * can reach it, and it would block every start.
- * @param {object} [options] - siegeOff, rescueOn, potionOn: what members may use now
+ * @param {object} [options] - siegeOff, rescueOn, potionOn: what members may use now;
+ *   settings: the server's game settings (where the games may be played)
  */
-export async function checkSiege(guild, now = Date.now(), luck = gameLuck, { siegeOff = false, rescueOn = true, potionOn = true } = {}) {
+export async function checkSiege(guild, now = Date.now(), luck = gameLuck, { siegeOff = false, rescueOn = true, potionOn = true, settings = null } = {}) {
   if (!closeOrphanSiege(guild.id, now).error) console.warn(`[Siege] Closed a siege in guild ${guild.id} whose monster no longer exists`);
   let s = currentSiege(guild.id);
   if (!s) return;
@@ -452,12 +530,15 @@ export async function checkSiege(guild, now = Date.now(), luck = gameLuck, { sie
     siegeTick(guild.id, s.id, now);
     releaseWhenOff(guild.id, s.id, { rescueOn, potionOn }, now);
     const eaten = digestDue(guild.id, s.id, now);
-    if (eaten.digested?.length) await postDigest(guild, eaten.siege, eaten.digested);
+    if (eaten.digested?.length && eaten.tell) await postDigest(guild, eaten.siege, eaten.digested, settings, now);
     s = currentSiege(guild.id);
     if (!s) return;
     if (!(s.hp > 0)) finishSiege(guild.id, s.id, 'won', now, luck);
     else if (siegeOff) finishSiege(guild.id, s.id, 'ended', now, luck);
-    else if (now >= s.endsAt) finishSiege(guild.id, s.id, 'escaped', now, luck);
+    else if (now >= s.endsAt) finishSiege(guild.id, s.id, 'escaped', now, luck, { hold: true });
+    s = currentSiege(guild.id);
+    if (!s) return;
+    if (s.status === 'live') await postReport(guild, s, now, settings);
     s = currentSiege(guild.id);
     if (!s) return;
     if (s.status === 'live' && s.pending && actionStale(s, now)) {
@@ -465,46 +546,103 @@ export async function checkSiege(guild, now = Date.now(), luck = gameLuck, { sie
       console.warn(`[Siege] The monster's ${s.pending.kind} in guild ${guild.id} was never announced; it's void`);
     }
     const decided = decideAction(guild.id, s.id, { rescueOn, potionOn }, now, luck);
-    if (decided.action) await announceAction(guild, decided.siege, decided.action, now);
+    if (decided.action) await announceAction(guild, decided.siege, decided.action, now, settings);
     s = currentSiege(guild.id);
     if (!s) return;
   }
   await editSiegeCard(guild, s.id, { now });
-  await postSiegeResults(guild, s.id, { now });
+  await postSiegeResults(guild, s.id, { now, settings });
 }
 
-/** Tell the digested: a NEW message pinging them (their loss is already applied) */
-async function postDigest(guild, s, digested) {
-  const channel = await guild.channels.fetch(s.channelId).catch(() => null);
-  if (!channel || !(await botCanPost(guild, channel))) return;
+/**
+ * Tell the digested: a NEW message pinging them (their loss is already
+ * applied). One that doesn't go out — nowhere to post, or Discord refusing
+ * it — goes into the next daily report instead, at a pace with one
+ * (siegeStore.digestUntold); a send that may have gone out isn't repeated.
+ */
+async function postDigest(guild, s, digested, settings = null, now = Date.now()) {
+  const channel = await siegeChannel(guild, s, settings);
+  if (!channel || !(await botCanPost(guild, channel))) {
+    digestUntold(guild.id, s.id, digested, now);
+    return;
+  }
   try {
     await channel.send(digestPayload(s, digested));
   } catch (error) {
+    if (sendVerdict(error) !== 'unknown') digestUntold(guild.id, s.id, digested, now);
     console.warn(`[Siege] Couldn't post a digest in guild ${guild.id}:`, error.message);
   }
 }
 
 /**
+ * The daily report (2.74.0): when one is due (siegeStore.reportDue — the
+ * first game played after the night boundary, or 12 hours on), claimed for
+ * the night BEFORE the send, then a NEW message in the siege's channel that
+ * pings nobody (names, not mentions). A restart can drop a night's report,
+ * never post two. As the results are: a send Discord answered with a
+ * refusal for now (sendVerdict 'retry': 429, 5xx), or nowhere to post it
+ * right now (the channel didn't fetch, a permission is missing), releases
+ * the claim for the next pass, its digests kept, up to
+ * PACE_RULES.reportTries; one refused for good gives that night up and
+ * keeps its digests for the next; one that may have gone out (a timeout)
+ * is never repeated.
+ */
+async function postReport(guild, s, now, settings = null) {
+  const night = reportDue(s, loadState(guild.id), now);
+  if (!night) return;
+  const channel = await siegeChannel(guild, s, settings);
+  const usable = !!channel && await botCanPost(guild, channel);
+  // Claimed either way: releaseReport counts the tries on the claim
+  const claim = claimReport(guild.id, s.id, night, now);
+  if (claim.error) return;
+  if (!usable) {
+    // A fetch Discord didn't answer, or a permission an admin is fixing,
+    // mustn't cost the night's report at the first pass (review,
+    // 2026-11-04): tried again, then given up as 'no-channel'
+    const gave = releaseReport(guild.id, s.id, night, 'no-channel');
+    if (gave.gaveUp) console.warn(`[Siege] Nowhere to post the daily report for siege ${s.id} in guild ${guild.id}; giving that night up`);
+    return;
+  }
+  let message;
+  try {
+    message = await channel.send(reportPayload(claim.siege, claim.report, { now }));
+  } catch (error) {
+    const verdict = sendVerdict(error);
+    if (verdict === 'retry') {
+      const gave = releaseReport(guild.id, s.id, night, 'send-failed');
+      console.warn(`[Siege] Discord refused the daily report for siege ${s.id} in guild ${guild.id}${gave.gaveUp ? '; giving that night up' : '; will try again'}:`, error.message);
+    } else {
+      recordReport(guild.id, s.id, night, { reason: verdict === 'refused' ? 'refused' : 'send-unknown' });
+      console.warn(`[Siege] Couldn't post the daily report for siege ${s.id} in guild ${guild.id}; not trying again tonight:`, error.message);
+    }
+    return;
+  }
+  recordReport(guild.id, s.id, night, { messageId: message.id });
+}
+
+/**
  * A random siege (R6): when every rule allows it (randomSiegeEligibility)
  * and the dice say so (randomSiegeChance), a monster picked by weight among
- * those in season attacks the channel a happening would be announced in.
+ * those in season attacks the channel a happening would be announced in,
+ * for the server's pace's length (gamePace.defaultSiegeMinutes).
  * The rules are checked again on the file inside the start's one save.
  */
 async function maybeSpawnSiege(guild, config, settings, now, luck) {
   if (config?.commandPermissions?.siege === false || !membersCan(config, 'siege')) return null;
   const state = loadState(guild.id);
   if (!randomSiegeEligibility(state, settings, now).ok) return null;
-  if (!(luck() < randomSiegeChance(settings.siegeFrequency))) return null;
+  const pace = paceOf(settings);
+  if (!(luck() < randomSiegeChance(settings.siegeFrequency, pace))) return null;
   const key = randomMonster(now, luck);
   const channel = await chooseChannel(guild, settings, state);
   if (!channel) return null;
   const monster = monsterOf(key);
   const spawned = spawnSiege(guild.id, {
     monster: key,
-    minutes: monster.minutes ?? settings.siegeMinutes,
+    minutes: defaultSiegeMinutes(settings, monster),
     channelId: channel.id,
     source: 'random',
-    poolScale: randomPoolScale(settings.siegeFrequency),
+    poolScale: randomPoolScale(settings.siegeFrequency, pace),
     check: (data) => {
       const again = randomSiegeEligibility(data, settings, now);
       return again.ok ? null : again.reason;
@@ -533,24 +671,27 @@ async function checkGuild(guild, now, luck) {
     siegeOff: config?.commandPermissions?.siege === false,
     rescueOn: membersCan(config, 'rescue'),
     potionOn: membersCan(config, 'potion'),
+    settings,
   });
 
   // 2. Announce one that hasn't been tried (it started just before a restart)
   const h = loadState(guild.id).happening;
   if (inProgress(h, now)) {
     if (!h.messageId && !h.claimedAt && !h.unannounced) await announceHappening(guild, settings, h, { now });
-    return;
+  } else {
+    // 3. Maybe start one: never during a quick or evening siege, by the
+    // siege's own timings (happeningStore.spawnEligibility). A campaign
+    // (day on) runs most of the week, so happenings run beside it.
+    const spawned = maybeSpawn(guild.id, settings, now, luck);
+    if (spawned) await announceHappening(guild, settings, spawned.happening, { now });
   }
 
-  // 3. Maybe start one
-  const spawned = maybeSpawn(guild.id, settings, now, luck);
-  if (spawned) {
-    await announceHappening(guild, settings, spawned.happening, { now });
-    return;
-  }
-
-  // 4. Maybe a monster attacks (R6): never while a happening is on (the
-  // early return above) or a siege is (its own rules)
+  // 4. Maybe a monster attacks (R6): never while a siege is on, and at
+  // quick and evening pace never during a happening — the pace of the siege
+  // it would start, which is the server's (randomSiegeEligibility). Both
+  // rules live in the stores: this pass used to skip it by the server's
+  // pace too, which disagreed with a campaign started before a change of
+  // pace (review, 2026-11-06).
   await maybeSpawnSiege(guild, config, settings, now, luck);
 }
 

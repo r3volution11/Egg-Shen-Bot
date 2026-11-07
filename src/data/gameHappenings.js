@@ -21,6 +21,17 @@
  * - shieldMult: n — a rescue's shield lasts n× as long.
  * - keepStreaks: true — a bad outcome doesn't end a streak.
  * - twistMult: n — twists are n× as likely (R4 twists).
+ *
+ * `minutes` is how long one lasts at quick pace; at a slower pace it's ×k
+ * (gamePace.happeningMinutes: an evening's 4×, a day+ pace's 24×, at most
+ * 24 hours). An `announce` line says how long with `{for}` ("the next
+ * hour"), filled in from the happening's own start and end.
+ *
+ * A siege attack never sees a happening (siege.js passes none), and from
+ * day pace on happenings run during campaigns, so a line whose words would
+ * take one in — every point, throws, potions, your streak — says "(not
+ * siege attacks)". Double Feature promised twice the points to a server in
+ * the middle of a week's siege (review, 2026-11-06).
  */
 
 export const HAPPENINGS = Object.freeze({
@@ -28,7 +39,7 @@ export const HAPPENINGS = Object.freeze({
     name: 'Full Moon', emoji: '🌕', minutes: 60, rate: 0.25, minPlayers: 2,
     tag: '🌕×2',
     about: 'Dooms score double, both ways.',
-    announce: '🌕 **The moon is full over the Drive-In.** For the next hour every /doom scores double, both ways. Lock your car doors.',
+    announce: '🌕 **The moon is full over the Drive-In.** For {for} every /doom scores double, both ways. Lock your car doors.',
     ended: '🌕 The moon slips behind the clouds. Dooms are back to normal.',
     mods: { points: [{ game: 'doom', mult: 2 }] },
   },
@@ -36,7 +47,7 @@ export const HAPPENINGS = Object.freeze({
     name: 'Happy Hour', emoji: '🍻', minutes: 60, rate: 0.35, minPlayers: 2,
     tag: '🍻',
     about: 'Feeds are tastier: fewer gross or spilled, tasty scores double.',
-    announce: '🍻 **Happy Hour at the snack bar!** For the next hour, /foodfight feed is tastier and nobody\'s dropping their tray.',
+    announce: '🍻 **Happy Hour at the snack bar!** For {for}, /foodfight feed is tastier and nobody\'s dropping their tray.',
     ended: '🍻 Last call. Happy Hour is over.',
     mods: {
       weights: [
@@ -49,8 +60,8 @@ export const HAPPENINGS = Object.freeze({
   fog: {
     name: 'The Fog', emoji: '🌫️', minutes: 45, rate: 0.25, minPlayers: 2,
     tag: '🌫️',
-    about: 'Throws miss far more often.',
-    announce: '🌫️ **A thick fog rolls over the lot.** For the next 45 minutes you can\'t see the screen, or who you\'re throwing at. Throws miss a lot more.',
+    about: 'Throws miss far more often (not siege attacks).',
+    announce: '🌫️ **A thick fog rolls over the lot.** For {for} you can\'t see the screen, or who you\'re throwing at. Throws miss a lot more (not siege attacks).',
     ended: '🌫️ The fog lifts. You can see who you\'re aiming at again.',
     mods: {
       weights: [
@@ -62,8 +73,8 @@ export const HAPPENINGS = Object.freeze({
   doublefeature: {
     name: 'Double Feature', emoji: '🎞️', minutes: 30, rate: 0.08, minPlayers: 3,
     tag: '🎞️×2',
-    about: 'Every point counts twice.',
-    announce: '🎞️ **DOUBLE FEATURE!** Every point in every game counts twice for the next 30 minutes.',
+    about: 'Every point counts twice (not siege attacks).',
+    announce: '🎞️ **DOUBLE FEATURE!** Every point in every game counts twice for {for} (not siege attacks).',
     ended: '🎞️ The second feature\'s over. Points are back to normal.',
     mods: { points: [{ mult: 2 }] },
   },
@@ -71,23 +82,23 @@ export const HAPPENINGS = Object.freeze({
     name: 'Sunrise', emoji: '🌅', minutes: 60, rate: 0.25, minPlayers: 2,
     tag: '🌅',
     about: 'Rescues rarely get caught, and shields last twice as long.',
-    announce: '🌅 **Sunrise!** Monsters hate it. For the next hour rescues rarely get caught, and shields last twice as long.',
+    announce: '🌅 **Sunrise!** Monsters hate it. For {for} rescues rarely get caught, and shields last twice as long.',
     ended: '🌅 The sun\'s gone behind the screen again.',
     mods: { weights: [{ game: 'rescue', outcome: 'caught', mult: 0.5 }], shieldMult: 2 },
   },
   madscience: {
     name: 'Mad Scientist Hour', emoji: '🧪', minutes: 60, rate: 0.25, minPlayers: 2,
     tag: '🧪',
-    about: 'Potions backfire half as often.',
-    announce: '🧪 **The mad scientist is in.** For the next hour potions are steadier: half as many backfire.',
+    about: 'Potions backfire half as often (not siege attacks).',
+    announce: '🧪 **The mad scientist is in.** For {for} potions are steadier: half as many backfire (not siege attacks).',
     ended: '🧪 The lab is closed. Mind your potions.',
     mods: { weights: [{ game: 'potion', outcome: 'backfired', mult: 0.5 }] },
   },
   rewind: {
     name: 'Be Kind, Rewind', emoji: '📼', minutes: 60, rate: 0.2, minPlayers: 2,
     tag: '📼',
-    about: 'A bad outcome won\'t break your streak.',
-    announce: '📼 **Be Kind, Rewind.** For the next hour a bad outcome won\'t break your streak.',
+    about: 'A bad outcome won\'t break your streak (not siege attacks).',
+    announce: '📼 **Be Kind, Rewind.** For {for} a bad outcome won\'t break your streak (not siege attacks).',
     ended: '📼 Tape\'s rewound. Streaks can break again.',
     mods: { keepStreaks: true },
   },
@@ -95,7 +106,7 @@ export const HAPPENINGS = Object.freeze({
     name: 'Intermission', emoji: '🎪', minutes: 45, rate: 0.3, minPlayers: 2,
     tag: '🎪',
     about: 'Twists are three times as likely.',
-    announce: '🎪 **Let\'s all go to the lobby!** Twists are three times as likely for the next 45 minutes.',
+    announce: '🎪 **Let\'s all go to the lobby!** Twists are three times as likely for {for}.',
     ended: '🎪 Intermission\'s over. Back to your seats.',
     mods: { twistMult: 3 },
   },
@@ -131,4 +142,14 @@ export const HAPPENING_RULES = Object.freeze({
   activeWindowMinutes: 30,
   // A full moon (by the real lunar calendar) makes Full Moon this much likelier
   realFullMoonBoost: 4,
+  /**
+   * Pace (2.74.0): from the `day` pace on, a happening lasts about a day
+   * (gamePace.happeningMinutes, at most `maxMinutes`), so the limits are a
+   * week's: at least `gapMinutes` apart, at most `maxPerWeek` a week (an ISO
+   * week, UTC), and the rates are spread over `spreadDays` days of active
+   * minutes instead of one — about one a week at normal on a busy server
+   * (tests/happening-store.test.js measures it). It can run during a
+   * campaign (a siege attack is never touched by a happening anyway).
+   */
+  weekly: Object.freeze({ gapMinutes: 24 * 60, maxPerWeek: 2, spreadDays: 9, maxMinutes: 24 * 60 }),
 });

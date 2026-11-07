@@ -382,5 +382,131 @@
     "family": "icon",
     "fallback": "🚀",
     "source": "drawn"
+  },
+  "erain": {
+    "hash": "4974",
+    "family": "icon",
+    "fallback": "🌧️",
+    "source": "drawn"
+  },
+  "efire": {
+    "hash": "810e",
+    "family": "icon",
+    "fallback": "🔥",
+    "source": "drawn"
+  },
+  "ewind": {
+    "hash": "1960",
+    "family": "icon",
+    "fallback": "💨",
+    "source": "drawn"
+  },
+  "esmoke": {
+    "hash": "01c2",
+    "family": "icon",
+    "fallback": "🌫️",
+    "source": "drawn"
+  },
+  "elite": {
+    "hash": "54bd",
+    "family": "icon",
+    "fallback": "⚡",
+    "source": "drawn"
+  },
+  "ethund": {
+    "hash": "a6fe",
+    "family": "icon",
+    "fallback": "🌩️",
+    "source": "drawn"
+  },
+  "chi": {
+    "hash": "c049",
+    "family": "icon",
+    "fallback": "☯️",
+    "source": "drawn"
+  },
+  "bag": {
+    "hash": "1d35",
+    "family": "icon",
+    "fallback": "🎒",
+    "source": "drawn"
+  },
+  "bblood": {
+    "hash": "72ba",
+    "family": "icon",
+    "fallback": "🖤",
+    "source": "drawn"
+  },
+  "jade": {
+    "hash": "9de2",
+    "family": "icon",
+    "fallback": "🧿",
+    "source": "drawn"
+  },
+  "truck": {
+    "hash": "d975",
+    "family": "icon",
+    "fallback": "🚚",
+    "source": "drawn"
+  },
+  "sidek": {
+    "hash": "67ea",
+    "family": "icon",
+    "fallback": "🤝",
+    "source": "drawn"
+  },
+  "wang": {
+    "hash": "9916",
+    "family": "icon",
+    "fallback": "🗡️",
+    "source": "drawn"
+  },
+  "jack": {
+    "hash": "122b",
+    "family": "icon",
+    "fallback": "🔪",
+    "source": "drawn"
+  },
+  "back": {
+    "hash": "e5b1",
+    "family": "icon",
+    "fallback": "🎲",
+    "source": "drawn"
+  },
+  "wildmn": {
+    "hash": "a29d",
+    "family": "icon",
+    "fallback": "🦧",
+    "source": "drawn"
+  },
+  "guard": {
+    "hash": "946f",
+    "family": "icon",
+    "fallback": "👁️",
+    "source": "drawn"
+  },
+  "storms": {
+    "hash": "c937",
+    "family": "icon",
+    "fallback": "⛈️",
+    "source": "drawn"
+  },
+  "lopan": {
+    "hash": "2e86",
+    "family": "icon",
+    "fallback": "🏮",
+    "source": "drawn"
+  },
+  "upside": {
+    "hash": "6e63",
+    "family": "icon",
+    "fallback": "🙃",
+    "source": "drawn"
+  },
+  "bus": {
+    "hash": "a7ed",
+    "family": "icon",
+    "fallback": "🚌",
+    "source": "drawn"
   }
 }

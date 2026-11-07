@@ -25,11 +25,20 @@
  *   happening: null | { id, kind, source: 'random'|'admin', startedBy,
  *                startedAt, endsAt, channelId, messageId, claimedAt,
  *                unannounced, endedAt, endNoticeId }
- *   lastEndedAt, spawned: { day, count }, history: [≤20 {kind, source,
- *   startedAt, endedAt}]
+ *   lastEndedAt, spawned: { day, count, week, weekCount }, history: [≤20
+ *   {kind, source, startedAt, endedAt}]
  * Keys this module doesn't know are kept as they are: R5's siege, its
- * siegeDial and lastSiegeAt live here (siegeStore.js), and a random
- * happening never starts while a siege is live (spawnEligibility).
+ * siegeDial(s) and lastSiegeAt live here (siegeStore.js), and a random
+ * happening never starts while a quick or evening siege is live — by the
+ * siege's own timings (spawnEligibility).
+ *
+ * 2.74.0, pace: a happening lasts its `minutes` × the server's pace's k
+ * (gamePace.happeningMinutes: 1, 4, then 24 — about a day — capped at
+ * 24 h), worked out when it starts: changing the pace never moves one
+ * that's on. From `day` on the limits are a week's (HAPPENING_RULES.weekly:
+ * a day apart, 2 a week, about one a week at normal), counted in
+ * `spawned.week`/`weekCount` (a file without them reads as 0), and a
+ * happening may run during a siege — it never touches a siege attack.
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, copyFileSync } from 'fs';
@@ -38,6 +47,7 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { HAPPENINGS, CALENDAR_HAPPENINGS, HAPPENING_RULES } from '../data/gameHappenings.js';
 import { luck as gameLuck } from './gameLuck.js';
+import { happeningPace, happeningMinutes, paceOf, timingsOf } from './gamePace.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Overridable so each Jest worker gets its own directory (tests/jest.setup.js)
@@ -97,13 +107,20 @@ const filePath = (guildId) => join(happeningsDir, `${guildId}.json`);
 /** The UTC day a moment falls on (gameScores.dayKey; not imported, as gameScores imports this) */
 const dayKey = (now) => new Date(now).toISOString().slice(0, 10);
 
+/** The week a moment falls in: the date of its Monday (UTC) — the weekly limit's key */
+export function weekKey(now) {
+  const d = new Date(now);
+  const back = (d.getUTCDay() + 6) % 7; // days since Monday
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - back)).toISOString().slice(0, 10);
+}
+
 const emptyActivity = () => ({ channelId: null, at: 0, recent: {} });
 const emptyState = () => ({
   version: 1,
   activity: emptyActivity(),
   happening: null,
   lastEndedAt: 0,
-  spawned: { day: null, count: 0 },
+  spawned: { day: null, count: 0, week: null, weekCount: 0 },
   history: [],
 });
 
@@ -283,8 +300,9 @@ function settleExpired(data, now) {
 }
 
 const startedToday = (data, now) => (data.spawned?.day === dayKey(now) ? data.spawned.count || 0 : 0);
+const startedThisWeek = (data, now) => (data.spawned?.week === weekKey(now) ? data.spawned.weekCount || 0 : 0);
 
-function begin(data, kind, { source, startedBy = null, channelId = null }, now) {
+function begin(data, kind, { source, startedBy = null, channelId = null, pace = 'quick' }, now) {
   settleExpired(data, now);
   const happening = {
     id: newId(),
@@ -292,7 +310,8 @@ function begin(data, kind, { source, startedBy = null, channelId = null }, now) 
     source,
     startedBy,
     startedAt: now,
-    endsAt: now + HAPPENINGS[kind].minutes * MINUTE,
+    // ×k at the server's pace, fixed now: a pace changed later never moves it
+    endsAt: now + happeningMinutes(HAPPENINGS[kind], pace) * MINUTE,
     channelId, // where it's announced, once known
     messageId: null, // the announcement, once sent
     claimedAt: null, // set just BEFORE the announcement is sent (see claimAnnouncement)
@@ -301,21 +320,22 @@ function begin(data, kind, { source, startedBy = null, channelId = null }, now) 
     endNoticeId: null, // the announcement, once edited to say it's over
   };
   data.happening = happening;
-  // Admin starts count too: the daily limit is about how much a day holds
-  data.spawned = { day: dayKey(now), count: startedToday(data, now) + 1 };
+  // Admin starts count too: the daily (or weekly) limit is about how much a day holds
+  data.spawned = { day: dayKey(now), count: startedToday(data, now) + 1, week: weekKey(now), weekCount: startedThisWeek(data, now) + 1 };
   return happening;
 }
 
 /**
  * Start a happening now. One at a time; an admin start (`source: 'admin'`)
- * skips the frequency, gap and daily limits, but not that.
+ * skips the frequency, gap and daily limits, but not that. `pace` is the
+ * server's (getGameSettings(config).pace): it sets how long it lasts.
  * @returns {{happening} | {error: 'unknown-kind'} | {error: 'in-progress', happening}}
  */
-export function startHappening(guildId, kind, { source = 'admin', startedBy = null, channelId = null } = {}, now = Date.now()) {
+export function startHappening(guildId, kind, { source = 'admin', startedBy = null, channelId = null, pace = 'quick' } = {}, now = Date.now()) {
   if (typeof kind !== 'string' || !Object.hasOwn(HAPPENINGS, kind)) return { error: 'unknown-kind' };
   return mutate(guildId, (data) => {
     if (inProgress(data.happening, now)) return { error: 'in-progress', happening: data.happening };
-    return { happening: begin(data, kind, { source, startedBy, channelId }, now) };
+    return { happening: begin(data, kind, { source, startedBy, channelId, pace }, now) };
   });
 }
 
@@ -414,30 +434,44 @@ export function kindRate(kind, now = Date.now()) {
  * 1.93 starts if nothing held them back. Something always does — one at a
  * time, 2 hours between, 3 a day — so a busy server really sees about one
  * a day at normal (tests/happening-store.test.js measures both).
+ *
+ * 2.74.0: from the `day` pace on, a happening lasts about a day, so the
+ * same rates are spread over a week's active minutes
+ * (HAPPENING_RULES.weekly.spreadDays): about one a week at normal.
  */
 export function spawnChance(kinds, settings, now = Date.now()) {
   const total = kinds.reduce((sum, kind) => sum + kindRate(kind, now), 0);
-  return Math.min(1, (total * frequencyMultiplier(settings) * SPAWN_TICK_MINUTES) / ACTIVE_MINUTES_PER_DAY);
+  const { spreadDays } = happeningPace(paceOf(settings));
+  return Math.min(1, (total * frequencyMultiplier(settings) * SPAWN_TICK_MINUTES) / (ACTIVE_MINUTES_PER_DAY * spreadDays));
 }
 
 /**
  * Could a random happening start now, and which kinds? Every rule but the
- * dice: switched on, nothing in progress (no siege either), the gap since
- * the last one, the daily limit, and enough members active for each kind.
+ * dice: switched on, nothing in progress (no siege either, unless it's a
+ * campaign: its own timings have a daily report), the gap since the last
+ * one, the daily limit (from `day` on, the weekly one), and enough members
+ * active for each kind.
  * @returns {{ok: true, kinds: string[]} | {ok: false, reason: string}}
  */
 export function spawnEligibility(data, settings, now = Date.now()) {
   if (settings?.happenings === false || frequencyMultiplier(settings) <= 0) return { ok: false, reason: 'off' };
+  const rules = happeningPace(paceOf(settings));
   const h = data.happening;
   if (inProgress(h, now)) return { ok: false, reason: 'in-progress' };
   // R5: a monster attack is the server's event while it lasts. A siege is
   // live until the scheduler finishes it, which it does earlier in the
-  // same pass, so the status is the whole check.
-  if (data.siege?.status === 'live') return { ok: false, reason: 'siege' };
+  // same pass, so the status is the whole check. 2.74.0: not a campaign
+  // (a siege with a daily report: day on) — it runs most of the week, and
+  // happenings would never come. By the siege's OWN timings, never the
+  // settings: a quick server with a week campaign still running from
+  // before its admin changed the pace got no happenings for up to 7 days
+  // (review, 2026-11-06)
+  if (data.siege?.status === 'live' && !timingsOf(data.siege).report) return { ok: false, reason: 'siege' };
   // One that ran out unended stopped at its endsAt
   const lastEnded = Math.max(data.lastEndedAt || 0, h && !h.endedAt ? h.endsAt : 0);
-  if (now - lastEnded < HAPPENING_RULES.gapMinutes * MINUTE) return { ok: false, reason: 'gap' };
-  if (startedToday(data, now) >= HAPPENING_RULES.maxPerDay) return { ok: false, reason: 'daily-limit' };
+  if (now - lastEnded < rules.gapMinutes * MINUTE) return { ok: false, reason: 'gap' };
+  if (rules.per === 'day' && startedToday(data, now) >= rules.max) return { ok: false, reason: 'daily-limit' };
+  if (rules.per === 'week' && startedThisWeek(data, now) >= rules.max) return { ok: false, reason: 'weekly-limit' };
   const players = countRecent(data, HAPPENING_RULES.activeWindowMinutes, now);
   const kinds = Object.keys(HAPPENINGS).filter(k => HAPPENINGS[k].rate > 0 && players >= HAPPENINGS[k].minPlayers);
   if (!kinds.length) return { ok: false, reason: 'too-few-players' };
@@ -473,7 +507,7 @@ export function maybeSpawn(guildId, settings, now = Date.now(), luck = gameLuck)
       if (!eligible.ok) return { error: eligible.reason };
       if (!(luck() < spawnChance(eligible.kinds, settings, now))) return { error: 'not-this-time' };
       const kind = pickKind(eligible.kinds, now, luck());
-      return { happening: begin(data, kind, { source: 'random' }, now) };
+      return { happening: begin(data, kind, { source: 'random', pace: paceOf(settings) }, now) };
     });
     return result.happening ? { happening: result.happening } : null;
   } catch (error) {

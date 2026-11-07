@@ -29,7 +29,7 @@ import {
 } from './common.js';
 import {
   bevel, flamePath, cupBowlPath, cupHandlePath, gourdPath, lanternBodyPath, garlicPath,
-  cleaverBladePath, cleaverHandlePath, capsulePath, bulletTipPath,
+  cleaverBladePath, cleaverHandlePath, capsulePath, bulletTipPath, ribbonPath, dropPath, wispPath,
 } from './shapes.js';
 
 const OUT = '#070808';
@@ -1284,6 +1284,893 @@ function rocket(ctx) {
 }
 rocket.post = { glow: '#ff9a3a', glowBlur: 6, glowAlpha: 0.5 };
 
+// ---------------------------------------------------------------- Big Trouble: the six elements
+
+/**
+ * The Six-Demon Bag's elements. Each has its own colour, used wherever
+ * the element shows (its icon, its wisp out of the bag): Lightning the
+ * logo's blue, Thunder violet, Rain sky blue, Wind pale jade, Fire
+ * red-orange, Smoke grey-green. Opposites (Rain/Fire, Wind/Smoke,
+ * Lightning/Thunder) differ in shape as well as colour, so a pair never
+ * reads as one icon at 22 px.
+ */
+const ELEMENT = {
+  lightning: { hi: '#ffffff', light: '#c9dcff', mid: '#5f8dff', dark: '#1a34c8', glow: '#3d6bff' },
+  thunder: { hi: '#f6ecff', light: '#d6b0ff', mid: '#9a5cf0', dark: '#4a1a8f', glow: '#a45cff' },
+  rain: { hi: '#f0fdff', light: '#a6e8ff', mid: '#2fa8f0', dark: '#0a4a9a', glow: '#3fb8ff' },
+  wind: { hi: '#ffffff', light: '#d8fff2', mid: '#86e0c6', dark: '#1f7a68', glow: '#7ff0c8' },
+  fire: { hi: '#fff6c8', light: '#ffc04a', mid: '#ff6a1a', dark: '#b01e0e', glow: '#ff6a2a' },
+  smoke: { hi: '#f4fbf5', light: '#c4e2cc', mid: '#84ae90', dark: '#3a5c46', glow: '#8fb89a' },
+};
+
+/**
+ * Lightning: a forked bolt, crackling, as it leaps between the logo's
+ * hands. The kit's other bolt (`upset`) is a flat cut-out zigzag; this one
+ * is the real thing, branching and tapering, so the two never get mixed up.
+ */
+function elite(ctx) {
+  // Fixed points, not random: the zigzag is the silhouette, and at 22 px
+  // the silhouette is all there is. Crackle round it was tried first
+  // (finish() outlines every arc, so it turned to scribble), then a twig
+  // and a long fork (at 22 px they were arms and legs, a little running
+  // man). So: one bold zigzag, one short fork.
+  const trunk = [[82, 20], [56, 52], [78, 58], [44, 92], [62, 96], [38, 116]];
+  const fork = [[62, 96], [80, 104], [88, 116]];
+  const body = lin(ctx, 30, 6, 100, 122, [[0, '#ffffff'], [0.3, '#dbe7ff'], [0.65, '#82a6ff'], [1, '#3050e8']]);
+  for (const [pts, w0, w1] of [[fork, 11, 2], [trunk, 24, 3]]) {
+    ribbonPath(ctx, pts, w0, w1); ctx.fillStyle = body; ctx.fill();
+  }
+  // a white-hot core down the trunk
+  stroke(ctx, () => { ctx.beginPath(); trunk.slice(0, 5).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); }, 'rgba(255,255,255,0.95)', 6);
+  // the logo's crackle, kept inside the bolt's glow
+  const r = rng(71);
+  drawBolt(ctx, boltPoints(r, 74, 58, 98, 52, { steps: 3, amp: 4 }), { ...BOLT, width: 1.6, glowAlpha: 0.25 });
+  glint(ctx, 62, 95, 13);
+  sparkle(ctx, 104, 74, 7, '#ffffff', '#a8c6ff');
+  sparkle(ctx, 24, 34, 6, '#d6e4ff');
+}
+elite.post = { glow: '#3d6bff', glowBlur: 8, glowAlpha: 0.9 };
+
+/** A cloud as overlapping puffs on a flat base; one path, so it fills as one shape */
+function cloudPath(ctx, puffs, [bx, by, bw, bh]) {
+  ctx.beginPath();
+  for (const [x, y, r] of puffs) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
+  ctx.roundRect(bx, by, bw, bh, bh / 2);
+}
+
+/** Thunder: a black-violet storm cloud, a thunderclap bursting out beneath it */
+function ethund(ctx) {
+  const E = ELEMENT.thunder;
+  // the clap: a burst of violet light where the strike leaves the cloud
+  const burst = () => {
+    ctx.beginPath();
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * TAU; const rr = i % 2 ? 13 : 26;
+      const x = 62 + Math.cos(a) * rr * 1.25; const y = 92 + Math.sin(a) * rr;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+  };
+  fill(ctx, burst, rad(ctx, 62, 92, 30, [[0, '#ffffff'], [0.4, E.light], [1, E.mid]]));
+  // the strike
+  const strike = [[72, 70], [54, 98], [70, 100], [52, 118]];
+  ribbonPath(ctx, strike, 20, 3);
+  ctx.fillStyle = lin(ctx, 50, 70, 72, 124, [[0, '#ffffff'], [0.45, '#efe2ff'], [1, E.light]]); ctx.fill();
+  // the cloud
+  const cloud = () => cloudPath(ctx, [[36, 52, 23], [66, 38, 27], [92, 50, 23]], [13, 46, 102, 32]);
+  fill(ctx, cloud, lin(ctx, 20, 10, 100, 80, [[0, '#c8c2ee'], [0.3, '#7d74ba'], [0.7, '#40376f'], [1, '#1e1840']]));
+  clip(ctx, cloud, () => {
+    // lit violet from below by the strike
+    ctx.fillStyle = rad(ctx, 64, 88, 44, [[0, rgba(E.mid, 0.9)], [0.5, rgba(E.dark, 0.45)], [1, rgba(E.dark, 0)]]);
+    ctx.fillRect(0, 0, 128, 128);
+    grain(ctx, 10, 8, 108, 72, { seed: 33, n: 360, light: 0.08, dark: 0.16 });
+  });
+  bevel(ctx, cloud, 3, 'rgba(240,236,255,0.9)', 'rgba(0,0,0,0.55)', [10, 8, 118, 80]);
+}
+ethund.post = { glow: '#a45cff', glowBlur: 7, glowAlpha: 0.6 };
+
+/** Rain: three fat drops, driven slantwise by the storm */
+function erain(ctx) {
+  const E = ELEMENT.rain;
+  const slant = 0.42;
+  const drops = [[34, 48, 10], [94, 66, 13], [56, 98, 18]];
+  // streaks behind each drop, along the way it's falling
+  for (const [x, y, r] of drops) {
+    const dx = Math.sin(slant); const dy = -Math.cos(slant);
+    const sx = x + dx * r * 2.7; const sy = y + dy * r * 2.7;
+    ribbonPath(ctx, [[sx, sy], [sx + dx * r * 1.2, sy + dy * r * 1.2]], r * 0.55, 1);
+    ctx.fillStyle = rgba(E.light, 0.9); ctx.fill();
+  }
+  for (const [x, y, r] of drops) {
+    frame(ctx, { x, y, rot: slant }, () => {
+      const d = () => dropPath(ctx, 0, 0, r);
+      fill(ctx, d, rad(ctx, -r * 0.35, -r * 0.4, r * 2.2, [[0, E.hi], [0.25, E.light], [0.6, E.mid], [1, E.dark]]));
+      bevel(ctx, d, 2, 'rgba(255,255,255,0.9)', 'rgba(0,30,80,0.55)', [-r, -r * 2.4, r, r]);
+      // the drop's highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ellipse(ctx, -r * 0.42, -r * 0.2, r * 0.18, r * 0.42, 0.3); ctx.fill();
+    });
+  }
+}
+erain.post = { glow: '#3fb8ff', glowBlur: 6, glowAlpha: 0.55 };
+
+/** Wind: three gusts curling at their ends, a jade leaf blown along */
+function ewind(ctx) {
+  const E = ELEMENT.wind;
+  const gusts = [
+    () => { ctx.beginPath(); ctx.moveTo(18, 42); ctx.lineTo(70, 42); ctx.arc(70, 28, 14, Math.PI / 2, -Math.PI * 0.95, true); },
+    () => { ctx.beginPath(); ctx.moveTo(15, 66); ctx.lineTo(94, 66); ctx.arc(94, 50, 16, Math.PI / 2, -Math.PI * 0.95, true); },
+    () => { ctx.beginPath(); ctx.moveTo(24, 88); ctx.lineTo(70, 88); ctx.arc(70, 99, 11, -Math.PI / 2, Math.PI * 0.95, false); },
+  ];
+  for (const g of gusts) {
+    stroke(ctx, g, E.dark, 14);
+    stroke(ctx, g, E.mid, 10);
+    ctx.save(); ctx.translate(-1.5, -2); stroke(ctx, g, E.light, 5); ctx.restore();
+    ctx.save(); ctx.translate(-2, -3); stroke(ctx, g, 'rgba(255,255,255,0.9)', 1.8); ctx.restore();
+  }
+  // a jade leaf caught in it
+  frame(ctx, { x: 108, y: 92, rot: -0.7 }, () => {
+    const leaf = () => { ctx.beginPath(); ctx.moveTo(-14, 0); ctx.quadraticCurveTo(0, -11, 14, 0); ctx.quadraticCurveTo(0, 11, -14, 0); ctx.closePath(); };
+    fill(ctx, leaf, lin(ctx, -14, -8, 14, 8, [[0, JADE.hi], [0.4, JADE.lit], [1, JADE.dark]]));
+    stroke(ctx, () => { ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(12, 0); }, rgba(JADE.dark, 0.8), 1.6);
+  });
+}
+ewind.post = { glow: '#7ff0c8', glowBlur: 5, glowAlpha: 0.35 };
+
+/** Fire: a red-orange flame, the streak's blue spirit flame turned to real fire (and mirrored) */
+function efire(ctx) {
+  frame(ctx, { x: 128, sx: -1, sy: 1 }, () => {
+    const outer = () => flamePath(ctx, 64, 118, 92, 112);
+    fill(ctx, outer, rad(ctx, 64, 92, 90, [[0, '#fff3b0'], [0.3, '#ffb03a'], [0.62, '#f2491a'], [0.88, '#b4160e'], [1, '#6e0808']], 60, 104, 4));
+    clip(ctx, outer, () => smoke(ctx, 20, 70, 88, 50, { seed: 4, n: 5, colours: ['#7a0a06'], alpha: 0.4 }));
+    fill(ctx, () => flamePath(ctx, 64, 116, 60, 76), rad(ctx, 64, 100, 60, [[0, '#ffffff'], [0.4, '#ffe592'], [1, '#ff8a2a']]));
+    fill(ctx, () => flamePath(ctx, 64, 114, 30, 40), '#fffbe8');
+  });
+  // embers
+  sparkle(ctx, 16, 40, 7, '#ffe592', '#ff7a1a');
+  sparkle(ctx, 112, 26, 6, '#ffe592');
+}
+efire.post = { glow: '#ff6a2a', glowBlur: 7, glowAlpha: 0.7 };
+
+/**
+ * Smoke: a coiling bank of grey-green smoke, drawn as the old auspicious
+ * cloud scroll (every puff a coil), drifting off in two bands. Earlier
+ * tries, billowing puffs and then rising ribbons over an incense burner,
+ * both read as a plant in a pot at 22 px.
+ */
+function esmoke(ctx) {
+  const E = ELEMENT.smoke;
+  const smokeFill = (y0, y1) => lin(ctx, 20, y0, 100, y1, [[0, E.hi], [0.3, E.light], [0.72, E.mid], [1, E.dark]]);
+  // the drifting bands under it
+  for (const [pts, w] of [[[[15, 92], [34, 88], [58, 94], [84, 90], [104, 94]], 11], [[[34, 110], [58, 106], [84, 111], [112, 106]], 9]]) {
+    const line = () => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); };
+    stroke(ctx, line, E.mid, w);
+    ctx.save(); ctx.translate(-1, -1.5); stroke(ctx, line, E.light, w * 0.45); ctx.restore();
+  }
+  // the bank: coils on a rounded base, filled as one shape
+  const coils = [[40, 58, 21], [74, 42, 26], [98, 68, 17]];
+  const bank = () => cloudPath(ctx, coils, [16, 62, 96, 22]);
+  fill(ctx, bank, smokeFill(16, 84));
+  // each coil's groove: a spiral, dark with a lit lip
+  for (const [x, y, r] of coils) {
+    const spiral = () => {
+      ctx.beginPath();
+      for (let i = 0; i <= 40; i++) {
+        const t = i / 40; const a = -Math.PI * 0.25 + t * TAU * 1.25; const rr = r * (0.12 + t * 0.62);
+        const px = x + Math.cos(a) * rr; const py = y + Math.sin(a) * rr;
+        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+    };
+    clip(ctx, bank, () => {
+      ctx.save(); ctx.translate(1.2, 1.4); stroke(ctx, spiral, 'rgba(255,255,255,0.55)', 2.4); ctx.restore();
+      stroke(ctx, spiral, rgba(E.dark, 0.85), 3.4);
+    });
+  }
+  clip(ctx, bank, () => grain(ctx, 16, 14, 100, 72, { seed: 37, n: 300, light: 0.08, dark: 0.12 }));
+  bevel(ctx, bank, 3, 'rgba(250,255,250,0.85)', 'rgba(0,0,0,0.45)', [16, 14, 116, 84]);
+}
+esmoke.post = { glow: '#8fb89a', glowBlur: 5, glowAlpha: 0.3 };
+
+// ---------------------------------------------------------------- Big Trouble: magic and items
+
+/** Chi: yin and yang, the light half luminous jade, the dark half the logo's starry nebula */
+function chi(ctx) {
+  const cx = 64; const cy = 64; const R = 54; const h = R / 2;
+  const disc = () => circle(ctx, cx, cy, R);
+  const yang = () => {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - R);
+    ctx.arc(cx, cy, R, -Math.PI / 2, Math.PI / 2, true);
+    ctx.arc(cx, cy + h, h, Math.PI / 2, -Math.PI / 2, true);
+    ctx.arc(cx, cy - h, h, Math.PI / 2, Math.PI * 1.5, false);
+    ctx.closePath();
+  };
+  // the dark half: night and smoke
+  fill(ctx, disc, '#030805');
+  clip(ctx, disc, () => {
+    smoke(ctx, cx - R, cy - R, R * 2, R * 2, { seed: 9, n: 10, colours: ['#1f5a32', '#173a24', '#1d3f6a'], alpha: 0.6, rMin: 10, rMax: 24 });
+    specks(ctx, cx - R, cy - R, R * 2, R * 2, { seed: 4, n: 26, colour: '#e8fff0', max: 1.5 });
+  });
+  // the light half: glowing jade
+  fill(ctx, yang, rad(ctx, cx - 18, cy - 10, R * 1.3, [[0, JADE.hi], [0.3, JADE.lit], [0.7, JADE.mid], [1, JADE.dark]]));
+  clip(ctx, yang, () => grain(ctx, cx - R, cy - R, R * 2, R * 2, { seed: 12, n: 260, light: 0.12, dark: 0.12 }));
+  // the eyes: a dark seed in the light, a glowing one in the dark
+  circle(ctx, cx, cy + h, 9); ctx.fillStyle = '#04100a'; ctx.fill();
+  circle(ctx, cx, cy - h, 9); ctx.fillStyle = rad(ctx, cx - 2, cy - h - 2, 10, [[0, '#ffffff'], [0.4, JADE.lit], [1, JADE.mid]]); ctx.fill();
+  // a pale rim so the dark side holds its edge on the dark theme
+  bevel(ctx, disc, 3, 'rgba(222,240,226,0.9)', 'rgba(0,0,0,0.6)', [cx - R, cy - R, cx + R, cy + R]);
+  ctx.save(); clip(ctx, disc, () => stroke(ctx, disc, rgba(JADE.lit, 0.55), 4)); ctx.restore();
+  glint(ctx, 38, 34, 11);
+}
+chi.post = { glow: JADE.lit, glowBlur: 7, glowAlpha: 0.7 };
+
+/**
+ * The Six-Demon Bag, open: one wisp for each element fanning out of it.
+ * The Glovebox's icon (`glove`) is also a bag (brown leather, one blue
+ * bolt), and both head sections of the same games card, so this one is
+ * black silk stitched in gold, and its six colours do the talking.
+ */
+function bag(ctx) {
+  const order = ['fire', 'thunder', 'lightning', 'rain', 'wind', 'smoke'];
+  // the ruffled mouth, its opening glowing white
+  const mouth = () => {
+    ctx.beginPath();
+    ctx.moveTo(46, 76); ctx.bezierCurveTo(34, 72, 30, 62, 36, 56);
+    ctx.quadraticCurveTo(44, 62, 50, 56); ctx.quadraticCurveTo(57, 62, 64, 55); ctx.quadraticCurveTo(71, 62, 78, 56); ctx.quadraticCurveTo(84, 62, 92, 56);
+    ctx.bezierCurveTo(98, 62, 94, 72, 82, 76); ctx.closePath();
+  };
+  const silk = (x0, y0, x1, y1) => lin(ctx, x0, y0, x1, y1, [[0, '#6a6fa0'], [0.3, '#34386a'], [0.75, '#16183a'], [1, '#0a0b1e']]);
+  fill(ctx, mouth, silk(30, 54, 98, 76));
+  ellipse(ctx, 64, 62, 22, 5); ctx.fillStyle = '#ffffff'; ctx.fill();
+  // the six wisps, a dark rim on each so neighbours stay apart
+  order.forEach((k, i) => {
+    const E = ELEMENT[k];
+    const L = 54 - Math.abs(i - 2.5) * 4;
+    frame(ctx, { x: 64, y: 64, rot: (i - 2.5) * 0.38 }, () => {
+      const w = () => wispPath(ctx, L, 21);
+      stroke(ctx, w, '#06070c', 4);
+      fill(ctx, w, lin(ctx, 0, -L, 0, 0, [[0, E.light], [0.4, E.mid], [1, E.dark]]));
+      fill(ctx, () => { ctx.save(); ctx.translate(-2, -6); wispPath(ctx, L * 0.62, 8); ctx.restore(); }, rgba(E.hi, 0.85));
+    });
+  });
+  // the bag
+  const body = () => {
+    ctx.beginPath();
+    ctx.moveTo(46, 74); ctx.bezierCurveTo(14, 84, 10, 108, 24, 116);
+    ctx.bezierCurveTo(40, 121, 88, 121, 104, 116);
+    ctx.bezierCurveTo(118, 108, 114, 84, 82, 74); ctx.closePath();
+  };
+  fill(ctx, body, silk(14, 74, 114, 122));
+  clip(ctx, body, () => {
+    grain(ctx, 10, 70, 108, 54, { seed: 46, n: 360, light: 0.08, dark: 0.16 });
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2.4;
+    for (const k of [-0.7, -0.25, 0.25, 0.7]) { ctx.beginPath(); ctx.moveTo(64 + k * 18, 78); ctx.quadraticCurveTo(64 + k * 42, 90, 64 + k * 48, 112); ctx.stroke(); }
+    // gold-stitched waves along the hem
+    ctx.beginPath();
+    for (let x = 14; x <= 114; x += 2) { const y = 104 + 3.5 * Math.sin((x / 16) * TAU); x === 14 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+    ctx.strokeStyle = GOLD[1]; ctx.lineWidth = 3; ctx.setLineDash([5, 3]); ctx.stroke(); ctx.setLineDash([]);
+  });
+  bevel(ctx, body, 3, 'rgba(214,218,250,0.75)', 'rgba(0,0,0,0.6)', [14, 74, 114, 122]);
+  // the red drawstring, knot and gold beads
+  cord(ctx, () => { ctx.beginPath(); ctx.moveTo(42, 76); ctx.quadraticCurveTo(64, 82, 86, 76); }, 8);
+  cord(ctx, () => { ctx.beginPath(); ctx.moveTo(84, 78); ctx.quadraticCurveTo(98, 84, 100, 98); }, 5);
+  circle(ctx, 84, 78, 5.5); ctx.fillStyle = RED[2]; ctx.fill();
+  circle(ctx, 100, 100, 4.5); ctx.fillStyle = metal(ctx, GOLD, 96, 96, 104, 104); ctx.fill();
+}
+bag.post = { glow: '#ffffff', glowBlur: 6, glowAlpha: 0.3 };
+
+/**
+ * Black Blood of the Earth: Egg Shen's potion in a little snuff bottle,
+ * black glass with the brew glowing green deep inside, gold mounts and a
+ * coral stopper. (The potions game's icon is already a blue gourd, so
+ * this one is a different bottle in different colours.)
+ */
+function bblood(ctx) {
+  frame(ctx, { x: 64, y: 68, rot: 0.12 }, () => {
+    const body = () => {
+      ctx.beginPath();
+      ctx.moveTo(-10, -36); ctx.lineTo(10, -36); ctx.lineTo(10, -30);
+      ctx.bezierCurveTo(34, -28, 40, -12, 38, 8);
+      ctx.bezierCurveTo(36, 30, 26, 42, 16, 46);
+      ctx.lineTo(-16, 46);
+      ctx.bezierCurveTo(-26, 42, -36, 30, -38, 8);
+      ctx.bezierCurveTo(-40, -12, -34, -28, -10, -30);
+      ctx.closePath();
+    };
+    fill(ctx, body, '#020604');
+    clip(ctx, body, () => {
+      ctx.fillStyle = rad(ctx, -2, 12, 34, [[0, '#c8ffd6'], [0.22, '#46e07e'], [0.55, '#0d6a2d'], [1, 'rgba(2,12,6,0)']]);
+      ctx.fillRect(-40, -40, 80, 90);
+      smoke(ctx, -36, -18, 72, 64, { seed: 23, n: 7, colours: ['#010302', '#08240f'], alpha: 0.75, rMin: 7, rMax: 14 });
+      specks(ctx, -30, -20, 60, 60, { seed: 8, n: 16, colour: '#d2ffdc', max: 1.4 });
+    });
+    glassRim(ctx, body, 3);
+    // gold filigree: a lobed medallion on the front
+    ctx.beginPath();
+    for (let i = 0; i <= 64; i++) {
+      const a = (i / 64) * TAU; const rr = 19 + 3.5 * Math.cos(a * 4);
+      const x = Math.cos(a) * rr; const y = 8 + Math.sin(a) * rr;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath(); ctx.strokeStyle = GOLD[3]; ctx.lineWidth = 4.5; ctx.stroke();
+    ctx.strokeStyle = GOLD[1]; ctx.lineWidth = 2.5; ctx.stroke();
+    // the glass's gloss
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.ellipse(0, 8, 32, 34, 0, Math.PI * 1.08, Math.PI * 1.32); ctx.stroke();
+    // gold foot, collar, and the stopper's coral bead
+    for (const [x, y, w, h] of [[-19, 43, 38, 8], [-14, -41, 28, 8]]) {
+      rrect(ctx, x, y, w, h, 3); ctx.fillStyle = metal(ctx, GOLD, x, y, x + w, y + h); ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(0, -41, 11, Math.PI, 0); ctx.closePath();
+    ctx.fillStyle = metal(ctx, GOLD, -11, -52, 11, -41); ctx.fill();
+    circle(ctx, 0, -55, 6.5); ctx.fillStyle = rad(ctx, -2, -57, 8, [[0, RED[0]], [0.5, RED[1]], [1, RED[3]]]); ctx.fill();
+  });
+  glint(ctx, 46, 50, 9);
+}
+bblood.post = { glow: '#3fdc78', glowBlur: 7, glowAlpha: 0.6 };
+
+/** Jade Charm: a carved jade bi disc on a red cord, knotted above, a tassel below */
+function jade(ctx) {
+  const cx = 64; const cy = 64; const R = 38; const h = 12;
+  const disc = () => { ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.moveTo(cx + h, cy); ctx.arc(cx, cy, h, 0, TAU, true); };
+  // the cord through the hole, behind the disc
+  cord(ctx, () => { ctx.beginPath(); ctx.moveTo(cx, 20); ctx.lineTo(cx, 108); }, 7);
+  fill(ctx, disc, rad(ctx, cx - 14, cy - 16, R * 1.5, [[0, JADE.hi], [0.25, JADE.lit], [0.6, JADE.mid], [1, JADE.dark]]));
+  clip(ctx, disc, () => {
+    grain(ctx, cx - R, cy - R, R * 2, R * 2, { seed: 27, n: 360, light: 0.12, dark: 0.14 });
+    // the grain pattern: rows of raised curls between two carved rings
+    for (const rr of [h + 5, R - 6]) {
+      ctx.save(); ctx.translate(1, 1); stroke(ctx, () => circle(ctx, cx, cy, rr), 'rgba(230,255,236,0.5)', 1.6); ctx.restore();
+      stroke(ctx, () => circle(ctx, cx, cy, rr), rgba(JADE.dark, 0.8), 1.8);
+    }
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * TAU + 0.2; const rr = (h + R) / 2 + 0.5;
+      const x = cx + Math.cos(a) * rr; const y = cy + Math.sin(a) * rr;
+      circle(ctx, x + 0.8, y + 0.8, 3.4); ctx.fillStyle = rgba(JADE.dark, 0.6); ctx.fill();
+      circle(ctx, x - 0.4, y - 0.4, 2.8); ctx.fillStyle = rgba(JADE.hi, 0.75); ctx.fill();
+    }
+  });
+  bevel(ctx, disc, 3, 'rgba(240,255,244,0.9)', 'rgba(0,40,10,0.6)', [cx - R, cy - R, cx + R, cy + R]);
+  // the cord comes over the top of the disc into the hole
+  cord(ctx, () => { ctx.beginPath(); ctx.moveTo(cx - 3, 18); ctx.quadraticCurveTo(cx - 6, 40, cx - 4, cy - h + 2); }, 6);
+  cord(ctx, () => { ctx.beginPath(); ctx.moveTo(cx + 3, 18); ctx.quadraticCurveTo(cx + 6, 40, cx + 4, cy - h + 2); }, 6);
+  // the knot above, a hanging loop, the tassel below
+  stroke(ctx, () => { ctx.beginPath(); ctx.ellipse(cx, 14, 6, 5, 0, Math.PI * 0.85, Math.PI * 2.15); }, RED[2], 4);
+  diamond(ctx, cx, 21, 8); ctx.fillStyle = RED[2]; ctx.fill();
+  ctx.strokeStyle = RED[0]; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(cx - 4, 18); ctx.lineTo(cx + 3, 25); ctx.stroke();
+  tassel(ctx, cx, 102, 10, true);
+  glint(ctx, 40, 40, 10);
+}
+jade.post = { glow: JADE.lit, glowBlur: 6, glowAlpha: 0.45 };
+
+/**
+ * The Pork-Chop Express: Jack Burton's big rig, head on. What says "truck"
+ * at 22 px is the tall chrome grille, the twin exhaust stacks and the black
+ * tyres under a wide cab, so those are drawn big.
+ */
+function truck(ctx) {
+  // exhaust stacks either side of the cab
+  for (const x of [12, 107]) {
+    const st = () => rrect(ctx, x, 8, 9, 70, 4);
+    fill(ctx, st, metal(ctx, SILVER, x, 8, x + 9, 78));
+    rrect(ctx, x - 1.5, 6, 12, 7, 3); ctx.fillStyle = IRON[3]; ctx.fill();
+  }
+  // tyres
+  for (const x of [16, 88]) {
+    rrect(ctx, x, 100, 24, 20, 5); ctx.fillStyle = lin(ctx, 0, 100, 0, 120, [[0, '#3a3c40'], [1, '#0a0b0c']]); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; for (let y = 104; y < 118; y += 5) ctx.fillRect(x + 3, y, 18, 1.6);
+  }
+  // the cab
+  const cab = () => rrect(ctx, 22, 12, 84, 54, 9);
+  fill(ctx, cab, lin(ctx, 22, 12, 106, 66, [[0, RED[0]], [0.3, RED[1]], [0.7, RED[2]], [1, RED[3]]]));
+  clip(ctx, cab, () => grain(ctx, 22, 12, 84, 54, { seed: 63, n: 220, light: 0.08, dark: 0.14 }));
+  bevel(ctx, cab, 2.5, rgba(RED[0], 0.9), 'rgba(0,0,0,0.5)', [22, 12, 106, 66]);
+  // roof marker lights
+  for (const x of [44, 56, 68, 80]) { rrect(ctx, x - 3, 14, 7, 4, 1.5); ctx.fillStyle = '#ffc64d'; ctx.fill(); }
+  // the split windscreen under a dark visor
+  ctx.fillStyle = '#2a0408'; ctx.fillRect(26, 20, 76, 4);
+  for (const x of [28, 66]) {
+    const pane = () => rrect(ctx, x, 24, 34, 26, 3);
+    fill(ctx, pane, lin(ctx, x, 24, x + 34, 50, [[0, '#8fb4d8'], [0.35, '#30507a'], [1, '#0a1428']]));
+    clip(ctx, pane, () => { poly(ctx, [[x + 6, 24], [x + 16, 24], [x + 4, 50], [x - 6, 50]]); ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill(); });
+  }
+  // fenders over the wheels, headlights in them
+  for (const side of [-1, 1]) {
+    const fx = 64 + side * 44;
+    const fender = () => { ctx.beginPath(); ctx.moveTo(fx - side * 30, 98); ctx.lineTo(fx - side * 30, 70); ctx.quadraticCurveTo(fx + side * 2, 66, fx + side * 6, 98); ctx.closePath(); };
+    fill(ctx, fender, lin(ctx, 10, 66, 118, 98, [[0, RED[1]], [0.5, RED[2]], [1, RED[3]]]));
+    bevel(ctx, fender, 2, rgba(RED[0], 0.8), 'rgba(0,0,0,0.5)', [10, 66, 118, 98]);
+    const hx = 64 + side * 38;
+    circle(ctx, hx, 82, 8.5); ctx.fillStyle = metal(ctx, SILVER, hx - 9, 73, hx + 9, 91); ctx.fill();
+    circle(ctx, hx, 82, 5.5); ctx.fillStyle = rad(ctx, hx - 1.5, 80.5, 7, [[0, '#ffffff'], [0.5, '#fff3c0'], [1, '#e0a83a']]); ctx.fill();
+  }
+  // the big chrome grille
+  const grille = () => rrect(ctx, 42, 56, 44, 48, 4);
+  fill(ctx, grille, metal(ctx, SILVER, 42, 56, 86, 104));
+  for (let y = 62; y < 100; y += 6) { ctx.fillStyle = 'rgba(20,24,30,0.75)'; ctx.fillRect(47, y, 34, 3); }
+  bevel(ctx, grille, 2, 'rgba(255,255,255,0.9)', 'rgba(0,0,0,0.5)', [42, 56, 86, 104]);
+  // chrome bumper, and a jade gem for a hood ornament
+  const bumper = () => rrect(ctx, 10, 96, 108, 10, 4);
+  fill(ctx, bumper, metal(ctx, SILVER, 10, 96, 118, 106));
+  bevel(ctx, bumper, 1.5, 'rgba(255,255,255,0.9)', 'rgba(0,0,0,0.5)', [10, 96, 118, 106]);
+  setGem(ctx, 64, 54, 6, JADE, true, { glintR: 5 });
+  glint(ctx, 34, 28, 8);
+}
+
+/**
+ * A head-and-shoulders figure: (cx, hy) the middle of the head, r its
+ * radius, the shoulders rounding off at y 116 (inside the outline's
+ * margin). `shirt` is a ramp (light → dark); `hair(x, y, r)` paints over
+ * the head. A dark rim goes round it first, so a figure in front stands
+ * off the one behind.
+ */
+function figure(ctx, cx, hy, r, shirt, hair) {
+  const neckY = hy + r * 1.05; const base = 116; const hw = r * 2.05;
+  const shoulders = () => {
+    ctx.beginPath();
+    ctx.moveTo(cx - hw + 6, base);
+    ctx.quadraticCurveTo(cx - hw, base, cx - hw, base - 8);
+    ctx.bezierCurveTo(cx - hw, neckY + r * 1.1, cx - r * 1.4, neckY + r * 0.35, cx, neckY + r * 0.35);
+    ctx.bezierCurveTo(cx + r * 1.4, neckY + r * 0.35, cx + hw, neckY + r * 1.1, cx + hw, base - 8);
+    ctx.quadraticCurveTo(cx + hw, base, cx + hw - 6, base);
+    ctx.closePath();
+  };
+  const head = () => ellipse(ctx, cx, hy, r * 0.9, r);
+  const skin = lin(ctx, cx - r, hy - r, cx + r, hy + r, [[0, '#ffdcb8'], [0.4, '#eeb07a'], [1, '#a85e24']]);
+  for (const p of [shoulders, head]) stroke(ctx, p, OUT, 7);
+  fill(ctx, shoulders, lin(ctx, cx - hw, neckY, cx + hw, base, [[0, shirt[0]], [0.35, shirt[1]], [1, shirt[3]]]));
+  clip(ctx, shoulders, () => grain(ctx, cx - hw, neckY, hw * 2, base - neckY, { seed: Math.round(cx), n: 160, light: 0.08, dark: 0.14 }));
+  bevel(ctx, shoulders, 2.5, rgba(shirt[0], 0.9), 'rgba(0,0,0,0.5)', [cx - hw, neckY, cx + hw, base]);
+  // the neck
+  rrect(ctx, cx - r * 0.38, hy + r * 0.6, r * 0.76, r * 0.8, r * 0.2); ctx.fillStyle = '#c47a3e'; ctx.fill();
+  fill(ctx, head, skin);
+  clip(ctx, head, () => hair(cx, hy, r));
+}
+
+/**
+ * Sidekick: the pact's two, one in front. Behind, the hero (Jack Burton:
+ * the big one, red shirt, a mullet); in front, the sidekick (Wang Chi:
+ * jade jacket, gold collar). A fist bump was tried first: two fists side
+ * by side only fill a strip of the square, and at 22 px it was a tan pill.
+ */
+function sidek(ctx) {
+  figure(ctx, 80, 36, 18, RED, (x, y, r) => {
+    // the mullet: a dark cap over the crown, a little longer at the back
+    ctx.fillStyle = lin(ctx, x - r, y - r, x + r, y, [[0, '#7a4a28'], [1, '#2a1406']]);
+    ctx.beginPath(); ctx.ellipse(x, y - r * 0.42, r * 1.2, r * 0.68, 0, Math.PI, 0); ctx.fill();
+    ctx.fillRect(x + r * 0.62, y - r * 0.5, r * 0.4, r * 1.2);
+  });
+  figure(ctx, 44, 62, 15.5, ['#b8f5c8', JADE.lit, JADE.mid, JADE.dark], (x, y, r) => {
+    ctx.fillStyle = lin(ctx, x - r, y - r, x + r, y, [[0, '#3a3a40'], [1, '#08080a']]);
+    ctx.beginPath(); ctx.ellipse(x, y - r * 0.38, r * 1.15, r * 0.7, 0, Math.PI, 0); ctx.fill();
+  });
+  // Wang Chi's gold mandarin collar
+  stroke(ctx, () => { ctx.beginPath(); ctx.moveTo(36, 80); ctx.quadraticCurveTo(44, 85, 52, 80); }, GOLD[1], 4);
+  sparkle(ctx, 18, 36, 8, '#ffffff', JADE.lit);
+}
+
+/** The Wang Chi: a jian with a jade blade, held high */
+function wang(ctx) {
+  frame(ctx, { x: 66, y: 60, rot: 0.75 }, () => {
+    const blade = () => poly(ctx, [[0, -64], [10, -50], [10, 18], [-10, 18], [-10, -50]]);
+    fill(ctx, blade, lin(ctx, -10, 0, 10, 0, [[0, JADE.hi], [0.42, JADE.lit], [0.5, JADE.mid], [1, JADE.dark]]));
+    clip(ctx, blade, () => grain(ctx, -10, -64, 20, 82, { seed: 77, n: 120, light: 0.12, dark: 0.12 }));
+    // the ridge down the middle catches the light
+    stroke(ctx, () => { ctx.beginPath(); ctx.moveTo(0, -58); ctx.lineTo(0, 14); }, 'rgba(240,255,244,0.7)', 1.6);
+    bevel(ctx, blade, 2, 'rgba(240,255,244,0.9)', 'rgba(0,40,10,0.55)', [-10, -64, 10, 18]);
+    // guard, red-corded grip, pommel
+    const guard = () => { ctx.beginPath(); ctx.moveTo(-22, 18); ctx.quadraticCurveTo(0, 10, 22, 18); ctx.lineTo(17, 28); ctx.quadraticCurveTo(0, 23, -17, 28); ctx.closePath(); };
+    fill(ctx, guard, metal(ctx, GOLD, -22, 10, 22, 28));
+    rrect(ctx, -6.5, 26, 13, 24, 3); ctx.fillStyle = lin(ctx, -6, 0, 6, 0, [[0, WOOD[1]], [1, WOOD[3]]]); ctx.fill();
+    for (let y = 29; y < 48; y += 5) { ctx.fillStyle = RED[2]; ctx.fillRect(-6.5, y, 13, 2.8); ctx.fillStyle = rgba(RED[0], 0.7); ctx.fillRect(-6.5, y, 13, 1); }
+    circle(ctx, 0, 55, 8); ctx.fillStyle = metal(ctx, GOLD, -8, 47, 8, 63); ctx.fill();
+  });
+  // the tassel off the pommel
+  cord(ctx, () => { ctx.beginPath(); ctx.moveTo(25, 102); ctx.quadraticCurveTo(18, 102, 18, 106); }, 5);
+  tassel(ctx, 18, 104, 5, true);
+  glint(ctx, 98, 26, 12);
+  sparkle(ctx, 30, 26, 8, '#ffffff', JADE.lit);
+}
+wang.post = { glow: JADE.lit, glowBlur: 7, glowAlpha: 0.65 };
+
+/**
+ * The Jack Burton: a thrown knife in flight ("It's all in the reflexes"),
+ * motion streaks behind it. The streaks stand clear of the handle: joined
+ * to it, they read as a broom's bristles at 22 px.
+ */
+function jack(ctx) {
+  frame(ctx, { x: 68, y: 60, rot: -0.55, s: 0.92 }, () => {
+    for (const [y, x0, x1, w] of [[-14, -70, -50, 6], [2, -74, -48, 8], [17, -66, -50, 6]]) {
+      ribbonPath(ctx, [[x0, y], [x1, y]], 1.5, w);
+      ctx.fillStyle = lin(ctx, x0, 0, x1, 0, [[0, 'rgba(200,220,255,0.55)'], [1, '#f2f7ff']]); ctx.fill();
+    }
+    // the handle: dark wood, gold rivets, a gold bolster
+    const handle = () => rrect(ctx, -36, -10, 36, 20, 8);
+    fill(ctx, handle, lin(ctx, 0, -10, 0, 10, [[0, '#6a4a34'], [0.45, '#2e1c10'], [1, '#120a06']]));
+    for (const x of [-26, -13]) { circle(ctx, x, -0.5, 3.2); ctx.fillStyle = metal(ctx, GOLD, x - 3, -3.5, x + 3, 2.5); ctx.fill(); }
+    rrect(ctx, -4, -14, 8, 28, 2); ctx.fillStyle = metal(ctx, GOLD, -4, -14, 4, 14); ctx.fill();
+    // the blade: a straight spine, the edge sweeping up to the point
+    const blade = () => { ctx.beginPath(); ctx.moveTo(3, -12); ctx.lineTo(38, -12); ctx.quadraticCurveTo(54, -10, 60, 0); ctx.quadraticCurveTo(44, 14, 3, 14); ctx.closePath(); };
+    fill(ctx, blade, lin(ctx, 0, -12, 0, 14, [[0, '#ffffff'], [0.3, SILVER[1]], [0.62, SILVER[3]], [0.78, '#dfe8f0'], [1, '#ffffff']]));
+    stroke(ctx, () => { ctx.beginPath(); ctx.moveTo(8, -5); ctx.lineTo(40, -5); }, 'rgba(40,50,60,0.45)', 1.8);
+    bevel(ctx, blade, 1.5, 'rgba(255,255,255,0.9)', 'rgba(0,0,0,0.45)', [3, -12, 60, 14]);
+  });
+  glint(ctx, 110, 34, 10);
+}
+
+/** One gold cash coin lying flat, seen from a little above: top face and milled edge */
+function flatCoin(ctx, cx, cy, rx, ry, th) {
+  const side = () => {
+    ctx.beginPath();
+    ctx.moveTo(cx + rx, cy); ctx.lineTo(cx + rx, cy + th);
+    ctx.ellipse(cx, cy + th, rx, ry, 0, 0, Math.PI);
+    ctx.lineTo(cx - rx, cy);
+    ctx.ellipse(cx, cy, rx, ry, 0, Math.PI, 0, true);
+    ctx.closePath();
+  };
+  fill(ctx, side, lin(ctx, cx - rx, 0, cx + rx, 0, [[0, GOLD[2]], [0.3, GOLD[1]], [0.7, GOLD[3]], [1, GOLD[4]]]));
+  clip(ctx, side, () => { ctx.fillStyle = 'rgba(80,45,0,0.35)'; for (let x = cx - rx + 3; x < cx + rx; x += 4) ctx.fillRect(x, cy, 1.4, th + ry); });
+  const face = () => ellipse(ctx, cx, cy, rx, ry);
+  fill(ctx, face, lin(ctx, cx - rx, cy - ry, cx + rx, cy + ry, [[0, GOLD[0]], [0.4, GOLD[1]], [1, GOLD[2]]]));
+  stroke(ctx, () => ellipse(ctx, cx, cy, rx * 0.78, ry * 0.72), rgba(GOLD[3], 0.7), 1.6);
+  rrect(ctx, cx - rx * 0.2, cy - ry * 0.32, rx * 0.4, ry * 0.64, 1.5); ctx.fillStyle = '#2a1802'; ctx.fill();
+}
+
+/** Backing a fighter: a stack of gold cash coins and the paper chit that says who you backed */
+function back(ctx) {
+  // the wager chit, standing behind the stack
+  frame(ctx, { x: 86, y: 46, rot: 0.2 }, () => {
+    const chit = () => rrect(ctx, -22, -36, 44, 72, 3);
+    fill(ctx, chit, lin(ctx, -22, -36, 22, 36, [[0, IVORY[0]], [0.55, IVORY[1]], [1, IVORY[2]]]));
+    clip(ctx, chit, () => grain(ctx, -22, -36, 44, 72, { seed: 58, n: 200, light: 0.08, dark: 0.1 }));
+    bevel(ctx, chit, 2, 'rgba(255,255,255,0.9)', 'rgba(80,60,20,0.45)', [-22, -36, 22, 36]);
+    stroke(ctx, () => rrect(ctx, -16, -30, 32, 60, 2), rgba(RED[2], 0.85), 2.2);
+    // a name brushed in black, the house's red seal under it
+    ctx.strokeStyle = '#1a1410'; ctx.lineWidth = 3.6; ctx.lineCap = 'round';
+    for (const [a, b, c, d] of [[-8, -22, 8, -22], [0, -26, 0, -6], [-9, -12, 9, -12], [-7, -4, 7, -4]]) { ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); }
+    rrect(ctx, -9, 6, 18, 18, 2); ctx.fillStyle = '#c0161c'; ctx.fill();
+    ctx.strokeStyle = IVORY[1]; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(-5, 11); ctx.lineTo(5, 11); ctx.moveTo(0, 9); ctx.lineTo(0, 21); ctx.moveTo(-5, 19); ctx.lineTo(5, 19); ctx.stroke();
+  });
+  // the stack, a little askew
+  for (const [x, y] of [[50, 100], [45, 91], [52, 82], [47, 73]]) flatCoin(ctx, x, y, 32, 10, 9);
+  glint(ctx, 36, 70, 9);
+}
+
+// ---------------------------------------------------------------- Big Trouble: bosses and happenings
+
+/**
+ * The Wild Man: a huge shaggy face, eyes burning amber, roaring. The fur
+ * hangs in long locks, longest at the jaw, with a fringe over the brow:
+ * a mane combed out evenly all round read as a lion.
+ */
+function wildmn(ctx) {
+  const cx = 64; const cy = 60;
+  const r = rng(91);
+  const locks = [];
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * TAU - Math.PI / 2;
+    const down = Math.max(0, Math.sin(a)); // 0 at the crown, 1 at the jaw
+    const tip = i % 2 === 0;
+    const rr = tip ? 48 + down * 8 + (r() - 0.5) * 5 : 41 + down * 4;
+    // locks hang: their tips swing downward
+    locks.push([cx + Math.cos(a) * rr * 0.96, cy + Math.sin(a) * rr + (tip ? 4 + down * 3 : 0)]);
+  }
+  const mane = () => poly(ctx, locks);
+  fill(ctx, mane, lin(ctx, 12, 8, 116, 122, [[0, '#d89656'], [0.3, '#9a5826'], [0.7, '#5a2c0c'], [1, '#2a1204']]));
+  clip(ctx, mane, () => {
+    // strands, hanging
+    for (let i = 0; i < 80; i++) {
+      const x = 14 + r() * 100; const y = 8 + r() * 100; const L = 8 + r() * 12;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + (x - cx) * 0.08, y + L * 0.6, x + (x - cx) * 0.12, y + L);
+      ctx.strokeStyle = i % 3 ? 'rgba(40,16,2,0.5)' : 'rgba(255,214,160,0.45)'; ctx.lineWidth = 2; ctx.stroke();
+    }
+  });
+  bevel(ctx, mane, 3, 'rgba(255,226,186,0.8)', 'rgba(0,0,0,0.55)', [8, 8, 120, 122]);
+  // the face: dark leathery hide
+  const face = () => { ctx.beginPath(); ctx.ellipse(cx, cy + 10, 32, 36, 0, 0, TAU); };
+  fill(ctx, face, rad(ctx, cx - 10, cy - 10, 50, [[0, '#7a6a5c'], [0.5, '#4a3c32'], [1, '#221a14']]));
+  clip(ctx, face, () => grain(ctx, cx - 32, cy - 30, 64, 72, { seed: 5, n: 260, light: 0.1, dark: 0.18 }));
+  // a ragged fringe hanging over the forehead, the mane's own fur
+  const fringe = () => {
+    ctx.beginPath(); ctx.moveTo(28, 30);
+    const tips = [[34, 46], [40, 40], [46, 50], [53, 41], [60, 48], [66, 40], [73, 49], [80, 41], [87, 48], [94, 40], [100, 44]];
+    for (const [x, y] of tips) { ctx.lineTo(x - 3, y - 9); ctx.lineTo(x, y); }
+    ctx.lineTo(100, 30); ctx.closePath();
+  };
+  fill(ctx, fringe, lin(ctx, 12, 8, 116, 122, [[0, '#d89656'], [0.3, '#9a5826'], [0.7, '#5a2c0c'], [1, '#2a1204']]));
+  clip(ctx, fringe, () => {
+    for (let x = 30; x < 100; x += 5) {
+      ctx.beginPath(); ctx.moveTo(x, 28); ctx.quadraticCurveTo(x + 1, 38, x + 2, 48);
+      ctx.strokeStyle = x % 3 ? 'rgba(40,16,2,0.5)' : 'rgba(255,214,160,0.45)'; ctx.lineWidth = 2; ctx.stroke();
+    }
+  });
+  // the heavy brow
+  const brow = () => { ctx.beginPath(); ctx.moveTo(34, 54); ctx.quadraticCurveTo(64, 36, 94, 54); ctx.quadraticCurveTo(64, 48, 34, 54); ctx.closePath(); };
+  stroke(ctx, brow, '#1a0e06', 9);
+  stroke(ctx, () => { ctx.beginPath(); ctx.moveTo(36, 50); ctx.quadraticCurveTo(64, 34, 92, 50); }, 'rgba(255,214,160,0.55)', 2);
+  // burning amber eyes
+  for (const x of [50, 78]) {
+    ellipse(ctx, x, 60, 9, 6); ctx.fillStyle = '#120804'; ctx.fill();
+    ellipse(ctx, x, 60, 7, 4.6); ctx.fillStyle = rad(ctx, x - 1, 59, 8, [[0, '#fff6c0'], [0.45, '#ffc64d'], [1, '#e2601a']]); ctx.fill();
+    ellipse(ctx, x, 60, 1.8, 4); ctx.fillStyle = '#120804'; ctx.fill();
+  }
+  // a flat broad nose
+  ellipse(ctx, cx, 74, 11, 6); ctx.fillStyle = '#2a1e16'; ctx.fill();
+  for (const x of [58, 70]) { ellipse(ctx, x, 75, 3, 2.2); ctx.fillStyle = '#0a0604'; ctx.fill(); }
+  // the roaring mouth and its fangs
+  const mouth = () => ellipse(ctx, cx, 94, 19, 12);
+  fill(ctx, mouth, rad(ctx, cx, 96, 18, [[0, '#7a0a10'], [0.6, '#3a0408'], [1, '#120204']]));
+  ctx.fillStyle = IVORY[0];
+  for (const [x, dir] of [[52, 1], [76, 1], [55, -1], [73, -1]]) {
+    const y0 = dir > 0 ? 83.5 : 104.5;
+    poly(ctx, [[x - 4, y0], [x + 4, y0], [x, y0 + dir * 10]]); ctx.fill();
+  }
+  stroke(ctx, () => { ctx.beginPath(); ctx.ellipse(cx, 94, 19, 12, 0, Math.PI * 1.1, Math.PI * 1.9); }, 'rgba(255,200,170,0.4)', 1.6);
+}
+
+/** One eye: a lidded socket, white, a jade iris, a black pupil, a catch-light */
+function eyeball(ctx, x, y, r, { iris = JADE, look = [0, 0] } = {}) {
+  ellipse(ctx, x, y, r * 1.22, r * 0.98); ctx.fillStyle = '#4a1222'; ctx.fill();
+  const white = () => ellipse(ctx, x, y, r, r * 0.76);
+  fill(ctx, white, rad(ctx, x - r * 0.3, y - r * 0.3, r * 1.3, [[0, '#ffffff'], [0.7, '#f0e4dc'], [1, '#b89a92']]));
+  clip(ctx, white, () => {
+    const ix = x + look[0] * r * 0.3; const iy = y + look[1] * r * 0.2;
+    circle(ctx, ix, iy, r * 0.56); ctx.fillStyle = rad(ctx, ix - r * 0.15, iy - r * 0.15, r * 0.6, [[0, iris.hi], [0.4, iris.lit], [1, iris.dark]]); ctx.fill();
+    circle(ctx, ix, iy, r * 0.27); ctx.fillStyle = '#050505'; ctx.fill();
+    circle(ctx, ix - r * 0.18, iy - r * 0.2, r * 0.13); ctx.fillStyle = '#ffffff'; ctx.fill();
+    // the upper lid's shadow
+    ctx.fillStyle = 'rgba(80,20,30,0.35)'; ctx.fillRect(x - r, y - r, r * 2, r * 0.32);
+  });
+}
+
+/** The Guardian: Lo Pan's floating spy, a fleshy balloon covered in eyes, tendrils trailing */
+function guard(ctx) {
+  // tendrils
+  for (const [x0, c1, x1] of [[46, 34, 34], [64, 70, 62], [82, 96, 94]]) {
+    const t = () => { ctx.beginPath(); ctx.moveTo(x0, 88); ctx.quadraticCurveTo(c1, 104, x1, 116); };
+    stroke(ctx, t, '#5a1a2e', 9);
+    stroke(ctx, t, '#c46a80', 5);
+  }
+  const ball = () => circle(ctx, 64, 56, 44);
+  fill(ctx, ball, rad(ctx, 46, 36, 66, [[0, '#ffd6dc'], [0.3, '#e2909e'], [0.7, '#a84a62'], [1, '#5a1a2e']]));
+  clip(ctx, ball, () => {
+    // veins
+    const r = rng(19);
+    ctx.strokeStyle = 'rgba(110,20,50,0.35)'; ctx.lineWidth = 1.6;
+    for (let i = 0; i < 9; i++) {
+      let x = 20 + r() * 88; let y = 14 + r() * 80;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      for (let k = 0; k < 3; k++) { x += (r() - 0.5) * 22; y += (r() - 0.5) * 22; ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+    grain(ctx, 18, 8, 92, 92, { seed: 44, n: 300, light: 0.08, dark: 0.12 });
+  });
+  bevel(ctx, ball, 3, 'rgba(255,230,236,0.85)', 'rgba(60,0,20,0.55)', [18, 8, 110, 100]);
+  // the many small eyes, all looking at you, then the big one
+  for (const [x, y, rr, lx, ly] of [[38, 30, 8, 1, 1], [62, 18, 7, 0, 1], [88, 26, 8, -1, 1], [102, 52, 7, -1, 0], [28, 58, 7, 1, 0], [94, 80, 7, -1, -1], [36, 82, 6.5, 1, -1], [64, 90, 6, 0, -1]]) {
+    eyeball(ctx, x, y, rr, { look: [lx, ly] });
+  }
+  eyeball(ctx, 64, 54, 20);
+  glint(ctx, 40, 22, 8);
+}
+
+/** One of the Three Storms: a straw hat, a face in shadow, eyes lit their element's colour */
+function stormFigure(ctx, cx, apex, w, eyes, shade = 0) {
+  const brimY = apex + w * 0.5;
+  // robe and shoulders
+  fill(ctx, () => poly(ctx, [[cx - w * 0.4, 118], [cx - w * 0.3, brimY + 26], [cx + w * 0.3, brimY + 26], [cx + w * 0.4, 118]]), lin(ctx, 0, brimY + 26, 0, 122, [[0, '#2a2e3a'], [1, '#0d0f14']]));
+  // the face in shadow, its eyes glowing
+  fill(ctx, () => rrect(ctx, cx - w * 0.26, brimY - 6, w * 0.52, w * 0.36, 8), '#0a0b10');
+  for (const dx of [-0.12, 0.12]) {
+    const x = cx + dx * w; const y = brimY + 6;
+    ctx.fillStyle = rad(ctx, x, y, w * 0.14, [[0, rgba(eyes, 0.8)], [1, rgba(eyes, 0)]]);
+    ctx.fillRect(x - w * 0.14, y - w * 0.14, w * 0.28, w * 0.28);
+    ellipse(ctx, x, y, w * 0.07, w * 0.03); ctx.fillStyle = '#f4f8ff'; ctx.fill();
+  }
+  // the conical hat, rimmed dark so it stands off the storm behind
+  const hat = () => { ctx.beginPath(); ctx.moveTo(cx, apex); ctx.lineTo(cx + w / 2, brimY); ctx.quadraticCurveTo(cx, brimY + w * 0.12, cx - w / 2, brimY); ctx.closePath(); };
+  stroke(ctx, hat, OUT, 6);
+  fill(ctx, hat, lin(ctx, cx - w / 2, apex, cx + w / 2, brimY, [[0, mix('#f0d79a', '#7a6030', shade)], [0.45, mix('#c9a35c', '#4e3c18', shade)], [1, mix('#6e5426', '#2a1e08', shade)]]));
+  clip(ctx, hat, () => {
+    ctx.strokeStyle = 'rgba(80,55,15,0.5)'; ctx.lineWidth = 1.4;
+    for (let i = -5; i <= 5; i++) { ctx.beginPath(); ctx.moveTo(cx, apex); ctx.lineTo(cx + i * w * 0.1, brimY + 10); ctx.stroke(); }
+  });
+  bevel(ctx, hat, 2.5, 'rgba(255,250,225,0.8)', 'rgba(40,25,0,0.6)', [cx - w / 2, apex, cx + w / 2, brimY]);
+}
+
+/**
+ * The Three Storms: three straw hats, the one in front Lightning (the
+ * siege icon's lone Storm), Thunder and Rain behind him, each one's eyes
+ * lit with his element.
+ */
+function storms(ctx) {
+  // Thunder and Rain behind, up at the corners, Lightning in front and
+  // lower: three cones all in the clear. (Side by side in a row, the
+  // front hat hid the other two and at 22 px it read as one Storm.)
+  stormFigure(ctx, 34, 10, 46, ELEMENT.thunder.light, 0.2);
+  stormFigure(ctx, 94, 10, 46, ELEMENT.rain.light, 0.2);
+  stormFigure(ctx, 64, 34, 64, ELEMENT.lightning.light, 0);
+  const r = rng(29);
+  forkedBolt(ctx, r, 46, 108, 18, 116, { steps: 4, amp: 5, branches: 1, branchLen: 8, width: 1.8, ...BOLT });
+  forkedBolt(ctx, r, 82, 108, 110, 116, { steps: 4, amp: 5, branches: 1, branchLen: 8, width: 1.8, ...BOLT });
+}
+storms.post = { glow: '#3d6bff', glowBlur: 5, glowAlpha: 0.4 };
+
+/**
+ * Lo Pan: the ancient sorcerer in a black-and-gold winged official's hat,
+ * eyes blazing with green-white light, long white moustaches. The winged
+ * hat is the silhouette that carries him at 22 px.
+ */
+function lopan(ctx) {
+  // a long white beard, tapering to a point (two long moustaches were
+  // tried: at 22 px they read as legs)
+  const beard = () => { ctx.beginPath(); ctx.moveTo(48, 88); ctx.quadraticCurveTo(52, 112, 64, 122); ctx.quadraticCurveTo(76, 112, 80, 88); ctx.closePath(); };
+  fill(ctx, beard, lin(ctx, 48, 88, 80, 122, [[0, '#ffffff'], [0.5, '#dcdcd2'], [1, '#8a8a80']]));
+  clip(ctx, beard, () => {
+    ctx.strokeStyle = 'rgba(120,120,110,0.5)'; ctx.lineWidth = 1.4;
+    for (const k of [-10, -4, 2, 8]) { ctx.beginPath(); ctx.moveTo(64 + k, 90); ctx.quadraticCurveTo(64 + k * 0.8, 106, 64 + k * 0.2, 120); ctx.stroke(); }
+  });
+  // the face: long, narrow and ancient
+  const face = () => { ctx.beginPath(); ctx.moveTo(40, 44); ctx.bezierCurveTo(40, 76, 50, 100, 64, 102); ctx.bezierCurveTo(78, 100, 88, 76, 88, 44); ctx.closePath(); };
+  fill(ctx, face, lin(ctx, 40, 40, 88, 102, [[0, '#f2ead0'], [0.4, '#cfc08e'], [1, '#6e6034']]));
+  clip(ctx, face, () => {
+    grain(ctx, 40, 40, 48, 62, { seed: 8, n: 200, light: 0.08, dark: 0.16 });
+    // wrinkles
+    ctx.strokeStyle = 'rgba(90,70,30,0.55)'; ctx.lineWidth = 1.5;
+    for (const [x0, y0, x1, y1, cy] of [[48, 50, 80, 50, 47], [50, 55, 78, 55, 52], [44, 72, 50, 86, 78], [84, 72, 78, 86, 78]]) {
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo((x0 + x1) / 2, cy, x1, y1); ctx.stroke();
+    }
+  });
+  bevel(ctx, face, 2.5, 'rgba(255,250,230,0.8)', 'rgba(60,40,0,0.5)', [40, 40, 88, 102]);
+  // the eyes: light pouring out of them
+  for (const x of [53, 75]) {
+    ctx.fillStyle = rad(ctx, x, 63, 13, [[0, 'rgba(210,255,224,0.95)'], [0.5, 'rgba(106,242,147,0.55)'], [1, 'rgba(106,242,147,0)']]);
+    ctx.fillRect(x - 13, 50, 26, 26);
+    ellipse(ctx, x, 63, 7, 3.2); ctx.fillStyle = '#ffffff'; ctx.fill();
+  }
+  // white brows, drooping
+  for (const side of [-1, 1]) stroke(ctx, () => { ctx.beginPath(); ctx.moveTo(64 + side * 4, 56); ctx.quadraticCurveTo(64 + side * 16, 52, 64 + side * 24, 60); }, '#f6f6ee', 3);
+  // the mouth, a slit of the same light, and a drooping moustache over the beard
+  ellipse(ctx, 64, 86, 7, 2.6); ctx.fillStyle = '#d2ffdc'; ctx.fill();
+  for (const side of [-1, 1]) {
+    const m = () => { ctx.beginPath(); ctx.moveTo(64, 80); ctx.quadraticCurveTo(64 + side * 14, 80, 64 + side * 16, 96); };
+    stroke(ctx, m, '#8a8a80', 5.5);
+    stroke(ctx, m, '#f6f6ee', 3);
+  }
+  // the winged hat: wings first, then the crown over them
+  for (const side of [-1, 1]) {
+    // a flat paddle on a stem, edged in gold (gold rings on the paddles read as headphones)
+    const wing = () => {
+      ctx.beginPath();
+      ctx.moveTo(64 + side * 20, 27); ctx.lineTo(64 + side * 38, 25);
+      ctx.quadraticCurveTo(64 + side * 58, 18, 64 + side * 57, 31);
+      ctx.quadraticCurveTo(64 + side * 58, 44, 64 + side * 38, 37);
+      ctx.lineTo(64 + side * 20, 35); ctx.closePath();
+    };
+    fill(ctx, wing, lin(ctx, 0, 20, 0, 42, [[0, '#5a5a64'], [0.4, '#1e1e24'], [1, '#08080a']]));
+    bevel(ctx, wing, 2, 'rgba(220,220,230,0.75)', 'rgba(0,0,0,0.6)', [6, 18, 122, 44]);
+    clip(ctx, wing, () => stroke(ctx, wing, rgba(GOLD[1], 0.85), 3));
+  }
+  const crown = () => { ctx.beginPath(); ctx.moveTo(36, 46); ctx.lineTo(38, 26); ctx.bezierCurveTo(40, 6, 88, 6, 90, 26); ctx.lineTo(92, 46); ctx.closePath(); };
+  fill(ctx, crown, lin(ctx, 36, 8, 92, 46, [[0, '#6a6a76'], [0.3, '#2a2a32'], [1, '#08080a']]));
+  clip(ctx, crown, () => grain(ctx, 36, 8, 56, 38, { seed: 66, n: 160, light: 0.1, dark: 0.12 }));
+  bevel(ctx, crown, 2.5, 'rgba(220,220,230,0.8)', 'rgba(0,0,0,0.6)', [36, 8, 92, 46]);
+  // its gold band and a red jewel
+  rrect(ctx, 36, 38, 56, 8, 2); ctx.fillStyle = metal(ctx, GOLD, 36, 38, 92, 46); ctx.fill();
+  ellipse(ctx, 64, 28, 6, 7); ctx.fillStyle = rad(ctx, 62, 26, 8, [[0, RED[0]], [0.5, RED[1]], [1, RED[3]]]); ctx.fill();
+  stroke(ctx, () => ellipse(ctx, 64, 28, 7.5, 8.5), GOLD[1], 2);
+}
+lopan.post = { glow: '#6af293', glowBlur: 5, glowAlpha: 0.35 };
+
+/**
+ * The Hell of the Upside-Down Sinners: a red demon mask hung upside down,
+ * its toothy grin on top, horns curling down. An upside-down face is what
+ * 🙃 is, and a face reads at 22 px when little else does; it's still lit
+ * from the top-left. No brows: under the eyes they read as a mouth, and
+ * the whole face flipped back the right way up.
+ */
+function upside(ctx) {
+  // hung by the chin from a red cord, the way the sinners hang by their feet
+  stroke(ctx, () => { ctx.beginPath(); ctx.ellipse(64, 13, 6, 5, 0, Math.PI * 0.8, Math.PI * 2.2); }, RED[2], 4);
+  cord(ctx, () => { ctx.beginPath(); ctx.moveTo(64, 17); ctx.lineTo(64, 28); }, 6);
+  diamond(ctx, 64, 20, 6); ctx.fillStyle = RED[2]; ctx.fill();
+  ctx.save(); ctx.translate(64, 72); ctx.scale(0.84, 0.84); ctx.translate(-64, -64);
+  upsideMask(ctx);
+  ctx.restore();
+}
+function upsideMask(ctx) {
+  const cx = 64;
+  // horns, curling down and out from the brow (now at the bottom)
+  for (const side of [-1, 1]) {
+    const horn = () => { ctx.beginPath(); ctx.moveTo(cx + side * 22, 94); ctx.bezierCurveTo(cx + side * 40, 104, cx + side * 52, 104, cx + side * 54, 120); ctx.bezierCurveTo(cx + side * 44, 110, cx + side * 36, 112, cx + side * 30, 102); ctx.closePath(); };
+    fill(ctx, horn, lin(ctx, cx + side * 22, 94, cx + side * 54, 120, [[0, GOLD[0]], [0.4, GOLD[1]], [1, GOLD[3]]]));
+  }
+  // the mask: chin at the top, broad brow at the bottom
+  const mask = () => {
+    ctx.beginPath();
+    ctx.moveTo(cx, 8);
+    ctx.bezierCurveTo(cx + 28, 10, cx + 42, 26, cx + 44, 50);
+    ctx.bezierCurveTo(cx + 46, 74, cx + 42, 94, cx + 28, 102);
+    ctx.quadraticCurveTo(cx, 110, cx - 28, 102);
+    ctx.bezierCurveTo(cx - 42, 94, cx - 46, 74, cx - 44, 50);
+    ctx.bezierCurveTo(cx - 42, 26, cx - 28, 10, cx, 8);
+    ctx.closePath();
+  };
+  fill(ctx, mask, lin(ctx, 20, 8, 108, 108, [[0, RED[0]], [0.3, RED[1]], [0.7, RED[2]], [1, RED[4]]]));
+  clip(ctx, mask, () => {
+    grain(ctx, 16, 6, 96, 104, { seed: 81, n: 300, light: 0.08, dark: 0.16 });
+    ctx.fillStyle = 'rgba(255,255,255,0.28)'; ellipse(ctx, 36, 70, 7, 16, 0.2); ctx.fill();
+  });
+  bevel(ctx, mask, 3, rgba(RED[0], 0.9), 'rgba(0,0,0,0.55)', [20, 8, 108, 108]);
+  // the grin, upside down on top: a wide arch full of teeth
+  const grin = () => { ctx.beginPath(); ctx.moveTo(cx - 30, 44); ctx.quadraticCurveTo(cx, 2, cx + 30, 44); ctx.quadraticCurveTo(cx, 30, cx - 30, 44); ctx.closePath(); };
+  fill(ctx, grin, '#1a0204');
+  clip(ctx, grin, () => {
+    // a row of teeth along the arch (the lower jaw, now on top)
+    ctx.fillStyle = IVORY[0];
+    for (let i = -3; i <= 3; i++) {
+      const x = cx + i * 7.6; const y = 23 + (i * i) * 1.6;
+      rrect(ctx, x - 3.2, y, 6.4, 8, 1.5); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(80,40,20,0.35)';
+    for (let i = -3; i <= 3; i++) { const x = cx + i * 7.6; ctx.fillRect(x - 3.2, 29 + (i * i) * 1.6, 6.4, 2); }
+  });
+  // two fangs from the upper jaw (now underneath), pointing up into the grin
+  ctx.fillStyle = IVORY[0];
+  for (const x of [cx - 14, cx + 14]) { poly(ctx, [[x - 4, 40], [x + 4, 40], [x, 30]]); ctx.fill(); }
+  // big eyes below, gold irises in white
+  for (const side of [-1, 1]) {
+    const x = cx + side * 18;
+    ellipse(ctx, x, 66, 12, 9); ctx.fillStyle = '#120404'; ctx.fill();
+    ellipse(ctx, x, 66, 10, 7); ctx.fillStyle = IVORY[0]; ctx.fill();
+    circle(ctx, x, 65, 5); ctx.fillStyle = GOLD[1]; ctx.fill();
+    circle(ctx, x, 65, 2.4); ctx.fillStyle = '#0a0606'; ctx.fill();
+  }
+  // nostrils between grin and eyes, and a gold mark on the brow (now at the bottom)
+  for (const side of [-1, 1]) { ellipse(ctx, cx + side * 5, 50, 3, 2); ctx.fillStyle = '#3a0408'; ctx.fill(); }
+  diamond(ctx, cx, 90, 7); ctx.fillStyle = metal(ctx, GOLD, cx - 7, 83, cx + 7, 97); ctx.fill();
+}
+upside.post = { glow: '#ff3a2a', glowBlur: 6, glowAlpha: 0.45 };
+
+/** Egg Shen's tour bus (`bus`): a vintage Chinatown tour bus, side on, its sign on the roof */
+function bus(ctx) {
+  // the roof sign
+  const sign = () => rrect(ctx, 44, 20, 50, 14, 3);
+  fill(ctx, sign, lin(ctx, 44, 20, 94, 34, [[0, RED[0]], [0.4, RED[1]], [1, RED[3]]]));
+  stroke(ctx, () => rrect(ctx, 47, 23, 44, 8, 1.5), rgba(GOLD[1], 0.9), 1.6);
+  for (const x of [56, 82]) { ctx.fillStyle = IRON[3]; ctx.fillRect(x - 1.5, 33, 3, 6); }
+  // the body: cream above, jade below, rounded at the front (left)
+  const body = () => { ctx.beginPath(); ctx.moveTo(30, 38); ctx.lineTo(114, 38); ctx.quadraticCurveTo(120, 38, 120, 44); ctx.lineTo(120, 98); ctx.lineTo(8, 98); ctx.lineTo(8, 64); ctx.quadraticCurveTo(10, 40, 30, 38); ctx.closePath(); };
+  fill(ctx, body, lin(ctx, 0, 38, 0, 98, [[0, IVORY[0]], [0.45, IVORY[2]], [0.46, JADE.mid], [1, JADE.dark]]));
+  clip(ctx, body, () => {
+    grain(ctx, 8, 38, 112, 60, { seed: 71, n: 260, light: 0.08, dark: 0.12 });
+    // a red stripe with a gold line
+    ctx.fillStyle = RED[2]; ctx.fillRect(0, 66, 128, 6);
+    ctx.fillStyle = GOLD[1]; ctx.fillRect(0, 72, 128, 2);
+  });
+  bevel(ctx, body, 2.5, 'rgba(255,255,255,0.85)', 'rgba(0,0,0,0.5)', [8, 38, 120, 98]);
+  // windows: a raked windscreen, then a row down the side
+  const glass = (pathFn, x0, x1) => {
+    fill(ctx, pathFn, lin(ctx, x0, 44, x1, 64, [[0, '#a8d0f0'], [0.4, '#3a6a9a'], [1, '#0e1e38']]));
+    clip(ctx, pathFn, () => { poly(ctx, [[x0 + 4, 44], [x0 + 10, 44], [x0 + 2, 64], [x0 - 4, 64]]); ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill(); });
+  };
+  glass(() => { ctx.beginPath(); ctx.moveTo(26, 44); ctx.lineTo(36, 44); ctx.lineTo(36, 62); ctx.lineTo(13, 62); ctx.quadraticCurveTo(14, 48, 26, 44); ctx.closePath(); }, 13, 36);
+  for (const x of [42, 62, 82, 100]) glass(() => rrect(ctx, x, 44, 16, 18, 2.5), x, x + 16);
+  // the door
+  stroke(ctx, () => rrect(ctx, 26, 66, 12, 28, 2), 'rgba(0,30,10,0.6)', 2);
+  // a headlamp and bumper
+  circle(ctx, 13, 84, 4.5); ctx.fillStyle = rad(ctx, 12, 83, 5, [[0, '#ffffff'], [1, '#ffc64d']]); ctx.fill();
+  rrect(ctx, 6, 94, 116, 6, 3); ctx.fillStyle = metal(ctx, SILVER, 6, 94, 122, 100); ctx.fill();
+  // wheels
+  for (const x of [34, 96]) {
+    circle(ctx, x, 100, 15); ctx.fillStyle = rad(ctx, x - 3, 97, 16, [[0, '#4a4c50'], [1, '#0a0b0c']]); ctx.fill();
+    circle(ctx, x, 100, 7); ctx.fillStyle = metal(ctx, SILVER, x - 7, 93, x + 7, 107); ctx.fill();
+    circle(ctx, x, 100, 2.5); ctx.fillStyle = IRON[3]; ctx.fill();
+  }
+  glint(ctx, 22, 50, 8);
+}
+
 export default createStyle({
   id: 'egg-shen',
   name: 'Egg Shen’s Magic',
@@ -1299,5 +2186,8 @@ export default createStyle({
     potion, food, doom, rescue, siege,
     gpie, vhs, garlic, holyw, penny, antid, silver, nlight,
     gift, glove, scroll, effect, rocket,
+    erain, efire, ewind, esmoke, elite, ethund,
+    chi, bag, bblood, jade, truck, sidek, wang, jack, back,
+    wildmn, guard, storms, lopan, upside, bus,
   },
 });

@@ -22,7 +22,8 @@ import { loadScores, deleteScores, recordPlay, mutateScores, applySiegeResult, r
 import { renderSiegeCard, resultsPayload, cardPayload } from '../src/utils/siegeCard.js';
 import { createKit, KIT_CODES } from '../src/utils/emojiKit.js';
 import { messageProblems } from '../src/utils/embedFit.js';
-import { SIEGE, RANDOM_PRIZE_ITEMS } from '../src/data/gameRewards.js';
+import { SIEGE, RANDOM_PRIZE_ITEMS, SIEGE_PACES, PACE_RULES } from '../src/data/gameRewards.js';
+import { siegeTimings } from '../src/utils/gamePace.js';
 import { MONSTERS } from '../src/data/siegeMonsters.js';
 import { HAPPENINGS } from '../src/data/gameHappenings.js';
 import { _setLuck } from '../src/utils/gameLuck.js';
@@ -48,6 +49,14 @@ beforeEach(() => {
   for (const f of happeningFiles()) fs.unlinkSync(f);
   deleteScores(GUILD);
 });
+
+/** Another guild of this suite's, its files cleared first (the scratch directory outlives a run) */
+function otherGuild(suffix) {
+  const id = `${GUILD}-${suffix}`;
+  const dir = process.env.GUILD_HAPPENINGS_DIR;
+  if (fs.existsSync(dir)) for (const f of fs.readdirSync(dir)) if (f.startsWith(`${id}.json`)) fs.unlinkSync(path.join(dir, f));
+  return id;
+}
 
 /** `n` members who played within the week (A7) */
 function active(n, at = T) {
@@ -734,12 +743,12 @@ describe('the monster fights back (R6): its rules, store-level', () => {
     expect(now().participants[other]).toMatchObject({ frees: 1, caught: null });
   });
 
-  test('random sieges: each rule, the pool scale, and the chance', () => {
-    const settings = { siegeFrequency: 'normal' };
+  test('random sieges: each rule, the pool scale, and the chance (quick pace)', () => {
+    const settings = { siegeFrequency: 'normal', pace: 'quick' };
     const ok = { activity: { recent: { a: T - MIN, b: T - 2 * MIN, c: T - 5 * HOUR } }, siege: null, happening: null };
     expect(store.randomSiegeEligibility(ok, settings, T)).toEqual({ ok: true });
     const reason = (patch, s2 = settings) => store.randomSiegeEligibility({ ...ok, ...patch }, s2, T).reason;
-    expect(reason({}, { siegeFrequency: 'off' })).toBe('off');
+    expect(reason({}, { siegeFrequency: 'off', pace: 'quick' })).toBe('off');
     expect(reason({ siege: { status: 'live' } })).toBe('siege');
     expect(reason({ siege: { status: 'won', result: { announcedAt: null } } })).toBe('results-pending');
     expect(reason({ siege: { status: 'won', finishedAt: T - 19 * HOUR, result: { announcedAt: T } } })).toBe('gap');
@@ -876,5 +885,520 @@ describe('the card fits Discord in the worst case', () => {
     expect(bar(30)).toBe('🟨🟨🟨🟨🟨⬜⬜⬜⬜⬜ `30/60` HP');
     expect(bar(15)).toBe('🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ `15/60` HP');
     expect(bar(0)).toBe('⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ `0/60` HP');
+  });
+});
+
+// ── 2.74.0: pace, store-level ───────────────────────────────────────────
+
+describe('pace (2.74.0): the rewards, the dial and the HP by the siege\'s own preset', () => {
+  const nights = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`2026-11-${String(9 + i).padStart(2, '0')}`, T + i * DAY]));
+  /** A finished-looking siege at `key` pace: fighters with their damage and the nights they fought */
+  const at = (key, list) => ({
+    id: 'p', monster: 'blob', status: 'live', poolScale: 1, t: siegeTimings(SIEGE_PACES[key].span),
+    participants: Object.fromEntries(list.map(([id, damage, n], i) => [id, { name: id, damage, attacks: 4, frees: 0, cures: 0, firstAt: T + i, nights: nights(n) }])),
+  });
+
+  test('the pool counts fighter-nights from evening on; each share is capped by the preset; the MVP\'s bonus is ×honour', () => {
+    // Six fighters, five nights each: 30 fighter-nights. ana did most of it.
+    const list = [['ana', 600, 5], ['ben', 30, 5], ['cat', 30, 5], ['dev', 30, 5], ['eve', 30, 5], ['fay', 30, 5]];
+    const week = store.planSiegeRewards(at('week', list), 'won', () => 0.99);
+    const total = 600 + 5 * 30;
+    const pool = Math.min(SIEGE_PACES.week.pool.poolMax, SIEGE_PACES.week.pool.perFighter * 30); // 120
+    expect(store.potOf(at('week', list))).toBe(pool);
+    expect(week.grants.map(g => g.points)).toEqual([
+      Math.min(SIEGE_PACES.week.pool.eachMax, Math.round(pool * 600 / total)) + SIEGE.rewards.mvpBonus * SIEGE_PACES.week.honour,
+      ...Array(5).fill(Math.max(SIEGE.rewards.eachMin, Math.round(pool * 30 / total))),
+    ]);
+    expect(week.grants[0].points).toBe(60 + 15); // 96 of the pot, capped at week's 60, +5 × 3
+    // At quick the same fight is 6 fighters, whatever the nights: 48, the share capped at 30, +5
+    const quick = store.planSiegeRewards(at('quick', list), 'won', () => 0.99);
+    expect(store.potOf(at('quick', list))).toBe(48);
+    expect(quick.grants[0].points).toBe(30 + 5);
+    // 3 days: 5 a fighter-night, capped at 45, +5 × 2
+    const days3 = store.planSiegeRewards(at('days3', list), 'won', () => 0.99);
+    expect(store.potOf(at('days3', list))).toBe(150);
+    expect(days3.grants[0].points).toBe(45 + 10);
+    // A helper who never attacked counts one fighter-night
+    expect(store.potOf(at('week', [['ana', 100, 2], ['ben', 0, 0]]))).toBe(Math.max(24, 4 * 3));
+  });
+
+  test('the dial steps by the siege\'s preset, and each preset keeps its own (quick\'s is the old siegeDial)', () => {
+    expect(store.nextDial(1, 'won', 3, 1, SIEGE_PACES.week)).toBeCloseTo(1.1, 9);
+    expect(store.nextDial(1, 'escaped', 3, 0.6, SIEGE_PACES.week)).toBeCloseTo(0.78, 9);
+    expect(store.nextDial(1, 'won', 3, 1, SIEGE_PACES.day)).toBeCloseTo(1.08, 9);
+    expect(store.nextDial(1, 'won', 3)).toBeCloseTo(SIEGE.dial.win, 9);
+    const data = { siegeDial: 1.3, siegeDials: { week: 0.8 } };
+    expect([store.dialOf(data), store.dialOf(data, 'quick'), store.dialOf(data, 'week'), store.dialOf(data, 'day')]).toEqual([1.3, 1.3, 0.8, 1]);
+    // A week siege finishing moves week's dial alone (a server past its first
+    // campaign at week, sized for the 2 who come)
+    active(10);
+    mutate(GUILD, (d) => { d.siegeParticipation = { week: 0.2 }; });
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span });
+    expect(s.expected).toBe(2);
+    mutate(GUILD, (d) => { d.siegeDial = 1.3; });
+    for (const [u, k] of [['sam', 0], ['alex', 1]]) store.siegeAttack(GUILD, s.id, { userId: u, name: NAMES[u], weapon: 'doom', outcome: 'smite' }, T + k * MIN);
+    mutate(GUILD, (d) => { d.siege.hp = 0; });
+    store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, () => 0.99);
+    const after = loadState(GUILD);
+    expect(after.siegeDial).toBe(1.3);
+    expect(after.siegeDials).toEqual({ week: 1.1 });
+  });
+
+  test('the allowance: past tonight\'s attacks the store refuses one and saves nothing (a race past the command\'s own check); the next night (12:00 UTC) has more', () => {
+    active(3);
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span });
+    const { allowance } = SIEGE_PACES.week;
+    for (let i = 0; i < allowance; i++) {
+      const r = store.siegeAttack(GUILD, s.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splash' }, T + i * MIN);
+      expect(r.hit.attacks).toEqual({ used: i + 1, of: allowance });
+    }
+    const before = JSON.stringify(loadState(GUILD));
+    expect(store.siegeAttack(GUILD, s.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splat' }, T + 30 * MIN)).toMatchObject({ error: 'spent' });
+    expect(JSON.stringify(loadState(GUILD))).toBe(before);
+    expect(store.attacksTonight(now().participants.sam, T + 30 * MIN)).toBe(allowance);
+    // 00:00 UTC is the same night; 12:00 UTC a new one
+    const midnight = Date.UTC(2026, 10, 10);
+    const noon = Date.UTC(2026, 10, 10, 12);
+    expect(store.allowanceResetsAt(T)).toBe(noon);
+    expect(store.attacksTonight(now().participants.sam, midnight)).toBe(allowance);
+    expect(store.siegeAttack(GUILD, s.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splat' }, midnight)).toMatchObject({ error: 'spent' });
+    expect(store.attacksTonight(now().participants.sam, noon)).toBe(0);
+    expect(store.siegeAttack(GUILD, s.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splat' }, noon).hit.attacks).toEqual({ used: 1, of: allowance });
+    // No allowance at quick: no count kept
+    const qg = otherGuild('quick-allowance');
+    const q = store.spawnSiege(qg, { monster: 'klowns', minutes: 45, channelId: 'games' }, T);
+    const hitQ = store.siegeAttack(qg, q.siege.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splat' }, T + MIN);
+    expect(hitQ.hit.attacks).toBeNull();
+    expect(loadState(qg).siege.participants.sam.nightAttacks).toBeUndefined();
+  });
+
+  test('HP: a base of the fighters it expects × nights, then each fighter-night; a week-long siege\'s timings are copied onto it', () => {
+    active(10);
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span });
+    const t = SIEGE_PACES.week;
+    expect(s.t).toMatchObject({ key: 'week', N: 7, hpBase: 'fighters', base: t.base, growth: t.growth });
+    // A server with no campaign behind it expects 35% of its 10: 4 (3.5, rounded)
+    expect(s.expected).toBe(4);
+    expect(s.hp).toBe(Math.round(t.base * 4 * 7));
+    // sam's first attack, then another the same night, then the next night's first
+    const first = store.siegeAttack(GUILD, s.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splash' }, T + MIN);
+    expect(first.hit.joined).toBe(t.growth);
+    expect(store.siegeAttack(GUILD, s.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splash' }, T + 2 * MIN).hit.joined).toBe(0);
+    const next = store.siegeAttack(GUILD, s.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splash' }, T + DAY);
+    expect([next.hit.joined, next.hit.again]).toEqual([t.growth, true]);
+    expect(now().fn).toBe(2);
+    expect(now().maxHp).toBe(Math.round(t.base * 4 * 7 + 2 * t.growth));
+  });
+});
+
+// ── 2.74.0 review: a big server where few fight ─────────────────────────
+
+describe('pace review (2026-11-04): the base counts the fighters a server can expect, and learns them', () => {
+  const week = SIEGE_PACES.week;
+  /** `n` fighters each make every one of their 8 attacks on each of `nights` nights (a food miss: 3 damage — trying, not winning) */
+  function campaignOf(s, n, nights, outcome = 'splash', from = 0) {
+    for (let k = 0; k < nights; k++) {
+      for (let u = 0; u < n; u++) {
+        for (let i = 0; i < week.allowance; i++) {
+          store.siegeAttack(GUILD, s.id, { userId: `f${u}`, name: `F${u}`, weapon: 'food', outcome }, T + from + k * DAY + (u * week.allowance + i) * 1000);
+        }
+      }
+    }
+  }
+
+  test('A7 60, 8 fighters for 4 nights who tried: the first expects 21, not 60; it learns who comes; once sized right, an escape they tried at eases the dial', () => {
+    const { start, first: f, weight: w } = PACE_RULES.participation;
+    const learn = (p, k, came) => Math.round((p + k * (came / 60 - p)) * 1e4) / 1e4;
+    let at = T;
+    const next = () => {
+      mutate(GUILD, (d) => { if (d.siege?.result) d.siege.result.announcedAt = at; });
+      active(60, at - HOUR);
+      return store.spawnSiege(GUILD, { monster: 'klowns', minutes: week.span, channelId: 'games' }, at).siege;
+    };
+    const escape = (s, n = 8, nights = 4) => {
+      campaignOf(s, n, nights, 'splash', s.startedAt - T);
+      const fought = now();
+      // Under half its HP gone: the old rule ("dealt half") froze the dial for good
+      expect((fought.maxHp - fought.hp) / fought.maxHp).toBeLessThan(0.5);
+      const done = store.finishSiege(GUILD, s.id, 'escaped', s.endsAt, () => 0.99);
+      expect(done.effort).toBe(1);
+      at = s.endsAt + 3 * DAY;
+      return done;
+    };
+    active(60);
+    const first = store.spawnSiege(GUILD, { monster: 'klowns', minutes: week.span, channelId: 'games' }, T).siege;
+    expect([first.a7, first.expected, first.hp]).toEqual([60, 21, Math.round(week.base * 21 * 7)]);
+    escape(first);
+    // Sized for 21, 8 came: the estimate's error, so the estimate moves and the dial doesn't.
+    // The first campaign replaces the starting guess outright (f = 1): 8 of 60
+    const p1 = learn(start, f, 8);
+    expect(p1).toBe(0.1333);
+    expect(loadState(GUILD).siegeParticipation.week).toBe(p1);
+    expect(store.dialOf(loadState(GUILD), 'week')).toBe(1);
+    const second = next();
+    expect(second.expected).toBe(8);
+    expect(store.turnoutExplains(second, 'escaped', 8)).toBe(false);
+    expect(second.hp).toBe(Math.round(week.base * 8 * 7));
+    escape(second);
+    // Sized right, and they tried: the dial eases
+    expect(store.dialOf(loadState(GUILD), 'week')).toBeCloseTo(week.dial.escape, 9);
+    // From then on each campaign moves it `w` of the way: 12 come to one sized for 8
+    const third = next();
+    expect(third.expected).toBe(8);
+    // Had they won, 4 more than expected would explain it; an escape with them doesn't
+    expect([store.turnoutExplains(third, 'won', 12), store.turnoutExplains(third, 'escaped', 12)]).toEqual([true, false]);
+    escape(third, 12, 1);
+    expect(loadState(GUILD).siegeParticipation.week).toBe(learn(p1, w, 12)); // 0.18
+    expect(learn(p1, w, 12)).toBe(0.18);
+    // …and more came than it expected and it still got away: that's the monster,
+    // not the count, so the dial eases again as the estimate rises (turnoutExplains)
+    expect(store.dialOf(loadState(GUILD), 'week')).toBeCloseTo(week.dial.escape ** 2, 9);
+    // A quick siege on the same server still counts all of A7, as 2.73 did
+    expect(store.siegeHp({ a7: 60, expected: 0, fighters: 0, dial: 1, t: { ...SIEGE_PACES.quick, N: 1 } })).toBe(120);
+  });
+
+  test('the dial and the learning never pull against the outcome: a turnout miss that explains the end moves only the estimate; one that doesn\'t moves the dial too', () => {
+    const { weight: w } = PACE_RULES.participation;
+    // A server that has learned 8 of its 60 fight: each campaign expects 8, at dial 1
+    const fresh = (suffix) => {
+      const g = otherGuild(suffix);
+      mutate(g, (d) => {
+        for (let i = 0; i < 60; i++) d.activity.recent[`m${i}`] = T - DAY;
+        d.siegeParticipation = { week: 0.1333 };
+      });
+      const s = store.spawnSiege(g, { monster: 'klowns', minutes: week.span, channelId: 'games' }, T).siege;
+      expect(s.expected).toBe(8);
+      return [g, s];
+    };
+    /** `n` fighters each make every attack of `nights` nights, then it ends `status` */
+    const run = (suffix, n, nights, status) => {
+      const [g, s] = fresh(suffix);
+      for (let k = 0; k < nights; k++) for (let u = 0; u < n; u++) for (let i = 0; i < week.allowance; i++) {
+        store.siegeAttack(g, s.id, { userId: `f${u}`, name: `F${u}`, weapon: 'food', outcome: 'splash' }, T + k * DAY + (u * week.allowance + i) * 1000);
+      }
+      const done = store.finishSiege(g, s.id, status, s.endsAt, () => 0.99);
+      expect(done.effort).toBe(1);
+      const after = loadState(g);
+      return { dial: store.dialOf(after, 'week'), p: after.siegeParticipation.week, explains: store.turnoutExplains(s, status, n) };
+    };
+    const learned = (came) => Math.round((0.1333 + w * (came / 60 - 0.1333)) * 1e4) / 1e4;
+
+    // 12 came to a campaign sized for 8 and it still got away: too strong for more than it
+    // planned for. The estimate rises AND the dial eases, so the same 12 for 4 nights face
+    // less HP next time — with the dial left alone the bigger estimate made it MORE
+    const moreLost = run('more-lost', 12, 4, 'escaped');
+    expect([moreLost.explains, moreLost.dial, moreLost.p]).toEqual([false, week.dial.escape, learned(12)]);
+    expect(store.expectedFighters(60, moreLost.p)).toBe(11);
+    const hpFor = (expected, dial) => store.siegeHp({ expected, fighters: 12 * 4, dial, t: { ...week, N: 7 } });
+    expect(hpFor(11, moreLost.dial)).toBeLessThan(hpFor(8, 1));
+    expect(hpFor(11, 1)).toBeGreaterThan(hpFor(8, 1));
+    // 4 came to one sized for 8 and still won: too weak even for half. Both move the other way
+    const fewerWon = run('fewer-won', 4, 4, 'won');
+    expect([fewerWon.explains, fewerWon.dial, fewerWon.p]).toEqual([false, week.dial.win, learned(4)]);
+    // The miss explains the end: only the estimate moves
+    const fewerLost = run('fewer-lost', 4, 4, 'escaped');
+    expect([fewerLost.explains, fewerLost.dial, fewerLost.p]).toEqual([true, 1, learned(4)]);
+    const moreWon = run('more-won', 12, 2, 'won');
+    expect([moreWon.explains, moreWon.dial, moreWon.p]).toEqual([true, 1, learned(12)]);
+    // Sized right (9 for 8): the dial moves as it always does
+    const sized = run('sized-lost', 9, 4, 'escaped');
+    expect([sized.explains, sized.dial]).toEqual([false, week.dial.escape]);
+  });
+
+  test('the turnout slack leans the players\' way: 4 came to a first campaign sized for 2 (the floor) and won — the turnout explains it, the dial stays; the next, sized on what it learned, moves it; a guess that was right moves it at once', () => {
+    active(5);
+    const first = spawn('klowns', { minutes: week.span });
+    expect(first.expected).toBe(2);
+    const fourWin = (s, at) => {
+      for (const u of ['sam', 'alex', 'kim', 'lee']) store.siegeAttack(GUILD, s.id, { userId: u, name: u, weapon: 'doom', outcome: 'smite' }, at);
+      mutate(GUILD, (d) => { d.siege.hp = 0; });
+      store.finishSiege(GUILD, s.id, 'won', at + MIN, () => 0.99);
+    };
+    // A win is the turnout's past 1 over (with 2 of slack this easy win raised the dial)…
+    expect([store.turnoutExplains(first, 'won', 4), store.turnoutExplains(first, 'won', 3)]).toEqual([true, false]);
+    // …an escape only past 2 short: on a server where 2 or 3 fight, one fewer still eases it
+    const eight = { expected: 8 };
+    expect([5, 6, 7].map(n => store.turnoutExplains(eight, 'escaped', n))).toEqual([true, false, false]);
+    expect(store.turnoutExplains({ expected: 3 }, 'escaped', 1)).toBe(false);
+    expect(store.turnoutExplains({ expected: 20 }, 'escaped', 14)).toBe(true); // 6 short of 20: past 25% of 14
+    expect(store.turnoutExplains({ expected: 20 }, 'escaped', 16)).toBe(false);
+    expect(store.turnoutExplains({}, 'won', 9)).toBe(false); // no estimate (quick, evening): never
+    fourWin(first, T + MIN);
+    expect(store.dialOf(loadState(GUILD), 'week')).toBe(1);
+    expect(loadState(GUILD).siegeParticipation.week).toBe(0.8);
+    // The second expects the 4, and they win it too: now the dial moves
+    mutate(GUILD, (d) => { d.siege.result.announcedAt = T + 2 * MIN; });
+    const second = store.spawnSiege(GUILD, { monster: 'klowns', minutes: week.span, channelId: 'games' }, T + DAY).siege;
+    expect(second.expected).toBe(4);
+    fourWin(second, T + DAY + MIN);
+    expect(store.dialOf(loadState(GUILD), 'week')).toBeCloseTo(week.dial.win, 9);
+    // A7 20: the guess is 7, and 7 come and win. It was right, so its outcome says
+    // how hard the monster was: the first campaign moves the dial
+    const g = otherGuild('first-right');
+    mutate(g, (d) => { for (let i = 0; i < 20; i++) d.activity.recent[`m${i}`] = T - DAY; });
+    const right = store.spawnSiege(g, { monster: 'klowns', minutes: week.span, channelId: 'games' }, T).siege;
+    expect(right.expected).toBe(7);
+    for (let u = 0; u < 7; u++) store.siegeAttack(g, right.id, { userId: `f${u}`, name: `F${u}`, weapon: 'doom', outcome: 'smite' }, T + MIN);
+    mutate(g, (d) => { d.siege.hp = 0; });
+    store.finishSiege(g, right.id, 'won', T + 2 * MIN, () => 0.99);
+    expect(store.dialOf(loadState(g), 'week')).toBeCloseTo(week.dial.win, 9);
+    expect(loadState(g).siegeParticipation.week).toBe(0.35);
+  });
+
+  test('two who join and walk away from a campaign sized for them: the escape doesn\'t ease the dial (they used under 60% of their attacks)', () => {
+    active(5);
+    // Past its first campaign at week (which only learns the turnout): 40% of 5 come
+    mutate(GUILD, (d) => { d.siegeParticipation = { week: 0.4 }; });
+    const s = spawn('klowns', { minutes: week.span });
+    expect(s.expected).toBe(2);
+    store.siegeAttack(GUILD, s.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splat' }, T + MIN);
+    store.siegeAttack(GUILD, s.id, { userId: 'alex', name: 'Alex', weapon: 'food', outcome: 'splat' }, T + 2 * MIN);
+    const done = store.finishSiege(GUILD, s.id, 'escaped', s.endsAt, () => 0.99);
+    expect(store.turnoutExplains(now(), 'escaped', 2)).toBe(false);
+    expect(done.effort).toBe(Math.round((2 / (2 * week.allowance)) * 1e4) / 1e4);
+    expect(loadState(GUILD).siegeDials.week).toBe(1);
+    // Tried: 60% of their attacks, or half its HP taken; neither, and the dial stays
+    expect(store.nextDial(1, 'escaped', 2, 0, week, 0.6)).toBeCloseTo(week.dial.escape, 9);
+    expect(store.nextDial(1, 'escaped', 2, 0.5, week, 0)).toBeCloseTo(week.dial.escape, 9);
+    expect(store.nextDial(1, 'escaped', 2, 0.49, week, 0.59)).toBe(1);
+    // At quick, damage decides, as it always did
+    expect(store.nextDial(1, 'escaped', 2, 0.5, SIEGE_PACES.quick, 0)).toBeCloseTo(SIEGE.dial.escape, 9);
+    expect(store.nextDial(1, 'escaped', 2, 0.49, SIEGE_PACES.quick, 1)).toBe(1);
+  });
+
+  test('evening: an escape its fighters took most of eases the dial, though a 4-hour siege leaves most of a night\'s 20 attacks unused', () => {
+    const evening = SIEGE_PACES.evening;
+    active(10);
+    const s = spawn('klowns', { minutes: evening.span });
+    // Three fighters, 6 food hits each in turn: 18 of the 60 attacks their night allowed
+    for (let round = 0; round < 6; round++) {
+      for (const [k, u] of ['sam', 'alex', 'kim'].entries()) hit(s, u, 'food', 'splat', T + MIN + (round * 3 + k) * 30_000);
+    }
+    const fought = now();
+    expect(fought.hp).toBeGreaterThan(0);
+    const dealt = (fought.maxHp - fought.hp) / fought.maxHp;
+    expect(dealt).toBeGreaterThanOrEqual(SIEGE.dialEscapeMinDamage);
+    const done = store.finishSiege(GUILD, s.id, 'escaped', s.endsAt, () => 0.99);
+    expect(done.effort).toBe(0.3);
+    // They plainly tried: the dial eases. On effort alone it never did at evening pace,
+    // and its wins kept raising it (1.0 to 1.3 in a month of the balance sim)
+    expect(store.dialOf(loadState(GUILD), 'evening')).toBeCloseTo(evening.dial.escape, 9);
+  });
+
+  test('participation counts attackers, of the members active as it ends — a helper who only freed someone isn\'t one', () => {
+    active(10);
+    const s = spawn('klowns', { minutes: week.span });
+    for (const u of ['sam', 'alex']) store.siegeAttack(GUILD, s.id, { userId: u, name: u, weapon: 'food', outcome: 'splash' }, T + MIN);
+    // kim only helps (a free's contribution), as a /rescue would
+    mutate(GUILD, (d) => { d.siege.participants.kim = { name: 'kim', damage: 0, attacks: 0, frees: 1, cures: 0, firstAt: T, lastAt: T }; });
+    expect(store.fightersOf(now()).length).toBe(3);
+    store.finishSiege(GUILD, s.id, 'escaped', s.endsAt, () => 0.99);
+    // Its first campaign: what it saw replaces the guess (2 of 10)
+    const { start, first } = PACE_RULES.participation;
+    expect(loadState(GUILD).siegeParticipation.week).toBe(Math.round((start + first * (2 / 10 - start)) * 1e4) / 1e4);
+    expect(loadState(GUILD).siegeParticipation.week).toBe(0.2);
+  });
+
+  test('a new server\'s A7 grows through its first campaign: participation is of the members active as it ends', () => {
+    active(3);
+    const s = spawn('klowns', { minutes: week.span });
+    expect([s.a7, s.expected]).toEqual([3, 2]);
+    for (const u of ['sam', 'alex']) store.siegeAttack(GUILD, s.id, { userId: u, name: u, weapon: 'food', outcome: 'splash' }, T + MIN);
+    // Seven more find the bot that week (the first three's week has lapsed by its end)
+    mutate(GUILD, (d) => { for (let i = 0; i < 7; i++) d.activity.recent[`new${i}`] = s.endsAt - DAY; });
+    expect(store.activeMembers(loadState(GUILD), s.endsAt)).toBe(7);
+    store.finishSiege(GUILD, s.id, 'escaped', s.endsAt, () => 0.99);
+    // 2 of the 7 active as it ends, not 2 of the 3 there were at the start
+    expect(loadState(GUILD).siegeParticipation.week).toBe(Math.round((2 / 7) * 1e4) / 1e4);
+  });
+
+  test('expected fighters: at least 2 (or A7, if fewer), at most A7; a file with no participation reads the start', () => {
+    expect([0, 1, 2, 3, 5, 10, 60].map(a7 => store.expectedFighters(a7, 0.35))).toEqual([0, 1, 2, 2, 2, 4, 21]);
+    expect(store.expectedFighters(10, 1)).toBe(10);
+    expect(store.participationOf({}, 'week')).toBe(0.35);
+    expect(store.participationOf({ siegeParticipation: { day: 0.8 } }, 'week')).toBe(0.35);
+    expect(store.participationOf({ siegeParticipation: { week: 0.8 } }, 'week')).toBe(0.8);
+  });
+});
+
+describe('pace review (2026-11-04): the monster only takes fighters who are here', () => {
+  test('a fighter who last fought two nights ago is never picked; with nobody here and free, it roars', () => {
+    active(10);
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span });
+    const attack = (userId, at) => store.siegeAttack(GUILD, s.id, { userId, name: userId, weapon: 'food', outcome: 'splash' }, at);
+    attack('dev', T);
+    const wed = T + 2 * DAY;
+    attack('sam', wed);
+    attack('alex', wed + MIN);
+    expect(store.targetsOf(now(), wed + 2 * MIN).map(f => f.userId).sort()).toEqual(['alex', 'sam']);
+    expect(store.freeFighters(now(), wed + 2 * MIN).map(f => f.userId)).toContain('dev');
+    // Due, a grab, and the victim draw at the very end of the list (where dev would be)
+    mutate(GUILD, (d) => { d.siege.nextActionBusy = 0; });
+    const grab = store.decideAction(GUILD, s.id, {}, wed + 2 * MIN, scripted([0.1, 0.999, 0]));
+    expect(grab.action.kind).toBe('grab');
+    expect(['sam', 'alex']).toContain(grab.action.victims[0]);
+    store.markAnnounced(GUILD, s.id, grab.action.id, 'm1', wed + 2 * MIN);
+    // The other one wanders off for 40 minutes; the grabbed one is held: nobody here is free
+    const other = grab.action.victims[0] === 'sam' ? 'alex' : 'sam';
+    mutate(GUILD, (d) => { d.siege.participants[other].lastAt = wed - 40 * MIN; d.siege.nextActionBusy = 0; });
+    const roar = store.decideAction(GUILD, s.id, {}, wed + 5 * MIN, scripted([0.1, 0, 0]));
+    expect(roar.action).toMatchObject({ kind: 'roar', victims: [] });
+    // At quick, every free fighter, as before
+    const qg = otherGuild('quick-targets');
+    const q = store.spawnSiege(qg, { monster: 'klowns', minutes: 45, channelId: 'games' }, T).siege;
+    store.siegeAttack(qg, q.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome: 'splash' }, T);
+    expect(store.targetsOf(loadState(qg).siege, T + 40 * MIN).map(f => f.userId)).toEqual(['sam']);
+  });
+});
+
+// ── 2.74.0 review #2 (2026-11-06) ───────────────────────────────────────
+
+describe('pace review #2 (2026-11-06): the rules behind the findings', () => {
+  const week = SIEGE_PACES.week;
+  const at = (d, h, m = 0) => Date.UTC(2026, 10, d, h, m);
+  const played = (when) => mutate(GUILD, (d) => { d.activity.at = when; });
+  /** Claim and post night `night`'s report at `when` */
+  function report(s, when) {
+    played(when);
+    const night = store.reportDue(now(), loadState(GUILD), when);
+    expect(night).toBeTruthy();
+    const c = store.claimReport(GUILD, s.id, night, when);
+    expect(c.error).toBeUndefined();
+    store.recordReport(GUILD, s.id, night, { messageId: `r-${night}` });
+    return c.report;
+  }
+
+  test('#3 a pass with an older clock never claims an older night than one already claimed, and reportedThrough never moves back', () => {
+    active(5);
+    const s = spawn('klowns', { minutes: week.span });
+    expect(report(s, at(10, 13)).night).toBe('2026-11-10');
+    expect(report(s, at(11, 13)).night).toBe('2026-11-11');
+    expect(now().reportedThrough).toBe('2026-11-10');
+    // A pass that read its clock at Wednesday 11:59: night '2026-11-10' again — refused
+    expect(store.reportDue(now(), loadState(GUILD), at(11, 11, 59))).toBeNull();
+    expect(store.claimReport(GUILD, s.id, '2026-11-10', at(11, 11, 59))).toEqual({ error: 'not-due' });
+    // Recorded late, out of order: reportedThrough stays where it got to
+    mutate(GUILD, (d) => { d.siege.report = { ...d.siege.report, night: '2026-11-10', last: '2026-11-09', messageId: null }; });
+    store.recordReport(GUILD, s.id, '2026-11-10', { messageId: 'late' });
+    expect(now().reportedThrough).toBe('2026-11-10');
+    mutate(GUILD, (d) => { d.siege.report = { night: '2026-11-10', last: '2026-11-09', claimedAt: null, messageId: null, unannounced: null, tries: PACE_RULES.reportTries - 1 }; });
+    store.releaseReport(GUILD, s.id, '2026-11-10');
+    expect(now().reportedThrough).toBe('2026-11-10');
+  });
+
+  test('#4 a week campaign started 07:00 UTC: its hours to Tuesday 12:00 are night 1 — one allowance, one fighter-night — and it has seven windows in all', () => {
+    active(5);
+    const s = spawn('klowns', { minutes: week.span, at: at(9, 7) });
+    expect(s.endsAt).toBe(at(16, 12));
+    const attack = (when, outcome = 'splash') => store.siegeAttack(GUILD, s.id, { userId: 'sam', name: 'Sam', weapon: 'food', outcome }, when);
+    for (let i = 0; i < week.allowance; i++) expect(attack(at(9, 8, i)).hit.attacks.used).toBe(i + 1);
+    // Before 12:00 Monday too it's all one night: a 9th is refused
+    expect(attack(at(9, 11))).toMatchObject({ error: 'spent' });
+    // Monday 12:00 comes 5 hours in: not one of its nights, so no fresh 8
+    expect(store.siegeNight(now(), at(9, 12, 30))).toBe(store.siegeNight(now(), at(9, 8)));
+    expect(store.attacksTonight(now().participants.sam, at(9, 12, 30), now())).toBe(week.allowance);
+    expect(attack(at(9, 12, 30))).toMatchObject({ error: 'spent' });
+    // When the next 8 come: Tuesday 12:00, its first counted boundary (12:00 Monday without the siege)
+    expect(store.allowanceResetsAt(at(9, 9), now())).toBe(at(10, 12));
+    expect(store.allowanceResetsAt(at(9, 9))).toBe(at(9, 12));
+    expect([Object.keys(now().participants.sam.nights), now().fn]).toEqual([['2026-11-09'], 1]);
+    expect(attack(at(10, 12, 30)).hit).toMatchObject({ attacks: { used: 1, of: week.allowance }, again: true });
+    expect(now().fn).toBe(2);
+    // Seven nights, seven windows, from its start to its end
+    const keys = new Set();
+    for (let t = s.startedAt; t < s.endsAt; t += 15 * MIN) keys.add(store.siegeNight(now(), t));
+    expect(keys.size).toBe(7);
+    // A day siege isn't folded: its 12:00 report opens a fresh night (and says so)
+    const dg = otherGuild('day-night');
+    const d = store.spawnSiege(dg, { monster: 'klowns', minutes: 1440, channelId: 'games' }, at(9, 8)).siege;
+    expect([store.siegeNight(d, at(9, 9)), store.siegeNight(d, at(9, 12, 30))]).toEqual(['2026-11-08', '2026-11-09']);
+  });
+
+  test('#1b/#2 a digest nobody saw is kept only while a report is still to come — tonight\'s owed, or a counted boundary before the end; else it\'s told', () => {
+    active(5);
+    const s = spawn('klowns', { minutes: week.span });
+    for (const u of ['sam', 'alex']) store.siegeAttack(GUILD, s.id, { userId: u, name: u, weapon: 'food', outcome: 'splash' }, T);
+    const grabUntil = (until) => mutate(GUILD, (d) => { d.siege.participants.sam.caught = { at: until - week.freeMinutes * MIN, until, actionId: `a${until}`, by: 'monster' }; d.siege.participants.sam.out = false; d.siege.participants.sam.outUntil = null; });
+    // Wednesday 21:00: Thursday's boundary is still to come — kept, unpinged
+    grabUntil(at(11, 21));
+    expect(store.digestDue(GUILD, s.id, at(11, 21))).toMatchObject({ tell: false });
+    expect(now().unreported.map(d => d.userId)).toEqual(['sam']);
+    mutate(GUILD, (d) => { d.siege.unreported = []; });
+    // Sunday 13:00, nobody's played since 12:00: no boundary is left before the end, but
+    // that night's report is still owed (it posts by 00:00) and will carry it
+    played(at(15, 11));
+    grabUntil(at(15, 13));
+    expect(store.reportToCome(now(), at(15, 13))).toBe(true);
+    expect(store.digestDue(GUILD, s.id, at(15, 13))).toMatchObject({ tell: false });
+    const sunday = report(s, at(15, 14));
+    expect(sunday.digested.map(d => d.userId)).toEqual(['sam']);
+    expect(now().unreported).toEqual([]);
+    // Sunday 21:00, the last night, its report out: Monday 12:00 is its end — told at once
+    grabUntil(at(15, 21));
+    expect(store.reportToCome(now(), at(15, 21))).toBe(false);
+    expect(store.digestDue(GUILD, s.id, at(15, 21))).toMatchObject({ tell: true });
+    expect(now().unreported).toEqual([]);
+    // A day siege from 08:00 reports at 12:00 the same day (4 hours on): from 13:00 nothing's left once it's out
+    const dg = otherGuild('day-report');
+    const d = store.spawnSiege(dg, { monster: 'klowns', minutes: 1440, channelId: 'games' }, at(9, 8)).siege;
+    expect(store.firstReportAt(d)).toBe(at(9, 12));
+    expect(store.reportToCome(d, at(9, 10))).toBe(true);
+    mutate(dg, (x) => { x.siege.hp = 1; x.activity.at = at(9, 12, 30); });
+    expect(store.reportDue(loadState(dg).siege, loadState(dg), at(9, 12, 31))).toBe('2026-11-09');
+    store.claimReport(dg, d.id, '2026-11-09', at(9, 12, 31));
+    expect(store.reportToCome(loadState(dg).siege, at(9, 13))).toBe(false);
+    // …and from 11:00 exactly (an hour before), still; from 11:01 (or 11:30) there's no report at all
+    for (const [h, m, want] of [[11, 0, at(9, 12)], [11, 1, null], [11, 30, null], [12, 0, null], [18, 0, at(10, 12)]]) {
+      const g = otherGuild(`day-${h}-${m}`);
+      expect(store.firstReportAt(store.spawnSiege(g, { monster: 'klowns', minutes: 1440, channelId: 'games' }, at(9, h, m)).siege)).toBe(want);
+    }
+    // A week or 3 days keeps its 6 hours: an 07:00 start's first report closes Tuesday's night
+    expect(store.firstReportAt(store.spawnSiege(otherGuild('week-0700'), { monster: 'klowns', minutes: week.span, channelId: 'games' }, at(9, 7)).siege)).toBe(at(10, 12));
+  });
+
+  test('#1a the results ping every digest no report reached, within 20: the best fighters give way to them', async () => {
+    const { pingList } = await import('../src/utils/siegeCard.js');
+    const ids = Array.from({ length: 30 }, (_, i) => `u${i}`);
+    expect(pingList(ids.slice(0, 5), ['u2'])).toEqual(ids.slice(0, 5));
+    expect(pingList(ids, [])).toEqual(ids.slice(0, 20));
+    // u19 and u25 untold: u25 takes the last place, u18 gives way (u19 is in it anyway)
+    const out = pingList(ids, ['u19', 'u25']);
+    expect(out).toHaveLength(20);
+    expect(out).toEqual([...ids.slice(0, 18), 'u19', 'u25']);
+    // Someone untold who isn't a fighter any more (a defensive case): after the fighters
+    expect(pingList(['a', 'b'], ['z'])).toEqual(['a', 'b', 'z']);
+  });
+
+  test('#6 at a pot pace a win past the reward limit pays what its attacks would have scored (never below 0); quick\'s grants carry no `own`', () => {
+    const pair = [['sam', 30], ['alex', 10]];
+    for (const at2 of [T, T + 10 * MIN]) {
+      const q = spawn('klowns', { at: at2 });
+      setFighters(pair.map(([id, dmg]) => [id, NAMES[id], dmg]));
+      store.finishSiege(GUILD, q.id, 'won', at2 + MIN, scripted([0.99, 0, 0.99, 0.99, 0.99]));
+      expect(now().result.grants.every(g => !('own' in g))).toBe(true);
+      settle(q);
+    }
+    const s = spawn('klowns', { minutes: SIEGE_PACES.day.span, at: T + 20 * MIN });
+    // As /siege attack does: the attack, recordPlay with pot, then what it would have scored kept
+    const attack = (userId, outcome, when) => {
+      expect(store.siegeAttack(GUILD, s.id, { userId, name: NAMES[userId], weapon: 'doom', outcome }, when).error).toBeUndefined();
+      const r = recordPlay(GUILD, { game: 'siege', action: 'doom', actor: { id: userId, name: NAMES[userId] }, target: store.monsterTarget(MONSTERS.klowns), outcome, settings: { dailyScoredPlays: SIEGE.scoredPerDay, twists: false }, pot: true }, when);
+      expect(r.actorDelta).toBe(0);
+      store.notePotPoints(GUILD, s.id, userId, r.potPoints);
+      return r.potPoints;
+    };
+    const samOwn = [attack('sam', 'smite', T + 21 * MIN), attack('sam', 'smite', T + 22 * MIN), attack('sam', 'spooked', T + 23 * MIN)].reduce((a, b) => a + b, 0);
+    const alexOwn = attack('alex', 'spooked', T + 21 * MIN);
+    expect([samOwn, alexOwn]).toEqual([2 + 2 - 2, -2]);
+    expect([now().participants.sam.own, now().participants.alex.own]).toEqual([2, -2]);
+    const before = siegeStats('sam').all.points;
+    mutate(GUILD, (d) => { d.siege.hp = 0; });
+    store.finishSiege(GUILD, s.id, 'won', T + 30 * MIN, () => 0.99);
+    const grants = now().result.grants;
+    expect(grants.map(g => [g.userId, g.limited, g.points, g.total, g.win, g.loot])).toEqual([['sam', true, 2, 2, false, null], ['alex', true, 0, 0, false, null]]);
+    expect(siegeStats('sam').all.points).toBe(before + 2);
+    const rows = resultsPayload(now(), { kit: createKit(new Map()) }).embeds[0].toJSON().description.split('\n').slice(2);
+    expect(rows[0]).toMatch(/^🥇 Sam · `\d+` damage · `\+2` · reward limit reached \(2 sieges a day\): just what the attacks scored$/);
+    expect(rows[1]).toMatch(/^🥈 Alex · `\d+` damage · reward limit reached \(2 sieges a day\)$/);
   });
 });

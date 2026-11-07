@@ -26,7 +26,8 @@ const DAY = 24 * HOUR;
 // A Monday in November 2026: no calendar happening, and no full moon
 // (the 2026-11-24 one is weeks away)
 const PLAIN = Date.UTC(2026, 10, 9, 20, 0);
-const settings = (games = {}) => getGameSettings({ games });
+// These are quick-pace happenings, as they were before 2.74 (the paces: tests/happening-pace.test.js)
+const settings = (games = {}) => getGameSettings({ games: { pace: 'quick', ...games } });
 const NORMAL = settings();
 
 let n = 0;
@@ -174,7 +175,7 @@ describe('starting and ending', () => {
     const third = startHappening(guild, 'sunrise', {}, PLAIN + 45 * MIN);
     expect(third.happening.kind).toBe('sunrise');
     expect(loadState(guild).history).toEqual([{ kind: 'fog', source: 'admin', startedAt: PLAIN, endedAt: PLAIN + 45 * MIN }]);
-    expect(loadState(guild).spawned).toEqual({ day: '2026-11-09', count: 2 });
+    expect(loadState(guild).spawned).toEqual({ day: '2026-11-09', count: 2, week: '2026-11-09', weekCount: 2 });
   });
 
   test('endHappening is keyed by id and only ends once; the gap counts from when it stopped', () => {
@@ -256,7 +257,7 @@ describe('maybeSpawn: every rule', () => {
     players(2, PLAIN);
     const spawned = maybeSpawn(guild, NORMAL, PLAIN + MIN, ALWAYS);
     expect(spawned.happening).toMatchObject({ kind: 'fullmoon', source: 'random', startedAt: PLAIN + MIN, messageId: null, claimedAt: null });
-    expect(loadState(guild).spawned).toEqual({ day: '2026-11-09', count: 1 });
+    expect(loadState(guild).spawned).toEqual({ day: '2026-11-09', count: 1, week: '2026-11-09', weekCount: 1 });
   });
 
   test('switched off, or frequency off: never', () => {
@@ -319,7 +320,8 @@ describe('maybeSpawn: every rule', () => {
     const tomorrow = Date.UTC(2026, 10, 10, 0, 1);
     players(3, tomorrow);
     expect(maybeSpawn(guild, NORMAL, tomorrow, ALWAYS)).not.toBeNull();
-    expect(loadState(guild).spawned).toEqual({ day: '2026-11-10', count: 1 });
+    // The week (from Monday the 9th) counts all four
+    expect(loadState(guild).spawned).toEqual({ day: '2026-11-10', count: 1, week: '2026-11-09', weekCount: 4 });
   });
 
   test('enough members: 2 for most, 3 for a Double Feature; stamps older than 30 minutes don\'t count', () => {

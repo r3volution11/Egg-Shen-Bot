@@ -10,10 +10,12 @@ import { formatNumber, pill } from '../utils/emojiKit.js';
 import {
   currentSiege, isLive, monsterOf, monsterTarget, siegeAttack, spawnSiege,
   finishSiege, siegeTick, siegeView, standingOf, randomMonster, closeOrphanSiege, isCaught, isOut, poisonedNow,
+  attacksTonight, allowanceResetsAt, notePotPoints, firstReportAt,
 } from '../utils/siegeStore.js';
 import { renderSiegeCard, placeText, HOW_TO_FIGHT } from '../utils/siegeCard.js';
 import { botCanPost, editSiegeCard, postSiegeResults, postArrival } from '../utils/happeningScheduler.js';
 import { SIEGE } from '../data/gameRewards.js';
+import { timingsOf, defaultSiegeMinutes, lengthWords } from '../utils/gamePace.js';
 import { MONSTERS, MONSTER_KEYS } from '../data/siegeMonsters.js';
 import { SIEGE_ATTACK_LINES } from '../data/siegeAttackLines.js';
 
@@ -28,9 +30,13 @@ import { SIEGE_ATTACK_LINES } from '../data/siegeAttackLines.js';
  *     own (siegeAttackLines.js). Only the attacker is scored; the first
  *     SIEGE.scoredPerDay attacks a day score, every one does damage. R6: a
  *     fighter the monster has grabbed or digested can't attack; one it has
- *     poisoned does half damage.
+ *     poisoned does half damage. 2.74.0: from `evening` on each member has
+ *     the siege's `allowance` attacks a night (refused for nothing past it),
+ *     and from `day` on an attack's points go into the pot.
  *   status                               — the card, privately, with your place
- *   start monster: minutes:  (Admin/Mod) — in this channel
+ *   start monster: length:   (Admin/Mod) — in this channel; `length` is one
+ *                                          of LENGTHS, default the server's
+ *                                          pace (2.74.0; it was `minutes:`)
  *   end                      (Admin/Mod) — no rewards, no penalties (a win if it's
  *                                          already at 0 HP, an escape if its time is up)
  *
@@ -46,6 +52,24 @@ const WEAPONS = Object.freeze([
 
 /** "food", for "…so food can't be used" */
 const WEAPON_WORD = { food: 'food', doom: 'doom', potion: 'potions' };
+
+/**
+ * `/siege start length:` (2.74.0): a quick siege's three lengths, an
+ * evening, then days. Any length runs to the NEAREST pace preset's timings
+ * on a log scale (gamePace.nearestPace: 5 days takes week's), and its HP
+ * counts its whole days. No length: the server's pace.
+ */
+export const LENGTHS = Object.freeze([
+  { name: '30 minutes (quick)', value: 30 },
+  { name: '45 minutes (quick)', value: 45 },
+  { name: '1 hour (quick)', value: 60 },
+  { name: '4 hours (evening)', value: 240 },
+  { name: '1 day', value: 1440 },
+  { name: '3 days', value: 3 * 1440 },
+  { name: '5 days (week pace)', value: 5 * 1440 },
+  { name: '7 days (week)', value: 7 * 1440 },
+  { name: '10 days (week pace)', value: 10 * 1440 },
+]);
 
 export const data = new SlashCommandBuilder()
   .setName('siege')
@@ -71,11 +95,10 @@ export const data = new SlashCommandBuilder()
       .setRequired(false)
       .addChoices(...MONSTER_KEYS.map(key => ({ name: `${MONSTERS[key].emoji} ${MONSTERS[key].name}`, value: key }))))
     .addIntegerOption(option => option
-      .setName('minutes')
-      .setDescription(`How long it lasts (default: ${SIEGE.minutes.default}, or the monster's own)`)
+      .setName('length')
+      .setDescription('How long it lasts (default: this server\'s pace)')
       .setRequired(false)
-      .setMinValue(SIEGE.minutes.min)
-      .setMaxValue(SIEGE.minutes.max)))
+      .addChoices(...LENGTHS)))
   .addSubcommand(sub => sub
     .setName('status')
     .setDescription('The monster, its HP, and your damage (only you see it)'));
@@ -167,10 +190,31 @@ function refusal(s, interaction, channel, now) {
   if (!isLive(s, now)) return `💨 ${monster.name} is getting away: it's too late to attack.`;
   // R6: the monster has them, or has eaten them
   const me = s.participants?.[interaction.user.id];
-  if (isOut(me)) return `😋 ${monster.name} digested you: you're out of this siege.`;
+  if (isOut(me, now)) {
+    return Number.isFinite(me.outUntil)
+      ? `😋 ${monster.name} digested you: you're out until <t:${unix(me.outUntil)}:t> (<t:${unix(me.outUntil)}:R>).`
+      : `😋 ${monster.name} digested you: you're out of this siege.`;
+  }
   if (isCaught(me)) return caughtRefusal(monster, me, interaction.member?.displayName || interaction.user.username);
+  // 2.74.0: tonight's attacks used up — refused before the cooldown is spent
+  const { allowance } = timingsOf(s);
+  if (allowance && attacksTonight(me, now, s) >= allowance) return spentRefusal(s, allowance, now);
   return null;
 }
+
+/**
+ * Tonight's attacks are used up: when more come (the next night, 12:00
+ * UTC), and what's still unlimited. A night that comes at or after the
+ * siege's end brings none: an evening siege's only night, the last night
+ * of a week. It promised "the next 20" anyway, after the monster had gone
+ * (review, 2026-11-06).
+ */
+const spentRefusal = (s, allowance, now) => {
+  const next = allowanceResetsAt(now, s);
+  const unlimited = 'Freeing a grabbed fighter with `/rescue` and curing with a helpful `/potion` are unlimited.';
+  if (next >= s.endsAt) return `⚔️ That's all your attacks for this siege: you've made your ${allowance} for tonight, and it's over before the next night. ${unlimited}`;
+  return `⚔️ You've made your ${allowance} attacks tonight. The next ${allowance} come <t:${unix(next)}:R> (12:00 UTC). ${unlimited}`;
+};
 
 /** A grabbed fighter's refusal: who can free them, and by when */
 const caughtRefusal = (monster, p, name) => `🪤 ${monster.name} has you! You can't attack until someone else frees you with \`/rescue attempt target:@${name}\`, by <t:${unix(p.caught.until)}:t> (<t:${unix(p.caught.until)}:R>).`;
@@ -181,19 +225,20 @@ const LATE = {
   out: (m) => `😋 ${m.name} digested you a moment before your attack landed.`,
   beaten: (m) => `🏆 ${m.name} was beaten a moment before your attack landed. The results are on their way.`,
   'time-up': (m) => `💨 ${m.name} got away a moment before your attack landed.`,
+  spent: () => '⚔️ That was one attack too many for tonight: it didn\'t land.',
   'not-live': (m) => `⏹️ The fight with ${m.name} ended a moment before your attack landed.`,
   'not-current': () => '⏹️ That fight ended a moment before your attack landed.',
 };
 
 /** The `-#` lines that say what the attack did to the monster */
-function damageLines(hit, monster, who) {
+function damageLines(hit, monster, who, t) {
   const notes = [];
   if (hit.silverMult) notes.push(`🥈 ×${hit.silverMult}`);
   if (hit.wasSpooked && hit.raw > 0) notes.push('😱 halved');
   if (hit.wasPoisoned && hit.raw > 0) notes.push('🤢 halved: poisoned');
   const dmg = hit.damage > 0 ? `💥 ${formatNumber(hit.damage)} damage${notes.length ? ` (${notes.join(', ')})` : ''}` : '💥 No damage';
   const out = [`${dmg} · ${monster.name} ${hit.hp}/${hit.maxHp}`];
-  if (hit.joined) out.push(`📈 ${who} joined the fight: ${monster.name} grows +${hit.joined} HP.`);
+  if (hit.joined) out.push(`📈 ${who} ${hit.again ? 'is back for another night' : 'joined the fight'}: ${monster.name} grows +${hit.joined} HP.`);
   if (hit.healed) out.push(`💚 ${monster.name} feeds on the miss and heals ${hit.healed} HP.`);
   if (hit.poison) {
     out.push(`🧪 ${monster.name} is poisoned${hit.poison.restarted ? ' again (it starts over)' : ''}: ${hit.poison.perMin} a minute for ${hit.poison.minutes} minutes, credited to ${who}.`);
@@ -201,8 +246,17 @@ function damageLines(hit, monster, who) {
   if (hit.spooked) out.push(`😱 ${who} is Spooked: their next attack does half damage.`);
   // R6: a fizzled potion splashes back
   if (hit.selfPoisoned?.antidote) out.push(`💊 The potion splashed back on ${who}, and their Antidote cured it at once.`);
-  else if (hit.selfPoisoned) out.push(`🤢 The potion splashed back: ${who} is poisoned, and their attacks do half damage until someone cures them with a helpful \`/potion give\` (or ${SIEGE.poisoned.minutes} minutes pass).`);
+  else if (hit.selfPoisoned) out.push(`🤢 The potion splashed back: ${who} is poisoned, and their attacks do half damage until someone cures them with a helpful \`/potion give\` (or ${lengthWords(t.poisonMinutes)} pass).`);
   if (hit.killingBlow) out.push(`🏆 ${who} landed the killing blow on ${monster.name}!`);
+  // 2.74.0: where the points went, and what's left of today's attacks. The
+  // pot is per fighter-night (siegeStore.potOf), not the attacks' points: it
+  // only moves when someone's first attack of a night lands, so "Into the
+  // pot (24)" read as if this attack's points should have moved it
+  // (review, 2026-11-06)
+  const pace = [];
+  if (hit.pot !== null && hit.pot !== undefined) pace.push(`🍯 Your points go to the pot (now ${formatNumber(hit.pot)}): paid out when it's beaten`);
+  if (hit.attacks) pace.push(`⚔️ ${hit.attacks.of - hit.attacks.used} of ${hit.attacks.of} attacks left tonight`);
+  if (pace.length) out.push(pace.join(' · '));
   return out.map(l => `-# ${l}`);
 }
 
@@ -254,9 +308,13 @@ async function attack(interaction) {
     await privately(interaction, (LATE[landed.error] || LATE['not-live'])(monster));
     return;
   }
+  // 2.74.0: at a day+ pace the attack's points go into the pot (the siege's own timings say)
+  const t = timingsOf(again);
   const result = recordPlay(interaction.guildId, {
-    game: 'siege', action: weapon, actor, target, outcome: drawn.outcome, settings, item: drawn.item, mods: drawn.mods, happenings: [],
+    game: 'siege', action: weapon, actor, target, outcome: drawn.outcome, settings, item: drawn.item, mods: drawn.mods, happenings: [], pot: !!t.pot,
   }, now);
+  // What it would have scored, kept for a win the daily reward limit holds back
+  if (result.potPoints) notePotPoints(interaction.guildId, s.id, actor.id, result.potPoints);
   // ── end of the synchronous block ──
   try {
     noteActivity(interaction.guildId, { channelId: interaction.channelId || null, userId: actor.id }, now);
@@ -267,7 +325,7 @@ async function attack(interaction) {
   const names = { actor: actor.name, target: null };
   const tail = [
     resultLine('siege', result, names, { label: outcomeLabel(result) }),
-    ...damageLines(landed.hit, monster, actor.name),
+    ...damageLines(landed.hit, monster, actor.name, t),
     ...extraLines(result, names),
   ].join('\n');
   // Over Discord's limit, the line itself gives way, as in every game
@@ -299,13 +357,17 @@ async function status(interaction) {
   }
   const me = standingOf(s, interaction.user.id);
   const mine = s.participants?.[interaction.user.id];
+  const now = Date.now();
   // R6: their own state first — it's what they can't see on the card's top 3
-  const state = isOut(mine) ? ' · 😋 digested: out of this siege'
+  const state = isOut(mine, now) ? (Number.isFinite(mine.outUntil) ? ` · 😋 digested: back <t:${unix(mine.outUntil)}:R>` : ' · 😋 digested: out of this siege')
     : isCaught(mine) ? ` · 🪤 grabbed: someone has to free you by <t:${unix(mine.caught.until)}:R>`
-      : poisonedNow(mine) ? ' · 🤢 poisoned: your attacks do half damage' : '';
+      : poisonedNow(mine, now) ? ' · 🤢 poisoned: your attacks do half damage' : '';
+  // 2.74.0: tonight's attacks, from `evening` on
+  const { allowance } = timingsOf(s);
+  const today = allowance ? ` · ⚔️ attacks tonight ${pill(`${attacksTonight(mine, now, s)}/${allowance}`)}` : '';
   const content = me
-    ? `You: ${pill(formatNumber(me.damage))} damage · ${placeText(me)} ${me.of === 1 ? 'fighter' : 'fighters'}${state}`
-    : `You haven't attacked yet: ${HOW_TO_FIGHT}`;
+    ? `You: ${pill(formatNumber(me.damage))} damage · ${placeText(me)} ${me.of === 1 ? 'fighter' : 'fighters'}${today}${state}`
+    : `You haven't attacked yet: ${HOW_TO_FIGHT}${allowance ? ` (${allowance} attacks a night)` : ''}`;
   await interaction.reply({
     content,
     embeds: [renderSiegeCard(siegeView(s))],
@@ -319,42 +381,59 @@ async function status(interaction) {
  * played in, and one the bot can View, Send and Embed in (checked before
  * anything starts). The siege and the claim on its card are saved
  * together, before the send, so a restart can never post two cards.
+ *
+ * Deferred first, privately, as every answer here is: the card's send (and
+ * a held escape's results before it) come before the reply, and a slow
+ * send would blow Discord's 3 seconds to answer — the admin would see "the
+ * application did not respond" over a monster that did arrive (review,
+ * 2026-11-06).
  */
 async function start(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const say = (content) => interaction.editReply({ content, allowedMentions: { parse: [] } });
   const config = await loadGuildConfig(interaction.guildId);
   const settings = getGameSettings(config);
   // Members couldn't fight it, and the scheduler calls off a siege that's
   // switched off on its next pass: say so now, rather than post a monster
   // that's gone a minute later
   if (config?.commandPermissions?.siege === false) {
-    await privately(interaction, '❌ /siege is turned off for members on this server, so nobody could fight it. Turn it on first: `/eggshen-config commands toggle setting:siege enabled:true`.');
+    await say('❌ /siege is turned off for members on this server, so nobody could fight it. Turn it on first: `/eggshen-config commands toggle setting:siege enabled:true`.');
     return;
   }
   // An uncached channel (a thread, say) arrives as null: fetch it, rather
   // than tell the admin the bot can't post where it can
   const channel = interaction.channel ?? await interaction.guild?.channels?.fetch(interaction.channelId).catch(() => null);
   if (!channelAllowed(settings, interaction.channelId, channel?.parentId || null).ok) {
-    await privately(interaction, '❌ The games aren\'t played in this channel, so a monster can\'t attack here. Start it in a games channel.');
+    await say('❌ The games aren\'t played in this channel, so a monster can\'t attack here. Start it in a games channel.');
     return;
   }
   if (!await botCanPost(interaction.guild, channel)) {
-    await privately(interaction, '❌ I can\'t post the monster here: I need View Channel, Send Messages and Embed Links in this channel.');
+    await say('❌ I can\'t post the monster here: I need View Channel, Send Messages and Embed Links in this channel.');
     return;
   }
   const key = interaction.options.getString('monster') || randomMonster();
   const monster = monsterOf(key);
   if (!monster) {
-    await privately(interaction, '❌ Pick a monster from the list.');
+    await say('❌ Pick a monster from the list.');
     return;
   }
-  const minutes = interaction.options.getInteger('minutes') ?? monster.minutes ?? settings.siegeMinutes;
+  // 2.74.0: a length picked, or the server's pace's (at quick: siege-minutes, or the monster's own)
+  const minutes = interaction.options.getInteger('length') ?? defaultSiegeMinutes(settings, monster);
 
   // ── No await between the start and the claim ──
-  const now = Date.now();
-  const spawned = spawnSiege(interaction.guildId, { monster: key, minutes, startedBy: interaction.user.id, channelId: interaction.channelId, source: 'admin' }, now);
+  let now = Date.now();
+  const spawn = () => spawnSiege(interaction.guildId, { monster: key, minutes, startedBy: interaction.user.id, channelId: interaction.channelId, source: 'admin' }, now);
+  let spawned = spawn();
+  // The last campaign's escape is waiting for someone to play (2.74.0):
+  // an admin starting the next one is someone. Post them, then start.
+  if (spawned.error === 'results-pending' && spawned.siege?.result?.holdUntil && !spawned.siege.result.claimedAt) {
+    await postSiegeResults(interaction.guild, spawned.siege.id, { now, force: true, settings });
+    now = Date.now();
+    spawned = spawn();
+  }
   if (spawned.error) {
     const old = spawned.siege && monsterOf(spawned.siege.monster);
-    await privately(interaction, spawned.error === 'in-progress'
+    await say(spawned.error === 'in-progress'
       ? `❌ ${old?.name || 'A monster'} is already attacking <#${spawned.siege.channelId}>. One siege at a time: end it with \`/siege end\` first.`
       : spawned.error === 'results-pending'
         ? `❌ The last siege's results haven't been posted yet. Try again in a minute.`
@@ -367,18 +446,31 @@ async function start(interaction) {
   // find the card in the channel or call the siege off quietly
   const posted = await postArrival(interaction.guild, channel, siege, { now });
   if (posted.error) {
-    await privately(interaction, '❌ I couldn\'t post the monster in this channel, so the siege is off.');
+    await say('❌ I couldn\'t post the monster in this channel, so the siege is off.');
     return;
   }
   if (posted.unsure) {
-    await privately(interaction, `⚠️ Discord didn't confirm the monster's card. If it's in <#${siege.channelId}>, the fight's on; if it isn't, the siege is called off by itself within a few minutes.`);
+    await say(`⚠️ Discord didn't confirm the monster's card. If it's in <#${siege.channelId}>, the fight's on; if it isn't, the siege is called off by itself within a few minutes.`);
     return;
   }
   // An admin may start any monster any time (a test server's November
   // Horseman); a random pick keeps to its months. The admin is told.
   const month = new Date(now).getUTCMonth() + 1;
   const season = Array.isArray(monster.months) && !monster.months.includes(month) ? ' (out of season)' : '';
-  await privately(interaction, `${monster.emoji} **${monster.name}**${season} is attacking <#${siege.channelId}> until <t:${unix(siege.endsAt)}:t> (<t:${unix(siege.endsAt)}:R>) with ${pill(formatNumber(siege.hp))} HP.`);
+  const t = timingsOf(siege);
+  const until = t.report ? `<t:${unix(siege.endsAt)}:f>` : `<t:${unix(siege.endsAt)}:t>`;
+  // A day siege holds one 12:00 UTC: it says when its report comes, or
+  // nothing when it gets none (started in the hour before: firstReportAt)
+  const firstReport = firstReportAt(siege);
+  const report = !t.report ? null : t.nightEnd ? 'a report each night' : firstReport ? `a report at <t:${unix(firstReport)}:t>` : null;
+  const pace = t.key === 'quick' ? '' : `\n-# ${t.name} pace: ${[
+    `the monster acts every ${t.actEvery} minutes of fighting`,
+    `${lengthWords(t.freeMinutes)} to free someone it grabs`,
+    t.allowance ? `${t.allowance} attacks a night each` : null,
+    t.pot ? 'attacks pay into the pot' : null,
+    report,
+  ].filter(Boolean).join(' · ')}.`;
+  await say(`${monster.emoji} **${monster.name}**${season} is attacking <#${siege.channelId}> until ${until} (<t:${unix(siege.endsAt)}:R>) with ${pill(formatNumber(siege.hp))} HP.${pace}`);
 }
 
 /**
@@ -392,6 +484,8 @@ async function start(interaction) {
 async function end(interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const say = (content) => interaction.editReply({ content, allowedMentions: { parse: [] } });
+  // Where the games may be played (2.74.0: results go to a games channel); read before the siege is
+  const settings = getGameSettings(await loadGuildConfig(interaction.guildId));
   const now = Date.now();
   // A siege whose monster no longer exists can't be seen by anything else: closed here
   if (!closeOrphanSiege(interaction.guildId, now).error) {
@@ -415,14 +509,31 @@ async function end(interaction) {
   }
   await editSiegeCard(interaction.guild, s.id, { now, force: true });
   if (outcome === 'won') {
-    await postSiegeResults(interaction.guild, s.id, { now });
-    await say(`🏆 ${monster.name} was already beaten, so it counts as a win: the results are in <#${s.channelId}>.`);
+    const posted = await postSiegeResults(interaction.guild, s.id, { now, settings });
+    await say(`🏆 ${monster.name} was already beaten, so it counts as a win: ${resultsWhere(interaction.guildId, s.id, posted)}.`);
     return;
   }
   if (outcome === 'escaped') {
-    await postSiegeResults(interaction.guild, s.id, { now });
-    await say(`💨 ${monster.name}'s time was already up, so it got away: the results are in <#${s.channelId}>.`);
+    const posted = await postSiegeResults(interaction.guild, s.id, { now, settings });
+    await say(`💨 ${monster.name}'s time was already up, so it got away: ${resultsWhere(interaction.guildId, s.id, posted)}.`);
     return;
   }
   await say(`⏹️ Ended the siege: ${monster.name} slinks off. No rewards, no penalties.`);
+}
+
+/**
+ * Where /siege end's results went: the channel they were actually posted
+ * in — the siege's, or (taken off the games list) where a happening would
+ * be announced — or that they weren't. It named the siege's channel
+ * whatever happened (review, 2026-11-06).
+ */
+function resultsWhere(guildId, siegeId, posted) {
+  if (posted?.message) return `the results are in <#${posted.channel?.id ?? posted.message.channelId}>`;
+  const s = currentSiege(guildId);
+  const r = s?.id === siegeId ? s.result : null;
+  // A scheduler pass got there first: where it posted them (recordResults)
+  if (r?.messageId) return r.channelId ? `the results are in <#${r.channelId}>` : 'the results are posted';
+  // Claimed by a pass that's posting them now, or waiting for a retry
+  if (r && !r.announcedAt) return r.claimedAt ? 'the results are on their way' : 'I couldn\'t post the results just now, and will keep trying';
+  return 'I couldn\'t post the results';
 }

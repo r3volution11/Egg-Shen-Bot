@@ -1,7 +1,9 @@
 # The emoji kit's art
 
 The small icons on the bot's cards: bar segments, ticks, the nights row,
-medals, game icons and Glovebox items. Every code in `KIT_CODES`
+medals, game icons, Glovebox items, and the Big Trouble set (the
+Six-Demon Bag's six elements, Chi, the honours, the bosses and the
+expansion's happenings). Every code in `KIT_CODES`
 (`src/utils/emojiKit.js`) is drawn in code, in one house style — **Egg
 Shen's Magic**, the logo carried into the kit: carved dark stone with pale
 bevelled edges, diamond studs with jade gems, crackling blue lightning, red
@@ -15,7 +17,7 @@ from them:
 | --- | --- |
 | `<code>.png` | 128×128 RGBA. Uploaded to Discord as the application emoji `es_<code>_<hash>`. |
 | `manifest.json` | `{ "<code>": { hash, family, fallback, source } }`. `hash` is the first 4 hex characters of the sha256 of that PNG's bytes; `source` is `drawn` or `art`. The sync (`src/utils/emojiSync.js`) reads only `hash`. |
-| `contact-sheet.png` | Every code at 64 px, then the kit in context on Discord's dark (#313338) and light (#F2F3F5) themes at the real inline size (22 px) and at 2× (44 px). |
+| `contact-sheet.png` | Every code at 64 px, then the kit in context on Discord's dark (#313338) and light (#F2F3F5) themes at the real inline size (22 px) and at 2× (44 px), then a Big Trouble strip: the expansion's icons in mock card lines on both themes (`BIG_TROUBLE` in `scripts/build-emojis.js`). |
 | `art/<code>.png` | Optional: your own image for one code (see below). |
 
 **Commit all of it.** The server installs with `npm install --omit=dev` and

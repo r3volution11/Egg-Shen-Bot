@@ -1,9 +1,10 @@
 import { SlashCommandBuilder, ChannelType } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import {
-  getGameSettings, resetScores, channelAllowed, GAMES, GAME_NAMES, HAPPENING_FREQUENCIES, TWIST_PERCENT_MAX, SIEGE_FREQUENCIES,
+  getGameSettings, resetScores, channelAllowed, GAMES, GAME_NAMES, HAPPENING_FREQUENCIES, TWIST_PERCENT_MAX, SIEGE_FREQUENCIES, GAME_PACES,
 } from '../utils/gameScores.js';
 import { SIEGE } from '../data/gameRewards.js';
+import { pacePreset, randomGapHours, happeningPace, lengthWords, defaultSiegeMinutes, reportWords } from '../utils/gamePace.js';
 import { HAPPENINGS } from '../data/gameHappenings.js';
 import { loadState, inProgress, startHappening, calendarHappenings } from '../utils/happeningStore.js';
 import { announceHappening, settleHappening, botCanPost } from '../utils/happeningScheduler.js';
@@ -23,6 +24,12 @@ import { announceHappening, settleHappening, botCanPost } from '../utils/happeni
  * long a siege lasts too (the siege's announcements go where a
  * happening's do). Its name sorts it ahead of `limits` in
  * Discord's picker, which lists subcommands alphabetically.
+ *
+ * 2.74.0: `happenings pace:` sets how long the games' events take on the
+ * server (SIEGE_PACES: quick · evening · day · 3 days · week, the default).
+ * `siege-minutes` is still the length of a QUICK siege; at any other pace
+ * a siege lasts the pace's own length. Changing the pace never touches a
+ * siege or a happening that's already on.
  */
 
 const LIMITS = [
@@ -32,18 +39,46 @@ const LIMITS = [
   { option: 'shield-minutes', key: 'shieldMinutes', min: 0, max: 1440, about: 'How long a rescue shields someone from /doom (0: off)' },
 ];
 
-/** The frequency choices, as offered and as the summary names them */
+/**
+ * The frequency choices, as offered — and as the summary names them at
+ * quick and evening pace. From day pace on (2.74.0) a happening lasts about
+ * a day and normal is about one a week (WEEKLY_FREQUENCY_TEXT): an option's
+ * name can't change with the server, so it says both.
+ */
 const FREQUENCY_TEXT = {
   off: 'Off (only when an admin starts one)',
   rare: 'Rare',
   normal: 'Normal (about one a day when busy)',
   often: 'Often',
 };
+const FREQUENCY_CHOICE = { ...FREQUENCY_TEXT, normal: 'Normal (about one a day when busy; one a week from day pace on)' };
+const WEEKLY_FREQUENCY_TEXT = { ...FREQUENCY_TEXT, normal: 'Normal (about one a week when busy)' };
 
-/** R6: random sieges' frequency choices, with their rate a week */
+/** 2.74.0: the pace choices, as offered (a choice's name is at most 100 characters) */
+export const PACE_TEXT = Object.freeze({
+  quick: 'Quick: 45-minute sieges, hour-long happenings',
+  evening: 'Evening: 4-hour sieges, happenings for the night',
+  day: 'Day: day-long sieges, happenings about weekly',
+  days3: '3 days: sieges over 3 days, a report each night',
+  week: 'Week (default): sieges over a week, a report each night',
+});
+
+/** R6: random sieges' frequency at quick and evening pace, with their rate a week (the summary's words) */
 const SIEGE_FREQUENCY_TEXT = Object.fromEntries(SIEGE_FREQUENCIES.map(f => [f, f === 'off'
   ? 'Off (only when an admin starts one)'
   : `${f[0].toUpperCase()}${f.slice(1)} (about ${SIEGE.random.perWeek[f]} a week)`]));
+
+/**
+ * The choices as offered: by 2.74.0 the frequency means a rate a week at
+ * quick and evening pace, and a gap after the last one from day pace on
+ * (rare twice as long, often half), so the names say how it compares
+ */
+const SIEGE_FREQUENCY_CHOICE = Object.freeze({
+  off: 'Off (only when an admin starts one)',
+  rare: 'Rare (about half as often)',
+  normal: 'Normal (the default)',
+  often: 'Often (about twice as often)',
+});
 
 const MODE_TEXT = {
   all: 'Every channel',
@@ -86,7 +121,7 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o
       .setName('frequency')
       .setDescription('How often random happenings start')
-      .addChoices(...HAPPENING_FREQUENCIES.map(f => ({ name: FREQUENCY_TEXT[f], value: f }))))
+      .addChoices(...HAPPENING_FREQUENCIES.map(f => ({ name: FREQUENCY_CHOICE[f], value: f }))))
     .addChannelOption(o => o
       .setName('channel')
       .setDescription('Where happenings are announced (default: your games channel, else where people last played)')
@@ -105,12 +140,16 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o
       .setName('siege-frequency')
       .setDescription('How often a monster attacks by itself while people play')
-      .addChoices(...SIEGE_FREQUENCIES.map(f => ({ name: SIEGE_FREQUENCY_TEXT[f], value: f }))))
+      .addChoices(...SIEGE_FREQUENCIES.map(f => ({ name: SIEGE_FREQUENCY_CHOICE[f], value: f }))))
     .addIntegerOption(o => o
       .setName('siege-minutes')
-      .setDescription(`How long a siege lasts, ${SIEGE.minutes.min}-${SIEGE.minutes.max} minutes`)
+      .setDescription(`How long a siege lasts at quick pace, ${SIEGE.minutes.min}-${SIEGE.minutes.max} minutes`)
       .setMinValue(SIEGE.minutes.min)
-      .setMaxValue(SIEGE.minutes.max)))
+      .setMaxValue(SIEGE.minutes.max))
+    .addStringOption(o => o
+      .setName('pace')
+      .setDescription('How long sieges and happenings take (default: week)')
+      .addChoices(...GAME_PACES.map(p => ({ name: PACE_TEXT[p], value: p })))))
   .addSubcommand(sub => sub
     .setName('reset-scores')
     .setDescription('Erase scores: everyone\'s, one game\'s, or one person\'s. Cannot be undone')
@@ -211,6 +250,9 @@ function happeningChanges(options) {
   if (siegeFrequency) changes.siegeFrequency = siegeFrequency;
   const siegeMinutes = options.getInteger('siege-minutes');
   if (siegeMinutes !== null) changes.siegeMinutes = siegeMinutes;
+  // 2.74.0
+  const pace = options.getString('pace');
+  if (pace) changes.pace = pace;
   return changes;
 }
 
@@ -263,7 +305,8 @@ async function startNow(interaction, settings, kind, now) {
   const h = HAPPENINGS[kind];
   if (!h) return '❌ There\'s no such happening.';
   if (!settings.happenings) return '❌ Happenings are switched off. Turn them on with `enabled:True` to start one.';
-  const started = startHappening(interaction.guildId, kind, { source: 'admin', startedBy: interaction.user.id }, now);
+  // How long it lasts is the server's pace's (an hour at quick, about a day from `day` on)
+  const started = startHappening(interaction.guildId, kind, { source: 'admin', startedBy: interaction.user.id, pace: settings.pace }, now);
   if (started.error === 'in-progress') {
     return `❌ ${kindName(started.happening.kind)} is on ${until(started.happening.endsAt)}. They run one at a time: end it with \`end:True\` first.`;
   }
@@ -294,7 +337,7 @@ function happeningSummary(guildId, settings, now) {
   const state = loadState(guildId);
   const lines = [
     settings.happenings
-      ? `• Happenings: **on** · random ones: **${FREQUENCY_TEXT[settings.happeningFrequency]}**`
+      ? `• Happenings: **on** · random ones: **${(happeningPace(settings.pace).per === 'week' ? WEEKLY_FREQUENCY_TEXT : FREQUENCY_TEXT)[settings.happeningFrequency]}**`
       : '• Happenings: **off**',
   ];
   const games = settings.channelMode === 'only' && settings.channels.length === 1 ? settings.channels[0] : null;
@@ -302,7 +345,7 @@ function happeningSummary(guildId, settings, now) {
     ? `<#${settings.happeningChannel}>`
     : games ? `<#${games}> (the games channel)` : 'the channel the games were last played in'}`);
   lines.push(settings.twists ? `• Twists: **on**, **${settings.twistPercent}%** of scored plays` : '• Twists: **off**');
-  lines.push(`• Random sieges: **${SIEGE_FREQUENCY_TEXT[settings.siegeFrequency]}** · a siege lasts **${settings.siegeMinutes} min**`);
+  lines.push(...paceLines(settings));
   const h = state.happening;
   lines.push(inProgress(h, now)
     ? `• Now: ${kindName(h.kind)}, ${until(h.endsAt)}${h.unannounced ? ' · not announced' : ''}`
@@ -315,6 +358,29 @@ function happeningSummary(guildId, settings, now) {
     lines.push(`• Lately: ${recent.map(r => `${HAPPENINGS[r.kind]?.emoji ?? ''} ${HAPPENINGS[r.kind]?.name ?? r.kind} <t:${unix(r.endedAt)}:R>`).join(' · ')}`);
   }
   return lines;
+}
+
+/**
+ * 2.74.0: the pace and what it means here — the numbers every member
+ * plays by, read from the preset (and the random-siege frequency's gap).
+ * A siege already on keeps the timings it started with.
+ */
+function paceLines(settings) {
+  const key = settings.pace;
+  const p = pacePreset(key);
+  const h = happeningPace(key);
+  const length = lengthWords(defaultSiegeMinutes(settings));
+  const random = settings.siegeFrequency === 'off'
+    ? '**off** (only when an admin starts one)'
+    : p.report
+      ? `**${settings.siegeFrequency}**: the next comes ${lengthWords(randomGapHours(key, settings.siegeFrequency) * 60)} after the last one ends, while people play`
+      : `**${SIEGE_FREQUENCY_TEXT[settings.siegeFrequency]}**`;
+  return [
+    `• Pace: **${p.name}**${key === 'week' ? ' (the default)' : ''} · a siege lasts **${length}**${p.nightEnd ? ', ending at 12:00 UTC' : ''}`,
+    `-# The monster acts every ${p.actEvery} ${p.busy ? 'minutes while people fight' : 'minutes'} · ${lengthWords(p.freeMinutes)} to free a grabbed fighter · ${p.allowance ? `${p.allowance} attacks a night each` : 'no attack limit'}${p.pot ? ' · attacks pay into the pot' : ''}${p.report ? ` · ${reportWords(p)}` : ''}`,
+    `• Random sieges: ${random}`,
+    `-# Happenings last ${h.k === 1 ? 'their usual time' : `${h.k}× as long${h.per === 'week' ? ' (about a day)' : ''}`}, at most ${h.max} a ${h.per}`,
+  ];
 }
 
 async function reset(interaction) {

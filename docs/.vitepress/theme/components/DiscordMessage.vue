@@ -8,7 +8,7 @@ import { discordMarkdown } from '../inline.js'
 
 defineProps({
   // { author, time, edited, ephemeral, command: { user, name }, content,
-  //   embeds: [{ color, title, description, fields: [{ name, value, inline }],
+  //   embeds: [{ color, author, title, description, fields: [{ name, value, inline }],
   //   footer, timestamp, thumbnail: 'avatar' | 'poster' }],
   //   rows: [[{ label, kind: 'primary'|'secondary'|'success'|'danger', disabled }]] }
   message: { type: Object, required: true },
@@ -46,6 +46,7 @@ const hex = (c) => (typeof c === 'number' ? `#${c.toString(16).padStart(6, '0')}
             :style="{ borderLeftColor: hex(e.color) }"
           >
             <div class="dm-embed-main">
+              <div v-if="e.author" class="dm-embed-author"><span class="dm-embed-author-icon" aria-hidden="true">👤</span>{{ e.author }}</div>
               <div v-if="e.title" class="dm-embed-title" v-html="md(e.title, { inline: true })" />
               <div v-if="e.description" class="dm-embed-desc" v-html="md(e.description)" />
               <div v-if="e.fields?.length" class="dm-fields">

@@ -9,6 +9,68 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.74.0 - 2026-11-06
+
+### Changed
+- **Sieges and happenings now run over a week.** Every server is on the new **week** pace unless an admin picks another with `/eggshen-config-games happenings pace:` (quick, evening, day, 3 days or week). Nothing else needs setting: the siege, the monster, happenings and random sieges all follow the pace.
+  - **A week-long siege:** a monster arrives and stays for 7 nights, ending at 12:00 UTC. Everyone gets 8 attacks a night (a night runs 12:00 to 12:00 UTC), and freeing and curing are unlimited.
+  - **The monster acts only while people are fighting.** It only grabs or poisons someone who has played in the last 30 minutes, so nobody is grabbed at 3 a.m. A grabbed fighter has 22 hours to be freed, and someone digested is out for 24 hours instead of the rest of the fight.
+  - **If you're digested while nobody's around,** you're told in the next nightly report, or in the results if the siege ends first, rather than pinged at 4 a.m.
+  - **A nightly report** posts once a night and pings nobody. It shows the HP, last night's damage, the top fighters, and who's still held or poisoned and needs help.
+  - **Points come at the end.** From the day pace on, an attack's points go into the pot. When the monster is beaten, the pot is paid out to everyone who helped, by damage, frees and cures. An attack still counts for items, streaks and your nights row. If the monster escapes, the results wait until someone is playing.
+  - **The monster's size fits your server.** Its HP counts the fighters your server actually brings, learned from your own campaigns, and the difficulty adjusts after each one.
+  - **Happenings last longer and come less often** from the day pace on: about a day each, and about one a week. At week pace a random siege comes at least 3 days after the last one ends.
+  - **The other paces:**
+    - evening: a 4-hour siege with 20 attacks
+    - day: 24 hours with 12 attacks a night, and a report at the 12:00 UTC it runs through
+    - 3 days: 10 attacks a night
+    - quick: the 45-minute siege, exactly as before
+- **`/siege start length:`** replaces `minutes:`. It takes 30 minutes to 10 days, or the server's pace (the default). `siege-minutes:` now sets how long a quick siege lasts.
+- **A siege already running when this update arrives finishes on the old rules.** Changing the pace never changes a siege that has already started.
+- **The games docs have their own section,** with pages for playing, your card, rewards, happenings, the siege and settings, plus a games tile on the home page and a games section in Getting Started. Old links still land on the right section.
+
+### Developer
+- **Pace:**
+  - `src/utils/gamePace.js` works out a server's pace and a length's timings. A length takes the timings of the nearest preset on a log scale. It also handles night boundaries, happening minutes and random gaps.
+  - `SIEGE_PACES` and `PACE_RULES` in `gameRewards.js` hold every number.
+  - A siege's timings are saved on it when it starts (`s.t`). A 2.73 record has none and reads as quick for its whole life, and quick reproduces the 2.73.0 balance fuzz exactly.
+- **HP from day on:**
+  - Formula: `round(clamp((base·E·N + growth·FN)·D, 40, 2000·N)·monster.hp)`.
+  - E is the fighters expected, `clamp(round(A7 × participation), 2, A7)`.
+  - Participation starts at 0.35. The first finished campaign replaces it, and each later campaign moves it 70% of the way.
+- **The dial:**
+  - There is one dial per pace (`siegeDials`), and `siegeDial` is read as quick's.
+  - An escape eases it when fighters took half the HP or used 60% of their allowance (quick: half the HP only).
+  - If turnout explains a campaign's end, only the participation estimate moves.
+- **Busy time and the nightly report:**
+  - Busy time accrues inside the attack's own save.
+  - The nightly report is claimed per `siegeId:night`. If it can't post, it tries 3 passes, then gives that night up and carries its digests into the next.
+  - **Digests at day+ paces:**
+    - With nobody around, a digest goes into the report instead of pinging, while a report is still to come (`reportToCome`).
+    - With no report left, it pings at once.
+    - A digest the siege ends before reporting is named and pinged in the results (`result.told`).
+  - **Nights:** a 3-day or week campaign's hours before its first counted boundary are night 1 for the allowance, growth and tallies too (`campaignNightKey`), so it has exactly N allowance windows. A day siege counts its 12:00 UTC if it's an hour or more after the start (`PACE_RULES.dayReportMinHours`).
+  - `reportDue` never claims a night older than the last claimed, and `reportedThrough` never moves back. Otherwise a slow pass on another guild could re-post a night. A report covering more than one night says so.
+  - At a pot pace, a win past the 2-a-day reward limit pays what the member's attacks would have scored (`participants[].own`, from `recordPlay`'s `potPoints`).
+  - Happenings and sieges block each other by the running siege's own `t`, not the server's pace. `/siege start` defers before posting anything.
+- **Happenings:**
+  - A happening lasts k × its minutes, at most 24 h.
+  - From day on the limits are per week: at least 24 h apart and at most 2 a week, spread over 9 days of active minutes.
+  - After a restart, a long happening is still announced while half of it is left, saying how long remains.
+- **Tests:**
+  - New suites `siege-sim-pace` and `happening-pace`, plus new scenarios in `siege-store`, `game-happenings` and `siege-sim-*`.
+  - The siege simulator now also checks:
+    - that every interaction is answered before the bot sends anything
+    - that every kept digest is told
+    - that no member gets more than N fighter-nights
+  - The balance fuzz holds week and quick to the targets (`BALANCE_PACES=all` checks all five).
+  - Two review rounds (three independent reviewers) were fixed with scenarios, and 124 planted bugs were all caught.
+- **Groundwork for the Big Trouble releases, not used yet:**
+  - `src/data/btilcLines.js`, 789 frozen lines.
+  - 21 new kit icons: the six elements, Chi, the Six-Demon Bag, Black Blood, the Jade Charm, the Pork-Chop Express, the sidekick, honours, backing, four bosses, the Upside-Down Sinners and the Tour Bus. They upload on first start, and kit icons show as plain emoji until they're up.
+- **Docs:** the games pages are flat files (`docs/commands/games-*.md`). `theme/movedAnchors.js` sends old `games#…` links to their new page. `kitIcons.js` and `gameCards.js` render kit icons and sample cards.
+- **Deploy:** `deploy-commands` is needed (`/siege start length:`, the `pace` option).
+
 ## 2.73.0 - 2026-11-03
 
 ### Added

@@ -5,7 +5,10 @@
 // tournament (tests/harness/tournamentSim.js), 2026-10-03 — with two
 // stand-ins for what only Discord can draw: [ts:in 9 minutes] for a <t:…>
 // timestamp and [mention:@Admin] for a mention. When a card's wording
-// changes in the bot, change it here too.
+// changes in the bot, change it here too. The games' examples are in
+// gameCards.js.
+
+import { GAME_CARDS } from './gameCards.js';
 
 const ACCENT = 0x4ec5ed; // ballots and live standings
 const GREEN = 0x00ff00; // voting opened, results
@@ -127,4 +130,6 @@ export const DISCORD_CARDS = {
       ],
     },
   },
+
+  ...GAME_CARDS,
 };

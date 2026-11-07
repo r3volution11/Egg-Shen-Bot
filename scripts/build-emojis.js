@@ -12,7 +12,8 @@
  *  - contact-sheet.png every code at 64 px, plus "in context" strips on
  *                      Discord's dark and light themes at the real inline
  *                      size (22 px) and at 2× — what gets reviewed before
- *                      art ships
+ *                      art ships — and a Big Trouble strip: the
+ *                      expansion's icons in mock lines on both themes
  *
  * Override: if assets/emojis/art/<code>.png exists it replaces the drawing
  * (see assets/emojis/README.md).
@@ -346,6 +347,70 @@ function themeStrips(ctx, theme, size, top, draw) {
   return y - top;
 }
 
+/**
+ * The Big Trouble set (the six elements, magic, gifts, the pact, honours,
+ * bosses, happenings): every one in a row, then in mock lines the way the
+ * expansion's cards and posts use them. Codes not in the kit are skipped,
+ * so the strip never stops a build.
+ */
+const BIG_TROUBLE = ['erain', 'efire', 'ewind', 'esmoke', 'elite', 'ethund', 'chi', 'bag', 'bblood', 'jade',
+  'truck', 'sidek', 'wang', 'jack', 'back', 'wildmn', 'guard', 'storms', 'lopan', 'upside', 'bus'].filter(c => KIT_CODES[c]);
+/** Mock lines: [code] is an emoji, `x` a pill, **x** bold, {bar:c:n} a 10-wide bar of colour c filled n */
+const BIG_TROUBLE_LINES = [
+  '[chi] `12` Chi · [ewind] Wind blessing on Sam',
+  '[bag] **Six-Demon Bag** [chi] `14/20` Chi {bar:g:7} · `1 of 2` casts left',
+  'On you: [efire] Fired Up (from Sam) · 2 plays left — [esmoke] Lost in the Smoke (hex, from Jo)',
+  '[wang] **Wang Chi:** Sam · [jack] **The Jack Burton:** Alex · [back] Jo backed Sam `+5`',
+  '[truck] Sam\'s [gpie] Golden Pie is on its way to Alex · [sidek] Sidekick to Sam tonight · cut `2/3`',
+  '[lopan] **Lo Pan** {bar:o:7} `1,104/1,560` · [bblood] ×1 [jade] ×1',
+  '[upside] **Upside-Down Sinners** for 12 h · [bus] **Tour Bus:** Chi ×2, casts −1',
+  '[erain] Rain ↔ [efire] Fire · [ewind] Wind ↔ [esmoke] Smoke · [elite] Lightning ↔ [ethund] Thunder',
+  '[wildmn] Wild Man · [guard] Guardian · [storms] Three Storms · [lopan] Lo Pan',
+];
+
+/** One mock line, left to right. Returns nothing; skips any [code] the kit lacks. */
+function mockLine(ctx, line, x, y, size, theme) {
+  const fontPx = Math.round(size * 16 / 22);
+  const mid = y + size / 2;
+  for (const tok of line.split(/(\[[a-z0-9]+\]|`[^`]*`|\*\*[^*]*\*\*|\{bar:[a-z]:\d+\})/).filter(Boolean)) {
+    let m;
+    if ((m = tok.match(/^\[([a-z0-9]+)\]$/))) {
+      if (images[m[1]]) x = drawRun(ctx, [m[1]], x, y, size) + fontPx * 0.25;
+    } else if ((m = tok.match(/^`([^`]*)`$/))) {
+      x = pill(ctx, m[1], x, mid, fontPx, theme);
+    } else if ((m = tok.match(/^\*\*([^*]*)\*\*$/))) {
+      x = words(ctx, m[1], x, mid, fontPx, theme, BOLD, theme.strong);
+    } else if ((m = tok.match(/^\{bar:([a-z]):(\d+)\}$/))) {
+      x = drawRun(ctx, levelBar(m[1], Number(m[2]), 10), x + fontPx * 0.2, y, size) + fontPx * 0.3;
+    } else {
+      x = words(ctx, tok, x, mid, fontPx, theme);
+    }
+  }
+}
+
+/** The Big Trouble strip for one theme at one size; measures only when `draw` is false */
+function bigTroubleStrip(ctx, theme, size, top, draw) {
+  const left = PAD + 20;
+  const labelW = 60;
+  const rowH = size + Math.round(size * 0.35);
+  let y = top;
+  if (draw) label(ctx, `${size} px`, left, y + 10, { font: BOLD, size: 15, colour: theme.muted });
+  y += 28;
+  const perRow = Math.floor((SHEET_W - 2 * left - labelW) / (size + 4));
+  if (draw) label(ctx, 'icons', left, y + size / 2, { colour: theme.muted, size: 12 });
+  for (let i = 0; i < BIG_TROUBLE.length; i += perRow) {
+    if (draw) drawRun(ctx, BIG_TROUBLE.slice(i, i + perRow), left + labelW, y, size, 4);
+    y += size + 6;
+  }
+  y += 8;
+  for (const line of BIG_TROUBLE_LINES) {
+    if (draw) mockLine(ctx, line, left + labelW, y, size, theme);
+    y += rowH;
+  }
+  return y + 12 - top;
+}
+const btH = THEMES.map(t => 56 + bigTroubleStrip(createCanvas(10, 10).getContext('2d'), t, 22, 0, false) + bigTroubleStrip(createCanvas(10, 10).getContext('2d'), t, 44, 0, false));
+
 // Section A: every image at 64 px, grouped by family
 const CELL = 64;
 const CELL_W = 96;
@@ -357,7 +422,7 @@ const gridH = 60 + groupRows.reduce((a, n) => a + n * CELL_H + 34, 0);
 
 const measure = createCanvas(10, 10).getContext('2d');
 const themeH = THEMES.map(t => 56 + themeStrips(measure, t, 22, 0, false) + themeStrips(measure, t, 44, 0, false));
-const SHEET_H = 90 + gridH + themeH.reduce((a, h) => a + h + 30, 0) + PAD;
+const SHEET_H = 90 + gridH + themeH.reduce((a, h) => a + h + 30, 0) + (BIG_TROUBLE.length ? btH.reduce((a, h) => a + h + 30, 0) : 0) + PAD;
 
 const sheet = createCanvas(SHEET_W, SHEET_H);
 const ctx = sheet.getContext('2d');
@@ -399,6 +464,20 @@ THEMES.forEach((theme, i) => {
   themeStrips(ctx, theme, 44, ty, true);
   y += themeH[i] + 30;
 });
+
+if (BIG_TROUBLE.length) {
+  THEMES.forEach((theme, i) => {
+    ctx.fillStyle = theme.bg;
+    ctx.beginPath();
+    ctx.roundRect(PAD, y, SHEET_W - 2 * PAD, btH[i], 12);
+    ctx.fill();
+    label(ctx, `Big Trouble — ${theme.name.toLowerCase()} (${theme.bg}): the expansion's ${BIG_TROUBLE.length} icons, then mock lines`, PAD + 20, y + 28, { font: BOLD, size: 16, colour: theme.text });
+    let ty = y + 56;
+    ty += bigTroubleStrip(ctx, theme, 22, ty, true);
+    bigTroubleStrip(ctx, theme, 44, ty, true);
+    y += btH[i] + 30;
+  });
+}
 
 writeFileSync(path.join(OUT_DIR, 'contact-sheet.png'), sheet.toBuffer('image/png'));
 

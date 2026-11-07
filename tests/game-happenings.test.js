@@ -17,6 +17,7 @@ import path from 'path';
 import { PermissionFlagsBits } from 'discord.js';
 import { FakeDiscord } from './harness/fakeDiscord.js';
 import { saveGuildConfig, loadGuildConfig } from '../src/utils/guildConfig.js';
+import { forTheNext } from '../src/utils/gamePace.js';
 import { deleteScores, resetPlayLimits, loadScores } from '../src/utils/gameScores.js';
 import { HAPPENINGS } from '../src/data/gameHappenings.js';
 import { DOOM_LINES } from '../src/data/doomLines.js';
@@ -30,8 +31,11 @@ const DEFAULT_LINES = [
   '• Happenings: **on** · random ones: **Normal (about one a day when busy)**',
   '• Announced in: the channel the games were last played in',
   '• Twists: **on**, **4%** of scored plays',
-  // R6: random sieges live with the happenings' settings
-  '• Random sieges: **Normal (about 3 a week)** · a siege lasts **45 min**',
+  // R6: random sieges live with the happenings' settings; 2.74.0: the pace, and what it means
+  '• Pace: **Quick** · a siege lasts **45 minutes**',
+  '-# The monster acts every 5 minutes · 10 minutes to free a grabbed fighter · no attack limit',
+  '• Random sieges: **Normal (about 3 a week)**',
+  '-# Happenings last their usual time, at most 3 a day',
 ];
 
 const clock = { now: T0 };
@@ -71,6 +75,8 @@ beforeEach(async () => {
   jest.spyOn(console, 'log').mockImplementation(() => {});
   const config = path.join(process.env.GUILD_CONFIGS_DIR, `${GUILD}.json`);
   if (fs.existsSync(config)) fs.unlinkSync(config);
+  // Quick pace, as happenings were before 2.74 (the other paces: tests/happening-pace.test.js)
+  await saveGuildConfig(GUILD, { ...await loadGuildConfig(GUILD), games: { pace: 'quick' } });
   // This suite's files only: the directory is shared with the worker's other suites
   for (const f of happeningFiles()) fs.unlinkSync(f);
   deleteScores(GUILD);
@@ -101,14 +107,17 @@ async function admin(options = {}, userId = 'admin') {
 const tick = (luck = () => 0.999999) => mods.scheduler.checkHappenings(discord.client, clock.now, { only: GUILD, luck });
 const sends = () => discord.events.filter(e => e.kind === 'send').map(e => e.message);
 const edits = () => discord.events.filter(e => e.kind === 'edit').map(e => e.message);
-const games = (g) => saveGuildConfig(GUILD, { games: g });
+const games = (g) => saveGuildConfig(GUILD, { games: { pace: 'quick', ...g } });
 const played = (channelId, ...users) => {
   for (const userId of users) mods.store.noteActivity(GUILD, { channelId, userId }, clock.now);
 };
 
+/** A kind's announcement as posted at quick pace: its `{for}` is its own minutes */
+const announced = (kind) => HAPPENINGS[kind].announce.split('{for}').join(forTheNext(HAPPENINGS[kind].minutes));
+
 function expectAnnouncement(message, kind, endsAt) {
   const h = HAPPENINGS[kind];
-  expect(message.content).toBe(h.announce);
+  expect(message.content).toBe(announced(kind));
   expect(message.embeds.map(e => e.toJSON())).toEqual([{
     color: mods.scheduler.HAPPENING_COLORS[kind],
     title: `${h.emoji} ${h.name}`,
@@ -135,8 +144,7 @@ describe('an admin start', () => {
       '🎪 **Happenings**',
       DEFAULT_LINES[0],
       '• Announced in: <#games> (the games channel)',
-      DEFAULT_LINES[2],
-      DEFAULT_LINES[3],
+      ...DEFAULT_LINES.slice(2),
       `• Now: 🌕 **Full Moon**, until <t:${sec(end)}:t> (<t:${sec(end)}:R>)`,
     ].join('\n'));
     expect(mods.store.loadState(GUILD).happening).toMatchObject({
@@ -166,7 +174,7 @@ describe('an admin start', () => {
     clock.now += 10 * MIN;
     const reply = await admin({ end: true, start: 'happyhour' });
     // What was sent (a message's first version), and what the first became
-    expect(sends().map(m => m.history[0].content)).toEqual([HAPPENINGS.fog.announce, HAPPENINGS.happyhour.announce]);
+    expect(sends().map(m => m.history[0].content)).toEqual([announced('fog'), announced('happyhour')]);
     expect(edits()).toHaveLength(1);
     expect(edits()[0]).toBe(sends()[0]);
     expect(sends()[0].content).toBe(HAPPENINGS.fog.ended);
@@ -356,7 +364,7 @@ describe('a restart at the worst moment', () => {
   test('between the spawn and the post: announced once after the restart, never twice', async () => {
     played('lobby', 'sam', 'alex');
     // The pass saved the spawn and died before posting
-    const spawned = mods.store.maybeSpawn(GUILD, { happenings: true, happeningFrequency: 'normal' }, clock.now, () => 0);
+    const spawned = mods.store.maybeSpawn(GUILD, { happenings: true, happeningFrequency: 'normal', pace: 'quick' }, clock.now, () => 0);
     expect(spawned.happening.messageId).toBeNull();
     await restart();
     clock.now += MIN;
@@ -372,7 +380,7 @@ describe('a restart at the worst moment', () => {
   test('down for more than two minutes after the spawn: it\'s never announced late', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     played('lobby', 'sam', 'alex');
-    mods.store.maybeSpawn(GUILD, { happenings: true }, clock.now, () => 0);
+    mods.store.maybeSpawn(GUILD, { happenings: true, pace: 'quick' }, clock.now, () => 0);
     await restart();
     clock.now += 2 * MIN + 1000;
     await tick();
@@ -385,9 +393,37 @@ describe('a restart at the worst moment', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  test('2.74.0: a day-long happening (week pace) the bot was down for is still announced while half of it is left — once; past that, not', async () => {
+    played('lobby', 'sam', 'alex');
+    const week = { happenings: true, pace: 'week' };
+    const { happening } = mods.store.maybeSpawn(GUILD, week, clock.now, () => 0);
+    expect(happening.endsAt - happening.startedAt).toBe(24 * 60 * MIN);
+    expect(mods.scheduler.announceWithinMs(happening)).toBe(12 * 60 * MIN);
+    await restart();
+    clock.now += 3 * 60 * MIN; // three hours down: 21 of its 24 left
+    await tick();
+    expect(sends()).toHaveLength(1);
+    // It says what's left of it, not the 24 hours it started with (the embed's end is the same either way)
+    expect(sends()[0].content).toContain('For the next 21 hours');
+    expect(sends()[0].embeds[0].toJSON().description).toContain(`Ends <t:${Math.floor(happening.endsAt / 1000)}:R>`);
+    clock.now += MIN;
+    await tick();
+    expect(sends()).toHaveLength(1);
+    // A second one, found 13 hours in (under half left): old news, never announced
+    mods.store.endHappening(GUILD, happening.id, clock.now);
+    const late = mods.store.startHappening(GUILD, 'fog', { source: 'random', pace: 'week' }, clock.now).happening;
+    await restart();
+    clock.now += 13 * 60 * MIN;
+    await tick();
+    expect(sends()).toHaveLength(1);
+    expect(mods.store.loadState(GUILD).happening).toMatchObject({ id: late.id, unannounced: 'late' });
+    // A quick one keeps its 2 minutes
+    expect(mods.scheduler.announceWithinMs({ startedAt: 0, endsAt: 60 * MIN })).toBe(2 * MIN);
+  });
+
   test('died mid-send (claimed, no message id): never sent again', async () => {
     played('lobby', 'sam', 'alex');
-    const { happening } = mods.store.maybeSpawn(GUILD, { happenings: true }, clock.now, () => 0);
+    const { happening } = mods.store.maybeSpawn(GUILD, { happenings: true, pace: 'quick' }, clock.now, () => 0);
     // The claim was saved and the send may have gone out; the id never came back
     mods.store.claimAnnouncement(GUILD, happening.id, 'lobby', clock.now);
     await restart();
@@ -434,6 +470,13 @@ describe('a restart at the worst moment', () => {
 });
 
 describe('the summary and settings', () => {
+  test('the frequency choices say what they mean at every pace, inside Discord\'s 100 characters (review, 2026-11-06: "…; a week from day pace on")', () => {
+    const sub = mods.config.data.toJSON().options.find(o => o.name === 'happenings');
+    const choices = sub.options.find(o => o.name === 'frequency').choices;
+    expect(choices.find(c => c.value === 'normal').name).toBe('Normal (about one a day when busy; one a week from day pace on)');
+    for (const c of choices) expect(c.name.length).toBeLessThanOrEqual(100);
+  });
+
   test('no options: settings, what\'s on, today\'s calendar happening and the last few — privately', async () => {
     clock.now = Date.UTC(2026, 9, 31, 12, 0); // Halloween
     for (const kind of ['fog', 'happyhour', 'sunrise', 'rewind']) {
@@ -460,14 +503,17 @@ describe('the summary and settings', () => {
   test('every setting saves, through the normalizer', async () => {
     const reply = await admin({ enabled: false, frequency: 'rare', channel: { id: 'happen' }, twists: false, 'twist-percent': 9 });
     expect((await loadGuildConfig(GUILD)).games).toEqual({
-      happenings: false, happeningFrequency: 'rare', happeningChannel: 'happen', twists: false, twistPercent: 9,
+      happenings: false, happeningFrequency: 'rare', happeningChannel: 'happen', twists: false, twistPercent: 9, pace: 'quick',
     });
     expect(reply.content).toBe([
       '✅ **Happenings saved**',
       '• Happenings: **off**',
       '• Announced in: <#happen>',
       '• Twists: **off**',
-      '• Random sieges: **Normal (about 3 a week)** · a siege lasts **45 min**',
+      '• Pace: **Quick** · a siege lasts **45 minutes**',
+      '-# The monster acts every 5 minutes · 10 minutes to free a grabbed fighter · no attack limit',
+      '• Random sieges: **Normal (about 3 a week)**',
+      '-# Happenings last their usual time, at most 3 a day',
       '• Now: nothing',
     ].join('\n'));
     const back = await admin({ enabled: true, frequency: 'often', twists: true });

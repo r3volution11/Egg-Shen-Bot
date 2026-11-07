@@ -3,7 +3,8 @@
  * seconds — the basics, items and the Glovebox, prizes and titles, nights
  * in a row, twists, happenings and the siege, one embed each, with a topic
  * menu and ◀ Previous / Next ▶ underneath. Doug asked for quick help for the
- * games (2026-11); the full guide is docs/commands/games.md.
+ * games (2026-11); the full guide is docs/commands/games.md and the
+ * games-*.md pages beside it, each topic's "Read more" links its own.
  *
  * Every number is read from the code that applies it — the rewards data,
  * the happenings, the monsters, POINTS, and THIS server's own game settings
@@ -36,26 +37,42 @@ import {
   ITEMS, DAILY, FULL_STACK_POINTS, TITLE_POINTS, PRIZES, TITLES, NIGHT_TIERS, NIGHT_START_HOUR, NIGHTS_SHOWN,
   NIGHT_LIGHT_DAYS, NIGHT_LIGHT_PRIZE, SIEGE, TWISTS, TWIST_RULES,
 } from '../data/gameRewards.js';
-import { HAPPENINGS, CALENDAR_HAPPENINGS, HAPPENING_RULES } from '../data/gameHappenings.js';
+import { HAPPENINGS, CALENDAR_HAPPENINGS } from '../data/gameHappenings.js';
 import { MONSTERS, MONSTER_KEYS } from '../data/siegeMonsters.js';
+import {
+  pacePreset, paceOf, happeningPace, happeningMinutes, randomGapHours, defaultSiegeMinutes, lengthWords, reportWords,
+} from './gamePace.js';
 
 // ── the monster fights back ─────────────────────────────────────────────
 
 /**
  * The numbers the Siege topic's "It fights back" and "When" lines quote,
- * gathered from SIEGE and the game settings' defaults (tests read them
- * from here too). The Silver Bullet prize is an ordinary PRIZES row
- * ('siegewins'), shown with the other prizes.
+ * at a server's pace (2.74.0: SIEGE_PACES — a week campaign's windows are
+ * hours where a quick siege's are minutes), gathered from the preset, SIEGE
+ * and the game settings (tests read them from here too). The Silver Bullet
+ * prize is an ordinary PRIZES row ('siegewins'), shown with the other prizes.
  */
-export const FIGHTS_BACK = Object.freeze({
-  everyMinutes: SIEGE.actions.everyMinutes, // the monster acts this often
-  freeMinutes: SIEGE.grab.freeMinutes, // a grabbed fighter not freed within this…
-  notFreedLoss: SIEGE.grab.loss, // …loses this, and is out of the siege
-  poisonMinutes: SIEGE.poisoned.minutes, // a poisoned fighter recovers by itself after this
-  // Random sieges a week, by the server's siegeFrequency
-  perWeek: SIEGE.random.perWeek,
-  defaultFrequency: DEFAULT_GAME_SETTINGS.siegeFrequency,
-});
+export function fightsBack(settings = DEFAULT_GAME_SETTINGS) {
+  const key = paceOf(settings);
+  const p = pacePreset(key);
+  return {
+    pace: key,
+    busy: p.busy, // the monster's clock only runs while people fight
+    everyMinutes: p.actEvery, // the monster acts this often
+    freeMinutes: p.freeMinutes, // a grabbed fighter not freed within this…
+    notFreedLoss: SIEGE.grab.loss, // …loses this, and is out of the siege…
+    outMinutes: p.outMinutes, // …or, from 3 days on, out for this long
+    poisonMinutes: p.poisonMinutes, // a poisoned fighter recovers by itself after this
+    // Random sieges a week, by the server's siegeFrequency (quick, evening)…
+    perWeek: SIEGE.random.perWeek,
+    // …or, from `day` on, hours after the last one ends
+    gapHours: randomGapHours(key, settings?.siegeFrequency ?? DEFAULT_GAME_SETTINGS.siegeFrequency),
+    defaultFrequency: DEFAULT_GAME_SETTINGS.siegeFrequency,
+  };
+}
+
+/** The quick pace's numbers (the game before 2.74), as FIGHTS_BACK always was */
+export const FIGHTS_BACK = Object.freeze(fightsBack({ ...DEFAULT_GAME_SETTINGS, pace: 'quick' }));
 
 // ── topics ──────────────────────────────────────────────────────────────
 
@@ -66,18 +83,21 @@ export const HTP_MENU_ID = 'htp:menu';
 
 /**
  * The topics, in the order the `topic:` option, the menu and Next ▶ list
- * them. `anchor` is the section of docs/commands/games.md each one shortens;
+ * them. `doc` is the docs section each one shortens, under /commands/: the
+ * games' rules are split across docs/commands/games-*.md (2.74.0; the
+ * landing, games.md, still answers the old `games#…` links of older bots).
+ * tests/how-to-play.test.js checks each one names a real page and heading.
  * `emoji` is plain Unicode (it labels a menu option, which can't hold the
  * kit's custom emoji).
  */
 export const TOPICS = Object.freeze([
-  { key: 'basics', name: 'Basics', emoji: '🎮', colour: 0xE67E22, anchor: 'points', about: 'The games, points, the limits and your score' },
-  { key: 'items', name: 'Items & Glovebox', emoji: '🧰', colour: 0x1ABC9C, anchor: 'the-glovebox-and-items', about: 'What items do and how to use one' },
-  { key: 'prizes', name: 'Prizes & titles', emoji: '🎁', colour: 0xF1C40F, anchor: 'prizes', about: 'What you earn by playing, and showing a title' },
-  { key: 'nights', name: 'Nights in a row', emoji: '🌙', colour: 0x3F51B5, anchor: 'nights-in-a-row', about: 'Play every night for a bonus, and the Night Light' },
-  { key: 'twists', name: 'Twists', emoji: '🎲', colour: 0x9B59B6, anchor: 'twists', about: 'Surprises, good and bad, after a play' },
-  { key: 'happenings', name: 'Happenings', emoji: '🌕', colour: 0x2C7DA0, anchor: 'happenings', about: 'Server-wide events that bend the games for a while' },
-  { key: 'siege', name: 'Siege', emoji: '👹', colour: 0xC0392B, anchor: 'siege', about: 'A monster the whole server fights together' },
+  { key: 'basics', name: 'Basics', emoji: '🎮', colour: 0xE67E22, doc: 'games-playing#points', about: 'The games, points, the limits and your score' },
+  { key: 'items', name: 'Items & Glovebox', emoji: '🧰', colour: 0x1ABC9C, doc: 'games-rewards#the-glovebox-and-items', about: 'What items do and how to use one' },
+  { key: 'prizes', name: 'Prizes & titles', emoji: '🎁', colour: 0xF1C40F, doc: 'games-rewards#prizes', about: 'What you earn by playing, and showing a title' },
+  { key: 'nights', name: 'Nights in a row', emoji: '🌙', colour: 0x3F51B5, doc: 'games-rewards#nights-in-a-row', about: 'Play every night for a bonus, and the Night Light' },
+  { key: 'twists', name: 'Twists', emoji: '🎲', colour: 0x9B59B6, doc: 'games-happenings#twists', about: 'Surprises, good and bad, after a play' },
+  { key: 'happenings', name: 'Happenings', emoji: '🌕', colour: 0x2C7DA0, doc: 'games-happenings#happenings', about: 'Server-wide events that bend the games for a while' },
+  { key: 'siege', name: 'Siege', emoji: '👹', colour: 0xC0392B, doc: 'games-siege', about: 'A monster the whole server fights together' },
 ]);
 
 const TOPIC = Object.fromEntries(TOPICS.map(t => [t.key, t]));
@@ -202,6 +222,38 @@ const happeningOn = (h, ctx) => {
 /** A line saying a switch is off, at the top of its topic */
 const offLine = (text) => `⏸️ **${text}**`;
 
+/**
+ * The basics' scoring lines: the server's daily scored plays, and how siege
+ * attacks score at its pace (a siege nobody chose a length for runs to it).
+ * At quick the first SIEGE.scoredPerDay a day score; at evening each
+ * member has the allowance a night, each scoring; from day on an attack's
+ * points go into the pot, the allowance a night. It said "(siege: 30
+ * attacks)" at every pace, and with scored plays off "the first 30 siege
+ * attacks a day do" — on week, the default, where none score on their own
+ * (review, 2026-11-06).
+ */
+function scoringLimits(s, siegeOn) {
+  const p = pacePreset(paceOf(s));
+  const plays = s.dailyScoredPlays > 0
+    ? `The first ${pill(s.dailyScoredPlays)} plays of each game a day score`
+    : 'Plays here are for fun: none score points';
+  if (!siegeOn) return [s.dailyScoredPlays > 0 ? `${plays}. After that, play for fun.` : `${plays}.`];
+  if (p.pot) {
+    return [
+      s.dailyScoredPlays > 0 ? `${plays}. After that, play for fun.` : `${plays}.`,
+      `Siege attacks: ${pill(p.allowance)} a night each, and their points go into the pot, paid out when the monster's beaten.`,
+    ];
+  }
+  if (p.allowance) {
+    return [s.dailyScoredPlays > 0
+      ? `${plays} (siege: ${pill(p.allowance)} attacks a night each). After that, play for fun.`
+      : `${plays}, but siege attacks do (${pill(p.allowance)} a night each).`];
+  }
+  return [s.dailyScoredPlays > 0
+    ? `${plays} (siege: ${pill(SIEGE.scoredPerDay)} attacks). After that, play for fun.`
+    : `${plays}, but the first ${pill(SIEGE.scoredPerDay)} siege attacks a day do.`];
+}
+
 // ── the topics ──────────────────────────────────────────────────────────
 
 function basics(ctx, kit) {
@@ -228,10 +280,7 @@ function basics(ctx, kit) {
   const limits = [s.cooldownSeconds > 0
     ? `Each game every ${duration(s.cooldownSeconds)} · ${pill(s.perMinute)} plays a minute`
     : `${pill(s.perMinute)} plays a minute`];
-  const siegeCap = topicOn('siege', ctx) ? ` (siege: ${pill(SIEGE.scoredPerDay)} attacks)` : '';
-  limits.push(s.dailyScoredPlays > 0
-    ? `The first ${pill(s.dailyScoredPlays)} plays of each game a day score${siegeCap}. After that, play for fun.`
-    : `Plays here are for fun: none score points${siegeCap ? `, but the first ${pill(SIEGE.scoredPerDay)} siege attacks a day do` : ''}.`);
+  limits.push(...scoringLimits(s, topicOn('siege', ctx)));
   fields.push({ name: `${kit.e('clock')} Limits on this server`, value: limits.join('\n') });
   fields.push({
     name: `${kit.e('chart')} Your score`,
@@ -387,13 +436,16 @@ const FREQUENCY_WORDS = Object.freeze({
 
 function happenings(ctx, kit) {
   const s = ctx.settings;
+  const pace = paceOf(s);
+  const rules = happeningPace(pace);
   const random = Object.values(HAPPENINGS).filter(h => happeningOn(h, ctx));
   const calendar = Object.values(CALENDAR_HAPPENINGS).filter(h => happeningOn(h, ctx));
   const lead = s.happenings ? '' : `${offLine('Happenings are switched off on this server.')}\n`;
   const freq = s.happeningFrequency;
   const freqName = freq.charAt(0).toUpperCase() + freq.slice(1);
+  // 2.74.0: how long each lasts at this server's pace (an hour at quick, a day from `day` on)
   const fields = [
-    { name: `${kit.e('clock')} The random ones`, value: random.map(h => `${h.emoji} **${h.name}** ${duration(h.minutes * 60)} · ${h.about}`).join('\n') },
+    { name: `${kit.e('clock')} The random ones`, value: random.map(h => `${h.emoji} **${h.name}** ${duration(happeningMinutes(h, pace) * 60)} · ${h.about}`).join('\n') },
   ];
   if (calendar.length) {
     fields.push({ name: `${kit.e('dice')} All day, on the calendar`, value: calendar.map(h => `${h.emoji} **${h.name}** · ${h.about}`).join('\n') });
@@ -402,8 +454,8 @@ function happenings(ctx, kit) {
   fields.push({
     name: `${kit.e('chart')} How often`,
     value: [
-      s.happenings ? `This server: **${freqName}**, ${FREQUENCY_WORDS[freq] || ''}.` : null,
-      `One at a time, at least ${duration(HAPPENING_RULES.gapMinutes * 60)} apart, at most ${pill(HAPPENING_RULES.maxPerDay)} a day, and only while ${pill(minPlayers)}+ members are playing.`,
+      s.happenings ? `This server: **${freqName}**, ${(rules.per === 'week' && freq === 'normal' ? 'about one a week on a busy server' : FREQUENCY_WORDS[freq]) || ''}.` : null,
+      `One at a time, at least ${duration(rules.gapMinutes * 60)} apart, at most ${pill(rules.max)} a ${rules.per}, and only while ${pill(minPlayers)}+ members are playing.`,
     ].filter(Boolean).join('\n'),
   });
   return {
@@ -418,6 +470,11 @@ function siege(ctx, kit) {
   const weapons = weaponsOn(ctx);
   const d = SIEGE.damage;
   const r = SIEGE.rewards;
+  // 2.74.0: this server's pace's timings — a siege nobody chose a length for runs to them
+  const back0 = fightsBack(ctx.settings);
+  const p = pacePreset(back0.pace);
+  /** "10m" for a quick window, "22 hours" for a week's (a pill reads badly as `1320m`) */
+  const span = (minutes) => (minutes < 120 ? duration(minutes * 60) : pill(lengthWords(minutes)));
   const WEAPON = {
     food: () => `${kit.game('foodfight')} food ${pill(d.splat)}`,
     doom: () => `${kit.game('doom')} doom ${pill(d.smite)}`,
@@ -436,33 +493,46 @@ function siege(ctx, kit) {
   // Grabs need /rescue on and poison needs /potion on; otherwise it only roars
   const back = [];
   if (on('rescue')) {
-    back.push(`It grabs a fighter: free them with \`/rescue attempt target:@Sam\` (${pill(signed(SIEGE.credit.free))} to your share). Not freed in ${duration(FIGHTS_BACK.freeMinutes * 60)}: ${pill(signed(-FIGHTS_BACK.notFreedLoss))} and out of the fight.`);
+    const out = back0.outMinutes ? `out for ${lengthWords(back0.outMinutes)}` : 'out of the fight';
+    back.push(`It grabs a fighter: free them with \`/rescue attempt target:@Sam\` (${pill(signed(SIEGE.credit.free))} to your share). Not freed in ${span(back0.freeMinutes)}: ${pill(signed(-back0.notFreedLoss))} and ${out}.`);
   }
   if (on('potion')) {
-    back.push(`It poisons a fighter: cure them with \`/potion give user:@Sam type:health\` (${pill(signed(SIEGE.credit.cure))} to your share), or their Antidote does. It wears off after ${duration(FIGHTS_BACK.poisonMinutes * 60)}.`);
+    back.push(`It poisons a fighter: cure them with \`/potion give user:@Sam type:health\` (${pill(signed(SIEGE.credit.cure))} to your share), or their Antidote does. It wears off after ${span(back0.poisonMinutes)}.`);
   }
   if (back.length) {
-    back.unshift(`Every ${duration(FIGHTS_BACK.everyMinutes * 60)} or so the monster acts. Someone else has to save you.`);
+    back.unshift(back0.busy
+      ? `Every ${duration(back0.everyMinutes * 60)} of fighting or so the monster acts, only while people are attacking. Someone else has to save you.`
+      : `Every ${duration(back0.everyMinutes * 60)} or so the monster acts. Someone else has to save you.`);
     fields.push({ name: `${kit.e('upset')} It fights back`, value: back.join('\n') });
   }
 
+  const perNight = p.growthPer === 'night';
   fields.push({
     name: `${kit.e('trophy')} Win or lose`,
     value: [
-      `Win: ${pill(r.perFighter)} points a fighter, split by what each did, ${pill(r.eachMin)}–${pill(r.eachMax)} each. The MVP gets ${pill(signed(r.mvpBonus))} and loot.`,
+      p.pot
+        ? `Win: the pot, ${pill(p.pool.perFighter)} points a fighter a night, split by what each did, ${pill(r.eachMin)}–${pill(p.pool.eachMax)} each. The MVP gets ${pill(signed(r.mvpBonus * p.honour))} and loot.`
+        : `Win: ${pill(p.pool.perFighter)} points a fighter${perNight ? ' a night' : ''}, split by what each did, ${pill(r.eachMin)}–${pill(p.pool.eachMax)} each. The MVP gets ${pill(signed(r.mvpBonus * p.honour))} and loot.`,
       `It escapes: everyone who attacked loses ${pill(SIEGE.escape.loss)}, when ${pill(SIEGE.escape.minFighters)}+ fought.`,
-      `Your first ${pill(SIEGE.scoredPerDay)} attacks a day score points; every one does damage.`,
+      p.allowance
+        ? `${pill(p.allowance)} attacks a night each (12:00 to 12:00 UTC); freeing and curing are unlimited.${p.pot ? ' An attack pays into the pot, not to you, but still counts for your streak, nights and items.' : ''}`
+        : `Your first ${pill(SIEGE.scoredPerDay)} attacks a day score points; every one does damage.`,
     ].join('\n'),
   });
 
-  // Random sieges, by the server's siegeFrequency
-  const freq = ctx.settings.siegeFrequency ?? FIGHTS_BACK.defaultFrequency;
-  const perWeek = FIGHTS_BACK.perWeek[freq] ?? 0;
+  // Random sieges, by the server's pace and siegeFrequency
+  const freq = ctx.settings.siegeFrequency ?? back0.defaultFrequency;
+  const perWeek = back0.perWeek[freq] ?? 0;
+  const length = defaultSiegeMinutes(ctx.settings);
+  // When it reports: each night of a campaign; a day siege's one 12:00 UTC (gamePace.reportWords)
+  const lasts = `One lasts ${span(length)}${p.nightEnd ? ', ending at 12:00 UTC' : ''}${p.report ? `, with ${reportWords(p)}` : ''}.`;
   fields.push({
     name: `${kit.e('clock')} When`,
     value: perWeek > 0
-      ? `At random, about ${pill(perWeek)} a week here while people are playing, or when an admin runs \`/siege start\`. One lasts ${duration(ctx.settings.siegeMinutes * 60)}.`
-      : `When an admin runs \`/siege start\`. One lasts ${duration(ctx.settings.siegeMinutes * 60)}.`,
+      ? (p.report
+        ? `At random: the next comes ${span(back0.gapHours * 60)} after the last one ends, once people are playing, or when an admin runs \`/siege start\`. ${lasts}`
+        : `At random, about ${pill(perWeek)} a week here while people are playing, or when an admin runs \`/siege start\`. ${lasts}`)
+      : `When an admin runs \`/siege start\`. ${lasts}`,
   });
   return {
     title: 'How to play: the siege',
@@ -502,7 +572,7 @@ export function renderTopic(key, ctx, { kit = liveKit() } = {}) {
   const drawn = RENDER[topic.key](ctx, kit);
   const asked = TOPIC[key];
   const note = asked && asked.key !== topic.key ? `${offLine(`${asked.name} isn't on this server`)}, so here are the basics.\n` : '';
-  const more = `\n[Read more in the full guide](${docsBase()}/commands/games#${topic.anchor})`;
+  const more = `\n[Read more in the full guide](${docsBase()}/commands/${topic.doc})`;
   const embed = {
     color: topic.colour,
     title: drawn.title,

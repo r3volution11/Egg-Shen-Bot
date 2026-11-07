@@ -144,13 +144,16 @@ function happeningLines(data, now) {
  * bar, when it ends, and how this member is doing in the fight —
  * "🟢 **The Blob** is attacking! 🟩🟩🟩⬜⬜⬜ `412/980` HP · ends <t:…:R> ·
  * you: `48` damage, 2nd". Gone once its time is up, even if handed in.
+ * 2.74.0: with an attack allowance (from `evening` pace on), the member's
+ * own count tonight too — "attacks tonight `2/8`" (12:00 to 12:00 UTC).
  */
 function siegeLine(data, kit, now) {
   const s = data.siege;
   if (!s || !(s.endsAt > now)) return '';
   const bar = kit.bar(s.hp, s.maxHp, { width: 6, colour: hpColour(s.hp, s.maxHp) });
   const you = s.you ? `you: ${pill(s.you.damage)} damage, ${ordinal(s.you.rank)}` : 'join in with `/siege attack`';
-  return `${s.emoji} **${escapeMarkdown(String(s.monster))}** is attacking! ${bar} ${pill(`${s.hp}/${s.maxHp}`)} HP · ends <t:${Math.floor(s.endsAt / 1000)}:R> · ${you}`;
+  const today = s.attacks ? ` · attacks tonight ${pill(`${s.attacks.used}/${s.attacks.of}`)}` : '';
+  return `${s.emoji} **${escapeMarkdown(String(s.monster))}** is attacking! ${bar} ${pill(`${s.hp}/${s.maxHp}`)} HP · ends <t:${Math.floor(s.endsAt / 1000)}:R> · ${you}${today}`;
 }
 
 /** The description: the summary, the shown title, then any happening in progress and a siege */

@@ -200,6 +200,10 @@ Under it is a picture of the matchup, drawn in the bot's own style:
 - **An UPSET! stamp** marks a worse seed beating a better one. **"Tied: higher seed advances"** marks a tie the higher seed took.
 - **A title with no poster** (or one that didn't load in time) gets a carved placeholder with its name instead.
 
+<img class="result-image" src="/images/matchup-upset.webp" alt="A drawn matchup result for Semifinals 2A. Night of the Living Dead (1968), the 12 seed, is framed in gold under a red WINNER sash; Alien (1979), the 1 seed, is dimmed. A red UPSET! stamp sits between them, and the bar underneath splits 53%, 9 votes, to 47%, 8 votes." width="960" height="540" loading="lazy">
+
+*The picture under a results card: the 12 seed beats the 1 seed, 9 votes to 8, so it's stamped an upset*
+
 If the picture can't be drawn within 5 seconds, or the bot can't attach files in that channel, the card posts without it and shows the winner's poster as a small thumbnail in its corner, as it used to. Tiebreaker results and `/bracket close-matchup` show the winner's poster as a thumbnail.
 
 ---

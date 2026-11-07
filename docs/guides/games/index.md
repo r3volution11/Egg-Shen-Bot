@@ -14,7 +14,8 @@ In Discord, **`/how-to-play`** shows the same thing in a short card per topic, w
 | Start playing, and earn my first prize | [Play the games](./play) |
 | Fight a monster with everyone, or run a siege | [Fight a siege](./siege) |
 | Know why a play didn't score, what an item does, or how to show a title | [Games FAQ](./faq) |
-| Read every rule and number | [Games & Scores](/commands/games) |
+| Read every rule and number | [Games & Scores](/commands/games), page by page |
+| Set the games up for my server | [Settings for Admins](/commands/games-settings) |
 
 ## The basics, in four lines
 

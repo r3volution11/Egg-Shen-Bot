@@ -42,6 +42,50 @@
  * after: one whose ping never went out is void (voidStaleAction), so a
  * restart can never punish someone who wasn't told.
  *
+ * 2.74.0, pace: a siege runs to its preset's timings (SIEGE_PACES, picked
+ * by its length: gamePace.siegeTimings), copied onto the record at the
+ * start as `t` and read back with timingsOf — never from the settings, so
+ * changing a server's pace never touches a siege in progress, and a siege
+ * from before 2.74 (no `t`) runs to `quick`, today's rules, to the end.
+ * From `evening` on:
+ *   - the monster's clock is BUSY time (busyNow): it only runs while
+ *     someone has attacked in the last PACE_RULES.busyMinutes, accrued
+ *     inside each attack's own save (`busy` up to `lastAttackAt`), so it
+ *     never grabs anyone at 3 a.m. — and it only takes fighters who are
+ *     here (targetsOf: who attacked, freed or cured in that window)
+ *   - each member has `allowance` attacks a night (12:00 to 12:00 UTC:
+ *     `night`, `nightAttacks`; a 3-day or week campaign's first hours are
+ *     its night 1: siegeNight); freeing and curing never count
+ *   - HP grows on each member's first attack of each NIGHT (`nights`, `fn`)
+ *   - an escape eases the dial if the fighters used most of their attacks
+ *     (effortOf) or took half its HP (as at quick): nextDial
+ * From `day` on, attacks pay into the pot (the win pool, per fighter-night);
+ * the base HP counts the fighters the server is expected to bring
+ * (`expected`, from the participation its campaigns have shown —
+ * siegeParticipation), not all of A7, and the dial stays put on a
+ * campaign whose turnout explains its end (turnoutExplains) — that one
+ * teaches the estimate; a daily report posts each night
+ * (`report`, claimed per night, from the `nightly` tallies; a boundary in a
+ * campaign's first 6 hours isn't one of its nights, nor one in a day
+ * siege's first hour), and a digest nobody's around for waits for it
+ * (`unreported`) instead of pinging — while a report is still to come, and
+ * one the siege ends before reporting is in the results; and an
+ * escape's results wait for the next game played (`result.holdUntil`). At 3 days and a week the siege ends at a
+ * night boundary, and a digested fighter is out for a day (`outUntil`),
+ * not the whole campaign. The dial is per preset (`siegeDials[key]`; quick's
+ * is the old `siegeDial`).
+ *
+ *   added by 2.74.0: siege.t, busy, lastAttackAt, nextActionBusy, fn,
+ *     nightly: { [night]: { damage, users: { [userId]: { name, damage, frees, cures } } } },
+ *     report: null | { night, last, number, claimedAt (null: released for a retry),
+ *       messageId, unannounced, tries, told }, reportedThrough (the last night reported on),
+ *     unreported: [{ userId, name, at, points }],
+ *     result.holdUntil, result.told (the unreported ids its results named);
+ *     participants[userId].nights: { [night]: first attack that night },
+ *     night, nightAttacks, outUntil, own (a pot pace's attacks' own points:
+ *     notePotPoints); siege.expected (E, from day on);
+ *     data.siegeDials: { [pace]: dial }, data.siegeParticipation: { [pace]: share }
+ *
  * Every change is ONE synchronous load-modify-save (happeningStore.mutate)
  * keyed by the siege's id: a late write for a siege that has since ended
  * or been replaced finds a different id, or a status that isn't live, and
@@ -55,15 +99,22 @@
 import crypto from 'crypto';
 import { mutate, loadState, ACTIVE_MINUTES_PER_DAY } from './happeningStore.js';
 import { applySiegeResult, fireAntidote, applySiegePenalty, countSiegeEvent } from './gameScores.js';
-import { owns } from './gameRules.js';
+import { owns, nightKey, shiftNight, nightsBetween } from './gameRules.js';
 import { cardName } from './gameBoards.js';
 import { clipText } from './embedFit.js';
 import { luck as gameLuck } from './gameLuck.js';
-import { SIEGE, RANDOM_PRIZE_ITEMS } from '../data/gameRewards.js';
+import { SIEGE, RANDOM_PRIZE_ITEMS, PACE_RULES } from '../data/gameRewards.js';
 import { MONSTERS, MONSTER_KEYS } from '../data/siegeMonsters.js';
+import {
+  timingsOf, siegeTimings, siegeEndsAt, randomGapHours, paceOf, pacePreset, nightBoundaryBefore,
+  firstNightBoundary, campaignNight, campaignNightKey, nextNightAt, reportBoundaryLeft,
+} from './gamePace.js';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
+const BUSY_MS = PACE_RULES.busyMinutes * MINUTE;
+/** Busy minutes are kept to the millisecond's thousandth: the file needn't grow 0.30000000000000004s */
+const round3 = (x) => Math.round(x * 1000) / 1000;
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 /**
  * A multiplier from the monster data: a finite number ≥ 0, else `fallback`.
@@ -93,50 +144,172 @@ export const monsterTarget = (monster) => ({
 
 // ── the numbers ─────────────────────────────────────────────────────────
 
-/** The server's difficulty dial: stored next to the siege, 1 until a siege moves it */
-export function dialOf(data) {
-  const d = Number(data?.siegeDial);
+/**
+ * The server's difficulty dial for a preset, stored next to the siege, 1
+ * until a siege at that preset moves it. Each preset has its own (2.74.0):
+ * a week campaign is no guide to a 45-minute siege. Quick's is the old
+ * `siegeDial`, so a server's dial carries on through the upgrade.
+ */
+export function dialOf(data, key = 'quick') {
+  const d = Number(key === 'quick' ? data?.siegeDial : data?.siegeDials?.[key]);
   return Number.isFinite(d) && d > 0 ? clamp(d, SIEGE.dial.min, SIEGE.dial.max) : SIEGE.dial.start;
+}
+
+/** Store the dial for a preset (in place, inside the caller's mutate) */
+function setDial(data, key, dial) {
+  if (key === 'quick') data.siegeDial = dial;
+  else data.siegeDials = { ...(isObject(data.siegeDials) ? data.siegeDials : {}), [key]: dial };
 }
 
 /**
  * The dial after a finish: moved only by a win or an escape that enough
- * fought — and an escape only when they dealt at least
- * SIEGE.dialEscapeMinDamage of its max HP (`damageShare`). Without that,
- * two members letting sieges walk away untouched drove the dial to its
- * floor, and every monster after was trivial for everyone.
+ * fought — and an escape only when the fighters tried. Without that, two
+ * members letting sieges walk away untouched drove the dial to its floor,
+ * and every monster after was trivial for everyone. The step is the
+ * siege's preset's (`t.dial`): bigger where sieges are rarer.
+ *
+ * Tried: they dealt at least SIEGE.dialEscapeMinDamage of its max HP
+ * (`damageShare`) — at quick the only test, as always — or, with an
+ * allowance (evening on), they used at least PACE_RULES.escapeEffort of
+ * the attacks their fighter-nights allowed (`effort`). A campaign built
+ * bigger than its fighters could possibly deal (2.74's first week HP)
+ * escaped with less than half its HP gone, so damage alone froze the dial
+ * and it escaped for ever (review, 2026-11-04); effort is what the
+ * fighters control. But effort alone froze evening's the other way: a
+ * 4-hour siege's fighters use about half of a night's 20 attacks, so its
+ * escapes never eased the dial and its wins kept raising it (1.0 to 1.3 in
+ * a month, re-tune 2026-11-05). Either shows they tried; members who join
+ * and barely attack show neither.
  */
-export function nextDial(dial, status, fighters, damageShare = 1) {
+export function nextDial(dial, status, fighters, damageShare = 1, t = pacePreset('quick'), effort = null) {
   if (fighters < SIEGE.dial.minFighters) return dial;
-  if (status === 'escaped' && !(damageShare >= SIEGE.dialEscapeMinDamage)) return dial;
-  const factor = status === 'won' ? SIEGE.dial.win : status === 'escaped' ? SIEGE.dial.escape : 1;
+  const tried = damageShare >= SIEGE.dialEscapeMinDamage
+    || (!!t.allowance && effort !== null && effort >= PACE_RULES.escapeEffort);
+  if (status === 'escaped' && !tried) return dial;
+  const factor = status === 'won' ? t.dial.win : status === 'escaped' ? t.dial.escape : 1;
   // Rounded so the file doesn't grow 0.30000000000000004s
   return Math.round(clamp(dial * factor, SIEGE.dial.min, SIEGE.dial.max) * 1e6) / 1e6;
 }
 
 /**
- * HP = round(clamp((2·A7 + 45·F)·D, 40, 2000) · monster.hp), with F the
- * fighters so far: what a siege starts with (F = 0) and what its max HP is
- * as fighters join. The floor and the ceiling apply to the whole sum, so
- * a small server's first fighter lifts a 40-HP monster to 45, not 85.
+ * HP = round(clamp((b·B·N + g·F)·D, 40, 2000·N) · monster.hp), with F the
+ * fighters so far — or, from `evening` on, the fighter-nights — what a
+ * siege starts with (F = 0) and what its max HP is as fighters join. b, g
+ * and N are the siege's timings' (`t`: base, growth, N); B is A7 (`a7`) or,
+ * from `day` on (`t.hpBase: 'fighters'`), the fighters it expects
+ * (`expected`: expectedFighters). At quick b, g and N are 2, 45 and 1, the
+ * formula as it always was. The floor and the ceiling apply to the whole
+ * sum, so a small server's first fighter lifts a 40-HP monster to 45, not 85.
  */
-export function siegeHp({ a7 = 0, fighters = 0, dial = SIEGE.dial.start, monsterHp = 1 } = {}) {
-  const { perActive, perFighter, min, max } = SIEGE.hp;
-  return Math.round(clamp((perActive * a7 + perFighter * fighters) * dial, min, max) * monsterHp);
+export function siegeHp({ a7 = 0, expected = 0, fighters = 0, dial = SIEGE.dial.start, monsterHp = 1, t = null } = {}) {
+  const { min, max } = SIEGE.hp;
+  const { base, hpBase, growth, N } = t || { ...pacePreset('quick'), N: 1 };
+  const B = hpBase === 'fighters' ? expected : a7;
+  return Math.round(clamp((base * B * N + growth * fighters) * dial, min, max * N) * monsterHp);
 }
 
 /**
- * What a new fighter's first attack adds to max and current HP: the
- * formula's max HP with `fighters` (them included) less what it is now,
- * never negative — so never past the ceiling, and a server whose activity
- * already set the HP above what its fighters would grows nothing at first.
+ * The share of A7 that fights a campaign at this preset, as this server has
+ * shown it (siegeParticipation, an EWMA kept beside the dials), or
+ * PACE_RULES.participation.start before its first
  */
-export function joinGrowth(maxHp, { a7 = 0, fighters = 1, dial = SIEGE.dial.start, monsterHp = 1 } = {}) {
-  return Math.max(0, siegeHp({ a7, fighters, dial, monsterHp }) - maxHp);
+export function participationOf(data, key) {
+  const { start, min } = PACE_RULES.participation;
+  return learnedParticipation(data, key) ? clamp(Number(data.siegeParticipation[key]), min, 1) : start;
 }
 
-/** Does a fighter joining at `now` still grow the monster? Not in its last SIEGE.noGrowthLastMinutes */
-export const growsAt = (siege, now) => now < siege.endsAt - SIEGE.noGrowthLastMinutes * MINUTE;
+/** Has this server finished a campaign at this preset that taught it its participation? */
+const learnedParticipation = (data, key) => {
+  const p = Number(data?.siegeParticipation?.[key]);
+  return Number.isFinite(p) && p > 0;
+};
+
+/** E: the fighters a campaign expects — A7 × participation, at least 2 (or A7, if fewer), at most A7 */
+export function expectedFighters(a7, participation) {
+  if (!(a7 > 0)) return 0;
+  return clamp(Math.round(a7 * participation), Math.min(2, a7), a7);
+}
+
+/**
+ * What a new fighter's first attack (or, from `evening` on, a member's
+ * first attack of a night) adds to max and current HP: the formula's max HP
+ * with `fighters` (this one included) less what it is now, never negative —
+ * so never past the ceiling, and a server whose activity already set the
+ * HP above what its fighters would grows nothing at first.
+ */
+export function joinGrowth(maxHp, { a7 = 0, expected = 0, fighters = 1, dial = SIEGE.dial.start, monsterHp = 1, t = null } = {}) {
+  return Math.max(0, siegeHp({ a7, expected, fighters, dial, monsterHp, t }) - maxHp);
+}
+
+/** Does a fighter joining at `now` still grow the monster? Not in its last `t.noGrowth` minutes */
+export const growsAt = (siege, now) => now < siege.endsAt - timingsOf(siege).noGrowth * MINUTE;
+
+// ── pace: busy time, the allowance, the pot ─────────────────────────────
+
+/**
+ * The monster's clock at `now`, in busy minutes: what the attacks have
+ * accrued (`busy`, up to the last attack), plus the time since the last
+ * attack up to PACE_RULES.busyMinutes. No write needed between attacks.
+ */
+export function busyNow(siege, now = Date.now()) {
+  const last = Number(siege?.lastAttackAt);
+  const tail = Number.isFinite(last) && last > 0 ? clamp(now - last, 0, BUSY_MS) / MINUTE : 0;
+  return round3((Number(siege?.busy) || 0) + tail);
+}
+
+/**
+ * Is the drive-in busy: someone attacked in the last
+ * PACE_RULES.busyMinutes? A quick siege always is (it runs on the wall
+ * clock, as it always did).
+ */
+export function isBusy(siege, now = Date.now()) {
+  if (!timingsOf(siege).busy) return true;
+  const last = Number(siege?.lastAttackAt);
+  return Number.isFinite(last) && last > 0 && now - last < BUSY_MS;
+}
+
+/**
+ * The night siege `s` counts `at` toward (gamePace.campaignNightKey): its
+ * allowance, its fighter-nights and its tallies all use this one key, so
+ * they can never disagree about which night it is. 12:00 to 12:00 UTC
+ * (nightKey), except a 3-day or week campaign's first few hours, which are
+ * its night 1.
+ */
+export const siegeNight = (s, at = Date.now()) => campaignNightKey(s?.startedAt, at, timingsOf(s));
+
+/**
+ * A member's attacks tonight, toward their allowance. Per NIGHT (12:00 to
+ * 12:00 UTC, siegeNight), as fighter-nights and the report count them: a US
+ * evening is one night, where a UTC day split it at 00:00 and gave 16
+ * attacks in a quarter of an hour (review, 2026-11-04). Without the siege,
+ * plain nightKey (a campaign's folded first night needs its start).
+ */
+export const attacksTonight = (p, now = Date.now(), s = null) => (p?.night === (s ? siegeNight(s, now) : nightKey(now)) ? Number(p.nightAttacks) || 0 : 0);
+
+/**
+ * When tonight's allowance resets: the next night boundary (12:00 UTC) —
+ * or, in a 3-day or week campaign's folded first hours, its first counted
+ * one (gamePace.nextNightAt). May be at or after the siege's end: the
+ * caller says so (siege.js: "that's all your attacks for this siege").
+ */
+export const allowanceResetsAt = (now = Date.now(), s = null) => nextNightAt(s?.startedAt, now, s ? timingsOf(s) : null);
+
+/** Fighter-nights: each fighter's nights fought (at least one each); at quick, simply the fighters */
+function fighterNights(siege, fighters) {
+  if (timingsOf(siege).growthPer !== 'night') return fighters.length;
+  return fighters.reduce((n, f) => n + Math.max(1, Object.keys(isObject(f.nights) ? f.nights : {}).length), 0);
+}
+
+/**
+ * The win pool as it stands: `t.pool.perFighter` a fighter (quick) or a
+ * fighter-night, between poolMin and poolMax, × a random siege's poolScale.
+ * At a `pot` pace this is the pot the attacks pay into.
+ */
+export function potOf(siege, fighters = fightersOf(siege)) {
+  const { pool } = timingsOf(siege);
+  const scale = Number.isFinite(siege?.poolScale) && siege.poolScale > 0 ? Math.min(1, siege.poolScale) : 1;
+  return Math.round(clamp(pool.perFighter * fighterNights(siege, fighters), pool.poolMin, pool.poolMax) * scale);
+}
 
 /** A7: members with a play in the last SIEGE.hp.activeDays days (happenings' activity.recent) */
 export function activeMembers(state, now = Date.now()) {
@@ -166,12 +339,16 @@ export function attackDamage({ outcome, weapon, monster, silver = false, spooked
 
 /** Grabbed, and the grab announced: can't attack until freed */
 export const isCaught = (p) => !!(p && isObject(p.caught) && p.caught.at);
-/** Digested: out of this siege */
-export const isOut = (p) => !!p?.out;
+/**
+ * Digested: out of this siege — or, at 3 days and a week (`t.outMinutes`),
+ * out until `outUntil`, then back in (the minute's pass clears it; this
+ * reads the clock too, so nobody waits on a pass to be let back)
+ */
+export const isOut = (p, now = Date.now()) => !!p?.out && !(Number.isFinite(p.outUntil) && now >= p.outUntil);
 /** Poisoned by the monster (or their own fizzle) now: until cured, or its time */
 export const poisonedNow = (p, now = Date.now()) => !!(p && isObject(p.poisoned) && (p.poisoned.until === null || now < p.poisoned.until));
 /** Free to fight and to be acted on: has attacked, isn't caught, isn't out */
-export const isFree = (p) => !!p && (p.attacks || 0) > 0 && !isCaught(p) && !isOut(p);
+export const isFree = (p, now = Date.now()) => !!p && (p.attacks || 0) > 0 && !isCaught(p) && !isOut(p, now);
 
 /** The poison's damage a minute on this monster (its traits.poisonMult) */
 export function poisonPerMinute(monster) {
@@ -216,8 +393,10 @@ export function standingOf(siege, userId) {
  * then, for each other fighter with at least SIEGE.rewards.lootShare of
  * the contribution, whether they get loot and, if so, which.
  *
- *   won:     a pool of 8 a fighter (24–200) split by contribution share,
- *            each 2–30; the MVP +5 and loot for sure; the others 25% ×
+ *   won:     the pool (potOf: at quick 8 a fighter, 24–200; from evening
+ *            on, per fighter-night, the siege's `t.pool`) split by
+ *            contribution share, each 2–`t.pool.eachMax`; the MVP
+ *            +5 × `t.honour` and loot for sure; the others 25% ×
  *            traits.loot. Every fighter's win counts; the MVP's MVP; a
  *            beaten SIEGE.kaiju counts for everyone. ONE fighter alone
  *            gets the pool share only (`solo`): no bonus, no loot, no win.
@@ -233,12 +412,14 @@ export function planSiegeRewards(siege, status, luck = gameLuck) {
 
   if (status === 'won' && fighters.length) {
     const r = SIEGE.rewards;
+    const t = timingsOf(siege);
     // One fighter alone: the pool share and nothing more (siege titles need company)
     const solo = fighters.length === 1;
     // A random siege's pool is scaled (SIEGE.random.poolScaleAt): a server
-    // set to `often` gets more sieges, not more points
-    const scale = Number.isFinite(siege.poolScale) && siege.poolScale > 0 ? Math.min(1, siege.poolScale) : 1;
-    const pool = Math.round(clamp(r.perFighter * fighters.length, r.poolMin, r.poolMax) * scale);
+    // set to `often` gets more sieges, not more points. From evening on
+    // it's per fighter-night: a member who fought five nights of a week
+    // gets a bigger slice than one who fought once.
+    const pool = potOf(siege, fighters);
     const total = fighters.reduce((n, f) => n + f.contribution, 0);
     const lootChance = Math.min(1, r.lootChance * factor(monster?.traits?.loot));
     const anyOf = (list) => list[Math.min(list.length - 1, Math.floor(luck() * list.length))];
@@ -247,13 +428,18 @@ export function planSiegeRewards(siege, status, luck = gameLuck) {
       // A win needs damage, so total is above 0; split evenly if it somehow isn't
       const share = total > 0 ? f.contribution / total : 1 / fighters.length;
       const mvp = i === 0;
-      let points = clamp(Math.round(pool * share), r.eachMin, r.eachMax);
-      if (solo) return { ...base(f), share, points, loss: 0, loot: null, win: false, mvp: false, kaiju: false, solo: true };
-      if (mvp) points += r.mvpBonus;
+      let points = clamp(Math.round(pool * share), r.eachMin, t.pool.eachMax);
+      // At a pot pace, what their attacks would have scored on their own
+      // (notePotPoints): paid instead of the share if today's reward limit
+      // holds this win back (gameScores.applySiegeResult)
+      const own = t.pot ? { own: Math.round(Number(f.own) || 0) } : {};
+      if (solo) return { ...base(f), ...own, share, points, loss: 0, loot: null, win: false, mvp: false, kaiju: false, solo: true };
+      // Honours scale with the pace (R2's Wang Chi and Jack Burton will too)
+      if (mvp) points += r.mvpBonus * t.honour;
       let loot = null;
       if (mvp) loot = lootItem();
       else if (share >= r.lootShare && luck() < lootChance) loot = lootItem();
-      return { ...base(f), share, points, loss: 0, loot, win: true, mvp, kaiju: siege.monster === SIEGE.kaiju };
+      return { ...base(f), ...own, share, points, loss: 0, loot, win: true, mvp, kaiju: siege.monster === SIEGE.kaiju };
     });
     return { grants, mvp: { userId: fighters[0].userId, name: fighters[0].name } };
   }
@@ -304,17 +490,20 @@ export const isLive = (siege, now = Date.now()) => !!siege && siege.status === '
  * The live siege as the game card and the leaderboard show it — one line,
  * "🟢 The Blob is attacking! [bar] `412/980` HP · ends …" — with this
  * member's own damage and place when a member is given and has fought.
- * Null when no siege is on.
- * @returns {?{monster: string, emoji: string, hp, maxHp, endsAt, you: ?{damage, rank}}}
+ * Null when no siege is on. With an attack allowance (2.74.0, from
+ * `evening` on), `attacks` is the member's own tonight: "attacks tonight 2/8".
+ * @returns {?{monster: string, emoji: string, hp, maxHp, endsAt, you: ?{damage, rank}, attacks: ?{used, of}}}
  */
 export function siegeCardData(guildId, userId = null, now = Date.now()) {
   const s = currentSiege(guildId);
   if (!isLive(s, now)) return null;
   const m = monsterOf(s.monster);
   const me = userId ? standingOf(s, userId) : null;
+  const { allowance } = timingsOf(s);
   return {
     monster: m.name, emoji: m.emoji, hp: Math.max(0, s.hp), maxHp: s.maxHp, endsAt: s.endsAt,
     you: me ? { damage: me.damage, rank: me.rank } : null,
+    attacks: userId && allowance ? { used: attacksTonight(s.participants?.[userId], now, s), of: allowance } : null,
   };
 }
 
@@ -325,6 +514,7 @@ export function siegeCardData(guildId, userId = null, now = Date.now()) {
 export function siegeView(siege, now = Date.now()) {
   const monster = monsterOf(siege.monster);
   const fighters = fightersOf(siege);
+  const t = timingsOf(siege);
   const all = Object.values(isObject(siege.participants) ? siege.participants : {});
   return {
     id: siege.id,
@@ -341,8 +531,13 @@ export function siegeView(siege, now = Date.now()) {
     // R6: who's grabbed (and until when they can be freed), who's poisoned
     caught: all.filter(isCaught).map(p => ({ name: p.name, until: p.caught.until })).sort((a, b) => a.until - b.until),
     poisoned: all.filter(p => poisonedNow(p, now)).map(p => ({ name: p.name, until: p.poisoned.until })),
+    // 2.74.0: digested for a day (3 days, a week), and back when
+    out: all.filter(p => isOut(p, now) && Number.isFinite(p.outUntil)).map(p => ({ name: p.name, until: p.outUntil })).sort((a, b) => a.until - b.until),
     killingBlow: siege.killingBlow || null,
     result: siege.result || null,
+    // 2.74.0: the pace it runs at, its allowance and (at a `pot` pace) the pot so far
+    pace: { key: t.key, name: t.name, allowance: t.allowance, pot: t.pot, report: t.report, nightEnd: t.nightEnd, honour: t.honour },
+    pot: potOf(siege, fighters),
   };
 }
 
@@ -418,11 +613,32 @@ const newFighter = (name, now) => ({
 });
 
 /**
+ * Count something toward tonight's tally, for the daily report (in place,
+ * inside the caller's mutate): the night's damage, and each member's
+ * damage, frees and cures. Only a siege with a report keeps one, and only
+ * the last PACE_RULES.nightsKept nights.
+ */
+function tally(s, userId, name, field, n, now) {
+  if (!n || !timingsOf(s).report) return;
+  const night = siegeNight(s, now);
+  const nightly = isObject(s.nightly) ? s.nightly : (s.nightly = {});
+  const tonight = (nightly[night] ||= { damage: 0, users: {} });
+  const u = (tonight.users[userId] ||= { name, damage: 0, frees: 0, cures: 0 });
+  u.name = name;
+  u[field] = (u[field] || 0) + n;
+  if (field === 'damage') tonight.damage += n;
+  const keep = Object.keys(nightly).sort().slice(-PACE_RULES.nightsKept);
+  for (const k of Object.keys(nightly)) if (!keep.includes(k)) delete nightly[k];
+}
+
+/**
  * Start a siege now. One at a time, and not while the last one's results
  * are still waiting to be posted (they'd be lost with it).
  * @param {object} p
  * @param {string} p.monster - a MONSTERS key
- * @param {number} p.minutes - how long it lasts (the caller resolves the option, the monster and the setting)
+ * @param {number} p.minutes - how long it lasts (the caller resolves the option, the monster and the
+ *   setting: gamePace.defaultSiegeMinutes). Its timings are the nearest preset's (siegeTimings),
+ *   copied onto the siege; a 3-day or week campaign ends at the night boundary after.
  * @returns {{siege} | {error: 'unknown-monster'|'bad-minutes'|'in-progress'|'results-pending', siege?}}
  */
 export function spawnSiege(guildId, { monster, minutes, startedBy = null, channelId = null, source = 'admin', poolScale = 1, check = null }, now = Date.now()) {
@@ -445,8 +661,11 @@ export function spawnSiege(guildId, { monster, minutes, startedBy = null, channe
     const refused = check ? check(data) : null;
     if (refused) return { error: refused };
     const a7 = activeMembers(data, now);
-    const dial = dialOf(data);
-    const hp = siegeHp({ a7, fighters: 0, dial, monsterHp: Number(m.hp) || 1 });
+    const t = siegeTimings(minutes);
+    const dial = dialOf(data, t.key);
+    // From `day` on the base counts the fighters this server can expect, not all of A7
+    const expected = t.hpBase === 'fighters' ? expectedFighters(a7, participationOf(data, t.key)) : null;
+    const hp = siegeHp({ a7, expected: expected ?? 0, fighters: 0, dial, monsterHp: Number(m.hp) || 1, t });
     const siege = {
       id: newId(),
       monster,
@@ -455,16 +674,27 @@ export function spawnSiege(guildId, { monster, minutes, startedBy = null, channe
       startedBy,
       channelId,
       startedAt: now,
-      endsAt: now + Math.round(minutes * MINUTE),
+      endsAt: siegeEndsAt(now, minutes, t),
       finishedAt: null,
       hp,
       maxHp: hp,
       a7,
+      ...(expected !== null ? { expected } : {}), // E, from `day` on: what its base counted
       dial, // what its HP was worked out with, and new fighters' growth is
       healed: 0, // HP the monster got back (Gremlins' misses, the Wolfman's actions)
       poolScale: Number.isFinite(poolScale) && poolScale > 0 ? Math.min(1, poolScale) : 1,
+      // 2.74.0: its timings, for its whole life (gamePace.timingsOf reads them)
+      t,
       participants: {},
-      nextActionAt: now + SIEGE.actions.everyMinutes * MINUTE,
+      // The monster's clock: wall-clock minutes at quick, busy minutes after
+      nextActionAt: now + t.actEvery * MINUTE,
+      nextActionBusy: t.actEvery,
+      busy: 0,
+      lastAttackAt: null,
+      fn: 0, // fighter-nights that grew it (from evening on)
+      nightly: {},
+      report: null,
+      unreported: [],
       pending: null,
       lastAction: null,
       killingBlow: null,
@@ -547,6 +777,7 @@ function settlePoison(s, userId, p, at) {
     if (dealt > 0) {
       s.hp -= dealt;
       p.damage = (p.damage || 0) + dealt;
+      tally(s, userId, p.name, 'damage', dealt, at);
       if (s.hp <= 0 && !s.killingBlow) {
         // The minute it actually ran out, not when a late pass noticed
         const at2 = from + Math.ceil(dealt / per) * MINUTE;
@@ -573,10 +804,13 @@ const LOG_VERBS = {
  * an attack landing after the monster died, its time ran out or an admin
  * ended it is refused here and records nothing.
  *
- * In order: a new fighter joins (HP grows); their poison's due minutes
- * are settled; the damage (attackDamage) comes off the HP, never below 0,
- * and is credited; Gremlins heal on a food miss; Spooked is spent or set;
- * a poison starts (or restarts); the killing blow; the log.
+ * In order: the allowance (from `evening` on: refused, saving nothing,
+ * once today's attacks are used); the busy clock; a new fighter joins — or
+ * a member's first attack tonight, from `evening` on — and HP grows; their
+ * poison's due minutes are settled; the damage (attackDamage) comes off
+ * the HP, never below 0, and is credited; Gremlins heal on a food miss;
+ * Spooked is spent or set; a poison starts (or restarts); the killing
+ * blow; the log.
  *
  * @param {object} a
  * @param {string} a.userId
@@ -584,8 +818,8 @@ const LOG_VERBS = {
  * @param {'food'|'doom'|'potion'} a.weapon
  * @param {string} a.outcome - a siege outcome (POINTS.siege)
  * @param {boolean} [a.silver] - a Silver Bullet is being used
- * @returns {{siege, hit: {damage, raw, joined, healed, wasSpooked, spooked, poison: ?{perMin, minutes, restarted}, killingBlow: boolean, silverMult: ?number, hp, maxHp}}
- *   | {error: 'not-current'|'not-live'|'time-up'|'beaten'|'unknown-weapon', siege?}}
+ * @returns {{siege, hit: {damage, raw, joined, healed, wasSpooked, spooked, poison: ?{perMin, minutes, restarted}, killingBlow: boolean, silverMult: ?number, hp, maxHp, attacks: ?{used, of}, pot: ?number}}
+ *   | {error: 'not-current'|'not-live'|'time-up'|'beaten'|'unknown-weapon'|'caught'|'out'|'spent', siege?}}
  */
 export function siegeAttack(guildId, siegeId, { userId, name, weapon, outcome, silver = false }, now = Date.now()) {
   if (!owns(SIEGE.outcomes, weapon)) return { error: 'unknown-weapon' };
@@ -598,28 +832,53 @@ export function siegeAttack(guildId, siegeId, { userId, name, weapon, outcome, s
     s.participants = isObject(s.participants) ? s.participants : {};
     // R6: grabbed or digested, they can't (the caller refused it first; this is the same check, saved)
     if (isCaught(s.participants[userId])) return { error: 'caught', siege: s };
-    if (isOut(s.participants[userId])) return { error: 'out', siege: s };
+    if (isOut(s.participants[userId], now)) return { error: 'out', siege: s };
+    const t = timingsOf(s);
+    // 2.74.0: today's attacks used up (the caller refused it first, for nothing)
+    if (t.allowance && attacksTonight(s.participants[userId], now, s) >= t.allowance) return { error: 'spent', siege: s };
+
+    // The monster's busy clock runs up to this attack (busyNow: the gap
+    // since the last one counts, up to PACE_RULES.busyMinutes) — accrued
+    // here, in the attack's own save, so nothing writes between attacks
+    if (t.busy) {
+      s.busy = busyNow(s, now);
+      s.lastAttackAt = now;
+    }
 
     // A new fighter (their first attack — a member who only freed or cured
     // someone is in the fight with none yet): max HP becomes the formula's
     // with one more fighter, and current HP rises by the same (each fighter
     // once) — except in the last few minutes, when a newcomer mustn't hand
-    // it the HP to escape
+    // it the HP to escape. From `evening` on it's each member's first
+    // attack of each NIGHT (a fighter-night) that grows it.
     let joined = 0;
     let p = s.participants[userId];
     if (!isObject(p)) p = s.participants[userId] = newFighter(name, now);
-    if (!((p.attacks || 0) > 0)) {
-      p.firstAttackAt = now;
-      if (growsAt(s, now)) {
-        // The dial this siege started with: it only moves when a siege ends
-        const dial = Number.isFinite(s.dial) && s.dial > 0 ? s.dial : dialOf(data);
-        const fighters = Object.values(s.participants).filter(x => (x.attacks || 0) > 0).length + 1;
-        joined = joinGrowth(s.maxHp, { a7: Number(s.a7) || 0, fighters, dial, monsterHp: Number(monster.hp) || 1 });
-        s.maxHp += joined;
-        s.hp += joined;
-      }
-      if (joined) log(s, `📈 ${cardName(name)} joined the fight · +${joined} HP`, now);
+    const first = !((p.attacks || 0) > 0);
+    // From `evening` on, the nights each member fought (their first attack
+    // of each): what grows the HP, and what the pool is paid per. A quick
+    // siege's fighters keep exactly the fields they always had.
+    let firstTonight = false;
+    if (t.growthPer === 'night') {
+      const night = siegeNight(s, now);
+      const nights = isObject(p.nights) ? p.nights : (p.nights = {});
+      firstTonight = !Object.hasOwn(nights, night);
+      if (firstTonight) nights[night] = now;
     }
+    if (first) p.firstAttackAt = now;
+    const grows = t.growthPer === 'night' ? firstTonight : first;
+    if (grows && growsAt(s, now)) {
+      // The dial this siege started with: it only moves when a siege ends
+      const dial = Number.isFinite(s.dial) && s.dial > 0 ? s.dial : dialOf(data, t.key);
+      const fighters = t.growthPer === 'night'
+        ? (Number(s.fn) || 0) + 1
+        : Object.values(s.participants).filter(x => (x.attacks || 0) > 0).length + 1;
+      joined = joinGrowth(s.maxHp, { a7: Number(s.a7) || 0, expected: Number(s.expected) || 0, fighters, dial, monsterHp: Number(monster.hp) || 1, t });
+      if (t.growthPer === 'night') s.fn = fighters;
+      s.maxHp += joined;
+      s.hp += joined;
+    }
+    if (joined) log(s, first ? `📈 ${cardName(name)} joined the fight · +${joined} HP` : `📈 ${cardName(name)} is back for another night · +${joined} HP`, now);
     p.name = name;
 
     // A restarted poison first deals the minutes the old one still owed
@@ -636,7 +895,8 @@ export function siegeAttack(guildId, siegeId, { userId, name, weapon, outcome, s
     let healed = 0;
     const missHeal = factor(monster.traits?.missHeal, 0);
     if (weapon === 'food' && outcome === 'splash' && missHeal > 0 && s.hp > 0) {
-      healed = Math.min(Math.round(missHeal * s.maxHp), s.maxHp - s.hp);
+      // Per miss, scaled by the pace (t.heal: a week has ~10× a quick siege's attacks)
+      healed = Math.min(Math.round(missHeal * t.heal.miss * s.maxHp), s.maxHp - s.hp);
       s.hp += healed;
       s.healed = (s.healed || 0) + healed;
     }
@@ -659,6 +919,13 @@ export function siegeAttack(guildId, siegeId, { userId, name, weapon, outcome, s
 
     p.attacks = (p.attacks || 0) + 1;
     p.lastAt = now;
+    // 2.74.0: toward today's allowance, and tonight's tally for the report
+    const used = attacksTonight(p, now, s) + 1;
+    if (t.allowance) {
+      p.night = siegeNight(s, now);
+      p.nightAttacks = used;
+    }
+    tally(s, userId, name, 'damage', damage, now);
 
     const [icon, verb] = LOG_VERBS[outcome] || ['⚔️', 'attacked'];
     log(s, `${icon} ${cardName(name)} ${verb}${damage ? ` · ${damage}` : ''}${healed ? ` · it healed ${healed}` : ''}`, now);
@@ -674,15 +941,39 @@ export function siegeAttack(guildId, siegeId, { userId, name, weapon, outcome, s
       hit: {
         damage, raw, joined, healed, wasSpooked, wasPoisoned, spooked: p.spooked, poison, killingBlow, selfPoisoned,
         silverMult: silver ? silverMultOf(monster) : null, hp: s.hp, maxHp: s.maxHp,
+        again: joined > 0 && !first, // a fighter-night after their first: "back for another night"
+        attacks: t.allowance ? { used, of: t.allowance } : null,
+        pot: t.pot ? potOf(s) : null,
       },
     };
   });
 }
 
 /**
+ * An attack at a `pot` pace paid its points into the pot: keep what it
+ * would have scored on its own (recordPlay's `potPoints`, a backfire's −1
+ * included) on the fighter, as `own`. Called right after recordPlay, in the
+ * attack's own synchronous block. It's only ever paid when today's reward
+ * limit holds a win back (gameScores.applySiegeResult), so a member past
+ * the limit gets what the limit leaves them at quick. Nothing for 0.
+ * @returns {{siege} | {error}}
+ */
+export function notePotPoints(guildId, siegeId, userId, points) {
+  if (!Number.isFinite(points) || points === 0) return { error: 'none' };
+  return withSiege(guildId, siegeId, (s) => {
+    const p = isObject(s.participants) ? s.participants[userId] : null;
+    if (s.status !== 'live' || !isObject(p) || !timingsOf(s).pot) return { error: 'none' };
+    p.own = (Number(p.own) || 0) + points;
+    return { siege: s };
+  });
+}
+
+/**
  * The scheduler's minute: every poison's due ticks, credited to whoever
- * gave it. Saves only when a tick was due.
- * @returns {{siege, dealt: number} | {error}}
+ * gave it; a fighter's poisoning that has worn off; and (2.74.0) a
+ * digested fighter whose day out is over, back in the fight. Saves only
+ * when something was due.
+ * @returns {{siege, dealt: number, back: string[]} | {error}}
  */
 export function siegeTick(guildId, siegeId, now = Date.now()) {
   return withSiege(guildId, siegeId, (s) => {
@@ -690,11 +981,19 @@ export function siegeTick(guildId, siegeId, now = Date.now()) {
     let dealt = 0;
     let changed = false;
     let shown = false;
+    const back = [];
     for (const [userId, p] of Object.entries(isObject(s.participants) ? s.participants : {})) {
       // R6: a fighter's own poisoning that has run its course
       if (isObject(p?.poisoned) && !poisonedNow(p, now)) {
         p.poisoned = null;
         log(s, `🌿 ${cardName(p.name)} shook off the poison`, now);
+        changed = shown = true;
+      }
+      if (p?.out && Number.isFinite(p.outUntil) && now >= p.outUntil) {
+        p.out = false;
+        p.outUntil = null;
+        back.push(userId);
+        log(s, `🔙 ${cardName(p.name)} is back in the fight`, now);
         changed = shown = true;
       }
       if (!isObject(p?.poison)) continue;
@@ -704,7 +1003,7 @@ export function siegeTick(guildId, siegeId, now = Date.now()) {
     }
     if (!changed) return { error: 'nothing-due' };
     if (dealt > 0 || shown) touch(s);
-    return { siege: s, dealt };
+    return { siege: s, dealt, back };
   });
 }
 
@@ -716,21 +1015,31 @@ export function siegeTick(guildId, siegeId, now = Date.now()) {
  * In one save of the happenings file: the rewards are planned
  * (planSiegeRewards, with luck), applied in ONE save of the scores file
  * (applySiegeResult: idempotent by siege id), the result stored for the
- * scheduler to post, every poison stopped, and then the dial moves.
+ * scheduler to post, every poison stopped, and then the dial moves — the
+ * siege's preset's dial, by its preset's step (2.74.0).
+ *
+ * `hold` (the scheduler's escape at its end): from `day` on an escape's
+ * results wait for the next game anyone plays on the server, or
+ * PACE_RULES.holdResultsHours at the latest (`result.holdUntil`), so a
+ * campaign that ends at the night boundary doesn't ping 20 people at
+ * 4 a.m. A win is posted at once: people are around by definition.
  * @returns {{siege, dial: number} | {error: 'not-live'|'not-current'|'bad-status'}}
  */
-export function finishSiege(guildId, siegeId, status, now = Date.now(), luck = gameLuck, { note = null } = {}) {
+export function finishSiege(guildId, siegeId, status, now = Date.now(), luck = gameLuck, { note = null, hold = false } = {}) {
   if (!['won', 'escaped', 'ended'].includes(status)) return { error: 'bad-status' };
   return withSiege(guildId, siegeId, (s, data) => {
     if (s.status !== 'live') return { error: 'not-live', siege: s };
+    const t = timingsOf(s);
     const plan = planSiegeRewards(s, status, luck);
     // Won and escaped go to the scores file even with nobody to pay: the
     // leaderboard counts them (an admin's end counts for nothing)
     const paid = plan.grants.length || status !== 'ended'
       ? applySiegeResult(guildId, { siegeId: s.id, grants: plan.grants, status, now })
       : { grants: [] };
-    const fought = fightersOf(s).length;
+    const fighters = fightersOf(s);
+    const fought = fighters.length;
     const dealt = Object.values(isObject(s.participants) ? s.participants : {}).reduce((n, p) => n + (Number(p?.damage) || 0), 0);
+    const effort = effortOf(s, t);
     s.status = status;
     s.finishedAt = now;
     // Every poison stops; a grabbed fighter is let go (the fight's over: no
@@ -752,11 +1061,99 @@ export function finishSiege(guildId, siegeId, status, now = Date.now(), luck = g
       claimedAt: null,
       tries: 0,
       unannounced: note,
+      ...(hold && status === 'escaped' && t.holdResults ? { holdUntil: now + PACE_RULES.holdResultsHours * 60 * MINUTE } : {}),
     };
     touch(s);
-    data.siegeDial = nextDial(dialOf(data), status, fought, s.maxHp > 0 ? dealt / s.maxHp : 0);
-    return { siege: s, dial: data.siegeDial };
+    // From `day` on the dial stays put when the turnout alone explains the
+    // end (turnoutExplains: fewer came than expected and it escaped, or more
+    // came and they won): that's the estimate's error, which the
+    // participation below corrects. Moving the dial on it too overshot: a
+    // fresh server's easy first campaign raised the dial while the estimate
+    // rose, and the next two lost 9 in 10 (the review's participation sweep,
+    // 2026-11-04).
+    const attackers = fighters.filter(f => (f.attacks || 0) > 0).length;
+    const before = dialOf(data, t.key);
+    const learning = t.hpBase === 'fighters' && turnoutExplains(s, status, attackers);
+    const dial = learning
+      ? before
+      : nextDial(before, status, fought, s.maxHp > 0 ? dealt / s.maxHp : 0, t, effort);
+    setDial(data, t.key, dial);
+    // From `day` on, learn how many come: the next campaign's base expects
+    // that. Attackers, not helpers (a member who only freed a friend deals
+    // no damage), of the members active as it ends (a new server's A7 grows
+    // through its first week). An admin's end tells nothing.
+    if (t.hpBase === 'fighters' && status !== 'ended') {
+      const a7 = Math.max(activeMembers(data, now), Number(s.a7) || 0);
+      if (a7 > 0) {
+        const p = participationOf(data, t.key);
+        const seen = Math.min(1, attackers / a7);
+        const { first, weight } = PACE_RULES.participation;
+        const w = learnedParticipation(data, t.key) ? weight : first;
+        const learned = Math.round((p + w * (seen - p)) * 1e4) / 1e4;
+        data.siegeParticipation = { ...(isObject(data.siegeParticipation) ? data.siegeParticipation : {}), [t.key]: clamp(learned, PACE_RULES.participation.min, 1) };
+      }
+    }
+    return { siege: s, dial, effort };
   });
+}
+
+/**
+ * Does the turnout alone explain how campaign `s` ended — so the dial
+ * stays, and only the participation learns? When the miss points the same
+ * way as the end and is big enough to: it escaped with fewer than it
+ * expected, or was won with more — by over PACE_RULES.participation.sized
+ * of the attackers and over `slack[status]` fighters (a small turnout
+ * swings by one or two). The other way round it's the monster, not the
+ * count: more came and it still got away, or fewer came and they still
+ * beat it — then the dial moves too. Leaving it alone there set the two
+ * against each other (review, 2026-11-05): after an escape the learning
+ * raised the next campaign's HP for the bigger turnout, at the same dial,
+ * so the next one got away too.
+ *
+ * The slack leans the players' way. An escape is the turnout's only past 2
+ * short — on a server where 2 or 3 fight, one fewer must still ease the
+ * dial, or it lags and every escape costs everyone 3 again. A win is the
+ * turnout's past 1 over: with 2 of slack a 5-member server's first
+ * campaign expected 2 (the floor), 4 came, its easy win raised the dial on
+ * top of the bigger estimate, and the second was lost 1 time in 2 (re-tune,
+ * 2026-11-05). A siege with no `expected` (quick, evening, a pre-2.74 one):
+ * never.
+ */
+export function turnoutExplains(s, status, attackers) {
+  if (!Number.isFinite(s?.expected)) return false;
+  const { sized, slack } = PACE_RULES.participation;
+  const off = status === 'escaped' ? s.expected - attackers : status === 'won' ? attackers - s.expected : 0;
+  return off > 0 && off > Math.max(slack[status], sized * attackers);
+}
+
+/**
+ * How hard the fighters tried, with an allowance: the attacks they made ÷
+ * the attacks their fighter-nights allowed (each attacker's nights fought ×
+ * the allowance). Null without an allowance (quick): there, damage decides.
+ */
+export function effortOf(s, t = timingsOf(s)) {
+  if (!t.allowance) return null;
+  let made = 0;
+  let allowed = 0;
+  for (const p of Object.values(isObject(s?.participants) ? s.participants : {})) {
+    if (!((p?.attacks || 0) > 0)) continue;
+    made += p.attacks;
+    allowed += Math.max(1, Object.keys(isObject(p.nights) ? p.nights : {}).length) * t.allowance;
+  }
+  return allowed > 0 ? Math.round((made / allowed) * 1e4) / 1e4 : 0;
+}
+
+/**
+ * Are siege `s`'s results being held (an escape at a day+ pace)? Until
+ * someone plays a game on the server after it got away (`activity.at`,
+ * noted on every play), or its holdUntil.
+ */
+export function resultsHeld(s, data, now = Date.now()) {
+  const until = Number(s?.result?.holdUntil);
+  if (!Number.isFinite(until) || s.result.announcedAt) return false;
+  if (now >= until) return false;
+  const played = Number(data?.activity?.at) || 0;
+  return !(played > (s.finishedAt || 0));
 }
 
 /** Give up on posting the results after SIEGE.resultTries */
@@ -781,6 +1178,8 @@ export function claimResults(guildId, siegeId, now = Date.now()) {
     if (!s.result) return { error: 'not-finished' };
     if (s.result.announcedAt || s.result.claimedAt) return { error: 'already-claimed' };
     s.result.claimedAt = now;
+    // The digests no report reached, which these results tell (siegeCard.resultsPayload)
+    s.result.told = (Array.isArray(s.unreported) ? s.unreported : []).map(d => d.userId);
     return { siege: s };
   });
 }
@@ -802,12 +1201,19 @@ export function giveUpResults(guildId, siegeId, reason, now = Date.now()) {
 /** Is siege `s`'s results claim one a restart cut short? (the scheduler gives it up) */
 export const resultsClaimStale = (s, now = Date.now()) => staleClaim(s?.result, now);
 
-/** The results were posted */
-export function recordResults(guildId, siegeId, messageId, now = Date.now()) {
+/**
+ * The results were posted, in `channelId` (the siege's, or where a
+ * happening would be announced: /siege end names it). They named the
+ * digests no report reached (`unreported`: siegeCard.resultsPayload), so
+ * those are told now. Results given up on leave them: nobody told them.
+ */
+export function recordResults(guildId, siegeId, messageId, now = Date.now(), channelId = null) {
   return withSiege(guildId, siegeId, (s) => {
     if (!s.result) return { error: 'not-finished' };
     s.result.announcedAt = now;
     s.result.messageId = messageId;
+    if (channelId) s.result.channelId = channelId;
+    s.unreported = [];
     return { siege: s };
   });
 }
@@ -843,13 +1249,13 @@ function poisonFighter(guildId, s, userId, p, { by, actionId, monster }, now) {
     return { antidote: true, until: null };
   }
   const forever = by === 'monster' && !!monster?.traits?.poisonForever;
-  const until = forever || p.poisoned?.until === null ? null : now + SIEGE.poisoned.minutes * MINUTE;
+  const until = forever || p.poisoned?.until === null ? null : now + timingsOf(s).poisonMinutes * MINUTE;
   p.poisoned = { at: now, until, actionId, by };
   return { antidote: false, until };
 }
 
 /** The free fighters, best first (fightersOf), for an action to pick from */
-export const freeFighters = (siege) => fightersOf(siege).filter(f => isFree(siege.participants[f.userId]));
+export const freeFighters = (siege, now = Date.now()) => fightersOf(siege).filter(f => isFree(siege.participants[f.userId], now));
 
 /** One luck draw over a { kind: weight } table */
 function weighted(weights, r) {
@@ -874,9 +1280,16 @@ function pickSome(list, n, luck) {
 
 /**
  * Is the monster due to act on siege `s` at `now`? Live, HP left, time
- * left, nothing decided and still unannounced, and its time come.
+ * left, nothing decided and still unannounced, and its time come: at
+ * quick, `nextActionAt` on the wall clock; from `evening` on, while the
+ * drive-in is busy and its busy clock has reached `nextActionBusy` — so
+ * nobody is grabbed or poisoned while nobody's playing.
  */
-export const actionDue = (s, now = Date.now()) => isLive(s, now) && s.hp > 0 && !s.pending && now >= (s.nextActionAt || Infinity);
+export function actionDue(s, now = Date.now()) {
+  if (!(isLive(s, now) && s.hp > 0 && !s.pending)) return false;
+  if (!timingsOf(s).busy) return now >= (s.nextActionAt || Infinity);
+  return isBusy(s, now) && busyNow(s, now) >= (Number(s.nextActionBusy) || 0);
+}
 
 /**
  * The monster decides what it does — and the decision is saved, as a claim,
@@ -894,6 +1307,11 @@ export const actionDue = (s, now = Date.now()) => isLive(s, now) && s.hp > 0 && 
  *     poisoned already (Pod People poison two), else it roars
  *   - nobody fighting yet: no action at all (a roar at an empty channel
  *     every five minutes is noise), only the clock moves on
+ *   - from `evening` on it only picks among fighters who are here
+ *     (targetsOf): who attacked, freed or cured in the busy window. A week
+ *     campaign's fighter from three nights ago mustn't be grabbed and pinged
+ *     with 22 hours to be freed while they're asleep (review, 2026-11-04).
+ *     Nobody here to pick: it roars.
  * @returns {{siege, action} | {error}}
  */
 export function decideAction(guildId, siegeId, { rescueOn = true, potionOn = true } = {}, now = Date.now(), luck = gameLuck) {
@@ -901,8 +1319,10 @@ export function decideAction(guildId, siegeId, { rescueOn = true, potionOn = tru
     if (!actionDue(s, now)) return { error: 'not-due' };
     const monster = monsterOf(s.monster);
     if (!monster) return { error: 'not-current' };
-    s.nextActionAt = now + SIEGE.actions.everyMinutes * MINUTE;
-    const free = freeFighters(s);
+    const t = timingsOf(s);
+    s.nextActionAt = now + t.actEvery * MINUTE;
+    if (t.busy) s.nextActionBusy = round3(busyNow(s, now) + t.actEvery);
+    const free = targetsOf(s, now);
     if (!fightersOf(s).some(f => (f.attacks || 0) > 0)) return { siege: s, action: null };
     const traits = monster.traits || {};
     const weights = { ...(isObject(traits.actWeights) ? traits.actWeights : SIEGE.actions.weights) };
@@ -929,6 +1349,17 @@ export function decideAction(guildId, siegeId, { rescueOn = true, potionOn = tru
   });
 }
 
+/**
+ * Who the monster may pick, best first: the free fighters (freeFighters) —
+ * from `evening` on, only those who attacked, freed or cured in the last
+ * PACE_RULES.busyMinutes (`lastAt`). At quick, every free fighter, as before.
+ */
+export function targetsOf(s, now = Date.now()) {
+  const free = freeFighters(s, now);
+  if (!timingsOf(s).busy) return free;
+  return free.filter(f => now - (Number(s.participants[f.userId]?.lastAt) || 0) < BUSY_MS);
+}
+
 /** An action claimed this long ago and never announced is void */
 export const actionStale = (s, now = Date.now()) => !!s?.pending && now - s.pending.claimedAt >= SIEGE.actions.voidSeconds * 1000;
 
@@ -947,9 +1378,10 @@ export function voidAction(guildId, siegeId, actionId, reason = 'void', now = Da
 
 /**
  * The action's ping went out (message `messageId`): now it happens, and its
- * clocks start — the rescue window, the poison's 15 minutes. A victim who
- * is no longer free (a sacrifice swap a moment ago, say) is passed over.
- *   grab:   caught for SIEGE.grab.freeMinutes; Monster Chow counts it
+ * clocks start — the rescue window, the poison's (the siege's timings:
+ * 10 and 15 minutes at quick, 22 hours each at week). A victim who is no
+ * longer free (a sacrifice swap a moment ago, say) is passed over.
+ *   grab:   caught for `t.freeMinutes`; Monster Chow counts it
  *   poison: half damage until cured (their Antidote fires at once if it can)
  *   any:    The Wolfman heals traits.actHeal of his max HP
  * @returns {{siege, applied: {grabbed: string[], poisoned: string[], antidote: string[], healed: number, titles: object}} | {error}}
@@ -964,9 +1396,9 @@ export function markAnnounced(guildId, siegeId, actionId, messageId, now = Date.
     if (s.status === 'live' && monster) {
       for (const userId of a.victims) {
         const p = s.participants?.[userId];
-        if (!isFree(p)) continue;
+        if (!isFree(p, now)) continue;
         if (a.kind === 'grab') {
-          p.caught = { at: now, until: now + SIEGE.grab.freeMinutes * MINUTE, actionId, by: 'monster' };
+          p.caught = { at: now, until: now + timingsOf(s).freeMinutes * MINUTE, actionId, by: 'monster' };
           applied.grabbed.push(userId);
           const t = countSiegeEvent(guildId, { userId, name: p.name, counter: 'grabbed', now }).titles;
           if (t.length) applied.titles[userId] = t;
@@ -975,7 +1407,8 @@ export function markAnnounced(guildId, siegeId, actionId, messageId, now = Date.
           (r.antidote ? applied.antidote : applied.poisoned).push(userId);
         }
       }
-      const heal = factor(monster.traits?.actHeal, 0);
+      // Per action, scaled by the pace (t.heal: a week has ~5× a quick siege's actions)
+      const heal = factor(monster.traits?.actHeal, 0) * timingsOf(s).heal.act;
       if (heal > 0 && s.hp > 0) {
         applied.healed = Math.min(Math.round(heal * s.maxHp), s.maxHp - s.hp);
         s.hp += applied.healed;
@@ -996,13 +1429,27 @@ export function markAnnounced(guildId, siegeId, actionId, messageId, now = Date.
 /**
  * Grabbed fighters nobody freed in time: digested — −SIEGE.grab.loss
  * (never below 0 for the month; applySiegePenalty, idempotent by the grab)
- * and out of this siege. One save of each file; the scheduler then posts
- * one NEW message pinging them.
- * @returns {{siege, digested: Array<{userId, name, points}>} | {error}}
+ * and out of this siege, or (2.74.0, `t.outMinutes`: 3 days, a week) out
+ * for a day and then back. One save of each file; the scheduler then posts
+ * one NEW message pinging them (`tell`) — at a pace with a daily report,
+ * only while the drive-in is busy: with nobody around nobody is pinged,
+ * and they're kept in `unreported` for the next report. Without a report
+ * (quick, evening) they're always told: there'd be nothing else to tell
+ * them (review, 2026-11-04: an evening digest with nobody attacking was
+ * never told at all).
+ *
+ * Kept only while a report is still to come (reportToCome): tonight's, not
+ * posted yet, or a counted boundary before the end. On a campaign's last
+ * night, or a day siege past its one report, a kept digest waited for a
+ * report that never came: −5, and never a word (review, 2026-11-06). Then
+ * they're told at once, whatever the hour. A kept one the report never
+ * reaches (it's won first) is in the results (siegeCard.resultsPayload).
+ * @returns {{siege, digested: Array<{userId, name, points, outUntil}>, tell: boolean} | {error}}
  */
 export function digestDue(guildId, siegeId, now = Date.now()) {
   return withSiege(guildId, siegeId, (s) => {
     if (s.status !== 'live') return { error: 'not-live' };
+    const t = timingsOf(s);
     const digested = [];
     for (const [userId, p] of Object.entries(isObject(s.participants) ? s.participants : {})) {
       if (!isCaught(p) || now < p.caught.until) continue;
@@ -1010,13 +1457,36 @@ export function digestDue(guildId, siegeId, now = Date.now()) {
       p.caught = null;
       p.poisoned = null;
       p.out = true;
-      digested.push({ userId, name: p.name, points: paid.points });
+      p.outUntil = t.outMinutes ? now + t.outMinutes * MINUTE : null;
+      digested.push({ userId, name: p.name, points: paid.points, ...(p.outUntil ? { outUntil: p.outUntil } : {}) });
     }
     if (!digested.length) return { error: 'none' };
     const monster = monsterOf(s.monster);
     log(s, `😋 ${monster?.name || 'It'} digested ${digested.map(d => cardName(d.name)).join(' and ')}`, now);
+    const tell = !t.report || isBusy(s, now) || !reportToCome(s, now);
+    if (!tell) keepForReport(s, digested, now);
     touch(s);
-    return { siege: s, digested };
+    return { siege: s, digested, tell };
+  });
+}
+
+/** Digests nobody was told of, kept for the next daily report (in place); the newest SIEGE.pingMax */
+function keepForReport(s, digested, now) {
+  const kept = Array.isArray(s.unreported) ? s.unreported : [];
+  const fresh = digested.filter(d => !kept.some(k => k.userId === d.userId && k.at === (d.at ?? now)));
+  s.unreported = [...kept, ...fresh.map(d => ({ ...d, at: d.at ?? now }))].slice(-SIEGE.pingMax);
+}
+
+/**
+ * A digest notice that didn't go out (no channel, Discord refused it): at a
+ * pace with a daily report, the digested go into the next one instead
+ * (review, 2026-11-04). Without a report there's nowhere else to say it.
+ */
+export function digestUntold(guildId, siegeId, digested, now = Date.now()) {
+  return withSiege(guildId, siegeId, (s) => {
+    if (s.status !== 'live' || !timingsOf(s).report || !digested?.length) return { error: 'none' };
+    keepForReport(s, digested, now);
+    return { siege: s };
   });
 }
 
@@ -1065,7 +1535,7 @@ export function siegeAssist(guildId, { game, actor, targetId, outcome, holyWater
     const all = isObject(s.participants) ? s.participants : (s.participants = {});
     const target = all[targetId];
     const me = all[actor.id];
-    if (isCaught(me) || isOut(me)) return { error: 'held' };
+    if (isCaught(me) || isOut(me, now)) return { error: 'held' };
     const helper = () => {
       if (!isObject(all[actor.id])) all[actor.id] = newFighter(actor.name, now);
       return all[actor.id];
@@ -1077,8 +1547,9 @@ export function siegeAssist(guildId, { game, actor, targetId, outcome, holyWater
       const h = helper();
       h.frees = (h.frees || 0) + 1;
       h.lastAt = now;
+      tally(s, actor.id, actor.name, 'frees', 1, now);
       if (outcome === 'sacrificed' && !holyWater) {
-        h.caught = { at: now, until: now + SIEGE.grab.freeMinutes * MINUTE, actionId: null, by: 'sacrifice' };
+        h.caught = { at: now, until: now + timingsOf(s).freeMinutes * MINUTE, actionId: null, by: 'sacrifice' };
         log(s, `🕯️ ${cardName(actor.name)} freed ${cardName(target.name)}, and was grabbed instead`, now);
         touch(s);
         return { siege: s, assist: { kind: 'swapped', targetId, targetName: target.name, until: h.caught.until } };
@@ -1092,6 +1563,7 @@ export function siegeAssist(guildId, { game, actor, targetId, outcome, holyWater
       const h = helper();
       h.cures = (h.cures || 0) + 1;
       h.lastAt = now;
+      tally(s, actor.id, actor.name, 'cures', 1, now);
       log(s, `🧪 ${cardName(actor.name)} cured ${cardName(target.name)}`, now);
       touch(s);
       return { siege: s, assist: { kind: 'cured', targetId, targetName: target.name } };
@@ -1116,15 +1588,28 @@ export const siegesPerWeek = (frequency) => SIEGE.random.perWeek[frequency] ?? S
  * together give that: 1 − (1 − p)^240 = R/7 → p = 1 − (1 − R/7)^(1/240).
  * Normal (3 a week) is about 0.23% a minute. tests/siege-sim.test.js
  * measures the rate this gives on a server that plays four hours a night.
+ *
+ * 2.74.0: that's quick's and evening's. From `day` on the frequency sets
+ * the gap instead (gamePace.randomGapHours: 48 h / 72 h, rare ×2, often
+ * ×½), and once it's passed a campaign starts at the first busy moments:
+ * PACE_RULES.randomChance a minute, about 70% within a 4-hour evening.
  */
-export function randomSiegeChance(frequency) {
+export function randomSiegeChance(frequency, pace = 'quick') {
+  if (siegesPerWeek(frequency) <= 0) return 0;
+  if (pacePreset(pace).report) return PACE_RULES.randomChance;
   const perDay = Math.min(0.95, siegesPerWeek(frequency) / 7);
   if (!(perDay > 0)) return 0;
   return 1 - (1 - perDay) ** (1 / ACTIVE_MINUTES_PER_DAY);
 }
 
-/** A random siege's win pool × this: min(1, poolScaleAt / spawns a week) */
-export const randomPoolScale = (frequency) => {
+/**
+ * A random siege's win pool × this: min(1, poolScaleAt / spawns a week) —
+ * where the frequency sets how many come (quick, evening). From `day` on
+ * it only stretches the gap between campaigns, and the pool, per
+ * fighter-night, already pays for what's fought: ×1.
+ */
+export const randomPoolScale = (frequency, pace = 'quick') => {
+  if (pacePreset(pace).report) return 1;
   const w = siegesPerWeek(frequency);
   return w > 0 ? Math.min(1, SIEGE.random.poolScaleAt / w) : 1;
 };
@@ -1138,20 +1623,23 @@ function playedWithin(data, minutes, now) {
 
 /**
  * May a random siege start now? Every rule but the dice: switched on, no
- * siege on (or results waiting), at least SIEGE.random.gapHours since the
- * last ended, no happening in progress, and enough members around — 2 in
- * the last 30 minutes and 3 in the last 24 hours.
+ * siege on (or results waiting), the gap since the last ended (the
+ * server's pace's: gamePace.randomGapHours), no happening in progress —
+ * at quick and evening; from `day` on a happening runs about a day, and a
+ * campaign most of the week, so neither waits for the other — and enough
+ * members around: 2 in the last 30 minutes and 3 in the last 24 hours.
  * @returns {{ok: true} | {ok: false, reason: string}}
  */
 export function randomSiegeEligibility(data, settings, now = Date.now()) {
   if (siegesPerWeek(settings?.siegeFrequency) <= 0) return { ok: false, reason: 'off' };
+  const pace = paceOf(settings);
   const s = isObject(data?.siege) ? data.siege : null;
   if (s?.status === 'live') return { ok: false, reason: 'siege' };
   if (s?.result && !s.result.announcedAt) return { ok: false, reason: 'results-pending' };
   const ended = s ? (s.finishedAt || s.startedAt || 0) : 0;
-  if (now - ended < SIEGE.random.gapHours * 60 * MINUTE) return { ok: false, reason: 'gap' };
+  if (now - ended < randomGapHours(pace, settings?.siegeFrequency) * 60 * MINUTE) return { ok: false, reason: 'gap' };
   const h = data?.happening;
-  if (h && !h.endedAt && now < h.endsAt) return { ok: false, reason: 'happening' };
+  if (!pacePreset(pace).report && h && !h.endedAt && now < h.endsAt) return { ok: false, reason: 'happening' };
   if (playedWithin(data, SIEGE.random.recentMinutes, now) < SIEGE.random.minRecent) return { ok: false, reason: 'too-few-now' };
   if (playedWithin(data, 24 * 60, now) < SIEGE.random.minDay) return { ok: false, reason: 'too-few-today' };
   return { ok: true };
@@ -1160,3 +1648,164 @@ export function randomSiegeEligibility(data, settings, now = Date.now()) {
 /** An arrival card claimed this long ago with no message recorded (SIEGE.cardClaimMinutes) */
 export const cardClaimStale = (s, now = Date.now()) => !!s?.card && !s.card.messageId && !s.card.gone
   && now - (s.card.claimedAt || 0) >= SIEGE.cardClaimMinutes * MINUTE;
+
+// ── 2.74.0: the daily report ────────────────────────────────────────────
+
+/**
+ * Is siege `s`'s daily report due at `now`? From `day` on, one a night,
+ * after each of its nights (campaignNight: a boundary in its first few
+ * hours isn't one): posted with the first game anyone plays after the night
+ * boundary (`activity.at`, noted on every play), or
+ * PACE_RULES.reportLatestHours after the boundary at the latest. Never
+ * twice for a night (`report.night`) — unless a try Discord refused for now
+ * released the claim (releaseReport) — and never once it's beaten or over.
+ * @returns {?string} the night it's due for (the night now), or null
+ */
+export function reportDue(s, data, now = Date.now()) {
+  const night = reportOwed(s, now);
+  if (!night) return null;
+  const boundary = nightBoundaryBefore(now);
+  const played = Number(data?.activity?.at) || 0;
+  if (played >= boundary || now >= boundary + PACE_RULES.reportLatestHours * 60 * MINUTE) return night;
+  return null;
+}
+
+/**
+ * The night whose report siege `s` owes at `now` — its boundary has passed
+ * and it counts, and the report isn't claimed (or was released for a
+ * retry) — or null. reportDue adds when to post it.
+ *
+ * Never for a night older than the last one claimed: the scheduler's passes
+ * don't overlap per guild, but a slow pass on another guild lets the next
+ * pass reach this one first, and the slow pass then arrives with an older
+ * `now`. It re-posted the night before's report, moved reportedThrough
+ * back, and the next pass re-posted the night after (review, 2026-11-06).
+ * Night keys are YYYY-MM-DD: they compare as strings.
+ */
+function reportOwed(s, now) {
+  if (!s || !timingsOf(s).report || !isLive(s, now) || !(s.hp > 0)) return null;
+  const boundary = nightBoundaryBefore(now);
+  if (boundary < firstNightBoundary(s.startedAt, timingsOf(s))) return null;
+  const night = nightKey(now);
+  const r = s.report;
+  if (r?.night && night < r.night) return null;
+  if (r?.night === night && !(r.claimedAt === null && !r.messageId && !r.unannounced)) return null;
+  return night;
+}
+
+/**
+ * The night boundary of siege `s`'s first report, or null when it gets
+ * none: no report at its pace, or (a day siege started in the hour before
+ * 12:00 UTC) no counted boundary before it ends. /siege start's reply says it.
+ */
+export function firstReportAt(s) {
+  const t = timingsOf(s);
+  if (!t.report) return null;
+  const first = firstNightBoundary(s.startedAt, t);
+  return first < s.endsAt ? first : null;
+}
+
+/**
+ * Will siege `s` post a report after `now` that a kept digest can wait for:
+ * tonight's, still owed (reportOwed), or one at a counted boundary before
+ * it ends (gamePace.reportBoundaryLeft)?
+ */
+export function reportToCome(s, now = Date.now()) {
+  const t = timingsOf(s);
+  if (!t.report) return false;
+  return !!reportOwed(s, now) || reportBoundaryLeft(s.startedAt, s.endsAt, t, now);
+}
+
+/** The nights' tallies a report covers: every night after the last one reported, up to `last` (night 1 may span two keys) */
+function talliesFor(s, last) {
+  const from = s.reportedThrough || '';
+  const out = { damage: 0, users: {} };
+  let any = false;
+  for (const [key, n] of Object.entries(isObject(s.nightly) ? s.nightly : {})) {
+    if (!(key > from && key <= last) || !isObject(n)) continue;
+    any = true;
+    out.damage += Number(n.damage) || 0;
+    for (const [id, u] of Object.entries(isObject(n.users) ? n.users : {})) {
+      const o = (out.users[id] ||= { name: u.name, damage: 0, frees: 0, cures: 0 });
+      o.name = u.name;
+      for (const k of ['damage', 'frees', 'cures']) o[k] += Number(u[k]) || 0;
+    }
+  }
+  return any ? out : null;
+}
+
+/**
+ * Claim siege `siegeId`'s report for `night`, saved BEFORE the send (as the
+ * results are): a restart can drop a night's report, never post two. The
+ * claim takes what the report shows — the nights since the last report's
+ * tallies, its number, and the digests nobody was pinged for
+ * (`unreported`, cleared only once the report has gone: recordReport).
+ * @returns {{siege, report: {night, last, number, tally: ?object, digested: object[]}} | {error}}
+ */
+export function claimReport(guildId, siegeId, night, now = Date.now()) {
+  return withSiege(guildId, siegeId, (s, data) => {
+    if (reportDue(s, data, now) !== night) return { error: 'not-due' };
+    const last = shiftNight(night, -1);
+    const number = campaignNight(s.startedAt, nightBoundaryBefore(now), timingsOf(s)) - 1;
+    const digested = Array.isArray(s.unreported) ? s.unreported : [];
+    const tries = s.report?.night === night ? Number(s.report.tries) || 0 : 0;
+    // How many nights its tallies cover: one, unless a report was lost (a
+    // claim whose send died, the bot down across two boundaries) — then
+    // "last night" would add up several, and the report says how many
+    // (review, 2026-11-06). From the night after the last one reported on,
+    // or the siege's own first night, to `last`.
+    const from = s.reportedThrough ? shiftNight(s.reportedThrough, 1) : siegeNight(s, s.startedAt);
+    const nights = Math.max(1, nightsBetween(from, last) + 1);
+    s.report = { night, last, number, claimedAt: now, messageId: null, unannounced: null, tries, told: digested.map(d => `${d.userId}:${d.at}`) };
+    return { siege: s, report: { night, last, number, nights, tally: talliesFor(s, last), digested } };
+  });
+}
+
+/**
+ * Night `night`'s report was posted (message `messageId`), or (`reason`)
+ * won't be. Either way that night's tallies are done with. The digests it
+ * named leave `unreported` once it was posted — or may have been
+ * (`'send-unknown'`, a timeout: drop, never repeat). One that never went out
+ * (no channel, Discord refused it for good) leaves them for the next.
+ */
+export function recordReport(guildId, siegeId, night, { messageId = null, reason = null } = {}) {
+  return withSiege(guildId, siegeId, (s) => {
+    if (s.report?.night !== night) return { error: 'not-claimed' };
+    s.report.messageId = messageId;
+    s.report.unannounced = reason;
+    s.reportedThrough = laterNight(s.reportedThrough, s.report.last);
+    if (messageId || reason === 'send-unknown') {
+      const told = new Set(s.report.told || []);
+      s.unreported = (Array.isArray(s.unreported) ? s.unreported : []).filter(d => !told.has(`${d.userId}:${d.at}`));
+    }
+    return { siege: s };
+  });
+}
+
+/**
+ * The later of two night keys (YYYY-MM-DD, so they compare as strings), or
+ * null: reportedThrough only ever moves forward, whatever order a late pass
+ * records a report in (reportOwed)
+ */
+const laterNight = (a, b) => ([a, b].filter(k => typeof k === 'string' && k).sort().at(-1) ?? null);
+
+/**
+ * Discord refused night `night`'s report for now (rate-limited, an outage:
+ * nothing was posted): release the claim for the next pass, `unreported`
+ * kept, up to PACE_RULES.reportTries; then it's given up as `reason`.
+ * @returns {{siege, gaveUp: boolean} | {error}}
+ */
+export function releaseReport(guildId, siegeId, night, reason = 'send-failed') {
+  return withSiege(guildId, siegeId, (s) => {
+    const r = s.report;
+    if (r?.night !== night || r.messageId || r.unannounced) return { error: 'settled' };
+    r.tries = (Number(r.tries) || 0) + 1;
+    if (r.tries >= PACE_RULES.reportTries) {
+      r.unannounced = reason;
+      s.reportedThrough = laterNight(s.reportedThrough, r.last);
+      return { siege: s, gaveUp: true };
+    }
+    r.claimedAt = null;
+    return { siege: s, gaveUp: false };
+  });
+}

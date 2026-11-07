@@ -40,33 +40,32 @@ Each game that hurts has one that helps. Aim at a member, a role or @everyone. O
 | Doom | `/doom fate target:@Sam` | `/rescue attempt target:@Sam` |
 | Potions | `/potion give user:@Sam type:poison` | `/potion give user:@Sam type:health` |
 
-A play can also miss or backfire, and then it costs you. Good plays in a row build a 🔥 streak, and a bad one ends it. Points are kept for this month, this year and all time. The full table is in [Games & Scores › Points](/commands/games#points).
+A play can also miss or backfire, and then it costs you. Good plays in a row build a 🔥 streak, and a bad one ends it. Points are kept for this month, this year and all time. The full table is in [Playing & Points](/commands/games-playing#points).
 
 The fifth game, `/siege`, has no target: a monster attacks and the whole server fights it. See [Fight a siege](./siege).
 
 ### What the reply says
 
-> 🥧 @Sam winds up like a Three Stooges short and plants a cream pie square on @Alex. *Nyuk nyuk nyuk.*
-> -# 🎯 Hit! Sam +3 (42 pts · 🔥 3 in a row) · Alex −1
+<DiscordCard name="game-play" />
 
 Anything else that happened goes on extra lines underneath: an item used, a prize, a title, a twist.
 
 ### Why a play didn't score
 
-The games have [limits](/commands/games#limits) so nobody can farm them. A play refused for the cooldown or the per-minute limit is answered privately and doesn't count. A play past the daily cap goes ahead, but it scores nothing, uses no item and moves no counter. Admins can change these numbers, and `/how-to-play` shows the ones your server uses.
+The games have [limits](/commands/games-playing#limits) so nobody can farm them. A play refused for the cooldown or the per-minute limit is answered privately and doesn't count. A play past the daily cap goes ahead, but it scores nothing, uses no item and moves no counter. Admins can change these numbers, and `/how-to-play` shows the ones your server uses.
 
 ### Prizes, items and titles
 
-- **Prizes:** every 25 hits, 15 tasty feeds, 25 dooms, 15 rescues, 15 helpful potions or 20 harmful potions earns that game's item and +3. Every 750 points earns a random item. At most 2 prizes a day. See [Prizes](/commands/games#prizes).
-- **Items** wait in your Glovebox, on your card. Add `item:` to a play to use one: one a play, 3 a day. Garlic, the Antidote and the Night Light work by themselves. See [The Glovebox and items](/commands/games#the-glovebox-and-items).
-- **Titles** are badges for things you've done a lot, or had done to you, each worth +10 once. Show one beside your name with `/scoreboard title:Pie Sniper`. See [Titles](/commands/games#titles).
+- **Prizes:** every 25 hits, 15 tasty feeds, 25 dooms, 15 rescues, 15 helpful potions or 20 harmful potions earns that game's item and +3. Every 750 points earns a random item. At most 2 prizes a day. See [Prizes](/commands/games-rewards#prizes).
+- **Items** wait in your Glovebox, on your card. Add `item:` to a play to use one: one a play, 3 a day. Garlic, the Antidote and the Night Light work by themselves. See [The Glovebox and items](/commands/games-rewards#the-glovebox-and-items).
+- **Titles** are badges for things you've done a lot, or had done to you, each worth +10 once. Show one beside your name with `/scoreboard title:Pie Sniper`. See [Titles](/commands/games-rewards#titles).
 
 ### Twists and happenings
 
-Now and then a [twist](/commands/games#twists) happens to the player after a scored play: a few points, an item, or something worse. And sometimes a [happening](/commands/games#happenings) changes the games for the whole server for a while, like a Full Moon that makes every doom score double. Both are announced in the replies, so you'll know when one hits.
+Now and then a [twist](/commands/games-happenings#twists) happens to the player after a scored play: a few points, an item, or something worse. And sometimes a [happening](/commands/games-happenings#happenings) changes the games for the whole server for a while, like a Full Moon that makes every doom score double. Both are announced in the replies, so you'll know when one hits.
 
 ## Related
 
 - [Fight a siege](./siege)
 - [Games FAQ](./faq)
-- [Games & Scores](/commands/games), every rule and number
+- [Games & Scores](/commands/games), every rule and number, page by page

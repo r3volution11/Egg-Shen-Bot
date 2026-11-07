@@ -49,7 +49,10 @@ describe('a restart between the spawn and the arrival', () => {
     const sim = fresh('rs-spawn-before');
     sim.fault({ on: 'send', kind: 'card', mode: 'crash-before' });
     const start = await sim.start({ monster: 'klowns' });
-    expect(start.answered()).toBe(false); // the bot died: Discord says the interaction failed
+    // Deferred before any send (review, 2026-11-06), then the bot died: the
+    // admin's "thinking…" is never filled in, and Discord gives up on it
+    expect(start.answered()).toBe(true);
+    expect(start.reply.content).toBe('');
     expect(sim.crashes).toBe(1);
     const s = sim.siege();
     expect(s).toMatchObject({ status: 'live', card: { messageId: null } });

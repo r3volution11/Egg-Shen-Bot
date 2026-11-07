@@ -37,6 +37,19 @@
  * a US evening, so it never crosses a UTC day (the daily caps) or the 12:00
  * UTC night boundary (nights in a row).
  *
+ * Pace (2.74.0): `runMonth({ pace })` runs the server at a pace (default
+ * `quick`, the game before 2.74). A siege runs to its preset's timings on
+ * the real engine — busy-time actions, the allowance, the pot, per-night
+ * HP — and a campaign carries over from one day to the next: each day its
+ * fighters join in their sessions, the scheduler's minute runs every minute
+ * of the evening and every 30 minutes otherwise, and members who come back
+ * free and cure whoever the daily report lists as held or poisoned
+ * (REPORT_RESCUE / CURE_CHANCE of the time). Random campaigns start by the
+ * pace's own rules (the gap, then PACE_RULES.randomChance a busy minute);
+ * at a pace whose happenings run a day (HAPPENING_RULES.weekly) a night
+ * sees one with chance 1/7 instead of HAPPENING_NIGHTS, and it may run
+ * during a campaign.
+ *
  * Used by tests/fuzz/game-balance.fuzz.js. The caller sets GUILD_GAMES_DIR,
  * GUILD_HAPPENINGS_DIR and GUILD_CONFIGS_DIR before loadBalance(): every src
  * module is imported here dynamically, after them.
@@ -82,6 +95,11 @@ export const SERVER_15 = Object.freeze([
   'casual', 'casual', 'casual', 'casual', 'dropin', 'dropin', 'dropin',
 ]);
 export const SERVER_5 = Object.freeze(['heavy', 'typical', 'typical', 'casual', 'dropin']);
+/** Does this pace's HP base learn the server's turnout (hpBase 'fighters': day on)? */
+export const paceLearns = (pace) => mods?.pace?.pacePreset(pace)?.hpBase === 'fighters';
+
+/** A big server: four of the 15-player server's mix (2.74.0 review: where few of A7 fight a campaign) */
+export const SERVER_60 = Object.freeze([...SERVER_15, ...SERVER_15, ...SERVER_15, ...SERVER_15]);
 
 /** What a regular play is: the game mix */
 const GAME_MIX = [
@@ -95,6 +113,12 @@ const TARGET_AROUND = 0.7;
 const ITEM_USE = 0.5;
 /** A night with a (random) happening, started at a random point in the evening when the rules allow */
 const HAPPENING_NIGHTS = 0.3;
+/** …at a pace whose happenings last about a day: about one a week */
+const HAPPENING_NIGHTS_WEEKLY = 1 / 7;
+/** A member back the next evening frees whoever the daily report lists as held this often */
+const REPORT_RESCUE = 0.8;
+/** The scheduler's minute outside the evening, in a campaign over days (its timers are coarse then) */
+const QUIET_TICK_MINUTES = 30;
 /** Minutes before a member who's around notices a fight, or a friend in trouble */
 const JOIN_DELAY = [0.5, 5];
 const RESCUE_DELAY = [1, 5];
@@ -138,6 +162,7 @@ export async function loadBalance() {
     rules: await import(src('utils/gameRules.js')),
     luck: await import(src('utils/gameLuck.js')),
     siege: await import(src('utils/siegeStore.js')),
+    pace: await import(src('utils/gamePace.js')),
     happenings: await import(src('utils/happeningStore.js')),
     rewards: await import(src('data/gameRewards.js')),
     happeningData: await import(src('data/gameHappenings.js')),
@@ -220,8 +245,12 @@ function emptyLedger(id, profile) {
  * @param {string[]} p.roster - a PROFILES key per member
  * @param {string} p.guildId - its own: each run is a fresh server
  * @param {number} [p.days]
+ * @param {string} [p.pace] - the server's pace (SIEGE_PACES), quick by default
+ * @param {number} [p.fightShare] - each member fights a given siege with this chance (drawn
+ *   once a siege; 1, the default, draws nothing): the members who sit it out still play the
+ *   other games, so they're in A7 — how a big server where few fight a campaign looks
  */
-export async function runMonth({ seed, roster, guildId, days = 30 }) {
+export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick', fightShare = 1 }) {
   const m = await loadBalance();
   const { gamePlay, scores, rules, siege: store, happenings: hs, rewards } = m;
   const { SIEGE, TITLE_POINTS, FULL_STACK_POINTS } = rewards;
@@ -242,8 +271,9 @@ export async function runMonth({ seed, roster, guildId, days = 30 }) {
   const byId = Object.fromEntries(players.map(pl => [pl.id, pl]));
   const sieges = [];
   let happeningsStarted = 0;
-  const config = { games: {} };
+  const config = { games: { pace } };
   const settings = scores.getGameSettings(config);
+  const weeklyHappenings = m.pace.happeningPace(pace).per === 'week';
   // potion.js keeps its helpful set to itself: every potion type that isn't harmful
   const helpfulTypes = Object.keys(m.potionLines).filter(t => !m.potion.HARMFUL_POTIONS.includes(t));
 
@@ -433,10 +463,14 @@ export async function runMonth({ seed, roster, guildId, days = 30 }) {
     const drawn = gamePlay.resolvePlay(guildId, { game: 'siege', action: weapon, actor, target, lines, item: started.item, settings: cfg, happenings: [] }, now);
     const fx = drawn.usable ? rules.itemEffect(drawn.item, 'siege', weapon) : null;
     const landed = store.siegeAttack(guildId, s.id, { userId: actor.id, name: actor.name, weapon, outcome: drawn.outcome, silver: !!fx?.silver }, now);
+    // Today's attacks used up (siege.js refuses this before the cooldown): done for the day
+    if (landed.error === 'spent') return 'spent';
     if (landed.error) return null;
     const result = scores.recordPlay(guildId, {
       game: 'siege', action: weapon, actor, target, outcome: drawn.outcome, settings: cfg, item: drawn.item, mods: drawn.mods, happenings: [],
+      pot: !!m.pace.timingsOf(again).pot,
     }, now);
+    if (result.potPoints) store.notePotPoints(guildId, s.id, actor.id, result.potPoints);
     hs.noteActivity(guildId, { channelId: CHANNEL, userId: actor.id }, now);
     book(result, pl.id, 'siege');
     if (landed.hit.selfPoisoned?.antidote) ledger[pl.id].defences += 1;
@@ -448,19 +482,52 @@ export async function runMonth({ seed, roster, guildId, days = 30 }) {
 
   /** Someone around (not `victim`, not held by the monster) to help */
   function helperFor(victimId, t) {
+    // Anyone around may free a friend, fighting this campaign or not (the report asks them to)
     const here = around(t).filter(x => x.id !== victimId && free(x.id));
     return here.length ? r.pick(here) : null;
   }
 
-  function startFight(q, s) {
-    fight = { id: s.id, endsAt: s.endsAt, monster: s.monster, dial: s.dial, fighters: new Set(), grabbed: 0, poisoned: 0, digested: 0 };
+  function startFight(q, s, dayEnd) {
+    fight = { id: s.id, endsAt: s.endsAt, monster: s.monster, dial: s.dial, fighters: new Set(), grabbed: 0, poisoned: 0, digested: 0, a7: s.a7, expected: s.expected ?? null };
+    // Who sits this one out (only drawn when some do: fightShare 1 keeps every run's dice as they were)
+    if (fightShare < 1) fight.sitting = new Set(players.filter(() => !r.chance(fightShare)).map(pl => pl.id));
+    fightDay(q, s, s.startedAt, dayEnd, false);
+  }
+
+  /**
+   * One day of a live fight, from `from` to `to`: everyone in a session
+   * joins after JOIN_DELAY, and the scheduler's minute runs — every minute
+   * through the evening, every QUIET_TICK_MINUTES otherwise (a quick siege
+   * is all evening). From the second day of a campaign, members who come
+   * back act on the daily report: whoever is still held is freed
+   * (REPORT_RESCUE), whoever is poisoned cured (CURE_CHANCE).
+   */
+  function fightDay(q, s, from, to, report) {
     for (const pl of players) {
       const sess = sessions[pl.id];
-      if (!sess) continue;
-      const join = Math.max(s.startedAt, sess.from) + r.between(JOIN_DELAY) * MINUTE;
+      if (!sess || fight.sitting?.has(pl.id)) continue;
+      const join = Math.max(from, sess.from) + r.between(JOIN_DELAY) * MINUTE;
       if (join < Math.min(sess.to, s.endsAt)) q.push(join, { kind: 'attack', who: pl.id });
     }
-    for (let t = s.startedAt + MINUTE; t <= s.endsAt + MINUTE; t += MINUTE) q.push(t, { kind: 'siegeMinute', siegeId: s.id });
+    const evening = to - DAY;
+    const busyUntil = evening + (EVENING + 60) * MINUTE;
+    const end = Math.min(to, s.endsAt + MINUTE);
+    let last = 0;
+    for (let t = Math.floor(from / MINUTE) * MINUTE + MINUTE; t <= end;) {
+      q.push(t, { kind: 'siegeMinute', siegeId: s.id });
+      last = t;
+      t += t >= evening && t < busyUntil ? MINUTE : QUIET_TICK_MINUTES * MINUTE;
+    }
+    // The minute it runs out, if a coarse tick would step over it
+    if (s.endsAt + MINUTE <= to && last < s.endsAt + MINUTE) q.push(s.endsAt + MINUTE, { kind: 'siegeMinute', siegeId: s.id });
+    if (!report) return;
+    const back = players.filter(pl => sessions[pl.id]);
+    if (!back.length) return;
+    for (const [id, p] of Object.entries(s.participants || {})) {
+      const helperAt = () => sessions[r.pick(back).id].from + r.between([2, 30]) * MINUTE;
+      if (store.isCaught(p) && r.chance(REPORT_RESCUE)) q.push(helperAt(), { kind: 'rescue', victim: id });
+      if (store.poisonedNow(p, from) && r.chance(CURE_CHANCE)) q.push(helperAt(), { kind: 'cure', victim: id, tries: 0 });
+    }
   }
 
   /** The scheduler's minute for a live siege (checkSiege's store calls, in order) */
@@ -478,7 +545,7 @@ export async function runMonth({ seed, roster, guildId, days = 30 }) {
     if (!(s.hp > 0)) status = 'won';
     else if (t >= s.endsAt) status = 'escaped';
     if (status) {
-      const done = store.finishSiege(guildId, s.id, status, t, luck);
+      const done = store.finishSiege(guildId, s.id, status, t, luck, { hold: true });
       // The results are posted (postSiegeResults: claim, send, record).
       // Until they are, no other siege can start.
       if (!done.error && !store.claimResults(guildId, s.id, t).error) store.recordResults(guildId, s.id, `results-${s.id}`, t);
@@ -491,11 +558,18 @@ export async function runMonth({ seed, roster, guildId, days = 30 }) {
           dial: fight.dial, dialAfter: done.dial, minutes: Math.round((t - s.startedAt) / MINUTE),
           grabbed: fight.grabbed, poisoned: fight.poisoned, digested: fight.digested,
           freed: sumOf(fought, 'frees'), cured: sumOf(fought, 'cures'),
+          pace: m.pace.timingsOf(s).key,
+          a7: fight.a7, expected: fight.expected, startedAt: s.startedAt, attackers: fought.filter(f => (f.attacks || 0) > 0).length,
+          effort: done.effort ?? null,
+          fighterNights: fought.reduce((n, f) => n + Math.max(1, Object.keys(f.nights || {}).length), 0),
         });
       }
       fight = null;
       return;
     }
+    // The daily report (from `day` on): claimed and taken as posted
+    const night = store.reportDue(s, hs.loadState(guildId), t);
+    if (night && !store.claimReport(guildId, s.id, night, t).error) store.recordReport(guildId, s.id, night, { messageId: `report-${night}` });
     const decided = store.decideAction(guildId, s.id, { rescueOn: true, potionOn: true }, t, luck);
     if (!decided.action) return;
     const applied = store.markAnnounced(guildId, s.id, decided.action.id, `msg-${decided.action.id}`, t).applied;
@@ -529,9 +603,12 @@ export async function runMonth({ seed, roster, guildId, days = 30 }) {
         // 20-second cooldowns and the six a minute
         for (let i = 0; i < n; i++) q.push(from + (i + 0.1 + 0.8 * r.float()) * slot, { kind: 'play', who: pl.id, retry: 0 });
       }
-      const happeningAt = r.chance(HAPPENING_NIGHTS) ? evening + r.int(EVENING - 40) * MINUTE : null;
+      const happeningAt = r.chance(weeklyHappenings ? HAPPENING_NIGHTS_WEEKLY : HAPPENING_NIGHTS) ? evening + r.int(EVENING - 40) * MINUTE : null;
       let happeningDone = false;
       for (let i = 0; i < EVENING; i++) q.push(evening + i * MINUTE, { kind: 'tick' });
+      // A campaign carried over from yesterday: today's part of it
+      const live = store.currentSiege(guildId);
+      if (fight && live?.id === fight.id && live.status === 'live') fightDay(q, live, evening, evening + DAY, true);
 
       const dayStarted = performance.now();
       let events = 0;
@@ -547,8 +624,11 @@ export async function runMonth({ seed, roster, guildId, days = 30 }) {
           // A cooldown refusal (two plays of a game too close): once more a little later
           if (!result && ev.retry < 1) q.push(t + 25_000, { ...ev, retry: ev.retry + 1 });
         } else if (ev.kind === 'tick') {
-          // The scheduler's order (checkGuild): a happening may start, else maybe a monster
-          if (store.currentSiege(guildId)?.status === 'live') continue;
+          // The scheduler's order (checkGuild): a happening may start, else
+          // maybe a monster — at quick and evening never both, and never a
+          // happening during a siege; from `day` on, side by side
+          const siegeOn = store.currentSiege(guildId)?.status === 'live';
+          if (siegeOn && !weeklyHappenings) continue;
           if (happeningAt !== null && !happeningDone && t >= happeningAt) {
             const state = hs.loadState(guildId);
             const ok = hs.spawnEligibility(state, settings, t);
@@ -556,36 +636,38 @@ export async function runMonth({ seed, roster, guildId, days = 30 }) {
               const weights = ok.kinds.map(k => hs.kindRate(k, t));
               let x = r.float() * weights.reduce((a, b) => a + b, 0);
               const kind = ok.kinds.find((k, i) => (x -= weights[i]) < 0) || ok.kinds[ok.kinds.length - 1];
-              if (!hs.startHappening(guildId, kind, { source: 'random', channelId: CHANNEL }, t).error) {
+              if (!hs.startHappening(guildId, kind, { source: 'random', channelId: CHANNEL, pace }, t).error) {
                 happeningsStarted += 1;
                 happeningDone = true;
-                continue;
+                if (!weeklyHappenings) continue;
               }
             }
           }
+          if (siegeOn) continue;
           const state = hs.loadState(guildId);
           if (!store.randomSiegeEligibility(state, settings, t).ok) continue;
-          if (!(luck() < store.randomSiegeChance(settings.siegeFrequency))) continue;
+          if (!(luck() < store.randomSiegeChance(settings.siegeFrequency, pace))) continue;
           const key = store.randomMonster(t, luck);
           const monster = store.monsterOf(key);
           const spawned = store.spawnSiege(guildId, {
             monster: key,
-            minutes: monster.minutes ?? settings.siegeMinutes,
+            minutes: m.pace.defaultSiegeMinutes(settings, monster),
             channelId: CHANNEL,
             source: 'random',
-            poolScale: store.randomPoolScale(settings.siegeFrequency),
+            poolScale: store.randomPoolScale(settings.siegeFrequency, pace),
             check: (data) => {
               const again = store.randomSiegeEligibility(data, settings, t);
               return again.ok ? null : again.reason;
             },
           }, t);
-          if (!spawned.error) startFight(q, spawned.siege);
+          if (!spawned.error) startFight(q, spawned.siege, evening + DAY);
         } else if (ev.kind === 'siegeMinute') {
           siegeMinute(q, ev.siegeId, t);
         } else if (ev.kind === 'attack') {
           if (!fight) continue;
           const sess = sessions[pl.id];
-          await attackPlay(pl, r.pick(WEAPONS));
+          // Today's attacks used up: done fighting until tomorrow's session
+          if (await attackPlay(pl, r.pick(WEAPONS)) === 'spent') continue;
           const next = t + PROFILES[pl.profile].pace * PACE * (0.5 + r.float()) * MINUTE;
           if (fight && !store.isOut(fighterState(pl.id)) && next < Math.min(sess.to, fight.endsAt)) q.push(next, ev);
         } else if (ev.kind === 'rescue') {
@@ -626,7 +708,9 @@ export async function runMonth({ seed, roster, guildId, days = 30 }) {
       ledger[pl.id].heldAtEnd = Object.values(user?.glovebox || {}).reduce((n, c) => n + c, 0);
       stored[pl.id] = total;
     }
-    return { ledger, stored, sieges, happenings: happeningsStarted, dial: store.dialOf(hs.loadState(guildId)) };
+    const timings = m.pace.pacePreset(pace);
+    const end = hs.loadState(guildId);
+    return { ledger, stored, sieges, happenings: happeningsStarted, dial: store.dialOf(end, timings.key), participation: store.participationOf(end, timings.key), pace };
   } finally {
     m.luck._setLuck(null);
     for (const spy of spies) spy.mockRestore();
