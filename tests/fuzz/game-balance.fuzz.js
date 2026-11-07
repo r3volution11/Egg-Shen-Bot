@@ -47,6 +47,20 @@
  * What-if:  BALANCE_PACE=2 — everyone attacks a monster half as often
  * Worth a run after changing any number in gameRewards.js, a line file's
  * outcome mix, or the siege rules.
+ *
+ * The Six-Demon Bag (2.76.0, R3 brief §10): members cast (balanceSim.js
+ * says how), and what magic moved — charms' changes, their bonus, the
+ * caster's pay — is `magic`, a bonus in the share. Held at week and quick
+ * on BOTH servers: a typical member's share ≤ 35% (the 5-player server's is
+ * a hard target now, not only reported), items, prizes and wins as before,
+ * and nobody takes more than MAGIC.hexesReceivedPerDay hexes in a UTC day.
+ * Reported: Chi earned, spent and wasted, casts, hexes received a month and
+ * the worst member-day, Jade Charms; the heavy share stays the warning.
+ * What-if:  MAXCAST=1 — everyone casts at every chance (the design's 32.0%
+ *           typical), reported only
+ * Rival:    one member hexes one target at every chance for a month (design
+ *           §3.4: ≤ 10 a month, never more than −6 a day from hexes) — its
+ *           own test, asserted
  */
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
@@ -90,16 +104,21 @@ const TARGETS = {
   itemDays: [1.5, 3.5],
   grinderPrizes: 62,
   winRate: [0.55, 0.85],
+  // 2.76.0, design §3.4: the rival's worst — hexes a month, and points a day
+  rivalHexes: 10,
+  rivalDayLoss: 6,
 };
+const MAXCAST = process.env.MAXCAST === '1';
 
 let sim;
+let rules; // the bot's numbers (gameRewards.js), for the limits the runs are held to
 const realConsole = {};
 
 beforeAll(async () => {
   fs.rmSync(ROOT, { recursive: true, force: true });
   for (const k of ['log', 'warn', 'error']) realConsole[k] = console[k];
   sim = await import('../harness/balanceSim.js');
-  await sim.loadBalance();
+  rules = (await sim.loadBalance()).rewards;
 });
 
 afterAll(() => {
@@ -111,12 +130,12 @@ afterAll(() => {
 });
 
 /** Run months with the bot's own console quiet (the scheduler's warnings are noise here) */
-async function months(roster, list, tag, { pace = 'quick', days = DAYS } = {}) {
+async function months(roster, list, tag, { pace = 'quick', days = DAYS, maxCast = false, rival = null } = {}) {
   const out = [];
   for (const seed of list) {
     console.log = console.warn = console.error = () => {};
     try {
-      const run = await sim.runMonth({ seed, roster, guildId: `balance-${pace}-${tag}-${seed}-${days}`, days, pace });
+      const run = await sim.runMonth({ seed, roster, guildId: `balance-${pace}-${tag}-${seed}-${days}`, days, pace, maxCast, rival });
       run.seed = seed;
       out.push(run);
     } finally {
@@ -126,8 +145,9 @@ async function months(roster, list, tag, { pace = 'quick', days = DAYS } = {}) {
   return out;
 }
 
-// 2.75.0: `backing` — stakes taken and what came back — is siege points too
-const CATS = ['play', 'siegeAttack', 'prizes', 'titles', 'nights', 'twists', 'happenings', 'siegePayout', 'backing'];
+// 2.75.0: `backing` — stakes taken and what came back — is siege points too.
+// 2.76.0: `magic` — what the Six-Demon Bag moved — is a bonus
+const CATS = ['play', 'siegeAttack', 'prizes', 'titles', 'nights', 'twists', 'happenings', 'siegePayout', 'backing', 'magic'];
 const sum = (list, f) => list.reduce((n, x) => n + f(x), 0);
 const pct = (x) => `${(100 * x).toFixed(1)}%`;
 const fixed = (x, d = 1) => (Number.isFinite(x) ? x.toFixed(d) : '—');
@@ -162,9 +182,46 @@ function byProfile(results) {
       for (const k of Object.keys(row.honours)) row.honours[k] += l.honours?.[k] || 0;
       row.backs ||= { placed: 0, won: 0, push: 0, lost: 0, escaped: 0, refunded: 0 };
       for (const k of Object.keys(row.backs)) row.backs[k] += l.backs?.[k] || 0;
+      // 2.76.0
+      row.chi ||= { play: 0, playWasted: 0, help: 0, helpWasted: 0, envelope: 0, spent: 0, shrugSpent: 0, deafened: 0 };
+      for (const k of Object.keys(row.chi)) row.chi[k] += l.chi?.[k] || 0;
+      row.casts ||= { bless: 0, hex: 0, refused: 0, lifted: 0, spoiled: 0, deflected: 0, washed: 0 };
+      for (const k of Object.keys(row.casts)) row.casts[k] += l.casts?.[k] || 0;
+      for (const k of ['hexesRecv', 'curses', 'shrugs', 'jade', 'paidOff']) row[k] = (row[k] || 0) + (l[k] || 0);
+      row.maxHexMonth = Math.max(row.maxHexMonth || 0, l.hexesRecv || 0);
     }
   }
   return rows;
+}
+
+/** The most hexes any one member took in a UTC day, over these runs */
+const worstHexDay = (results) => Math.max(0, ...results.flatMap(r => Object.values(r.hexDays || {})));
+
+/**
+ * 2.76.0, the Six-Demon Bag, per profile, a member's month: Chi earned
+ * from plays and from siege help (and how much of each the full bag
+ * wasted), from Red Envelopes, spent on casts and shrugs; casts (blessings,
+ * hexes, and what they did); hexes received (and the most any one member
+ * took in a month); shrugs; Jade Charms; the blessings of theirs that paid
+ * off; and the points magic moved for them
+ */
+function magicTable(results) {
+  const rows = byProfile(results);
+  const lines = ['profile   chi: play(wasted) help(wasted) envelope  spent(shrug) | casts bless hex  lift spoil jade-deflect refused | hexesRecv(max) curses shrugs | jade paidOff | magic pts'];
+  for (const [profile, row] of Object.entries(rows)) {
+    const per = (x) => fixed(x / row.members);
+    const c = row.chi;
+    const k = row.casts;
+    lines.push([
+      profile.padEnd(8),
+      `${per(c.play)}(${per(c.playWasted)})`.padStart(16), `${per(c.help)}(${per(c.helpWasted)})`.padStart(12), per(c.envelope).padStart(8), `${per(c.spent)}(${per(c.shrugSpent)})`.padStart(12), '|',
+      per(k.bless).padStart(11), per(k.hex).padStart(4), per(k.lifted).padStart(5), per(k.spoiled).padStart(5), per(k.deflected).padStart(12), per(k.refused).padStart(7), '|',
+      `${per(row.hexesRecv)}(${row.maxHexMonth})`.padStart(14), per(row.curses).padStart(6), per(row.shrugs).padStart(6), '|',
+      per(row.jade).padStart(4), per(row.paidOff).padStart(7), '|', per(row.points.magic).padStart(9),
+    ].join(' '));
+  }
+  lines.push(`the most hexes any member took in a UTC day: ${worstHexDay(results)} (the rule: ≤ ${rules.MAGIC.hexesReceivedPerDay})`);
+  return lines.join('\n');
 }
 
 /**
@@ -198,7 +255,7 @@ function honoursTable(results) {
   return lines.join('\n');
 }
 
-const bonusOf = (pts) => pts.prizes + pts.titles + pts.nights + pts.twists + pts.happenings;
+const bonusOf = (pts) => pts.prizes + pts.titles + pts.nights + pts.twists + pts.happenings + (pts.magic || 0);
 const siegeOf = (pts) => pts.siegeAttack + pts.siegePayout + pts.backing;
 
 /** The share of sieges won (an admin's end counts for neither) */
@@ -236,7 +293,7 @@ function siegeSummary(results, days = DAYS) {
 function table(title, results, days = DAYS) {
   const rows = byProfile(results);
   const lines = [`\n${title} — ${results.length} month${results.length === 1 ? '' : 's'} (seeds ${results.map(r => r.seed).join(', ')})`];
-  lines.push('profile   n  nights plays  atks |  total   play  siegeAtk prizes titles nights twists happ siegePay | bonus%  +siege% | items days/item ovfl used def stolen | prizes(+siege) max');
+  lines.push('profile   n  nights plays  atks |  total   play  siegeAtk prizes titles nights twists happ siegePay backing magic | bonus%  +siege% | items days/item ovfl used def stolen | prizes(+siege) max');
   for (const [profile, row] of Object.entries(rows)) {
     const per = (x) => x / row.members;
     const p = row.points;
@@ -263,16 +320,23 @@ function verdictsOf(r15, r5, pace) {
   const rows = byProfile(r15);
   const typical = rows.typical;
   const typicalShare = (bonusOf(typical.points) + siegeOf(typical.points)) / typical.total;
+  // 2.76.0: the 5-player server's typical share is held too (R3 brief §10)
+  const typical5 = byProfile(r5).typical;
+  const typicalShare5 = (bonusOf(typical5.points) + siegeOf(typical5.points)) / typical5.total;
+  const hexDay = worstHexDay([...r15, ...r5]);
   const typicalItemDays = DAYS / (typical.items / typical.members);
   const grinderMax = rows.grinder.maxPrizes;
   const win15 = winRate(judgedSieges(r15, pace));
   const win5 = winRate(judgedSieges(r5, pace));
   return {
     typicalShare: { measured: pct(typicalShare), target: `≤ ${pct(TARGETS.typicalShare)}`, ok: typicalShare <= TARGETS.typicalShare },
+    typicalShare5: { measured: pct(typicalShare5), target: `≤ ${pct(TARGETS.typicalShare)}`, ok: typicalShare5 <= TARGETS.typicalShare },
     typicalItemDays: { measured: fixed(typicalItemDays, 2), target: `${TARGETS.itemDays[0]}–${TARGETS.itemDays[1]}`, ok: typicalItemDays >= TARGETS.itemDays[0] && typicalItemDays <= TARGETS.itemDays[1] },
     grinderPrizes: { measured: grinderMax, target: `≤ ${TARGETS.grinderPrizes}`, ok: grinderMax <= TARGETS.grinderPrizes },
     winRate15: { measured: pct(win15), target: `${pct(TARGETS.winRate[0])}–${pct(TARGETS.winRate[1])}`, ok: win15 >= TARGETS.winRate[0] && win15 <= TARGETS.winRate[1] },
     winRate5: { measured: pct(win5), target: `${pct(TARGETS.winRate[0])}–${pct(TARGETS.winRate[1])}`, ok: win5 >= TARGETS.winRate[0] && win5 <= TARGETS.winRate[1] },
+    // 2.76.0, design §3.4: nobody takes more than the rule's hexes a UTC day
+    hexesPerDay: { measured: hexDay, target: `≤ ${rules.MAGIC.hexesReceivedPerDay}`, ok: hexDay <= rules.MAGIC.hexesReceivedPerDay },
   };
 }
 
@@ -297,6 +361,7 @@ describe.each(PACES)('game balance at %s pace: a month of play on the real rules
       table('15 players', r15),
       table('5 players', r5),
       `\n2.75.0 honours and backing, per member per ${DAYS} days — 15 players:\n${honoursTable(r15)}\n5 players:\n${honoursTable(r5)}`,
+      `\n2.76.0 the Six-Demon Bag, per member per ${DAYS} days — 15 players:\n${magicTable(r15)}\n5 players:\n${magicTable(r5)}`,
       `\n(${seconds.toFixed(1)} s) points are per member per ${DAYS} days; bonus% = prizes+titles+nights+twists+happenings; +siege% adds siege attacks and payouts`,
     ].join('\n'));
 
@@ -308,13 +373,29 @@ describe.each(PACES)('game balance at %s pace: a month of play on the real rules
     // and its baseline already the higher — and the heavy players', the canary, ≤ 35% as a warning
     const shareOf = (rows, profile) => (rows[profile] ? (bonusOf(rows[profile].points) + siegeOf(rows[profile].points)) / rows[profile].total : null);
     const [rows15, rows5] = [byProfile(r15), byProfile(r5)];
-    for (const [name, x] of [['typical, 5 players', shareOf(rows5, 'typical')], ['heavy, 15 players', shareOf(rows15, 'heavy')], ['heavy, 5 players', shareOf(rows5, 'heavy')]]) {
+    for (const [name, x] of [['heavy, 15 players', shareOf(rows15, 'heavy')], ['heavy, 5 players', shareOf(rows5, 'heavy')]]) {
       console.log(`  ${x <= TARGETS.typicalShare ? 'ok  ' : 'WARN'}  share ${name.padEnd(19)} ${pct(x).padStart(6)}  (≤ ${pct(TARGETS.typicalShare)}, reported)`);
     }
 
     // Each asserted on its own so a failure names the pace, the target and the number
     for (const key of Object.keys(verdicts)) {
       expect({ pace, [key]: verdicts[key].ok ? 'ok' : verdicts[key] }).toEqual({ pace, [key]: 'ok' });
+    }
+  }, 900_000);
+
+  // 2.76.0, the design's what-if (MAXCAST=1): everyone casts at every chance. Reported only
+  (MAXCAST ? test : test.skip)('MAXCAST: everyone casts at every chance (reported)', async () => {
+    const r15 = await months(sim.SERVER_15, seeds(seedsFor(pace)), 'm15', { pace, maxCast: true });
+    const r5 = await months(sim.SERVER_5, seeds(seedsFor(pace) * 2), 'm5', { pace, maxCast: true });
+    console.log([`\n══ ${pace} pace, MAXCAST ══`, table('15 players', r15), table('5 players', r5),
+      `\nthe Six-Demon Bag — 15 players:\n${magicTable(r15)}\n5 players:\n${magicTable(r5)}`].join('\n'));
+    expectLedgerAddsUp([...r15, ...r5]);
+    const shareOf = (runs, profile) => {
+      const t = byProfile(runs)[profile];
+      return t ? (bonusOf(t.points) + siegeOf(t.points)) / t.total : null;
+    };
+    for (const [name, x] of [['typical, 15', shareOf(r15, 'typical')], ['typical, 5', shareOf(r5, 'typical')], ['heavy, 15', shareOf(r15, 'heavy')], ['heavy, 5', shareOf(r5, 'heavy')]]) {
+      console.log(`  ${x <= TARGETS.typicalShare ? 'ok  ' : 'WARN'}  MAXCAST share ${name.padEnd(12)} ${pct(x).padStart(6)}  (reported; the design: typical 32.0%)`);
     }
   }, 900_000);
 
@@ -336,4 +417,39 @@ describe.each(PACES)('game balance at %s pace: a month of play on the real rules
       expect({ pace, days: 90, [name]: ok ? 'ok' : pct(rate) }).toEqual({ pace, days: 90, [name]: 'ok' });
     }
   }, 1_800_000);
+});
+
+/**
+ * 2.76.0, design §3.4's worst case by construction: one member (a heavy
+ * player) hexes one typical member at every chance for a month, always with
+ * fire (Scorched: the hex that costs points) — while everyone else plays and
+ * casts as usual. The pair limit (one hex from the same caster in
+ * MAGIC.hexPairHours) holds them to about 10 a month, and the twists' loss
+ * budget and the daily hex limit to −6 a day at most, whoever hexes them.
+ */
+describe('the Six-Demon Bag: a rival who hexes one member at every chance', () => {
+  test(`week pace, 15 players, ${seedsFor('week')} seeded month(s): ≤ ${TARGETS.rivalHexes} hexes a month, never more than −${TARGETS.rivalDayLoss} a day`, async () => {
+    const roster = sim.SERVER_15;
+    const from = roster.indexOf('heavy');
+    const to = roster.indexOf('typical');
+    const runs = await months(roster, seeds(seedsFor('week')), 'rival', { pace: 'week', rival: { from, to, el: 'fire' } });
+    expectLedgerAddsUp(runs);
+    const lines = ['\n══ the rival (week pace, 15 players) ══', 'seed  rival casts(hex)  target hexes  of them the rival\'s  worst day (Scorched)  worst member-day (hexes)'];
+    const verdicts = [];
+    for (const run of runs) {
+      const rivalId = run.players[from];
+      const targetId = run.players[to];
+      const target = run.ledger[targetId];
+      const worstLoss = Math.max(0, ...Object.entries(run.scorchDays).filter(([k]) => k.startsWith(`${targetId}@`)).map(([, v]) => v));
+      const worstDay = Math.max(0, ...Object.values(run.hexDays));
+      lines.push(`${String(run.seed).padStart(4)}  ${String(run.ledger[rivalId].casts.hex).padStart(16)}  ${String(target.hexesRecv).padStart(12)}  ${String(run.ledger[rivalId].casts.hex).padStart(19)}  ${String(-worstLoss).padStart(20)}  ${String(worstDay).padStart(24)}`);
+      const rivals = run.ledger[rivalId].casts.hex;
+      verdicts.push({ seed: run.seed, hexes: rivals <= TARGETS.rivalHexes ? 'ok' : rivals, dayLoss: worstLoss <= TARGETS.rivalDayLoss ? 'ok' : -worstLoss, perDay: worstDay <= rules.MAGIC.hexesReceivedPerDay ? 'ok' : worstDay });
+    }
+    console.log(lines.join('\n'));
+    // The rival's hexes (all at the target) are held by the pair limit; the
+    // day's loss counts every Scorched bite on the target, whoever cast it
+    // (the rival, anyone else, Ching Dai's Curse)
+    for (const v of verdicts) expect(v).toEqual({ seed: v.seed, hexes: 'ok', dayLoss: 'ok', perDay: 'ok' });
+  }, 900_000);
 });

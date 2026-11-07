@@ -1,6 +1,6 @@
 ---
 title: Games & Scores - Egg Shen Bot
-description: Egg Shen Bot's Discord games. Food fights, horror-movie dooms, rescues and potions with points and streaks, a game card and a monthly leaderboard, Glovebox items, prizes and titles, twists and server-wide happenings, and /siege, a monster the whole server fights together.
+description: Egg Shen Bot's Discord games. Food fights, horror-movie dooms, rescues and potions with points and streaks, a game card and a monthly leaderboard, Glovebox items, prizes and titles, twists and server-wide happenings, /siege, a monster the whole server fights together, and the Six-Demon Bag, where good plays earn Chi to bless friends and hex rivals.
 kit: true
 kitHeadings:
   the-games: vs
@@ -28,6 +28,10 @@ topics:
     link: /commands/games-siege
     icon: siege
     text: A monster the whole server fights together, a week-long campaign by default, and the pace.
+  - title: The Six-Demon Bag
+    link: /commands/games-magic
+    icon: bag
+    text: Chi from good plays, spent to bless a friend or hex a rival, element by element.
   - title: Settings for Admins
     link: /commands/games-settings
     icon: lock
@@ -56,6 +60,8 @@ In Discord, `/how-to-play` shows a short card for each topic, with your server's
 
 Each game that hurts has one that helps, and each outcome scores: a hit is +3 for you and −1 for them, a tasty meal +1 for you and +2 for them. The full table is on [Playing & Points](./games-playing#points).
 
+And one thing that isn't a game: the 🎒 **Six-Demon Bag**. Good plays fill it with Chi, and `/six-demon-bag` spends it to bless a friend or hex a rival, element by element. See [The Six-Demon Bag](./games-magic).
+
 ## A week at the drive-in
 
 Here's how the pieces fit, over one member's week.
@@ -75,6 +81,10 @@ Here's how the pieces fit, over one member's week.
 **Thursday, a happening.** The moon is full over the drive-in: for a day, every doom scores double, both ways, and each one says so with a 🌕×2. Kim's potion comes with a twist too, a few dollars found in the seat cushions. [Twists and happenings](./games-happenings).
 
 <DiscordCard name="game-happening" />
+
+**Friday, the Six-Demon Bag.** A week of good plays has filled Sam's bag with Chi, so Sam blesses Alex with 🔥 Fired Up: +1 on each good play among Alex's next 3, and +1 Chi back for Sam the first time it pays off. Jo, less friendly, hexes Kim with 💨 Ill Wind, and Kim shrugs it off for free. [The Six-Demon Bag](./games-magic).
+
+<DiscordCard name="magic-cast" />
 
 **Sunday, a siege.** A monster attacks a games channel. Everyone gets 8 attacks a night to wear it down, the monster grabs and poisons fighters (free them with `/rescue`, cure them with `/potion`), and once a night a report says who needs help. Beat it within the week and the pot is shared out, with a bonus and loot for the Wang Chi, whoever did the most saving. [Everything about sieges](./games-siege).
 
@@ -152,12 +162,13 @@ The games work as soon as the bot joins: every channel, the default limits, twis
 /eggshen-config-games channels mode:only add:#games
 /eggshen-config-games happenings pace:quick
 /eggshen-config commands toggle setting:siege enabled:false
+/eggshen-config-games happenings hexes:false
 ```
 
-Keep the games to one channel, pick a faster [pace](./games-siege#pace) if your server plays in one busy session, or switch a game off. Everything is on [Settings for Admins](./games-settings).
+Keep the games to one channel, pick a faster [pace](./games-siege#pace) if your server plays in one busy session, switch a game off, or keep the [Six-Demon Bag](./games-magic#turning-it-off)'s blessings and switch its hexes off. Everything is on [Settings for Admins](./games-settings).
 
-::: info Coming to the drive-in
-Egg Shen has more stories to tell. A *Big Trouble in Little China* expansion is in the works. Nothing on these pages depends on it, and it will be described here once it's in the bot.
+::: info Big Trouble at the drive-in
+Egg Shen's *Big Trouble in Little China* expansion has begun with the [Six-Demon Bag](./games-magic). More of it is on the way, and each part will be described here once it's in the bot.
 :::
 
 ## Related Documentation

@@ -33,7 +33,7 @@ export const MOVED = {
     'the-night-light': '/commands/games-rewards#the-night-light',
     // Twists & happenings
     twists: '/commands/games-happenings#twists',
-    'the-16-twists': '/commands/games-happenings#the-16-twists',
+    'the-16-twists': '/commands/games-happenings#the-18-twists',
     statuses: '/commands/games-happenings#statuses',
     'plot-twist': '/commands/games-happenings#plot-twist',
     happenings: '/commands/games-happenings#happenings',

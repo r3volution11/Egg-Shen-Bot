@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChannelType } from 'discord.js';
 import { loadGuildConfig, saveGuildConfig, isAdmin } from '../utils/guildConfig.js';
 import {
-  getGameSettings, resetScores, channelAllowed, GAMES, GAME_NAMES, HAPPENING_FREQUENCIES, TWIST_PERCENT_MAX, SIEGE_FREQUENCIES, GAME_PACES,
+  getGameSettings, resetScores, channelAllowed, GAMES, GAME_NAMES, HAPPENING_FREQUENCIES, TWIST_PERCENT_MAX, SIEGE_FREQUENCIES, GAME_PACES, endAllHexes,
 } from '../utils/gameScores.js';
 import { SIEGE } from '../data/gameRewards.js';
 import { pacePreset, randomGapHours, happeningPace, lengthWords, defaultSiegeMinutes, reportWords } from '../utils/gamePace.js';
@@ -149,7 +149,9 @@ export const data = new SlashCommandBuilder()
     .addStringOption(o => o
       .setName('pace')
       .setDescription('How long sieges and happenings take (default: week)')
-      .addChoices(...GAME_PACES.map(p => ({ name: PACE_TEXT[p], value: p })))))
+      .addChoices(...GAME_PACES.map(p => ({ name: PACE_TEXT[p], value: p }))))
+    // 2.76.0 (design §1's admin switch): off ends every hex in place
+    .addBooleanOption(o => o.setName('hexes').setDescription('Hexes from /six-demon-bag on or off (off ends every hex now; blessings stay)')))
   .addSubcommand(sub => sub
     .setName('reset-scores')
     .setDescription('Erase scores: everyone\'s, one game\'s, or one person\'s. Cannot be undone')
@@ -253,6 +255,9 @@ function happeningChanges(options) {
   // 2.74.0
   const pace = options.getString('pace');
   if (pace) changes.pace = pace;
+  // 2.76.0
+  const hexes = options.getBoolean('hexes');
+  if (hexes !== null) changes.hexes = hexes;
   return changes;
 }
 
@@ -281,6 +286,11 @@ async function happenings(interaction) {
   const notes = [];
 
   if (changes.happeningChannel) notes.push(...await channelWarnings(guild, settings, changes.happeningChannel));
+  // 2.76.0: hexes off ends every hex in place at once (no ward: none can come while they're off)
+  if (changes.hexes === false) {
+    const ended = endAllHexes(guildId);
+    notes.push(ended ? `⏹️ Ended ${ended} ${ended === 1 ? 'hex' : 'hexes'} in place.` : 'No hexes were in place.');
+  }
 
   // Ends one that's run out too (so a start isn't refused by it), and one
   // that's on while happenings are off. Only when deferred: it may edit.
@@ -345,6 +355,8 @@ function happeningSummary(guildId, settings, now) {
     ? `<#${settings.happeningChannel}>`
     : games ? `<#${games}> (the games channel)` : 'the channel the games were last played in'}`);
   lines.push(settings.twists ? `• Twists: **on**, **${settings.twistPercent}%** of scored plays` : '• Twists: **off**');
+  // 2.76.0: the Six-Demon Bag's hexes (the bag itself is /eggshen-config commands toggle setting:magic)
+  lines.push(settings.magic ? `• Hexes: **${settings.hexes ? 'on' : 'off'}**` : '• Hexes: **off** (the Six-Demon Bag is switched off)');
   lines.push(...paceLines(settings));
   const h = state.happening;
   lines.push(inProgress(h, now)

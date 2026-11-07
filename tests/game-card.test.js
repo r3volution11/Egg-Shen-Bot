@@ -29,12 +29,12 @@ import { describe, test, expect, beforeEach } from '@jest/globals';
 import { renderGameCard, layoutGameCard, draftGameCard, gameCardData, cardExtras, CARD_STEPS, CARD_HINT, LIST_CAPS } from '../src/utils/gameCard.js';
 import { createKit, KIT_CODES, MAX_EMOJI_MARKUP } from '../src/utils/emojiKit.js';
 import { messageProblems, embedTextLength, LIMITS } from '../src/utils/embedFit.js';
-import { recordPlay, deleteScores, getScoreboard, GAMES } from '../src/utils/gameScores.js';
+import { recordPlay, deleteScores, getScoreboard, GAMES, castCharm, DEFAULT_GAME_SETTINGS } from '../src/utils/gameScores.js';
 import { getPlayerCardExtras } from '../src/utils/gameCardData.js';
 import { FakeDiscord } from './harness/fakeDiscord.js';
 import * as scoreboard from '../src/commands/scoreboard.js';
 import { mutateScores } from '../src/utils/gameScores.js';
-import { TWISTS } from '../src/data/gameRewards.js';
+import { TWISTS, CHI, MAGIC } from '../src/data/gameRewards.js';
 import { STATUS_NOTES } from '../src/data/gameEventLines.js';
 import { HAPPENINGS, CALENDAR_HAPPENINGS } from '../src/data/gameHappenings.js';
 
@@ -518,7 +518,9 @@ describe('drawn from real plays', () => {
     const extras = getPlayerCardExtras(GUILD, 'sam', { now: NOW });
     const data = gameCardData(board, { player: { id: 'sam', name: 'Sam', avatarUrl: null }, shown: GAMES, now: NOW, extras });
     const d = renderGameCard(data, { kit: fallback, now: NOW }).toJSON();
-    expect(d.fields.map(f => f.name)).toEqual(['🥧 Food Fight', '🎁 Rewards in progress', '🌙 Nights in a row: `Tier 0`', '📜 Titles']);
+    // 2.76.0: two good plays, two Chi — the bag joins the card
+    expect(d.fields.map(f => f.name)).toEqual(['🥧 Food Fight', '🎁 Rewards in progress', '🌙 Nights in a row: `Tier 0`', '📜 Titles', '🎒 Six-Demon Bag']);
+    expect(field(d, 'Six-Demon Bag').value).toBe('☯️ `2/20` Chi ▰▱▱▱▱▱▱▱▱▱ · today `+2/4` · `2 of 2` casts left');
     expect(field(d, 'Rewards in progress').value.split('\n')).toEqual([
       '`1/3` 🟩🟩🟩⬜⬜⬜⬜⬜ 🔦 Night Light · Nights in a row',
       '`02/25` 🟩⬜⬜⬜⬜⬜⬜⬜ 🥧 Golden Pie `+3` · Hits',
@@ -532,6 +534,31 @@ describe('drawn from real plays', () => {
     ]);
     expect(field(d, 'Titles').value.split('\n')[0]).toBe('None yet');
     expect(field(d, 'Titles').value).toContain('🔥 On Fire `02/10`');
+  });
+
+  // 2.76.0: the Six-Demon Bag, from real casts — what's on Sam and from
+  // whom, a hex with its way out; one game's card leaves it to the all-games one
+  test('the Six-Demon Bag: Chi and its bar, casts left, what\'s on them and from whom; only on the all-games card, and only with the bag on', () => {
+    const sam = { id: 'sam', name: 'Sam' };
+    for (const at of [NOW - 3, NOW - 2, NOW - 1]) recordPlay(GUILD, { game: 'foodfight', actor: sam, target: { kind: 'role', pingUserIds: [] }, outcome: 'hit' }, at);
+    mutateScores(GUILD, (d) => { for (const id of ['kim', 'jo']) d.users[id] = { name: id === 'kim' ? 'Kim' : 'Jo', games: {}, chi: { n: 20 } }; });
+    castCharm(GUILD, { caster: { id: 'kim', name: 'Kim' }, target: sam, kind: 'bless', el: 'fire', settings: DEFAULT_GAME_SETTINGS }, NOW);
+    castCharm(GUILD, { caster: { id: 'jo', name: 'Jo' }, target: sam, kind: 'hex', el: 'smoke', settings: DEFAULT_GAME_SETTINGS }, NOW);
+    const board = getScoreboard(GUILD, 'sam', 'all-time', NOW, { games: GAMES });
+    const extras = getPlayerCardExtras(GUILD, 'sam', { now: NOW, settings: DEFAULT_GAME_SETTINGS });
+    const d = renderGameCard(gameCardData(board, { player: { id: 'sam', name: 'Sam', avatarUrl: null }, shown: GAMES, now: NOW, extras }), { kit: fallback, now: NOW }).toJSON();
+    expect(field(d, 'Six-Demon Bag').value.split('\n')).toEqual([
+      `☯️ \`3/20\` Chi ▰▰▱▱▱▱▱▱▱▱ · today \`+3/${CHI.perDay}\` · \`${MAGIC.castsPerDay} of ${MAGIC.castsPerDay}\` casts left`,
+      'On you: 🔥 Fired Up *(from Kim)* · 3 plays left — 🌫️ Lost in the Smoke *(hex, from Jo)* · 2 plays left · `/six-demon-bag shrug`',
+    ]);
+    const food = renderGameCard(gameCardData(board, { player: { id: 'sam', name: 'Sam', avatarUrl: null }, shown: ['foodfight'], game: 'foodfight', now: NOW, extras }), { kit: fallback, now: NOW }).toJSON();
+    expect(field(food, 'Six-Demon Bag')).toBeUndefined();
+    const off = getPlayerCardExtras(GUILD, 'sam', { now: NOW, settings: { ...DEFAULT_GAME_SETTINGS, magic: false } });
+    expect(off.bag).toBeUndefined();
+    // (3B) the Blessings prize counter goes with it
+    expect(off.progress.map(p => p.key)).not.toContain('blessings');
+    // Kim's own card: a caster with Chi left and a cast spent, nothing on her
+    expect(getPlayerCardExtras(GUILD, 'kim', { now: NOW }).bag).toMatchObject({ chi: 20 - CHI.cost.bless, casts: 1, on: [] });
   });
 
   // The whole path: /scoreboard looks the extras up and puts them on the
@@ -570,11 +597,13 @@ const BADGE = '🧑‍🤝‍🧑'; // 8 UTF-16 characters: as long as an emoji 
  * past five and more `effects`, it's overgrown: more than real data can
  * be, to walk the card down CARD_STEPS one at a time.
  */
-function worstR3({ games = 5, rewards = 9, effects = 1 } = {}) {
+function worstR3({ games = 5, rewards = 9, effects = 1, bag = true } = {}) {
   const real = worstReal();
   const columns = [...real.games, { ...real.games[1], name: 'Siege' }];
   return {
     ...real,
+    // 2.76.0: a full Six-Demon Bag, with a blessing and a hex from 32-character names
+    ...(bag ? { bag: fullBag() } : {}),
     games: Array.from({ length: games }, (_, i) => ({ ...columns[i % columns.length] })),
     effects: Array.from({ length: effects }, () => ({ kind: 'shield', until: NOW + HOUR })),
     progress: Array.from({ length: rewards }, (_, i) => ({
@@ -588,6 +617,16 @@ function worstR3({ games = 5, rewards = 9, effects = 1 } = {}) {
       earned: Array.from({ length: 30 }, (_, i) => ({ key: `t${i}`, title: 'T'.repeat(32), badge: BADGE, at: i })),
       next: Array.from({ length: 3 }, (_, i) => ({ key: `n${i}`, title: 'N'.repeat(32), badge: BADGE, have: 1234, need: 12345 })),
     },
+  };
+}
+
+/** 2.76.0: the biggest bag a card can show (gameScores.bagStatus' shape) */
+function fullBag() {
+  const charm = (kind, el, label) => ({ kind, el, label, about: '', by: 'x', byName: 'B'.repeat(32), left: 5, counts: true, until: NOW + HOUR });
+  return {
+    magic: true, hexesOff: false, chi: 20, bag: 20, today: 4, perDay: 4, helpToday: 6, helpPerDay: 6,
+    casts: 0, castsPerDay: 2, hexes: 0, hexesPerDay: 1, peace: null, ward: null, freeShrugs: 1,
+    on: [charm('bless', 'thunder', '🌩️ Thunderous Applause'), charm('hex', 'smoke', '🌫️ Lost in the Smoke')],
   };
 }
 
@@ -637,10 +676,25 @@ describe('R3: always within Discord\'s limits', () => {
     sizes.slice(1).forEach((size, i) => expect(size).toBeLessThan(sizes[i]));
   });
 
+  // 2.76.0: the Six-Demon Bag's bar goes before anything else. Its ten
+  // segments are ~370 characters in the longest kit; this card is 243 over
+  // with them, and 128 under without
+  test('the bag\'s Chi bar goes first', () => {
+    const { embed, step } = layoutGameCard(worstR3({ games: 2, rewards: 5, effects: 6 }), { kit: longest, now: NOW });
+    const d = embed.toJSON();
+    expect(step).toBe(stepWhere(s => !s.bagBar));
+    expect(step).toBe(1);
+    expect(messageProblems({ embeds: [d] })).toEqual([]);
+    expect(field(d, 'Six-Demon Bag').value.split('\n')[0]).toMatch(/^<:es_chixxx_ab12:\d+> `20\/20` Chi · today `\+4\/4` · `2 of 2` casts left$/);
+    // …and nothing else gave way: every reward bar still 8 pieces
+    expect(rewardLines(d).map(barPieces)).toEqual(Array(5).fill(8));
+  });
+
   // Each fixture is ~250+ characters over at the step before and under at
-  // its own, so a reworded line doesn't move it
+  // its own, so a reworded line doesn't move it. They're tuned without the
+  // Six-Demon Bag (2.76.0, whose own step is above): a bag would move them
   test('bars go to 6 pieces first', () => {
-    const { embed, step } = layoutGameCard(worstR3({ games: 2, rewards: 7, effects: 4 }), { kit: longest, now: NOW });
+    const { embed, step } = layoutGameCard(worstR3({ games: 2, rewards: 7, effects: 4, bag: false }), { kit: longest, now: NOW });
     const d = embed.toJSON();
     expect(step).toBe(stepWhere(s => s.bar === 6));
     expect(messageProblems({ embeds: [d] })).toEqual([]);
@@ -648,7 +702,7 @@ describe('R3: always within Discord\'s limits', () => {
   });
 
   test('then to 4', () => {
-    const { embed, step } = layoutGameCard(worstR3({ games: 2, rewards: 9, effects: 2 }), { kit: longest, now: NOW });
+    const { embed, step } = layoutGameCard(worstR3({ games: 2, rewards: 9, effects: 2, bag: false }), { kit: longest, now: NOW });
     const d = embed.toJSON();
     expect(step).toBe(stepWhere(s => s.bar === 4));
     expect(rewardLines(d).map(barPieces)).toEqual(Array(9).fill(4));
@@ -663,7 +717,7 @@ describe('R3: always within Discord\'s limits', () => {
   });
 
   test('then the nights row in plain emoji', () => {
-    const { embed, step } = layoutGameCard(worstR3({ games: 7, rewards: 7, effects: 10 }), { kit: longest, now: NOW });
+    const { embed, step } = layoutGameCard(worstR3({ games: 7, rewards: 7, effects: 10, bag: false }), { kit: longest, now: NOW });
     const d = embed.toJSON();
     expect(step).toBe(stepWhere(s => s.plainTicks));
     expect(messageProblems({ embeds: [d] })).toEqual([]);
@@ -673,18 +727,18 @@ describe('R3: always within Discord\'s limits', () => {
   });
 
   test('then what they did, then what they received', () => {
-    const counts = layoutGameCard(worstR3({ games: 11, rewards: 7, effects: 3 }), { kit: longest, now: NOW });
+    const counts = layoutGameCard(worstR3({ games: 11, rewards: 7, effects: 3, bag: false }), { kit: longest, now: NOW });
     expect(counts.step).toBe(stepWhere(s => !s.counts));
     // Food fight's column: points, plays, then straight to what it received
     expect(counts.embed.toJSON().fields[1].value.split('\n')[2]).toMatch(/^Received: 1,234,567 🎯/);
-    const received = layoutGameCard(worstR3({ games: 16, rewards: 7, effects: 1 }), { kit: longest, now: NOW });
+    const received = layoutGameCard(worstR3({ games: 16, rewards: 7, effects: 1, bag: false }), { kit: longest, now: NOW });
     expect(received.step).toBe(stepWhere(s => !s.received));
     expect(received.embed.toJSON().fields[1].value).not.toContain('Received');
     expect(messageProblems({ embeds: [received.embed] })).toEqual([]);
   });
 
   test('then the lists are capped, each saying how many more', () => {
-    const { embed, step } = layoutGameCard(worstR3({ games: 18, rewards: 7, effects: 9 }), { kit: longest, now: NOW });
+    const { embed, step } = layoutGameCard(worstR3({ games: 18, rewards: 7, effects: 9, bag: false }), { kit: longest, now: NOW });
     const d = embed.toJSON();
     expect(step).toBe(stepWhere(s => s.capLists));
     expect(messageProblems({ embeds: [d] })).toEqual([]);

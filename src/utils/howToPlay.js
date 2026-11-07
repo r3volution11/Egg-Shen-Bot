@@ -35,8 +35,10 @@ import { loadGuildConfig } from './guildConfig.js';
 import { config as botConfig } from '../config.js';
 import {
   ITEMS, DAILY, FULL_STACK_POINTS, TITLE_POINTS, PRIZES, TITLES, NIGHT_TIERS, NIGHT_START_HOUR, NIGHTS_SHOWN,
-  NIGHT_LIGHT_DAYS, NIGHT_LIGHT_PRIZE, SIEGE, TWISTS, TWIST_RULES,
+  NIGHT_LIGHT_DAYS, NIGHT_LIGHT_PRIZE, SIEGE, TWISTS, TWIST_RULES, CHI, MAGIC, ELEMENT_OPPOSITE,
 } from '../data/gameRewards.js';
+import { ELEMENTS, ELEMENT_KEYS } from '../data/btilcLines.js';
+import { charmName, charmAbout } from './gameMagic.js';
 import { HAPPENINGS, CALENDAR_HAPPENINGS } from '../data/gameHappenings.js';
 import { MONSTERS, MONSTER_KEYS } from '../data/siegeMonsters.js';
 import {
@@ -98,6 +100,8 @@ export const TOPICS = Object.freeze([
   { key: 'twists', name: 'Twists', emoji: '🎲', colour: 0x9B59B6, doc: 'games-happenings#twists', about: 'Surprises, good and bad, after a play' },
   { key: 'happenings', name: 'Happenings', emoji: '🌕', colour: 0x2C7DA0, doc: 'games-happenings#happenings', about: 'Server-wide events that bend the games for a while' },
   { key: 'siege', name: 'Siege', emoji: '👹', colour: 0xC0392B, doc: 'games-siege', about: 'A monster the whole server fights together' },
+  // 2.76.0
+  { key: 'magic', name: 'Six-Demon Bag', emoji: '🎒', colour: 0x2E8B57, doc: 'games-magic', about: 'Chi, blessings and hexes' },
 ]);
 
 const TOPIC = Object.fromEntries(TOPICS.map(t => [t.key, t]));
@@ -115,9 +119,19 @@ export function gamesOn(config) {
   return GAMES.filter(g => !Object.hasOwn(perms, g) || perms[g] === true);
 }
 
-/** What every topic is drawn from: the games on, and this server's settings */
+/**
+ * Can members use /six-demon-bag here? As canUseCommand decides for a
+ * member (happeningScheduler.membersCan's rule): the master switch, then
+ * its own toggle, a key the config predates being on
+ */
+const magicFor = (config) => {
+  const perms = config?.commandPermissions || {};
+  return perms.enabled !== false && (!Object.hasOwn(perms, 'magic') || perms.magic === true);
+};
+
+/** What every topic is drawn from: the games on, the Six-Demon Bag (2.76.0), and this server's settings */
 export function helpContext(config) {
-  return { games: gamesOn(config), settings: getGameSettings(config) };
+  return { games: gamesOn(config), magic: magicFor(config), settings: getGameSettings(config) };
 }
 
 /** The siege's weapons that can be used here: each is its own game */
@@ -129,6 +143,8 @@ function topicOn(key, ctx) {
   if (!ctx.games.length) return false;
   if (key === 'twists' || key === 'happenings') return CLASSIC.some(on);
   if (key === 'siege') return on('siege') && weaponsOn(ctx).length > 0;
+  // 2.76.0: Chi comes from playing, so the bag needs a game too
+  if (key === 'magic') return ctx.magic === true;
   return true;
 }
 
@@ -190,6 +206,8 @@ const PASSIVE_GAME = Object.freeze({ garlic: 'doom', antid: 'potion' });
 
 /** Is this item any use on this server? */
 function itemOn(key, ctx) {
+  // 2.76.0 (3B): the Jade Charm turns hexes aside, and comes from blessings
+  if (key === 'jade') return topicOn('magic', ctx);
   const game = ITEMS[key].game ?? PASSIVE_GAME[key] ?? null;
   if (game === 'siege') return topicOn('siege', ctx);
   return game === null || ctx.games.includes(game);
@@ -200,6 +218,7 @@ function titleOn(t, ctx) {
   const on = (g) => ctx.games.includes(g);
   if (t.did || t.got) return Object.keys({ ...t.did, ...t.got }).some(on);
   if (t.siege) return on('siege');
+  if (t.magic) return topicOn('magic', ctx);
   if (t.twists) return CLASSIC.some(on);
   return ctx.games.length > 0; // streaks and nights: any game
 }
@@ -333,7 +352,8 @@ function items(ctx, kit) {
 }
 
 function prizes(ctx, kit) {
-  const shown = PRIZES.filter(p => p.game === null || (p.game === 'siege' ? topicOn('siege', ctx) : ctx.games.includes(p.game)));
+  // (2.76.0, 3B: the Blessings prize where the bag is on)
+  const shown = PRIZES.filter(p => (p.key === 'blessings' ? topicOn('magic', ctx) : p.game === null || (p.game === 'siege' ? topicOn('siege', ctx) : ctx.games.includes(p.game))));
   const prizeLines = shown.map(p => {
     const item = p.item ? `${kit.e(ITEMS[p.item].kit)} ${ITEMS[p.item].name}` : `${kit.e('gift')} a random item`;
     return `${pill(formatNumber(p.need))} ${p.noun} → ${item}${p.points ? ` ${pill(signed(p.points))}` : ''}`;
@@ -396,9 +416,13 @@ function nights(ctx, kit) {
   };
 }
 
+/** 2.76.0 (3B): the twists that need the Six-Demon Bag — Ching Dai's Curse hexes as well */
+const BAG_TWISTS = Object.freeze({ redEnvelope: (ctx) => topicOn('magic', ctx), chingDai: (ctx) => topicOn('magic', ctx) && ctx.settings.hexes !== false });
+
 function twists(ctx, kit) {
   const s = ctx.settings;
-  const all = Object.values(TWISTS);
+  // A twist that can't come here (the bag off) isn't listed: it never fires
+  const all = Object.entries(TWISTS).filter(([key]) => !BAG_TWISTS[key] || BAG_TWISTS[key](ctx)).map(([, t]) => t);
   const good = all.filter(t => t.good);
   const bad = all.filter(t => !t.good);
   const named = (t) => `${t.emoji} ${t.name}${t.points && !t.status ? ` ${pill(signed(t.points))}` : ''}`;
@@ -556,7 +580,48 @@ function siege(ctx, kit) {
   };
 }
 
-const RENDER = { basics, items, prizes, nights, twists, happenings, siege };
+/**
+ * 2.76.0: the Six-Demon Bag (design §2–§3), every number from CHI, MAGIC and
+ * the elements' own words — the same about lines /six-demon-bag status shows
+ */
+function magic(ctx, kit) {
+  const hexesOff = ctx.settings.hexes === false;
+  const siegeOn = topicOn('siege', ctx);
+  const chi = [
+    `${pill(`+${CHI.earn}`)} for a good play: a hit, a tasty meal, a doom, a rescue, a potion that works${siegeOn ? ', a siege attack that lands' : ''}. At most ${pill(CHI.perDay)} a day (UTC).`,
+  ];
+  if (siegeOn) chi.push(`${pill(`+${CHI.help}`)} for freeing or curing a siege fighter, at most ${pill(CHI.helpPerDay)} a day: the real hero gets the most magic.`);
+  chi.push(`The bag holds ${pill(CHI.bag)}, and \`/six-demon-bag status\` shows yours.`);
+  const list = (kind) => ELEMENT_KEYS.map(el => `${ELEMENTS[el].emoji} **${charmName(kind, el)}**: ${charmAbout(kind, el)}`).join('\n');
+  // The three opposed pairs, each from the element the bag lists first
+  const pairs = ELEMENT_KEYS.filter((el, i) => ELEMENT_KEYS.indexOf(ELEMENT_OPPOSITE[el]) > i)
+    .map(el => [el, ELEMENT_OPPOSITE[el]].map(x => `${ELEMENTS[x].emoji} ${ELEMENTS[x].name}`).join(' ⟷ '));
+  const fair = [
+    `${pill(MAGIC.castsPerDay)} casts a day${hexesOff ? '' : `, at most ${pill(MAGIC.hexesPerDay)} a hex`}. One blessing and one hex on anyone at a time, and the same element or its opposite cancels them: ${pairs.join(' · ')}.`,
+  ];
+  if (!hexesOff) {
+    fair.push(`Nobody takes more than ${pill(MAGIC.hexesReceivedPerDay)} hexes a day, or 1 from the same caster in ${pill(`${MAGIC.hexPairHours}h`)}, and after a hex there's a ${pill(`${MAGIC.wardHours}h`)} ward. No hexes on yourself, bots, siege fighters, or anyone who hasn't played this week.`);
+    fair.push(`\`/six-demon-bag shrug\` shakes a hex off: free once a day, then ${pill(`${CHI.cost.shrug} Chi`)} (free if you're short). \`/six-demon-bag peace on:true\`: no hexes either way, for at least ${pill(`${MAGIC.peaceLockDays} days`)}.`);
+  }
+  const pays = [`The first time your blessing does something, you get ${pill(`+${MAGIC.casterPay}`)}${MAGIC.casterPayIn === 'chi' ? ' Chi' : ''}. Hexes never pay.`];
+  const jade = PRIZES.find(p => p.key === 'blessings');
+  if (jade) pays.push(`Every ${pill(jade.need)} that pay off bring a ${kit.e(ITEMS.jade.kit)} ${ITEMS.jade.name}: it turns aside the next hex on you.`);
+  const title = TITLES.find(t => t.magic === 'paidElements');
+  if (title) pays.push(`Blessings of all six elements that pay off: ${title.badge} ${title.title}.`);
+  return {
+    title: 'How to play: the Six-Demon Bag',
+    description: `Good plays fill your bag with Chi. Spend it to bless a friend${hexesOff ? '' : ' or hex a rival'} with one of six demons: \`/six-demon-bag bless member:@Sam element:Fire\`. Every cast is public, and pings who it lands on.`,
+    fields: [
+      { name: `${kit.e('chi')} Chi`, value: chi.join('\n') },
+      { name: `${kit.e('bag')} Blessings · ${CHI.cost.bless} Chi`, value: list('bless') },
+      { name: `${kit.e('upset')} Hexes · ${CHI.cost.hex} Chi`, value: hexesOff ? offLine('Hexes are switched off on this server.') : list('hex') },
+      { name: `${kit.e('shield')} Fair play`, value: fair.join('\n') },
+      { name: `${kit.e('star')} It pays back`, value: pays.join('\n') },
+    ],
+  };
+}
+
+const RENDER = { basics, items, prizes, nights, twists, happenings, siege, magic };
 
 // ── the card ────────────────────────────────────────────────────────────
 

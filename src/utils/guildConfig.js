@@ -63,6 +63,9 @@ const defaultConfig = {
     doom: true,
     rescue: true,
     siege: true, // R5: the fifth game; its weapons also need their own games on
+    // 2.76.0: /six-demon-bag. Off for members, Chi isn't earned and no charm
+    // acts (gameScores.getGameSettings' `magic`): the economy, not just the command
+    magic: true,
     escape: true,
   },
   notifications: {

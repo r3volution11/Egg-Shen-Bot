@@ -13,7 +13,22 @@
 
 // The Big Trouble titles' words (key, title, badge) live with the rest of
 // the expansion's words; their numbers (need, counter) are here
-import { TITLES_BTILC } from './btilcLines.js';
+import { TITLES_BTILC, ITEMS_BTILC, TWISTS_BTILC } from './btilcLines.js';
+
+/**
+ * 2.76.0, OPEN QUESTION 1 for Doug (R3 brief §13), the one switch: does R3
+ * ship "3B" — the 🧿 Jade Charm item and its Blessings prize (12 blessings
+ * that paid off), the "All That Kind of Thing" title, and the 🧧 Red
+ * Envelope / 🀄 Ching Dai's Curse twists? The default is yes: they were in
+ * the design's measured economy (§8.2: Jade Charms add ~0.7 items a month).
+ * false leaves every one of them out of ITEMS, DEFENCES, PRIZES, TITLES and
+ * TWISTS (the twist pool goes back to 72 good / 60 bad), and nothing else
+ * reads them: the engine only ever looks them up through those tables.
+ */
+export const BAG_3B = true;
+
+/** (3B) Blessings that paid off for a Jade Charm: the Blessings prize's `need`, and MAGIC.jadeNeed */
+const JADE_NEED = 12;
 
 // ── items ───────────────────────────────────────────────────────────────
 
@@ -39,6 +54,11 @@ export const ITEMS = Object.freeze({
   // outside a siege (SIEGE_ITEM_EFFECTS says what it does there)
   silver: { name: 'Silver Bullet', emoji: '🥈', cap: 2, passive: false, game: 'siege', kit: 'silver', about: 'Siege only: can\'t backfire, damage ×3.' },
   nlight: { name: 'Night Light', emoji: '🔦', cap: 1, passive: true, game: null, kit: 'nlight', about: 'Saves your nights row when you miss a night. Once a week.' },
+  // 2.76.0 (3B): turns aside the next hex cast on its holder — fired by
+  // castCharm, never by a play — then a DEFENCES.jade cooldown. Only from
+  // the Blessings prize: not in RANDOM_PRIZE_ITEMS, so no Glovebox Find or
+  // siege loot turns one up
+  ...(BAG_3B ? { jade: { name: ITEMS_BTILC.jadeCharm.name, emoji: ITEMS_BTILC.jadeCharm.emoji, cap: 1, passive: true, game: null, kit: 'jade', about: ITEMS_BTILC.jadeCharm.about } } : {}),
 });
 
 /**
@@ -78,6 +98,8 @@ export const DEFENCES = Object.freeze({
   // A harmful potion that works on an Antidote holder: [giver, receiver]
   // instead of POINTS.potion.hurt's [2, −2]
   antid: { cooldownHours: 6, points: [1, 0] },
+  // 2.76.0 (3B): the Jade Charm, fired by a hex cast at its holder (castCharm)
+  ...(BAG_3B ? { jade: { cooldownHours: 24 } } : {}),
 });
 
 // ── caps ────────────────────────────────────────────────────────────────
@@ -127,6 +149,11 @@ export const PRIZES = Object.freeze([
   // titles, nights or overflow: a bonus can't feed the counter that pays
   // bonuses.
   { key: 'points', game: null, label: 'Points', noun: 'points', outcomes: [], need: 750, item: null, points: 0 },
+  // 2.76.0 (3B): blessings YOU cast that paid off (the caster's pay, §3.1),
+  // counted for the caster when they pay — never by a play's outcome, and
+  // hexes never count. Inside the daily prize cap like any prize; the card
+  // and /how-to-play leave it out where /six-demon-bag is switched off
+  ...(BAG_3B ? [{ key: 'blessings', game: null, label: 'Blessings paid off', noun: 'blessings', outcomes: [], need: JADE_NEED, item: 'jade', points: 3 }] : []),
   // R6: siege wins (lifetime.siege.wins), counted by applySiegeResult when
   // a win is paid — outside the daily prize cap, as a win is rare enough
   { key: 'siegewins', game: 'siege', label: 'Siege wins', noun: 'siege wins', outcomes: [], need: 4, item: 'silver', points: 10 },
@@ -232,6 +259,10 @@ export const TITLES = Object.freeze([
   // (lifetime.siege.grabbed, counted when the grab is announced)
   { key: 'field-medic', title: 'Field Medic', badge: '🩹', need: 15, siege: 'assists' },
   { key: 'monster-chow', title: 'Monster Chow', badge: '🍖', need: 10, siege: 'grabbed' },
+  // 2.76.0 (3B): blessings of every element that paid off for their caster
+  // (lifetime.magic.paidElements, a set kept as a list). `magic` names the
+  // counter; a list counts its length. Hexes earn no title (design §3.4)
+  ...(BAG_3B ? [{ ...btilcTitle('wind-fire'), need: 6, magic: 'paidElements' }] : []),
 ]);
 
 // ── sieges (R5) ─────────────────────────────────────────────────────────
@@ -721,9 +752,9 @@ export const SIEGE_ITEM_EFFECTS = Object.freeze({
  * default, ×twistMult during some happenings) that something happens to
  * the PLAYER — never their target. One luck() draw decides whether one
  * fires, one which (by `weight`), and one more picks an item where a twist
- * needs one. Good ones weigh 72 and bad ones 60 in all, so a bit over half
- * are good before "the twist after a bad one is always good" tips it
- * further.
+ * needs one. Good ones weigh 72 and bad ones 60 in all (78 and 65 with
+ * 2.76.0's two, BAG_3B), so a bit over half are good before "the twist
+ * after a bad one is always good" tips it further.
  *   good    - which pool it's in (and what lastTwistBad remembers)
  *   weight  - its share of the draw among the twists that can fire now
  *   points  - flat points now (loose, fan, pickpocket, call), or per play
@@ -747,6 +778,8 @@ export const TWISTS = Object.freeze({
   dcut: { name: 'Director\'s Cut', emoji: '🎬', good: true, weight: 8, status: true },
   secondwind: { name: 'Second Wind', emoji: '🔥', good: true, weight: 8, status: true },
   ghost: { name: 'Friendly Ghost', emoji: '👻', good: true, weight: 8 },
+  // 2.76.0 (3B): CHI.redEnvelope Chi, outside the day's Chi cap (good [78])
+  ...(BAG_3B ? { redEnvelope: { name: TWISTS_BTILC.redEnvelope.name, emoji: TWISTS_BTILC.redEnvelope.emoji, good: true, weight: 6 } } : {}),
   // Bad [60]
   pickpocket: { name: 'Pickpocketed', emoji: '🦝', good: false, weight: 10, points: -3 },
   call: { name: 'The Call Is Coming From Inside the House', emoji: '📞', good: false, weight: 5, points: -4 },
@@ -756,6 +789,9 @@ export const TWISTS = Object.freeze({
   mosquito: { name: 'Mosquito Swarm', emoji: '🦟', good: false, weight: 8, status: true, plays: 3, points: -1 },
   reel: { name: 'Reel Change', emoji: '🎞️', good: false, weight: 7 },
   brainfreeze: { name: 'Brain Freeze', emoji: '🧊', good: false, weight: 7 },
+  // 2.76.0 (3B): a hex of a random element for MAGIC.hexHours, with no
+  // caster (bad [65]: the pool keeps its 54% good share)
+  ...(BAG_3B ? { chingDai: { name: TWISTS_BTILC.chingDai.name, emoji: TWISTS_BTILC.chingDai.emoji, good: false, weight: 5 } } : {}),
 });
 
 export const TWIST_RULES = Object.freeze({
@@ -770,6 +806,130 @@ export const TWIST_RULES = Object.freeze({
   // before /siege, no Night Light — that's the nights row's own prize)
   findItems: RANDOM_PRIZE_ITEMS,
   // What a Car Break-In can never take: the Night Light is the row's
-  // safety net, and losing it to a raccoon would undo weeks of nights
-  safe: Object.freeze(['nlight']),
+  // safety net, and losing it to a raccoon would undo weeks of nights.
+  // 2.76.0 (Doug, 2026-11-07): the Jade Charm too — it takes 12 blessings
+  // that paid off to earn, and is never a random prize or loot to replace
+  safe: Object.freeze(['nlight', 'jade']),
+});
+
+// ── the Six-Demon Bag (2.76.0) ──────────────────────────────────────────
+
+/**
+ * Chi: the bag's fuel (design §2). Earned by playing well and, most of all,
+ * by helping in a siege; spent on /six-demon-bag. Every number here was in
+ * the design's measured economy (§8.2), and none is scaled by the pace: a
+ * week server's allowance (8 attacks a night) only reaches the daily cap a
+ * little sooner.
+ *   earn / earnOutcomes  +earn on a SCORED play with one of these outcomes,
+ *                        in any game — a siege attack too, pot or not. A
+ *                        sacrifice is a good deed even though it costs you
+ *   help / helpPerDay    +help for freeing or curing a siege fighter (a
+ *                        credited assist), at most helpPerDay a UTC day —
+ *                        apart from the play's own Chi and its cap
+ *   perDay               play Chi a UTC day (daily[uid].chi), × a
+ *                        happening's chiMult (none yet: R6's Tour Bus)
+ *   bag                  the most a member holds; Chi past it is lost
+ *   cost                 Chi a cast takes (− a happening's castDiscount);
+ *                        a shrug after the day's free one; magic is R4's
+ *   redEnvelope          the 🧧 twist's Chi, outside the day's cap (3B)
+ * There's no decay: the bag's ceiling is the sink.
+ */
+export const CHI = Object.freeze({
+  earn: 1,
+  earnOutcomes: Object.freeze(['hit', 'tasty', 'doomed', 'rescued', 'sacrificed', 'helped', 'hurt', 'splat', 'smite', 'poisoned']),
+  help: 2,
+  helpPerDay: 6,
+  perDay: 4,
+  bag: 20,
+  cost: Object.freeze({ bless: 6, hex: 7, shrug: 2, magic: 2 /* R4: /siege attack weapon:magic */ }),
+  redEnvelope: 4,
+});
+
+/**
+ * Casting, and what keeps hexes from becoming harassment (design §3.1, §3.4).
+ * Daily counts are per UTC day (daily[uid]), like every games cap — the
+ * siege's allowance resets at 12:00 UTC (2.74.0) instead; that's deliberate.
+ *   castsPerDay, hexesPerDay  a member's casts a day, and how many of them may be hexes
+ *   blessHours, hexHours      how long an unused blessing / hex lasts
+ *   wardHours                 after a hex on someone ENDS (used, shrugged,
+ *                             expired, lifted, spoiled), no hex can land on
+ *                             them for this long
+ *   hexPairHours              one caster hexes one member at most once in this
+ *   blessPair                 OPEN QUESTION 2 for Doug (R3 brief §13): one
+ *                             caster blesses one member at most `max` times
+ *                             in `days` (design §8.3's anti-farming limit for
+ *                             two alts). null switches it off
+ *   hexesReceivedPerDay       hexes one member can take in a UTC day
+ *   peaceLockDays             peace, once made, can't be unmade for this long
+ *   inactiveDays              nobody is hexed who hasn't had a scored play in this many nights
+ *   casterPay / casterPayIn   a blessing that does something pays its caster,
+ *                             once: `casterPay` bonus points (in that play's
+ *                             game, or for a cast-time payoff the caster's
+ *                             home game) — or, with casterPayIn 'chi', that
+ *                             much Chi instead (the brief's first balance
+ *                             knob, if a share ran past 35%)
+ *   freeShrugsPerDay          shrugs a UTC day that cost nothing
+ *   castLogDays               how long a caster's casts are remembered (the pair limits)
+ *   smokePotionPoints         a harmful potion lost in a Smoke Screen: [giver,
+ *                             receiver], as the Antidote's
+ *   jadeNeed                  (3B) blessings paid off for a Jade Charm: PRIZES' own `need`
+ *   fighterBlessing           OPEN QUESTION 3 for Doug (R3 brief §13): until
+ *                             R4's boosts, a blessing on a live siege fighter
+ *                             is an ordinary blessing ('ordinary', the
+ *                             default: it never touches their attacks), or is
+ *                             refused at no cost ('refuse')
+ */
+export const MAGIC = Object.freeze({
+  castsPerDay: 2,
+  hexesPerDay: 1,
+  blessHours: 24,
+  hexHours: 12,
+  wardHours: 3,
+  hexPairHours: 72,
+  blessPair: Object.freeze({ max: 3, days: 7 }),
+  hexesReceivedPerDay: 2,
+  peaceLockDays: 7,
+  inactiveDays: 7,
+  casterPay: 1,
+  casterPayIn: 'chi',
+  freeShrugsPerDay: 1,
+  castLogDays: 7,
+  smokePotionPoints: Object.freeze([1, 0]),
+  jadeNeed: JADE_NEED,
+  fighterBlessing: 'ordinary',
+});
+
+/** The three opposed pairs: a blessing and a hex of the same element or its opposite cancel (§3.2) */
+export const ELEMENT_OPPOSITE = Object.freeze({ rain: 'fire', fire: 'rain', wind: 'smoke', smoke: 'wind', lightning: 'thunder', thunder: 'lightning' });
+
+/** Each element's emoji-kit code (src/utils/emojiKit.js KIT_CODES) */
+export const ELEMENT_KIT = Object.freeze({ lightning: 'elite', thunder: 'ethund', rain: 'erain', wind: 'ewind', fire: 'efire', smoke: 'esmoke' });
+
+/**
+ * What each charm does, by element and kind (§3.1; the words are
+ * btilcLines.ELEMENTS). `plays` is how many uses it has — what counts as one
+ * is the element's (gameMagic.js says, and recordPlay applies):
+ *   wind      Tailwind: the next acting play's bad lines are out of the draw ·
+ *             Ill Wind: the next acting play is drawn twice, the worse kept
+ *   fire      Fired Up: `points` on each good one of the next 3 acting plays ·
+ *             Scorched: `points` on each of the next 3 (a twist loss)
+ *   lightning Lightning Strike: the next GOOD acting play's gain × `gain` ·
+ *             Static: gains halved on the next 2 acting plays
+ *   thunder   Thunderous Applause: the next good help at a member × `target`
+ *             for whoever is helped · Deafened: the next 5 plays that would
+ *             earn Chi earn none
+ *   rain      Cleansing Rain: washes `wash` off at the cast, then keeps the
+ *             streak through the next bad play that has one · Rained Out: the
+ *             next 2 good acting plays don't grow the streak
+ *   smoke     Smoke Screen: the next harmful play aimed at its holder is lost
+ *             (a defence) · Lost in the Smoke: the next 2 acting plays aimed
+ *             at a member score only the player
+ */
+export const CHARMS = Object.freeze({
+  wind: Object.freeze({ bless: Object.freeze({ plays: 1 }), hex: Object.freeze({ plays: 1 }) }),
+  fire: Object.freeze({ bless: Object.freeze({ plays: 3, points: 1 }), hex: Object.freeze({ plays: 3, points: -1 }) }),
+  lightning: Object.freeze({ bless: Object.freeze({ plays: 1, gain: 2 }), hex: Object.freeze({ plays: 2 }) }),
+  thunder: Object.freeze({ bless: Object.freeze({ plays: 1, target: 2 }), hex: Object.freeze({ plays: 5 }) }),
+  rain: Object.freeze({ bless: Object.freeze({ plays: 1, wash: Object.freeze(['bitten', 'jinxed', 'mosquito']) }), hex: Object.freeze({ plays: 2 }) }),
+  smoke: Object.freeze({ bless: Object.freeze({ plays: 1 }), hex: Object.freeze({ plays: 2 }) }),
 });

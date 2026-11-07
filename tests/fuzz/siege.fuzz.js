@@ -20,6 +20,15 @@
  * channel or not, early or late), and the simulator's backing and honours
  * invariants hold through every restart and fault.
  *
+ * 2.76.0: between those, members cast blessings and hexes (at friends,
+ * fighters, themselves; an element from the autocomplete's own choices or
+ * typed), shrug, make and break peace, check their bag, and the admin
+ * switches the bag and hexes on and off — on dice of their own, so each
+ * seed's other draws are what they were. The simulator's magic invariants
+ * hold after every step: a refused cast changes nothing, no hex lands on a
+ * fighter, Chi and hexes received stay in bounds, and siege points never
+ * move from a charm.
+ *
  * Pace (2.74.0): each run is a server at a pace — week (the default) or
  * quick by default, any of the five with SIM_FUZZ_PACES=all (or a list:
  * SIM_FUZZ_PACES=day,days3). A run at a slow pace also lets hours and nights
@@ -87,6 +96,45 @@ const FAULTS = [
 ];
 
 const live = (sim) => sim.siege()?.status === 'live';
+
+/** 2.76.0: one random thing someone does with the Six-Demon Bag (its own dice, `m`) */
+async function magicAction(sim, m) {
+  const who = m.pick(sim.members);
+  const roll = m.float();
+  if (roll < 0.6) {
+    const kind = m.chance(0.7) ? 'bless' : 'hex';
+    const target = m.chance(0.1) ? who : m.pick(sim.members);
+    if (m.chance(0.6)) sim.giveChi(who, 2 + m.int(19));
+    if (m.chance(0.3)) sim.regular(target, { points: m.int(10), nights: 1 + m.int(3) });
+    const element = m.chance(0.7)
+      ? m.pick(await sim.suggestElements(who, kind, target)).value
+      : m.pick(['fire', 'Wind', '🌧️ Rain', 'tailwind', 'Ill Wind', 'Lost in the Smoke', 'nonsense']);
+    const channel = m.chance(0.9) ? 'games' : m.pick(['thread', 'lobby']);
+    const i = await sim.cast(who, kind, target, element, { channel });
+    return `${who} ${kind === 'bless' ? 'blesses' : 'hexes'} ${target} with ${element} in #${channel} → ${(i.reply?.content || '(died)').split('\n')[0].slice(0, 50)}`;
+  }
+  if (roll < 0.75) {
+    const i = await sim.bag(who, 'shrug');
+    return `${who} shrugs → ${(i.reply?.content || '(died)').slice(0, 40)}`;
+  }
+  if (roll < 0.85) {
+    const on = m.chance(0.6);
+    const i = await sim.bag(who, 'peace', { on });
+    return `${who} peace ${on} → ${(i.reply?.content || '(died)').slice(0, 40)}`;
+  }
+  if (roll < 0.92) {
+    await sim.bag(who, 'status', m.chance(0.2) ? { private: false } : {});
+    return `${who}: bag status`;
+  }
+  if (roll < 0.96) {
+    const on = m.chance(0.7);
+    await sim.toggle('magic', on);
+    return `toggle magic ${on ? 'on' : 'off'}`;
+  }
+  const on = m.chance(0.6);
+  const i = await sim.command('admin', 'eggshen-config-games', { subcommand: 'happenings', options: { hexes: on } });
+  return `hexes ${on ? 'on' : 'off'} → ${(i.reply?.content || '(died)').split('\n')[0].slice(0, 40)}`;
+}
 
 /** One random thing someone does. Returns a description for the log. */
 async function randomAction(sim, r) {
@@ -298,6 +346,12 @@ function record(sim, log) {
     if (s?.result?.wangChi) count(`Wang Chis ${s.result.wangChi.held ? 'held the line' : 'by help'}`);
   }
   count('frees and cures past the cap, uncredited', replies.filter(c => /doesn't count toward/.test(c)).length);
+  // 2.76.0
+  const cast = sim.discord.events.filter(e => /^\/six-demon-bag (bless|hex)/.test(e.via || ''));
+  count('casts landed', cast.filter(e => e.kind === 'reply').length);
+  count('casts refused', cast.filter(e => e.kind === 'ephemeral').length);
+  count('charms acting on plays', replies.filter(c => /^-# (💨|🔥|⚡|🌩️|🌧️|🌫️) (Tailwind|Ill Wind|Fired Up|Scorched|Lightning Strike|Static|Thunderous Applause|Deafened|Cleansing Rain|Rained Out|Smoke Screen|Lost in the Smoke):/m.test(c)).length);
+  count('blessings paid off', replies.filter(c => /paid off:/.test(c)).length);
 }
 
 const RUNS = Number(process.env.SIM_FUZZ_RUNS || 20);
@@ -309,6 +363,8 @@ describe('random sieges', () => {
   for (const seed of seeds) {
     test(`seed ${seed}: ${STEPS} random actions, every invariant holding, then a fresh siege`, async () => {
       const r = rng(seed);
+      // 2.76.0: the bag's own dice, so every other draw of a seed is what it was
+      const m = rng(seed ^ 0x6bad6bad);
       clock.now = Date.UTC(2026, 10, 9, 18, 0, 0) + r.int(24 * 60) * MINUTE;
       // The server's pace (2.74.0): week or quick, or any of the five with SIM_FUZZ_PACES
       const pace = PACE_LIST[seed % PACE_LIST.length];
@@ -325,7 +381,10 @@ describe('random sieges', () => {
       for (let i = 0; i < regulars; i++) mods.happenings.noteActivity(sim.guildId, { channelId: 'games', userId: `regular${i}` }, clock.now - (1 + r.int(5)) * 24 * 60 * MINUTE);
       const log = [`pace: ${pace} · random sieges: ${frequency} · ${regulars} regulars this week`];
       try {
-        for (let i = 0; i < STEPS; i++) log.push(await randomAction(sim, r));
+        for (let i = 0; i < STEPS; i++) {
+          if (m.chance(0.15)) log.push(await magicAction(sim, m));
+          log.push(await randomAction(sim, r));
+        }
         log.push('— finishing —');
         await finish(sim);
         record(sim, log);

@@ -69,8 +69,9 @@ const RULES = [
   R(/^SIX_DEMON_BAG\.boostCure\.\d+$/, ['caster', 'target']),
   R(/^SIX_DEMON_BAG\.refusals\.noChi$/, ['chi', 'need']),
   R(/^SIX_DEMON_BAG\.refusals\.castLimit$/, ['count']),
-  R(/^SIX_DEMON_BAG\.refusals\.(alreadyBlessed|alreadyHexed|alreadyBoosted|peaceTarget|fighting|inactive)$/, ['target']),
+  R(/^SIX_DEMON_BAG\.refusals\.(alreadyBlessed|alreadyHexed|alreadyBoosted|peaceTarget|fighting|fighterBless|inactive)$/, ['target']),
   R(/^SIX_DEMON_BAG\.refusals\.(warded|pairLimit)$/, ['target', 'when']),
+  R(/^SIX_DEMON_BAG\.refusals\.blessPair$/, ['target', 'count', 'when']),
   R(/^SIX_DEMON_BAG\.refusals\.receivedLimit$/, ['target', 'count']),
   // /pork-chop-express
   R(/^PORK_CHOP_EXPRESS\.send\.\d+$/, ['sender', 'receiver', 'item', 'when']),
@@ -411,10 +412,17 @@ describe('btilc lines: /six-demon-bag', () => {
 
   test('has a refusal for every reason in the design (§1, §3.4)', () => {
     expect(Object.keys(SIX_DEMON_BAG.refusals).sort()).toEqual([
-      'alreadyBlessed', 'alreadyBoosted', 'alreadyHexed', 'bot', 'castLimit', 'fighting', 'hexLimit', 'hexesOff',
+      'alreadyBlessed', 'alreadyBoosted', 'alreadyHexed', 'blessPair', 'bot', 'castLimit', 'fighterBless', 'fighting', 'hexLimit', 'hexesOff',
       'inactive', 'noChi', 'pairLimit', 'peaceSelf', 'peaceTarget', 'receivedLimit', 'self', 'warded',
     ]);
     expect(SIX_DEMON_BAG.refusals.noChi).toMatch(/the bag is empty/i);
+  });
+
+  test('2.76.0: until R4\'s boosts, a fighter refusal promises no boost', () => {
+    // R3 brief §9: the design's "A blessing becomes a boost." is trimmed until boosts ship
+    expect(SIX_DEMON_BAG.refusals.fighting).toBe('🎒 {target} is fighting the monster, and the siege is co-op: no hexes on fighters.');
+    expect(fill(SIX_DEMON_BAG.refusals.blessPair, { target: 'Sam', count: 3, when: '<t:1:R>' }))
+      .toBe('🎒 You\'ve blessed Sam 3 times this week. Spread the luck around: you can again <t:1:R>.');
   });
 });
 

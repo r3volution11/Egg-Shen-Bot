@@ -15,7 +15,7 @@ Every server has its own settings. You change them with eight `/eggshen-config` 
 | [`/eggshen-config-ai`](#ai-images-group) | AI images, [AI announcement text and AI answers](#ai-text-and-ai-answers) |
 | [`/eggshen-config-moderation`](#moderation-group) | Moderation switch, user cooldowns, whitelist mode, auto-ban threshold |
 | [`/eggshen-config-events`](#event-requests-group) | The event request form |
-| [`/eggshen-config-games`](#games) | Game limits, game channels, happenings, twists, the pace, random sieges, score resets |
+| [`/eggshen-config-games`](#games) | Game limits, game channels, happenings, twists, the pace, random sieges, hexes, score resets |
 | [`/eggshen-config-quotes`](#quotes) | The status quote rotation and quote suggestions |
 | [`/eggshen-config-website`](#website-group) | This server's web pages: form address, bot address, theme |
 
@@ -43,7 +43,7 @@ Basic settings, with `/eggshen-config settings`.
 /eggshen-config settings view
 ```
 
-Shows the rating services, emojis, region, search results, timer settings, stats tracking, all 19 command switches, notifications, watch-party channels and rate limiting.
+Shows the rating services, emojis, region, search results, timer settings, stats tracking, all 20 command switches, notifications, watch-party channels and rate limiting.
 
 #### Toggle Services
 
@@ -202,7 +202,7 @@ Switch commands off for regular members.
 - `enabled` - All Commands: the master switch. Off turns off every command in this list at once
 - Search: `movie`, `tv`, `episode`, `game`, `boardgame`, `book`, `soundtrack`
 - `survey`, `bracket` (covers `/bracket` and `/bracket-setup`), `watchlist`, `escape` (Escape Velocity)
-- Games: `potion`, `foodfight`, `doom`, `rescue`, `siege`
+- Games: `potion`, `foodfight`, `doom`, `rescue`, `siege`, `magic` (the Six-Demon Bag, `/six-demon-bag`)
 - Quotes: `quote`, `suggestQuote`
 
 Everything is on by default.
@@ -210,6 +210,7 @@ Everything is on by default.
 - **Admins and moderators can always use every command,** whatever these say.
 - **Commands not on the list can't be switched off here,** such as `/timer`, `/watched`, `/image` or `/stats`. Use Discord's **Server Settings → Integrations** to limit those to certain roles or channels. `/image` has [its own switch](#ai-images-group).
 - **`siege` covers members' `attack` and `status`.** Turning it off calls off a siege that's running within a minute, with no rewards or penalties, and no new one can start until it's back on.
+- **`magic` switches the whole Six-Demon Bag off,** not just the command: plays stop earning Chi, and every blessing and hex already cast stops working until it's back on. Admins and moderators can still open `/six-demon-bag status`, but nothing else in the bag works for anyone. To switch off only hexes, use `/eggshen-config-games happenings hexes:false` ([details](./games-magic#turning-it-off)).
 - **`/eggshen-help` follows these switches.** A command that's off doesn't appear in a regular member's help.
 
 **Example:**
@@ -577,7 +578,7 @@ Shows your form's address and the Guild ID your website needs: `guildId` in its 
 
 ### Games
 
-`/eggshen-config-games` has the game settings: play limits and the rescue shield (`limits`), where the games can be played (`channels`), twists, happenings, the [pace](./games-siege#pace) and [random sieges](./games-siege#random-sieges) (`happenings`), and erasing scores (`reset-scores`). They're all on [Settings for Admins](./games-settings), with the details on [happenings and twists](./games-settings#happenings-and-twists).
+`/eggshen-config-games` has the game settings: play limits and the rescue shield (`limits`), where the games can be played (`channels`), twists, happenings, the [pace](./games-siege#pace), [random sieges](./games-siege#random-sieges) and the [Six-Demon Bag](./games-magic)'s hexes (`happenings`), and erasing scores (`reset-scores`). They're all on [Settings for Admins](./games-settings), with the details on [happenings and twists](./games-settings#happenings-and-twists).
 
 ```
 /eggshen-config-games channels mode:only add:#games
@@ -585,6 +586,7 @@ Shows your form's address and the Guild ID your website needs: `guildId` in its 
 /eggshen-config-games happenings start:fullmoon
 /eggshen-config-games happenings pace:quick
 /eggshen-config-games happenings siege-frequency:rare
+/eggshen-config-games happenings hexes:false
 ```
 
 To switch a game off, use [`/eggshen-config commands toggle`](#commands-group).

@@ -64,17 +64,17 @@ function shown(embed) {
 }
 
 /** The label a switch is shown under: its command, or "All Commands" for the master */
-const label = (key) => (key === 'enabled' ? 'All Commands' : key === 'suggestQuote' ? '/suggest-quote' : `/${key}`);
+const label = (key) => ({ enabled: 'All Commands', suggestQuote: '/suggest-quote', magic: '/six-demon-bag' }[key] || `/${key}`);
 
 describe('/eggshen-config settings view — command switches', () => {
-  test('lists every switch, all 19, and every one the toggle offers', async () => {
+  test('lists every switch, all 20, and every one the toggle offers', async () => {
     const defaults = Object.keys((await loadGuildConfig('settings-view-defaults-never-saved')).commandPermissions);
-    expect(defaults).toHaveLength(19);
+    expect(defaults).toHaveLength(20); // 2.76.0: + magic (/six-demon-bag)
     // The toggle offers exactly the switches the config has
     expect(switches.map(c => c.value).sort()).toEqual([...defaults].sort());
 
     const lines = shown(await view());
-    expect(Object.keys(lines)).toHaveLength(19);
+    expect(Object.keys(lines)).toHaveLength(20);
     expect(Object.keys(lines).sort()).toEqual(defaults.map(label).sort());
     expect(Object.values(lines).every(Boolean)).toBe(true); // all on by default
   });
@@ -82,9 +82,10 @@ describe('/eggshen-config settings view — command switches', () => {
   test('each switch shows what canUseCommand enforces: switched off, left on, or saved before the switch existed', async () => {
     const config = await loadGuildConfig(GUILD);
     for (const key of ['doom', 'quote', 'suggestQuote', 'escape', 'movie']) config.commandPermissions[key] = false;
-    // A server configured before /siege and /rescue existed has no such keys
+    // A server configured before /siege, /rescue and /six-demon-bag existed has no such keys
     delete config.commandPermissions.siege;
     delete config.commandPermissions.rescue;
+    delete config.commandPermissions.magic;
     await saveGuildConfig(GUILD, config);
 
     const lines = shown(await view());
@@ -95,6 +96,7 @@ describe('/eggshen-config settings view — command switches', () => {
     expect(lines['/doom']).toBe(false);
     expect(lines['/suggest-quote']).toBe(false);
     expect(lines['/siege']).toBe(true);
+    expect(lines['/six-demon-bag']).toBe(true);
     expect(lines['/potion']).toBe(true);
   });
 

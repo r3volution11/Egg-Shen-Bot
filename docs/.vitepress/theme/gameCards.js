@@ -35,6 +35,11 @@
 // (renderSiegeCard on siegeView, reportPayload, and resultsPayload on
 // planSiegeRewards' real plan, paid as gameScores.applySiegeResult pays
 // it), from sieges built to that story.
+//
+// The Six-Demon Bag's two (2.76.0) were written by hand from the bot's own
+// words (btilcLines.js) and six-demon-bag.js castMessage, gameScores.js
+// extraLines and gameCard.js bagFields, in the same notation; the bag's bar
+// is the kit's blue bar for 14 of 20, as kit.bar draws it.
 
 const BAR8 = '[kit:bgl][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:ber]';
 const ENDS = '[ts:November 8, 2026 7:00 AM]';
@@ -92,8 +97,26 @@ export const GAME_CARDS = {
     },
   },
 
+  'magic-cast': {
+    label: 'Example: a blessing from the Six-Demon Bag. Sam blesses Alex with Fire: Fired Up, +1 on each good play for the next 3, pinging Alex, and Sam\'s Chi goes from 14 to 8 with one cast left today',
+    message: {
+      command: { user: 'Sam', name: '/six-demon-bag bless' },
+      time: 'Today at 9:12 PM',
+      content: '🎒 Sam reaches into the Six-Demon Bag. *"Wind, fire, all that kind of thing!"*\n🔥 Sam lights a little fire under Alex. The next few good plays are going to burn a bit brighter.\n**Fired Up**: +1 on each good play for the next 3 plays. [mention:@Alex]\n-# Sam 14 → 8 Chi · 1 cast left today',
+    },
+  },
+
+  'magic-play': {
+    label: 'Example: a blessing at work. Alex feeds Jo while Fired Up: +1 more for Alex, two plays of it left, and Sam, who cast it, gets +1 Chi back',
+    message: {
+      command: { user: 'Alex', name: '/foodfight feed' },
+      time: 'Today at 9:20 PM',
+      content: '🥧 [mention:@Alex] slides a cherry pie in front of [mention:@Jo] like a Twin Peaks diner waitress. Damn fine pie, [mention:@Jo] agreed.\n-# 😋 Tasty! Alex +1 (57 pts · 🔥 4 in a row) · Jo +2\n-# 🔥 Fired Up: Alex +1 (2 more).\n-# ✨ Sam\'s 🔥 Fired Up paid off: Sam +1 Chi.',
+    },
+  },
+
   'game-card': {
-    label: 'Example: Sam\'s game card from /scoreboard. Total and rank, a column for each game, rewards in progress with bars, fourteen nights in a row, the Glovebox, titles, and the twist statuses in effect',
+    label: 'Example: Sam\'s game card from /scoreboard. Total and rank, a column for each game, rewards in progress with bars, fourteen nights in a row, the Glovebox, titles, the Six-Demon Bag, and the twist statuses in effect',
     message: {
       command: { user: 'Sam', name: '/scoreboard' },
       time: 'Today at 9:06 PM',
@@ -115,6 +138,7 @@ export const GAME_CARDS = {
           { name: '[kit:moon] Nights in a row: `Tier 3`', value: '[kit:ntp][kit:ntp][kit:ntp][kit:ntp][kit:nts][kit:ntp][kit:ntp]\n[kit:ntp][kit:ntp][kit:ntp][kit:ntp][kit:ntp][kit:ntp][kit:ntp]\n`14` nights · best `14`\n🌕 Creature of the Night: +1 on your first 5 good plays a day' },
           { name: '[kit:glove] Glovebox', value: '[kit:gpie] Golden Pie ×3\n[kit:vhs] Cursed VHS ×1\n[kit:garlic] Garlic ×1 · ready [ts:in 3 hours]\n[kit:holyw] Holy Water ×1\n[kit:penny] Lucky Penny ×2\n[kit:antid] Antidote ×1 · passive\n[kit:nlight] Night Light ×1 · passive', inline: true },
           { name: '[kit:scroll] Titles', value: '`9` earned: 🥧🔪🕯️👕🪳🔥🌋🦉🌕\n🍳 Lunch Lady `74/75`\n🎲 Plot Twist `29/30`\n🍽️ Designated Taster `48/50`', inline: true },
+          { name: '[kit:bag] Six-Demon Bag', value: '[kit:chi] `14/20` Chi [kit:bbl][kit:bbm][kit:bbm][kit:bbm][kit:bbm][kit:bbm][kit:bbm][kit:bem][kit:bem][kit:ber] · today `+3/4` · `1 of 2` casts left\nOn you: 🔥 Fired Up *(from Kim)* · 2 plays left' },
           { name: '[kit:effect] In effect', value: '🍿 Free Refill: +1 on each good play · 1 play left\n🔥 Second Wind: the next bad play keeps the streak · ends [ts:in 22 hours]\n🦟 Mosquito Swarm: −1 on each play · 1 play left' },
         ],
         footer: 'All time · Anyone\'s card: right-click them → Apps → Game card',

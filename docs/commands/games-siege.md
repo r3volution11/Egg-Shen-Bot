@@ -166,6 +166,8 @@ It only picks fighters who are free and have attacked at least once (from evenin
 
 **Your share** of the win counts all of it: damage, **+12** for each fighter you freed, and **+8** for each one you cured (those also count as **help**, which decides the [Wang Chi](#the-wang-chi-and-the-jack-burton)). Freeing or curing puts you in the fight even if you never attacked, and neither uses your attacks.
 
+A free or a cure that counts toward your share also earns **+2** [Chi](./games-magic#chi) for the Six-Demon Bag (at most 6 a day). Nobody can hex a fighter, and blessings never touch an attack ([The Six-Demon Bag](./games-magic#with-what-s-already-there)).
+
 **Past the daily scoring cap.** A `/rescue` or `/potion` past your daily scoring cap (see [Limits](./games-playing#limits)) still frees or cures them: saving a friend is never blocked, and a sacrifice still swaps. But only your **first 2 a night** count toward your share and the Wang Chi; the reply says when one doesn't. On a server where plays don't score at all, your first **20** rescues and first **20** potions a day (UTC) count as if they scored, 20 being the daily scoring cap a server that scores plays starts with; past those, the first 2 a night count, as anywhere else. A night runs 12:00 to 12:00 UTC (a 3-day or week campaign's first night as its [attacks](#pace) count it). Scored plays always count. Field Medic counts scored ones only, as before (on a server where plays don't score, those first 20 a day).
 
 If the bot restarts just as the monster acts, the action is dropped rather than half done: nobody is grabbed or poisoned unless the message pinging them went out.

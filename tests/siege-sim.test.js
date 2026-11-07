@@ -780,7 +780,10 @@ describe('2.75.0: the Wang Chi, the Jack Burton and backing, through the real co
       await sim.advance(21 * SEC);
       const r = await sim.cure('dev', 'ana', { force: 'worked' });
       expect(sim.siege().participants.ana.poisoned).toBeNull();
-      said.push(lines(r.reply).at(-1));
+      // The cure's own line, wherever it sits: since 2.76.0 a credited cure
+      // also earns help Chi, whose line can follow it (the third here hits
+      // the day's cap and says so)
+      said.push(lines(r.reply).find(l => l.includes(' cured ana ')));
     }
     expect(said).toEqual(Array(3).fill('-# 🧪 dev cured ana of Killer Klowns\'s poison: +8 to their share of the fight.'));
     expect(sim.siege().participants.dev).toMatchObject({ cures: 3 });

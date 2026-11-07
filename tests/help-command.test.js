@@ -250,6 +250,28 @@ describe('/eggshen-help and AI image visibility', () => {
   });
 });
 
+describe('2.76.0: /eggshen-help and /six-demon-bag', () => {
+  test('listed under Fun & Games while it and a game are on; its toggle, or every game off, hides it', async () => {
+    const line = '**🎒 /six-demon-bag** - Spend the Chi your good plays earn to bless a friend or hex a rival, element by element';
+    let fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');
+    expect(fun).toContain(line);
+    expect(fun).toContain('sieges, the Six-Demon Bag');
+
+    await updateCommandPermission(GUILD_ID, 'magic', false);
+    fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');
+    expect(fun).not.toContain('/six-demon-bag');
+    expect(fun).not.toContain('the Six-Demon Bag');
+    expect(fun).toContain('/foodfight');
+
+    // Chi comes from playing: with the bag on but every game off, there's nothing to explain
+    const config = await loadGuildConfig(GUILD_ID);
+    config.commandPermissions = { ...config.commandPermissions, magic: true, potion: false, foodfight: false, doom: false, rescue: false, siege: false };
+    await saveGuildConfig(GUILD_ID, config);
+    fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');
+    expect(fun ?? '').not.toContain('/six-demon-bag');
+  });
+});
+
 describe('/eggshen-help and /how-to-play', () => {
   test('/how-to-play is listed under Fun & Games while a game is on, and goes when every game is off', async () => {
     let fun = fieldValue(await runHelpAndGetEmbed(makeInteraction({ isAdmin: false })), '🎉 Fun & Games');

@@ -43,6 +43,8 @@ export const CARD_HINT = 'Anyone\'s card: right-click them → Apps → Game car
  * (messageProblems). Each step is the one before it with one more thing
  * given up, so the order reads straight down:
  *
+ *   0.   (2.76.0) the Six-Demon Bag's Chi bar: the bag's numbers say it
+ *        all, and its ten segments are as dear as a reward's
  *   1–2. narrower reward bars (8 → 6 → 4 segments). Once the kit is
  *        uploaded every segment is a custom emoji of up to 37 characters,
  *        so a width-8 bar is ~300 characters a line, more than the rest of
@@ -62,9 +64,9 @@ export const CARD_HINT = 'Anyone\'s card: right-click them → Apps → Game car
  * longest custom emoji, and as it is in plain emoji. Past that only
  * overgrown test data reaches (tests/game-card.test.js measures each).
  */
-const FIRST_STEP = { bar: 8, rewards: Infinity, plainTicks: false, counts: true, received: true, capLists: false, clip: false };
+const FIRST_STEP = { bagBar: true, bar: 8, rewards: Infinity, plainTicks: false, counts: true, received: true, capLists: false, clip: false };
 const GIVE_UP = [
-  { bar: 6 }, { bar: 4 }, { rewards: 4 }, { plainTicks: true },
+  { bagBar: false }, { bar: 6 }, { bar: 4 }, { rewards: 4 }, { plainTicks: true },
   { counts: false }, { received: false }, { capLists: true }, { clip: true },
 ];
 export const CARD_STEPS = Object.freeze(GIVE_UP.reduce(
@@ -344,6 +346,34 @@ function titleFields(data, { kit, step }) {
 }
 
 /**
+ * 2.76.0: the Six-Demon Bag (gameCardData's `bag`, on the all-games card):
+ * Chi and its bar, today's Chi, casts left, peace — then what's on them and
+ * from whom, a hex with the way out:
+ *   🎒 Six-Demon Bag
+ *   ☯️ `14/20` Chi ▰▰▰▰▰▰▰▱▱▱ · today `+3/4` · `1 of 2` casts left · ☮️ no hexes
+ *   On you: 🔥 Fired Up *(from Sam)* · 2 plays left — 🌫️ Lost in the Smoke *(hex, from Jo)* · 1 play left · `/six-demon-bag shrug`
+ * Anyone's, on anyone's card, like the Glovebox: a charm is game
+ * information, and casts are public anyway.
+ */
+function bagFields(data, { kit, step, now }) {
+  const b = data.bag;
+  if (!b) return [];
+  const castsLeft = Math.max(0, (b.castsPerDay || 0) - (b.casts || 0));
+  const chi = `${kit.e('chi')} ${pill(`${b.chi}/${b.bag}`)} Chi${step.bagBar ? ` ${kit.bar(b.chi, b.bag, { colour: 'blue', style: 'blocks' })}` : ''}`;
+  const parts = [chi, `today ${pill(`+${b.today}/${b.perDay}`)}`, `${pill(`${castsLeft} of ${b.castsPerDay}`)} casts left`];
+  if (b.peace) parts.push('☮️ no hexes');
+  else if (b.hexesOff) parts.push('hexes are off here');
+  const lines = [parts.join(' · ')];
+  const on = (b.on || []).filter(c => !(c.until <= now)).map((c) => {
+    const from = c.kind === 'hex' ? `hex, ${c.byName ? `from ${cardName(c.byName)}` : 'Ching Dai\'s Curse'}` : `from ${cardName(c.byName || 'someone')}`;
+    const uses = c.counts ? ` · ${formatNumber(c.left)} ${plural(c.left, 'play')} left` : '';
+    return `${c.label} *(${from})*${uses}${c.kind === 'hex' ? ' · `/six-demon-bag shrug`' : ''}`;
+  });
+  if (on.length) lines.push(`On you: ${on.join(' — ')}`);
+  return [{ name: `${kit.e('bag')} Six-Demon Bag`, value: lines.join('\n'), inline: false }];
+}
+
+/**
  * The card below its summary, top to bottom. Each section returns its
  * fields, or none when it has nothing to show, so a card never carries an
  * empty heading. Each reads its own optional key of `data`, so a card
@@ -353,7 +383,7 @@ function titleFields(data, { kit, step }) {
  * since R4, a twist's statuses). R4's `happenings` are lines in the
  * description (see description), and so is R5's `siege`.
  */
-const SECTIONS = [gameFields, rewardFields, nightsFields, gloveboxFields, titleFields, effectFields];
+const SECTIONS = [gameFields, rewardFields, nightsFields, gloveboxFields, titleFields, bagFields, effectFields];
 
 /** One layout step, as a plain embed object (see clipEmbedToFit for why) */
 function draft(data, kit, step, now) {
@@ -417,7 +447,10 @@ export function renderGameCard(data, options = {}) {
  *
  * R5: a live siege goes on the all-games card when the siege is one of its
  * games, and on the Siege card — a fight that's on is the reason to play.
- * @param {?{progress, nights, glovebox, titles, effects?, happenings?, siege?}} extras
+ *
+ * 2.76.0: the Six-Demon Bag goes on the all-games card: Chi comes from
+ * every game, and a charm follows the member into whichever they play next.
+ * @param {?{progress, nights, glovebox, titles, effects?, happenings?, siege?, bag?}} extras
  * @param {{game: string, shown: string[]}} on
  */
 export function cardExtras(extras, { game = 'all', shown = [] } = {}) {
@@ -430,7 +463,7 @@ export function cardExtras(extras, { game = 'all', shown = [] } = {}) {
     ...(extras.siege && (game === 'siege' || (game === 'all' && shown.includes('siege'))) ? { siege: extras.siege } : {}),
   };
   if (game !== 'all') return { progress, titles: { shown: extras.titles?.shown || null, earned: [], next: [] }, ...r4 };
-  return { progress, nights: extras.nights || null, glovebox: extras.glovebox || [], titles: extras.titles || null, ...r4 };
+  return { progress, nights: extras.nights || null, glovebox: extras.glovebox || [], titles: extras.titles || null, ...r4, ...(extras.bag ? { bag: extras.bag } : {}) };
 }
 
 /**

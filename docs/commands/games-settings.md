@@ -1,6 +1,6 @@
 ---
 title: Game Settings for Admins - Egg Shen Bot
-description: Setting up Egg Shen Bot's Discord games with /eggshen-config-games. Play limits and rescue shields, keeping the games to certain channels, turning a game off, twists and happenings, the pace, random sieges, and resetting scores.
+description: Setting up Egg Shen Bot's Discord games with /eggshen-config-games. Play limits and rescue shields, keeping the games to certain channels, turning a game off, twists and happenings, the pace, random sieges, the Six-Demon Bag's hexes, and resetting scores.
 kit: true
 kitHeadings:
   limits: clock
@@ -19,7 +19,7 @@ The games work the moment the bot joins: every channel, the default limits, twis
 |---|---|
 | `limits` | The cooldown, plays a minute, the daily scoring cap, and how long a rescue shield lasts |
 | `channels` | Where the games can be played |
-| `happenings` | Twists, happenings, the pace, and random sieges |
+| `happenings` | Twists, happenings, the pace, random sieges, and the Six-Demon Bag's hexes |
 | `reset-scores` | Erases scores, for everyone or one member, all games or one |
 
 Each one with no options shows the current settings, and only you see the reply. Turning a game off altogether is done with `/eggshen-config commands toggle`, beside every other command's switch ([Turning a game off](#turning-a-game-off)).
@@ -71,6 +71,14 @@ Each game has its own switch (`potion`, `foodfight`, `doom`, `rescue`, `siege`) 
 
 Turning off `siege` stops `/siege attack` and `/siege status` for members, and calls off a siege that's on within a minute (no rewards, no penalty). Admins and moderators can still use all of it, but can't start a new one until it's back on. A siege's weapons are the other games, so turning off `foodfight`, `doom` or `potion` also takes that weapon off the monster, turning off `rescue` stops it grabbing, and turning off `potion` stops it poisoning. See [Siege › Turning it off](./games-siege#turning-it-off).
 
+`/six-demon-bag` has its own switch, `magic`:
+
+```
+/eggshen-config commands toggle setting:magic enabled:false
+```
+
+Off, it's more than the command: plays stop earning Chi, blessings and hexes already cast stop working, the Red Envelope and Ching Dai's Curse twists stop coming, and the bag leaves `/how-to-play`, `/eggshen-help` and the card. Chi and charms are kept for when it's back on. To keep blessings and switch off only hexes, use `hexes:false` below. See [The Six-Demon Bag › Turning it off](./games-magic#turning-it-off).
+
 ## Happenings and twists
 
 ```
@@ -84,9 +92,10 @@ Turning off `siege` stops `/siege attack` and `/siege status` for members, and c
 /eggshen-config-games happenings end:true
 /eggshen-config-games happenings pace:quick
 /eggshen-config-games happenings siege-frequency:rare siege-minutes:30
+/eggshen-config-games happenings hexes:false
 ```
 
-With no options it shows the current settings: whether happenings and twists are on, how often, where they're announced, the [pace](./games-siege#pace) and what it means here (how long a siege lasts, the monster's timings, the attacks a night, how long happenings last), random sieges, what's on now (and today's calendar happening), and the last few. You can set several options at once. Only you see the reply.
+With no options it shows the current settings: whether happenings, twists and hexes are on, how often, where they're announced, the [pace](./games-siege#pace) and what it means here (how long a siege lasts, the monster's timings, the attacks a night, how long happenings last), random sieges, what's on now (and today's calendar happening), and the last few. You can set several options at once. Only you see the reply.
 
 | Option | What it does |
 |---|---|
@@ -100,6 +109,7 @@ With no options it shows the current settings: whether happenings and twists are
 | `siege-frequency` | How often a monster attacks by itself: **Off**, **Rare**, **Normal** (the default) or **Often**. At quick and evening pace that's about 1.5, 3 or 5 a week; from day pace on it sets the gap after the last one (rare twice as long, often half). See [Random sieges](./games-siege#random-sieges) |
 | `siege-minutes` | How long a siege lasts at quick pace, 30 to 60 minutes, unless an admin picks or the monster has its own. Default 45. At any other pace a siege lasts the pace's length |
 | `pace` | How long the server's events take: **Quick**, **Evening**, **Day**, **3 days** or **Week** (the default). See [Choosing a pace](#choosing-a-pace). A siege or happening already on keeps its timings |
+| `hexes` | [Hexes](./games-magic#fair-play) from `/six-demon-bag` on or off. Off ends every hex in place at once (the reply says how many), no hex can be cast, and Ching Dai's Curse stops coming. Blessings carry on. Default on |
 
 Use `end:true` and `start:` together to swap one for another. Each `start` counts toward the day's 3 (from day pace on, the week's 2).
 
@@ -135,8 +145,8 @@ Every number for each pace is in the [pace table](./games-siege#pace). Nothing a
 
 Erases scores for good: everyone's, one game's, one person's, or one person's game. What goes with them:
 
-- **Everyone, or one person:** everything of theirs. That's their scores, Glovebox, prize counters, titles, nights row, shield, twist statuses and counts, and today's limits.
-- **One game** (everyone's, or one person's): that game's scores and its prize counters start over. Titles and the Glovebox stay, and so do the Points counter, nights, twist statuses and the count toward Plot Twist. Titles already earned stay earned, though progress toward the ones not yet earned in that game starts again. Resetting `siege` also zeroes the win, Wang Chi, Jack Burton and Kaiju counts the [siege titles](./games-rewards#titles) count. It doesn't touch a siege in progress or the server's difficulty.
+- **Everyone, or one person:** everything of theirs. That's their scores, Glovebox, prize counters, titles, nights row, shield, twist statuses and counts, their [Six-Demon Bag](./games-magic) (Chi, blessings and hexes on them, and who they've cast on), and today's limits.
+- **One game** (everyone's, or one person's): that game's scores and its prize counters start over. Titles and the Glovebox stay, and so do the Points counter, nights, twist statuses, the count toward Plot Twist and the Six-Demon Bag. Titles already earned stay earned, though progress toward the ones not yet earned in that game starts again. Resetting `siege` also zeroes the win, Wang Chi, Jack Burton and Kaiju counts the [siege titles](./games-rewards#titles) count. It doesn't touch a siege in progress or the server's difficulty.
 
 ## Related
 

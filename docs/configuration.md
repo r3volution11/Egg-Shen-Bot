@@ -91,7 +91,7 @@ Switch a command off for members:
 /eggshen-config commands toggle setting:foodfight enabled:false
 ```
 
-Each of these can be switched off: `movie`, `tv`, `episode`, `game`, `boardgame`, `book`, `survey`, `soundtrack`, `bracket`, `watchlist`, `potion`, `foodfight`, `doom`, `rescue`, `siege`, `escape`, `quote` and `suggestQuote`. `setting:enabled` is the master switch for all of them. Admins and moderators can always use every command.
+Each of these can be switched off: `movie`, `tv`, `episode`, `game`, `boardgame`, `book`, `survey`, `soundtrack`, `bracket`, `watchlist`, `potion`, `foodfight`, `doom`, `rescue`, `siege`, `magic` (the Six-Demon Bag), `escape`, `quote` and `suggestQuote`. `setting:enabled` is the master switch for all of them. Admins and moderators can always use every command.
 
 ## Notifications
 

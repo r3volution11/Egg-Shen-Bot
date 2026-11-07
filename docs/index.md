@@ -131,7 +131,7 @@ Put 2 to 32 titles in a bracket, or up to 48 in groups, and let the server vote 
 
 <HomeShowcase id="games" icon="food" kicker="The games" title="Games that keep the chat going" cards="game-play game-card" peek items="gpie:Golden Pie, vhs:Cursed VHS, holyw:Holy Water, penny:Lucky Penny, garlic:Garlic, antid:Antidote, nlight:Night Light, silver:Silver Bullet" items-label="In the Glovebox">
 
-Throw a pie with `/foodfight throw`, deal a horror-movie fate with `/doom fate`, rescue someone, or slip them a potion. Every play scores, and playing earns items for your Glovebox, titles, a bonus for nights in a row and a place on the leaderboard. In Discord, `/how-to-play` explains the lot.
+Throw a pie with `/foodfight throw`, deal a horror-movie fate with `/doom fate`, rescue someone, or slip them a potion. Every play scores, and playing earns items for your Glovebox, titles, a bonus for nights in a row, Chi to bless or hex with `/six-demon-bag`, and a place on the leaderboard. In Discord, `/how-to-play` explains the lot.
 
 [The games](/commands/games) [Play the games](/guides/games/play)
 

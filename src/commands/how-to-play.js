@@ -19,7 +19,7 @@ import { TOPICS, replyWithHowToPlay } from '../utils/howToPlay.js';
 
 export const data = new SlashCommandBuilder()
   .setName('how-to-play')
-  .setDescription('How the games work: items, prizes, titles, nights, twists, happenings, sieges')
+  .setDescription('How the games work: items, prizes, titles, nights, twists, happenings, sieges, magic')
   .addStringOption(option => option
     .setName('topic')
     .setDescription('What to explain (default: the basics)')

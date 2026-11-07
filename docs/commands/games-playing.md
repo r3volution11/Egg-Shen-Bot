@@ -75,7 +75,7 @@ Each play posts its line with the points underneath, as in the example above: th
 - **"Them" is only scored when it's a member.** Aim at a role, @everyone or yourself and only your own points move.
 - **A siege has no "them".** The monster isn't a member, so only you score. At the default [pace](./games-siege#pace), a week, an attack's points go into the siege's pot and are paid out when it's beaten. Twists and happenings don't touch a siege attack.
 - **Points are kept for this month, this year and all time** (UTC), so a new month gives everyone a fresh start without losing the all-time record.
-- **Rewards add lines** under the points: an item you used, a defence that fired, a prize, a title, or a nights milestone. Their points are [bonus points](#bonus-points) or part of the play's points, and they're in your total. See [Items, Prizes & Titles](./games-rewards).
+- **Rewards add lines** under the points: an item you used, a defence that fired, a [blessing or hex](./games-magic#the-twelve-charms) that acted, a prize, a title, a nights milestone, or the [Chi](./games-magic#chi) that filled your bag. Their points are [bonus points](#bonus-points) or part of the play's points, and they're in your total. See [Items, Prizes & Titles](./games-rewards).
 
 ### Streaks
 
@@ -96,11 +96,14 @@ A 💧 Holy Water rescue shields them three times as long, a 📼 Cursed VHS doo
 - the **+1** from your nights tier
 - the **+2** for a Night Light you had no room for
 - the points a [twist](./games-happenings#twists) gives or takes, a Free Refill's **+1**, a Mosquito bite's **−1**, and Friday the 13th's **+1** on good plays
+- a 🔥 Fired Up blessing's **+1** and a 🔥 Scorched hex's **−1** ([The Six-Demon Bag](./games-magic#the-twelve-charms))
 - a won siege's payout
 
 They're added to the game you were playing, so they're part of that game's points, your total and your place on the leaderboard, for the month, the year and all time. The card doesn't show them separately.
 
-What an item does (×2, +2 more) isn't bonus. It's just that play's points. The same goes for a [happening](./games-happenings#happenings) that doubles a score, and for Director's Cut and Bitten.
+(The [caster's pay](./games-magic#the-caster-s-pay) for a blessing is Chi, not points, so it isn't on this list. A Jade Charm prize's +3 and the All That Kind of Thing title's +10 are bonus points like any prize's and title's.)
+
+What an item does (×2, +2 more) isn't bonus. It's just that play's points. The same goes for a [happening](./games-happenings#happenings) that doubles a score, for Director's Cut and Bitten, and for the [Six-Demon Bag](./games-magic)'s Lightning Strike, Static and Thunderous Applause.
 
 ## Limits
 
@@ -114,14 +117,16 @@ So the games stay fun and can't be farmed:
 | **Siege attacks** | the first 30 a day score; from evening pace on, also a number of attacks a night (8 at week pace) | Attacks past 30 a day still do damage. From evening pace on, an attack past the night's allowance is refused privately and costs nothing |
 | **Items, prizes, defences** | 3 items used, 2 prizes paid and 3 defences fired per member each day (UTC) | See [Items, Prizes & Titles](./games-rewards) |
 | **Twists** | 3 a day per member, and at most 8 points taken a day | See [Twists](./games-happenings#twists) |
+| **Six-Demon Bag** | 2 casts a day (UTC), at most 1 a hex. A cast has the cooldown (20 seconds between casts) and counts toward the 6 a minute | Refused privately, and it costs nothing: no Chi, no cast, no cooldown. See [The Six-Demon Bag](./games-magic#casting) |
+| **Chi** | 4 a day from good plays, 6 a day from freeing and curing (UTC), and the bag holds 20. A blessing's pay (+1 Chi) and a Red Envelope come on top | Good plays still count, just without Chi. See [Chi](./games-magic#chi) |
 | **Happenings** | one at a time, 2 hours apart, at most 3 a day (from day pace on, a day apart and at most 2 a week) | See [Happenings](./games-happenings#how-often-and-when) |
 | **Sieges** | one at a time, started by an admin or at random | See [Siege](./games-siege) |
 
-Admins can change the cooldown, the per-minute limit, the daily scoring cap and the shield's length ([Settings](./games-settings#limits)), and `/how-to-play` shows the numbers your server uses. A play that's refused for a limit is answered privately and doesn't count. The bot's general rate limit doesn't apply to the games, since they have their own; a per-command rate limit set for one of them still does.
+Admins can change the cooldown, the per-minute limit, the daily scoring cap and the shield's length ([Settings](./games-settings#limits)), and `/how-to-play` shows the numbers your server uses. A play that's refused for a limit is answered privately and doesn't count. The bot's general rate limit doesn't apply to the games or to `/six-demon-bag`'s casts, `shrug` and `peace`, since they have their own (`/six-demon-bag status` keeps it); a per-command rate limit set for one of them still does.
 
 ### Where you can play
 
-An admin can keep the games to certain channels, or out of some ([Settings](./games-settings#where-games-can-be-played)). A thread counts as its channel. Play in the wrong place and you're told privately where the games are played. `/scoreboard`, `/leaderboard` and `/how-to-play` work anywhere.
+An admin can keep the games to certain channels, or out of some ([Settings](./games-settings#where-games-can-be-played)). A thread counts as its channel. Play in the wrong place and you're told privately where the games are played. `/six-demon-bag bless`, `hex`, `peace` and `shrug` follow the same channels. `/scoreboard`, `/leaderboard`, `/how-to-play` and `/six-demon-bag status` work anywhere.
 
 ## Related
 

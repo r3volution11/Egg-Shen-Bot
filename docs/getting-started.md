@@ -174,7 +174,7 @@ The games are ready the moment the bot joins: food fights, horror-movie dooms, r
    /scoreboard
    ```
 
-To switch a game off, use `/eggshen-config commands toggle setting:siege enabled:false` (or `potion`, `foodfight`, `doom`, `rescue`). Everything else is on [Settings for Admins](/commands/games-settings).
+To switch a game off, use `/eggshen-config commands toggle setting:siege enabled:false` (or `potion`, `foodfight`, `doom`, `rescue`, `magic`). Everything else is on [Settings for Admins](/commands/games-settings).
 
 ## What Else It Does
 
@@ -182,7 +182,7 @@ To switch a game off, use `/eggshen-config commands toggle setting:siege enabled
 - **[Tournaments](/commands/brackets/):** bracket and group tournaments for movies, shows, games or books, voted with buttons. Start with the [tournament quick guides](/guides/tournaments/).
 - **[Surveys](/commands/social#survey-commands):** polls with up to 10 options, with a runoff if there's a tie.
 - **[Escape Velocity](/commands/escape-velocity):** a multi-day genre trivia climb, one launch a day.
-- **[The games](/commands/games):** points, cards, items, titles, happenings and sieges. Members can start with the [games quick guides](/guides/games/).
+- **[The games](/commands/games):** points, cards, items, titles, happenings, sieges and the Six-Demon Bag. Members can start with the [games quick guides](/guides/games/).
 - **[Discovery](/commands/):** `/random`, `/recommend` (from what your server watches) and `/similar`.
 - **[AI images](/commands/ai-images):** versus posters, tournament matchups and more, with an OpenAI key.
 - **[Event requests](/features/event-requests):** a web form where members ask for a watch party and moderators approve it into a Discord event.

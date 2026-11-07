@@ -70,6 +70,7 @@ const sidebar = [
           { text: 'Items, Prizes & Titles', link: '/commands/games-rewards' },
           { text: 'Twists & Happenings', link: '/commands/games-happenings' },
           { text: 'Siege', link: '/commands/games-siege' },
+          { text: 'The Six-Demon Bag', link: '/commands/games-magic' },
           { text: 'Settings for Admins', link: '/commands/games-settings' }
         ]
       },
@@ -251,6 +252,7 @@ export default defineConfig({
               { text: 'Items, Prizes & Titles', link: '/commands/games-rewards' },
               { text: 'Twists & Happenings', link: '/commands/games-happenings' },
               { text: 'Siege', link: '/commands/games-siege' },
+              { text: 'The Six-Demon Bag', link: '/commands/games-magic' },
               { text: 'Settings for Admins', link: '/commands/games-settings' }
             ]
           },

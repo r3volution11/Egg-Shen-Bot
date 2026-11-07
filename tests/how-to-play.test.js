@@ -29,7 +29,8 @@ import * as howToPlay from '../src/commands/how-to-play.js';
 import { createKit, KIT_CODES, pill, formatNumber } from '../src/utils/emojiKit.js';
 import { messageProblems } from '../src/utils/embedFit.js';
 import { DEFAULT_GAME_SETTINGS, POINTS } from '../src/utils/gameScores.js';
-import { PRIZES, ITEMS, SIEGE, SIEGE_PACES, TWISTS, TITLES } from '../src/data/gameRewards.js';
+import { PRIZES, ITEMS, SIEGE, SIEGE_PACES, TWISTS, TITLES, CHI, MAGIC, BAG_3B } from '../src/data/gameRewards.js';
+import { ELEMENTS, ELEMENT_KEYS } from '../src/data/btilcLines.js';
 import { HAPPENINGS } from '../src/data/gameHappenings.js';
 import { MONSTER_KEYS } from '../src/data/siegeMonsters.js';
 import { loadGuildConfig, saveGuildConfig } from '../src/utils/guildConfig.js';
@@ -303,7 +304,7 @@ describe('games switched off on the server are left out', () => {
 
   test('/siege off: no Siege topic; asked for, it shows the basics and says why', () => {
     const ctx = ctxOf({ off: ['siege'] });
-    expect(topicsFor(ctx).map(t => t.key)).toEqual(['basics', 'items', 'prizes', 'nights', 'twists', 'happenings']);
+    expect(topicsFor(ctx).map(t => t.key)).toEqual(['basics', 'items', 'prizes', 'nights', 'twists', 'happenings', 'magic']);
     const e = renderTopic('siege', ctx, { kit: fallback });
     expect(e.title).toBe('How to play: the basics');
     expect(e.description.startsWith('⏸️ **Siege isn\'t on this server**, so here are the basics.')).toBe(true);
@@ -345,6 +346,46 @@ const nav = (message) => {
 };
 const titleOf = (message) => message.embeds[0].title;
 
+describe('2.76.0: the Six-Demon Bag topic', () => {
+  test('Chi, blessings, hexes, fair play and the pay-back — every number the code\'s', () => {
+    const e = renderTopic('magic', ALL_ON, { kit: fallback });
+    expect(e.title).toBe('How to play: the Six-Demon Bag');
+    expect(e.fields.map(f => f.name)).toEqual(['☯️ Chi', `🎒 Blessings · ${CHI.cost.bless} Chi`, `🚨 Hexes · ${CHI.cost.hex} Chi`, '🛡️ Fair play', '⭐ It pays back']);
+    const chi = field(e, 'Chi').value.split('\n');
+    expect(chi[0]).toContain(`${pill(`+${CHI.earn}`)} for a good play`);
+    expect(chi[0]).toContain(`At most ${pill(CHI.perDay)} a day (UTC).`);
+    expect(chi[1]).toBe(`${pill(`+${CHI.help}`)} for freeing or curing a siege fighter, at most ${pill(CHI.helpPerDay)} a day: the real hero gets the most magic.`);
+    expect(field(e, `Blessings · ${CHI.cost.bless} Chi`).value.split('\n')).toEqual(ELEMENT_KEYS.map(el => `${ELEMENTS[el].emoji} **${ELEMENTS[el].blessName}**: ${ELEMENTS[el].blessAbout}`));
+    expect(field(e, `Hexes · ${CHI.cost.hex} Chi`).value.split('\n')).toEqual(ELEMENT_KEYS.map(el => `${ELEMENTS[el].emoji} **${ELEMENTS[el].hexName}**: ${ELEMENTS[el].hexAbout}`));
+    const fair = field(e, 'Fair play').value;
+    expect(fair).toContain(`${pill(MAGIC.castsPerDay)} casts a day, at most ${pill(MAGIC.hexesPerDay)} a hex`);
+    expect(fair).toContain('cancels them: ⚡ Lightning ⟷ 🌩️ Thunder · 🌧️ Rain ⟷ 🔥 Fire · 💨 Wind ⟷ 🌫️ Smoke.');
+    expect(fair).toContain(`Nobody takes more than ${pill(MAGIC.hexesReceivedPerDay)} hexes a day, or 1 from the same caster in ${pill(`${MAGIC.hexPairHours}h`)}`);
+    const pays = field(e, 'It pays back').value;
+    expect(pays).toContain(`you get ${pill(`+${MAGIC.casterPay}`)}${MAGIC.casterPayIn === 'chi' ? ' Chi' : ''}. Hexes never pay.`);
+    if (BAG_3B) expect(pays).toContain('🧿 Jade Charm');
+  });
+
+  test('hexes off: said, and none of their limits; the bag toggled off: no topic, no Jade Charm, no Blessings prize, no title, no 3B twists', () => {
+    const noHexes = renderTopic('magic', ctxOf({ games: { hexes: false } }), { kit: fallback });
+    expect(field(noHexes, `Hexes · ${CHI.cost.hex} Chi`).value).toBe('⏸️ **Hexes are switched off on this server.**');
+    expect(field(noHexes, 'Fair play').value.split('\n')).toHaveLength(1);
+    expect(noHexes.description).not.toContain('hex a rival');
+    const off = helpContext({ commandPermissions: { magic: false } });
+    expect(topicsFor(off).map(t => t.key)).not.toContain('magic');
+    expect(renderTopic('magic', off, { kit: fallback }).title).toBe('How to play: the basics');
+    expect(text(renderTopic('items', off, { kit: fallback }))).not.toContain('Jade Charm');
+    expect(field(renderTopic('prizes', off, { kit: fallback }), 'Prizes').value).not.toContain('blessings');
+    const twists = text(renderTopic('twists', off, { kit: fallback }));
+    expect(twists).not.toContain('Red Envelope');
+    expect(twists).not.toContain('Ching Dai');
+    if (BAG_3B) {
+      expect(text(renderTopic('items', ALL_ON, { kit: fallback }))).toContain('Jade Charm');
+      expect(field(renderTopic('prizes', ALL_ON, { kit: fallback }), 'Prizes').value).toContain(`${pill(MAGIC.jadeNeed)} blessings → 🧿 Jade Charm`);
+    }
+  });
+});
+
 describe('/how-to-play, its buttons and its menu', () => {
   let discord;
   beforeEach(() => {
@@ -374,9 +415,17 @@ describe('/how-to-play, its buttons and its menu', () => {
     await handleSelectInteraction(pick);
     expect(pick.edited).toEqual([card]);
     expect(titleOf(card)).toBe('How to play: the siege');
-    // Siege is last: Next ▶ is off, and the menu shows where you are
-    expect(nav(card).next.disabled).toBe(true);
+    // The menu shows where you are; since 2.76.0 the Six-Demon Bag is
+    // after the siege, and last: Next ▶ there is off
+    expect(nav(card).next.disabled).toBe(false);
     expect(nav(card).menu.options.find(o => o.default)?.value).toBe('siege');
+    const last = discord.select('sam', card, HTP_MENU_ID, ['magic']);
+    await handleSelectInteraction(last);
+    expect(titleOf(card)).toBe('How to play: the Six-Demon Bag');
+    expect(nav(card).next.disabled).toBe(true);
+    const back = discord.button('sam', card, nav(card).prev.customId);
+    await handleButtonInteraction(back);
+    expect(titleOf(card)).toBe('How to play: the siege');
 
     // ◀ Previous goes back one
     const prev = discord.button('sam', card, nav(card).prev.customId);
@@ -448,7 +497,7 @@ describe('/how-to-play, its buttons and its menu', () => {
     const json = howToPlay.data.toJSON();
     expect(json.name).toBe('how-to-play');
     const [topic, priv] = json.options;
-    expect(topic.choices.map(c => c.name)).toEqual(['Basics', 'Items & Glovebox', 'Prizes & titles', 'Nights in a row', 'Twists', 'Happenings', 'Siege']);
+    expect(topic.choices.map(c => c.name)).toEqual(['Basics', 'Items & Glovebox', 'Prizes & titles', 'Nights in a row', 'Twists', 'Happenings', 'Siege', 'Six-Demon Bag']);
     expect(topic.required).toBe(false);
     expect([priv.name, priv.type, priv.required]).toEqual(['private', 5, false]);
     expect(MessageFlags.Ephemeral).toBe(64);

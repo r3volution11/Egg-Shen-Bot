@@ -1,6 +1,6 @@
 ---
 title: Your Card & the Leaderboard - Egg Shen Bot
-description: The game card from /scoreboard or right-click → Apps → Game card, with points, ranks, streaks, prizes in progress, nights in a row, the Glovebox and titles, and /leaderboard, the server's top players by month, year and all time.
+description: The game card from /scoreboard or right-click → Apps → Game card, with points, ranks, streaks, prizes in progress, nights in a row, the Glovebox, titles and the Six-Demon Bag, and /leaderboard, the server's top players by month, year and all time.
 kit: true
 kitHeadings:
   scoreboard: chart
@@ -34,6 +34,7 @@ Top to bottom, it shows:
 - **🌙 Nights in a row:** your last 14 nights in two rows of seven, your row and best row, your tier and what it pays ([Nights in a row](./games-rewards#nights-in-a-row)).
 - **🧰 Glovebox:** the [items](./games-rewards#the-glovebox-and-items) they hold. A passive item says so, or when it's ready again after it fired.
 - **📜 Titles:** how many they've [earned](./games-rewards#titles), as badges, then the next few they're closest to, with their counts.
+- **🎒 Six-Demon Bag:** once they have some [Chi](./games-magic#chi), Chi earned or a cast today, something on them, or peace: their Chi out of 20 with a bar, today's Chi from plays (`+3/4`), the casts they have left, ☮️ if they're at peace, then what's on them, who cast it and how many plays it has left. A hex comes with the way out, `/six-demon-bag shrug`. On a very full card the bag's bar is the first thing the card leaves out. See [Your bag](./games-magic#your-bag).
 - **The footer** names the period and how to open anyone's card.
 
 Options:
@@ -53,7 +54,7 @@ Options:
 /scoreboard title:Pie Sniper
 ```
 
-A card for one game shows only that game's counters, the shown title and any happening line (and the siege line, on the Siege card). The nights, Glovebox, titles and twist statuses are on the all-games card. Games turned off on the server are left out of the card, its total and its rank. Someone who hasn't played gets a card that says so.
+A card for one game shows only that game's counters, the shown title and any happening line (and the siege line, on the Siege card). The nights, Glovebox, titles, twist statuses and the Six-Demon Bag are on the all-games card. Games turned off on the server are left out of the card, its total and its rank. Someone who hasn't played gets a card that says so.
 
 ### Game card (right-click)
 

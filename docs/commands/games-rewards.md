@@ -1,6 +1,6 @@
 ---
 title: Items, Prizes & Titles - Egg Shen Bot
-description: What Egg Shen Bot's Discord games pay you back. Glovebox items like the Golden Pie, Cursed VHS and Silver Bullet, and how to use one, prizes for every few plays, titles with badges, and nights in a row with the Night Light.
+description: What Egg Shen Bot's Discord games pay you back. Glovebox items like the Golden Pie, Cursed VHS, Silver Bullet and Jade Charm, and how to use one, prizes for every few plays, titles with badges, and nights in a row with the Night Light.
 kit: true
 kitHeadings:
   the-glovebox-and-items: glove
@@ -29,8 +29,9 @@ Everyone has a **Glovebox**. It holds **items**: small one-use helpers you earn 
 | 🍀 Lucky Penny | 3 | You use it | **`/potion give`:** the potion always works (no backfire), and your points ×2. |
 | 🥈 Silver Bullet | 2 | You use it | **`/siege attack`, any weapon:** can't backfire, and the damage ×3 (×5 against The Wolfman). It's won as [siege loot](./games-siege#rewards-and-the-penalty) and every 4 siege wins ([Prizes](#prizes)), and it does nothing outside a siege. |
 | 🧄 Garlic | 1 | By itself | A `/doom` aimed at you that would land turns into an escape. Then it's used up, and another can't work for 12 hours. |
-| 💊 Antidote | 2 | By itself | A harmful potion that works on you does you no harm, and whoever gave it gets +1 instead of +2. In a [siege](./games-siege#it-fights-back), it cures the monster's poison the moment it lands. Then it's used up, and another can't work for 6 hours. |
+| 💊 Antidote | 2 | By itself | A harmful potion that works on you does you no harm, and whoever gave it gets +1 instead of +2, and no [Chi](./games-magic#chi). In a [siege](./games-siege#it-fights-back), it cures the monster's poison the moment it lands. Then it's used up, and another can't work for 6 hours. |
 | 🔦 Night Light | 1 | By itself | Saves your [nights in a row](#nights-in-a-row) when you miss one night. At most once in any 7 days. |
+| 🧿 Jade Charm | 1 | By itself | Turns aside the next [hex](./games-magic) cast on you: the caster's Chi and cast are spent, and nothing lands (it still counts as one of the 2 hexes you can take that day). Then it's used up, and another can't work for 24 hours. It counts as one of your 3 defences that day. Earned every 12 [blessings that pay off](#prizes); it's never a random prize or loot, and a Car Break-In never takes it. |
 
 - **In a siege, items work differently.** Golden Pie, Cursed VHS and Lucky Penny narrow the outcome but don't double anything, and the Silver Bullet multiplies damage. See [Items in a siege](./games-siege#items-in-a-siege).
 - **"Points ×2" only doubles your gains.** Your losses, and the other person's points, are never doubled. However many things multiply a play, your gains stop at ×3.
@@ -57,19 +58,22 @@ The limits:
 - **One item per play.**
 - **3 items a day** (UTC), siege attacks included. After the third, the list says they work again tomorrow.
 - **Not on a play past the daily scoring cap** (for a siege, [30 attacks a day](./games-playing#limits)). The play goes ahead for fun, the item isn't used, and the reply says it stayed in your Glovebox.
-- **Garlic, the Antidote and the Night Light aren't picked.** They work by themselves.
+- **Garlic, the Antidote, the Night Light and the Jade Charm aren't picked.** They work by themselves.
 
 If you ask for an item you don't hold (you're told how to earn one), one that doesn't fit the play, or a fourth in a day, you're told privately. The play doesn't happen and your cooldown isn't spent.
 
 ### Defences
 
-Three things can stand between a member and a play aimed at them: a **rescue shield** ([Shields](./games-playing#shields)), **Garlic** (against `/doom`) and the **Antidote** (against a harmful potion).
+Four things can stand between a member and a play aimed at them: a **rescue shield** ([Shields](./games-playing#shields)), **Garlic** (against `/doom`), the **Antidote** (against a harmful potion), and a 🌫️ **Smoke Screen** [blessing](./games-magic#the-twelve-charms) (against any harmful play: a throw misses, a doom escapes, a harmful potion does no harm). The 🧿 Jade Charm guards against a hex rather than a play.
 
 - **One defence per play.** The shield comes first: a shielded member is blocked, and Garlic stays unused.
 - **At most 3 defences a day** per member, with the shield, Garlic and Antidote counted together. After that, plays land as usual, so nobody becomes immune.
 - **Only for plays aimed at you.** You can doom yourself through your own shield, and Garlic and the Antidote don't work on a role or @everyone.
 - **The Cursed VHS cuts through** both the shield and Garlic.
 - **Defences need a scoring play.** Against someone past their daily scoring cap, the shield, Garlic and the Antidote don't fire. That play is worth nothing anyway, so nothing is used up and it doesn't count toward the 3.
+- **Smoke Screen fires last,** after the shield, Garlic and the Antidote, so it's never wasted on a play another one stopped. The Cursed VHS cuts through it too.
+- **The Jade Charm counts toward the 3** like the others: with 3 defences fired today, a hex lands as usual.
+- **A stopped play earns no [Chi](./games-magic#chi).** Whoever made it still gets its points (a harmful potion's +1), but nothing for the bag.
 
 When Garlic turns a doom into an escape, it's scored like any escape: the doomer −1, you +2.
 
@@ -86,10 +90,12 @@ Each kind of play has a **counter**. Reach its number and you get an item and a 
 | 15 helpful potions that worked | 💊 Antidote, +3 |
 | 20 harmful potions that worked | 🍀 Lucky Penny, +3 |
 | 750 points gained | A random item |
+| 12 of your [blessings](./games-magic#the-caster-s-pay) that paid off | 🧿 Jade Charm, +3 |
 | 4 [siege](./games-siege) wins | 🥈 Silver Bullet, +10 |
 | Nights in a row: 3, then every 7 more | 🔦 Night Light ([Nights in a row](#nights-in-a-row)) |
 
 - **Only your own plays count.** A hit counts when you throw it, not when you're hit. The one exception is the points counter, which also counts the positive points you gain when someone else's play helps you.
+- **Blessings count for whoever cast them,** when they [pay off](./games-magic#the-caster-s-pay), whoever they helped. Hexes never count. Where the Six-Demon Bag is switched off, the counter isn't shown.
 - **Only plays that score.** Plays past the daily scoring cap don't move a counter.
 - **Siege wins** count when a won siege pays you (at most [2 a day](./games-siege#rewards-and-the-penalty)), and the Silver Bullet they bring doesn't count toward the 2 prizes a day.
 - **"Points" means play points.** Bonus points never feed the 750-point counter. The points from each [siege attack](./games-siege#what-each-weapon-does) count; the payout when a siege ends is bonus, so it doesn't.
@@ -163,6 +169,14 @@ A title is a badge for something you've done a lot, or had done to you a lot. Ea
 | 🍖 Monster Chow | Get grabbed by a siege monster 10 times |
 
 Monster Hunter, Siege MVP, Wang Chi, Legend, Everybody Relax and Kaiju Killer count wins, not attacks, so they move only when a siege ends in a win. Every fighter in a won siege gets the win. The [Wang Chi](./games-siege#the-wang-chi-and-the-jack-burton) is whoever helped most (it replaced the MVP in 2.75, and MVPs from before count toward these titles); the Jack Burton is whoever landed the killing blow. Field Medic and Monster Chow count [what the monster does](./games-siege#it-fights-back) and who you save.
+
+**The Six-Demon Bag**
+
+| Title | You need |
+|---|---|
+| 🎒 All That Kind of Thing | Have [blessings](./games-magic) of all six elements pay off. "Wind, fire, all that kind of thing!" |
+
+Hexing earns no title.
 
 Titles take a while. Your card shows the ones you're closest to, with your count.
 

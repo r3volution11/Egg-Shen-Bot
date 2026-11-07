@@ -88,6 +88,20 @@
  *   - a free or cure past its game's scoring cap frees or cures; only the
  *     first SIEGE.credit.unscoredPerNight a night count (the model reads
  *     which from the reply)
+ *
+ * The Six-Demon Bag (2.76.0): `sim.cast(userId, 'bless'|'hex', targetId,
+ * element)` is /six-demon-bag, through the same dispatch (it shares the
+ * games' cooldown and 6-a-minute limit, under its own key — modelled). And
+ * these hold after every step:
+ *   - a refused cast changes no file and spends no cooldown
+ *   - no hex lands on someone fighting the live siege
+ *   - a member carries at most one blessing and one hex (and nothing else
+ *     in their charms but a ward and peace)
+ *   - nobody takes more than MAGIC.hexesReceivedPerDay hexes a day
+ *   - Chi stays within 0..CHI.bag; a day's play Chi ≤ CHI.perDay and help
+ *     Chi ≤ CHI.helpPerDay
+ *   - siege points never move from a charm (checkPoints: a charm never acts
+ *     on a siege attack, and a cast's payoff goes to a game that isn't it)
  */
 
 import { jest } from '@jest/globals';
@@ -103,7 +117,7 @@ const src = (p) => path.join(SRC, p);
 export const MINUTE = 60_000;
 const GENERIC_ERROR = /an error occurred|something went wrong|error executing this command/i;
 /** The commands the simulated bot has (dispatched by name, as client.commands) */
-export const COMMANDS = ['siege', 'rescue', 'potion', 'foodfight', 'doom', 'eggshen-config', 'eggshen-config-games', 'scoreboard', 'leaderboard'];
+export const COMMANDS = ['siege', 'rescue', 'potion', 'foodfight', 'doom', 'eggshen-config', 'eggshen-config-games', 'scoreboard', 'leaderboard', 'six-demon-bag'];
 /** Everyone but the admin */
 export const MEMBERS = ['ana', 'ben', 'cat', 'dev', 'eve', 'fay', 'gus'];
 /** guild.members.me: who botCanPost asks about */
@@ -154,6 +168,7 @@ async function loadBot() {
     rateLimiter: await import(src('utils/rateLimiter.js')),
     scheduler: await import(src('utils/happeningScheduler.js')),
     store: await import(src('utils/siegeStore.js')),
+    magic: await import(src('utils/gameMagic.js')),
     pace: await import(src('utils/gamePace.js')),
     happenings: await import(src('utils/happeningStore.js')),
     scores: await import(src('utils/gameScores.js')),
@@ -725,6 +740,37 @@ export class Sim {
   }
 
   /**
+   * /six-demon-bag bless|hex (2.76.0): `element` as Discord sends it — the
+   * key an autocomplete choice carries, or whatever was typed
+   */
+  cast(userId, kind, targetId, element, { channel = 'games', uncached = false } = {}) {
+    const target = this.discord.who(targetId);
+    return this.command(userId, 'six-demon-bag', { subcommand: kind, options: { member: { user: target.user, member: target.member }, element }, channel, uncached, kind: 'cast' });
+  }
+
+  /** Any other /six-demon-bag subcommand (peace, shrug, status) */
+  bag(userId, subcommand, options = {}, { channel = 'games' } = {}) {
+    return this.command(userId, 'six-demon-bag', { subcommand, options, channel, kind: 'bag' });
+  }
+
+  /** The `element` autocomplete, as Discord would show it, with the member picked (or not) */
+  async suggestElements(userId, kind, targetId = null, typed = '') {
+    const options = targetId ? { member: { user: this.discord.who(targetId).user, member: this.discord.who(targetId).member } } : {};
+    const i = this.discord.autocomplete(userId, 'six-demon-bag', { subcommand: kind, options, focused: { name: 'element', value: typed } });
+    await mods.commands.get('six-demon-bag').autocomplete(i);
+    if (this.discord.violations.length) this.fail(`${userId}: element autocomplete`, this.discord.violations.join('\n'));
+    return i.choices || [];
+  }
+
+  /** Give a member Chi, as good plays would have (a test's setup, like giveItem) */
+  giveChi(userId, n) {
+    mods.scores.mutateScores(this.guildId, (data) => {
+      const u = (data.users[userId] ||= { name: userId, games: {} });
+      u.chi = { n: Math.min(mods.rewards.CHI.bag, (u.chi?.n || 0) + n) };
+    });
+  }
+
+  /**
    * /rescue attempt at a member — `force` lands it on rescued/caught/sacrificed
    * (Math.random pinned onto such a line, the item's weights included)
    */
@@ -1106,6 +1152,9 @@ export class Sim {
     for (const i of ctx.interactions || []) this.checkPlayLimits(i, ctx, say);
     if (ctx.kind === 'attack' && !ctx.crashed) this.checkAttack(ctx.interactions[0], before, s, ctx, say);
     if (ctx.kind === 'back' && !ctx.crashed) this.checkBack(ctx.interactions[0], before, s, say);
+    // 2.76.0: the Six-Demon Bag
+    if (ctx.kind === 'cast' && !ctx.crashed) this.checkCast(ctx.interactions[0], before, say);
+    this.checkMagic(before, say);
     if (!ctx.crashed) for (const i of ctx.interactions || []) this.checkStatusReply(i, s, say);
 
     if (problems.length) {
@@ -1655,8 +1704,10 @@ export class Sim {
    */
   checkPlayLimits(i, ctx, say) {
     if (ctx.crashed) return;
-    const game = i.commandName;
-    if (!['siege', 'foodfight', 'doom', 'rescue', 'potion'].includes(game)) return;
+    // 2.76.0: a cast shares the limits, under its own key (GAME_NAMES.magic)
+    const game = i.commandName === 'six-demon-bag' ? 'magic' : i.commandName;
+    if (game === 'magic' && !['bless', 'hex'].includes(i.subcommand)) return;
+    if (!['siege', 'foodfight', 'doom', 'rescue', 'potion', 'magic'].includes(game)) return;
     if (game === 'siege' && i.subcommand !== 'attack') return;
     if (['foodfight', 'doom', 'rescue', 'potion'].includes(game) && !['throw', 'feed', 'fate', 'attempt', 'give'].includes(i.subcommand)) return;
     const reply = i.responses[0];
@@ -1765,6 +1816,50 @@ export class Sim {
       const antidote = /Antidote cured it at once/.test(content);
       if (antidote === mods.store.poisonedNow(p, clock.now)) say(`${u}'s fizzle: antidote ${antidote}, poisoned ${JSON.stringify(p.poisoned)}`);
       if (!antidote && !/The potion splashed back/.test(content)) say(`${u}'s fizzle poisoned them without saying so`);
+    }
+  }
+
+  /**
+   * 2.76.0: a cast — refused, it changed no file (its cooldown is
+   * checkPlayLimits'); landed as a hex, its target wasn't fighting the
+   * siege as it stood, and the reply pinged its target alone
+   */
+  checkCast(i, before, say) {
+    const reply = i.replyMessage;
+    if (!reply) return;
+    const u = i.user.id;
+    if (reply.ephemeralFor) {
+      if (this.before().scoresRaw !== before.scoresRaw) say(`${u}'s refused cast ("${reply.content.split('\n')[0]}") changed the scores file`);
+      if (this.before().happeningsRaw !== before.happeningsRaw) say(`${u}'s refused cast changed the happenings file`);
+      return;
+    }
+    const targetId = (i.options.get('member')?.user || i.options.getUser('member'))?.id;
+    const pinged = reply.allowedMentions?.users || [];
+    if (JSON.stringify(pinged) !== JSON.stringify([targetId]) || (reply.allowedMentions?.parse || []).length) say(`${u}'s cast may ping ${JSON.stringify(reply.allowedMentions)}, not just ${targetId}`);
+    if (i.subcommand === 'hex' && before.siege && mods.store.fightingNow(before.siege, targetId, clock.now)) {
+      const hex = this.scores().users?.[targetId]?.charms?.hex;
+      if (hex && hex.at === clock.now) say(`${u}'s hex landed on ${targetId}, who is fighting the siege`);
+    }
+  }
+
+  /** 2.76.0: what must always hold of everyone's magic */
+  checkMagic(before, say) {
+    const data = this.scores();
+    const { CHI, MAGIC } = mods.rewards;
+    const today = mods.scores.dayKey(clock.now);
+    for (const [id, u] of Object.entries(data.users || {})) {
+      const n = u?.chi?.n;
+      if (n !== undefined && !(Number.isInteger(n) && n >= 0 && n <= CHI.bag)) say(`${id} holds ${n} Chi`);
+      const extra = Object.keys(u?.charms || {}).filter(k => !['bless', 'hex', 'wardUntil', 'peace'].includes(k));
+      if (extra.length) say(`${id}'s charms hold ${extra}`);
+      if (u?.charms?.hex && u?.charms?.peace?.on && u.charms.hex.until > clock.now && u.charms.hex.left > 0) say(`${id} is at peace with a hex on them`);
+    }
+    for (const [id, d] of Object.entries(data.daily || {})) {
+      if (d?.day !== today) continue;
+      if ((d.hexRecv || 0) > MAGIC.hexesReceivedPerDay) say(`${id} took ${d.hexRecv} hexes today`);
+      if ((d.chi || 0) > CHI.perDay) say(`${id} earned ${d.chi} play Chi today`);
+      if ((d.helpChi || 0) > CHI.helpPerDay) say(`${id} earned ${d.helpChi} help Chi today`);
+      if ((d.casts || 0) > MAGIC.castsPerDay || (d.hexes || 0) > MAGIC.hexesPerDay) say(`${id} cast ${d.casts} (${d.hexes} hexes) today`);
     }
   }
 

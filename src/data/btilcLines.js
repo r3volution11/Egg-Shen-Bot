@@ -743,7 +743,12 @@ export const SIX_DEMON_BAG = deepFreeze({
     peaceTarget: '🎒 {target} has made peace: no hexes, either way. A blessing still works.',
     peaceSelf: '🎒 You\'ve made peace, so you can\'t hex anyone. Blessings are still yours to give.',
     pairLimit: '🎒 You\'ve hexed {target} recently. You can again {when}.',
-    fighting: '🎒 {target} is fighting the monster, and the siege is co-op: no hexes on fighters. A blessing becomes a boost.',
+    // 2.76.0 (R3 brief §9): design §8.3's limit on blessing one member, which had no line
+    blessPair: '🎒 You\'ve blessed {target} {count} times this week. Spread the luck around: you can again {when}.',
+    // "A blessing becomes a boost." comes back with R4's boosts (R3 brief §9)
+    fighting: '🎒 {target} is fighting the monster, and the siege is co-op: no hexes on fighters.',
+    // Only with gameRewards.MAGIC.fighterBlessing 'refuse' (OPEN QUESTION 3; the default lands it as an ordinary blessing)
+    fighterBless: '🎒 {target} is in the thick of the siege. Save the blessing for after the fight.',
     inactive: '🎒 {target} hasn\'t played this week. The bag only hexes people who are around to shrug it off.',
     hexesOff: '🎒 Hexes are switched off on this server. Blessings still work.',
   },

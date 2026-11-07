@@ -224,7 +224,8 @@ describe('items', () => {
 
     const fourth = draw('doom', 'fate', ZOMBIE, { item: 'vhs', now: T + 4 * MIN });
     expect(fourth.result.item).toEqual({ key: 'vhs', used: false, note: 'limit' });
-    expect(fourth.extras).toEqual(['-# 📼 Cursed VHS stayed in Sam\'s Glovebox: that\'s 3 items today already.']);
+    // (2.76.0: the day's 4th good play also fills its Chi, and says so)
+    expect(fourth.extras).toEqual(['-# 📼 Cursed VHS stayed in Sam\'s Glovebox: that\'s 3 items today already.', '-# ☯️ Sam +1 Chi · that\'s all the Chi for today']);
     expect(user('sam').glovebox).toEqual({ vhs: 2 });
 
     const tomorrow = Date.UTC(2026, 10, 3, 0, 5);
@@ -721,6 +722,8 @@ describe('getPlayerCardExtras', () => {
       ['helpful', 'potion', 'antid', 0, 15, 'antid', 3, false],
       ['harmful', 'potion', 'penny', 0, 20, 'penny', 3, false],
       ['points', null, 'gift', 120, 750, null, 0, false],
+      // 2.76.0 (3B): a Jade Charm every 12 blessings that paid off
+      ['blessings', null, 'jade', 0, 12, 'jade', 3, false],
       // R6: a Silver Bullet every 4 siege wins
       ['siegewins', 'siege', 'silver', 0, 4, 'silver', 10, false],
       ['nights', null, 'nlight', 2, 3, 'nlight', 0, false],

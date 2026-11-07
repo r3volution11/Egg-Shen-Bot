@@ -499,7 +499,7 @@ By default each member waits 5 minutes between images and gets 10 a day, and the
 
 ## Fun & Social Commands
 
-`/potion`, `/foodfight`, `/doom`, `/rescue` and `/siege` are games with points, items, prizes, titles and a leaderboard. This page lists their options; how the games work is in its own section, [Games & Scores](./games): [Playing & Points](./games-playing), [Your Card & the Leaderboard](./games-card), [Items, Prizes & Titles](./games-rewards), [Twists & Happenings](./games-happenings), [Siege](./games-siege) and [Settings for Admins](./games-settings).
+`/potion`, `/foodfight`, `/doom`, `/rescue` and `/siege` are games with points, items, prizes, titles and a leaderboard, and `/six-demon-bag` spends the Chi they earn. This page lists their options; how the games work is in its own section, [Games & Scores](./games): [Playing & Points](./games-playing), [Your Card & the Leaderboard](./games-card), [Items, Prizes & Titles](./games-rewards), [Twists & Happenings](./games-happenings), [Siege](./games-siege), [The Six-Demon Bag](./games-magic) and [Settings for Admins](./games-settings).
 
 ### `/potion`
 Give magical potions with fun pop culture references, to a member, a whole role, or @everyone.
@@ -662,8 +662,37 @@ Your first 30 attacks a day score points, and later ones still do damage; from e
 
 ---
 
+### `/six-demon-bag`
+Egg Shen's bag: spend the Chi your good plays earn to bless a friend or hex a rival, element by element (Lightning, Thunder, Rain, Wind, Fire, Smoke). Every cast is public and pings who it lands on, and the first time a blessing does something its caster gets +1 Chi back. Hexes have limits that keep them friendly: one a day, at most two received a day, a 3-hour ward after each, a way out (`shrug`) and an opt-out (`peace`).
+
+**Subcommands:**
+- `bless` - Bless a member (6 Chi): Lightning Strike, Thunderous Applause, Cleansing Rain, Tailwind, Fired Up or Smoke Screen
+- `hex` - Hex a member (7 Chi, one a day): Static, Deafened, Rained Out, Ill Wind, Scorched or Lost in the Smoke
+- `peace` - No hexes on you and none from you. Once made, it holds for 7 days
+- `shrug` - Shrug off the hex on you: free once a day, then 2 Chi (free if you hold less)
+- `status` - Your Chi, your casts today and what's on you. Only you see it
+
+**Options:**
+- `member` (`bless`, `hex`; required) - Who to cast on
+- `element` (`bless`, `hex`; required) - Which demon. The list shows each element's charm and cost, and, once the member is picked, what it would do to them (`🌧️ Rain · lifts Sam's 🔥 Scorched`). You can also type an element's or a charm's name
+- `on` (`peace`; required) - `true` makes peace, `false` ends it
+- `private` (`status`) - Only you see it (the default). `private:false` shows it to the channel
+
+**Examples:**
+```
+/six-demon-bag bless member:@Sam element:Fire
+/six-demon-bag hex member:@Jo element:Wind
+/six-demon-bag shrug
+/six-demon-bag peace on:true
+/six-demon-bag status
+```
+
+Two casts a day (UTC), at most one a hex. A cast shares the games' cooldown and 6-a-minute limit, and works in the channels the games are played in; `status` works anywhere. Like the games, casting, `shrug` and `peace` aren't under the bot's general rate limit; `status` is. A refused cast costs nothing. Chi comes from good plays (+1, at most 4 a day) and from freeing and curing in a siege (+2, at most 6 a day), and the bag holds 20. Turn it off with `/eggshen-config commands toggle setting:magic enabled:false`, or switch off only hexes with `/eggshen-config-games happenings hexes:false`. See [The Six-Demon Bag](./games-magic).
+
+---
+
 ### `/scoreboard`
-Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), an active rescue shield and any [twist](./games-happenings#twists) status, any [happening](./games-happenings#happenings) or [siege](./games-siege) in progress, and your rewards: prizes in progress, nights in a row, Glovebox and titles. Right-click a member → **Apps** → **Game card** shows anyone's card privately.
+Your game card, or anyone's: avatar, total and rank, a column per game (points, rank, plays, what they did and received, streak), an active rescue shield and any [twist](./games-happenings#twists) status, any [happening](./games-happenings#happenings) or [siege](./games-siege) in progress, and your rewards: prizes in progress, nights in a row, Glovebox, titles and the [Six-Demon Bag](./games-magic#your-bag). Right-click a member → **Apps** → **Game card** shows anyone's card privately.
 
 **Options:** `user`, `game`, `period` (this month, this year, all time), `private`, and `title` (pick which [earned title](./games-rewards#choosing-the-title-you-show) shows with your name, or *No title*; only for yourself)
 
@@ -694,7 +723,7 @@ See [Your Card & the Leaderboard](./games-card#leaderboard).
 Quick help for the games: one short card per topic, with a menu and **◀ Previous** / **Next ▶** to the others. Every number on it is the one the games use, and the limits are your server's own. Games switched off on the server are left out.
 
 **Options:**
-- `topic` (optional) - **Basics** (default: the games, points, the limits and your score), **Items & Glovebox**, **Prizes & titles**, **Nights in a row**, **Twists**, **Happenings** or **Siege**
+- `topic` (optional) - **Basics** (default: the games, points, the limits and your score), **Items & Glovebox**, **Prizes & titles**, **Nights in a row**, **Twists**, **Happenings**, **Siege** or **Six-Demon Bag**
 - `private` (optional) - Only you see it. On by default; `private:false` shows it to the channel. Anyone can page through a public one: the buttons answer each person privately and never change the posted card
 
 **Examples:**
@@ -792,7 +821,7 @@ Server settings, split across 8 commands to stay under Discord's size limit for 
 | `/eggshen-config-ai` | AI images (limits, permissions, whitelist), AI announcement text, AI answers for `/eggshen-ask` |
 | `/eggshen-config-moderation` | Moderation switch, user cooldowns, whitelist mode, auto-ban threshold |
 | `/eggshen-config-events` | The event request form |
-| `/eggshen-config-games` | Game limits, game channels, happenings, twists, the pace, random sieges, score resets |
+| `/eggshen-config-games` | Game limits, game channels, happenings, twists, the pace, random sieges, hexes, score resets |
 | `/eggshen-config-quotes` | The status quote rotation and quote suggestions |
 | `/eggshen-config-website` | This server's web pages: form address, bot address, theme |
 
@@ -845,7 +874,7 @@ Restart the bot. It shuts down and relies on PM2 (or another process manager) to
 | **Discovery** | `/random`, `/recommend`, `/similar` |
 | **Tournaments, surveys and trivia** | `/bracket`, `/bracket-setup`, `/survey`, `/escape`, `/escape-setup` |
 | **AI images** | `/image` |
-| **Games** | `/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`, `/scoreboard`, `/leaderboard`, `/how-to-play`, Game card |
+| **Games** | `/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`, `/six-demon-bag`, `/scoreboard`, `/leaderboard`, `/how-to-play`, Game card |
 | **Quotes** | `/quote`, `/suggest-quote` |
 | **Help and statistics** | `/eggshen-ask`, `/eggshen-help`, `/stats` |
 | **Admin** | `/eggshen-config` (and its 7 siblings), `/eggshen-stats`, `/eggshen-logs`, `/eggshen-restart` |

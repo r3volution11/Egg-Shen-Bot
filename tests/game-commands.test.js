@@ -98,6 +98,8 @@ const FIRST_NIGHT = {
   inline: false,
 };
 const R3_NAMES = ['🎁 Rewards in progress', FIRST_NIGHT.name, '📜 Titles'];
+/** 2.76.0: a good play's Chi puts the Six-Demon Bag on the all-games card — n good plays today, n Chi (a little: one segment of the bar) */
+const BAG = (n) => ({ name: '🎒 Six-Demon Bag', value: `☯️ \`${n}/20\` Chi ▰▱▱▱▱▱▱▱▱▱ · today \`+${n}/4\` · \`2 of 2\` casts left`, inline: false });
 /** Kim, after one doom: what her card adds below the Doom column */
 const KIM_R3 = [
   {
@@ -111,6 +113,7 @@ const KIM_R3 = [
   },
   FIRST_NIGHT,
   { name: '📜 Titles', value: 'None yet\n🦉 Night Owl `1/7`\n🔥 On Fire `01/10`\n🌕 Creature of the Night `01/14`', inline: true },
+  BAG(1),
 ];
 
 const said = (message) => message.content.split('\n')[0];
@@ -236,12 +239,16 @@ describe('limits and where games are played', () => {
     const config = await loadGuildConfig(GUILD);
     config.rateLimits = { enabled: true, global: { maxRequests: 1, windowSeconds: 60 }, commands: {} };
     await saveGuildConfig(GUILD, config);
-    const twice = async (cmd, user) => {
-      await checkRateLimit(GUILD, user, cmd);
-      return (await checkRateLimit(GUILD, user, cmd)).limited;
+    const twice = async (cmd, user, sub = null) => {
+      await checkRateLimit(GUILD, user, cmd, null, '', sub);
+      return (await checkRateLimit(GUILD, user, cmd, null, '', sub)).limited;
     };
     expect(await twice('movie', 'sam')).toBe(true);
     for (const game of ['potion', 'foodfight', 'doom', 'rescue', 'siege']) expect(await twice(game, 'sam')).toBe(false);
+    // 2.76.0: /six-demon-bag's casts, shrug and peace, but not its status
+    // (it can be posted publicly) — and a status spent doesn't hold them up
+    expect(await twice('six-demon-bag', 'sam', 'status')).toBe(true);
+    for (const sub of ['bless', 'hex', 'peace', 'shrug']) expect(await twice('six-demon-bag', 'sam', sub)).toBe(false);
 
     config.rateLimits.commands.doom = { maxRequests: 1, windowSeconds: 60 };
     await saveGuildConfig(GUILD, config);
@@ -287,6 +294,8 @@ describe('/scoreboard: the game card', () => {
         },
         FIRST_NIGHT,
         { name: '📜 Titles', value: 'None yet\n🔥 On Fire `02/10`\n🦉 Night Owl `1/7`\n🌋 Unstoppable `02/15`', inline: true },
+        // 2.76.0: two hits, two Chi
+        BAG(2),
       ],
       footer: { text: `All time · ${HINT}` },
     });
@@ -306,7 +315,7 @@ describe('/scoreboard: the game card', () => {
   test('a game switched off is left out: its column, its points, and its players from the rank', async () => {
     await run('eggshen-config', 'admin', { group: 'commands', subcommand: 'toggle', options: { setting: 'doom', enabled: false } });
     const card = (await run('scoreboard', 'sam')).embeds[0].toJSON();
-    expect(card.fields.map(f => f.name)).toEqual(['🥧 Food Fight', ...R3_NAMES]);
+    expect(card.fields.map(f => f.name)).toEqual(['🥧 Food Fight', ...R3_NAMES, BAG(2).name]);
     // Kim only played Doom, so food fight's two players are all that's left
     expect(card.description).toBe('🪙 `6` points · 🥇 `1st` of 2 players');
     const off = await run('scoreboard', 'sam', { options: { game: 'doom' } });
@@ -326,9 +335,9 @@ describe('/scoreboard: the game card', () => {
     recordPlay(GUILD, { game: 'potion', actor: { id: 'sam', name: 'Sam' }, target: { kind: 'role', pingUserIds: [] }, outcome: 'helped' }, Date.UTC(2020, 0, 1));
     const allTime = (await run('scoreboard', 'sam')).embeds[0].toJSON();
     const month = (await run('scoreboard', 'sam', { options: { period: 'month' } })).embeds[0].toJSON();
-    expect(allTime.fields.map(f => f.name)).toEqual(['🧪 Potions', '🥧 Food Fight', '🪓 Doom', ...R3_NAMES]);
+    expect(allTime.fields.map(f => f.name)).toEqual(['🧪 Potions', '🥧 Food Fight', '🪓 Doom', ...R3_NAMES, BAG(2).name]);
     expect(allTime.description).toMatch(/^🪙 `6` points/);
-    expect(month.fields.map(f => f.name)).toEqual(['🥧 Food Fight', '🪓 Doom', ...R3_NAMES]);
+    expect(month.fields.map(f => f.name)).toEqual(['🥧 Food Fight', '🪓 Doom', ...R3_NAMES, BAG(2).name]);
     expect(month.description).toMatch(/^🪙 `5` points/);
   });
 

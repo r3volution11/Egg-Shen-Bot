@@ -28,6 +28,7 @@ export async function execute(interaction) {
     siegeAllowed,
     escapeAllowed,
     watchlistAllowed,
+    magicAllowed,
     guildConfig,
   ] = await Promise.all([
     canUseCommand(interaction.guildId, interaction.member, 'movie'),
@@ -48,6 +49,7 @@ export async function execute(interaction) {
     canUseCommand(interaction.guildId, interaction.member, 'siege'),
     canUseCommand(interaction.guildId, interaction.member, 'escape'),
     canUseCommand(interaction.guildId, interaction.member, 'watchlist'),
+    canUseCommand(interaction.guildId, interaction.member, 'magic'),
     loadGuildConfig(interaction.guildId),
   ]);
 
@@ -125,22 +127,24 @@ export async function execute(interaction) {
   // /potion used to sit under AI Image Generation; it's flavor text, not
   // image generation, so it lives here with /foodfight, each behind its own
   // command switch
+  // The scores only mean something while at least one game is on
+  const anyGame = potionAllowed || foodfightAllowed || doomAllowed || rescueAllowed || siegeAllowed;
   const funAndGames = buildCategory([
     { enabled: potionAllowed, line: '**🧪 /potion** - Give someone, a role or @everyone a mystical potion' },
     { enabled: foodfightAllowed, line: '**🥧 /foodfight** - Throw food at someone, a role or @everyone' },
     { enabled: doomAllowed, line: '**🪓 /doom** - Deal someone, a role or @everyone a horror-movie fate' },
     { enabled: rescueAllowed, line: '**🛟 /rescue** - Save someone from a horror movie, and shield them for a while' },
     { enabled: siegeAllowed, line: '**👹 /siege** - A monster attacks the drive-in: fight it together with food, dooms and potions' },
+    // 2.76.0: Chi comes from playing the games, so the bag is listed only while one is on
+    { enabled: magicAllowed && anyGame, line: '**🎒 /six-demon-bag** - Spend the Chi your good plays earn to bless a friend or hex a rival, element by element' },
   ]);
-  // The scores only mean something while at least one game is on
-  const anyGame = potionAllowed || foodfightAllowed || doomAllowed || rescueAllowed || siegeAllowed;
   const scores = buildCategory([
     { enabled: anyGame, line: '**📊 /scoreboard** - Your points in the games, or anyone else\'s' },
     { enabled: anyGame, line: '**🏆 /leaderboard** - The server\'s top players this month, this year or all time' },
     // A right-click command, so no slash; same switch as the scores it shows
     { enabled: anyGame, line: '**🃏 Game card** - Right-click a member → Apps → Game card' },
     // Quick help for the games: only while there's a game to explain
-    { enabled: anyGame, line: '**❓ /how-to-play** - How the games work: items, prizes, titles, nights, twists, happenings, sieges' },
+    { enabled: anyGame, line: `**❓ /how-to-play** - How the games work: items, prizes, titles, nights, twists, happenings, sieges${magicAllowed ? ', the Six-Demon Bag' : ''}` },
   ]);
   if (funAndGames) {
     embed.addFields({ name: '🎉 Fun & Games', value: [funAndGames, scores].filter(Boolean).join('\n'), inline: false });

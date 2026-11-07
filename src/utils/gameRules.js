@@ -314,6 +314,7 @@ export function nextNightLightAt(n) {
  *   got: { game: { outcome: n } }   // done to them by someone's scored play
  *   streak: { game: n }, bestStreak  // good outcomes in a row, scored plays only
  *   twists: n                        // R4: twists that happened to them, scored plays only
+ *   magic: { paid, paidElements }    // 2.76.0: blessings of yours that paid off, and their elements
  *   siege: { wins, mvps, kaiju, jacks, wangChis, assists, grabbed }
  *     // R5: wins, mvps, kaiju — moved only when a siege is won (finishSiege);
  *     // mvps counts the Wang Chi since 2.75.0, wangChis only from 2.75.0 on,
@@ -369,6 +370,12 @@ export function titleProgress(user, title) {
   if (title.twists) return life.twists || 0;
   // R5: siege wins, MVPs (Wang Chis since 2.75.0), Jack Burtons and kaiju beaten, likewise from 0
   if (title.siege) return life.siege?.[title.siege] || 0;
+  // 2.76.0: the Six-Demon Bag's counters (lifetime.magic), from 0 — a list
+  // (paidElements, a set of elements) counts its distinct entries
+  if (title.magic) {
+    const v = life.magic?.[title.magic];
+    return Array.isArray(v) ? new Set(v).size : Number(v) || 0;
+  }
   return title.did ? summed(life.do, title.did) : summed(life.got, title.got || {});
 }
 

@@ -43,15 +43,21 @@ import { fileURLToPath } from 'url';
 import {
   ITEMS, DEFENCES, DAILY, FULL_STACK_POINTS, TITLE_POINTS, PRIZES, RANDOM_PRIZE_ITEMS, TITLES,
   NIGHTS_SHOWN, NIGHT_LIGHT_DAYS, MULTIPLIER_CAPS, TWISTS, TWIST_RULES, SIEGE, SIEGE_PACE_KEYS,
+  CHI, MAGIC, CHARMS,
 } from '../data/gameRewards.js';
 import {
   ITEM_USED, ITEM_KEPT, SHIELD_BROKEN, DEFENCE_LINES, prizeLine, prizeHeldLine, titleLine, NIGHT_LINES,
 } from '../data/gameRewardLines.js';
-import { twistLine, STATUS_USED, HAPPENING_LINES, calendarLine } from '../data/gameEventLines.js';
+import { twistLine, STATUS_USED, HAPPENING_LINES, calendarLine, left as leftNote } from '../data/gameEventLines.js';
+import { ELEMENTS, ELEMENT_KEYS, SIX_DEMON_BAG, fill as fillLine } from '../data/btilcLines.js';
 import {
   actionFor, itemEffect, scalePoints, nightKey, nightsBetween, shiftNight, nightTier, earnsNightLight, qualifiesFor,
   owns, lifetimeFrom, pickLine, GOOD, liveHappenings, happeningPoints, happeningMod, streakKeepers,
 } from './gameRules.js';
+import {
+  activeCharms, useCharm, endHex, pruneCharms, wardOf, atPeace, chiOf, castCost, castProblem, pruneCastLog, cancels,
+  charmPlays, charmLabel, magicOn, hexesOn, charmsOn, payText, CHARM_KINDS,
+} from './gameMagic.js';
 import { luck } from './gameLuck.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -67,6 +73,10 @@ export const GAME_NAMES = {
   doom: 'Doom',
   rescue: 'Rescue',
   siege: 'Siege',
+  // 2.76.0: not a game (GAMES leaves it out) — /six-demon-bag's casts share
+  // the games' cooldown and 6-a-minute limit (checkPlayLimit) under this key,
+  // and the cooldown message names it
+  magic: 'Six-Demon Bag',
 };
 
 /**
@@ -129,6 +139,15 @@ export const DEFAULT_GAME_SETTINGS = {
   // Doug, 2026-11-04: every server moves to week, existing ones included
   // (there are no migrations: a config without the key reads as week).
   pace: 'week', // quick | evening | day | days3 | week
+  // 2.76.0: hexes from /six-demon-bag (design §1's admin switch). Off: no
+  // hex can be cast, Ching Dai's Curse never comes, and every hex in place
+  // ends (endAllHexes). Blessings carry on. Whether the bag itself is on is
+  // the member toggle (commandPermissions.magic), read as `magic` below.
+  hexes: true,
+  // Not a config.games key: getGameSettings reads it from commandPermissions
+  // (the /six-demon-bag toggle). Here so a settings object built from the
+  // defaults has the bag on, as a config without the toggle does.
+  magic: true,
 };
 
 /** Admin frequency choices for random sieges, in the order offered */
@@ -178,6 +197,12 @@ export function getGameSettings(config) {
     siegeMinutes: pick('siegeMinutes', SIEGE.minutes.min, SIEGE.minutes.max),
     siegeFrequency: SIEGE_FREQUENCIES.includes(g.siegeFrequency) ? g.siegeFrequency : DEFAULT_GAME_SETTINGS.siegeFrequency,
     pace: GAME_PACES.includes(g.pace) ? g.pace : DEFAULT_GAME_SETTINGS.pace,
+    hexes: flag('hexes'),
+    // 2.76.0: is /six-demon-bag on for members (`/eggshen-config commands
+    // toggle setting:magic`, read as membersCan reads it: the master switch,
+    // then the key, missing = on). Off, Chi isn't earned and no charm acts —
+    // the economy's off, not just the command (gameMagic.magicOn)
+    magic: config?.commandPermissions?.enabled !== false && config?.commandPermissions?.magic !== false,
   };
 }
 
@@ -524,6 +549,122 @@ export function shieldedUntil(guildId, userId, now = Date.now()) {
   return until && until > now ? until : null;
 }
 
+// ── prizes and titles (shared by a play and a cast's payoff) ───────────
+
+/**
+ * One recurring prize counter moves; a prize past today's cap waits at
+ * need − 1 for the first qualifying play of the next day. `earn` is the
+ * caller's { give, rewards, today }: a play's give pays in its game, a
+ * cast's (2.76.0) in the caster's home game. `extra` goes on each entry (a
+ * caster's `name`, so the line can say whose it is).
+ */
+function bumpPrize(earn, who, userId, name, user, day, prize, inc, extra = {}) {
+  const progress = (user.progress ||= {});
+  const have = (progress[prize.key] || 0) + inc;
+  if (have < prize.need) {
+    progress[prize.key] = have;
+    return;
+  }
+  if ((day.prizes || 0) >= DAILY.prizes) {
+    progress[prize.key] = prize.need - 1;
+    const waiting = (user.waiting ||= {});
+    if (!waiting[prize.key]) earn.rewards.push({ kind: 'held', who, userId, prize: prize.key, ...extra });
+    waiting[prize.key] = earn.today;
+    return;
+  }
+  day.prizes = (day.prizes || 0) + 1;
+  progress[prize.key] = have - prize.need;
+  if (user.waiting) delete user.waiting[prize.key];
+  const key = prize.item || RANDOM_PRIZE_ITEMS[Math.floor(luck() * RANDOM_PRIZE_ITEMS.length)];
+  const overflow = !stash(user, key);
+  earn.give(userId, name, prize.points + (overflow ? FULL_STACK_POINTS : 0));
+  earn.rewards.push({ kind: 'prize', who, userId, prize: prize.key, item: key, points: prize.points, overflow, ...extra });
+}
+
+/** Every title this member now qualifies for and hasn't got: earned, +TITLE_POINTS each */
+function grantTitles(earn, who, userId, name, user, extra = {}) {
+  for (const title of TITLES) {
+    if (owns(user.titles.earned, title.key) || !qualifiesFor(user, title)) continue;
+    user.titles.earned[title.key] = earn.now;
+    earn.give(userId, name, TITLE_POINTS);
+    earn.titles.push({ who, userId, key: title.key, ...extra });
+  }
+}
+
+/** Give `pts` to a member in one game, every current period, as bonus */
+function giveIn(data, userId, name, game, pts, now) {
+  if (!pts) return;
+  for (const period of Object.values(periodKeys(now))) {
+    const s = statsFor(data, userId, name, game, period);
+    s.points += pts;
+    s.bonus = (s.bonus || 0) + pts;
+  }
+}
+
+// ── the Six-Demon Bag (2.76.0) ──────────────────────────────────────────
+
+const HOUR_MS = 60 * 60 * 1000;
+/** The outcomes that earn Chi (CHI.earnOutcomes) */
+const CHI_EARN = new Set(CHI.earnOutcomes);
+/** Good help at a member: what Thunderous Applause doubles for whoever is helped */
+const HELPS = new Set(['tasty', 'rescued', 'sacrificed', 'helped']);
+
+/**
+ * [actor, target] base points for an outcome — a potion line's `worked`
+ * scored by what the potion does — for booking what a charm changed against
+ * the line the play would otherwise have drawn. [0, 0] for anything unknown.
+ */
+function basePoints(game, outcome, effect) {
+  let o = outcome;
+  if (game === 'potion' && o === 'worked') o = effect === 'harmful' ? 'hurt' : 'helped';
+  return owns(POINTS, game) && owns(POINTS[game], o) ? POINTS[game][o] : [0, 0];
+}
+
+/**
+ * Where a cast-time payoff (a hex lifted, Cleansing Rain's wash) is paid:
+ * the caster's home game, the one that isn't the siege with the most
+ * all-time plays — ties in GAMES order. Deterministic, and a caster has
+ * played (that's where their Chi came from).
+ */
+export function homeGame(user) {
+  const games = GAMES.filter(g => g !== 'siege');
+  let best = games[0];
+  for (const g of games) if ((user?.games?.[g]?.all?.plays || 0) > (user?.games?.[best]?.all?.plays || 0)) best = g;
+  return best;
+}
+
+/**
+ * A blessing did something (design §3.1, "boosting pays you"): its caster
+ * gets MAGIC.casterPay — bonus points through `earn.give` (the play's game,
+ * or a cast's home game), or Chi with MAGIC.casterPayIn 'chi' — and it
+ * counts toward lifetime.magic (paid, and its element for the 3B title) and
+ * (3B) their Blessings prize, with THEIR day's prize cap. The caller marks
+ * the blessing paid first, so it pays once. Hexes are never paid.
+ * @returns {?{userId, name, el, points?, chi?}}
+ */
+function payCaster(data, earn, charm, now) {
+  if (!charm?.by) return null;
+  const caster = userFor(data, charm.by, null);
+  caster.name ||= charm.byName || charm.by;
+  seedTitles(caster, now);
+  const pay = { userId: charm.by, name: caster.name, el: charm.el };
+  if (MAGIC.casterPayIn === 'chi') {
+    const before = chiOf(caster);
+    caster.chi = { n: Math.min(CHI.bag, before + MAGIC.casterPay) };
+    pay.chi = caster.chi.n - before;
+  } else {
+    earn.give(charm.by, caster.name, MAGIC.casterPay);
+    pay.points = MAGIC.casterPay;
+  }
+  const m = (caster.lifetime.magic ||= { paid: 0, paidElements: [] });
+  m.paid = (Number(m.paid) || 0) + 1;
+  if (!Array.isArray(m.paidElements)) m.paidElements = [];
+  if (!m.paidElements.includes(charm.el)) m.paidElements.push(charm.el);
+  const prize = PRIZE_BY_KEY.blessings;
+  if (prize) bumpPrize(earn, 'caster', charm.by, caster.name, caster, dayFor(data, charm.by, earn.today), prize, 1, { name: caster.name });
+  return pay;
+}
+
 // ── recording a play ────────────────────────────────────────────────────
 
 /**
@@ -568,6 +709,17 @@ export function shieldedUntil(guildId, userId, now = Date.now()) {
  *   own points go into the pot — the win pool, paid at the end — so it scores 0 here, and what it
  *   would have scored comes back as `potPoints`. It's still a scored play: the cap, the item, the
  *   streak, nights, prizes and titles all count it.
+ * @param {boolean} [play.fighting] - 2.76.0: the player is fighting a live siege (siegeStore.fightingNow),
+ *   or this play may make them a fighter (finishPlay: a free or a cure at a held one):
+ *   Ching Dai's Curse doesn't land on them (no hex lands on a fighter, design §3.3)
+ *
+ * 2.76.0, the Six-Demon Bag (design §2–§3; gameMagic.js has the rules): the
+ * player's blessing and hex act on a scored play where something happened —
+ * never a siege attack, never a capped play — each in its step below, and a
+ * blessing that does something pays its caster, once (the caster's pay).
+ * mods.charms (resolvePlay) names those that shaped the draw ('bless:wind',
+ * 'hex:wind') or the aim ('hex:smoke'); mods.defence 'smoke' is a Smoke
+ * Screen that fired. A scored play with a good outcome earns Chi.
  * @returns {{outcome, action, scored, capped, playOfDay, potted, potPoints, actorDelta, targetDelta, actorPoints, streak, shieldedUntil, targetId,
  *   item: ?{key, used, note}, defence: ?{key, readyAt?}, shieldBroken, rewards: object[], titles: object[],
  *   nights: ?object, bonus: number, targetBonus: number,
@@ -577,8 +729,17 @@ export function shieldedUntil(guildId, userId, now = Date.now()) {
  *   happenings: those that changed this play, for the label's tags
  *   happeningLines: { kind: 'goodBonus'|'keptStreak', happening, points? }
  *   calendar: calendar happenings to mention (once per member per UTC day)
+ *   2.76.0:
+ *   charms: [{key, kind, el, who: 'actor'|'target', points?, delta?, targetDelta?, left?, quiet?}] — each
+ *     charm that acted, in order. `points` is bonus it gave or took (Fired Up, Scorched); `delta` and
+ *     `targetDelta` what it changed inside actorDelta / targetDelta, against the same play without it
+ *     (the balance sim books both as magic); `quiet`: it used a play but did nothing worth a line
+ *   casterPay: [{userId, name, el, points?, chi?}] — blessings that paid their caster on this play
+ *   chi: ?{earned, added, n, full, capped, deafened} — the play's Chi (null: none to earn)
+ *   lost: the play was Lost in the Smoke (the target dropped; finishPlay pings only the player)
+ *   expired: [{kind, el}] — the player's charms that ran out unused, pruned by this save
  */
-export function recordPlay(guildId, { game, action = null, actor, target, outcome, effect, settings = DEFAULT_GAME_SETTINGS, item = null, mods = {}, happenings = [], pot = false }, now = Date.now()) {
+export function recordPlay(guildId, { game, action = null, actor, target, outcome, effect, settings = DEFAULT_GAME_SETTINGS, item = null, mods = {}, happenings = [], pot = false, fighting = false }, now = Date.now()) {
   if (game === 'potion' && outcome === 'worked') outcome = effect === 'harmful' ? 'hurt' : 'helped';
   const points = owns(POINTS, game) && owns(POINTS[game], outcome) ? POINTS[game][outcome] : null;
   if (!points) throw new Error(`Unknown outcome "${outcome}" for ${game}`);
@@ -610,8 +771,32 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
 
     // Only a member other than the actor is scored as a target. A role or
     // @everyone, or yourself, moves only your own points.
-    const targetId = target?.kind === 'member' && target.pingUserIds[0] !== actor.id ? target.pingUserIds[0] : null;
+    const aimedId = target?.kind === 'member' && target.pingUserIds[0] !== actor.id ? target.pingUserIds[0] : null;
     const me = userFor(data, actor.id, actor.name);
+
+    // 2.76.0: the charms working on the player this play — only a scored
+    // play where something happened, never a siege attack (as statuses,
+    // below), and none with the bag switched off (activeCharms). The same
+    // objects as stored: using one up here is saved with the rest.
+    const acts = scored && outcome !== 'blocked' && !siege;
+    const charms = acts ? activeCharms(me, now, settings) : {};
+    const charmKeys = new Set(Array.isArray(mods.charms) ? mods.charms : []);
+    const charmLog = [];
+    const owed = []; // blessings that did something this play: their casters are paid below
+    const owe = (charm) => {
+      if (!charm || charm.paid) return;
+      charm.paid = true;
+      owed.push(charm);
+    };
+    // Lost in the Smoke (resolvePlay decided it, before the shield): the
+    // play scores only the player, as if aimed at a role — no target points,
+    // no defence, no ping. One of its plays.
+    const lost = !!(aimedId && acts && charmKeys.has('hex:smoke') && charms.hex?.el === 'smoke');
+    if (lost) {
+      useCharm(charms.hex, now);
+      charmLog.push({ key: 'hex:smoke', kind: 'hex', el: 'smoke', who: 'actor', left: charms.hex.left });
+    }
+    const targetId = lost ? null : aimedId;
     const them = targetId ? userFor(data, targetId, target.name) : null;
     seedTitles(me, now);
     if (them) seedTitles(them, now);
@@ -646,6 +831,24 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       (them.cooldowns ||= {})[mods.defence] = readyAt;
       defence = { key: mods.defence, readyAt };
     }
+    // 2.76.0: a Smoke Screen (the target's blessing) fires last, after the
+    // shield, Garlic and the Antidote (resolvePlay picked it, and redrew a
+    // throw as a miss or a doom as an escape): used up here, one of the
+    // target's defences today, and its caster is paid. What it changed is
+    // booked against the line it turned aside (`mods.counterfactual.smoke`).
+    if (!defence && targetId && scored && !siege && mods.defence === 'smoke') {
+      const screen = activeCharms(them, now, settings).bless;
+      if (screen?.el === 'smoke' && defencesLeft(data, targetId, now)) {
+        useCharm(screen, now);
+        defence = { key: 'smoke' };
+        const was = basePoints(game, mods.counterfactual?.smoke, effect);
+        const now2 = game === 'potion' ? MAGIC.smokePotionPoints : basePoints(game, outcome, effect);
+        charmLog.push({ key: 'bless:smoke', kind: 'bless', el: 'smoke', who: 'target', delta: now2[0] - was[0], targetDelta: now2[1] - was[1] });
+        // …unless the caster threw the play themselves: blessing a friend
+        // and then pelting them is no way to be paid
+        if (screen.by !== actor.id) owe(screen);
+      }
+    }
     if (defence) {
       const theirs = dayFor(data, targetId, today);
       theirs.defences = (theirs.defences || 0) + 1;
@@ -657,12 +860,27 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
     const good = GOOD.has(outcome);
     const bad = !good && outcome !== 'blocked';
     // Statuses act on a scored play where something happened (see above),
-    // and never on a siege attack
-    const acts = scored && outcome !== 'blocked' && !siege;
+    // and never on a siege attack (`acts`, above)
     pruneStatuses(me, now);
     const status = acts ? activeStatuses(me, now) : {};
     const statuses = [];
+    // 2.76.0: Tailwind and Ill Wind shaped the draw (resolvePlay): spent now.
+    // Tailwind pays its caster when the same random number without it would
+    // have drawn a bad line (resolvePlay's `tailwindPaid`). Booked against
+    // that line (`mods.counterfactual`).
+    for (const kind of CHARM_KINDS) {
+      const charm = charms[kind];
+      if (!charm || charm.el !== 'wind' || !charmKeys.has(`${kind}:wind`)) continue;
+      useCharm(charm, now);
+      // (the line it drew: before a Smoke Screen turned it aside, which books its own change)
+      const drew = mods.counterfactual?.smoke ?? outcome;
+      const was = basePoints(game, mods.counterfactual?.wind ?? drew, effect);
+      const got = basePoints(game, drew, effect);
+      charmLog.push({ key: `${kind}:wind`, kind, el: 'wind', who: 'actor', delta: got[0] - was[0], targetDelta: targetId ? got[1] - was[1] : 0 });
+      if (kind === 'bless' && mods.tailwindPaid === true) owe(charm);
+    }
     // Lucky Break and Jinxed shaped the draw (resolvePlay); they're spent now
+    // (resolvePlay leaves either out while Tailwind or Ill Wind did the job: it waits)
     for (const key of Array.isArray(mods.statuses) ? mods.statuses : []) {
       if (key !== 'luckybreak' && key !== 'jinxed') continue;
       if (!status[key]) continue;
@@ -676,12 +894,24 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
     // win the daily reward limit holds back (applySiegeResult)
     let [actorPts, targetPts] = scored ? points : [0, 0];
     if (defence?.key === 'antid') [actorPts, targetPts] = DEFENCES.antid.points;
+    // 2.76.0: a harmful potion lost in a Smoke Screen does no harm, as against the Antidote
+    if (defence?.key === 'smoke' && game === 'potion') [actorPts, targetPts] = MAGIC.smokePotionPoints;
     // Happenings multiply BOTH sides; items and Director's Cut only your
     // gains. scalePoints caps the products (MULTIPLIER_CAPS), so an item
     // never makes a target lose more, and Double Feature on a Golden Pie
     // is ×3, not ×4.
     const hp = scored ? happeningPoints(live, { game, action, outcome }) : { mult: 1, kinds: [] };
-    const scale = (cut) => scalePoints([actorPts, targetPts], { gain: (fx?.gain || 1) * hp.mult * cut, loss: hp.mult, target: hp.mult });
+    // 2.76.0: Lightning Strike (×2 your gain on the next GOOD acting play)
+    // multiplies with the item, the happenings and Director's Cut, inside
+    // the same ×3 cap; Thunderous Applause (×2 for whoever the next good
+    // help lands on) with the happenings' target multiplier, inside its ×2
+    const strike = acts && good && charms.bless?.el === 'lightning' ? charms.bless : null;
+    const applause = acts && targetId && HELPS.has(outcome) && charms.bless?.el === 'thunder' ? charms.bless : null;
+    const scale = (cut, s = strike, a = applause) => scalePoints([actorPts, targetPts], {
+      gain: (fx?.gain || 1) * hp.mult * cut * (s ? CHARMS.lightning.bless.gain : 1),
+      loss: hp.mult,
+      target: hp.mult * (a ? CHARMS.thunder.bless.target : 1),
+    });
     // Director's Cut: the next GOOD outcome's points ×2 — spent on it even
     // when the cap leaves nothing to double, and the line says so
     const cut = acts && good && status.dcut;
@@ -689,6 +919,21 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
     if (cut) {
       statuses.push({ key: 'dcut', wasted: scaled[0] === scale(1)[0] });
       delete me.effects.dcut;
+    }
+    // Each is used up whatever the caps leave it to do; it pays only when
+    // the points actually changed (with the cap at ×3, a Golden Pie's ×2
+    // and Director's Cut leave a Strike nothing)
+    if (strike) {
+      useCharm(strike, now);
+      const without = scale(cut ? 2 : 1, null)[0];
+      charmLog.push({ key: 'bless:lightning', kind: 'bless', el: 'lightning', who: 'actor', delta: scaled[0] - without });
+      if (scaled[0] !== without) owe(strike);
+    }
+    if (applause) {
+      useCharm(applause, now);
+      const without = scale(cut ? 2 : 1, strike, null)[1];
+      charmLog.push({ key: 'bless:thunder', kind: 'bless', el: 'thunder', who: 'actor', targetDelta: scaled[1] - without });
+      if (scaled[1] !== without) owe(applause);
     }
     if (hp.kinds.length && (actorPts !== 0 || (targetId && targetPts !== 0))) hp.kinds.forEach(k => touched.add(k));
     [actorPts, targetPts] = scaled;
@@ -701,9 +946,19 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
     const potPoints = potted ? actorPts : 0;
     if (potted) actorPts = 0;
 
+    // 2.76.0: Static first — halves like Bitten (each acting play uses one
+    // of its plays, gain or not), and a held Bitten waits, untouched:
+    // halving happens once, never twice (design §3.3)
+    const staticHex = acts && charms.hex?.el === 'lightning' ? charms.hex : null;
+    if (staticHex) {
+      useCharm(staticHex, now);
+      const before = actorPts;
+      if (actorPts > 0) actorPts = Math.floor(actorPts / 2);
+      charmLog.push({ key: 'hex:lightning', kind: 'hex', el: 'lightning', who: 'actor', delta: actorPts - before, left: staticHex.left, quiet: !(before > 0) });
+    }
     // Bitten: this play's gain halved, rounded down. Each acting play uses
     // one of its plays, gain or not — "for your next 3 plays".
-    if (status.bitten) {
+    if (status.bitten && !staticHex) {
       status.bitten.playsLeft -= 1;
       if (actorPts > 0) {
         const before = actorPts;
@@ -722,6 +977,9 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
     const hadStreak = (all.streak || 0) > 0 || (scored && (life.streak[game] || 0) > 0);
     const happeningLines = [];
     let kept = false;
+    // 2.76.0: Rained Out holds the streak through the next 2 good acting
+    // plays: it neither grows nor breaks (nor does the titles' streak)
+    const rainedOut = acts && good && charms.hex?.el === 'rain' ? charms.hex : null;
     if (bad && hadStreak) {
       const keepers = streakKeepers(live);
       if (keepers.length) {
@@ -730,13 +988,23 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
           touched.add(k);
           happeningLines.push({ kind: 'keptStreak', happening: k });
         }
+      } else if (acts && charms.bless?.el === 'rain') {
+        // 2.76.0: Cleansing Rain keeps it, before Second Wind (which waits)
+        kept = true;
+        useCharm(charms.bless, now);
+        charmLog.push({ key: 'bless:rain', kind: 'bless', el: 'rain', who: 'actor' });
+        owe(charms.bless);
       } else if (status.secondwind) {
         kept = true;
         delete me.effects.secondwind;
         statuses.push({ key: 'secondwind' });
       }
     }
-    if (good) all.streak = (all.streak || 0) + 1;
+    if (rainedOut) {
+      useCharm(rainedOut, now);
+      charmLog.push({ key: 'hex:rain', kind: 'hex', el: 'rain', who: 'actor', left: rainedOut.left });
+    }
+    if (good && !rainedOut) all.streak = (all.streak || 0) + 1;
     else if (bad && !kept) all.streak = 0;
 
     for (const period of periods) {
@@ -782,7 +1050,8 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
     const titles = [];
     const bonus = { [actor.id]: 0, ...(targetId ? { [targetId]: 0 } : {}) };
     // Bonus points go to the play's game, every current period, and are
-    // kept apart as `bonus` as well as counted in `points`
+    // kept apart as `bonus` as well as counted in `points` — anyone's: a
+    // blessing's caster (2.76.0) is paid in the game the blessing worked in
     const give = (userId, name, pts) => {
       if (!pts) return;
       for (const period of periods) {
@@ -790,7 +1059,7 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
         s.points += pts;
         s.bonus = (s.bonus || 0) + pts;
       }
-      bonus[userId] += pts;
+      bonus[userId] = (bonus[userId] || 0) + pts;
     };
 
     // What a twist may still take from the player: TWIST_RULES.dailyLoss a
@@ -807,39 +1076,11 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       return taken;
     };
 
-    // One recurring prize counter moves; a prize past today's cap waits
-    // at need − 1 for the first qualifying play of the next day
-    const bump = (who, userId, name, user, day, prize, inc) => {
-      const progress = (user.progress ||= {});
-      const have = (progress[prize.key] || 0) + inc;
-      if (have < prize.need) {
-        progress[prize.key] = have;
-        return;
-      }
-      if ((day.prizes || 0) >= DAILY.prizes) {
-        progress[prize.key] = prize.need - 1;
-        const waiting = (user.waiting ||= {});
-        if (!waiting[prize.key]) rewards.push({ kind: 'held', who, userId, prize: prize.key });
-        waiting[prize.key] = today;
-        return;
-      }
-      day.prizes = (day.prizes || 0) + 1;
-      progress[prize.key] = have - prize.need;
-      if (user.waiting) delete user.waiting[prize.key];
-      const key = prize.item || RANDOM_PRIZE_ITEMS[Math.floor(luck() * RANDOM_PRIZE_ITEMS.length)];
-      const overflow = !stash(user, key);
-      give(userId, name, prize.points + (overflow ? FULL_STACK_POINTS : 0));
-      rewards.push({ kind: 'prize', who, userId, prize: prize.key, item: key, points: prize.points, overflow });
-    };
-
-    const checkTitles = (who, userId, name, user) => {
-      for (const title of TITLES) {
-        if (owns(user.titles.earned, title.key) || !qualifiesFor(user, title)) continue;
-        user.titles.earned[title.key] = now;
-        give(userId, name, TITLE_POINTS);
-        titles.push({ who, userId, key: title.key });
-      }
-    };
+    // Prizes and titles (module-level, so a cast's payoff shares them): the
+    // play's give, and its lists of what was earned
+    const earn = { give, rewards, titles, today, now };
+    const bump = (who, userId, name, user, day, prize, inc) => bumpPrize(earn, who, userId, name, user, day, prize, inc);
+    const checkTitles = (who, userId, name, user, extra) => grantTitles(earn, who, userId, name, user, extra);
 
     /**
      * The twist roll (R4). One luck() draw says whether one fires
@@ -867,11 +1108,19 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
         call: lossRoom() <= 0,
         reel: actorPts <= 0,
         brainfreeze: streakNow <= 0,
+        // 2.76.0 (3B): nothing to put Chi in (the bag's off, or full), or
+        // nowhere a hex may land (design §7's idle rules: as a cast would be
+        // refused — hexed, warded, at peace, hexes off, two today — and never
+        // on a siege fighter: the siege is co-op)
+        redEnvelope: !magicOn(settings) || chiOf(me) >= CHI.bag,
+        chingDai: !hexesOn(settings) || !!activeCharms(me, now, settings).hex || wardOf(me, now) > now || atPeace(me)
+          || (daily.hexRecv || 0) >= MAGIC.hexesReceivedPerDay || fighting === true,
       };
       const pool = Object.keys(TWISTS).filter(k => (!me.lastTwistBad || TWISTS[k].good) && !idle[k]);
       let key = pickLine(pool.map(k => ({ outcome: k })), Object.fromEntries(pool.map(k => [k, TWISTS[k].weight])), luck).outcome;
-      // A break-in on an empty Glovebox (or one holding only a Night
-      // Light): nothing to steal, so the mosquitoes get them instead
+      // A break-in on an empty Glovebox (or one holding only what it can't
+      // take, TWIST_RULES.safe: a Night Light, a Jade Charm): nothing to
+      // steal, so the mosquitoes get them instead
       if (key === 'breakin' && !stealable.length) key = 'mosquito';
 
       const twist = { key, good: TWISTS[key].good };
@@ -919,6 +1168,26 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
           all.streak = 0;
           life.streak[game] = 0;
           break;
+        case 'redEnvelope': {
+          // Outside the day's Chi cap; the bag's ceiling still holds
+          const before = chiOf(me);
+          me.chi = { n: Math.min(CHI.bag, before + CHI.redEnvelope) };
+          twist.chi = me.chi.n - before;
+          twist.line = Math.floor(luck() * 3);
+          break;
+        }
+        case 'chingDai': {
+          // A hex with no caster, of an element that won't cancel the
+          // player's own blessing: a curse, not a way to lose a friend's
+          // gift. It counts toward the day's hexes received, and leaves the
+          // ward when it ends, like any hex.
+          const bless = activeCharms(me, now, settings).bless;
+          twist.el = anyOf(ELEMENT_KEYS.filter(el => !bless || !cancels(el, bless.el)));
+          (me.charms ||= {}).hex = { el: twist.el, by: null, byName: null, at: now, until: now + MAGIC.hexHours * HOUR_MS, left: charmPlays('hex', twist.el) };
+          daily.hexRecv = (daily.hexRecv || 0) + 1;
+          twist.line = Math.floor(luck() * 3);
+          break;
+        }
         default:
           // luckybreak, refill, dcut, secondwind, bitten, jinxed, mosquito
           setStatus(me, key, now);
@@ -931,14 +1200,17 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
 
     let nights = null;
     let twist = null;
+    let chi = null;
+    let casterPay = [];
     if (scored) {
       // What titles count: scored plays only (gameRules.js lifetimeFrom).
       // The stats above count capped plays too, and keep doing so for the
       // card; these don't, so a capped play can't be farmed for a title.
       (life.do[game] ||= {})[outcome] = (life.do[game][outcome] || 0) + 1;
       if (good) {
-        life.streak[game] = (life.streak[game] || 0) + 1;
-        life.bestStreak = Math.max(life.bestStreak || 0, life.streak[game]);
+        // (2.76.0: Rained Out holds this streak too)
+        if (!rainedOut) life.streak[game] = (life.streak[game] || 0) + 1;
+        life.bestStreak = Math.max(life.bestStreak || 0, life.streak[game] || 0);
       } else if (bad && !kept) {
         life.streak[game] = 0;
       }
@@ -959,6 +1231,27 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
         status.mosquito.playsLeft -= 1;
         const bit = takeLoss(-TWISTS.mosquito.points);
         if (bit) statuses.push({ key: 'mosquito', points: -bit, left: status.mosquito.playsLeft });
+      }
+      // 2.76.0: Fired Up after Free Refill (+1 more on a good play: +2 with
+      // both), each acting play one of its 3, its caster paid on the first
+      // +1. Scorched after Mosquito Swarm: a twist loss, inside the day's
+      // TWIST_RULES.dailyLoss and the month's floor — so the worst a day of
+      // hexes can do is −6 (design §3.3)
+      const firedUp = charms.bless?.el === 'fire' ? charms.bless : null;
+      if (firedUp) {
+        useCharm(firedUp, now);
+        const plus = good ? CHARMS.fire.bless.points : 0;
+        if (plus) {
+          give(actor.id, actor.name, plus);
+          owe(firedUp);
+        }
+        charmLog.push({ key: 'bless:fire', kind: 'bless', el: 'fire', who: 'actor', points: plus, left: firedUp.left, quiet: !plus });
+      }
+      const scorched = charms.hex?.el === 'fire' ? charms.hex : null;
+      if (scorched) {
+        useCharm(scorched, now);
+        const burnt = takeLoss(-CHARMS.fire.hex.points);
+        charmLog.push({ key: 'hex:fire', kind: 'hex', el: 'fire', who: 'actor', points: -burnt, left: scorched.left, quiet: !burnt });
       }
       if (good) {
         for (const h of live) {
@@ -987,6 +1280,34 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
         }
       }
 
+      // 2.76.0: Chi, for a good outcome on a scored play — a siege attack
+      // too, pot or not — at most CHI.perDay a UTC day (× a happening's
+      // chiMult), into a bag that holds CHI.bag. What the day's cap allows
+      // counts toward it even when the bag's full: so a full bag says so at
+      // most CHI.perDay times a day, not on every play. Deafened blocks
+      // what would have been earned, and only that uses it up.
+      // A play a defence stopped earns none (Doug, 2026-11-07). A stopped
+      // doom or throw says so in its outcome (blocked, escaped, a miss), but
+      // a harmful potion the Antidote or a Smoke Screen turned aside stays
+      // 'hurt' — its giver still scores DEFENCES.antid.points' +1 — so the
+      // outcome alone would pay it. Hence `!defence`, not the outcome.
+      if (magicOn(settings) && CHI_EARN.has(outcome) && !defence) {
+        const cm = happeningMod(live, 'chiMult');
+        const cap = CHI.perDay * cm.value;
+        const earned = Math.max(0, Math.min(CHI.earn * cm.value, cap - (daily.chi || 0)));
+        const deaf = acts && charms.hex?.el === 'thunder' ? charms.hex : null;
+        if (earned > 0 && deaf) {
+          useCharm(deaf, now);
+          charmLog.push({ key: 'hex:thunder', kind: 'hex', el: 'thunder', who: 'actor', left: deaf.left });
+          chi = { earned: 0, added: 0, n: chiOf(me), full: false, capped: false, deafened: true };
+        } else if (earned > 0) {
+          daily.chi = (daily.chi || 0) + earned;
+          const before = chiOf(me);
+          me.chi = { n: Math.min(CHI.bag, before + earned) };
+          chi = { earned, added: me.chi.n - before, n: me.chi.n, full: me.chi.n >= CHI.bag, capped: daily.chi >= cap, deafened: false };
+        }
+      }
+
       // Prize counters: your own outcomes, and positive play points as the
       // player or the target (never bonus points)
       for (const prize of PRIZES) {
@@ -997,8 +1318,16 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       }
       if (them && targetPts > 0) bump('target', targetId, target.name, them, dayFor(data, targetId, today), PRIZE_BY_KEY.points, targetPts);
 
+      // 2.76.0: the caster's pay — each blessing that did something this
+      // play, once, in this play's game (3B: and their Blessings prize)
+      casterPay = owed.map(charm => payCaster(data, earn, charm, now)).filter(Boolean);
+
       checkTitles('actor', actor.id, actor.name, me);
       if (them) checkTitles('target', targetId, target.name, them);
+      // …and the casters' (3B: All That Kind of Thing), unless they're one of those two
+      for (const p of casterPay) {
+        if (p.userId !== actor.id && p.userId !== targetId) checkTitles('caster', p.userId, p.name, data.users[p.userId], { name: p.name });
+      }
 
       // The twist, last: it can cancel this play's gain (Reel Change) or
       // freeze the streak just extended (Brain Freeze), and the 30th earns
@@ -1010,6 +1339,10 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       }
     }
     pruneStatuses(me, now);
+    // 2.76.0: charms over (used up, or out of time) go, leaving a hex's
+    // ward; the player's that ran out unused get a line
+    const expired = pruneCharms(me, now).map(({ kind, el }) => ({ kind, el }));
+    if (them) pruneCharms(them, now);
 
     // A calendar happening is mentioned once per member per UTC day, on
     // the first play that day: it's on all day, with no announcement
@@ -1054,6 +1387,11 @@ export function recordPlay(guildId, { game, action = null, actor, target, outcom
       happenings: live.filter(h => touched.has(h.kind)).map(h => ({ kind: h.kind, tag: h.tag || h.emoji || '' })),
       happeningLines: happeningLines.map(l => ({ ...l, happening: byKind.get(l.happening) || { kind: l.happening } })),
       calendar,
+      charms: charmLog,
+      casterPay,
+      chi,
+      lost,
+      expired,
     };
   });
 }
@@ -1394,20 +1732,312 @@ export function hasBackStakes(guildId, siegeId) {
   return isPlainObject(stakes) && Object.keys(stakes).some(k => k.startsWith(`${siegeId}:`));
 }
 
+// ── /six-demon-bag (2.76.0) ─────────────────────────────────────────────
+
+/**
+ * mutateScores for an action that can be refused: when `fn` returns
+ * {error}, nothing is saved — not even an identical copy and a new .bak —
+ * so a refusal costs nothing and touches nothing (the sim checks the bytes).
+ * Everything else is mutateScores' rule: one synchronous load-modify-save.
+ */
+function mutateUnlessRefused(guildId, fn) {
+  const data = loadScores(guildId);
+  const out = fn(data);
+  if (!out?.error) saveScores(guildId, data);
+  return out;
+}
+
+/**
+ * What castProblem needs to know about a cast, from the scores file
+ * @param {object} cast
+ * @param {{id: string, name: string}} cast.caster
+ * @param {{id: string, name: string, bot?: boolean}} cast.target
+ * @param {'bless'|'hex'} cast.kind
+ * @param {string} cast.el
+ * @param {object} [cast.settings] - getGameSettings
+ * @param {boolean} [cast.fighting] - the target fights a live siege (siegeStore.fightingNow)
+ * @param {object[]} [cast.happenings] - in progress (a castDiscount, from R6)
+ */
+function castContext(data, { caster, target, kind, el, settings = DEFAULT_GAME_SETTINGS, fighting = false, happenings = [] }, now) {
+  const targetUser = data.users?.[target.id];
+  return {
+    kind, el, settings, fighting: !!fighting,
+    casterId: caster.id, targetId: target.id, targetBot: !!target.bot,
+    caster: data.users?.[caster.id], target: targetUser,
+    casterDay: { casts: todayCount(data, caster.id, 'casts', now), hexes: todayCount(data, caster.id, 'hexes', now) },
+    targetDay: { hexRecv: todayCount(data, target.id, 'hexRecv', now) },
+    targetNights: nightsPlayedWithin(targetUser, now, MAGIC.inactiveDays),
+    cost: castCost(kind, liveHappenings(happenings, now)),
+  };
+}
+
+/**
+ * Why this cast can't go ahead, or null (gameMagic.castProblem, on the
+ * scores file as it is). Read-only: /six-demon-bag asks before it spends
+ * the cooldown, so a refusal costs nothing at all; castCharm asks again.
+ * @returns {?{reason, when?, count?, chi?, need?}}
+ */
+export function castCheck(data, cast, now = Date.now()) {
+  return castProblem(castContext(data, cast, now), now);
+}
+
+/** "🧛 Bitten and 🦟 Mosquito Swarm": the {statuses} Cleansing Rain washed */
+function statusList(keys) {
+  const labels = keys.map(k => `${TWISTS[k].emoji} ${TWISTS[k].name}`);
+  return labels.length < 2 ? labels.join('') : `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}`;
+}
+
+/**
+ * Cast a blessing or a hex (design §3, R3 brief §5), in ONE save:
+ *   1. castProblem again (the command asked a moment ago; this is the one
+ *      that counts) — a refusal saves nothing
+ *   2. both members' charms pruned; the cost spent, the cast counted (a
+ *      hex: the caster's hex today, and one more received for the target),
+ *      the caster's log noted
+ *   3. (3B) a hex at a member whose Jade Charm is ready is turned aside:
+ *      the charm used (as Garlic is) with its cooldown, one of their
+ *      defences today — and the caster's Chi and cast are still spent
+ *   4. a blessing and a hex of the same or opposed elements cancel: a
+ *      blessing LIFTS the hex on its target (both gone, a ward, and the
+ *      caster paid in their home game: it did something); a hex SPOILS a
+ *      blessing (both gone, a ward; a hex is never paid)
+ *   5. otherwise it lands: a blessing for MAGIC.blessHours, a hex for
+ *      MAGIC.hexHours, each with its CHARMS plays. Cleansing Rain washes
+ *      Bitten, Jinxed and Mosquito Swarm off at once (and pays if it did)
+ * @returns {{outcome: 'landed'|'lifted'|'spoiled'|'deflected', kind, el, charm: string, cancelled: ?string,
+ *   washed: string[], washedText: string, cost, chiBefore, chiAfter, castsLeft, pay: ?object,
+ *   rewards: object[], titles: object[]} | {error: string, when?, count?, chi?, need?}}
+ */
+export function castCharm(guildId, cast, now = Date.now()) {
+  return mutateUnlessRefused(guildId, (data) => {
+    const ctx = castContext(data, cast, now);
+    const problem = castProblem(ctx, now);
+    if (problem) return { error: problem.reason, ...problem };
+    const { caster, target, kind, el } = cast;
+    const settings = cast.settings || DEFAULT_GAME_SETTINGS;
+    const today = dayKey(now);
+    const me = userFor(data, caster.id, caster.name);
+    const them = userFor(data, target.id, target.name);
+    seedTitles(me, now);
+    seedTitles(them, now);
+    pruneCharms(me, now);
+    pruneCharms(them, now);
+    pruneCastLog(me, now);
+
+    const myDay = dayFor(data, caster.id, today);
+    const theirDay = dayFor(data, target.id, today);
+    const chiBefore = chiOf(me);
+    me.chi = { n: chiBefore - ctx.cost };
+    myDay.casts = (myDay.casts || 0) + 1;
+    if (kind === 'hex') {
+      myDay.hexes = (myDay.hexes || 0) + 1;
+      theirDay.hexRecv = (theirDay.hexRecv || 0) + 1;
+    }
+    (me.castLog ||= []).push({ to: target.id, kind, el, at: now });
+
+    // chiAfter is read as it returns (done), after any payoff: with
+    // MAGIC.casterPayIn 'chi' a lift or a wash pays the caster in Chi, and
+    // the cast's "20 → 15 Chi" footer showed the Chi before it, one short
+    // (the R3 review)
+    const result = {
+      outcome: 'landed', kind, el, charm: charmLabel(kind, el), cancelled: null, washed: [], washedText: '',
+      cost: ctx.cost, chiBefore, chiAfter: null, castsLeft: Math.max(0, MAGIC.castsPerDay - myDay.casts),
+      pay: null, rewards: [], titles: [],
+    };
+    const done = () => {
+      result.chiAfter = chiOf(me);
+      return result;
+    };
+    // A cast-time payoff is paid in the caster's home game (R3 brief §3)
+    const earn = {
+      give: (userId, name, pts) => giveIn(data, userId, name, homeGame(data.users[userId]), pts, now),
+      rewards: result.rewards, titles: result.titles, today, now,
+    };
+    const paid = () => {
+      result.pay = payCaster(data, earn, { by: caster.id, byName: me.name, el }, now);
+      grantTitles(earn, 'caster', caster.id, me.name, me, { name: me.name });
+    };
+
+    // 3B: the Jade Charm turns a hex aside, like Garlic a doom
+    if (kind === 'hex' && owns(DEFENCES, 'jade') && defenceReady(data, target.id, 'jade', now)) {
+      take(them, 'jade');
+      (them.cooldowns ||= {}).jade = now + DEFENCES.jade.cooldownHours * HOUR_MS;
+      theirDay.defences = (theirDay.defences || 0) + 1;
+      result.outcome = 'deflected';
+      result.readyAt = them.cooldowns.jade;
+      return done();
+    }
+
+    const charms = (them.charms ||= {});
+    const on = activeCharms(them, now, settings);
+    if (kind === 'bless' && on.hex && cancels(el, on.hex.el)) {
+      result.outcome = 'lifted';
+      result.cancelled = charmLabel('hex', on.hex.el);
+      endHex(them, now);
+      paid();
+    } else if (kind === 'hex' && on.bless && cancels(el, on.bless.el)) {
+      result.outcome = 'spoiled';
+      result.cancelled = charmLabel('bless', on.bless.el);
+      delete charms.bless;
+      charms.wardUntil = Math.max(Number(charms.wardUntil) || 0, now + MAGIC.wardHours * HOUR_MS);
+    } else if (kind === 'bless') {
+      charms.bless = { el, by: caster.id, byName: me.name, at: now, until: now + MAGIC.blessHours * HOUR_MS, left: charmPlays('bless', el), paid: false };
+      if (el === 'rain') {
+        const running = activeStatuses(them, now);
+        result.washed = CHARMS.rain.bless.wash.filter(k => running[k]);
+        for (const k of result.washed) delete them.effects[k];
+        pruneStatuses(them, now);
+        result.washedText = statusList(result.washed);
+        if (result.washed.length) {
+          charms.bless.paid = true;
+          paid();
+        }
+      }
+    } else {
+      charms.hex = { el, by: caster.id, byName: me.name, at: now, until: now + MAGIC.hexHours * HOUR_MS, left: charmPlays('hex', el) };
+    }
+    if (!Object.keys(charms).length) delete them.charms;
+    return done();
+  });
+}
+
+/**
+ * /six-demon-bag shrug: the hex on you is gone, and the ward starts. Free
+ * the first MAGIC.freeShrugsPerDay times a UTC day; after that CHI.cost.shrug
+ * Chi — or free when the bag holds less than that, so nobody is ever stuck
+ * with a hex (design §3.4).
+ * @returns {{outcome: 'free'|'paid'|'broke', chi: number, charm: string, wardUntil: number} | {error: 'none'}}
+ */
+export function shrugHex(guildId, { userId, name, settings = DEFAULT_GAME_SETTINGS }, now = Date.now()) {
+  return mutateUnlessRefused(guildId, (data) => {
+    const user = data.users[userId];
+    const hex = activeCharms(user, now, settings).hex;
+    if (!hex) return { error: 'none' };
+    if (name) user.name = name;
+    const day = dayFor(data, userId, dayKey(now));
+    const shrugs = day.shrugs || 0;
+    let outcome = 'free';
+    let chi = 0;
+    if (shrugs >= MAGIC.freeShrugsPerDay) {
+      if (chiOf(user) < CHI.cost.shrug) {
+        outcome = 'broke';
+      } else {
+        outcome = 'paid';
+        chi = CHI.cost.shrug;
+        user.chi = { n: chiOf(user) - chi };
+      }
+    }
+    day.shrugs = shrugs + 1;
+    endHex(user, now);
+    return { outcome, chi, charm: charmLabel('hex', hex.el), wardUntil: user.charms.wardUntil };
+  });
+}
+
+/**
+ * /six-demon-bag peace on:true|false (design §3.4): no hexes either way.
+ * Making peace lifts the hex on you now (a ward follows, as for any hex);
+ * it can be unmade only MAGIC.peaceLockDays after it was made.
+ * @returns {{on: boolean, lifted: ?string} | {error: 'alreadyOn'|'alreadyOff'|'tooSoon', when?: number}}
+ */
+export function setPeace(guildId, { userId, name, on }, now = Date.now()) {
+  return mutateUnlessRefused(guildId, (data) => {
+    const peace = data.users[userId]?.charms?.peace;
+    if (on) {
+      if (peace?.on) return { error: 'alreadyOn' };
+      const user = userFor(data, userId, name);
+      const charms = (user.charms ||= {});
+      const hex = charms.hex && charms.hex.until > now && charms.hex.left > 0 ? charms.hex : null;
+      if (hex) endHex(user, now);
+      charms.peace = { on: true, since: now };
+      return { on: true, lifted: hex ? charmLabel('hex', hex.el) : null };
+    }
+    if (!peace?.on) return { error: 'alreadyOff' };
+    const until = peace.since + MAGIC.peaceLockDays * DAY_MS;
+    if (now < until) return { error: 'tooSoon', when: until };
+    const user = userFor(data, userId, name);
+    delete user.charms.peace;
+    pruneCharms(user, now);
+    return { on: false, lifted: null };
+  });
+}
+
+/**
+ * The admin's `hexes:false` (design §1): every hex in place ends at once,
+ * with no ward (no hex can come while they're off anyway).
+ * @returns {number} how many hexes ended
+ */
+export function endAllHexes(guildId) {
+  return mutateScores(guildId, (data) => {
+    let n = 0;
+    for (const user of Object.values(data.users)) {
+      if (!user?.charms?.hex) continue;
+      delete user.charms.hex;
+      n += 1;
+      if (!Object.keys(user.charms).length) delete user.charms;
+    }
+    return n;
+  });
+}
+
+/**
+ * Freeing or curing a siege fighter (a credited assist, 2.75.0): +CHI.help
+ * Chi, at most CHI.helpPerDay a UTC day from help (× a happening's
+ * chiMult), apart from the play's own Chi and its cap. Like a play's, what
+ * the day allows counts even when the bag is full. Nothing with the bag off.
+ * @returns {?{earned, added, n, full, capped}} null when nothing was earned
+ */
+export function earnHelpChi(guildId, { userId, name, settings = DEFAULT_GAME_SETTINGS, happenings = [] }, now = Date.now()) {
+  if (!magicOn(settings)) return null;
+  return mutateUnlessRefused(guildId, (data) => {
+    const cm = happeningMod(liveHappenings(happenings, now), 'chiMult').value;
+    const cap = CHI.helpPerDay * cm;
+    const day = dayFor(data, userId, dayKey(now));
+    const earned = Math.max(0, Math.min(CHI.help * cm, cap - (day.helpChi || 0)));
+    if (!(earned > 0)) return { error: 'capped' };
+    const user = userFor(data, userId, name);
+    day.helpChi = (day.helpChi || 0) + earned;
+    const before = chiOf(user);
+    user.chi = { n: Math.min(CHI.bag, before + earned) };
+    return { earned, added: user.chi.n - before, n: user.chi.n, full: user.chi.n >= CHI.bag, capped: day.helpChi >= cap };
+  });
+}
+
+/**
+ * A member's bag, for /six-demon-bag status and the card. Read-only.
+ * @returns {{magic, hexesOff, chi, bag, today, perDay, helpToday, helpPerDay, casts, castsPerDay, hexes, hexesPerDay,
+ *   on: object[], peace: ?{since, until}, ward: ?number, freeShrugs: number}}
+ */
+export function bagStatus(data, userId, settings = DEFAULT_GAME_SETTINGS, now = Date.now()) {
+  const user = data.users?.[userId];
+  const peace = user?.charms?.peace?.on ? user.charms.peace : null;
+  const ward = wardOf(user, now);
+  return {
+    magic: magicOn(settings),
+    hexesOff: !hexesOn(settings),
+    chi: chiOf(user),
+    bag: CHI.bag,
+    today: todayCount(data, userId, 'chi', now),
+    perDay: CHI.perDay,
+    helpToday: todayCount(data, userId, 'helpChi', now),
+    helpPerDay: CHI.helpPerDay,
+    casts: todayCount(data, userId, 'casts', now),
+    castsPerDay: MAGIC.castsPerDay,
+    hexes: todayCount(data, userId, 'hexes', now),
+    hexesPerDay: MAGIC.hexesPerDay,
+    on: charmsOn(user, now, settings),
+    peace: peace ? { since: peace.since, until: peace.since + MAGIC.peaceLockDays * DAY_MS } : null,
+    ward: ward > now ? ward : null,
+    freeShrugs: Math.max(0, MAGIC.freeShrugsPerDay - todayCount(data, userId, 'shrugs', now)),
+  };
+}
+
 // ── the monster fights back (R6) ────────────────────────────────────────
 
 /** How many digest penalties are remembered, to make each one idempotent */
 const SIEGE_PENALTIES_KEPT = 100;
 
 /** Give `pts` to a member's siege game, every current period, as bonus */
-function giveSiege(data, userId, name, pts, now) {
-  if (!pts) return;
-  for (const period of Object.values(periodKeys(now))) {
-    const s = statsFor(data, userId, name, 'siege', period);
-    s.points += pts;
-    s.bonus = (s.bonus || 0) + pts;
-  }
-}
+const giveSiege = (data, userId, name, pts, now) => giveIn(data, userId, name, 'siege', pts, now);
 
 /**
  * A member's Antidote fires by itself the moment the monster (or their own
@@ -1760,7 +2390,8 @@ export function resultLine(game, result, { actor, target }, { label } = {}) {
  */
 export function extraLines(result, { actor, target }) {
   const names = { actor, target };
-  const who = (r) => (r.who === 'target' ? target : actor) || 'Someone';
+  // A blessing's caster (2.76.0) is neither: their entries carry their name
+  const who = (r) => r.name || (r.who === 'target' ? target : actor) || 'Someone';
   const out = [];
 
   const item = result.item;
@@ -1775,6 +2406,16 @@ export function extraLines(result, { actor, target }) {
 
   const player = actor || 'Someone';
   for (const s of result.statuses || []) if (STATUS_USED[s.key]) out.push(STATUS_USED[s.key](s, player));
+  // 2.76.0: the charms that acted (a Smoke Screen is the target's), then
+  // the casters they paid
+  for (const c of result.charms || []) {
+    const text = !c.quiet && ELEMENTS[c.el]?.used?.[c.kind];
+    if (!text) continue;
+    out.push(fillLine(text, { user: (c.who === 'target' ? target : actor) || 'Someone', left: leftNote(c.left), points: signed(c.points || 0) }));
+  }
+  for (const p of result.casterPay || []) {
+    out.push(fillLine(SIX_DEMON_BAG.paidOff, { caster: p.name || 'Someone', charm: charmLabel('bless', p.el), points: payText(p) }));
+  }
   for (const l of result.happeningLines || []) {
     if (l.kind === 'goodBonus') out.push(HAPPENING_LINES.goodBonus(l.happening, player, l.points));
     else if (l.kind === 'keptStreak') out.push(HAPPENING_LINES.keptStreak(l.happening, player));
@@ -1792,6 +2433,15 @@ export function extraLines(result, { actor, target }) {
   }
   if (result.twist) out.push(twistLine(result.twist, player));
   for (const t of result.titles || []) out.push(titleLine({ who: who(t), title: TITLE_BY_KEY[t.key] }));
+  // 2.76.0: the play's Chi, only when it filled the bag or hit the day's cap
+  // (design §2: /six-demon-bag status has the rest), and a charm that wore off
+  const chi = result.chi;
+  if (chi?.earned > 0 && (chi.full || chi.capped)) {
+    out.push(`☯️ ${player} +${chi.added} Chi · ${chi.full ? SIX_DEMON_BAG.notes.full : SIX_DEMON_BAG.notes.capped}`);
+  }
+  for (const x of result.expired || []) {
+    if (SIX_DEMON_BAG.expired[x.kind] && ELEMENTS[x.el]) out.push(fillLine(SIX_DEMON_BAG.expired[x.kind], { user: player, charm: charmLabel(x.kind, x.el) }));
+  }
   for (const h of result.calendar || []) out.push(calendarLine(h));
 
   return out.filter(Boolean).map(line => `-# ${line}`);

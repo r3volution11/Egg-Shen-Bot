@@ -9,6 +9,67 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.76.0 - 2026-11-07
+
+*"Wind, fire, all that kind of thing!"* Egg Shen opens his bag: the first part of the *Big Trouble in Little China* expansion.
+
+### Added
+- **The Six-Demon Bag** (`/six-demon-bag`). Good plays fill your bag with Chi; spend it to bless a friend or hex a rival with one of six elements. See [The Six-Demon Bag](/commands/games-magic).
+  - **Chi:** +1 for a good outcome on a play that scores (a siege attack that lands too, even into the pot), at most 4 a day, and +2 for freeing or curing a siege fighter, at most 6 a day. The bag holds 20. A play a defence stopped earns none: a harmful potion the Antidote or a Smoke Screen turned aside still scores its giver +1, but no Chi.
+  - **Blessings (6 Chi)** and **hexes (7 Chi)**, two casts a day and at most one of them a hex:
+    - ⚡ Lightning Strike / Static
+    - 🌩️ Thunderous Applause / Deafened
+    - 🌧️ Cleansing Rain / Rained Out
+    - 💨 Tailwind / Ill Wind
+    - 🔥 Fired Up / Scorched
+    - 🌫️ Smoke Screen / Lost in the Smoke
+  - A blessing lasts until it's used or 24 hours, a hex until it's used or 12 hours. Charms work on plays that score, never on a siege attack.
+  - **Opposites cancel:** a blessing lifts a hex of the same or the opposite element, and a hex spoils a blessing the same way.
+  - **Helping pays:** the first time your blessing does something, you get +1 Chi back.
+  - **Hexes stay friendly:** one a day, the same member once in 72 hours, at most 2 received a day, a 3-hour ward after each, and never on yourself, bots, siege fighters or anyone who hasn't played this week. You can bless the same member 3 times a week. `/six-demon-bag shrug` shakes a hex off (free once a day), and `/six-demon-bag peace on:true` means no hexes either way, for at least a week.
+  - Every cast is public and pings only the member it lands on. A refused cast costs nothing.
+  - The element list says what each would do to the member you picked ("🌧️ Rain · lifts Sam's 🔥 Scorched"). `/six-demon-bag status` shows your bag, the game card has a 🎒 Six-Demon Bag section, and `/how-to-play` has a Six-Demon Bag topic.
+- **🧿 Jade Charm,** a new item: it turns aside the next hex cast on you, then rests 24 hours. Every 12 of your blessings that pay off bring one, and +3. A Car Break-In never takes it.
+- **🎒 All That Kind of Thing,** a new title: have blessings of all six elements pay off.
+- **Two new twists:** 🧧 Red Envelope (+4 Chi, on top of the day's cap) and 🀄 Ching Dai's Curse (a hex of a random element for 12 hours, with no caster). Good twists are as likely as before.
+- **For admins:** `/eggshen-config commands toggle setting:magic enabled:false` switches the whole bag off (no Chi, no blessings or hexes), and `/eggshen-config-games happenings hexes:false` switches off hexes alone, ending any in place.
+
+### Changed
+- **`/eggshen-help`** lists `/six-demon-bag`, and **`/eggshen-config settings view`** shows its switch (20 command switches).
+- **eggshenbot.com** has a new page, [The Six-Demon Bag](/commands/games-magic), and the games pages, the command reference, the configuration pages and the Games FAQ describe Chi, the new item, title and twists.
+
+### Developer
+- **Rules and data:**
+  - Pure rules in `src/utils/gameMagic.js`: `activeCharms`, `wardOf`, `pruneCharms`, `castProblem` (the refusal order), `elementChoices`, `elementOf`, `charmsOn`.
+  - Numbers in `gameRewards.js`: `CHI`, `MAGIC`, `CHARMS`, `ELEMENT_OPPOSITE`, `ELEMENT_KIT`. Words in `btilcLines.js` (new `refusals.blessPair` and `fighterBless`; `refusals.fighting` no longer promises a boost until R4).
+  - Storage, read through defaults (no migration): `users[uid].chi`, `.charms` (bless, hex, wardUntil, peace), `.castLog`, `.lifetime.magic` (paid, paidElements); `daily[uid]` `chi`, `helpChi`, `casts`, `hexes`, `hexRecv`, `shrugs`.
+- **Engine:**
+  - `resolvePlay`: Lost in the Smoke before the shield (with the held-fighter exception), Tailwind replays the recorded random numbers without itself (`tailwindPaid`, and no extra `random()` calls), Ill Wind's double draw, Smoke Screen as the last defence.
+  - `recordPlay`, in its one save: every charm's step, the caster's pay (`casterPay`; prizes and titles via the shared `bumpPrize` / `grantTitles`), Chi (`result.chi`), the 3B twists, `pruneCharms` (`result.expired`). New result fields `charms` (with `delta` / `targetDelta` for the balance books), `casterPay`, `chi`, `lost`, `expired`.
+  - `castCharm`, `shrugHex`, `setPeace`, `endAllHexes`, `earnHelpChi`, `bagStatus` in `gameScores.js`, one save each; a refusal saves nothing (`mutateUnlessRefused`). `siegeStore.fightingNow`; `finishPlay` passes `fighting` (a live fighter, or a free or cure that makes one) so Ching Dai's Curse passes them by.
+  - `getGameSettings` adds `hexes` and `magic` (read as `membersCan` reads a toggle); `defaultConfig.commandPermissions.magic`. `GAME_NAMES.magic` names the cast cooldown.
+- **Doug's decisions (2026-11-07):**
+  - A play a defence stopped earns no Chi: `recordPlay`'s Chi step requires `!defence`. A stopped doom or throw already changed its outcome, but a harmful potion the Antidote or a Smoke Screen stopped keeps `'hurt'` and scored +1 Chi on outcome alone. Deafened isn't spent on such a play.
+  - `TWIST_RULES.safe` is `['nlight', 'jade']`: a Car Break-In never takes the Jade Charm; with only safe items held it becomes a Mosquito Swarm, as before.
+- **Switches** (Doug's open questions, defaults shipped): `BAG_3B` (gameRewards.js), `MAGIC.blessPair` (null = off), `MAGIC.fighterBlessing` (`'ordinary'` | `'refuse'`), `ELEMENT_INPUT` in `six-demon-bag.js` (`'autocomplete'` | `'fixed'`).
+- **Balance knobs applied** (the R3 brief's two, in order, after heavy members on a 5-player server passed 35%): the caster's pay is +1 Chi (`MAGIC.casterPayIn: 'chi'`, was +1 bonus point), and a blessing costs 6 Chi (`CHI.cost.bless`, was 5). A Smoke Screen fired by its own caster's attack pays nobody. The Jade Charm's 12 is one constant, `JADE_NEED` (PRIZES' `need` and `MAGIC.jadeNeed`).
+- **Rate limits:** `/six-demon-bag` `bless`, `hex`, `peace` and `shrug` are exempt from the dispatcher's general rate limit (`rateLimiter.js` `GAME_SUBCOMMANDS`; the dispatcher passes the subcommand), so a refused cast never blocks the next one; casts have the games' 20 s cooldown under `magic`, inside their 6 a minute. `status` keeps the general limit, and its refusal names `/six-demon-bag status`.
+- **Card and help:** the 🎒 Six-Demon Bag section; `CARD_STEPS` gives up the bag's bar first. `/how-to-play` topic `magic` (8 topics). `/eggshen-help` lists `/six-demon-bag`. `eggshen-config` `COMMAND_SWITCH_NAMES` gains `magic` (2.75.0's settings view predates it).
+- **Merged onto 2.75.0:** `siegeHelp` takes `settings` and `happenings` beside 2.75.0's `scoringOff`; help Chi is paid on `assist.credited`, so 2.75.0's cap applies (a scored play, or the first 2 unscored a night). `recordPlay` keeps `potted`/`potPoints`; charms never act on a siege attack, so the pot is untouched.
+- **Docs:** new `docs/commands/games-magic.md`; kit icons `bag`, `chi`, `elite`, `ethund`, `erain`, `ewind`, `efire`, `esmoke`, `jade` in `docs/public/emojis/` and their phrases in `kitIcons.js` (an emoji there carries no U+FE0F: `phraseAt` compares with it stripped); `gameCards.js` `magic-cast` and `magic-play`, and the bag on `game-card`; "The 16 twists" is "The 18 twists", the old anchor kept and `movedAnchors.js` pointed at the new one.
+- **Balance** (`BALANCE_PACES=all`, a month of play on the real rules, 6 seeds a pace, 3 at quick; bonus share of points, 15 / 5 players):
+  - typical: quick 29.4% / 28.9%, evening 28.0% / 30.5%, day 29.6% / 27.2%, 3 days 25.7% / 31.0%, week 28.5% / 27.9% (2.75.0: week 23.2% / 26.4%)
+  - heavy: quick 32.3% / 33.3%, evening 30.3% / 34.6%, day 28.2% / 31.3%, 3 days 27.7% / 32.9%, week 30.5% / 33.4%, all ≤ 35%
+  - an item every 2.7–3.0 days for a typical member, a grinder at most 60 prizes a month, sieges won 59–82%, nobody took more than 1 hex in a UTC day, and a rival hexing one member at every chance managed 6–8 hexes a month, −3 at worst in a day
+  - the two knobs were needed: without them, heavy members on a 5-player server reached 37.8% at quick pace
+- **Tests:**
+  - New suites: `game-magic` (49: every charm, how it's used up and pays, interplay with statuses, multipliers and defences, cancels, every refusal), `six-demon-bag` (29: the command end to end, refusals that cost nothing, channels, toggles, peace, shrug, the rate limit) and `magic-sim` (10: whole evenings through the real commands, a siege and restarts, with the bag's invariants checked after every step).
+  - Doug's two decisions each have a `magic-sim` scenario through the real `/potion` and `/foodfight`, asserting the stored Chi and the Glovebox.
+  - Additions to `game-scores`, `game-card`, `how-to-play`, `help-command`, `game-twists`, `game-rewards`, `title-badges`, `game-commands`, `game-happenings`, `btilc-lines` and `config-settings-view`; the siege simulator casts (`sim.cast`), the siege fuzz casts at random, and the balance fuzz has a magic ledger, a MAXCAST what-if and a rival run.
+  - Every fix was break-tested: 117 planted bugs across the build, the review round and the finish (106 + 7 + 4), all caught but one that turned out not to be a bug (a refusal never reaches the save).
+  - Suite: 193 files, 3240 tests.
+- **Deploy:** `deploy-commands` is needed: the new `/six-demon-bag`, the `hexes` option on `/eggshen-config-games happenings`, the `magic` choice on `/eggshen-config commands toggle`, and the Six-Demon Bag topic on `/how-to-play`.
+
 ## 2.75.1 - 2026-11-07
 
 ### Fixed

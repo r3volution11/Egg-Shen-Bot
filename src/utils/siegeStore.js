@@ -372,6 +372,20 @@ export const poisonedNow = (p, now = Date.now()) => !!(p && isObject(p.poisoned)
 /** Free to fight and to be acted on: has attacked, isn't caught, isn't out */
 export const isFree = (p, now = Date.now()) => !!p && (p.attacks || 0) > 0 && !isCaught(p) && !isOut(p, now);
 
+/**
+ * 2.76.0: is this member fighting siege `s` now — the siege live, and they
+ * in it (they attacked, or helped: fightersOf's rule) and not out (a held
+ * fighter is still fighting)? Nobody hexes a fighter: the siege is co-op
+ * (design §3.3), and Ching Dai's Curse passes them by. Pure: the caller
+ * reads the siege (currentSiege) first, outside any scores save.
+ */
+export function fightingNow(s, userId, now = Date.now()) {
+  if (!s || !isLive(s, now) || !userId) return false;
+  const p = isObject(s.participants) ? s.participants[userId] : null;
+  if (!isObject(p) || isOut(p, now)) return false;
+  return (p.attacks || 0) > 0 || contributionOf(p) > 0;
+}
+
 /** The poison's damage a minute on this monster (its traits.poisonMult) */
 export function poisonPerMinute(monster) {
   return Math.max(0, Math.round(SIEGE.poison.perMinute * factor(monster?.traits?.poisonMult)));

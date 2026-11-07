@@ -51,7 +51,10 @@ export async function dispatchCommand(interaction, commands) {
       interaction.user.id,
       interaction.commandName,
       interaction.member,
-      commandArgs
+      commandArgs,
+      // 2.76.0: /six-demon-bag's casts have the games' own limits, its
+      // status the generic one (rateLimiter.js GAME_SUBCOMMANDS)
+      interaction.options.getSubcommand?.(false) ?? null
     );
 
     if (rateCheck.limited) {

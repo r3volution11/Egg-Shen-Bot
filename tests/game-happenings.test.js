@@ -31,6 +31,8 @@ const DEFAULT_LINES = [
   '• Happenings: **on** · random ones: **Normal (about one a day when busy)**',
   '• Announced in: the channel the games were last played in',
   '• Twists: **on**, **4%** of scored plays',
+  // 2.76.0: the Six-Demon Bag's hexes
+  '• Hexes: **on**',
   // R6: random sieges live with the happenings' settings; 2.74.0: the pace, and what it means
   '• Pace: **Quick** · a siege lasts **45 minutes**',
   '-# The monster acts every 5 minutes · 10 minutes to free a grabbed fighter · no attack limit',
@@ -500,6 +502,16 @@ describe('the summary and settings', () => {
     expect(sends()).toHaveLength(0);
   });
 
+  test('2.76.0: hexes, saved through the normalizer; the summary says so, and that the bag itself is off when it is', async () => {
+    const off = await admin({ hexes: false });
+    expect((await loadGuildConfig(GUILD)).games).toMatchObject({ hexes: false });
+    expect(off.content.split('\n')).toContain('• Hexes: **off**');
+    expect(off.content.split('\n')[0]).toBe('No hexes were in place.');
+    const config = await loadGuildConfig(GUILD);
+    await saveGuildConfig(GUILD, { ...config, commandPermissions: { ...(config.commandPermissions || {}), magic: false } });
+    expect((await admin({})).content.split('\n')).toContain('• Hexes: **off** (the Six-Demon Bag is switched off)');
+  });
+
   test('every setting saves, through the normalizer', async () => {
     const reply = await admin({ enabled: false, frequency: 'rare', channel: { id: 'happen' }, twists: false, 'twist-percent': 9 });
     expect((await loadGuildConfig(GUILD)).games).toEqual({
@@ -510,6 +522,7 @@ describe('the summary and settings', () => {
       '• Happenings: **off**',
       '• Announced in: <#happen>',
       '• Twists: **off**',
+      '• Hexes: **on**',
       '• Pace: **Quick** · a siege lasts **45 minutes**',
       '-# The monster acts every 5 minutes · 10 minutes to free a grabbed fighter · no attack limit',
       '• Random sieges: **Normal (about 3 a week)**',

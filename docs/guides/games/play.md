@@ -7,7 +7,7 @@ howto:
   totalTime: PT5M
   steps:
     - name: Take the tour
-      text: Run `/how-to-play`. Only you see it. Use its menu, or ◀ Previous and Next ▶, to read about items, prizes, titles, nights, twists, happenings and sieges.
+      text: Run `/how-to-play`. Only you see it. Use its menu, or ◀ Previous and Next ▶, to read about items, prizes, titles, nights, twists, happenings, sieges and the Six-Demon Bag.
     - name: Make a play
       text: Run `/foodfight throw target:@Sam`. The reply shows what happened and the points. A hit is +3 for you and −1 for Sam.
     - name: Help someone too

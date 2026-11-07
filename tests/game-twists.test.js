@@ -22,7 +22,7 @@ import {
 import { resolvePlay, outcomeLabel, tagged } from '../src/utils/gamePlay.js';
 import { pickLine } from '../src/utils/gameRules.js';
 import { luck, _setLuck, LUCK_OFF } from '../src/utils/gameLuck.js';
-import { TWISTS, TWIST_RULES, TITLES } from '../src/data/gameRewards.js';
+import { TWISTS, TWIST_RULES, TITLES, BAG_3B } from '../src/data/gameRewards.js';
 import { FOODFIGHT_LINES } from '../src/data/foodfightLines.js';
 import { DOOM_LINES } from '../src/data/doomLines.js';
 import { DOOM_BLOCKED_LINES } from '../src/data/rescueLines.js';
@@ -369,7 +369,8 @@ describe('the bad ones', () => {
     expect(bites.map(b => lines(b))).toEqual([
       ['-# 🦟 Mosquito Swarm: Sam −1 (2 more).'],
       ['-# 🦟 Mosquito Swarm: Sam −1 (1 more).'],
-      ['-# 🦟 Mosquito Swarm: Sam −1 (the last one).'],
+      // (2.76.0: the day's 4th good play fills the day's Chi, and says so)
+      ['-# 🦟 Mosquito Swarm: Sam −1 (the last one).', '-# ☯️ Sam +1 Chi · that\'s all the Chi for today'],
     ]);
     expect([today().twistLoss, sam().effects]).toEqual([3, undefined]);
     expect(food()).toMatchObject({ points: 3 + 3 + 3 - 1 - 1 - 1 + 3 - 1, bonus: -3 });
@@ -397,7 +398,11 @@ describe('the bad ones', () => {
     expect(r.twist).toEqual({ key: 'brainfreeze', good: false, streak: 4, gameName: 'Food Fight' });
     expect([r.streak, food().streak, food().bestStreak]).toEqual([0, 0, 4]);
     expect([sam().lifetime.streak.foodfight, sam().lifetime.bestStreak]).toEqual([0, 4]);
-    expect(lines(r)).toEqual(['-# 🎲 Twist! 🧊 Brain Freeze: Sam chugs the slushie too fast. EVERYTHING HURTS. Sam\'s Food Fight streak of 4 is over.']);
+    expect(lines(r)).toEqual([
+      '-# 🎲 Twist! 🧊 Brain Freeze: Sam chugs the slushie too fast. EVERYTHING HURTS. Sam\'s Food Fight streak of 4 is over.',
+      // 2.76.0: the 4th good play of the day fills the day's Chi
+      '-# ☯️ Sam +1 Chi · that\'s all the Chi for today',
+    ]);
   });
 });
 
@@ -416,21 +421,25 @@ describe('the rules', () => {
     twistNext('pickpocket');
     play('hit');
     expect(sam().lastTwistBad).toBe(true);
-    // Over every twist 0.999 is the last, Brain Freeze (bad); over the good ones, Friendly Ghost
+    // Over every twist 0.999 is the last, Brain Freeze (bad); over the good
+    // ones, Friendly Ghost — and since 2.76.0 (BAG_3B) Ching Dai's Curse and
+    // the Red Envelope, which follow them
     luckSeq(0, 0.999);
-    expect(play('hit', { now: T + MIN }).twist).toMatchObject({ key: 'ghost', good: true });
+    expect(play('hit', { now: T + MIN }).twist).toMatchObject({ key: BAG_3B ? 'redEnvelope' : 'ghost', good: true });
     expect(sam().lastTwistBad).toBe(false);
     luckSeq(0, 0.999);
-    expect(play('hit', { now: T + 2 * MIN }).twist.key).toBe('brainfreeze');
-    expect(GOOD_KEYS).toEqual(['loose', 'fan', 'find', 'luckybreak', 'refill', 'dcut', 'secondwind', 'ghost']);
+    expect(play('hit', { now: T + 2 * MIN }).twist.key).toBe(BAG_3B ? 'chingDai' : 'brainfreeze');
+    expect(GOOD_KEYS).toEqual(['loose', 'fan', 'find', 'luckybreak', 'refill', 'dcut', 'secondwind', 'ghost', ...(BAG_3B ? ['redEnvelope'] : [])]);
   });
 
   test('a twist that would do nothing isn\'t drawn: no gain to cancel, no streak to freeze, nothing left to take', () => {
-    // A miss for a newcomer: −1, no streak, and the month below 0
+    // A miss for a newcomer: −1, no streak, and the month below 0. (With
+    // the Six-Demon Bag off, so 2.76.0's two are idle too: Ching Dai's Curse
+    // would otherwise be the last of the pool)
     luckSeq(0, 0.999);
-    expect(play('miss').twist.key).toBe('mosquito');
-    // The same r over a pool without those four lands where it should
-    expect(pickLine(without('pickpocket', 'call', 'reel', 'brainfreeze').map(k => ({ outcome: k })),
+    expect(play('miss', { settings: { ...SETTINGS, magic: false } }).twist.key).toBe('mosquito');
+    // The same r over a pool without those four (and those two) lands where it should
+    expect(pickLine(without('pickpocket', 'call', 'reel', 'brainfreeze', 'redEnvelope', 'chingDai').map(k => ({ outcome: k })),
       Object.fromEntries(Object.entries(TWISTS).map(([k, t]) => [k, t.weight])), () => 0.999).outcome).toBe('mosquito');
   });
 

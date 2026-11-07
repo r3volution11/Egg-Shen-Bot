@@ -16,8 +16,9 @@ import {
   POINTS, DEFAULT_GAME_SETTINGS, getGameSettings, channelAllowed, recordPlay, loadScores,
   shieldedUntil, getScoreboard, getLeaderboard, resetScores, deleteScores,
   checkPlayLimit, resetPlayLimits, resultLine, applySiegeResult, mutateScores, nightsPlayedWithin, backingProblem, stakeBacking,
+  earnHelpChi, extraLines, castCharm,
 } from '../src/utils/gameScores.js';
-import { TITLES, TITLE_POINTS, SIEGE, WANG_CHI_TITLE_COUNTER } from '../src/data/gameRewards.js';
+import { TITLES, TITLE_POINTS, SIEGE, WANG_CHI_TITLE_COUNTER, CHI, MAGIC } from '../src/data/gameRewards.js';
 import { tagged } from '../src/utils/gamePlay.js';
 
 const GUILD = 'scores-guild';
@@ -429,5 +430,94 @@ describe('2.75.0: backing, the member\'s side', () => {
     expect(stakeBacking(GUILD, { key: 'y:sam', userId: 'sam', name: 'sam', stake: 2 }, NOW)).toEqual({ error: 'daily' });
     // The next UTC day: again
     expect(backingProblem(loadScores(GUILD), 'sam', 5, NOW + DAY)).toBeNull();
+  });
+});
+
+// ── 2.76.0: Chi ─────────────────────────────────────────────────────────
+
+describe('2.76.0: Chi, the Six-Demon Bag\'s fuel', () => {
+  const chiOf = (id) => loadScores(GUILD).users[id]?.chi?.n ?? 0;
+  const day = (id) => loadScores(GUILD).daily[id];
+  const at = (i) => NOW + i * MIN;
+
+  test('+1 for a good outcome on a scored play, at most 4 a UTC day; the 4th says the day\'s Chi is done', () => {
+    const plays = ['hit', 'miss', 'hit', 'tasty', 'hit', 'hit'].map((o, i) => play('foodfight', o, { now: at(i) }));
+    expect(plays.map(p => p.chi && [p.chi.earned, p.chi.n, p.chi.capped])).toEqual([[1, 1, false], null, [1, 2, false], [1, 3, false], [1, 4, true], null]);
+    expect([chiOf('sam'), day('sam').chi]).toEqual([CHI.perDay, CHI.perDay]);
+    expect(extraLines(plays[4], { actor: 'Sam', target: 'ALEX' })).toEqual(['-# ☯️ Sam +1 Chi · that\'s all the Chi for today']);
+    expect(extraLines(plays[2], { actor: 'Sam', target: 'ALEX' })).toEqual([]);
+    // The next UTC day, more
+    expect(play('foodfight', 'hit', { now: NOW + DAY }).chi).toMatchObject({ earned: 1, n: 5 });
+  });
+
+  test('every good outcome CHI.earnOutcomes names, in every game — a sacrifice too, and a siege attack, pot or not; nothing else', () => {
+    const cases = [['foodfight', 'hit'], ['foodfight', 'tasty'], ['doom', 'doomed'], ['rescue', 'rescued'], ['rescue', 'sacrificed'], ['potion', 'helped', 'helpful'], ['potion', 'hurt', 'harmful']];
+    for (const [i, [game, outcome, effect]] of cases.entries()) {
+      deleteScores(GUILD);
+      expect([game, outcome, play(game, outcome === 'helped' || outcome === 'hurt' ? 'worked' : outcome, { effect, now: at(i) }).chi?.earned]).toEqual([game, outcome, 1]);
+    }
+    for (const [game, outcome] of [['foodfight', 'miss'], ['foodfight', 'gross'], ['doom', 'escaped'], ['doom', 'blocked'], ['rescue', 'caught'], ['potion', 'backfired']]) {
+      deleteScores(GUILD);
+      expect([game, outcome, play(game, outcome).chi]).toEqual([game, outcome, null]);
+    }
+    deleteScores(GUILD);
+    const monster = { kind: 'monster', pingUserIds: [], name: 'The Blob' };
+    const potted = recordPlay(GUILD, { game: 'siege', action: 'doom', actor: sam, target: monster, outcome: 'smite', settings: { ...DEFAULT_GAME_SETTINGS, dailyScoredPlays: SIEGE.scoredPerDay, twists: false }, pot: true }, NOW);
+    expect([potted.actorDelta, potted.chi.earned, chiOf('sam')]).toEqual([0, 1, 1]);
+    expect(recordPlay(GUILD, { game: 'siege', action: 'food', actor: sam, target: monster, outcome: 'splash', settings: DEFAULT_GAME_SETTINGS }, NOW).chi).toBeNull();
+  });
+
+  test('a capped play earns none; the bag holds 20, and a full one says so (and still counts toward the day)', () => {
+    expect(play('foodfight', 'hit', { settings: { ...DEFAULT_GAME_SETTINGS, dailyScoredPlays: 0 } }).chi).toBeNull();
+    mutateScores(GUILD, (d) => { d.users.sam.chi = { n: CHI.bag - 1 }; });
+    const fills = play('foodfight', 'hit', { now: at(1) });
+    expect(fills.chi).toEqual({ earned: 1, added: 1, n: CHI.bag, full: true, capped: false, deafened: false });
+    expect(extraLines(fills, { actor: 'Sam', target: 'ALEX' })).toEqual(['-# ☯️ Sam +1 Chi · the bag\'s full']);
+    const lost = play('foodfight', 'hit', { now: at(2) });
+    expect(lost.chi).toEqual({ earned: 1, added: 0, n: CHI.bag, full: true, capped: false, deafened: false });
+    expect([chiOf('sam'), day('sam').chi]).toEqual([CHI.bag, 2]);
+  });
+
+  test('the bag switched off (/eggshen-config commands toggle setting:magic): no Chi at all', () => {
+    const off = getGameSettings({ commandPermissions: { magic: false } });
+    expect([off.magic, getGameSettings({}).magic, getGameSettings({ commandPermissions: { enabled: false } }).magic]).toEqual([false, true, false]);
+    expect(play('foodfight', 'hit', { settings: off }).chi).toBeNull();
+    expect(earnHelpChi(GUILD, { userId: 'sam', name: 'Sam', settings: off }, NOW)).toBeNull();
+    expect(chiOf('sam')).toBe(0);
+  });
+
+  test('freeing or curing a siege fighter: +2, at most 6 a day from help, apart from the play\'s 4 — the bag still holds 20', () => {
+    const helps = [0, 1, 2, 3].map(i => earnHelpChi(GUILD, { userId: 'sam', name: 'Sam' }, at(i)));
+    expect(helps.map(h => h.error ?? [h.earned, h.n, h.capped])).toEqual([[2, 2, false], [2, 4, false], [2, 6, true], 'capped']);
+    expect([day('sam').helpChi, day('sam').chi ?? 0]).toEqual([CHI.helpPerDay, 0]);
+    // Play Chi on top, up to its own cap
+    for (let i = 0; i < 5; i++) play('foodfight', 'hit', { now: at(10 + i) });
+    expect(chiOf('sam')).toBe(CHI.helpPerDay + CHI.perDay);
+    mutateScores(GUILD, (d) => { d.users.sam.chi = { n: CHI.bag - 1 }; });
+    expect(earnHelpChi(GUILD, { userId: 'sam', name: 'Sam' }, NOW + DAY)).toEqual({ earned: CHI.help, added: 1, n: CHI.bag, full: true, capped: false });
+  });
+
+  test('resetScores: a whole person\'s reset takes their Chi, charms and cast log; one game\'s leaves them', () => {
+    mutateScores(GUILD, (d) => {
+      d.users.sam = { name: 'Sam', games: {}, chi: { n: 9 }, charms: { bless: { el: 'fire', by: 'kim', at: NOW, until: NOW + DAY, left: 3, paid: false } }, castLog: [{ to: 'alex', kind: 'hex', el: 'fire', at: NOW }], lifetime: { do: {}, got: {}, streak: {}, bestStreak: 0, magic: { paid: 2, paidElements: ['fire'] } } };
+      d.daily.sam = { day: '2026-10-15', plays: {}, chi: 3, casts: 1, hexes: 1 };
+    });
+    play('foodfight', 'hit');
+    resetScores(GUILD, { game: 'foodfight' });
+    const kept = loadScores(GUILD).users.sam;
+    // (the hit earned its Chi, and used one of Fired Up's plays)
+    expect([kept.chi.n, kept.charms.bless.left, kept.castLog.length, kept.lifetime.magic]).toEqual([10, 2, 1, { paid: 2, paidElements: ['fire'] }]);
+    resetScores(GUILD, { userId: 'sam' });
+    expect([loadScores(GUILD).users.sam, loadScores(GUILD).daily.sam]).toEqual([undefined, undefined]);
+  });
+
+  test('casting spends from the bag — and only casting, shrugging and nothing else takes Chi', () => {
+    mutateScores(GUILD, (d) => {
+      d.users.kim = { name: 'Kim', games: {}, chi: { n: CHI.cost.bless } };
+      d.users.alex = { name: 'Alex', games: {}, nights: { last: '2026-10-15', current: 1, best: 1, recent: ['2026-10-15'], saved: [] } };
+    });
+    const done = castCharm(GUILD, { caster: { id: 'kim', name: 'Kim' }, target: { id: 'alex', name: 'Alex' }, kind: 'bless', el: 'wind', settings: DEFAULT_GAME_SETTINGS }, NOW);
+    expect([done.chiBefore, done.chiAfter, chiOf('kim')]).toEqual([CHI.cost.bless, 0, 0]);
+    expect(MAGIC.castsPerDay - done.castsLeft).toBe(1);
   });
 });

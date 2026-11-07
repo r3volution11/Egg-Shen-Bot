@@ -180,16 +180,25 @@ const THRESHOLD_WARNING = '\n\n⚠️ **Warning:** You have gone over this serve
  * @param {string} commandName - Command name
  * @param {object} member - Guild member object (for permission checks)
  * @param {string} commandArgs - Command arguments for pattern detection (optional)
+ * @param {?string} subcommand - the subcommand run, if any (GAME_SUBCOMMANDS)
  * @returns {Promise<{limited: boolean, retryAfter?: number, message?: string, guildWide?: boolean}>}
  */
 const GAME_COMMANDS = new Set(['potion', 'foodfight', 'doom', 'rescue', 'siege']);
+// 2.76.0: /six-demon-bag's acting subcommands too — a cast has the games'
+// own limits (its 20 s cooldown under `magic`, inside their 6 a minute), and
+// a refusal must cost nothing: under the generic one-per-20s, a refused cast
+// would block the cast that follows it. Not `status`: it can be posted
+// publicly (`private:false`) and has no limit of its own, so it keeps the
+// generic one (the R3 review: eight public status cards in an instant went
+// through). Only a status lands in that bucket, so it never blocks a cast.
+const GAME_SUBCOMMANDS = new Map([['six-demon-bag', new Set(['bless', 'hex', 'peace', 'shrug'])]]);
 
 // Slash command names are lowercase with no spaces; anything else is a
 // right-click command ("Game card"), which is picked from a menu, not typed
 // after a slash — "/Game card" would name something that doesn't exist.
 const commandLabel = (name) => (/^[a-z0-9_-]+$/.test(name) ? `/${name}` : name);
 
-export async function checkRateLimit(guildId, userId, commandName, member = null, commandArgs = '') {
+export async function checkRateLimit(guildId, userId, commandName, member = null, commandArgs = '', subcommand = null) {
   // Load guild config to get rate limit settings
   const config = await loadGuildConfig(guildId);
   const now = Date.now();
@@ -296,8 +305,9 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
   // once per 20s, a few plays a minute across them); the generic one-per-20s
   // would stop someone sending a potion and then throwing food. An explicit
   // per-command setting still applies.
+  const gamePlay = GAME_COMMANDS.has(commandName) || !!GAME_SUBCOMMANDS.get(commandName)?.has(subcommand);
   const commandLimits = config.rateLimits.commands?.[commandName]
-    || (GAME_COMMANDS.has(commandName) ? null : config.rateLimits.global);
+    || (gamePlay ? null : config.rateLimits.global);
   
   if (!commandLimits) {
     return { limited: false };
@@ -339,11 +349,13 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
     // Check auto-ban threshold
     const exceededThreshold = checkAutoBanThreshold(guildId, userId, config);
     const warningMessage = exceededThreshold ? THRESHOLD_WARNING : '';
+    // "/six-demon-bag status", not "/six-demon-bag": its casts aren't held up
+    const label = GAME_SUBCOMMANDS.has(commandName) && subcommand ? `${commandLabel(commandName)} ${subcommand}` : commandLabel(commandName);
     
     return {
       limited: true,
       retryAfter,
-      message: `You're using commands too quickly! Please wait ${retryAfter} second${retryAfter !== 1 ? 's' : ''} before using **${commandLabel(commandName)}** again.${warningMessage}`
+      message: `You're using commands too quickly! Please wait ${retryAfter} second${retryAfter !== 1 ? 's' : ''} before using **${label}** again.${warningMessage}`
     };
   }
   

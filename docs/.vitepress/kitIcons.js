@@ -56,6 +56,20 @@ const PHRASES = [
   ['🔥', 'Streak', 'flame'],
   ['🏆', 'Leaderboard', 'trophy'],
   ['📊', 'Game card', 'chart'],
+  // 2.76.0: the Six-Demon Bag. Whole words only, so "🔥 Fired Up" and
+  // "💨 Miss" stay plain; "⚡ Lightning Strike" draws Lightning's icon.
+  // No U+FE0F on an emoji here: the pattern allows one after it, and
+  // phraseAt compares with it stripped ("☯️ Chi" in the text is ☯ + FE0F).
+  // With it, ☯️ 🌩️ 🌧️ 🌫️ matched the pattern but never found their phrase.
+  ['🎒', 'Six-Demon Bag', 'bag'],
+  ['☯', 'Chi', 'chi'],
+  ['🧿', 'Jade Charm', 'jade'],
+  ['⚡', 'Lightning', 'elite'],
+  ['🌩', 'Thunder', 'ethund'],
+  ['🌧', 'Rain', 'erain'],
+  ['💨', 'Wind', 'ewind'],
+  ['🔥', 'Fire', 'efire'],
+  ['🌫', 'Smoke', 'esmoke'],
   // The nights row on the card
   ['🌕', 'played', 'ntp'],
   ['🔦', 'saved', 'nts'],

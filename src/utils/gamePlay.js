@@ -22,10 +22,12 @@ import { loadGuildConfig } from './guildConfig.js';
 import {
   getGameSettings, checkPlayLimit, recordPlay, resultLine, extraLines, channelAllowed,
   loadScores, wouldScore, itemProblem, itemUsesToday, shieldActive, defencesLeft, defenceReady, activeStatuses,
-  POINTS, countSiegeEvent, GAME_NAMES, DEFAULT_GAME_SETTINGS,
+  POINTS, countSiegeEvent, GAME_NAMES, DEFAULT_GAME_SETTINGS, earnHelpChi,
 } from './gameScores.js';
-import { siegeAssist, monsterOf } from './siegeStore.js';
+import { siegeAssist, monsterOf, currentSiege, isLive, isCaught, poisonedNow, fightingNow } from './siegeStore.js';
 import { pickLine, itemEffect, goodLine, liveHappenings, happeningWeights, resolveTyped } from './gameRules.js';
+import { activeCharms } from './gameMagic.js';
+import { SIX_DEMON_BAG } from '../data/btilcLines.js';
 import { activeHappenings, noteActivity } from './happeningStore.js';
 import { ITEMS, DAILY, SIEGE, TITLES, TITLE_POINTS } from '../data/gameRewards.js';
 import { ITEM_REFUSALS, ITEM_PLACEHOLDERS, itemChoiceName } from '../data/gameRewardLines.js';
@@ -208,6 +210,21 @@ export function itemChoices(guildId, userId, { game, action }, typed = '', now =
  * exactly pick()'s — the many suites that stub Math.random onto a line
  * still land on it.
  *
+ * 2.76.0, the player's charms (gameMagic.activeCharms; scored plays only,
+ * never a siege attack), each in its step:
+ *   0. Lost in the Smoke, before the shield: a play aimed at a member scores
+ *      only the player (targetId → null, so no shield or defence either) —
+ *      except a /rescue of a fighter the live siege holds, or a helpful
+ *      /potion at one it poisoned: those go through, and use no play
+ *   3. Tailwind takes bad lines out like Lucky Break, which waits
+ *   4. Ill Wind draws twice and keeps the worse, like Jinxed, which waits.
+ *      With Tailwind, the same random numbers are replayed without it: had
+ *      they drawn a bad line, Tailwind did something (`tailwindPaid`). The
+ *      replay calls random() no more times, so stubbed suites still land.
+ *   6. Smoke Screen (the target's blessing), last of the defences: a hit
+ *      becomes a miss, a doom an escape, a harmful potion harmless — never
+ *      against a Cursed VHS or a capped play, within the 3 defences a day
+ *
  * @param {string} guildId
  * @param {object} play
  * @param {string} play.game
@@ -228,20 +245,33 @@ export function itemChoices(guildId, userId, { game, action }, typed = '', now =
  * caller passes no happenings.
  *
  * @returns {{line: {text, outcome}, outcome: string, item: ?string, scored: boolean, usable: boolean,
- *   mods: {defence?: string, happenings?: string[], statuses?: string[]}}}
+ *   mods: {defence?: string, happenings?: string[], statuses?: string[], charms?: string[], tailwindPaid?: boolean,
+ *   counterfactual?: {wind?: string, smoke?: string}}}}
  *   scored: this play is inside today's cap; usable: the item will be used
  *   (recordPlay makes the same check against the same file — a siege needs
  *   to know before it works out the damage)
  *   mods.happenings: the happenings whose weights shaped this draw (their
  *   tags go on the label); mods.statuses: Lucky Break / Jinxed, which
- *   recordPlay then uses up
+ *   recordPlay then uses up; mods.charms: 'bless:wind', 'hex:wind' (they
+ *   shaped the draw) and 'hex:smoke' (the aim), which recordPlay uses up;
+ *   mods.counterfactual: {wind?, smoke?} the line's outcome had the charm
+ *   not acted (Tailwind's replay, Ill Wind's first draw; what a Smoke Screen
+ *   turned aside), so recordPlay can say what each changed
  */
 export function resolvePlay(guildId, { game, action, actor, target, lines, blockedLines = [], item = null, effect, settings, happenings = [] }, now = Date.now(), random = Math.random) {
   const data = loadScores(guildId);
-  const targetId = target?.kind === 'member' && target.pingUserIds[0] !== actor.id ? target.pingUserIds[0] : null;
+  let targetId = target?.kind === 'member' && target.pingUserIds[0] !== actor.id ? target.pingUserIds[0] : null;
   const scored = wouldScore(data, actor.id, game, settings, now);
   const usable = item && scored && !itemProblem(data, actor.id, item, { game, action }, now);
   const fx = usable ? itemEffect(item, game, action) : null;
+  const charms = scored && game !== 'siege' ? activeCharms(data.users[actor.id], now, settings) : {};
+  const charmKeys = [];
+
+  // 2.76.0: Lost in the Smoke — before the shield, so a lost doom is never "blocked"
+  if (charms.hex?.el === 'smoke' && targetId && !heldFighterHelp(guildId, { game, effect, targetId }, now)) {
+    targetId = null;
+    charmKeys.push('hex:smoke');
+  }
 
   // The shield. Never against your own doom (you can doom yourself through
   // it), and only against a doom that scores: a capped doom is 0 points
@@ -252,30 +282,63 @@ export function resolvePlay(guildId, { game, action, actor, target, lines, block
     return { line, outcome: 'blocked', item, scored, usable: !!usable, mods: { defence: 'shield' } };
   }
 
-  // The weights, by line outcome: happenings × Lucky Break × the item
+  // The weights, by line outcome: happenings × Lucky Break (or 2.76.0's
+  // Tailwind, while Lucky Break waits) × the item
   const live = liveHappenings(happenings, now);
   const status = scored && game !== 'siege' ? activeStatuses(data.users[actor.id], now) : {};
+  const tailwind = charms.bless?.el === 'wind';
+  const illWind = charms.hex?.el === 'wind';
   const outcomes = [...new Set((lines || []).map(l => l?.outcome))];
   const bent = happeningWeights(live, { game, action, outcomes });
-  const weights = {};
-  for (const o of outcomes) {
-    let w = bent.mult[o] ?? 1;
-    if (status.luckybreak && !goodLine(game, o)) w = 0;
-    const itemWeight = fx?.weights && Object.hasOwn(fx.weights, o) ? fx.weights[o] : 1;
-    weights[o] = w * itemWeight;
-  }
+  const weightsWith = (goodOnly) => {
+    const w = {};
+    for (const o of outcomes) {
+      const base = goodOnly && !goodLine(game, o) ? 0 : (bent.mult[o] ?? 1);
+      const itemWeight = fx?.weights && Object.hasOwn(fx.weights, o) ? fx.weights[o] : 1;
+      w[o] = base * itemWeight;
+    }
+    return w;
+  };
+  const weights = weightsWith(!!(status.luckybreak || tailwind));
   const mods = {};
   if (bent.touched.length) mods.happenings = bent.touched;
   const used = [];
-  if (status.luckybreak) used.push('luckybreak');
+  if (status.luckybreak && !tailwind) used.push('luckybreak');
 
-  let line = pickLine(lines, weights, random);
-  if (status.jinxed) {
-    // Two draws; the player keeps the worse. On equal points the first
-    // stands, so a Jinx never swaps one miss for another for nothing.
-    const second = pickLine(lines, weights, random);
-    if (second && actorValue(game, second.outcome, effect) < actorValue(game, line.outcome, effect)) line = second;
-    used.push('jinxed');
+  // One draw — or, Jinxed or with Ill Wind (Jinxed then waits), two, the
+  // player keeping the worse. On equal points the first stands, so a Jinx
+  // never swaps one miss for another for nothing. Every random number is
+  // kept, for Tailwind's replay.
+  const twice = !!(status.jinxed || illWind);
+  const rs = [];
+  const draw = (w, next) => {
+    let picked = pickLine(lines, w, next);
+    if (twice) {
+      const second = pickLine(lines, w, next);
+      if (second && actorValue(game, second.outcome, effect) < actorValue(game, picked.outcome, effect)) picked = second;
+    }
+    return picked;
+  };
+  let line = draw(weights, () => {
+    const r = random();
+    rs.push(r);
+    return r;
+  });
+  if (status.jinxed && !illWind) used.push('jinxed');
+  const counterfactual = {};
+  if (illWind) {
+    charmKeys.push('hex:wind');
+    // Without it: the first draw alone — unless a Jinx was waiting, which would have drawn twice anyway
+    counterfactual.wind = status.jinxed ? line.outcome : pickLine(lines, weights, () => rs[0])?.outcome;
+  }
+  if (tailwind) {
+    charmKeys.push('bless:wind');
+    // The same numbers without Tailwind (Lucky Break, which waited, would
+    // have acted): a bad line there means Tailwind changed the draw
+    let i = 0;
+    const replayed = draw(weightsWith(!!status.luckybreak), () => rs[Math.min(i++, rs.length - 1)]);
+    if (replayed && !goodLine(game, replayed.outcome)) mods.tailwindPaid = true;
+    if (replayed) counterfactual.wind = replayed.outcome;
   }
   if (used.length) mods.statuses = used;
   let outcome = line.outcome;
@@ -297,6 +360,26 @@ export function resolvePlay(guildId, { game, action, actor, target, lines, block
     mods.defence = 'antid';
   }
 
+  // 2.76.0: Smoke Screen, the target's blessing — the last defence, so it
+  // never wastes itself on a play another one stopped. A hit is redrawn as
+  // a miss and a doom as an escape (as Garlic does); a harmful potion keeps
+  // its line, and recordPlay scores it as harmless.
+  const harms = (game === 'foodfight' && outcome === 'hit') || (game === 'doom' && outcome === 'doomed')
+    || (game === 'potion' && outcome === 'worked' && effect === 'harmful');
+  if (!mods.defence && harms && targetId && scored && !fx?.ignoresDefences
+    && activeCharms(data.users[targetId], now, settings).bless?.el === 'smoke' && defencesLeft(data, targetId, now)) {
+    counterfactual.smoke = outcome;
+    const instead = game === 'foodfight' ? 'miss' : game === 'doom' ? 'escaped' : null;
+    if (instead) {
+      const pool = lines.filter(l => l.outcome === instead);
+      if (pool.length) line = pickLine(pool, {}, random);
+      outcome = instead;
+    }
+    mods.defence = 'smoke';
+  }
+
+  if (charmKeys.length) mods.charms = charmKeys;
+  if (Object.keys(counterfactual).length) mods.counterfactual = counterfactual;
   return { line, outcome, item, scored, usable: !!usable, mods };
 }
 
@@ -312,6 +395,25 @@ export function resolvePlay(guildId, { game, action, actor, target, lines, block
  * starting only past these.
  */
 const SCORING_OFF_HELP = DEFAULT_GAME_SETTINGS.dailyScoredPlays;
+
+/**
+ * 2.76.0: Lost in the Smoke's one exception (R3 brief §3) — a /rescue of a
+ * member the live siege has grabbed, or a helpful /potion at one it has
+ * poisoned. Saving a friend is never lost in the smoke. Never throws.
+ * finishPlay asks it too: such a play can make its player a fighter, whom
+ * Ching Dai's Curse must not land on.
+ */
+function heldFighterHelp(guildId, { game, effect, targetId }, now) {
+  if (game !== 'rescue' && !(game === 'potion' && effect === 'helpful')) return false;
+  try {
+    const s = currentSiege(guildId);
+    if (!isLive(s, now)) return false;
+    const p = s.participants?.[targetId];
+    return game === 'rescue' ? isCaught(p) : poisonedNow(p, now);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 2.75.0: why a free or cure past the game's daily scoring cap doesn't
@@ -346,7 +448,7 @@ function uncreditedNote(game, name, scoringOff = false) {
  * Field Medic — as they would on a server that scores them.
  * @returns {string[]} `-#` lines for the reply
  */
-function siegeHelp(guildId, { game, actor, result, scoringOff = false }, now) {
+function siegeHelp(guildId, { game, actor, result, settings, happenings, scoringOff = false }, now) {
   if ((game !== 'rescue' && game !== 'potion') || !result.targetId) return [];
   try {
     const holyWater = !!(result.item?.used && result.item.key === 'holyw');
@@ -379,6 +481,15 @@ function siegeHelp(guildId, { game, actor, result, scoringOff = false }, now) {
         if (t) out.push(`📜 ${actor.name} earned a title: ${t.badge} ${t.title} (+${TITLE_POINTS})`);
       }
     }
+    // 2.76.0: a credited free or cure is the best Chi there is (design §2:
+    // the Wang Chi path gives the most magic) — said, like a play's Chi,
+    // only when it fills the bag or the day's help Chi
+    if (a.kind !== 'still' && a.credited) {
+      const chi = earnHelpChi(guildId, { userId: actor.id, name: actor.name, settings, happenings }, now);
+      if (chi && !chi.error && (chi.full || chi.capped)) {
+        out.push(`☯️ ${actor.name} +${chi.added} Chi · ${chi.full ? SIX_DEMON_BAG.notes.full : SIX_DEMON_BAG.notes.capped}`);
+      }
+    }
     return out.map(l => `-# ${l}`);
   } catch (error) {
     console.error(`[GamePlay] Couldn't apply a siege assist for ${guildId}:`, error.message);
@@ -407,12 +518,21 @@ export async function finishPlay(interaction, { game, action = null, target, lin
   const pool = lines || [{ text, outcome }];
   // Read once: the draw and the points use the same list (see the top)
   const happenings = happeningsNow(interaction.guildId, now, settings);
+  // 2.76.0: a live siege's fighter isn't cursed by Ching Dai (no hex lands
+  // on a fighter) — nor is the helper this very play makes one. A /rescue of
+  // a grabbed fighter or a helpful /potion at a poisoned one joins the fight
+  // in siegeHelp, AFTER recordPlay has rolled the twist (the R3 review: the
+  // first credited free cursed its rescuer). Asked before the draw, so any
+  // such play (a rescue that fails too) just doesn't draw Ching Dai.
+  const helpTargetId = target?.kind === 'member' && target.pingUserIds?.[0] !== actor.id ? target.pingUserIds[0] : null;
+  const fighting = fightingNow(currentSiege(interaction.guildId), actor.id, now)
+    || heldFighterHelp(interaction.guildId, { game, effect, targetId: helpTargetId }, now);
   // No await between these two: see the top of this file
   const drawn = resolvePlay(interaction.guildId, { game, action, actor, target, lines: pool, blockedLines, item, effect, settings, happenings }, now);
-  const result = recordPlay(interaction.guildId, { game, action, actor, target, outcome: drawn.outcome, effect, settings, item: drawn.item, mods: drawn.mods, happenings }, now);
+  const result = recordPlay(interaction.guildId, { game, action, actor, target, outcome: drawn.outcome, effect, settings, item: drawn.item, mods: drawn.mods, happenings, fighting }, now);
   // R6: a /rescue or /potion at a fighter the monster has grabbed or
   // poisoned — in the same synchronous block, so it sees what was just saved
-  const siegeLines = siegeHelp(interaction.guildId, { game, actor, result, scoringOff: !(settings?.dailyScoredPlays > 0) }, now);
+  const siegeLines = siegeHelp(interaction.guildId, { game, actor, result, settings, happenings, scoringOff: !(settings?.dailyScoredPlays > 0) }, now);
   // Who's been playing, and where: a random happening needs a few members
   // around, and is announced where they last played. Throttled and
   // never-throwing in the store; after the save, so it can't hold the play up.
@@ -433,8 +553,9 @@ export async function finishPlay(interaction, { game, action = null, target, lin
   const said = clipText(fill(drawn.line.text), Math.max(1, CONTENT_MAX - tail.length - 1));
   await interaction.reply({
     content: `${said}\n${tail}`.slice(0, CONTENT_MAX),
-    // The player and a member target are pinged; a role or @everyone never
-    allowedMentions: allowedMentionsFor(interaction.user.id, target),
+    // The player and a member target are pinged; a role or @everyone never.
+    // 2.76.0: a play Lost in the Smoke never reached its target: the player only.
+    allowedMentions: result.lost ? { parse: [], users: [interaction.user.id] } : allowedMentionsFor(interaction.user.id, target),
   });
   return result;
 }

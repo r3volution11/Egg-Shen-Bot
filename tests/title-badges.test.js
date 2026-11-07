@@ -13,7 +13,7 @@
  */
 
 import { describe, test, expect } from '@jest/globals';
-import { TITLES } from '../src/data/gameRewards.js';
+import { TITLES, BAG_3B } from '../src/data/gameRewards.js';
 import { TITLES_BTILC } from '../src/data/btilcLines.js';
 
 /** Every title once, by key: an earnable one (TITLES) with its Big Trouble words merged in */
@@ -42,7 +42,8 @@ describe('title badges', () => {
   test('a Big Trouble title that\'s earnable carries its words unchanged', () => {
     // The engine takes the words from TITLES_BTILC and adds the numbers: they never drift apart
     const earnable = TITLES_BTILC.filter(t => TITLES.some(x => x.key === t.key));
-    expect(earnable.map(t => t.key)).toEqual(['wang-chi', 'everybody-relax']);
+    // 2.76.0 (3B, BAG_3B): All That Kind of Thing, for blessings of all six elements that paid off
+    expect(earnable.map(t => t.key)).toEqual(['wang-chi', 'everybody-relax', ...(BAG_3B ? ['wind-fire'] : [])]);
     for (const t of earnable) {
       expect(TITLES.find(x => x.key === t.key)).toMatchObject({ key: t.key, title: t.title, badge: t.badge });
     }

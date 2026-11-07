@@ -13,12 +13,17 @@
 
 import { TWISTS, ITEMS, FULL_STACK_POINTS, MULTIPLIER_CAPS } from './gameRewards.js';
 import { itemLabel } from './gameRewardLines.js';
+import { TWISTS_BTILC, ELEMENTS, fill as fillBtilc } from './btilcLines.js';
 
 /** +3, −3, ±0 — the points line's own signs */
 const signed = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '±0');
 
-/** "(2 more)" after a counting status fires; "(the last one)" when it's spent */
-const left = (n) => (n > 0 ? ` (${n} more)` : ' (the last one)');
+/**
+ * "(2 more)" after a counting status fires; "(the last one)" when it's
+ * spent. Exported for the Six-Demon Bag's counting charms (2.76.0), whose
+ * lines take it as {left}.
+ */
+export const left = (n) => (n > 0 ? ` (${n} more)` : ' (the last one)');
 
 /** {user} and {item} filled in. A function replacer: a name with "$&" in it stays as typed. */
 const fill = (text, { user = 'Someone', item = '' } = {}) => text
@@ -72,7 +77,16 @@ const TWIST_EFFECT = {
   mosquito: (t, u) => `${u} ${signed(TWISTS.mosquito.points)} on each of the next ${TWISTS.mosquito.plays} plays.`,
   reel: (t, u) => `${u}'s ${signed(t.cancelled)} is gone.`,
   brainfreeze: (t, u) => `${u}'s ${t.gameName} streak of ${t.streak} is over.`,
+  // 2.76.0 (3B): their words are btilcLines.TWISTS_BTILC's
+  redEnvelope: (t, u) => fillBtilc(TWISTS_BTILC.redEnvelope.effect, { user: u, chi: t.chi }),
+  chingDai: (t, u) => (ELEMENTS[t.el] ? fillBtilc(TWISTS_BTILC.chingDai.effect, { user: u, charm: `${ELEMENTS[t.el].emoji} ${ELEMENTS[t.el].hexName}` }) : ''),
 };
+
+/**
+ * A twist's flavour: TWIST_FLAVOUR's one line, or (2.76.0) one of a Big
+ * Trouble twist's three, by the index recordPlay drew (`t.line`)
+ */
+const flavourOf = (t) => TWIST_FLAVOUR[t.key] ?? TWISTS_BTILC[t.key]?.lines?.[Number(t.line) || 0] ?? '';
 
 /**
  * The twist's line: "🎲 Twist! 💰 Loose Change: Sam digs through… Sam +3."
@@ -82,7 +96,7 @@ const TWIST_EFFECT = {
 export function twistLine(t, user) {
   const twist = TWISTS[t.key];
   if (!twist) return '';
-  const flavour = fill(TWIST_FLAVOUR[t.key] || '', { user, item: t.item ? itemLabel(t.item) : '' });
+  const flavour = fill(flavourOf(t), { user, item: t.item ? itemLabel(t.item) : '' });
   const effect = TWIST_EFFECT[t.key]?.(t, user) || '';
   return `🎲 Twist! ${twist.emoji} ${twist.name}: ${[flavour, effect].filter(Boolean).join(' ')}`;
 }

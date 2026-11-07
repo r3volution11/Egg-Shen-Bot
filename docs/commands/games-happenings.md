@@ -23,12 +23,14 @@ A **twist** is a small surprise that happens to the player who just played, neve
 
 - **3 twists a day** per member (UTC).
 - **After a bad twist, the next one is always good.**
-- **Twists can take at most 8 points a day** from you, all of them together (Pickpocketed, The Call and each Mosquito bite). They can never take your month below 0. When a cap trims a loss, the line says "(all a twist can take)".
-- **A twist that would do nothing isn't drawn.** Pickpocketed and The Call need points left to take, Reel Change needs points on the play, and Brain Freeze needs a streak.
-- **The Night Light is safe.** A Car Break-In never takes it. If you have nothing it can take, you get a Mosquito Swarm instead.
+- **Twists can take at most 8 points a day** from you, all of them together (Pickpocketed, The Call, each Mosquito bite, and a 🔥 Scorched [hex](./games-magic#the-twelve-charms)'s −1s). They can never take your month below 0. When a cap trims a loss, the line says "(all a twist can take)".
+- **A twist that would do nothing isn't drawn.** Pickpocketed and The Call need points left to take, Reel Change needs points on the play, Brain Freeze needs a streak, the Red Envelope needs room in your [bag](./games-magic#chi), and Ching Dai's Curse needs somewhere a hex can land: not on someone already hexed, warded, at peace, fighting a siege or hexed twice today, and never with hexes or the Six-Demon Bag switched off.
+- **The Night Light and the Jade Charm are safe.** A Car Break-In never takes either. If you have nothing it can take, you get a Mosquito Swarm instead.
 - **A twist's points are [bonus points](./games-playing#bonus-points)**, in the game you were playing.
 
-### The 16 twists
+<div id="the-16-twists" />
+
+### The 18 twists
 
 | Twist | | What it does |
 |---|---|---|
@@ -40,14 +42,16 @@ A **twist** is a small surprise that happens to the player who just played, neve
 | 🎬 Director's Cut | Good | Your next good play scores double (your gains stop at ×3, as always) |
 | 🔥 Second Wind | Good | Your next bad play won't break your streak |
 | 👻 Friendly Ghost | Good | Safe from `/doom` for 30 minutes, like a rescue shield |
+| 🧧 Red Envelope | Good | +4 [Chi](./games-magic#chi), on top of the day's cap |
 | 🦝 Pickpocketed | Bad | −3 points |
 | 📞 The Call Is Coming From Inside the House | Bad | −4 points |
-| 🚗 Car Break-In | Bad | A random item is stolen from your Glovebox |
+| 🚗 Car Break-In | Bad | A random item is stolen from your Glovebox (never the Night Light or the Jade Charm) |
 | 🧛 Bitten | Bad | Your gains are halved (rounded down) for the next 3 plays |
 | 🐈‍⬛ Jinxed | Bad | Your next play rolls twice and keeps the worse result. Ends a Lucky Break |
 | 🦟 Mosquito Swarm | Bad | −1 on each of your next 3 plays |
 | 🎞️ Reel Change | Bad | The points you just earned on this play are gone. Prizes, titles and bonuses it also earned stay |
 | 🧊 Brain Freeze | Bad | Your streak in this game is over |
+| 🀄 Ching Dai's Curse | Bad | A hex of a random element lands on you for 12 hours, with no caster ([The Six-Demon Bag](./games-magic)). Never one that would cancel a blessing you're carrying. Shrug it off with `/six-demon-bag shrug` |
 
 A little more than half are good before the "good after bad" rule tips it further.
 
@@ -56,6 +60,8 @@ A little more than half are good before the "good after bad" rule tips it furthe
 Seven twists leave a **status** instead of acting once: Lucky Break, Free Refill, Director's Cut, Second Wind, Bitten, Jinxed and Mosquito Swarm. A status changes your *next* plays, not the one it came on. It shows under **🌀 In effect** on your [card](./games-card#scoreboard), and a play it changed says so under the points:
 
 > -# 🧛 Bitten: Sam's +3 is halved to +1 (2 more).
+
+Ching Dai's Curse leaves a hex instead, a [Six-Demon Bag](./games-magic) charm: it's under 🎒 Six-Demon Bag on your card, counts as one of the 2 hexes you can take in a day, and leaves the 3-hour ward when it ends.
 
 - **It runs out after 24 hours** if you haven't used it, or sooner when its plays are used up.
 - **It's used on plays that score.** A blocked `/doom` or a play past the daily cap doesn't use it.

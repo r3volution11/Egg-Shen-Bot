@@ -209,6 +209,8 @@ export const data = new SlashCommandBuilder()
                 { name: 'Doom Command', value: 'doom' },
                 { name: 'Rescue Command', value: 'rescue' },
                 { name: 'Siege Command', value: 'siege' },
+                // 2.76.0: off also stops Chi and every blessing and hex
+                { name: 'Six-Demon Bag Command', value: 'magic' },
                 // These gated their commands all along with no way to switch
                 // them: the keys existed, the choices didn't
                 { name: 'Escape Velocity Command', value: 'escape' },
@@ -274,6 +276,8 @@ const COMMAND_SWITCH_NAMES = {
   doom: '/doom',
   rescue: '/rescue',
   siege: '/siege',
+  // 2.76.0: the switch is `magic`, the command /six-demon-bag
+  magic: '/six-demon-bag',
   escape: '/escape',
   quote: '/quote',
   suggestQuote: '/suggest-quote',
@@ -595,6 +599,7 @@ export async function execute(interaction) {
         doom: '/doom command',
         rescue: '/rescue command',
         siege: '/siege command',
+        magic: '/six-demon-bag command (Chi, blessings and hexes)',
         escape: '/escape command',
         quote: '/quote command',
         suggestQuote: '/suggest-quote command',

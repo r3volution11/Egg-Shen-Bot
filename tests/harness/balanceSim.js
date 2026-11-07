@@ -50,6 +50,20 @@
  * sees one with chance 1/7 instead of HAPPENING_NIGHTS, and it may run
  * during a campaign.
  *
+ * The Six-Demon Bag (2.76.0, R3 brief §10): members cast through
+ * /six-demon-bag's own synchronous path (happeningsNow → fightingNow →
+ * castCheck → checkPlayLimit → castCharm), once a night at a point in their
+ * session when their Chi allows (MAGIC_CAST below), hexing a PROFILES
+ * `hexShare` of the time, and a fifth of hexed members shrug it off
+ * (SHRUG_P). Every magic choice draws from its own dice, so the people's
+ * other choices are the same draw for draw as before the bag. What a charm
+ * did to a play's points (result.charms' deltas), the bonus it gave or took
+ * (Fired Up, Scorched) and every caster's pay are booked as `magic` — a
+ * bonus, in the share — and Chi, casts, hexes received (per member-day) and
+ * Jade Charms are counted. `runMonth({ maxCast: true })`: everyone casts at
+ * every chance (MAXCAST=1, the design's what-if); `rival`: one member hexes
+ * one target at every chance (design §3.4's worst case).
+ *
  * Used by tests/fuzz/game-balance.fuzz.js. The caller sets GUILD_GAMES_DIR,
  * GUILD_HAPPENINGS_DIR and GUILD_CONFIGS_DIR before loadBalance(): every src
  * module is imported here dynamically, after them.
@@ -80,12 +94,35 @@ const CHANNEL = 'games';
  *              (each gap ×0.5–1.5 at random)
  */
 export const PROFILES = Object.freeze({
-  grinder: { activeP: 1, plays: () => 80, session: 240, pace: 1.5, backP: 0.6 },
-  heavy: { activeP: 0.9, plays: (r) => 26 + r.int(9), session: 180, pace: 2.5, backP: 0.5 },
-  typical: { activeP: 4.5 / 7, plays: (r) => 10 + r.int(6), session: 120, pace: 4, backP: 0.3 },
-  casual: { activeP: 3 / 7, plays: () => 6, session: 75, pace: 6, backP: 0.1 },
-  dropin: { activeP: 1.5 / 7, plays: () => 3, session: 45, pace: 8, backP: 0 },
+  grinder: { activeP: 1, plays: () => 80, session: 240, pace: 1.5, backP: 0.6, hexShare: 0.30 },
+  heavy: { activeP: 0.9, plays: (r) => 26 + r.int(9), session: 180, pace: 2.5, backP: 0.5, hexShare: 0.25 },
+  typical: { activeP: 4.5 / 7, plays: (r) => 10 + r.int(6), session: 120, pace: 4, backP: 0.3, hexShare: 0.15 },
+  casual: { activeP: 3 / 7, plays: () => 6, session: 75, pace: 6, backP: 0.1, hexShare: 0.10 },
+  dropin: { activeP: 1.5 / 7, plays: () => 3, session: 45, pace: 8, backP: 0, hexShare: 0 },
 });
+
+/**
+ * The Six-Demon Bag (2.76.0), the people's side, as assumptions (design
+ * §8.2: "a typical member casts when they have the Chi, 15% of casts are
+ * hexes… a fifth of hexed members shrug"):
+ *   - one cast a night they play, at a random point in the later part of
+ *     their session (MAGIC_CAST_FROM of the way in on), when their Chi
+ *     allows it; a hex PROFILES[p].hexShare of the time (grinder 30%, heavy
+ *     25%, typical 15%, casual 10%, drop-in never)
+ *   - the target: someone around now (TARGET_AROUND of the time), else
+ *     anyone; the element at random. A cast the rules refuse (warded,
+ *     inactive, a pair limit…) tries another member, CAST_TRIES in all; a
+ *     hex that can't land anywhere becomes a blessing
+ *   - SHRUG_P of hexed members shrug it off, a few minutes later if they're
+ *     around, else at the start of their next session
+ *   - maxCast (MAXCAST=1): MAXCAST_TRIES attempts a session, as many casts
+ *     as the rules and the Chi allow
+ */
+const MAGIC_CAST_FROM = 0.3;
+const CAST_TRIES = 3;
+const SHRUG_P = 0.2;
+const SHRUG_DELAY = [1, 10];
+const MAXCAST_TRIES = 6;
 
 /**
  * Backing (2.75.0, the R2 brief §6): the people's choices, as assumptions.
@@ -185,6 +222,7 @@ export async function loadBalance() {
     doom: await import(src('commands/doom.js')),
     rescue: await import(src('commands/rescue.js')),
     potion: await import(src('commands/potion.js')),
+    btilc: await import(src('data/btilcLines.js')),
   };
   return mods;
 }
@@ -238,7 +276,8 @@ function emptyLedger(id, profile) {
     attacks: 0, // siege attacks recorded
     refused: 0, // plays the bot refused (a cooldown, the item limit): should stay near 0
     // backing (2.75.0): stakes taken (−) and what came back (+); siegePayout includes the honours
-    points: { play: 0, siegeAttack: 0, prizes: 0, titles: 0, nights: 0, twists: 0, happenings: 0, siegePayout: 0, backing: 0 },
+    // 2.76.0: `magic` — what charms changed, their bonus, and the caster's pay
+    points: { play: 0, siegeAttack: 0, prizes: 0, titles: 0, nights: 0, twists: 0, happenings: 0, siegePayout: 0, backing: 0, magic: 0 },
     // 2.75.0, inside siegePayout: the Wang Chi's and the Jack Burton's bonuses, and a backed Wang Chi's share
     honours: { wangChi: 0, jack: 0, backBonus: 0, wangChis: 0, jacks: 0 },
     backs: { placed: 0, won: 0, push: 0, lost: 0, escaped: 0, refunded: 0 },
@@ -250,6 +289,14 @@ function emptyLedger(id, profile) {
     stolen: 0, // lost to a Car Break-In
     twists: 0,
     sieges: 0, // sieges they attacked in
+    // 2.76.0: the Six-Demon Bag
+    chi: { play: 0, playWasted: 0, help: 0, helpWasted: 0, envelope: 0, spent: 0, shrugSpent: 0, deafened: 0 },
+    casts: { bless: 0, hex: 0, refused: 0, lifted: 0, spoiled: 0, deflected: 0, washed: 0 },
+    hexesRecv: 0, // hexes cast at them (deflected and spoiled too) and Ching Dai's Curse
+    curses: 0, // of those, Ching Dai's
+    shrugs: 0,
+    jade: 0, // Jade Charms won (the Blessings prize)
+    paidOff: 0, // their blessings that paid off
   };
 }
 
@@ -265,8 +312,11 @@ function emptyLedger(id, profile) {
  * @param {number} [p.fightShare] - each member fights a given siege with this chance (drawn
  *   once a siege; 1, the default, draws nothing): the members who sit it out still play the
  *   other games, so they're in A7 — how a big server where few fight a campaign looks
+ * @param {boolean} [p.maxCast] - 2.76.0: everyone casts at every chance (the design's MAXCAST)
+ * @param {?{from: number, to: number, el?: string}} [p.rival] - 2.76.0: roster[from] hexes
+ *   roster[to] at every chance (with `el`, always that element), and casts nothing else
  */
-export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick', fightShare = 1 }) {
+export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick', fightShare = 1, maxCast = false, rival = null }) {
   const m = await loadBalance();
   const { gamePlay, scores, rules, siege: store, happenings: hs, rewards } = m;
   const { SIEGE, TITLE_POINTS, FULL_STACK_POINTS } = rewards;
@@ -274,6 +324,8 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
   // 2.75.0: who backs whom draws from its own dice, so every other choice
   // the people make is the same draw for draw as before backing existed
   const backRng = rngOf(seed ^ 0x0bac4ed5);
+  // 2.76.0: the Six-Demon Bag's choices, likewise on their own dice
+  const magicRng = rngOf(seed ^ 0x6dba9c11);
   const lineRandom = seeded(seed ^ 0x5bd1e995);
   const luckRandom = seeded(seed ^ 0x27d4eb2d);
 
@@ -300,15 +352,23 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
     if (pts && ledger[userId]) ledger[userId].points[kind] += pts;
   };
 
-  /** Book a recordPlay result: whose points moved, and why */
-  function book(result, actorId, game) {
-    const me = ledger[actorId];
-    if (game === 'siege') me.attacks += 1;
-    else me.plays += 1;
-    credit(actorId, game === 'siege' ? 'siegeAttack' : 'play', result.actorDelta);
-    if (result.targetId) credit(result.targetId, 'play', result.targetDelta);
-    for (const rw of result.rewards || []) {
+  // 2.76.0: hexes received a member-day (`${id}@${day}`), and Scorched's bites a member-day
+  const hexDays = {};
+  const scorchDays = {};
+  const noteHex = (userId, t, curse = false) => {
+    const key = `${userId}@${scores.dayKey(t)}`;
+    hexDays[key] = (hexDays[key] || 0) + 1;
+    if (ledger[userId]) {
+      ledger[userId].hexesRecv += 1;
+      if (curse) ledger[userId].curses += 1;
+    }
+  };
+
+  /** Prizes (and Night Lights) a result earned anyone: a play's, or a cast's payoff (2.76.0) */
+  function bookRewards(rewards) {
+    for (const rw of rewards || []) {
       const who = ledger[rw.userId];
+      if (!who) continue;
       if (rw.kind === 'prize') {
         credit(rw.userId, 'prizes', rw.points + (rw.overflow ? FULL_STACK_POINTS : 0));
         who.prizes += 1;
@@ -321,6 +381,50 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
           credit(rw.userId, 'nights', FULL_STACK_POINTS);
         }
       }
+      if (rw.kind === 'prize' && rw.prize === 'blessings') who.jade += 1;
+    }
+  }
+
+  /** Book a recordPlay result: whose points moved, and why */
+  function book(result, actorId, game) {
+    const me = ledger[actorId];
+    if (game === 'siege') me.attacks += 1;
+    else me.plays += 1;
+    credit(actorId, game === 'siege' ? 'siegeAttack' : 'play', result.actorDelta);
+    if (result.targetId) credit(result.targetId, 'play', result.targetDelta);
+    bookRewards(result.rewards);
+    // 2.76.0: what the charms changed inside the play's points (moved from
+    // `play` to `magic`), what they gave or took as bonus, and the casters
+    // they paid — every one of them `magic`
+    const t = Date.now();
+    for (const c of result.charms || []) {
+      if (c.delta) {
+        credit(actorId, 'play', -c.delta);
+        credit(actorId, 'magic', c.delta);
+      }
+      if (c.targetDelta && result.targetId) {
+        credit(result.targetId, 'play', -c.targetDelta);
+        credit(result.targetId, 'magic', c.targetDelta);
+      }
+      if (c.points) credit(actorId, 'magic', c.points);
+      if (c.key === 'hex:fire' && c.points < 0) {
+        const key = `${actorId}@${scores.dayKey(t)}`;
+        scorchDays[key] = (scorchDays[key] || 0) - c.points;
+      }
+      if (c.key === 'hex:thunder') me.chi.deafened += 1;
+    }
+    for (const pay of result.casterPay || []) {
+      credit(pay.userId, 'magic', pay.points || 0);
+      if (ledger[pay.userId]) ledger[pay.userId].paidOff += 1;
+    }
+    if (result.chi) {
+      me.chi.play += result.chi.earned || 0;
+      me.chi.playWasted += (result.chi.earned || 0) - (result.chi.added || 0);
+    }
+    if (result.twist?.key === 'redEnvelope') me.chi.envelope += result.twist.chi || 0;
+    if (result.twist?.key === 'chingDai') {
+      noteHex(actorId, t, true);
+      maybeShrug(actorId, t);
     }
     if (result.nights?.buff) credit(actorId, 'nights', 1);
     const tw = result.twist;
@@ -433,9 +537,130 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
       const type = kind === 'helpful' ? r.pick(helpfulTypes) : r.pick(m.potion.HARMFUL_POTIONS);
       lines = (await m.potion.getPotionResponses(guildId, type)).map(l => ({ ...l, outcome: l.outcome || 'worked' }));
     }
+    // 2.76.0: a free or cure earns help Chi inside finishPlay (siegeHelp),
+    // which the result doesn't carry: read around the plays that can do it
+    const helping = target.kind === 'member' && (game === 'rescue' || effect === 'helpful') && heldInSiege(target.pingUserIds[0]);
+    const chiBefore = helping ? chiState(pl.id) : null;
     const result = await gamePlay.finishPlay(interaction, { game, action, target, lines, blockedLines, effect, item: started.item, settings: started.settings });
     book(result, pl.id, game);
+    if (helping) {
+      const after = chiState(pl.id);
+      const earned = after.helpChi - chiBefore.helpChi;
+      if (earned > 0) {
+        const added = after.n - chiBefore.n - (result.chi?.added || 0) - (result.twist?.key === 'redEnvelope' ? result.twist.chi || 0 : 0);
+        ledger[pl.id].chi.help += earned;
+        ledger[pl.id].chi.helpWasted += earned - added;
+      }
+    }
     return result;
+  }
+
+  /** Is this member held (grabbed or poisoned) by the live siege? (only then can a play at them earn help Chi) */
+  function heldInSiege(userId) {
+    const s = store.currentSiege(guildId);
+    if (!s || !store.isLive(s, clock.now)) return false;
+    const p = s.participants?.[userId];
+    return store.isCaught(p) || store.poisonedNow(p, clock.now);
+  }
+
+  /** A member's Chi and today's help Chi, from the file */
+  function chiState(userId) {
+    const data = scores.loadScores(guildId);
+    const d = data.daily?.[userId];
+    return { n: Number(data.users?.[userId]?.chi?.n) || 0, helpChi: d && d.day === scores.dayKey(clock.now) ? (d.helpChi || 0) : 0 };
+  }
+
+  // ── the Six-Demon Bag (2.76.0) ──────────────────────────────────────
+
+  const ELEMENT_KEYS = m.btilc.ELEMENT_KEYS;
+  const pendingShrug = new Set(); // hexed members who'll shrug at their next session
+
+  /** A hexed member shrugs it off SHRUG_P of the time: soon if they're around, else next session */
+  function maybeShrug(userId, t) {
+    if (!magicRng.chance(SHRUG_P)) return;
+    const sess = sessions[userId];
+    if (sess && sess.from <= t && t < sess.to && currentQueue) currentQueue.push(t + magicRng.between(SHRUG_DELAY) * MINUTE, { kind: 'shrug', who: userId });
+    else pendingShrug.add(userId);
+  }
+
+  function shrugPlay(pl, t) {
+    const done = scores.shrugHex(guildId, { userId: pl.id, name: pl.name, settings }, t);
+    if (done.error) return;
+    ledger[pl.id].shrugs += 1;
+    ledger[pl.id].chi.shrugSpent += done.chi || 0;
+  }
+
+  /** Someone to cast on: around now (TARGET_AROUND), else anyone — never yourself */
+  function castTarget(pl, t) {
+    const here = around(t).filter(x => x.id !== pl.id);
+    const others = players.filter(x => x.id !== pl.id);
+    return magicRng.pick(here.length && magicRng.chance(TARGET_AROUND) ? here : others);
+  }
+
+  /**
+   * One cast, by /six-demon-bag cast()'s synchronous path: the happenings,
+   * whether the target fights the live siege, castCheck (a refusal costs
+   * nothing), the cooldown, castCharm. Returns why it stopped, or 'cast'.
+   */
+  function castOnce(pl, kind, target, el, t) {
+    const spec = {
+      caster: { id: pl.id, name: pl.name }, target: { id: target.id, name: target.name, bot: false },
+      kind, el, settings, fighting: store.fightingNow(store.currentSiege(guildId), target.id, t),
+      happenings: gamePlay.happeningsNow(guildId, t, settings),
+    };
+    const problem = scores.castCheck(scores.loadScores(guildId), spec, t);
+    if (problem) return problem.reason;
+    if (!scores.checkPlayLimit(guildId, pl.id, 'magic', settings, t).ok) {
+      ledger[pl.id].refused += 1;
+      return 'cooldown';
+    }
+    const done = scores.castCharm(guildId, spec, t);
+    if (done.error) return done.error;
+    const me = ledger[pl.id];
+    me.casts[kind] += 1;
+    me.chi.spent += done.chiBefore - done.chiAfter;
+    if (done.outcome === 'lifted' || done.outcome === 'spoiled' || done.outcome === 'deflected') me.casts[done.outcome] += 1;
+    if (done.washed?.length) me.casts.washed += 1;
+    if (done.pay) {
+      credit(pl.id, 'magic', done.pay.points || 0);
+      me.paidOff += 1;
+    }
+    bookRewards(done.rewards);
+    if (kind === 'hex') {
+      noteHex(target.id, t);
+      if (done.outcome === 'landed') maybeShrug(target.id, t);
+    }
+    return 'cast';
+  }
+
+  /**
+   * A member's chance to cast (see MAGIC_CAST_FROM): a hex hexShare of the
+   * time, on someone the rules allow (CAST_TRIES members), else a blessing.
+   * The rival (`rival`) only ever hexes their target.
+   */
+  function castPlay(pl, t) {
+    if (rival && pl.id === players[rival.from].id) {
+      return castOnce(pl, 'hex', players[rival.to], rival.el || magicRng.pick(ELEMENT_KEYS), t);
+    }
+    let kind = magicRng.chance(PROFILES[pl.profile].hexShare || 0) ? 'hex' : 'bless';
+    for (let tries = 0; tries < CAST_TRIES;) {
+      const why = castOnce(pl, kind, castTarget(pl, t), magicRng.pick(ELEMENT_KEYS), t);
+      if (why === 'cast' || why === 'castLimit' || why === 'cooldown' || (why === 'noChi' && kind === 'bless')) return why;
+      // A hex that can't be cast at all today (none left, at peace, switched
+      // off, too dear) is a blessing instead; one no member will take, after
+      // CAST_TRIES of them, likewise
+      if (kind === 'hex' && ['hexLimit', 'peaceSelf', 'hexesOff', 'noChi'].includes(why)) {
+        kind = 'bless';
+        continue;
+      }
+      tries += 1;
+      if (kind === 'hex' && tries === CAST_TRIES) {
+        kind = 'bless';
+        tries = 0;
+      }
+    }
+    ledger[pl.id].casts.refused += 1;
+    return 'refused';
   }
 
   // ── the evening: sessions, plays, the scheduler's minute ────────────
@@ -629,10 +854,12 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
 
   // ── the month ───────────────────────────────────────────────────────
 
+  let currentQueue = null;
   try {
     for (let day = 0; day < days; day++) {
       const evening = MONTH_START + day * DAY + SESSION_START;
       const q = new Queue();
+      currentQueue = q;
       for (const key of Object.keys(sessions)) delete sessions[key];
 
       for (const pl of players) {
@@ -648,6 +875,24 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
         // a grinder's 80 a night are ~3 minutes apart, well clear of the
         // 20-second cooldowns and the six a minute
         for (let i = 0; i < n; i++) q.push(from + (i + 0.1 + 0.8 * r.float()) * slot, { kind: 'play', who: pl.id, retry: 0 });
+      }
+      // 2.76.0: the Six-Demon Bag, on its own dice (see MAGIC_CAST_FROM):
+      // each member's chance to cast tonight, and last night's shrugs
+      for (const pl of players) {
+        const sess = sessions[pl.id];
+        if (!sess) continue;
+        const span = sess.to - sess.from;
+        const tries = maxCast || (rival && pl.id === players[rival.from].id) ? MAXCAST_TRIES : 1;
+        for (let k = 0; k < tries; k++) {
+          const at = tries === 1
+            ? sess.from + (MAGIC_CAST_FROM + (1 - MAGIC_CAST_FROM) * magicRng.float()) * span
+            : sess.from + ((k + 0.5 + 0.4 * (magicRng.float() - 0.5)) / tries) * span;
+          q.push(at, { kind: 'cast', who: pl.id });
+        }
+        if (pendingShrug.has(pl.id)) {
+          pendingShrug.delete(pl.id);
+          q.push(sess.from + magicRng.between(SHRUG_DELAY) * MINUTE, { kind: 'shrug', who: pl.id });
+        }
       }
       const happeningAt = r.chance(weeklyHappenings ? HAPPENING_NIGHTS_WEEKLY : HAPPENING_NIGHTS) ? evening + r.int(EVENING - 40) * MINUTE : null;
       let happeningDone = false;
@@ -740,6 +985,10 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
             credit(pl.id, 'backing', -placed.backing.stake);
             ledger[pl.id].backs.placed += 1;
           }
+        } else if (ev.kind === 'cast') {
+          castPlay(pl, t);
+        } else if (ev.kind === 'shrug') {
+          shrugPlay(pl, t);
         } else if (ev.kind === 'cure') {
           const s = store.currentSiege(guildId);
           const p = s?.participants?.[ev.victim];
@@ -769,7 +1018,11 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
     }
     const timings = m.pace.pacePreset(pace);
     const end = hs.loadState(guildId);
-    return { ledger, stored, sieges, happenings: happeningsStarted, dial: store.dialOf(end, timings.key), participation: store.participationOf(end, timings.key), pace };
+    return {
+      ledger, stored, sieges, happenings: happeningsStarted, dial: store.dialOf(end, timings.key), participation: store.participationOf(end, timings.key), pace,
+      // 2.76.0: hexes received and Scorched's bites, by `${id}@${UTC day}`
+      hexDays, scorchDays, players: players.map(pl => pl.id),
+    };
   } finally {
     m.luck._setLuck(null);
     for (const spy of spies) spy.mockRestore();

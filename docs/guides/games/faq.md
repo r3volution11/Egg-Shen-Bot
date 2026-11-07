@@ -1,6 +1,6 @@
 ---
 title: Games FAQ - Egg Shen Bot
-description: Answers to common questions about Egg Shen Bot's Discord games - scores, why a play didn't score, items like the Golden Pie, titles, nights in a row, twists, happenings, and fighting a /siege monster together.
+description: Answers to common questions about Egg Shen Bot's Discord games - scores, why a play didn't score, items like the Golden Pie, titles, nights in a row, twists, happenings, fighting a /siege monster together, and the Six-Demon Bag's Chi and hexes.
 faq:
   - q: How do I play the games?
     a: Aim one at someone. `/foodfight throw target:@Sam`, `/doom fate target:@Sam` and `/potion give user:@Sam type:poison` hurt; `/foodfight feed target:@Sam`, `/rescue attempt target:@Sam` and `/potion give user:@Sam type:health` help. Every play has an outcome that moves points for you and, when you aimed at a member, for them too. For a quick tour in Discord, run `/how-to-play`.
@@ -15,7 +15,7 @@ faq:
   - q: Why does it say I don't have that item?
     a: An item only works if it's in your Glovebox and fits the play. A Golden Pie fits `/foodfight throw` and `/foodfight feed`, a Cursed VHS `/doom fate`, Holy Water `/rescue attempt`, a Lucky Penny `/potion give`, and a Silver Bullet only `/siege attack`. You may also have used your 3 items for today. A refused play costs nothing, not even your cooldown, and `/scoreboard` shows what you hold.
   - q: What do Garlic and the Antidote do?
-    a: They protect you by themselves. Garlic turns a `/doom` aimed at you into an escape, then can't work again for 12 hours. The Antidote stops a harmful potion hurting you (the giver gets +1 instead of +2), then rests for 6 hours, and it also cures siege poison. With a rescue shield, they stop at most 3 plays on you a day.
+    a: They protect you by themselves. Garlic turns a `/doom` aimed at you into an escape, then can't work again for 12 hours. The Antidote stops a harmful potion hurting you (the giver gets +1 instead of +2, and no Chi), then rests for 6 hours, and it also cures siege poison. With a rescue shield, they stop at most 3 plays on you a day.
   - q: How do titles work?
     a: A title is a badge for something you've done a lot, like Pie Sniper for 150 food fight hits, or had done to you a lot, like Red Shirt for being doomed 100 times. There are titles for streaks, nights in a row, twists and sieges too. Each is earned once and is worth +10 bonus points, and your `/scoreboard` card shows the ones you're closest to.
   - q: How do I show my title next to my name?
@@ -28,6 +28,10 @@ faq:
     a: Something that changes the games for the whole server for a while, announced with a new message. During a Full Moon (a day at the default week pace, an hour at quick pace) every `/doom` scores double, both ways; The Fog makes throws miss; Double Feature makes every point count twice (siege attacks aside). A play a happening changed shows its tag, like 🌕×2. There's one at a time, about one a week on a busy server at week pace and one a day at quick pace.
   - q: How do I turn twists or happenings off?
     a: Admins and moderators use `/eggshen-config-games happenings`. `/eggshen-config-games happenings twists:false` switches twists off, and `twist-percent:` (0 to 15) makes them rarer or likelier. `/eggshen-config-games happenings enabled:false` switches happenings off, Halloween Night and Friday the 13th included, and `/eggshen-config-games happenings frequency:rare` makes them less frequent. Random sieges have their own setting, `/eggshen-config-games happenings siege-frequency:off` (or `rare`, `normal`, `often`), `pace:` (quick, evening, day, 3 days or week) sets how long sieges and happenings take, and `siege-minutes:` (30 to 60) sets how long a quick-pace siege lasts. Run it with no options to see the current settings.
+  - q: What's Chi, and what do I do with it?
+    a: Chi is the Six-Demon Bag's fuel. A good outcome on a play that scores earns +1 (at most 4 a day, UTC), freeing or curing a siege fighter earns +2 (at most 6 a day), and the bag holds 20. A play a defence stopped earns none. Spend it with `/six-demon-bag bless member:@Sam element:Fire` (6 Chi) to give a friend something good for their next plays, or `/six-demon-bag hex member:@Jo element:Wind` (7 Chi) to get in a rival's way, 2 casts a day and at most one of them a hex. The first time your blessing does something you get +1 Chi back, and `/six-demon-bag status` shows your Chi and anything on you.
+  - q: How do I stop hexes?
+    a: Shrug one off with `/six-demon-bag shrug`, free once a day (UTC), then 2 Chi, or free if you hold less than 2. A friend can also lift it with a blessing of the same element or its opposite. To stop them altogether, `/six-demon-bag peace on:true` means nobody can hex you and you can't hex anyone, for at least 7 days, and it lifts a hex already on you. Hexes have limits anyway (one a day per caster, the same member once in 72 hours, at most 2 received a day, a 3-hour ward after each, never on siege fighters or anyone who hasn't played this week), a 🧿 Jade Charm turns one aside, and admins can switch them off for the server with `/eggshen-config-games happenings hexes:false`.
   - q: What is a siege?
     a: A siege is a monster attack on a games channel that the whole server fights together, with `/siege attack weapon:food`, `/siege attack weapon:doom` or `/siege attack weapon:potion`. Beat the monster within its time (by default a week, with 8 attacks a night each, or 45 minutes at quick pace) and everyone who fought is paid, with a bonus and loot for the Wang Chi, whoever helped most; if it escapes, everyone who attacked loses 3 points. Sieges start at random while members are playing (about 3 a month at week pace), or when an admin runs `/siege start`.
   - q: How do I attack the monster?
@@ -49,9 +53,9 @@ faq:
   - q: What's the nightly siege report?
     a: During a siege of 3 days or a week, the bot posts one new message a night that pings nobody (a day-long siege gets one, at the 12:00 UTC it runs through). It shows the monster's HP and last night's damage, last night's top fighters and its Wang Chi of the night, who is still held (and by when they must be freed), who is poisoned, and anyone digested while nobody was around. It goes out with the first game anyone plays after 12:00 UTC, or at 00:00 UTC at the latest. If a night's report was missed, the next one covers every night since and says so.
   - q: Can I reset my scores?
-    a: Not yourself. An admin or moderator can, with `/eggshen-config-games reset-scores confirm:yes user:@Sam` for one member, adding `game:doom` for one game, or leaving both out for everyone. It's permanent, and resetting a member also clears their Glovebox, prize counters, titles and nights row.
+    a: Not yourself. An admin or moderator can, with `/eggshen-config-games reset-scores confirm:yes user:@Sam` for one member, adding `game:doom` for one game, or leaving both out for everyone. It's permanent, and resetting a member also clears their Glovebox, prize counters, titles, nights row and Six-Demon Bag.
   - q: How do I turn a game off, or keep the games to one channel?
-    a: Admins and moderators switch a game off with `/eggshen-config commands toggle setting:siege enabled:false` (or `potion`, `foodfight`, `doom`, `rescue`). To keep the games to one channel, use `/eggshen-config-games channels mode:only add:#games`. Switched-off games disappear from `/how-to-play`, `/scoreboard` and `/leaderboard`.
+    a: Admins and moderators switch a game off with `/eggshen-config commands toggle setting:siege enabled:false` (or `potion`, `foodfight`, `doom`, `rescue`, or `magic` for the Six-Demon Bag). To keep the games to one channel, use `/eggshen-config-games channels mode:only add:#games`. Switched-off games disappear from `/how-to-play`, `/scoreboard` and `/leaderboard`.
 ---
 
 # Games FAQ
@@ -60,4 +64,4 @@ faq:
 
 ## Still stuck?
 
-The [quick guides](./) walk through [playing](./play) and [fighting a siege](./siege). Every rule and number is on the [Games](/commands/games) pages: [Playing & Points](/commands/games-playing), [Your Card & the Leaderboard](/commands/games-card), [Items, Prizes & Titles](/commands/games-rewards), [Twists & Happenings](/commands/games-happenings), [Siege](/commands/games-siege) and [Settings for Admins](/commands/games-settings). In Discord, `/how-to-play` shows a short card for each topic with your server's own limits.
+The [quick guides](./) walk through [playing](./play) and [fighting a siege](./siege). Every rule and number is on the [Games](/commands/games) pages: [Playing & Points](/commands/games-playing), [Your Card & the Leaderboard](/commands/games-card), [Items, Prizes & Titles](/commands/games-rewards), [Twists & Happenings](/commands/games-happenings), [Siege](/commands/games-siege), [The Six-Demon Bag](/commands/games-magic) and [Settings for Admins](/commands/games-settings). In Discord, `/how-to-play` shows a short card for each topic with your server's own limits.

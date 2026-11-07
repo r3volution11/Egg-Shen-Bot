@@ -10,7 +10,8 @@
  * card shows alive is one the next play will extend.
  */
 
-import { loadScores, earnedTitles, shownTitleOf, canBurnLight, activeStatuses } from './gameScores.js';
+import { loadScores, earnedTitles, shownTitleOf, canBurnLight, activeStatuses, bagStatus } from './gameScores.js';
+import { magicOn } from './gameMagic.js';
 import {
   nightKey, nightsBetween, shiftNight, nightTier, nextNightTier, nextNightLightAt, titleProgress, liveHappenings,
 } from './gameRules.js';
@@ -103,6 +104,7 @@ const happeningCard = (h) => ({
  *   effects: Array<{kind, icon, name, about, good, playsLeft?, until}>,
  *   happenings: Array<{kind, name, emoji, tag, about, endsAt: ?number, calendar: boolean}>,
  *   siege: ?{monster, emoji, hp, maxHp, endsAt, you: ?{damage, rank}},
+ *   bag?: object,
  * }}
  *   progress: every recurring counter in a stable order, the nights row's
  *     Night Light last; `waiting` = held at need − 1 by the daily prize cap.
@@ -118,13 +120,19 @@ const happeningCard = (h) => ({
  *   happenings: the server's happenings in progress (R4), ended ones left out.
  *   siege: the monster attacking now (R5), with this member's damage and
  *     place in the fight; null when there's none.
+ *   bag: 2.76.0, the Six-Demon Bag (gameScores.bagStatus) — only with the bag
+ *     on here, and only for a member it has touched: some Chi, a cast, a
+ *     charm on them, or peace (a bag of nothing is no section). With the bag
+ *     off, the Blessings prize (3B) is left out of `progress` too.
  */
 export function getPlayerCardExtras(guildId, userId, { now = Date.now(), settings = null, happenings = undefined, siege = undefined } = {}) {
   const data = loadScores(guildId);
   const user = data.users[userId] || null;
+  const magic = magicOn(settings);
 
   const current = liveNights(user, now);
-  const progress = PRIZES.map(p => ({
+  // (3B's Blessings counter only counts where the bag is on)
+  const progress = PRIZES.filter(p => magic || p.key !== 'blessings').map(p => ({
     key: p.key,
     game: p.game,
     icon: p.item ? ITEMS[p.item].kit : 'gift',
@@ -185,9 +193,12 @@ export function getPlayerCardExtras(guildId, userId, { now = Date.now(), setting
   const effects = statusesOf(user, now);
   const going = liveHappenings(happenings === undefined ? happeningsNow(guildId, now, settings) : happenings, now);
 
+  const bag = magic ? bagStatus(data, userId, settings || undefined, now) : null;
+  const touched = bag && (bag.chi > 0 || bag.today > 0 || bag.casts > 0 || bag.on.length > 0 || bag.peace);
   return {
     progress, nights, glovebox, titles, effects, happenings: going.map(happeningCard),
     siege: siege === undefined ? siegeCardData(guildId, userId, now) : siege,
+    ...(touched ? { bag } : {}),
   };
 }
 
