@@ -251,6 +251,34 @@ export const data = new SlashCommandBuilder()
       )
   );
 
+/**
+ * Each command switch (`/eggshen-config commands toggle`), as
+ * `/eggshen-config settings view` lists it — the toggle's choices, in the
+ * same order. tests/config-settings-view.test.js checks it covers every key
+ * of defaultConfig.commandPermissions.
+ */
+const COMMAND_SWITCH_NAMES = {
+  enabled: 'All Commands',
+  movie: '/movie',
+  tv: '/tv',
+  episode: '/episode',
+  game: '/game',
+  boardgame: '/boardgame',
+  book: '/book',
+  survey: '/survey',
+  soundtrack: '/soundtrack',
+  bracket: '/bracket',
+  watchlist: '/watchlist',
+  potion: '/potion',
+  foodfight: '/foodfight',
+  doom: '/doom',
+  rescue: '/rescue',
+  siege: '/siege',
+  escape: '/escape',
+  quote: '/quote',
+  suggestQuote: '/suggest-quote',
+};
+
 export async function execute(interaction) {
   // Check if user has admin permissions
   if (!isAdmin(interaction.member)) {
@@ -311,14 +339,18 @@ export async function execute(interaction) {
         return `${on ? '✅' : '❌'} **${['Games', 'Board Games', 'Books'][i]}:** ${on ? 'Enabled' : 'Disabled'}`;
       }).join('\n');
 
-    const commandsStatus = `${config.commandPermissions.enabled ? '✅' : '❌'} **All Commands:** ${config.commandPermissions.enabled ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.movie ? '✅' : '❌'} **/movie:** ${config.commandPermissions.movie ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.tv ? '✅' : '❌'} **/tv:** ${config.commandPermissions.tv ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.episode ? '✅' : '❌'} **/episode:** ${config.commandPermissions.episode ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.survey !== false ? '✅' : '❌'} **/survey:** ${config.commandPermissions.survey !== false ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.soundtrack !== false ? '✅' : '❌'} **/soundtrack:** ${config.commandPermissions.soundtrack !== false ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.bracket !== false ? '✅' : '❌'} **/bracket:** ${config.commandPermissions.bracket !== false ? 'Enabled' : 'Disabled'}\n` +
-      `${config.commandPermissions.watchlist !== false ? '✅' : '❌'} **/watchlist:** ${config.commandPermissions.watchlist !== false ? 'Enabled' : 'Disabled'}`;
+    // Every switch /eggshen-config commands toggle offers, read the way
+    // canUseCommand reads it. This used to list 8 of the 19 by hand, so a
+    // switched-off /doom or /quote looked like it wasn't a setting at all.
+    // There are no migrations: a config saved before a switch existed lacks
+    // its key, and a missing key means on.
+    const permissions = config.commandPermissions || {};
+    const commandsStatus = Object.entries(COMMAND_SWITCH_NAMES).map(([key, name]) => {
+      const on = key === 'enabled'
+        ? Boolean(permissions.enabled)
+        : !Object.prototype.hasOwnProperty.call(permissions, key) || permissions[key] === true;
+      return `${on ? '✅' : '❌'} **${name}:** ${on ? 'Enabled' : 'Disabled'}`;
+    }).join('\n');
 
     const notificationsStatus = `${config.notifications?.restartAnnouncements ? '✅' : '❌'} **Restart Announcements:** ${config.notifications?.restartAnnouncements ? 'Enabled' : 'Disabled'}`;
 

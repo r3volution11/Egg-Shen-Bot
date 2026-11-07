@@ -154,13 +154,15 @@ A title is a badge for something you've done a lot, or had done to you a lot. Ea
 | Title | You need |
 |---|---|
 | 🗡️ Monster Hunter | Fight in 10 [sieges](./games-siege) that are won |
-| 🏆 Siege MVP | Be the MVP of a won siege, once |
-| 👑 Legend of the Drive-In | Be the MVP of 10 won sieges |
+| 🏆 Siege MVP | Be the [Wang Chi](./games-siege#the-wang-chi-and-the-jack-burton) of a won siege, once |
+| 🥋 Wang Chi | Be the Wang Chi of 5 won sieges |
+| 👑 Legend of the Drive-In | Be the Wang Chi of 10 won sieges |
+| 🤠 Everybody Relax, I'm Here | Land the Jack Burton 10 times |
 | 🦖 Kaiju Killer | Fight in a won siege against the Atomic Lizard, once |
 | 🩹 Field Medic | Free or cure 15 fighters in sieges, together, with plays that score |
 | 🍖 Monster Chow | Get grabbed by a siege monster 10 times |
 
-Monster Hunter, Siege MVP, Legend and Kaiju Killer count wins, not attacks, so they move only when a siege ends in a win. Every fighter in a won siege gets the win, MVP or not. Field Medic and Monster Chow count [what the monster does](./games-siege#it-fights-back) and who you save.
+Monster Hunter, Siege MVP, Wang Chi, Legend, Everybody Relax and Kaiju Killer count wins, not attacks, so they move only when a siege ends in a win. Every fighter in a won siege gets the win. The [Wang Chi](./games-siege#the-wang-chi-and-the-jack-burton) is whoever helped most (it replaced the MVP in 2.75, and MVPs from before count toward these titles); the Jack Burton is whoever landed the killing blow. Field Medic and Monster Chow count [what the monster does](./games-siege#it-fights-back) and who you save.
 
 Titles take a while. Your card shows the ones you're closest to, with your count.
 

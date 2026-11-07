@@ -44,11 +44,15 @@ If earlier matchups stayed open, people could keep changing their votes on match
 
 ### Small brackets
 
-This is the only way to run a small bracket (8 titles or fewer) one matchup at a time. Plain `/bracket open` would open the whole round together.
+In a small bracket (8 titles or fewer), plain `/bracket open` opens the whole round together, and `/bracket open-matchup` only works once the bracket is built. `matchups:1` builds the bracket and opens just the first matchup.
 
 ### Live standings
 
 Each matchup gets its own live standings card, posted under it with the first vote and updated as people vote. Earlier matchups' cards stay where they were, showing their final tallies.
+
+### Results
+
+When a matchup closes, its results card is posted: the winner and runner-up with their votes, and a drawn picture of the two posters with the vote split, stamped UPSET! when a worse seed wins. Then the bot posts the bracket as it now stands.
 
 ### Time left
 

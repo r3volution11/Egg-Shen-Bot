@@ -10,10 +10,10 @@ description: Host watch parties with smart timers that auto-detect movie and TV 
 ## Quick FAQ
 
 **Q: How does auto-detection work?**  
-A: When you run `/timer start` in a channel, the bot checks your server's Discord scheduled events. If an event is linked to that specific channel, the bot automatically uses the event's title as the timer label and searches TMDB for runtime.
+A: When you run `/timer start` with no title in a watch-party channel, the bot looks for a Discord scheduled event in that channel that has started. If it finds one, it uses the event's name as the timer's title and looks up the runtime. An admin makes a channel a watch-party channel with `/eggshen-config-watch-party watch-party add`.
 
 **Q: Does it work with any Discord event?**  
-A: Yes, but the event must be scheduled for the specific channel where you run `/timer start`. The bot reads the event title to detect what you're watching.
+A: Yes, as long as it has started and it's in the channel where you run `/timer start`: its voice or stage channel, or a channel named in its location. Admins can turn auto-detection down or off with [`/eggshen-config-watch-party watch-party auto-detect`](/commands/configuration#watch-party-auto-detect).
 
 **Q: Does runtime detection also work if I type the label myself?**  
 A: Yes. `/timer start label:Juno` searches the same way an auto-detected label does — no duration needed, the bot looks it up either way.
@@ -25,17 +25,15 @@ A: The bot shows a selection menu so you can choose the correct title.
 A: Yes — the bot searches movies, TV shows, and board games (using BoardGameGeek's listed playing time) whenever it's trying to auto-detect a duration.
 
 **Q: Can timers auto-stop?**  
-A: Yes! Either set a manual duration (1-600 minutes) or let the bot detect runtime automatically (adds a 10-min buffer).
+A: Yes. Give a `duration` (1-1440 minutes), or let the bot use the title's runtime plus 10 minutes.
 
 **Q: Who can stop a timer?**  
-A: The person who started it or anyone with moderation permissions.
+A: The person who started it, and admins and moderators. A server can let anyone pause, resume and stop timers with `/eggshen-config settings timer-control`.
 
 **Q: Does watch history work automatically?**  
-A: Yes! When a timer with a title/label completes, it automatically logs to server watch history. A "Log to Watch History" button also appears for manual override or corrections. For timers without labels, use the button to manually log what you watched. Only the timer starter, administrators, or moderators can use the button.
+A: Yes. When a timer that knows its title stops, it's logged to the server's watch history. If the timer has no title, name it with `/timer title` before you stop it, or log it afterwards with the stop card's **📝 Log to Watch History** button or `/watched add`.
 
 ---
-
-Host synchronized watch parties with timers and track what your community watches.
 
 ## Announcements
 
@@ -46,7 +44,7 @@ Host synchronized watch parties with timers and track what your community watche
 | An hour or more ahead | `/announce party` now, or [`/announce schedule`](#scheduled-announcements) to post it automatically |
 | 10 minutes before a scheduled event | Automatic: the [starting-soon card](#the-automatic-starting-soon-card) |
 | A few minutes before | `/announce starting` |
-| The moment you start the timer | `/timer remind` |
+| The moment you start the timer | `/timer remind` (or `/watchparty remind`) |
 
 Every `/announce` subcommand posts to the channel itself, and all of them are Admin/Moderator only.
 
@@ -147,7 +145,7 @@ It posts once per event. If the event is moved, it posts again for the new time.
 
 ## Timer Reminders
 
-Announce that you're about to start the timer right before beginning the watch party.
+Announce that you're about to start the timer right before beginning the watch party. `/watchparty remind` does the same thing.
 
 ### Remind Everyone
 
@@ -173,7 +171,7 @@ Announce that you're about to start the timer right before beginning the watch p
 ```
 
 **How It Works:**
-1. You've already announced the watch party 1-2 hours ago via Discord event
+1. You've already announced the watch party, with `/announce` or a Discord event
 2. Everyone is gathered
 3. Run `/timer remind` to give final notice, showing what you're watching with TMDB details
 4. Optionally run `/watchparty ready` to see who's actually ready ([Ready Check](#ready-check))
@@ -245,20 +243,19 @@ Start simple stopwatch timers for watch parties.
 Use only **one** of `label`, `movie`, or `tv` — providing more than one is rejected with an error, since each is a different way of saying what's playing. `label` still works exactly as it always has (including auto-detecting from a channel's linked event, and searching movies/TV/board games together) — `movie`/`tv` exist for when you already know the type and want to skip the ambiguity, e.g. if a movie and a TV show happen to share a name.
 
 **Features:**
-- **Discord Event Auto-Detection:** Bot checks server's scheduled events - if one is linked to the current channel, automatically uses event title as timer label
+- **Discord Event Auto-Detection:** In a watch-party channel (added with `/eggshen-config-watch-party watch-party add`), a timer started with no title takes its title from the channel's running scheduled event
 - **Auto-stop:** Set duration to automatically stop timer when time expires
 - **Runtime auto-detection:** Whenever a label is set and no duration is given — whether typed manually or auto-detected from a Discord event — the bot searches movies, TV shows, and board games and adds a 10-minute buffer to whatever it finds. A found runtime is used as-is, no matter how long it is
-- **Multi-episode watch parties:** A label like "Tales from the Crypt - S5: E5 - E8" (four episodes in one watch party) is understood automatically. The episodes can also live in the **scheduled event's description** — an event named "Tales From the Crypt" described as "Season 6 episodes 4 - 7" produces a correct 113-minute timer with no clicks — see [Multi-Episode Watch Parties](#multi-episode-watch-parties) below
+- **Multi-episode watch parties:** A label like "Tales from the Crypt - S5: E5 - E8" (four episodes in one watch party) is understood automatically. The episodes can also live in the **scheduled event's description**: an event named "Tales From the Crypt" described as "Season 6 episodes 4 - 7" gets a timer for all four episodes with no clicks. See [Multi-Episode Watch Parties](#multi-episode-watch-parties) below
 - **Decisive auto-selection:** When a search turns up an exact title match, or a clear decisive best match, the bot skips the confirmation menu and starts the timer directly — same landslide-detection behavior used by [`/movie` and `/tv`](/commands/search#smarter-auto-selection)
 - **No duration guessed for TV without an episode count:** A TV show's listed runtime is a *single* episode, but a watch party is rarely one episode — so that number would stop the timer partway through. A TV title gets a real duration only when the episodes are known (from range notation, or the event description); otherwise the timer runs to the server's auto-stop limit, which warns before it ends so anyone can extend it
 - **Start now, or look it up:** If an auto-detected title can't be pinned down, the bot offers two buttons — **▶️ Start Now** or **🔎 Look Up Title** — rather than a long list. Servers can change this with [`/eggshen-config-watch-party watch-party auto-detect`](/commands/configuration#watch-party-auto-detect)
 - **Smart selection:** When you do ask to look up a title (or a label you typed yourself is ambiguous), a selection menu appears with **▶️ Start Timer Without Title Selection** as its first option, so starting immediately is always one click away
 - **No match found:** If nothing is typed and nothing is auto-detected at all, the bot tells you directly and falls back to a default duration (6 hours, server-configurable) rather than running forever unnoticed — see below
 - **Recovery from a bad auto-detected title:** If the event title the bot pulled from a Discord scheduled event doesn't match anything, you're never stuck with the wrong title — a **🔎 Search** button lets you type the correct one and search again, as many times as needed — see [Auto-Detection Example](#start-a-timer) below
-- **Automatic watch history logging:** When timer completes (manual or auto-stop), automatically logs to server watch history if title found on TMDB
-- 5-second countdown before starting (with visual/text animation)
-- Public display visible to all channel members
-- Shows remaining time when duration is set
+- **Automatic watch history logging:** When the timer stops (by hand or on its own), it's logged to the server's watch history if its title is found on TMDB. If it isn't, the stop card has a button to log it by hand
+- A short countdown before it starts, posted in the channel
+- Shows the remaining time when it has a duration
 
 **Examples:**
 ```
@@ -272,17 +269,17 @@ Use only **one** of `label`, `movie`, or `tv` — providing more than one is rej
 ```
 
 **Auto-Detection Example:**
-1. Create a Discord scheduled event named "The Lord of the Rings"
-2. Set the event location to a specific voice/stage channel (e.g., #watch-party)
+1. An admin adds the channel once: `/eggshen-config-watch-party watch-party add channel:#watch-party`
+2. Create a Discord scheduled event named "The Lord of the Rings" in that channel, and start it
 3. In that channel, run `/timer start` (no label parameter needed)
-4. Bot detects the Discord event linked to this channel
+4. Bot detects the running Discord event linked to this channel
 5. Bot uses "The Lord of the Rings" as the timer label automatically
 6. Bot searches TMDB and finds multiple matches, shows selection menu
 7. Select the correct movie (e.g., "The Fellowship of the Ring")
 8. Bot auto-detects 178 min runtime + 10 min buffer = 188 minutes
 9. Timer starts with auto-stop at 188 minutes
 
-**Tip:** This works for any Discord event linked to a channel - the bot will always check for events when you run `/timer start` without a label! Typing a label yourself (`/timer start label:The Fellowship of the Ring`) gets the same title search and auto-duration treatment, without needing a Discord event at all.
+**Tip:** This works for any running Discord event in a watch-party channel. Typing a label yourself (`/timer start label:The Fellowship of the Ring`) gets the same title search and auto-duration treatment, without needing a Discord event at all.
 
 **If the auto-detected title doesn't match anything (or matches too many things):** Since the title came from the scheduled event's name rather than something you typed, it won't always match cleanly — a typo in the event name, a subtitle TMDB doesn't recognize, etc. Rather than starting a timer under the wrong name (or leaving you stuck), the bot always gives you a way out when the label came from auto-detection:
 
@@ -298,7 +295,7 @@ A label that includes a season/episode range — like an event or channel name o
 1. Recognizes the range notation and separates it from the show name
 2. Searches for the show (using the same decisive auto-selection and AI-powered ranking as `/tv`)
 3. Looks up every episode in the range and adds up their individual runtimes
-4. Adds the standard 10-minute buffer to the total
+4. Adds a buffer for ad breaks and pauses: 5 minutes per episode by default, and never less than 10 minutes
 
 Rather than just showing a final number, you'll see a breakdown so you can sanity-check it before the timer starts:
 
@@ -309,8 +306,10 @@ Rather than just showing a final number, you'll see a breakdown so you can sanit
   E7: 21 min
   E8: 23 min
 ──────────────
-4 episodes, ~22 min each = 88 min + 10 min buffer = 98 min
+4 episodes, ~22 min each = 88 min + 20 min buffer = 108 min
 ```
+
+TMDB lists runtimes without ads, so a 22-minute episode on Tubi or Pluto TV runs closer to 30. Admins set the per-episode buffer (0-30 minutes) with `/eggshen-config-watch-party watch-party episode-buffer`: 0 for ad-free services, 8-10 for ad-supported ones.
 
 If TMDB doesn't have a specific runtime for one of the episodes, the show's average episode length is used for that one instead, and it's marked `(estimated)` in the breakdown so it's clear which numbers are exact and which are a best guess.
 
@@ -349,7 +348,7 @@ Status is public by default: a watch party is a shared activity, and whoever ask
 ### Name a Running Timer
 
 ```
-/timer title <title>
+/timer title title:<title>
 ```
 
 Names a timer that was started without identifying what's playing — which is what the watch-history entry gets written under when it stops — and sets the timer's duration from the title's runtime.
@@ -360,8 +359,8 @@ Names a timer that was started without identifying what's playing — which is w
 
 It searches like `/movie` and `/tv`: a clear match is used right away, and episode notation works too:
 ```
-/timer title The Thing
-/timer title Tales from the Crypt S6: E4-E7
+/timer title title:The Thing
+/timer title title:Tales from the Crypt S6: E4-E7
 ```
 
 If the title could mean more than one thing ("Fargo" is two films and a show), or what you typed isn't an exact title, you get a picker of movies and shows to choose from, with exact title matches listed first. The first option, **Keep "…" as typed**, names the timer without matching it to anything. Only if TMDB finds nothing at all is the timer named with your text directly, since an approximate label beats an unnamed one. The change is announced in the channel with a **Now Watching** card (art, year, synopsis, and where the timer stands), since it was made on everyone's behalf.
@@ -395,11 +394,9 @@ Pause a timer if something comes up — a break, a technical issue, anything tha
 /timer stop
 ```
 
-Stops the current timer in the channel. By default, only available to:
-- User who started the timer
-- Server administrators
-- Users with Manage Guild permission
-- Users with Moderate Members permission
+Stops the current timer in the channel and logs it to watch history (see [Watch History](#watch-history)). By default, only the person who started the timer and admins and moderators can stop it. Admins and moderators are members with Administrator, Manage Server, Timeout Members, Kick Members or Ban Members.
+
+Use `/timer pause` for a break. Stopping ends the watch party.
 
 ### Who Can Pause, Resume, or Stop a Timer
 
@@ -417,7 +414,7 @@ This only affects `/timer pause`, `/timer resume`, and `/timer stop` — `/timer
 /timer adjust duration:<minutes>
 ```
 
-Changes the total duration of the active timer (elapsed time is preserved — this sets a new *total*, not an amount to add). Same permissions as `/timer stop`. Used exactly as given by default; only reduced if this server has opted into a [timer ceiling](/commands/configuration#timer-ceiling) (off by default).
+Changes the total duration of the active timer (elapsed time is preserved — this sets a new *total*, not an amount to add). Only the person who started the timer, or an admin or moderator. Paused time doesn't count. Used exactly as given by default; only reduced if this server has opted into a [timer ceiling](/commands/configuration#timer-ceiling) (off by default).
 
 ### Enable or Disable Auto-Stop
 
@@ -428,7 +425,7 @@ Changes the total duration of the active timer (elapsed time is preserved — th
 - **`autostop:disable`** — removes auto-stop entirely from a running timer, so it never stops on its own. Use this for overnight sessions or marathons where you don't want any cap.
 - **`autostop:enable`** — turns auto-stop back on for a timer that doesn't currently have a duration; requires a `duration`.
 
-Same permissions as `/timer stop`.
+Only the person who started the timer, or an admin or moderator.
 
 ### Timer Durations & the Expiry Warning
 
@@ -443,7 +440,7 @@ The one exception is when **nobody said anything at all** — no `duration` was 
 
 `unlimited:true` disables the fallback entirely — a no-duration timer just runs forever, same as `/timer autostop disable`. See [Configuration](/commands/configuration#max-timer-duration) for details.
 
-**About an hour before one of these fallback-duration timers is due to auto-stop**, the bot posts a warning in the channel, mentioning whoever started it, with an **Extend Timer** button. Clicking it opens a small form to enter how many additional minutes to add. Once extended, the timer's duration is a real, user-chosen value from that point on — it won't warn again unless it's later extended and re-enters the last-hour window.
+**About an hour before one of these fallback-duration timers is due to auto-stop**, the bot posts a warning in the channel, mentioning whoever started it, with an **Extend Timer** button for them or an admin or moderator. Clicking it opens a small form to enter how many additional minutes to add. Once extended, the timer's duration is a real, user-chosen value from that point on — it won't warn again unless it's later extended and re-enters the last-hour window.
 
 This warning **only ever fires for fallback-duration timers.** A timer with a real duration — typed manually, adjusted with `/timer adjust`, or auto-detected from a movie/TV runtime — never gets this warning, no matter how long it runs.
 
@@ -519,114 +516,58 @@ Anyone can remove a title they added themselves. Removing someone else's additio
 
 ## Watch History
 
-Track what your server community watches together.
+The server's record of what it has watched together. See [Watch History](/features/watch-history) for more.
 
-### Automatic Watch History Logging
+### Logged When the Timer Stops
 
-**NEW:** Timers now automatically log to watch history!
+When a timer stops, by `/timer stop` or on its own, the bot logs it to the server's watch history:
 
-When a timer with a title/label completes (via `/timer stop` or auto-stop):
+1. **It finds the title.** If the timer's title was matched when it started (or with `/timer title`), that match is used. Otherwise the bot searches TMDB for the title and takes the first movie or show it finds.
+2. **It saves the entry:** the title and year, movie or TV, the date, the channel, who stopped the timer, and a note with how long it ran (and the episodes, for a multi-episode party).
+3. **It posts the stop card** in the channel: **⏹️ Timer Stopped & Logged**, with the poster, the total time, and who started and stopped it.
 
-1. **Bot searches TMDB** for the title
-2. **Finds best match** (first result)
-3. **Automatically logs to server watch history**
-4. **Shows confirmation** with poster, title, year, type
-5. **"Log to Watch History" button appears** for manual override
+A multi-episode party is one entry for the show, with the episodes in its note.
 
-**For timers WITHOUT labels:**
-- Button appears to let you manually add what you watched
-- Click button → Enter title → Add optional notes → Submit
+**Nothing is logged when:**
+- **The timer has no title.** Name it with `/timer title` before you stop it. Afterwards, the stop card's button asks what you watched
+- **The title isn't found on TMDB.** The card says so. Correct the title with the card's button, or log it with `/watched add`
+- **The timer was for a board game.** Watch history is for movies and TV
 
-**Button Permissions:**
-- ✅ Timer starter can use it
-- ✅ Server administrators can use it
-- ✅ Server moderators can use it
-- ❌ Other users cannot log timers they didn't start
+A stop card that wasn't logged has a **📝 Log to Watch History** button, for the person who started the timer or a member with Administrator, Manage Server or Timeout Members. A card that was logged has none.
 
-**Information Saved:**
-- Movie/TV show title from TMDB
-- Year and type (movie/TV)
-- Date watched
-- Channel where watched
-- Who started the timer
-- Who stopped the timer
-- Timer duration as notes
-- Poster image
+The button opens a form with a title box, filled in when the card shows a title, and up to 1,000 characters of notes. It saves the first TMDB match, movies before shows. If there's no match, the button stays so you can fix the title and try again. Each card is logged once: a second submit from the same card is turned away. For a show, or a title with several matches, `/watched add` is more reliable, since you pick from a list. See [The Log to Watch History Button](/features/watch-history#_5-the-log-to-watch-history-button).
 
-**What You See (with label):**
-```
-⏹️ Timer Stopped & Logged 🛑📝
+A logged title also comes off the [watchlist](#watchlist), unless an admin has turned that off.
 
-The Lord of the Rings: The Fellowship of the Ring (2001)
-
-✅ Automatically logged to watch history
-
-Total Time: 3:02:15
-Type: Movie
-Channel: #movie-night
-Started by: MovieFan
-Stopped by: MovieFan
-
-[📝 Log to Watch History] ← Click to manually log again or correct
-```
-
-**What You See (without label):**
-```
-⏹️ Timer Stopped 🛑
-
-Timer has been stopped
-
-Total Time: 2:15:30
-Started by: MovieFan
-Stopped by: MovieFan
-
-[📝 Log to Watch History] ← Click to add what you watched
-```
-
-**No TMDB Match?**
-If the title isn't found on TMDB, you'll see a warning but the button will still appear so you can manually search and log.
-
-**Manual Override:**
-The button lets you log a different title if auto-detection picked the wrong result, or add custom notes to the entry.
-
-### Manual Watch History Entry
+### Log It Yourself
 
 ```
-/watched add title:<title> notes:[optional notes]
+/watched add title:<title> notes:[optional] private:[optional]
 ```
 
-**Parameters:**
-- `title` (required) - Movie or TV show title to search for
-- `notes` (optional) - Additional notes about the viewing
-- `private` (optional) - Only show the confirmation to you instead of the whole channel (default: false)
+**Options:**
+- `title` (required) - The movie or show
+- `notes` - A note about the watch party
+- `private` - Only you see the confirmation (default: false)
 
-**Features:**
-- Search integration for accurate titles
-- Selection menu if multiple matches found
-- Immediate save to server history
-- Public announcement in channel (unless `private:true`)
+Anyone can log a title. If several titles match, you pick the right one from a list only you see. The confirmation posts in the channel unless you add `private:true`.
 
 **Example:**
 ```
-/watched add title:Big Trouble in Little China notes:Great kung-fu scenes!
+/watched add title:Big Trouble in Little China notes:Annual tradition
 ```
 
 ### View Watch History
 
 ```
-/watched history filter:[type] limit:[number]
+/watched history filter:[all|movie|tv] limit:[1-25]
 ```
 
-**Parameters:**
-- `filter` (optional) - Filter by content type (all, movie, tv) - default: all
-- `limit` (optional) - Number of entries to show (1-25) - default: 10
+**Options:**
+- `filter` - `all` (default), `movie` or `tv`
+- `limit` - How many entries, 1-25 (default 10)
 
-Displays recent watch history for the server:
-- Titles with TMDB links
-- Dates watched
-- Channels where watched
-- Who saved each entry
-- Notes from viewers
+Shows the most recent entries: the title and year, who logged it, the date, the channel, and any notes.
 
 **Examples:**
 ```
@@ -635,66 +576,50 @@ Displays recent watch history for the server:
 /watched history filter:tv limit:5
 ```
 
-## Watch Party Best Practices
+## Watch Party Tips
 
 ### Before Starting
-1. Coordinate with your community on what to watch
-2. Ensure everyone has access to the content
-3. Set clear start time expectations
-4. Test audio/video sync beforehand
+1. Announce it ahead with `/announce party` or `/announce schedule`
+2. Make sure everyone can get to the movie or show. `/movie` and `/tv` show where it streams
+3. Run `/watchparty ready` to see who's back with snacks
 
 ### During the Watch Party
-1. Use the timer to keep everyone synchronized
-2. Encourage discussion in text chat
-3. Avoid spoilers for new viewers
-4. Pause timer if taking a break
+1. Start the timer when you press play, so everyone can sync to `/timer status`
+2. Use `/timer pause` for a break, not `/timer stop`
+3. Avoid spoilers for first-time viewers
 
 ### After Watching
-1. Log to watch history while discussing
-2. Add notes about memorable moments
-3. Take recommendations for next watch party
-4. Review watch history to avoid repeats
+1. Check the stop card says it was logged. If it doesn't, use its **📝 Log to Watch History** button or `/watched add`
+2. Logging it yourself? Add notes about memorable moments
+3. Use `/recommend` or `/watchlist pick` to choose the next one
 
-## Watch History vs Personal Ratings
+## Watch History Is the Server's
 
-**Important:** Watch history is server-level tracking, not personal ratings.
+Watch history is a shared record of what the server watched together. It isn't for personal ratings or private tracking: every entry is visible to everyone, and `/watched history` shows the whole server's list.
 
-- ✅ **Public record** of what was watched together
-- ✅ **Channel tracking** shows where watch parties happen
-- ✅ **Community feature** visible to all members
-- ❌ **Not for personal ratings** or private tracking
-- ❌ **Not user-specific** - saved by timer starter/mods
-
-For personal tracking, use external services like:
-- [Trakt.tv](https://trakt.tv)
-- [Letterboxd](https://letterboxd.com)
-- [TV Time](https://www.tvtime.com)
+For personal tracking, use a service like [Trakt](https://trakt.tv), [Letterboxd](https://letterboxd.com) or [TV Time](https://www.tvtime.com).
 
 ## Rate Limiting
 
-Watch party commands have minimal rate limiting:
-- Timer commands: Once per minute per channel
-- Watch history: Normal rate limit applies
-- Logging from button: No cooldown (permission-based)
+Watch party commands share the bot's general rate limit: by default each member can run a given command, such as `/timer`, once every 20 seconds, whatever the subcommand. Admins and moderators aren't limited. Admins can give `/timer` a limit of its own with `/eggshen-config-watch-party rate-limit command command:timer`. See [Rate Limiting](/features/rate-limiting).
 
 ## Troubleshooting
 
-### Can't log to watch history
-- Verify you started the timer OR have mod permissions
-- Check that timer has completed
-- Ensure watch history isn't disabled for the server
+### A timer wasn't logged to watch history
+- Did it have a title? Name a timer with `/timer title` before stopping it
+- Was the title found? The stop card says if it wasn't
+- Log it with the stop card's **📝 Log to Watch History** button, or by hand with `/watched add`
 
 ### Timer not starting
-- Check for existing timer in the channel
-- Verify bot has permission to send messages
-- Ensure duration format is correct
+- There's already a timer in the channel: check with `/timer status`
+- Check the bot can send messages and embed links in the channel
+- `duration` is in minutes, 1-1440
 
-### Can't find title when logging
-- Use `/movie` or `/tv` commands first to verify title
-- Try alternative title formats or release years
-- Check that TMDB API key is configured
+### Auto-detection didn't pick up the event
+- The channel has to be a watch-party channel: `/eggshen-config-watch-party watch-party list`
+- The event has to have started, and be in that channel (its voice or stage channel, or the channel in its location)
+- Auto-detect may be off: `/eggshen-config-watch-party watch-party auto-detect`
 
-### Watch history not saving
-- Verify bot has database access
-- Check server configuration for watch history
-- Review mod logs for error messages
+### Can't find the title
+- Check it with `/movie` or `/tv` first
+- Try the original title, or add the year

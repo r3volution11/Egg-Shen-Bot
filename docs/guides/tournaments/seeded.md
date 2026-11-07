@@ -26,7 +26,7 @@ How much seeding counts is your choice as the tournament's creator. None of it i
 
 - **Pick where the seeds come from.** Choose **Random** (the default), **your own order**, or **By rating**.
 - **Seeds show everywhere a matchup does.** That includes the ballot, the vote buttons, results, the live standings and the bracket image, for example **(1) Halloween vs (8) Hereditary**.
-- **Upsets get called out.** When a worse seed wins, the result post says **🚨 Upset! (8) knocks out (1)**.
+- **Upsets get called out.** When a worse seed wins, the result post says **🚨 Upset! (8) knocks out (1)**, and its drawn picture is stamped **UPSET!**.
 - **Ties can go to the higher seed.** This is optional. See [Ties](#ties).
 - **Seeds 1 and 2 can only meet in the final.** They start in opposite halves of the bracket.
 - **Byes go to the top seeds.** With 12 titles in a 16-slot bracket, seeds 1–4 skip round one.
@@ -46,9 +46,15 @@ Choose seeding in `/bracket-setup create` (the `seeding` option), on the [setup 
 
 ### Ties
 
-Normally a tied matchup gets a short runoff vote. With **Higher seed wins** (`ties` in `/bracket-setup create`, **Ties** on the setup form), a tie goes straight to the better seed instead: no runoff and no wait. The result says so, for example "Tied 4–4: the higher seed advances."
+Normally a tied matchup gets a short runoff vote. With **Higher seed wins** (`ties` in `/bracket-setup create`, **Ties** on the setup form), a tie goes straight to the better seed instead: no runoff and no wait. The result says so, for example "Tied 4–4: the higher seed advances.", its split bar is gold on both sides, and its picture says "Tied: higher seed advances".
 
 Higher seed wins needs a seeded bracket. With Random seeding, the seeds mean nothing, so ties always get a runoff whatever you choose.
+
+### What an upset looks like
+
+<img class="result-image" src="/images/matchup-upset.webp" alt="A drawn matchup result for Semifinals 2A. Night of the Living Dead (1968), the 12 seed, is framed in gold under a red WINNER sash; Alien (1979), the 1 seed, is dimmed. A red UPSET! stamp sits between them, and the bar underneath splits 53%, 9 votes, to 47%, 8 votes." width="960" height="540" loading="lazy">
+
+*The 12 seed beats the 1 seed, 9 votes to 8: the picture under the results card*
 
 ### Who plays whom
 

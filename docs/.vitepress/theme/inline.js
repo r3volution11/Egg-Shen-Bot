@@ -34,9 +34,15 @@ export function inlineToText(text) {
  * timestamp, shown as Discord's grey chip), [mention:@Doug] (a mention) and
  * [kit:coin] (one of the bot's own custom emoji, the kit in assets/emojis:
  * its art is copied to docs/public/emojis/<code>.png).
+ *
+ * A backslash escapes the next character, as in Discord: the bot writes
+ * "4\. Sam" so Discord doesn't start a numbered list, and Discord shows
+ * "4. Sam". The escaped character goes in as an entity, so no rule below
+ * reads it as markdown.
  */
 export function discordMarkdown(text, { inline = false } = {}) {
   const fmt = (s) => escapeHtml(s)
+    .replace(/\\([\\`*_~|.#-])/g, (_, c) => `&#${c.charCodeAt(0)};`)
     .replace(/\[ts:([^\]]+)\]/g, '<span class="dm-chip">$1</span>')
     .replace(/\[mention:([^\]]+)\]/g, '<span class="dm-mention">$1</span>')
     .replace(/\[kit:([a-z0-9]{1,6})\]/g, '<img class="dm-emoji" src="/emojis/$1.png" alt=":$1:" width="22" height="22">')

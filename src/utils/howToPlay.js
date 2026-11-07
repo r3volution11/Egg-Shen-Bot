@@ -500,6 +500,13 @@ function siege(ctx, kit) {
     back.push(`It poisons a fighter: cure them with \`/potion give user:@Sam type:health\` (${pill(signed(SIEGE.credit.cure))} to your share), or their Antidote does. It wears off after ${span(back0.poisonMinutes)}.`);
   }
   if (back.length) {
+    // 2.75.0: saving always works, but help from plays that don't score is
+    // capped (siegeAssist) — "+12 to your share" and "unlimited" said
+    // otherwise (review R2, 2026-11-06). With scored plays off, none score.
+    const n = pill(SIEGE.credit.unscoredPerNight);
+    back.push(ctx.settings.dailyScoredPlays > 0
+      ? `Saving someone always works, but past a game's daily scoring cap only your first ${n} frees and cures a night count toward your share.`
+      : `Saving someone always works, but plays don't score here, so only your first ${n} frees and cures a night count toward your share.`);
     back.unshift(back0.busy
       ? `Every ${duration(back0.everyMinutes * 60)} of fighting or so the monster acts, only while people are attacking. Someone else has to save you.`
       : `Every ${duration(back0.everyMinutes * 60)} or so the monster acts. Someone else has to save you.`);
@@ -507,15 +514,19 @@ function siege(ctx, kit) {
   }
 
   const perNight = p.growthPer === 'night';
+  // 2.75.0: the honours, × the pace's H — the helper gets paid, the flashy one gets a laugh
+  const honours = `${kit.e('wang')} The Wang Chi (most frees and cures) gets ${pill(signed(r.wangChiBonus * p.honour))} and loot; ${kit.e('jack')} the Jack Burton (the killing blow) ${pill(signed(r.jackBonus * p.honour))}.`;
+  const B = SIEGE.backing;
   fields.push({
     name: `${kit.e('trophy')} Win or lose`,
     value: [
       p.pot
-        ? `Win: the pot, ${pill(p.pool.perFighter)} points a fighter a night, split by what each did, ${pill(r.eachMin)}–${pill(p.pool.eachMax)} each. The MVP gets ${pill(signed(r.mvpBonus * p.honour))} and loot.`
-        : `Win: ${pill(p.pool.perFighter)} points a fighter${perNight ? ' a night' : ''}, split by what each did, ${pill(r.eachMin)}–${pill(p.pool.eachMax)} each. The MVP gets ${pill(signed(r.mvpBonus * p.honour))} and loot.`,
+        ? `Win: the pot, ${pill(p.pool.perFighter)} points a fighter a night, split by what each did, ${pill(r.eachMin)}–${pill(p.pool.eachMax)} each. ${honours}`
+        : `Win: ${pill(p.pool.perFighter)} points a fighter${perNight ? ' a night' : ''}, split by what each did, ${pill(r.eachMin)}–${pill(p.pool.eachMax)} each. ${honours}`,
+      `${kit.e('back')} \`/siege back fighter:@Sam points:5\` in the first half (${pill(B.min)}–${pill(B.max)}): ×${B.payout} if they're the Wang Chi, your stake back if top 3 or the Jack Burton.`,
       `It escapes: everyone who attacked loses ${pill(SIEGE.escape.loss)}, when ${pill(SIEGE.escape.minFighters)}+ fought.`,
       p.allowance
-        ? `${pill(p.allowance)} attacks a night each (12:00 to 12:00 UTC); freeing and curing are unlimited.${p.pot ? ' An attack pays into the pot, not to you, but still counts for your streak, nights and items.' : ''}`
+        ? `${pill(p.allowance)} attacks a night each (12:00 to 12:00 UTC); freeing and curing don't use them.${p.pot ? ' An attack pays into the pot, not to you, but still counts for your streak, nights and items.' : ''}`
         : `Your first ${pill(SIEGE.scoredPerDay)} attacks a day score points; every one does damage.`,
     ].join('\n'),
   });

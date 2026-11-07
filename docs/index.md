@@ -1,404 +1,199 @@
 ---
 layout: home
+pageClass: egg-home
 title: Egg Shen Bot - Discord Movie, TV Show, Gaming, and Book Bot
-description: Free open-source Discord bot for searching movies, TV shows, video games, board games, and books with ratings from IMDb, Letterboxd, Trakt, and more. Host watch parties with smart timers, keep a server watchlist, run tournaments, play server-wide games with points, items, titles and monster sieges, collect event requests on a web form, and ask the bot how to do anything.
+description: Free, open-source Discord bot for movie and TV communities. Search movies, shows, games and books with ratings from IMDb, Letterboxd, Trakt and more, run watch parties with smart timers, settle it with tournaments and surveys, play server-wide games and monster sieges, run Escape Velocity genre trivia, and ask the bot how to do anything.
 
 hero:
-  name: "Egg Shen Bot"
-  text: "Your Complete Entertainment Search Bot"
-  tagline: Search movies, TV shows, games, and books, host watch parties with smart timers, keep a server watchlist, run tournaments, play games that end in a server-wide monster siege, and let your community request events through a web form
+  name: Egg Shen Bot
+  text: Movie night, with a little magic
+  tagline: Look up any movie, show, game or book, run the watch party, settle the argument with a tournament, and keep playing until a monster attacks the drive-in. Free and open source.
   actions:
     - theme: brand
       text: Get Started
       link: /getting-started
     - theme: alt
+      text: Browse Commands
+      link: /commands/
+    - theme: alt
       text: View on GitHub
       link: https://github.com/r3volution11/Egg-Shen-Bot
   image:
     src: /logo.png
-    alt: Egg Shen Bot
+    alt: Egg Shen Bot's logo, two hands holding blue lightning inside a carved stone ring set with jade gems
 
+# Icons are the bot's own drawn kit (docs/public/emojis), decorative beside
+# each title, so their alt text is empty
 features:
-  - icon: 🎬
-    title: Comprehensive Search
-    details: Search movies, TV shows, episodes, video games, board games, and books with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek, and Google Books, plus where to stream it (150+ services, including free ones like Tubi and Pluto TV).
+  - icon: { src: /emojis/star.png, alt: '', width: 56, height: 56 }
+    title: Look It Up, Ratings and All
+    details: Movies, shows, episodes, video games, board games and books, rated by IMDb, Letterboxd, Trakt, Rotten Tomatoes and more, plus where to stream it. /episode-list rates a whole season at once.
+    link: /commands/search
+    linkText: Search commands
 
-  - icon: 📺
-    title: Whole Seasons at a Glance
-    details: /episode-list shows every episode of a season in one view, with titles, air dates, and IMDb and Trakt ratings side by side. Find the standout episodes, skip the filler, and plan the next binge or watch party.
-
-  - icon: ⏱️
-    title: Watch Parties
-    details: Run /timer start in a channel and the bot reads your scheduled Discord event, finds the title, and sets the runtime for you, multi-episode parties included. Pause for breaks, announce the party ahead of time and when it starts, check who's ready before you press play, and keep a history of everything your server has watched.
+  - icon: { src: /emojis/clock.png, alt: '', width: 56, height: 56 }
+    title: Watch Parties That Run Themselves
+    details: /timer start reads your Discord event and sets the runtime, episodes and all. Announcements post on schedule, a ready check counts heads, and what you watch goes into your server's history.
     link: /commands/watch-party
-    linkText: Watch party commands
+    linkText: Watch parties
 
-  - icon: 🏆
-    title: Tournament Brackets
-    details: Let your server vote its favorite. A straight bracket of 2 to 32 titles, or a groups tournament of up to 48. Set it up with commands or from a spreadsheet, open a whole round or one matchup at a time, and watch live standings as people vote. Seed it March Madness style, by rating or your own order, with seeds shown and upsets called out. Ties get a tiebreaker vote, or go to the higher seed. For a quicker vote, /survey runs a poll of up to 10 options with live results, and brings it back down when it scrolls away.
-    link: /guides/tournaments/
-    linkText: Tournament quick guides
-
-  - icon:
-      src: /emojis/siege.png
-      alt: A siege monster, drawn in the bot's own emoji style
-      width: 36
-      height: 36
-      wrap: true
-    title: Games for the Whole Server
-    details: Food fights, horror-movie dooms, rescues and potions, every play scored. Each member gets a game card with prizes on the way, a Glovebox of items like the Golden Pie, and titles to earn, while the server races up a monthly leaderboard. Twists and happenings like a Full Moon shake things up, and now and then a monster attacks the drive-in and everyone fights it together over a week.
-    link: /commands/games
-    linkText: The games
-
-  - icon: 🍿
-    title: Watchlist & Recommendations
-    details: A shared server watchlist where members add titles and vote for what they want to watch next, and the bot picks tonight's movie. /recommend suggests new titles based on what your server has watched, and tournament champions can join the list automatically.
+  - icon: { src: /emojis/dice.png, alt: '', width: 56, height: 56 }
+    title: Decide What's Next
+    details: A shared watchlist members vote on, and the bot picks tonight's movie. /random can pick from just the services you have, and /recommend works from what your server has watched.
     link: /commands/watch-party#watchlist
     linkText: The watchlist
 
-  - icon: 🎲
-    title: Discover Something New
-    details: Can't decide? /random picks a movie, show, episode, game, board game, or book, filtered by genre, decade, rating, platform, or category, and for movies and shows, only from the streaming services you have. /similar finds titles like one you love, across every kind. /soundtrack finds the score on iTunes and Spotify, and /quote posts a line from the bot's rotating status of quotes, which members can suggest.
+  - icon: { src: /emojis/trophy.png, alt: '', width: 56, height: 56 }
+    title: Tournaments and Surveys
+    details: Brackets of 2 to 32 titles or groups of up to 48, seeded like March Madness if you like, with live standings and a drawn picture for each result. /survey takes a quicker vote.
+    link: /guides/tournaments/
+    linkText: Tournament guides
 
-  - icon: 📅
+  - icon: { src: /emojis/food.png, alt: '', width: 56, height: 56 }
+    title: Games for the Whole Server
+    details: Food fights, horror-movie dooms, rescues and potions, every play scored. Earn Glovebox items, prizes and titles, ride out twists and a Full Moon, and climb the leaderboard.
+    link: /commands/games
+    linkText: The games
+
+  - icon: { src: /emojis/siege.png, alt: '', width: 56, height: 56 }
+    title: Monster Sieges
+    details: A monster crawls out of the screen and attacks the drive-in. The whole server fights it with food, dooms and potions, over a week by default, and shares the pot when it falls.
+    link: /commands/games-siege
+    linkText: Siege
+
+  - icon: { src: /emojis/rocket.png, alt: '', width: 56, height: 56 }
+    title: Escape Velocity
+    details: Millionaire-style trivia about movie and TV genres that runs for days. One launch a day, 15 stages, and 1,000,000 points for reaching orbit.
+    link: /commands/escape-velocity
+    linkText: Escape Velocity
+
+  - icon: { src: /emojis/scroll.png, alt: '', width: 56, height: 56 }
     title: Event Requests
-    details: Members propose watch parties on a web form with your server's own guidance and artwork suggested for each title. Moderators see where it streams and approve with one click, which creates the real Discord event, and the bot can announce it where members will see it.
+    details: Members propose watch parties on a web form. Moderators approve in Discord with one click, and the bot creates the scheduled event and can announce it.
     link: /features/event-requests
-    linkText: Event requests guide
+    linkText: Event requests
 
-  - icon: 🤔
-    title: Ask the Bot
-    details: Not sure which command does what? Ask in your own words with /eggshen-ask, and get the exact commands to run, answered from this documentation and checked against the bot's real commands.
+  - icon: { src: /logo.png, alt: '', width: 56, height: 56 }
+    title: Ask Egg Shen
+    details: Not sure which command does what? Ask in plain words with /eggshen-ask and get the exact commands to run, answered from these docs.
     link: /commands/ask
-    linkText: Ask the Bot
+    linkText: Ask the bot
 
-  - icon: 🎨
-    title: AI Image Generation
-    details: Generate AI images from a prompt, a Discord message, or a head-to-head "versus" poster between two titles (movies, shows, games, board games, even books). Works from tournament matchups too.
-
-  - icon: 🛡️
-    title: Moderation
-    details: Rate limiting per user and server-wide, detection of coordinated spam, temporary cooldowns, a whitelist mode for emergencies, and a list of repeat offenders for your moderators.
-
-  - icon: ⚙️
-    title: Yours to Configure
-    details: Per-server settings for rating services, emojis, rate limits, moderation, stats tracking, timers, the watchlist, event requests, AI features, and who can use which commands. Free and open source, so you host your own copy.
-
+# "And plenty more", drawn by <TopicCards />
+topics:
+  - title: AI Images
+    link: /commands/ai-images
+    icon: vs
+    text: Optional. Versus posters for two titles or a tournament matchup, images from a prompt or a message, and members imagined.
+  - title: Watch History and Stats
+    link: /features/watch-history
+    icon: chart
+    text: A public record of what your server watches together, and `/stats` for what it looks up most.
+  - title: Similar Titles and Soundtracks
+    link: /commands/#similar
+    icon: effect
+    text: '`/similar` finds titles like one you love, of any kind, and `/soundtrack` finds the score on iTunes and Spotify.'
+  - title: Moderation
+    link: /features/moderation-tools
+    icon: shield
+    text: Rate limits per member and per server, spam-pattern detection, cooldowns and a whitelist mode for emergencies.
+  - title: Your Server, Your Rules
+    link: /commands/configuration
+    icon: lock
+    text: Per-server settings for ratings, emojis, timers, the watchlist, the games, AI and who can use which command.
+  - title: Free and Self-Hosted
+    link: /installation
+    icon: gift
+    text: Open source under the MIT license. Run your own copy; only a Discord bot token and a free TMDB key are required.
 ---
 
-## Quick Start
+<div class="eh-intro">
+<p class="eh-kicker">See it in action</p>
+<h2 id="what-your-server-sees" tabindex="-1">What your server sees</h2>
+<p>The cards the bot posts and the pictures it draws.</p>
+</div>
 
-Get Egg Shen Bot running in minutes:
+<HomeShowcase id="tournaments" icon="trophy" kicker="Tournaments" title="Settle it with a bracket" image="/images/matchup-upset.webp" width="960" height="540" alt="A drawn matchup result for Semifinals 2A. Night of the Living Dead (1968), the 12 seed, is framed in gold under a red WINNER sash; Alien (1979), the 1 seed, is dimmed. A red UPSET! stamp sits between them, and the bar underneath splits 53%, 9 votes, to 47%, 8 votes.">
+
+Put 2 to 32 titles in a bracket, or up to 48 in groups, and let the server vote on private ballots while the live standings fill. Every decided matchup posts a picture like this one: both posters, a lightning VS, the vote split, and an UPSET! stamp when the underdog wins.
+
+[Tournament quick guides](/guides/tournaments/) [How voting works](/commands/brackets/knockout)
+
+</HomeShowcase>
+
+<HomeShowcase id="surveys" icon="chart" kicker="Surveys" title="Or just take a vote" image="/images/survey-5.webp" width="960" height="480" flip alt="A drawn survey results chart for 'What should we watch for the Friday double feature?'. Halloween (1978) leads under a crown with 47%, 14 votes, on a gold bar; The Thing 30%, 9 votes; Alien 17%, 5 votes; Jaws 7%, 2 votes; Night of the Living Dead 0%. 30 votes in all.">
+
+`/survey create` puts up to 10 options to the channel. The leader's bar turns gold as the votes come in, a tie goes to a runoff, and when it closes the results come back drawn.
+
+[Surveys](/commands/social#survey-commands)
+
+</HomeShowcase>
+
+<HomeShowcase id="games" icon="food" kicker="The games" title="Games that keep the chat going" cards="game-play game-card" peek items="gpie:Golden Pie, vhs:Cursed VHS, holyw:Holy Water, penny:Lucky Penny, garlic:Garlic, antid:Antidote, nlight:Night Light, silver:Silver Bullet" items-label="In the Glovebox">
+
+Throw a pie with `/foodfight throw`, deal a horror-movie fate with `/doom fate`, rescue someone, or slip them a potion. Every play scores, and playing earns items for your Glovebox, titles, a bonus for nights in a row and a place on the leaderboard. In Discord, `/how-to-play` explains the lot.
+
+[The games](/commands/games) [Play the games](/guides/games/play)
+
+</HomeShowcase>
+
+<HomeShowcase id="siege" icon="siege" kicker="Siege" title="Then a monster attacks the drive‑in" cards="siege-card" flip>
+
+One of 11 monsters crawls out of the screen, and the whole server fights it together: 8 attacks a night each, friends to free when it grabs them, and a report every night. Beat it within the week and the pot is shared out. Loot goes to the Wang Chi, whoever kept the others in the fight, and the killing blow earns the Jack Burton.
+
+[Siege](/commands/games-siege) [Fight a siege](/guides/games/siege)
+
+</HomeShowcase>
+
+<HomeShowcase id="escape-velocity" icon="rocket" kicker="Escape Velocity" title="Genre trivia, Millionaire style" cards="escape-dashboard">
+
+A trivia event that runs for days, where every question is about movie and TV genres, built from real TMDB data. Everyone gets one launch a day to climb 15 stages to orbit and 1,000,000 points, and stage separations at 5 and 10 keep what's banked.
+
+[Escape Velocity](/commands/escape-velocity)
+
+</HomeShowcase>
+
+<div class="eh-duo">
+<div class="eh-panel">
+
+## Run your own {#quick-start}
+
+Egg Shen Bot is free and open source, and you host your own copy. You need Node.js 20 or newer, a Discord bot token and a free TMDB key; every other key is optional.
 
 ```bash
-# Clone and install
 git clone https://github.com/r3volution11/Egg-Shen-Bot.git
-cd Egg-Shen-Bot
-npm install
-
-# Configure your bot
-cp .env.example .env
-# Edit .env with your Discord bot token and API keys
-
-# Deploy commands and start
+cd Egg-Shen-Bot && npm install
+cp .env.example .env    # then add your token and keys
 node src/deploy-commands.js
 npm start
 ```
 
-[View detailed installation guide →](/installation)
+[Getting started](/getting-started) [Installation guide](/installation)
 
-## See It In Action
+</div>
+<div class="eh-panel">
 
-### Search Movies
-Type `/movie query:Inception` and get:
-- **Ratings**: IMDb 8.8, Letterboxd 4.3, Trakt 90%, RT 87%
-- **Where to Watch**: Comprehensive streaming platforms (TMDB + Watchmode) - includes free services like Tubi, Pluto TV, and Freevee
-- **Details**: Runtime, release date, genres, cast, overview
-- **Links**: IMDb, TMDB, Letterboxd, Trakt, JustWatch
+## Stuck? Ask Egg Shen {#ask}
 
-### Search TV Shows
-Type `/tv query:Breaking Bad` to see:
-- **Ratings** from all major services
-- **Episode count**: 5 seasons, 62 episodes
-- **Status**: Whether show is ongoing or ended
-- **Streaming platforms** in your region
+Describe what you want in your own words. The bot answers from these docs with the exact commands to run, and links the page it came from. Answers are private unless you add `public:true`.
 
-### ⭐ Browse Full Seasons (Unique!)
-Type `/episode-list series:Breaking Bad season:3` to get the **entire season at a glance**:
-- **All episodes** in one view with titles, ratings, and air dates
-- **Find the best episodes** by comparing IMDb and Trakt ratings side-by-side
-- **Plan your binge** by seeing which episodes are must-watch vs. skippable
-- **No other Discord bot does this!** Perfect for planning watch parties or catching up on shows
-
-### Find Specific Episodes
-Type `/episode show:Breaking Bad episode:Pilot` for:
-- **Episode-specific** ratings and information
-- **Season and episode number**
-- **Air date** and runtime
-- **Synopsis** without spoilers
-
-### Video Games
-Type `/game query:The Last of Us` to discover:
-- **Ratings** from Metacritic and RAWG
-- **Release date** and platforms
-- **Genres** and developer info
-- **Similar games** based on your search
-
-### Board Games
-Type `/boardgame query:Catan` for:
-- **BoardGameGeek rating** and rank
-- **Player count** and playtime
-- **Age recommendation**
-- **Game mechanics** and categories
-
-### Books
-Type `/book query:Clive Barker Books of Blood` to find:
-- **Ratings** from Google Books readers
-- **Author information** and publication dates
-- **ISBN numbers** for easy lookup
-- **Page count** and categories/genres
-- **Preview and purchase links** from Google Books
-- **Additional links** to Goodreads and Open Library
-
-### 🏆 Tournament Brackets
-Host comprehensive tournaments for your community! **[View Full Tournament Guide →](/commands/brackets/)**
-
-**Example Tournament Flow:**
-1. **Create**: `/bracket-setup create name:"Friday Frights" max-titles:8` - a straight bracket (2–32 titles), or 36–48 for a groups tournament
-2. **Add Titles**: `/bracket-setup manage-titles action:add type:movie title:"The Thing"` (repeat for each title), or run `/bracket-setup setup-link` to set it all up from a CSV or JSON file on the [setup form](/commands/brackets/import)
-3. **Announce**: `/bracket-setup announce` - Publicly announce the tournament with full details
-4. **Start**: `/bracket open duration:"24h"` - Builds the bracket and opens round one. A ballot holds 5 matchups, so a bigger round opens in parts with `/bracket open matchups:4`, or one matchup at a time with `matchups:1`
-5. **Vote**: Members press **Start Voting** for their own private ballot; live standings update as they vote
-6. **Next Rounds**: When voting closes, the winners move on; `/bracket open` again for each round
-7. **Champion**: Winner is crowned automatically!
-
-**Tournament Features:**
-- **Two Shapes**: Straight bracket (2-32 titles) or groups tournament (4-12 groups of 4, then a knockout)
-- **Seeding, Your Way**: Random, your own order, or by rating. Seeds show on every matchup, upsets get called out, and ties can go to the higher seed. Run it like [March Madness, the College Football Playoff or the World Cup](/guides/tournaments/sports-styles)
-- **Smart Wildcards**: Automatically calculated based on tournament size
-- **Regional System**: Each round split into 4 regions with 1A, 2B labels
-- **Three Opening Modes**: Open entire rounds, by region, or individual matchups
-- **One Matchup at a Time**: Pace a tournament over days or weeks with `/bracket open matchups:1`
-- **Live Standings**: A card under each matchup shows the votes as they come in
-- **Automatic Tiebreakers**: Tied votes trigger a short voting round, resolved automatically when it ends
-- **Set Up From a Spreadsheet**: Load every title at once from a CSV or JSON file, with templates to start from
-- **Any Kind of Title**: Movies, TV shows, video games, board games, or books
-- **AI Versus Images**: Generate custom matchup posters with `/image matchup:"..."`
-- **Visual Brackets**: Create professional bracket tree images
-- **Rides Out Restarts**: Voting carries on through a bot update or restart, nothing lost
-- **Quick Guides**: Step-by-step recipes for the most popular setups
-
-**Perfect for community competitions and championship events!**  
-[Quick Guides](/guides/tournaments/) • [Setup Guide](/commands/brackets/setup) • [Knockout Guide](/commands/brackets/knockout) • [Command Reference](/commands/brackets/commands) • [Tips & Strategies](/commands/brackets/tips)
-
-### 🎮 Games for the Whole Server
-Five games, one scoreboard, and a monster now and then. **[Games & Scores →](/commands/games)**
-
-1. **Play.** `/foodfight throw target:@Friend food:pie` lands a cream pie, a spaghetti strike or a pea soup barrage, like the classic BBS door game; `/foodfight feed` is the nice version. `/doom fate target:@Friend trope:zombie` deals a horror-movie fate, `/rescue attempt` saves someone and shields them from the next doom, and `/potion give` hands over one of 13 potions, helpful or harmful. Over 1,400 built-in lines, from the Three Stooges to The Exorcist, and every outcome scores points:
-
-<DiscordCard name="game-play" />
-
-2. **Check your card.** `/scoreboard` (or right-click anyone → **Apps** → **Game card**) shows points and rank, a column per game, streaks, prizes on the way, nights in a row, the Glovebox and titles. `/leaderboard` is the server's: this month, this year or all time. [Your card →](/commands/games-card)
-3. **Earn things.** Every 25 hits brings a Golden Pie for your Glovebox (a sure hit at double points), with an item for every game. Titles like Pie Sniper and Red Shirt are badges you show beside your name, and playing night after night pays a bonus. [Items, prizes & titles →](/commands/games-rewards)
-4. **Expect surprises.** A twist can find you a few dollars in the seat cushions or get you bitten, and server-wide happenings bend the rules for a while: a Full Moon doubles every doom. [Twists & happenings →](/commands/games-happenings)
-5. **Fight a monster together.** `/siege` sends one of 11 monsters at the drive-in. Everyone attacks with food, dooms and potions, frees the fighters it grabs and cures the ones it poisons, and reads a report each night. Beat it within the week and the pot is shared out, with loot for the MVP. [Siege →](/commands/games-siege)
-
-<DiscordCard name="siege-arrival" />
-
-**New to the games?** Run `/how-to-play` in Discord for a short card on each topic, with your server's own limits. Admins can keep the games to one channel with `/eggshen-config-games channels mode:only add:#games`.
-[Games Quick Guides](/guides/games/) • [Play the Games](/guides/games/play) • [Fight a Siege](/guides/games/siege) • [Games FAQ](/guides/games/faq) • [Settings for Admins](/commands/games-settings)
-
-### 📅 Event Requests — Let Your Community Propose Watch Parties
-
-Most Discord bots stop at commands typed inside Discord. Egg Shen Bot also ships a **public web form** your community can submit event ideas through — no Discord client required to fill it out, but Discord *is* required to prove they belong. **[Full setup guide →](/features/event-requests)**
-
-**How it works:**
-1. **A community member visits your form** at your own domain (e.g. `events.yourserver.com`)
-2. **They log in with Discord** — OAuth authentication, no passwords stored
-3. **The bot checks they're actually a member of your server** before letting them submit anything — non-members get a friendly error with an invite link instead
-4. **They fill out title, description, an optional cover image, and a time**, with your server's guidance under each field. Type the title and the form suggests artwork for it to pick and crop, or they upload their own. Channel assignment can be left to moderators (Simple Mode) or picked by the user from an admin-defined whitelist (Advanced Mode)
-5. **The request lands in your moderation channel** with Approve / Edit / Deny buttons, and where the title streams on the services your server cares about
-6. **One click approval automatically creates a real Discord Scheduled Event** — cover image, channel, and time all set
-7. **Optionally, the bot announces it to your members** in the event's channel or one you choose, with Discord's **Interested** button right there
-
-**Why it's different:**
-- **Public-facing, but never open to strangers** — anyone can load the page, but only your server's own members can submit, enforced twice (at login and again at submission)
-- **Your server's voice on the form** — helper text on every field, with sensible defaults your admins can rewrite from Discord, so each community's site says what it wants requested
-- **Zero manual event creation** — approving a request *is* creating the Discord event, not a reminder to go create one
-- **Built-in image tooling** — upload-and-crop on the submission form, plus a separate moderator-only crop/replace link for fixing images after the fact
-- **Rate-limited and self-cleaning** — spam protection on submissions and uploads, with old uploaded images automatically pruned
-
-**Perfect for servers that want event scheduling to feel like a real submission process, not a chat message that gets lost in scroll.**
-
-### 🍿 Server Watchlist & Recommendations
-
-Keep one list of what your server wants to watch, and let the bot help decide. **[Watchlist guide →](/commands/watch-party#watchlist)**
-
-- **Add titles**: `/watchlist add title:The Thing note:Kurt Russell double feature?`
-- **Vote for what you want**: `/watchlist want title:The Thing` — the list can sort by votes
-- **Let the bot pick**: `/watchlist pick method:votes` (or `random`, or `oldest`)
-- **Stays tidy**: a title logged with `/watched` comes off the list, and a tournament champion can go on it automatically
-- **Recommendations**: `/recommend` suggests new movies and shows from what your server has watched, its most-watched titles, or popular picks — filtered by genre, decade, or director
-
-### 🤔 Ask the Bot
-
-Not sure how to do something? Ask in your own words:
-
-```
+```text
 /eggshen-ask question:how do I run a tournament one matchup at a time?
 ```
 
-The bot answers from this documentation with the exact commands to run, and links the page it came from. Every command in an answer is checked against the bot's real commands before you see it. Answers are private unless you add `public:true`. **[Ask the Bot →](/commands/ask)**
+For the games, `/how-to-play` shows a short card on each topic, with your server's own limits.
 
-### 🎨 AI Image Generation
+[Ask the bot](/commands/ask) [Every command](/commands/)
 
-Generate AI images without leaving Discord, in whichever of four modes fits the moment:
+</div>
+</div>
 
-- **Freeform**: `/image prompt:"a dragon flying over a medieval castle at sunset"`
-- **From a message**: `/image message:username` — turns a recent message's text into an image prompt
-- **Versus battle**: `/image title1:"The Thing" title2:"Alien"` — a split-screen matchup poster between any two titles (movies, TV, games, board games, or books — mix and match types)
-- **Tournament matchup**: `/image matchup:1A` — generate straight from a bracket matchup; start typing to pick from the list
+<div class="eh-more">
 
-Titles are validated against TMDB, RAWG, BoardGameGeek, and Google Books before generating, so you get a real matchup poster, not a guess. Server admins can restrict access to mods/admins only and set daily generation limits.
+## And plenty more {#more}
 
-### Smart Features
+<TopicCards />
 
-**Random Picker**  
-Type `/random movie`, `/random tv`, or `/random book` to get random suggestions. Works with all content types: movies, TV shows, episodes, games, board games, and books. Filter by genre, decade, or minimum rating, and for movies and shows, by the streaming services you have: `/random movie genre:Horror streaming:Shudder, Tubi TV`.
+</div>
 
-**Find Similar Content**  
-Type `/similar title:Alien` to find titles like one you love. It works for movies, TV shows, games, board games, and books; add `type:` when a title could be more than one.
-
-**Watch Party Timers**  
-Create a Discord scheduled event for a specific channel, then run `/timer start` in that channel. The bot automatically looks up your server's events, detects the event title linked to that channel, and sets up a timer with the correct runtime from TMDB or BoardGameGeek - no manual typing needed! If the detected title doesn't match anything cleanly, a **Search** button lets you retype it on the spot instead of starting under the wrong name. Multi-episode watch parties (e.g. "Tales from the Crypt S5E5-E8") are recognized automatically, with each episode's runtime summed into the total. Timers can be paused and resumed without losing elapsed time.
-
-**Watch Party Announcements**  
-Two announcements, for the two moments that matter. Ahead of time, `/announce party title1:"Hellraiser" time:"8:00 PM EST" message:"Bring your own puzzle box."` posts a card with the start time and where to stream it. Minutes before, `/announce starting message:"Starting in 10 minutes" title:"Hellraiser"` posts the nudge. Both go to the current channel or any channel you name, and `role:` pings the people who want to know — in the message itself, so it actually notifies.
-
-**Ready Check**  
-Before you press play, `/watchparty ready` asks who's ready. People press **✅ Ready** or **⏳ Need a minute**, and the card tallies them. If the channel has a watch party scheduled around now, it also shows how many of the people who marked the event Interested are ready, and who hasn't checked in. The host gets a ping when the last straggler is ready, and the card stops taking answers once the timer starts or with `/watchparty ready-close`.
-
-Your own `message` always posts exactly as written. Leave it out and, if your server has AI text enabled, the bot writes it for you from the real plot and streaming availability rather than generic filler — pick a `tone`, or describe your own with `custom-tone`. Turn that off per server with `/eggshen-config-ai ai-text feature-toggle`.
-
-**Movie Quotes**  
-The bot's status rotates through movie and TV quotes. Post one in chat with `/quote` (filter by `title` or `author`), and members can suggest new ones with `/suggest-quote` for a moderator to approve.
-
-## Features at a Glance
-
-### All Search Commands
-- `/movie` - Search movies with comprehensive ratings
-- `/tv` - Search TV shows with episode info
-- `/episode` - Find specific episodes with ratings
-- **`/episode-list` ⭐ - Browse entire seasons at a glance (Unique feature!)**
-- `/game` - Search video games (requires RAWG API)
-- `/boardgame` - Search board games (requires BGG API)
-- `/book` - Search books with Google Books integration
-- `/soundtrack` - Search movie/TV soundtracks on iTunes and Spotify
-- `/random` - Get random suggestions (movies, shows, episodes, games, board games, books)
-- `/similar` - Find similar content recommendations across all media types
-
-### Watch Party Tools
-- `/timer start` - Smart timers that auto-detect Discord event titles, movies, TV shows, and board games
-- `/timer status` / `/timer check` - Check the active timer in your server
-- `/timer pause` / `/timer resume` - Pause and resume without losing elapsed time
-- `/timer adjust` / `/timer autostop` - Change duration or toggle auto-stop
-- `/timer stop` - End a timer manually
-- `/timer remind` - Announce that the timer's about to start, with poster and event details
-- `/announce party` - Post an advance watch party announcement, your words or AI's (Admin/Moderator only)
-- `/announce starting` - Post the "starting in 10 minutes" nudge (Admin/Moderator only)
-- `/watchparty remind` - Announce a scheduled watch party is starting
-- `/watched add` / `/watched history` - Log and browse your server's watch history with frequency data
-- Auto-stop timers based on content runtime (with 10-minute buffer)
-
-### Watchlist & Recommendations
-- `/watchlist add` / `remove` / `list` - Your server's shared watchlist, with notes
-- `/watchlist want` - Vote for what you want to watch next
-- `/watchlist pick` - Let the bot choose: random, most votes, or longest waiting
-- `/recommend` - New movies and shows based on what your server watches
-
-### Tournaments & Polls
-- `/bracket` - Full tournament system: group stages, knockout brackets, wildcards, tiebreakers
-- `/survey create` / `list` / `results` / `voting-post` / `close` / `delete` - Polls with up to 10 options, live results, and optional auto-close; `voting-post` brings one back to the bottom of the channel
-
-### Games
-- `/potion give` - Give magical potions to a member, a role, or @everyone (13 types: helpful & harmful)
-- `/potion responses` - Manage custom potion responses (admin/mod only)
-- 339 pop culture references from horror, comedy, fantasy, and games
-- `/foodfight throw` / `feed` - Throw food at a member, a role, or @everyone, or feed them: 12 foods, 481 lines
-- `/foodfight lines` - Add your server's own food fight lines (admin/mod only)
-- `/doom fate` - Deal a member, a role, or @everyone a horror-movie fate: 12 tropes, 300 lines
-- `/doom lines` - Add your server's own doom lines (admin/mod only)
-- `/rescue attempt` - Save someone from a horror movie, and shield them from /doom: 12 tropes, 300 lines
-- `/siege attack` / `status` - Fight a monster with the whole server; admins `start` and `end` one
-- `/scoreboard` / `/leaderboard` - Your game card and the server's standings, by month, year and all time
-- `/how-to-play` - A short card on each part of the games, with your server's own limits
-- `/eggshen-config-games` - Game limits, channels, twists, happenings, the pace and random sieges (admin/mod only)
-
-### Social
-- `/quote` - Post a movie or TV quote; `/suggest-quote` - suggest one for the bot's status rotation
-
-### AI Image Generation
-- `/image` - Freeform prompts, message-based prompts, versus battles, or tournament matchup art
-- Rate-limited per user and per server, with admin/mod-only restriction available
-
-### Event Requests
-- Public web form with Discord OAuth login, gated to your server's actual membership
-- Image upload with in-browser cropping (plus a moderator-only crop/replace tool)
-- Artwork suggested from TMDB for the title as it's typed, to pick and crop
-- Helper text under each field, rewritten per server with `/eggshen-config-events event-requests guidance`
-- Where each title streams, on your server's chosen services, shown to moderators and added to the event
-- Approve / Edit / Deny buttons in a Discord moderation channel
-- Approved requests automatically become Discord Scheduled Events
-- Fully configurable via `/eggshen-config-events event-requests` - [see the full guide →](/features/event-requests)
-
-### Help
-- `/eggshen-help` - Every command, by category
-- `/eggshen-ask` - Ask how to do something in your own words
-
-### Moderation & Admin
-- `/eggshen-config` - Comprehensive per-server configuration
-- `/eggshen-stats` / `/stats` - Usage statistics for admins and everyone else
-- `/eggshen-logs` - View bot activity logs (Admin only)
-- `/eggshen-restart` - Restart the bot (Admin/Moderator only, requires PM2)
-- **Rate limiting** with configurable guild-wide limits
-- **Pattern detection** for coordinated abuse
-- **Temporary cooldowns** and whitelist mode
-- **Auto-ban thresholds** that flag repeat offenders for moderators
-- **Statistics tracking** for command usage and popular content
-
-## Why Choose Egg Shen Bot?
-
-**Egg Shen Bot is a free, open-source Discord bot** that brings comprehensive entertainment search capabilities to your Discord server. Perfect for movie clubs, gaming communities, and any server that loves discussing entertainment.
-
-### What Makes It Special
-
-✅ **Truly All-in-One** - Movies, TV shows, episodes, video games, board games, and books all in one bot  
-✅ **Unique Episode Browser** - `/episode-list` shows entire seasons at once - no other Discord bot does this!  
-✅ **Comprehensive Ratings** - IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek, Google Books  
-✅ **Watch Party Ready** - Built-in timers with auto-detection, pause/resume, multi-episode support, and watch history tracking  
-✅ **Decides What's Next** - A shared watchlist with votes, recommendations from your watch history, and tournaments to crown a favorite  
-✅ **Games That Bring People Back** - Food fights, dooms, rescues and potions with points, items, titles and a leaderboard, and monster sieges the whole server fights together  
-✅ **Goes Beyond Discord** - A public, Discord-gated web form lets your community submit event requests without needing bot commands, and moderators approve them into real Discord Scheduled Events with one click  
-✅ **AI-Powered (optional)** - Writes watch party announcement text and versus-battle poster art on demand, and every server can turn it off  
-✅ **Smart & Helpful** - Auto-detects titles from Discord events, provides streaming availability, and answers "how do I…" questions with `/eggshen-ask`  
-✅ **Respects Your Server** - Advanced rate limiting and moderation tools included  
-✅ **Fully Customizable** - Per-server configuration for services, permissions, timers, event requests, and features  
-✅ **Open Source & Free** - Self-host, modify, and use however you want
-
-### Perfect For
-
-- **Movie Night Servers** - Search films, keep a watchlist and vote on what's next, coordinate watch parties with timers, track viewing history, let members request event nights through the web form, and keep the chat busy between films with the games
-- **TV Show Communities** - Browse entire seasons with `/episode-list`, find best episodes, get ratings, discover similar shows
-- **Gaming Servers** - Look up video games and board games with comprehensive ratings
-- **Book Clubs** - Search books by title or author, find similar reads, get ISBNs and ratings
-- **Review & Discussion Groups** - Share ratings from multiple sources in one place, run tournament brackets to crown community favorites
-- **Larger Communities** - Offload event scheduling to a public form with moderator approval instead of manual coordination in chat
-- **Entertainment Hubs** - One bot for all your media lookup needs
-
-## Getting Help
-
-- 📖 [Read the Documentation](/getting-started)
-- 🐛 [Report Issues](https://github.com/r3volution11/Egg-Shen-Bot/issues)
-- 💻 [View Source on GitHub](https://github.com/r3volution11/Egg-Shen-Bot)
-
-Built with ❤️ for Discord communities that love entertainment
+Found a bug or have an idea? [Open an issue on GitHub](https://github.com/r3volution11/Egg-Shen-Bot/issues) · [What's new](/changelog) {.eh-help}

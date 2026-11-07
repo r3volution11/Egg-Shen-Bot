@@ -75,9 +75,10 @@ A JSON file holds the same titles plus the settings, so one file can recreate a 
 | `version` | Yes | Always `1`. |
 | `name` | Yes | The tournament name, up to 100 characters. |
 | `type` | Yes | `movie`, `tv`, `game`, `boardgame` or `book`. |
-| `seeding` | No | `ordered` or `random` (the default). See [Seeding](#seeding). |
+| `seeding` | No | `random` (the default), `ordered` or `rating`. Straight brackets only. See [Seeding](#seeding). |
+| `ties` | No | `runoff` (the default) or `higher-seed`. Straight brackets only. See [Seeding](#seeding). |
 | `votingDuration` | No | How long a round stays open when `/bracket open` is run without a `duration`, like `"24h"` or `"3d"`. 5m to 30d. Default `"24h"`. |
-| `tiebreakerDuration` | No | How long a tiebreaker vote runs. 5m to 7d. Default `"1h"`. |
+| `tiebreakerDuration` | No | How long a tiebreaker vote runs when you close voting with `/bracket close` (or `close-groups`, `close-matchup`) without a `tiebreaker-duration`. 5m to 7d. Default `"1h"`. A tie found at the deadline always gets 1 hour. |
 | `announcement` | No | `{ "message": "...", "imageUrl": "..." }`. Used by `/bracket-setup announce` when you don't type a message or attach an image there. Message up to 1000 characters. |
 | `titles` | Yes | A list of `{ "title", "year", "group", "id", "imageUrl" }`, the same as the CSV columns. |
 
@@ -85,7 +86,7 @@ Unknown fields are errors too. The voting channel isn't in the file, because cha
 
 ## Rules the form checks
 
-These are the rules `/bracket` always enforces. The form checks them all before saving, so a problem never leaves a half-built tournament behind.
+These are the rules `/bracket-setup` always enforces. The form checks them all before saving, so a problem never leaves a half-built tournament behind.
 
 | | Straight bracket | Groups tournament |
 | --- | --- | --- |
@@ -124,5 +125,5 @@ Problems are shown next to the row they belong to, all at once, and each can be 
 | A group isn't exactly 4, or a letter is skipped | Move or add titles so every group from A onward has 4. |
 | Too many titles for a straight bracket | Remove titles, or give them group letters to make a groups tournament. |
 | Unknown column or field | Fix the name; the file isn't read until it's fixed. |
-| "This link has expired" | Run `/bracket-setup setup-link` again. Nothing you saved is lost. |
+| "This setup link has expired" | Run `/bracket-setup setup-link` again. Nothing you saved is lost. |
 | Voting has started | The lineup can't change any more. The form can still download a backup. |

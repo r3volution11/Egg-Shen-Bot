@@ -49,7 +49,9 @@ describe('log_watched_ button dispatch', () => {
     expect(interaction.reply).not.toHaveBeenCalled();
 
     const modal = interaction.showModal.mock.calls[0][0];
-    expect(modal.data.custom_id).toContain('watched_modal_channel123_starter-user_');
+    // Nothing variable after the two ids: the title is in the form, not the
+    // customId (see tests/watch-history-log-button.test.js)
+    expect(modal.data.custom_id).toBe('watched_modal_channel123_starter-user');
   });
 
   test('rejects a non-starter, non-moderator user with a friendly ephemeral message', async () => {

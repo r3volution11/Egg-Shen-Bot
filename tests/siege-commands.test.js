@@ -27,6 +27,8 @@ import { SIEGE, SIEGE_ITEM_EFFECTS, ITEMS } from '../src/data/gameRewards.js';
 import { MONSTERS, MONSTER_KEYS } from '../src/data/siegeMonsters.js';
 import { SIEGE_ATTACK_LINES } from '../src/data/siegeAttackLines.js';
 import { HAPPENINGS } from '../src/data/gameHappenings.js';
+import { HONOURS, fill } from '../src/data/btilcLines.js';
+import { lineFor } from '../src/utils/siegeCard.js';
 
 const GUILD = 'siege-guild';
 const MIN = 60_000;
@@ -231,10 +233,16 @@ describe('an admin start', () => {
     expect(siege().monster).toBe('klowns');
   });
 
-  test('the subcommands sort attack, end, start, status; every monster is offered', () => {
+  test('the subcommands sort attack, back, end, start, status; every monster is offered', () => {
     const json = mods.siege.data.toJSON();
     const names = json.options.map(o => o.name);
-    expect(names).toEqual(['attack', 'end', 'start', 'status']);
+    expect(names).toEqual(['attack', 'back', 'end', 'start', 'status']);
+    // 2.75.0: /siege back fighter:@… points:2–10, both required
+    const back = json.options.find(o => o.name === 'back').options;
+    expect(back.map(o => [o.name, o.required, o.min_value, o.max_value])).toEqual([
+      ['fighter', true, undefined, undefined], ['points', true, SIEGE.backing.min, SIEGE.backing.max],
+    ]);
+    expect([SIEGE.backing.min, SIEGE.backing.max]).toEqual([2, 10]);
     expect([...names].sort()).toEqual(names);
     const monster = json.options.find(o => o.name === 'start').options.find(o => o.name === 'monster');
     expect(monster.choices).toEqual(MONSTER_KEYS.map(key => ({ name: `${MONSTERS[key].emoji} ${MONSTERS[key].name}`, value: key })));
@@ -527,24 +535,30 @@ describe('the scheduler', () => {
     cool();
     await attack('sam', 'food', 'splat'); // 4 more: 0
     after(MIN);
-    await tick(); // luck 0.999999: the MVP's loot is not silver, and the last prize item
+    await tick(); // luck 0.999999: the Wang Chi's loot is not silver, and the last prize item
 
     expect(siege()).toMatchObject({ status: 'won' });
     expect(sends()).toHaveLength(2);
     const results = sends()[1];
     expect(results.channelId).toBe('games');
-    expect(results.content).toBe(`${KLOWNS.lines.defeat.split('{mvp}').join('sam')}\n<@sam> <@alex>`);
+    // Nobody freed or cured: sam, the top fighter, holds the line as the Wang
+    // Chi — and landed the killing blow too, so one line says both
+    const both = fill(lineFor(siege().id, HONOURS.both, 0), { mvp: 'sam' });
+    expect(HONOURS.both.map(l => fill(l, { mvp: 'sam' }))).toContain(both);
+    expect(results.content).toBe(`${KLOWNS.lines.defeat.split('{mvp}').join('sam')}\n${both}\n<@sam> <@alex>`);
+    expect(siege().result).toMatchObject({ wangChi: { userId: 'sam', held: true }, jack: { userId: 'sam', by: 'food' } });
     expect(results.allowedMentions).toEqual({ parse: [], users: ['sam', 'alex'] });
     const embed = results.embeds[0].toJSON();
     expect(embed.title).toBe('🏆 Killer Klowns is beaten!');
-    // Pool 24 (2 fighters): 12 and 8 damage → 14.4 → 14 +5, and 9.6 → 10
+    // Pool 24 (2 fighters): 12 and 8 damage → 14.4 → 14, +8 the Wang Chi, +3 the Jack Burton; and 9.6 → 10
     expect(embed.description.split('\n')).toEqual([
-      '🤡 Beaten with `2` fighters. The pool was split by damage; the MVP gets +5 and loot.',
+      '🤡 Beaten with `2` fighters. The pool was split by what each did (damage, frees and cures); 🗡️ the Wang Chi gets +8 and loot, 🔪 the Jack Burton +3.',
       '',
-      '🥇 sam · `12` damage · `+19` · 🍀 Lucky Penny · 📜 🏆 Siege MVP',
+      '🥇 sam · `12` damage · `+25` · 🗡️ +8 · 🔪 +3 · 🍀 Lucky Penny · 📜 🏆 Siege MVP',
       '🥈 alex · `8` damage · `+10`',
     ]);
-    expect(stored('sam').games.siege.all.points).toBe(2 + 19 + 10);
+    expect(stored('sam').games.siege.all.points).toBe(2 + 25 + 10);
+    expect(stored('sam').lifetime.siege).toMatchObject({ wins: 1, mvps: 1, jacks: 1 });
     expect(stored('alex').games.siege.all.points).toBe(1 + 10);
     expect(stored('sam').glovebox).toEqual({ penny: 1 });
 

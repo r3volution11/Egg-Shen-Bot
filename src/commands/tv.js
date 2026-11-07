@@ -11,7 +11,7 @@ export const data = new SlashCommandBuilder()
   .addStringOption(option =>
     option
       .setName('query')
-      .setDescription('TV show title to search for (optionally include episode name)')
+      .setDescription('TV show title to search for (for a single episode, use /episode)')
       .setRequired(true)
   )
   .addBooleanOption(option =>
@@ -42,10 +42,10 @@ export async function execute(interaction) {
   }
   
   try {
-    // Note: Currently searches for TV series only
-    // Future enhancement: Parse query to detect episode names/numbers
-    // Example: "The Outer Limits Sandkings" could search for specific episode
-    // For now, returns series results with series poster (per requirements)
+    // Series only: an episode name in the query is just more words to match
+    // against show titles. /episode is the episode search (by name or s3e11),
+    // so the query option's description points there rather than promising
+    // episode names here.
     // Use hybrid search (keyword + semantic) if OpenAI available, otherwise keyword only
     const results = await hybridSearch(query, searchTVShows, 'tv', getTVAlternativeTitles);
     

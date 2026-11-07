@@ -1,559 +1,277 @@
 ---
-description: "How to get every API key Egg Shen Bot uses - TMDB, OMDb, Trakt, RAWG, BoardGameGeek, Google Books and more - with free tiers and approval times."
+description: "How to get every API key Egg Shen Bot uses (Discord, TMDB, OMDb, Trakt, Watchmode, OpenAI, RAWG, BoardGameGeek, Google Books and Spotify) and every .env setting."
 ---
 
 # API Keys Guide
 
-Complete guide for obtaining all API keys needed for Egg Shen Bot.
+How to get each API key the bot uses, and what each one adds. Each copy of the bot runs on its owner's keys: if you run the bot, these are your accounts and your bills.
+
+Only Discord and TMDB are required. Everything else is optional and can be added later: put the key in `.env` and restart the bot.
 
 ## Overview
 
-| Service | Required | Free Tier | Registration | Approval Time |
-|---------|----------|-----------|--------------|---------------|
-| **Discord Bot** | ✅ Yes | Yes | [Discord Portal](https://discord.com/developers/applications) | Instant |
-| **TMDB** | ✅ Yes | Yes | [TMDB](https://www.themoviedb.org/settings/api) | 1-2 minutes |
-| **iTunes Search API** | ⭕ Auto-enabled | Yes (unlimited) | None required | N/A |
-| **OpenAI** | ⭕ Optional | Pay-per-use | [OpenAI Platform](https://platform.openai.com/api-keys) | Instant ($2-5/month typical) |
-| **Watchmode** | ⭕ Optional | 1000/month | [Watchmode](https://api.watchmode.com/) | Instant |
-| **Spotify** | ⭕ Optional | Yes | [Spotify for Developers](https://developer.spotify.com/dashboard) | Instant |
-| **OMDB** | ⭕ Optional | 1000/day | [OMDB](http://www.omdbapi.com/apikey.aspx) | Instant |
-| **Trakt** | ⭕ Optional | Yes | [Trakt](https://trakt.tv/oauth/applications) | Instant |
-| **RAWG** | ⭕ Optional | 20,000/month | [RAWG](https://rawg.io/apidocs) | Instant |
-| **BoardGameGeek** | ⭕ Optional | Yes | [BGG XML API](https://boardgamegeek.com/wiki/page/BGG_XML_API2) | Instant |
-| **Google Books** | ⭕ Optional | 1000-10k/day | [Google Cloud](https://console.developers.google.com/) | Instant |
+| Service | Required | What it adds | `.env` variable | Get a key |
+|---------|----------|--------------|-----------------|-----------|
+| **Discord** | Yes | The bot itself | `DISCORD_TOKEN`, `DISCORD_CLIENT_ID` | [Developer Portal](https://discord.com/developers/applications) |
+| **TMDB** | Yes | Every movie and TV feature | `TMDB_API_KEY` | [TMDB](https://www.themoviedb.org/settings/api) |
+| **OMDb** | No | IMDb, Rotten Tomatoes and Metacritic scores | `OMDB_API_KEY` | [OMDb](https://www.omdbapi.com/apikey.aspx) |
+| **Trakt** | No | Trakt scores | `TRAKT_CLIENT_ID` | [Trakt](https://trakt.tv/oauth/applications) |
+| **Watchmode** | No | More where-to-watch services | `WATCHMODE_API_KEY` | [Watchmode](https://api.watchmode.com/) |
+| **OpenAI** | No (paid) | AI images, AI-written text, smarter search | `OPENAI_API_KEY` | [OpenAI](https://platform.openai.com/api-keys) |
+| **RAWG** | No | Video games | `RAWG_API_KEY` | [RAWG](https://rawg.io/apidocs) |
+| **BoardGameGeek** | No | Board games | `BGG_CLIENT_ID` | [BGG XML API](https://boardgamegeek.com/wiki/page/BGG_XML_API2) |
+| **Google Books** | No | A bigger quota for books | `GOOGLE_BOOKS_API_KEY` | [Google Cloud](https://console.cloud.google.com/) |
+| **Spotify** | No | Spotify albums in `/soundtrack` | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` | [Spotify for Developers](https://developer.spotify.com/dashboard) |
+| **iTunes Search** | No key | Soundtracks | None | Nothing to sign up for |
+| **Letterboxd** | No key | Letterboxd scores for movies | None | Nothing to sign up for |
+
+Free tiers, quotas and prices are set by each provider and change over time. Check the provider's site for current limits.
 
 ---
 
 ## Discord Bot Token
 
-**Purpose:** Required for bot to connect to Discord  
-**Features Enabled:** All bot functionality  
-**Free Tier:** Unlimited for self-hosted bots
+**Used for:** the bot itself. Required.
 
-### Step-by-Step Instructions
+1. **Create an application.** In the [Discord Developer Portal](https://discord.com/developers/applications), click **New Application**, name it and click **Create**.
+2. **Application ID.** On **General Information**, copy the **Application ID** into `.env` as `DISCORD_CLIENT_ID`.
+3. **Bot token.** Open **Bot**, click **Reset Token** and copy the token into `.env` as `DISCORD_TOKEN`. Never share it. Anyone with it can run your bot.
+4. **Intents.** Under **Privileged Gateway Intents**, leave all three off. The bot doesn't use them.
 
-1. **Go to Discord Developer Portal**
-   - Visit https://discord.com/developers/applications
-   - Log in with your Discord account
+The [installation guide](/installation#_2-invite-the-bot-to-your-server) covers inviting the bot and the permissions it needs.
 
-2. **Create New Application**
-   - Click **"New Application"** button
-   - Enter a name for your bot (e.g., "Egg Shen Bot")
-   - Accept Discord's Terms of Service
-   - Click **"Create"**
+### Client secret (event request form only)
 
-3. **Configure Bot**
-   - Click **"Bot"** in the left sidebar
-   - Click **"Add Bot"** (if not already added)
-   - Confirm by clicking **"Yes, do it!"**
+The [event request form](/features/event-requests) signs members in with Discord. Only for that:
 
-4. **Privileged Gateway Intents**
-   - Scroll down to **"Privileged Gateway Intents"**
-   - Leave **"Server Members Intent"** and **"Message Content Intent"** unchecked — the bot doesn't use either (it only reads slash-command interactions and reactions)
+1. Open **OAuth2** and click **Reset Secret** under **Client Secret**. Copy it into `.env` as `DISCORD_CLIENT_SECRET`.
+2. Under **Redirects**, add your callback address, the same one you put in `OAUTH_REDIRECT_URI`. For local testing that's `http://localhost:3000/api/auth/discord/callback`.
 
-5. **Get Bot Token**
-   - Under **"TOKEN"** section, click **"Reset Token"**
-   - Copy the token that appears
-   - **⚠️ IMPORTANT:** Never share this token publicly!
-   - Add to `.env` file as `DISCORD_TOKEN`
-
-6. **Get Client ID**
-   - Click **"General Information"** in left sidebar
-   - Copy the **"APPLICATION ID"**
-   - Add to `.env` file as `DISCORD_CLIENT_ID`
+`npm run validate-oauth` checks these settings. The [event request setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md) has the rest.
 
 ---
 
 ## TMDB API Key
 
-**Purpose:** Movie and TV show data (required for core features)  
-**Features Enabled:** `/movie`, `/tv`, `/episode`, `/random`, `/similar`, watch history  
-**Free Tier:** Unlimited requests
+**Used for:** every movie and TV feature: `/movie`, `/tv`, `/episode`, `/episode-list`, `/random movie`, `/random tv`, `/random episode`, `/similar`, `/recommend`, title lookups in `/timer` and `/announce`, `/watched`, `/watchlist`, movie and TV tournaments, and Escape Velocity's questions. It also gives the base where-to-watch list. Required.
 
-### Step-by-Step Instructions
-
-1. **Create TMDB Account**
-   - Visit https://www.themoviedb.org/signup
-   - Sign up with email or social login
-   - Verify your email address
-
-2. **Request API Key**
-   - Go to your account settings: https://www.themoviedb.org/settings/api
-   - Click **"Create"** under "Request an API Key"
-   - Select **"Developer"**
-   - Accept the Terms of Use
-
-3. **Fill Out Application**
-   - **Application Name:** "Egg Shen Discord Bot" (or your name)
-   - **Application URL:** Your website or `https://github.com/r3volution11/Egg-Shen-Bot`
-   - **Application Summary:** "Discord bot for searching movies and TV shows"
-   - Submit the form
-
-4. **Get API Key**
-   - Your API key (v3 auth) will be displayed immediately
-   - Copy the **"API Key"** (not the API Read Access Token)
-   - Add to `.env` file as `TMDB_API_KEY`
-
-**Rate Limits:** None officially documented
+1. **Create an account** at [themoviedb.org](https://www.themoviedb.org/signup) and verify your email.
+2. **Request a key.** In your account settings, open **API** ([direct link](https://www.themoviedb.org/settings/api)) and request a developer key. Accept the terms.
+3. **Fill in the form.** For example: application name "Egg Shen Discord Bot", URL `https://github.com/r3volution11/Egg-Shen-Bot`, summary "Discord bot for searching movies and TV shows".
+4. **Copy the API Key.** Use the **API Key** (v3), not the API Read Access Token. Add it to `.env` as `TMDB_API_KEY`.
 
 ---
 
 ## OpenAI API Key
 
-**Purpose:** AI image generation and semantic search  
-**Features Enabled:**
-- **AI Image Generation** - `/image` command (freeform, from a message, or versus battle between two titles)
-- **Semantic Search** - Smart re-ranking of search results based on semantic similarity  
-**Pricing:** Pay-per-use
-- Image generation (gpt-image-2 model): $0.04 per image
-- Text embeddings (text-embedding-3-small model): $0.02 per 1M tokens
+**Used for:**
 
-### Why Use OpenAI?
+- **`/image`:** every mode: a prompt, a message, a versus poster of two titles, a tournament matchup, and a member imagined from their profile.
+- **AI-written announcements:** `/announce party` and `/announce schedule` write the text when you don't supply `message`.
+- **AI answers in `/eggshen-ask`:** written from the docs. Without a key, `/eggshen-ask` shows the best-matching section of the docs as written.
+- **`/recommend`:** picks from the candidates and adds a line on why each fits. Without a key you get a plain ranked list.
+- **Search ranking:** `/movie`, `/tv`, `/episode`, `/soundtrack` and `/timer` title lookups re-rank TMDB's results by meaning. A description of five or more words that finds nothing by keyword is searched by meaning instead. Without a key, results keep TMDB's keyword order.
 
-**AI Image Generation:**
-- Create custom AI-generated images from text prompts
-- Generate epic "versus" battle posters comparing two titles
-- Tournament matchup visualizations
-- Cost: $0.04 per image with built-in rate limiting to control costs
+**Models the bot uses:** `gpt-image-2` for images, `gpt-4o-mini` for text, and `text-embedding-3-small` for search ranking and for finding the right docs sections in `/eggshen-ask`.
 
-**Semantic Search Enhancement:**
-Standard keyword search works well for exact titles, but can struggle with:
-- Partial titles or misspellings
-- Descriptions instead of titles ("that movie about dreams within dreams")
-- Thematic queries ("psychological thriller about AI")
+### Getting a key
 
-OpenAI's semantic search understands **meaning**, not just keywords, providing:
-- **Better result ranking** - Most relevant results appear first
-- **Semantic understanding** - Matches based on context and meaning
-- **Improved relevance** - Works even with imprecise queries
+1. **Create an account** at [platform.openai.com](https://platform.openai.com/signup). The API needs a payment method.
+2. **Add credit** under **Billing**, and set a monthly spending limit there.
+3. **Create a key** under [API keys](https://platform.openai.com/api-keys): click **Create new secret key** and copy it (it's shown once). Add it to `.env` as `OPENAI_API_KEY`.
 
-The bot uses a **hybrid approach**: keyword search first (fast and free), then AI re-ranking (smart and accurate). If OpenAI isn't configured, the bot still works with keyword search alone (but image generation will be disabled).
+### Cost
 
-### Step-by-Step Instructions
+Images are where the money goes. The bot counts each image as $0.04 in its own usage figures (`/eggshen-config-ai ai-images view`); check [OpenAI's pricing](https://openai.com/api/pricing/) for the real price. To keep it in check, each server starts with these image limits:
 
-1. **Create OpenAI Account**
-   - Visit https://platform.openai.com/signup
-   - Sign up with email or social login
-   - You'll need to add a payment method (credit card required)
+- one image per member every 5 minutes
+- 10 images per member a day
+- 50 images per server a day
 
-2. **Add Credits**
-   - Go to Billing: https://platform.openai.com/account/billing
-   - Add at least $5 (minimum purchase)
-   - Set spending limits to control costs
+Admins change them with `/eggshen-config-ai ai-images`. See [AI Image Generation](/commands/ai-images).
 
-3. **Generate API Key**
-   - Go to API Keys: https://platform.openai.com/api-keys
-   - Click **"Create new secret key"**
-   - Name it: "Egg Shen Bot"
-   - Copy the key (you won't see it again!)
-   - Add to `.env` file as `OPENAI_API_KEY`
-
-**Cost Estimate:**
-- **Image generation:** $0.04 per image
-  - Default limits: 10 images/user/day, 50 images/server/day
-  - Example: 50 images/month ≈ $2.00
-  - Configurable rate limits prevent runaway costs
-- **Semantic search:** ~$0.02 per 1,000 searches
-  - Example: 10,000 searches/month ≈ $0.20
-  - Very cost-effective for small-medium servers
-- **Total:** Most servers spend $2-5/month
-
-**Usage Limits:** Set custom spending limits in your OpenAI dashboard to prevent surprise bills
-
-**Note:** OpenAI is completely optional. The bot works without it using keyword search alone (image generation features will be disabled).
+Text and search ranking cost a small fraction of an image. Each server can switch AI images, AI announcement text and AI answers on or off separately: see [Configuration](/configuration#ai-announcement-text).
 
 ---
 
 ## Watchmode API Key
 
-**Purpose:** Enhanced streaming availability data (complements TMDB)  
-**Features Enabled:** More comprehensive streaming service listings, including free services like Tubi, Pluto TV, Freevee  
-**Free Tier:** 1,000 requests per month
+**Used for:** where-to-watch lists in `/movie`, `/tv`, `/random`, watch-party announcements and event requests. Optional.
 
-### Why Use Watchmode?
+TMDB's where-to-watch data comes from JustWatch and can miss services, especially free ones. With a Watchmode key, the bot adds Watchmode's services to TMDB's list. Without one, or if a Watchmode lookup fails, you get TMDB's list alone.
 
-TMDB provides streaming availability data, but it's sourced from JustWatch and can be incomplete. Watchmode specializes in streaming availability and offers:
-
-- ✅ Better coverage of free streaming services (Tubi, Pluto TV, Freevee, etc.)
-- ✅ More up-to-date availability data
-- ✅ 150+ streaming services tracked
-- ✅ Better regional coverage
-
-The bot uses a **progressive enhancement approach**: it tries Watchmode first (if API key is configured), then falls back to TMDB data. If Watchmode isn't configured, the bot still works with TMDB alone.
-
-### Step-by-Step Instructions
-
-1. **Create Watchmode Account**
-   - Visit https://api.watchmode.com/
-   - Click **"Sign Up"** in the top right
-   - Create a free account with email
-
-2. **Get API Key**
-   - After logging in, you'll be taken to your Dashboard
-   - Your **API Key** will be displayed on the dashboard
-   - Copy the API key
-   - Add to `.env` file as `WATCHMODE_API_KEY`
-
-3. **Monitor Usage**
-   - Free tier: 1,000 requests per month
-   - Dashboard shows your current usage
-   - Bot automatically falls back to TMDB if limit is reached
-
-**Rate Limits:** 1,000 requests/month (free tier)
-
-**Upgrade Options:**
-- **$8/month:** 1,000 requests per month + additional features
-- **$24/month:** 10,000 requests per month
-- **$99/month:** 100,000 requests per month
-
-**Note:** Watchmode is completely optional. The bot works without it using TMDB's streaming data alone.
+1. **Sign up** at [api.watchmode.com](https://api.watchmode.com/).
+2. **Copy your API key** from the dashboard. Add it to `.env` as `WATCHMODE_API_KEY`.
+3. **Watch your usage.** The free plan has a monthly request cap, and the dashboard shows how much you've used.
 
 ---
 
 ## iTunes Search API
 
-**Purpose:** Soundtrack search for `/soundtrack` command  
-**Features Enabled:** Album artwork, artist info, track listings, and iTunes/Apple Music purchase links  
-**Free Tier:** Unlimited (no signup required)
+**Used for:** `/soundtrack`. No key, no signup.
 
-### Why Use iTunes Search API?
-
-The iTunes Search API is a **free, public API** provided by Apple that requires **no registration, no API key, and no authentication**. It provides:
-
-- ✅ Completely free with unlimited requests
-- ✅ No signup or API key required
-- ✅ High-quality album artwork (up to 600x600px)
-- ✅ Complete track listings with duration
-- ✅ Artist and composer information
-- ✅ Release dates and genre metadata
-- ✅ Direct links to iTunes/Apple Music for purchase and streaming
-- ✅ Price information for purchasing albums
-
-The bot uses iTunes Search API **automatically** for the `/soundtrack` command. No configuration needed!
-
-### How It Works
-
-1. User runs `/soundtrack query:Movie Title`
-2. Bot verifies title with TMDB for accuracy
-3. Bot searches iTunes for soundtrack albums
-4. Results displayed with album art and metadata
-5. Users can click through to iTunes/Apple Music
-
-**Rate Limits:** None documented by Apple
-
-**API Documentation:** https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/
-
-**Note:** iTunes Search API works out-of-the-box. No setup required!
+`/soundtrack` checks the title with TMDB, then searches iTunes for soundtrack albums, with album art, track lists and Apple Music links. There's nothing to set up.
 
 ---
 
 ## Spotify API Key
 
-**Purpose:** Additional soundtrack results for `/soundtrack` command (complements iTunes)  
-**Features Enabled:** Spotify album links and metadata alongside iTunes results  
-**Free Tier:** Unlimited (Client Credentials flow)
+**Used for:** Spotify albums in `/soundtrack`, shown next to the iTunes results. Optional. Without it, `/soundtrack` shows iTunes results only.
 
-### Why Use Spotify?
+1. **Log in** to the [Spotify developer dashboard](https://developer.spotify.com/dashboard). A free Spotify account works.
+2. **Create an app.** Give it a name and description. Spotify requires a redirect URI, which the bot never uses; `http://127.0.0.1:8888/callback` works. Under the APIs used, check **Web API**. Save.
+3. **Copy the credentials.** In the app's **Settings**, copy the **Client ID**, then click **View client secret** and copy the secret. Add both to `.env`:
 
-The `/soundtrack` command uses iTunes Search API by default (no setup needed), but adding Spotify provides:
+```bash
+SPOTIFY_CLIENT_ID=your_client_id_here
+SPOTIFY_CLIENT_SECRET=your_client_secret_here
+```
 
-- ✅ Broader soundtrack coverage across platforms
-- ✅ Spotify streaming links for users who prefer Spotify
-- ✅ Both iTunes and Spotify results shown together
-- ✅ Higher quality album artwork from Spotify
-- ✅ Free with no rate limits for read-only access
-
-The bot uses a **multi-platform approach**: it searches both iTunes and Spotify (if configured), then displays results from both services with clickable links. If Spotify isn't configured, the bot shows iTunes results only.
-
-### Step-by-Step Instructions
-
-1. **Create Spotify Developer Account**
-   - Visit https://developer.spotify.com/dashboard
-   - Click **"Log In"** or **"Sign Up"** if you don't have a Spotify account
-   - Log in with your Spotify account (free account works fine)
-
-2. **Create an App**
-   - Click **"Create app"** button
-   - Fill in the form:
-     - **App name:** "Egg Shen Bot" (or your bot name)
-     - **App description:** "Discord bot for searching movie and TV soundtracks"
-     - **Redirect URI:** `http://localhost` (not used but required)
-     - **API/SDKs:** Check **"Web API"**
-   - Accept Spotify's Terms of Service
-   - Click **"Save"**
-
-3. **Get Client ID and Secret**
-   - You'll be taken to your app's dashboard
-   - Click **"Settings"** button in the top right
-   - Copy the **"Client ID"**
-   - Click **"View client secret"**
-   - Copy the **"Client secret"**
-   - Add both to `.env` file:
-     - `SPOTIFY_CLIENT_ID=your_client_id_here`
-     - `SPOTIFY_CLIENT_SECRET=your_client_secret_here`
-
-**Rate Limits:** None for Client Credentials flow (read-only access)
-
-**Security Note:**
-- Keep your Client Secret private (never commit to public repositories)
-- The bot uses OAuth 2.0 Client Credentials flow (server-to-server)
-- No user authentication required - bot accesses public Spotify data only
-
-**Note:** Spotify is completely optional. The bot works without it using iTunes alone.
+The bot only reads public catalogue data (the client credentials flow). No member ever signs in to Spotify.
 
 ---
 
-## OMDB API Key
+## OMDb API Key
 
-**Purpose:** IMDb and Rotten Tomatoes ratings  
-**Features Enabled:** Enhanced rating displays  
-**Free Tier:** 1,000 requests per day
+**Used for:** IMDb, Rotten Tomatoes (critics) and Metacritic scores in `/movie`, `/tv`, `/episode` and `/random` results. Optional. Without it, IMDb still appears as a link, without a score.
 
-### Step-by-Step Instructions
+1. **Request a key** at [omdbapi.com](https://www.omdbapi.com/apikey.aspx). Pick the free tier and enter your email and name.
+2. **Activate it** with the link in the email OMDb sends you. The key doesn't work until you do.
+3. **Add it** to `.env` as `OMDB_API_KEY`.
 
-1. **Request API Key**
-   - Visit http://www.omdbapi.com/apikey.aspx
-   - Select **"FREE! (1,000 daily limit)"**
-   - Enter your email address
-   - Enter your first and last name
-   - Click **"Submit"**
-
-2. **Verify Email**
-   - Check your email inbox
-   - Click the activation link in the email from OMDb API
-   - This will activate your API key
-
-3. **Get API Key**
-   - After clicking activation link, your API key is displayed
-   - Copy the API key
-   - Add to `.env` file as `OMDB_API_KEY`
-
-**Rate Limits:** 1,000 requests per day
-
-**Upgrade Options:**
-- **$1/month:** 100,000 requests/month
-- **$5/month:** 500,000 requests/month
+The free tier has a daily request limit.
 
 ---
 
 ## Trakt Client ID
 
-**Purpose:** Community ratings and watch statistics  
-**Features Enabled:** Trakt rating display in embeds  
-**Free Tier:** Unlimited
+**Used for:** Trakt scores in `/movie`, `/tv`, `/episode` and `/random` results. Optional.
 
-### Step-by-Step Instructions
-
-1. **Create Trakt Account**
-   - Visit https://trakt.tv/auth/join
-   - Sign up with email or social login
-
-2. **Create OAuth Application**
-   - Go to https://trakt.tv/oauth/applications
-   - Click **"New Application"**
-
-3. **Fill Out Application Form**
-   - **Name:** "Egg Shen Discord Bot"
-   - **Description:** "Discord bot for searching movies and TV shows"
-   - **Redirect URI:** `urn:ietf:wg:oauth:2.0:oob`
-   - **Permissions:** Leave defaults (only need public data)
-   - Check **"I have read the API Terms"**
-   - Click **"Save App"**
-
-4. **Get Client ID**
-   - Your new app will appear in the applications list
-   - Click on your app name to view details
-   - Copy the **"Client ID"**
-   - Add to `.env` file as `TRAKT_CLIENT_ID`
-
-**Rate Limits:** 1,000 requests per 5 minutes
+1. **Create an account** at [trakt.tv](https://trakt.tv/auth/join).
+2. **Create an app** at [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications): click **New Application**. Give it a name and description, and use `urn:ietf:wg:oauth:2.0:oob` as the redirect URI. The bot only reads public data.
+3. **Copy the Client ID** (not the Client Secret) into `.env` as `TRAKT_CLIENT_ID`.
 
 ---
 
 ## RAWG API Key
 
-**Purpose:** Video game data and ratings  
-**Features Enabled:** `/game`, `/random game`, `/similar` (games)  
-**Free Tier:** 20,000 requests per month
+**Used for:** video games: `/game`, `/random game`, games in `/similar`, video-game tournaments and video games in `/image` versus posters. Optional.
 
-### Step-by-Step Instructions
+1. **Create an account** at [rawg.io](https://rawg.io/).
+2. **Get your key** at [rawg.io/apidocs](https://rawg.io/apidocs) while logged in.
+3. **Add it** to `.env` as `RAWG_API_KEY`.
 
-1. **Create RAWG Account**
-   - Visit https://rawg.io/
-   - Click **"Sign Up"** in top right
-   - Create account with email or social login
-
-2. **Get API Key**
-   - Go to https://rawg.io/apidocs
-   - Scroll down to **"Get an API key"** section
-   - Your API key is automatically generated and displayed
-   - Click **"Copy"** to copy your key
-   - Add to `.env` file as `RAWG_API_KEY`
-
-**Rate Limits:** 
-- Free tier: 20,000 requests/month
-- Max 4 requests per second
-
-**Note:** If commands aren't configured, `/game` won't appear in Discord.
+Without this key, `/game` isn't registered and doesn't appear in Discord, and `/random game` says RAWG isn't set up. After adding it, run `npm run deploy-commands` so `/game` appears.
 
 ---
 
 ## BoardGameGeek Client ID
 
-**Purpose:** Board game data and ratings  
-**Features Enabled:** `/boardgame`, `/random boardgame`, `/similar` (board games)  
-**Free Tier:** Yes (rate limits apply)
+**Used for:** board games: `/boardgame`, `/random boardgame` and board games in `/similar`. Optional.
 
-### Step-by-Step Instructions
+The bot sends `BGG_CLIENT_ID` to BoardGameGeek's XML API as a bearer token. To get one:
 
-1. **Create BGG Account**
-   - Visit https://boardgamegeek.com/
-   - Click **"Join"** in top right
-   - Create account with username and email
+1. **Create an account** at [boardgamegeek.com](https://boardgamegeek.com/).
+2. **Read the [XML API page](https://boardgamegeek.com/wiki/page/BGG_XML_API2)** and follow BoardGameGeek's current instructions for registering an application and getting its token. Approval can take a few days.
+3. **Add the token** to `.env` as `BGG_CLIENT_ID`, then run `npm run deploy-commands` so `/boardgame` appears.
 
-2. **Read API Documentation**
-   - Visit https://boardgamegeek.com/wiki/page/BGG_XML_API2
-   - Review the API terms and guidelines
-   - No formal registration required for basic usage
-
-3. **Get API Credentials**
-   - For basic usage, BGG XML API2 doesn't require authentication
-   - However, for better rate limits, you can request developer credentials
-   - Contact BGG support at: https://boardgamegeek.com/contact
-   - Request OAuth credentials for "Egg Shen Discord Bot"
-   - They will provide you with a Client ID
-
-4. **Configure in Bot**
-   - Once you receive your Client ID from BGG support
-   - Add to `.env` file as `BGG_CLIENT_ID`
-
-**Alternative (No Auth):**
-- If you don't have a Client ID yet, you can run the bot without it
-- The `/boardgame` command won't be registered
-- Basic API access still works but with lower rate limits
-
-**Rate Limits:** 
-- Unauthenticated: ~2 requests per second
-- With credentials: Higher limits (varies)
-
-**Note:** BGG API approval can take 1-3 business days via email support.
+Without it, `/boardgame` isn't registered, `/random boardgame` says BoardGameGeek isn't set up, and `/similar` skips board games. Board-game tournaments and `/image` versus posters still try BoardGameGeek without a token, and only work if BoardGameGeek accepts the request.
 
 ---
 
 ## Google Books API Key
 
-**Purpose:** Book search and information  
-**Features Enabled:** `/book`, `/random book`, `/similar` (books)  
-**Free Tier:** 1,000 requests/day (no key) or 10,000 requests/day (with key)
+**Used for:** `/book`, `/random book`, books in `/similar`, book tournaments and books in `/image` versus posters. Optional: books work without a key, on Google's shared quota for keyless requests. A key gives your bot a quota of its own.
 
-### Step-by-Step Instructions
+1. **Create a project** in the [Google Cloud Console](https://console.cloud.google.com/): open the project picker, click **New Project**, name it and click **Create**.
+2. **Enable the Books API** under **APIs & Services → Library**.
+3. **Create a key** under **APIs & Services → Credentials → Create Credentials → API key**.
+4. **Restrict it (recommended).** Edit the key, choose **Restrict key** under API restrictions and pick **Books API**.
+5. **Add it** to `.env` as `GOOGLE_BOOKS_API_KEY`.
 
-1. **Create Google Cloud Project**
-   - Visit https://console.cloud.google.com/
-   - Log in with your Google account
-   - Click **"Select a project"** dropdown
-   - Click **"New Project"**
-   - Enter project name (e.g., "Egg Shen Discord Bot")
-   - Click **"Create"**
-
-2. **Enable Books API**
-GOOGLE_BOOKS_API_KEY=your_google_books_api_key_here
-   - In the Google Cloud Console, go to **"APIs & Services"** → **"Library"**
-   - Search for **"Books API"**
-   - Click on **"Books API"** in the results
-   - Click **"Enable"**
-
-3. **Create API Key**
-   - Go to **"APIs & Services"** → **"Credentials"**
-   - Click **"Create Credentials"** → **"API Key"**
-   - Your API key will be generated
-   - Copy the API key
-
-4. **Restrict API Key (Recommended)**
-   - Click **"Edit API key"** (or the pencil icon)
-   - Under **"Application restrictions"**: Select "None" (or HTTP referrers if you prefer)
-   - Under **"API restrictions"**: Select **"Restrict key"**
-   - Choose **"Books API"** from the dropdown
-   - Click **"Save"**
-
-5. **Configure in Bot**
-   - Add to `.env` file as `GOOGLE_BOOKS_API_KEY`
-
-**Alternative (No API Key):**
-- The `/book` command works without an API key
-- Without key: 1,000 requests per day
-- With key: 10,000 requests per day
-
-**Rate Limits:** 
-- No key: 1,000 requests/day
-- With key: 10,000 requests/day
-- Can be increased by requesting quota increase in Google Cloud Console
+You can ask for a bigger quota in the Google Cloud Console.
 
 ---
 
-## Configuration File
+## Every .env setting
 
-Once you have all your API keys, add them to your `.env` file:
+`.env.example` in the repository lists all of these with comments. Settings you leave empty use the default shown.
+
+### Required
+
+| Variable | What it is |
+|----------|------------|
+| `DISCORD_TOKEN` | The bot's token, from the Developer Portal's **Bot** page |
+| `DISCORD_CLIENT_ID` | The application ID, from **General Information** |
+| `TMDB_API_KEY` | Your TMDB API key |
+
+### Optional API keys
+
+`OMDB_API_KEY`, `TRAKT_CLIENT_ID`, `WATCHMODE_API_KEY`, `OPENAI_API_KEY`, `RAWG_API_KEY`, `BGG_CLIENT_ID`, `GOOGLE_BOOKS_API_KEY`, `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`, each described above.
+
+### The bot
+
+| Variable | Default | What it does |
+|----------|---------|--------------|
+| `GUILD_ID` | empty | When set to a server's ID, `npm run deploy-commands` registers the commands to that server only, where they appear at once. Empty registers them globally |
+| `DOCS_URL` | `https://eggshenbot.com` | Where the bot's documentation links point: `/eggshen-help`, `/bracket help`, `/how-to-play` and `/eggshen-ask`. Change it only if you publish your own docs |
+| `EMOJI_SYNC` | `auto` | `auto` uploads the card icons to your application on startup. `off` uses plain emoji everywhere |
+| `API_PORT` | `3000` | The port of the bot's web server, which serves the health check and the optional web pages |
+
+### The web pages (optional)
+
+You need these only for the web pages: the event request form, its moderator image-crop page, the tournament setup form (`/bracket-setup setup-link`) and the status-quotes editor.
+
+| Variable | Default | What it does |
+|----------|---------|--------------|
+| `PUBLIC_BOT_URL` | empty | The bot's own public address, used in the links it posts: the setup form, the crop page and the quotes editor. A server can override it with `/eggshen-config-website bot-url` |
+| `DISCORD_CLIENT_SECRET` | empty | Lets the event request form sign members in with Discord |
+| `OAUTH_REDIRECT_URI` | `http://localhost:3000/api/auth/discord/callback` | The form's login callback. Must match a redirect in the Developer Portal |
+| `FORM_URL` | `http://localhost:8080` | Where the event request form is hosted |
+| `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated addresses allowed to call the bot's web API. Include the form's address |
+| `EVENT_CROP_LINK_SECRET` | empty | Signs moderators' image-crop links. Without it, no crop link is posted |
+| `SESSION_SECRET` | derived from `DISCORD_CLIENT_SECRET` | Signs the form's login cookie. Changing it signs everyone out |
+| `TOURNAMENT_SETUP_LINK_SECRET` | derived from `DISCORD_TOKEN` | Signs tournament setup links. Changing it invalidates every open link |
+| `QUOTES_ADMIN_SECRET` | empty | Turns on the status-quotes editor page. Empty leaves it off. See [QUOTES_ADMIN_SETUP.md](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/QUOTES_ADMIN_SETUP.md) |
+| `WEB_PRIMARY_COLOR` | `#1ac3ff` | The web pages' accent colour. Takes effect after `npm run build:web` |
+
+To make a secret, run:
 
 ```bash
-# Discord Configuration (Required)
-DISCORD_TOKEN=your_discord_bot_token_here
-DISCORD_CLIENT_ID=your_discord_client_id_here
-
-# TMDB API (Required)
-TMDB_API_KEY=your_tmdb_api_key_here
-
-# Optional APIs
-OMDB_API_KEY=your_omdb_api_key_here
-TRAKT_CLIENT_ID=your_trakt_client_id_here
-RAWG_API_KEY=your_rawg_api_key_here
-BGG_CLIENT_ID=your_bgg_client_id_here
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## Security Best Practices
+The included PM2 config (`ecosystem.config.js`) also sets `NODE_ENV=production`, which makes the form's login cookie HTTPS-only and keeps debug lines out of the logs.
 
-1. **Never commit `.env` to version control**
-   - Already included in `.gitignore`
-   - Contains sensitive credentials
+## Security
 
-2. **Rotate tokens if exposed**
-   - If you accidentally share a token, regenerate it immediately
-   - Discord: Reset token in Developer Portal
-   - TMDB: Generate new key in API settings
-   - Others: Contact support or regenerate
-
-3. **Use environment variables in production**
-   - On servers, set env vars directly (not `.env` file)
-   - Example for PM2: `pm2 start ecosystem.config.js --update-env`
-
-4. **Monitor API usage**
-   - Check your API dashboards regularly
-   - Set up alerts for rate limit warnings
-   - Most services provide usage statistics
+1. **Never commit `.env`.** It's in `.gitignore` already.
+2. **Reset anything that leaks.** Discord: **Reset Token** on the **Bot** page. Other services: make a new key in their dashboard and delete the old one.
+3. **Keep `.env` private on the server.** Only the account that runs the bot needs to read it (`chmod 600 .env`).
+4. **Restart after changes.** The bot reads `.env` when it starts. With PM2: `pm2 restart egg-shen-bot --update-env`.
+5. **Set spending limits** where a service bills you, OpenAI especially.
 
 ## Troubleshooting
 
-### "Invalid API Key" Errors
+### "Invalid API key" errors
 
-- **TMDB:** Make sure you copied the API Key (v3), not the Read Access Token
-- **OMDB:** Verify you clicked the email activation link
-- **Trakt:** Use Client ID, not Client Secret
-- **RAWG:** Key is shown on https://rawg.io/apidocs when logged in
+- **TMDB:** use the API Key (v3), not the API Read Access Token.
+- **OMDb:** click the activation link in OMDb's email.
+- **Trakt:** use the Client ID, not the Client Secret.
+- **RAWG:** your key is on [rawg.io/apidocs](https://rawg.io/apidocs) while you're logged in.
 
-### Commands Not Appearing
+### Commands not appearing
 
-- **Run deployment:** `npm run deploy-commands` or restart bot
-- **Check logs:** Look for "Skipped command" messages indicating missing API keys
-- **Discord cache:** Commands can take up to 1 hour to update globally (use guild ID for testing)
+- **Register them:** run `npm run deploy-commands`. Restarting the bot doesn't register commands.
+- **Check the output:** `⊘ Skipped command: game (RAWG API not configured)` means that key is missing from `.env`.
+- **Reload Discord** (Cmd/Ctrl+R): the Discord app caches the command list. For a test server, set `GUILD_ID` so commands appear at once.
 
-### Rate Limit Errors
+### Rate limit errors
 
-- **OMDB Free Tier:** 1,000/day - consider upgrading if hitting limits
-- **RAWG:** 20,000/month - monitor usage in dashboard
-- **Trakt:** 1,000 per 5 min - bot includes built-in retry logic
+Each provider caps requests, by day or month on free tiers. Check the provider's dashboard, and upgrade or wait for the reset.
 
-### Still Having Issues?
+### Still having issues?
 
-- Check [Installation Guide](./installation.md)
-- Review [Getting Started](./getting-started.md)
+- [Installation guide](/installation)
+- [Getting started](/getting-started)
 - Open an issue on [GitHub](https://github.com/r3volution11/Egg-Shen-Bot/issues)

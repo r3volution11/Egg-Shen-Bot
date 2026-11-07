@@ -383,7 +383,9 @@ describe('random sieges', () => {
     const fighters = mods.store.fightersOf(won);
     const total = fighters.reduce((n, f) => n + f.damage, 0);
     const pool = Math.round(24 * 0.6);
-    expect(won.result.grants.map(g => g.points)).toEqual(fighters.map((f, i) => Math.min(30, Math.max(2, Math.round(pool * f.damage / total))) + (i === 0 ? 5 : 0)));
+    // Nobody freed or cured: the top fighter holds the line as the Wang Chi (+8); the killing blow is the Jack Burton (+3)
+    const jack = won.killingBlow.userId;
+    expect(won.result.grants.map(g => g.points)).toEqual(fighters.map((f, i) => Math.min(30, Math.max(2, Math.round(pool * f.damage / total))) + (i === 0 ? 8 : 0) + (f.userId === jack ? 3 : 0)));
     sim.writeTranscript('fb-random');
   });
 
@@ -476,5 +478,43 @@ describe('the attack lines', () => {
         expect(personal.has(first)).toBe(false);
       }
     }
+  });
+});
+
+describe('R2 review (2026-11-06): a grab, with a stake out', () => {
+  test('#2 the −5 counts a stake still out: cat staked her whole month, is digested (−5, the month stays at 0), and her pushed stake comes home 5 short — as if she\'d never staked', async () => {
+    const sim = await arena('fb-r2-staked-digest');
+    // cat: 2 from her smite and 3 from /doom this month — all 5 staked on ana
+    sim.regular('cat', { points: 3 });
+    const month = () => mods.scores.periodKeys(clock.now).month;
+    const monthOf = (u) => Object.values(sim.scores().users[u].games).reduce((n, g) => n + (g?.[month()]?.points || 0), 0);
+    expect(monthOf('cat')).toBe(5);
+    const placed = await sim.back('cat', 'ana', 5);
+    expect(placed.reply.ephemeralFor).toBeFalsy();
+    expect(monthOf('cat')).toBe(0);
+    await sim.act('grab', ['cat']);
+    sim.calm();
+    await sim.advance(fighter(sim, 'cat').caught.until - clock.now + MINUTE);
+    const [digest] = sim.sends().filter(m => m.kindTag === 'digest');
+    // Floored at the month alone it was ±0, and the stake then came back whole
+    expect(lines(digest)).toEqual(['😋 **The Blob** digested **cat**: nobody freed them in time. Out of this siege.', '<@cat>', '-# cat −5 (never below 0 for the month)']);
+    expect(monthOf('cat')).toBe(0);
+    const key = `${sim.siege().id}:cat`;
+    expect(sim.scores().backStakes[key]).toMatchObject({ stake: 5, owed: 5 });
+    // ben carries the fight (ana 2nd: cat's backing pushes)
+    sim.hurry();
+    while (sim.siege().hp > 0) {
+      await sim.advance(21 * SEC);
+      await sim.attack('ben', 'doom', { force: 'smite' });
+    }
+    await sim.advance(MINUTE);
+    const s = sim.siege();
+    expect(s.result.status).toBe('won');
+    expect(s.result.backing).toEqual([expect.objectContaining({ backerId: 'cat', fighterId: 'ana', outcome: 'push', back: 5, owed: 5 })]);
+    // The stake's 5 went to the grab: cat ends on her share of the win, as she would have with no stake out
+    const grant = s.result.grants.find(g => g.userId === 'cat');
+    expect(monthOf('cat')).toBe(grant.total);
+    expect(sim.scores().backStakes).toEqual({});
+    sim.finalChecks();
   });
 });

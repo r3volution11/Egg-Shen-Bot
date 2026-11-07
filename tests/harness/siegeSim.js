@@ -70,6 +70,24 @@
  *   - an escape's held results wait for a game played after it got away
  *     (or holdUntil); a win's post at once
  *   - a 3-day or week siege ends at a night boundary
+ *
+ * The real hero (2.75.0): `sim.back(userId, fighterId, points)` is
+ * `/siege back`. Siege points may also move by −stake when a backing is
+ * placed (the scores file's backStakes say whose) and by each backer's
+ * settled payout at the finish. And these hold:
+ *   - every stake taken is a backer on the siege with that stake — or one a
+ *     crash orphaned, which the finish refunds — and the reverse
+ *   - nobody is backed at or after backingClosesAt, nor a fighter who
+ *     hadn't attacked, nor themselves; a refused backing changes no file
+ *   - each backer's settlement is the design's matrix, worked out here
+ *     from the result (the Wang Chi, the top 3, the Jack Burton, how many
+ *     fought) — and the fighter's share is paid once, on the largest stake
+ *   - honours only on a win with company: one Wang Chi (the most help, ≥8,
+ *     else the top contributor holding the line — worked out here), the
+ *     Jack Burton the killing blow, paid ×H
+ *   - a free or cure past its game's scoring cap frees or cures; only the
+ *     first SIEGE.credit.unscoredPerNight a night count (the model reads
+ *     which from the reply)
  */
 
 import { jest } from '@jest/globals';
@@ -144,6 +162,8 @@ async function loadBot() {
     gamePlay: await import(src('utils/gamePlay.js')),
     rewards: await import(src('data/gameRewards.js')),
     monsters: await import(src('data/siegeMonsters.js')),
+    btilc: await import(src('data/btilcLines.js')),
+    card: await import(src('utils/siegeCard.js')),
     attackLines: (await import(src('data/siegeAttackLines.js'))).SIEGE_ATTACK_LINES,
     rescueLines: (await import(src('data/rescueLines.js'))).RESCUE_LINES,
     potionLines: (await import(src('data/potionLines.js'))).POTION_LINES,
@@ -339,6 +359,28 @@ export class Sim {
       const u = (data.users[userId] ||= { name: userId, games: {} });
       u.glovebox ||= {};
       u.glovebox[item] = (u.glovebox[item] || 0) + count;
+    });
+  }
+
+  /**
+   * 2.75.0: make a member a regular who can back a fighter, as a week of
+   * plays would have — `nights` nights in a row up to tonight in their
+   * nights record, and `points` this month in another game (/doom). A
+   * test's setup, like giveItem: their siege points don't move.
+   */
+  regular(userId, { points = 20, nights = 3 } = {}) {
+    const tonight = mods.rules.nightKey(clock.now);
+    const month = mods.scores.periodKeys(clock.now).month;
+    mods.scores.mutateScores(this.guildId, (data) => {
+      const u = (data.users[userId] ||= { name: userId, games: {} });
+      u.games ||= {};
+      const doom = (u.games.doom ||= {});
+      for (const key of ['all', month]) {
+        doom[key] ||= { points: 0, plays: 0, scoredPlays: 0, counts: {}, received: {}, receivedPoints: 0, bestStreak: 0 };
+        doom[key].points += points;
+      }
+      const recent = Array.from({ length: nights }, (_, i) => mods.rules.shiftNight(tonight, -i)).reverse();
+      u.nights = { last: tonight, current: nights, best: Math.max(nights, u.nights?.best || 0), recent, saved: [], lightUsedAt: null };
     });
   }
 
@@ -654,6 +696,15 @@ export class Sim {
     return this.siegeCmd(userId, 'attack', options, { channel, uncached, force: forced, kind: 'attack' });
   }
 
+  /**
+   * `/siege back fighter: points:` (2.75.0) — the fighter given as the User
+   * discord.js resolves the option to
+   */
+  back(userId, fighterId, points, { channel = 'games' } = {}) {
+    const fighter = this.discord.who(fighterId);
+    return this.siegeCmd(userId, 'back', { fighter: fighter.user, points }, { channel, kind: 'back' });
+  }
+
   /** A play of one of the other games, at a member */
   play(userId, game, targetId, { channel = 'games', item = null } = {}) {
     const target = this.discord.who(targetId);
@@ -940,21 +991,43 @@ export class Sim {
         if (applied) this.sieges.get(e.message.siegeId).heals += Number(HEAL.exec(e.message.content)?.[1] || 0);
       }
     }
-    // Fighters freed and cured, as the /rescue and /potion replies said (R6)
+    // Fighters freed and cured, as the /rescue and /potion replies said (R6).
+    // 2.75.0: a free or cure from a play past its game's scoring cap still
+    // happens, but only the first SIEGE.credit.unscoredPerNight a member a
+    // night are credited — modelled here from the replies: a scored play's
+    // always counts; an unscored one counts while the member has fewer than
+    // that tonight, and says so when it doesn't
     if (s && !ctx.crashed) {
       for (const i of ctx.interactions || []) {
         if (!['rescue', 'potion'].includes(i.commandName)) continue;
         const reply = i.replyMessage;
         if (!reply || reply.ephemeralFor) continue;
         const rec = this.track(s);
-        const a = (rec.assists[i.user.id] ||= { frees: 0, cures: 0 });
+        const u = i.user.id;
+        const a = (rec.assists[u] ||= { frees: 0, cures: 0 });
         // (the play's own outcome label can start 🛟/🕯️ too: these are the siege's lines)
-        if (/^-# (🛟 .+ freed .+ from |🕯️ .+ freed .+, and .+ grabbed )/m.test(reply.content)) a.frees += 1;
-        if (/^-# 🧪 .+ cured .+ of .+'s poison/m.test(reply.content)) a.cures += 1;
+        const freed = /^-# (?:🛟 .+ freed .+ from |🕯️ .+ freed .+, and .+ grabbed ).*$/m.exec(reply.content)?.[0];
+        const cured = /^-# 🧪 .+ cured .+ of .+'s poison.*$/m.exec(reply.content)?.[0];
+        const line = freed || cured;
+        if (line) {
+          const unscored = /scoring cap: just for fun now/.test(reply.content);
+          const credited = !/doesn't count toward/.test(line);
+          // The siege's night (a campaign's folded first hours are its night 1), as its tallies count it
+          const night = `${u}@${this.campaignNightKey(s, clock.now)}`;
+          const tonight = (rec.unscoredCredited ||= {})[night] || 0;
+          const cap = mods.rewards.SIEGE.credit.unscoredPerNight;
+          if (!unscored && !credited) say(`${u}'s scored ${i.commandName} wasn't credited: "${line}"`);
+          if (unscored && credited !== (tonight < cap)) say(`${u}'s unscored ${i.commandName} was ${credited ? '' : 'not '}credited with ${tonight} credited tonight (the first ${cap} a night are)`);
+          if (unscored && credited) rec.unscoredCredited[night] = tonight + 1;
+          if (credited) a[freed ? 'frees' : 'cures'] += 1;
+          else (rec.uncredited ||= {})[u] = (rec.uncredited[u] || 0) + 1;
+        }
         if (/^-# 🕯️ .+ freed .+, and .+ grabbed /m.test(reply.content)) {
-          const me = s.participants?.[i.user.id];
-          if (me?.caught?.by !== 'sacrifice') say(`${i.user.id}'s sacrifice didn't leave them caught: ${JSON.stringify(me?.caught)}`);
-          if (!(reply.allowedMentions?.users || []).includes(i.user.id)) say(`${i.user.id} was caught in a swap without being pinged`);
+          const me = s.participants?.[u];
+          if (me?.caught?.by !== 'sacrifice') say(`${u}'s sacrifice didn't leave them caught: ${JSON.stringify(me?.caught)}`);
+          if (!(reply.allowedMentions?.users || []).includes(u)) say(`${u} was caught in a swap without being pinged`);
+          // An uncredited sacrifice: in the fight (to be caught), with nothing to their name
+          (rec.swapped ||= new Set()).add(u);
         }
       }
     }
@@ -983,6 +1056,10 @@ export class Sim {
       this.checkSiege(s, rec, before, ctx, say);
       this.checkCard(s, rec, before, ctx, events, say);
       this.checkResults(s, rec, ctx, say);
+      // A crash in a backing may leave a stake with no backer (the finish refunds it)
+      if (ctx.crashed && ctx.kind === 'back') rec.orphanable = true;
+      this.checkBacking(s, rec, before, ctx, say);
+      this.checkHonours(s, rec, before, say);
       this.lastId = s.id;
     }
 
@@ -1015,6 +1092,7 @@ export class Sim {
     // ── attacks: what the reply said, and what a refusal didn't do ──
     for (const i of ctx.interactions || []) this.checkPlayLimits(i, ctx, say);
     if (ctx.kind === 'attack' && !ctx.crashed) this.checkAttack(ctx.interactions[0], before, s, ctx, say);
+    if (ctx.kind === 'back' && !ctx.crashed) this.checkBack(ctx.interactions[0], before, s, say);
     if (!ctx.crashed) for (const i of ctx.interactions || []) this.checkStatusReply(i, s, say);
 
     if (problems.length) {
@@ -1040,7 +1118,7 @@ export class Sim {
     let dealt = 0;
     for (const [uid, p] of parts) {
       if (!Number.isInteger(p.damage) || p.damage < 0) say(`${uid}'s damage is ${p.damage}`);
-      if (!(p.attacks >= 1) && !(p.frees > 0 || p.cures > 0)) say(`${uid} is a participant with no attacks, frees or cures`);
+      if (!(p.attacks >= 1) && !(p.frees > 0 || p.cures > 0) && !rec.swapped?.has(uid)) say(`${uid} is a participant with no attacks, frees or cures`);
       // Frees and cures: exactly what the replies announced
       const seen = rec.assists[uid] || { frees: 0, cures: 0 };
       if ((p.frees || 0) !== seen.frees || (p.cures || 0) !== seen.cures) say(`${uid} has ${p.frees} frees and ${p.cures} cures stored, but the replies announced ${seen.frees} and ${seen.cures}`);
@@ -1216,6 +1294,137 @@ export class Sim {
     }
   }
 
+  // ── 2.75.0: the real hero ─────────────────────────────────────────────
+
+  /**
+   * The fighters best first, worked out here (not read from the store):
+   * contribution — damage + SIEGE.credit's free·frees + cure·cures +
+   * boost·boostHits — then who joined first, then the id
+   */
+  ranked(s) {
+    const c = mods.rewards.SIEGE.credit;
+    const help = (p) => c.free * (p.frees || 0) + c.cure * (p.cures || 0) + c.boost * (p.boostHits || 0);
+    return Object.entries(s.participants || {})
+      .map(([userId, p]) => ({ userId, name: p.name, help: help(p), contribution: (p.damage || 0) + help(p), attacks: p.attacks || 0, firstAt: p.firstAt || 0 }))
+      .filter(f => f.attacks > 0 || f.contribution > 0)
+      .sort((a, b) => b.contribution - a.contribution || a.firstAt - b.firstAt || (a.userId < b.userId ? -1 : 1));
+  }
+
+  /** The Wang Chi, worked out here: the most help (first in ranked order on a tie), if ≥ wangChiMinHelp; else the top contributor, held */
+  wangChiModel(s) {
+    const fighters = this.ranked(s);
+    if (!fighters.length) return null;
+    let best = fighters[0];
+    for (const f of fighters) if (f.help > best.help) best = f;
+    return best.help >= mods.rewards.SIEGE.rewards.wangChiMinHelp ? { userId: best.userId, held: false } : { userId: fighters[0].userId, held: true };
+  }
+
+  /**
+   * Backing's promises: when, on whom, for what — every stake taken is a
+   * backer with that stake (or a crash's orphan), and none is left once the
+   * siege has paid out; at the finish, each settlement is the matrix
+   */
+  checkBacking(s, rec, before, ctx, say) {
+    const B = mods.rewards.SIEGE.backing;
+    const closes = mods.store.backingClosesAt(s);
+    const backers = s.backers || {};
+    for (const [u, b] of Object.entries(backers)) {
+      if (!(b.at < closes)) say(`${u} backed ${b.fighterId} at ${fmtTime(b.at)}, after backing closed at ${fmtTime(closes)}`);
+      if (b.fighterId === u) say(`${u} backed themselves`);
+      if (!(s.participants?.[b.fighterId]?.attacks > 0)) say(`${u} backed ${b.fighterId}, who hasn't attacked`);
+      if (!(Number.isInteger(b.stake) && b.stake >= B.min && b.stake <= B.max)) say(`${u} staked ${b.stake}`);
+    }
+    const scores = this.scores();
+    const stakes = scores.backStakes || {};
+    const prefix = `${s.id}:`;
+    const mine = Object.entries(stakes).filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k.slice(prefix.length), v]);
+    const paidOut = Object.hasOwn(scores.siegesPaid || {}, s.id);
+    if (s.status === 'live' && !paidOut) {
+      for (const [u, b] of Object.entries(backers)) {
+        const taken = stakes[prefix + u];
+        if (!taken || taken.stake !== b.stake) say(`${u} backs ${b.fighterId} for ${b.stake}, but the stake taken is ${JSON.stringify(taken)}`);
+      }
+      for (const [u, v] of mine) if (!backers[u] && !rec.orphanable) say(`${v.stake} was taken from ${u} with no backing on the siege`);
+    }
+    if (s.status === 'live' || !s.result) return;
+    if (mine.length) say(`siege ${s.id} has paid out, but still holds stakes: ${mine.map(([u]) => u)}`);
+    // The settlement, worked out here
+    const r = s.result;
+    const fighters = this.ranked(s);
+    const enough = fighters.length >= B.minFighters;
+    const top3 = fighters.slice(0, 3).map(f => f.userId);
+    const shown = (r.backing || []).filter(b => !b.orphan);
+    if (JSON.stringify(shown.map(b => b.backerId).sort()) !== JSON.stringify(Object.keys(backers).sort())) say(`the settled backers ${shown.map(b => b.backerId)} aren't the siege's ${Object.keys(backers)}`);
+    const theirs = [];
+    for (const b of shown) {
+      const want = r.status === 'won' && enough
+        ? (b.fighterId === r.wangChi?.userId ? 'wangChi' : top3.includes(b.fighterId) || b.fighterId === r.jack?.userId ? 'push' : 'lost')
+        : r.status === 'escaped' && enough ? 'escaped' : 'refunded';
+      const back = { wangChi: B.payout * b.stake, push: b.stake, refunded: b.stake, lost: 0, escaped: 0 }[want];
+      if (b.outcome !== want || b.back !== back) say(`${b.backerId} backed ${b.fighterId} (${b.stake}) in a ${r.status} siege of ${fighters.length}: settled ${b.outcome} ${b.back}, the matrix says ${want} ${back}`);
+      if (want === 'wangChi') theirs.push(b);
+    }
+    // The fighter's share: once, on the largest stake (the earliest of equals), ⌈stake × fighterShare⌉
+    const largest = theirs.reduce((a, b) => (!a || b.stake > a.stake || (b.stake === a.stake && backers[b.backerId].at < backers[a.backerId].at) ? b : a), null);
+    for (const b of shown) {
+      const want = b === largest ? Math.ceil(b.stake * B.fighterShare) : 0;
+      if (b.bonus !== want) say(`${b.backerId}'s settlement carries a fighter's bonus of ${b.bonus}, expected ${want}`);
+    }
+    const g = largest && (r.grants || []).find(x => x.userId === largest.fighterId);
+    if (g && !g.limited && g.backBonus !== largest.bonus) say(`the Wang Chi ${g.userId}'s grant has backBonus ${g.backBonus}, their backers earned them ${largest.bonus}`);
+    for (const x of r.grants || []) if (x.backBonus && x !== g) say(`${x.userId} has a backBonus without being the backed Wang Chi`);
+  }
+
+  /** The honours: only on a win with company; the Wang Chi and the Jack Burton as worked out here, ×H */
+  checkHonours(s, rec, before, say) {
+    if (s.status === 'live' || !s.result || rec.honoursChecked) return;
+    rec.honoursChecked = true;
+    const r = s.result;
+    const grants = r.grants || [];
+    const won = r.status === 'won' && grants.length >= 2;
+    if (!won) {
+      if (r.wangChi || r.jack) say(`a ${r.status} siege of ${grants.length} has honours: ${JSON.stringify({ wangChi: r.wangChi, jack: r.jack })}`);
+      for (const g of grants) if (g.wangChi || g.jack || g.honour) say(`${g.userId} got honours in a ${r.status} siege of ${grants.length}`);
+      return;
+    }
+    // A siege from before 2.75.0 (no `honours` stamp) may be paid the old way: not modelled here
+    if (!s.honours) return;
+    const H = mods.pace.timingsOf(s).honour;
+    const { wangChiBonus, jackBonus } = mods.rewards.SIEGE.rewards;
+    const wc = this.wangChiModel(s);
+    const jack = s.killingBlow?.userId || null;
+    if (r.wangChi?.userId !== wc.userId || !!r.wangChi?.held !== wc.held) say(`the Wang Chi is ${JSON.stringify(r.wangChi)}, the model says ${JSON.stringify(wc)}`);
+    if ((r.jack?.userId || null) !== jack) say(`the Jack Burton is ${r.jack?.userId}, the killing blow was ${jack}`);
+    for (const g of grants) {
+      if (g.limited) continue;
+      const want = (g.userId === wc.userId ? wangChiBonus * H : 0) + (g.userId === jack ? jackBonus * H : 0);
+      if (!!g.wangChi !== (g.userId === wc.userId) || !!g.jack !== (g.userId === jack) || g.honour !== want) {
+        say(`${g.userId}'s honours: wangChi ${g.wangChi}, jack ${g.jack}, +${g.honour}; expected ${g.userId === wc.userId}, ${g.userId === jack}, +${want} (H ${H})`);
+      }
+      if (g.mvp !== !!g.wangChi) say(`${g.userId}'s mvp (${g.mvp}) isn't their Wang Chi (${g.wangChi})`);
+    }
+  }
+
+  /** A /siege back reply against the store: a refusal changed nothing; a backing is stored, staked and pings nobody */
+  checkBack(i, before, s, say) {
+    const reply = i.replyMessage;
+    if (!reply) return;
+    const u = i.user.id;
+    if (reply.ephemeralFor) {
+      const after = this.before();
+      if (after.happeningsRaw !== before.happeningsRaw) say(`${u}'s refused backing ("${reply.content}") changed the happenings file`);
+      if (after.scoresRaw !== before.scoresRaw) say(`${u}'s refused backing ("${reply.content}") changed the scores file`);
+      return;
+    }
+    const b = s?.backers?.[u];
+    if (!b) return say(`${u}'s backing was announced but isn't on the siege`);
+    if (before.siege?.backers?.[u]) say(`${u} backed twice in one siege`);
+    if (b.fighterId !== i.options.getUser('fighter')?.id || b.stake !== i.options.getInteger('points')) say(`${u}'s backing stored ${JSON.stringify(b)}`);
+    const am = reply.allowedMentions || {};
+    if ((am.parse || []).length || (am.users || []).length || mentionsIn(reply.content).length) say(`${u}'s backing may ping someone: ${JSON.stringify(am)}`);
+    if (!reply.content.includes(`−${b.stake} (staked)`)) say(`${u}'s backing doesn't say what it staked: ${reply.content}`);
+  }
+
   /**
    * The night key a siege counts `at` toward, by the spec rather than the
    * store: 12:00 to 12:00 UTC, but a 3-day or week campaign's hours before
@@ -1358,11 +1567,26 @@ export class Sim {
     const after = this.siegePoints();
     const expected = { ...before.points };
     const add = (u, n) => { expected[u] = (expected[u] ?? 0) + n; };
-    // A finish in this step pays its grants
-    if (s && s.status !== 'live' && before.siege?.id === s.id && before.siege.status === 'live') {
-      for (const g of s.result?.grants || []) add(g.userId, g.total);
-    } else if (s && !before.siege && s.status !== 'live') {
-      for (const g of s.result?.grants || []) add(g.userId, g.total);
+    // A finish in this step pays its grants — and (2.75.0) each backer's
+    // settlement, orphaned stakes' refunds included, less what a grab took
+    // from a stake while it was out (`owed`). A siege the scores file had
+    // already paid (a kill between an admin's end's two saves) pays nothing
+    // again: only a stake taken since, refunded
+    const finished = s && s.status !== 'live' && ((before.siege?.id === s.id && before.siege.status === 'live') || !before.siege);
+    if (finished) {
+      const paidBefore = (before.scoresRaw ? JSON.parse(before.scoresRaw) : {}).siegesPaid?.[s.id];
+      const known = new Set((paidBefore?.backing || []).map(b => b.backerId));
+      if (!paidBefore) for (const g of s.result?.grants || []) add(g.userId, g.total);
+      // (the stake's part comes back less `owed`; a lost stake forgives it)
+      const moved = (b) => Math.max(0, Math.min(b.back, b.stake) - (b.owed || 0)) + Math.max(0, b.back - b.stake);
+      for (const b of s.result?.backing || []) if (!known.has(b.backerId)) add(b.backerId, moved(b));
+    }
+    // 2.75.0: a backing placed takes its stake — the scores file's new
+    // backStakes say whose and how much (a crash between placeBacking's two
+    // saves included: the stake was taken, and the finish refunds it)
+    const stakesWas = (before.scoresRaw ? JSON.parse(before.scoresRaw) : {}).backStakes || {};
+    for (const [k, v] of Object.entries(this.scores().backStakes || {})) {
+      if (!Object.hasOwn(stakesWas, k)) add(k.slice(k.indexOf(':') + 1), -v.stake);
     }
     // An attack that landed: its reply's total is what's stored now
     for (const i of ctx.crashed ? [] : ctx.interactions || []) {
@@ -1398,6 +1622,7 @@ export class Sim {
       }
     }
     for (const [u, user] of Object.entries(scoresNow.users || {})) {
+      // (the titles a finish earns are in its grants' totals; these two come from R6's events)
       for (const key of ['field-medic', 'monster-chow']) {
         if (user.titles?.earned?.[key] && !scoresBefore.users?.[u]?.titles?.earned?.[key]) add(u, mods.rewards.TITLE_POINTS);
       }

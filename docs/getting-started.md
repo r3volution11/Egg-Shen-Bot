@@ -1,13 +1,13 @@
 ---
 title: Getting Started with Egg Shen Bot
-description: Quick start guide for setting up Egg Shen Bot in your Discord server. Learn what you need, how to install, and get your bot running in minutes.
+description: Set up Egg Shen Bot in your Discord server and run your first command. What you need, the five setup steps, and where to go next for watch parties, tournaments, trivia and the games.
 head:
   - - meta
     - property: og:title
       content: Getting Started with Egg Shen Bot
   - - meta
     - property: og:description
-      content: Quick start guide for setting up Egg Shen Bot in your Discord server. Free, open-source bot for movie, TV, game, and book searches with comprehensive ratings.
+      content: Set up Egg Shen Bot in your Discord server and run your first command. A free, open-source bot for movie and TV communities.
   - - meta
     - property: og:url
       content: https://eggshenbot.com/getting-started.html
@@ -16,213 +16,141 @@ head:
       content: Getting Started with Egg Shen Bot
   - - meta
     - name: twitter:description
-      content: Quick start guide for setting up Egg Shen Bot. Free Discord bot for entertainment searches.
+      content: Set up Egg Shen Bot in your Discord server and run your first command.
 ---
 
 # Getting Started
 
-**Egg Shen Bot is a free, open-source Discord bot** that searches movies, TV shows, books, video games, and board games while providing comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, JustWatch, Metacritic, RAWG, BoardGameGeek, and Google Books. Features include semantic search powered by AI, enhanced streaming availability data, and more. This guide will help you get the bot up and running in your Discord server.
+**Egg Shen Bot is a free, open-source Discord bot for movie and TV communities.** It looks up movies, shows, games and books with ratings and where to watch them, runs watch parties with timers, and hosts tournaments, surveys, genre trivia and a set of games with points.
+
+You run your own copy: your own Discord application, your own computer or server, your own API keys. This page gets you from nothing to a working `/movie` command, then points you to everything else.
 
 ## Quick FAQ
 
-**Q: What do I need to get started?**  
-A: Node.js v20+, a Discord bot token, and a TMDB API key (free). Other APIs are optional.
+**Q: What do I need?**  
+A: Node.js 20 or newer, a Discord application for the bot, and a free TMDB API key. Every other key is optional.
 
 **Q: How long does setup take?**  
-A: About 10-15 minutes for basic setup with required APIs.
+A: About 15 minutes for the basics.
 
 **Q: Is it really free?**  
-A: Yes! The bot is open-source and all required API keys are free tier.
+A: The bot is free and open source, and the required keys are free. Only OpenAI, which powers AI images and AI-written text, costs money, and it's optional.
 
 **Q: Do I need all the API keys?**  
-A: No. Only Discord token and TMDB are required. Other APIs enable additional features.
+A: No. Discord and TMDB are enough to start. The others add ratings, games, books and AI. You can add them later.
 
-**Q: Can I use this on shared hosting?**  
-A: You need a server that can run Node.js applications 24/7 (VPS, dedicated server, or cloud hosting).
+**Q: Where can it run?**  
+A: Anywhere that runs Node.js all the time: a VPS, a home server, or a cloud host. Shared web hosting usually can't.
 
 **Q: Do the games need setting up?**  
 A: No. `/foodfight`, `/doom`, `/rescue`, `/potion` and `/siege` need no API keys and work as soon as the bot joins. Most servers keep them to one channel with `/eggshen-config-games channels mode:only add:#games`. See [Set up the games](#set-up-the-games).
 
 ---
 
-## Prerequisites
+## What You Need
 
-Before you begin, make sure you have:
+- **Node.js** 20 or newer, with npm
+- A **Discord application** for the bot, from the [Discord Developer Portal](https://discord.com/developers/applications): its bot token and application ID
+- A **TMDB API key**, free from [TMDB](https://www.themoviedb.org/settings/api)
 
-- **Node.js** v20.x or higher
-- **npm** (comes with Node.js)
-- A **Discord Bot Token** ([Create one here](https://discord.com/developers/applications))
-- **TMDB API Key** ([Get it here](https://www.themoviedb.org/settings/api)) - **Required**
+### Optional keys
 
-### Optional API Keys
+| Key | What it adds |
+|-----|--------------|
+| OMDb | IMDb, Rotten Tomatoes and Metacritic scores |
+| Trakt | Trakt scores |
+| Watchmode | More where-to-watch services |
+| OpenAI (paid) | `/image`, AI-written announcements, AI answers in `/eggshen-ask`, reasons in `/recommend`, better search ranking |
+| RAWG | `/game`, and video games in `/random`, `/similar` and tournaments |
+| BoardGameGeek | `/boardgame`, and board games in `/random` and `/similar` |
+| Google Books | A bigger daily quota for `/book` (it works without one) |
+| Spotify | Spotify albums in `/soundtrack`, next to iTunes |
 
-These enable additional features:
+`/soundtrack` uses iTunes, which needs no key. The [API Keys guide](/api-keys) shows how to get each one.
 
-#### Core Search Features
+## Set Up in Five Steps
 
-- **[OMDB API Key](http://www.omdbapi.com/apikey.aspx)** - IMDb and Rotten Tomatoes ratings for movies/TV
-  - Get free key: Visit [omdbapi.com/apikey.aspx](http://www.omdbapi.com/apikey.aspx)
-  - Select "FREE! (1,000 daily limit)" plan
-  - Confirm via email and copy your API key
-  
-- **[Trakt Client ID](https://trakt.tv/oauth/applications)** - Trakt community ratings and watch history
-  - Create account at [trakt.tv](https://trakt.tv)
-  - Go to Settings → Your API Apps → New Application
-  - Fill in app details (any values work for bot usage)
-  - Copy the "Client ID" (NOT the Client Secret)
-  
-- **[RAWG API Key](https://rawg.io/apidocs)** - Video game search via `/game` command
-  - Create account at [rawg.io](https://rawg.io)
-  - Go to [API Documentation](https://rawg.io/apidocs)
-  - Click "Get API Key"
-  - Copy your API key
-  
-- **[BoardGameGeek Client ID](https://boardgamegeek.com/wiki/page/BGG_XML_API2)** - Board game search via `/boardgame` command
-  - Free XML API (no registration required)
-  - Set to any unique identifier for your bot
-  
-- **[Google Books API Key](https://console.cloud.google.com/apis/library/books.googleapis.com)** - Book search via `/book` and `/similar` commands
-  - Go to [Google Cloud Console](https://console.cloud.google.com/)
-  - Create a new project or select existing one
-  - Enable the "Books API"
-  - Go to Credentials → Create Credentials → API Key
-  - Copy your API key
-  - Recommended: Restrict key to Books API for security
+The [Installation guide](/installation) has every detail. In short:
 
-#### Enhanced Features
+### 1. Create the Discord application and invite the bot
 
-- **[Watch Mode API Key](https://api.watchmode.com/)** - Enhanced streaming availability data
-  - Create account at [api.watchmode.com](https://api.watchmode.com/)
-  - Free tier: 1,000 requests/month
-  - Supplements TMDB's watch provider data with additional sources
-  
-- **[OpenAI API Key](https://platform.openai.com/api-keys)** - AI image generation (`/image`) and semantic search
-  - **IMPORTANT:** Requires a paid OpenAI account with billing set up
-  - Image generation costs $0.04 per image (bot has built-in rate limiting)
-  - Semantic search uses minimal tokens (very low cost)
-  - Create account at [platform.openai.com](https://platform.openai.com/)
-  - Add payment method in Settings → Billing
-  - Go to API Keys → Create new secret key
-  - Copy your API key immediately (shown only once)
-  - **Model Used:** `text-embedding-3-small` (cost-effective embedding model)
-  - **Cost:** ~$0.02 per 1,000 searches (based on average query length)
-  - **Purpose:** Improves search accuracy by understanding semantic meaning (e.g., "sci-fi robots" matches "The Matrix")
-  - **Note:** Falls back to standard TMDB text search if not configured
+In the [Developer Portal](https://discord.com/developers/applications), create an application. Copy its **Application ID**, then on the **Bot** page click **Reset Token** and copy the token. Invite the bot with the `bot` and `applications.commands` scopes and the permissions listed in [Invite the bot to your server](/installation#_2-invite-the-bot-to-your-server).
 
-- **iTunes Search API** - Soundtrack search for `/soundtrack` command
-  - **No signup required** - completely free with no API key
-  - Provides album artwork, artist info, track listings, and purchase links
-  - Used automatically by `/soundtrack` command
-  - Shows iTunes/Apple Music streaming and purchase options
-
-- **[Spotify API](https://developer.spotify.com/dashboard)** - Additional soundtrack results for `/soundtrack` command
-  - Create free account at [developer.spotify.com](https://developer.spotify.com/dashboard)
-  - Create a new app (name: "Egg Shen Bot", redirect URI: `https://localhost`)
-  - Select "Web API" as the API/SDK
-  - Copy Client ID and Client Secret
-  - **Free tier:** Unlimited requests for read-only public data access
-  - **Purpose:** Shows Spotify streaming links alongside iTunes results for soundtracks
-  - **Note:** If not configured, `/soundtrack` will show iTunes results only
-
-> **Note:** Commands requiring optional APIs will be disabled if their API keys aren't configured. The bot will function with only Discord + TMDB keys, but additional APIs enhance functionality.
-
-## Installation
-
-### 1. Clone the Repository
+### 2. Download and install
 
 ```bash
 git clone https://github.com/r3volution11/Egg-Shen-Bot.git
 cd Egg-Shen-Bot
-```
-
-### 2. Install Dependencies
-
-```bash
 npm install
 ```
 
-### 3. Configure the Bot
-
-Create a `.env` file with your API keys:
+### 3. Add your keys
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your credentials:
+Edit `.env` and fill in at least these three:
 
 ```bash
-# Discord Configuration (Required)
 DISCORD_TOKEN=your_discord_bot_token_here
-DISCORD_CLIENT_ID=your_discord_client_id_here
-
-# TMDB API (Required)
+DISCORD_CLIENT_ID=your_discord_application_id_here
 TMDB_API_KEY=your_tmdb_api_key_here
-
-# Optional APIs - Core Search Features
-OMDB_API_KEY=your_omdb_api_key_here
-TRAKT_CLIENT_ID=your_trakt_client_id_here
-RAWG_API_KEY=your_rawg_api_key_here
-BGG_CLIENT_ID=your_bgg_client_id_here
-GOOGLE_BOOKS_API_KEY=your_google_books_api_key_here
-
-# Optional APIs - Enhanced Features
-WATCHMODE_API_KEY=your_watchmode_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-See [Installation Guide](./installation.md) for detailed API key setup instructions.
+Add any optional keys you have. To try the bot on one server first, also set `GUILD_ID` to that server's ID: its commands then appear at once.
 
-### 4. Start the Bot
+### 4. Register the slash commands
+
+```bash
+npm run deploy-commands
+```
+
+The bot doesn't register its commands when it starts, so run this once now, and again after an update that changes a command. It ends with `✓ Successfully deployed … commands`.
+
+### 5. Start the bot
 
 ```bash
 npm start
 ```
 
-You should see: `✓ Logged in as YourBot#1234`
+You should see `✓ Logged in as YourBot#1234`. On its first start the bot also uploads the icons for its game and tournament cards to your Discord application. Until they're up, the cards use plain emoji.
 
-> **Note:** Slash commands are automatically registered when the bot starts. No separate registration step needed!
+To keep it running after you close the terminal, see [Running it on a server](/installation#running-it-on-a-server).
+
+## Your First Commands
+
+In your Discord server, type `/` and try:
+
+```
+/movie query:Big Trouble in Little China
+/tv query:The X-Files
+/eggshen-help
+```
+
+`/movie` shows the ratings, where it streams in your region, the runtime and the synopsis. `/eggshen-help` lists every command your server has switched on.
+
+Not sure what a command is called? Ask in plain words:
+
+```
+/eggshen-ask question:how do I start a watch party timer?
+```
 
 ## Quick Configuration
 
-Once the bot is running, use these commands to configure your server:
-
-### Enable/Disable Services
+Every server has its own settings, changed by admins and moderators. A few worth doing first:
 
 ```
-/eggshen-config settings toggle service:imdb enabled:true
+/eggshen-config settings region code:US
+/eggshen-config settings toggle service:trakt enabled:false
+/eggshen-config-watch-party watch-party add channel:#movie-night
 ```
 
-Control which rating services appear in embeds.
+- **Region** sets which country's streaming services are shown. It's `US` by default.
+- **Services** turns rating sites on or off on results. All are on by default.
+- **Watch-party channels** let `/timer start` take its title from the channel's running Discord event.
 
-### Set Rate Limits
-
-```
-/eggshen-config-watch-party rate-limit toggle enabled:true
-```
-
-Enable rate limiting to prevent abuse (enabled by default).
-
-### Configure Emojis
-
-```
-/eggshen-config settings emoji service:imdb emoji:🎬
-```
-
-Customize emojis for each service.
-
-## First Commands
-
-Try these commands in your server:
-
-```
-/movie query:The Matrix
-/tv query:Breaking Bad
-/episode show:The Last of Us episode:s1e1
-/game query:The Last of Us
-/book query:The Hobbit
-/timer start label:Movie Night
-```
+`/eggshen-config settings view` shows everything. Rate limiting is already on (one use of each command every 20 seconds per member), so there's nothing to set up for spam. See [Admin Configuration](/commands/configuration) for every setting.
 
 ## Set Up the Games
 
@@ -246,45 +174,47 @@ The games are ready the moment the bot joins: food fights, horror-movie dooms, r
    /scoreboard
    ```
 
-On its first start the bot uploads its own emoji, the drawn icons and bars on the game cards, to your Discord application ([Installation](/installation)). Until they're up, the cards use plain emoji. To switch a game off, use `/eggshen-config commands toggle setting:siege enabled:false` (or `potion`, `foodfight`, `doom`, `rescue`). Everything else is on [Settings for Admins](/commands/games-settings).
+To switch a game off, use `/eggshen-config commands toggle setting:siege enabled:false` (or `potion`, `foodfight`, `doom`, `rescue`). Everything else is on [Settings for Admins](/commands/games-settings).
 
-## Next Steps
+## What Else It Does
 
-### Explore Commands
+- **[Watch parties](/commands/watch-party):** `/announce` a watch party ahead of time, or schedule the announcement for a Discord event. `/watchparty ready` asks who's ready, and `/timer` runs the clock and logs what you watched. `/watchlist` keeps the list of what's next.
+- **[Tournaments](/commands/brackets/):** bracket and group tournaments for movies, shows, games or books, voted with buttons. Start with the [tournament quick guides](/guides/tournaments/).
+- **[Surveys](/commands/social#survey-commands):** polls with up to 10 options, with a runoff if there's a tie.
+- **[Escape Velocity](/commands/escape-velocity):** a multi-day genre trivia climb, one launch a day.
+- **[The games](/commands/games):** points, cards, items, titles, happenings and sieges. Members can start with the [games quick guides](/guides/games/).
+- **[Discovery](/commands/):** `/random`, `/recommend` (from what your server watches) and `/similar`.
+- **[AI images](/commands/ai-images):** versus posters, tournament matchups and more, with an OpenAI key.
+- **[Event requests](/features/event-requests):** a web form where members ask for a watch party and moderators approve it into a Discord event.
 
-- [Learn about all commands](/commands/)
-- **[🏆 Run Your First Tournament](/commands/brackets/#quick-start-guide)** - Complete step-by-step guide for hosting bracket tournaments
-- **[🎮 The Games](/commands/games)** - Points, cards, items, titles, happenings and sieges, and the [Games Quick Guides](/guides/games/) for members
-
-### Configure Features
-
-- [Configure rate limiting](/features/rate-limiting)
-- [Set up moderation tools](/features/moderation-tools)
-- [Enable statistics tracking](/features/statistics)
+The [command reference](/commands/) lists every command and option.
 
 ## Troubleshooting
 
-### Bot doesn't respond to commands
+### Commands don't appear
 
-1. Make sure you ran `npm run deploy-commands`
-2. Check the bot has proper permissions in your server
-3. Verify `DISCORD_TOKEN` in your `.env` file
+1. Run `npm run deploy-commands`. The bot doesn't register commands by itself
+2. Without `GUILD_ID`, new commands can take a while to show up everywhere. Set it for instant registration on a test server
+3. If Discord says a command is outdated, reload Discord (Cmd/Ctrl+R)
+
+### The bot doesn't respond
+
+1. Check the bot is running and logged in (`✓ Logged in as …`)
+2. Check it can view and send messages in the channel
+3. Check `DISCORD_TOKEN` in `.env`
 
 ### API errors
 
-- Check that your API keys are valid
-- TMDB is required for movie/TV searches
-- Other APIs are optional but enhance features
+- Check your keys are copied correctly, with no spaces
+- TMDB is required for movie and TV commands
+- Recent errors are in `/eggshen-logs errors` (Administrator only)
 
-### Rate limit issues
+### "You're using commands too quickly!"
 
-- Check `/eggshen-config-watch-party rate-limit view` to see current settings
-- Use `/eggshen-config-watch-party rate-limit clear user:@someone` for emergency overrides
+That's the rate limit. Admins can check it with `/eggshen-config-watch-party rate-limit view`, and clear one member with `/eggshen-config-watch-party rate-limit clear user:@someone`.
 
 ## Support
 
-Having issues? Check:
-
 - [Command Reference](/commands/)
-- [Configuration Guide](/commands/configuration)
+- [Admin Configuration](/commands/configuration)
 - [GitHub Issues](https://github.com/r3volution11/Egg-Shen-Bot/issues)

@@ -40,13 +40,16 @@ export const data = new SlashCommandBuilder()
           .setName('category')
           .setDescription('Log category')
           .setRequired(true)
+          // Only categories something actually writes. Bracket and API were
+          // offered too, but nothing logs either (tournament scheduling logs
+          // under Scheduler; logAPI has no callers), so picking them always
+          // came back empty. tests/eggshen-logs-categories.test.js checks
+          // each choice has a writer.
           .addChoices(
             { name: 'System', value: 'system' },
             { name: 'Commands', value: 'command' },
             { name: 'Buttons', value: 'button' },
             { name: 'Scheduler', value: 'scheduler' },
-            { name: 'Bracket', value: 'bracket' },
-            { name: 'API', value: 'api' },
             { name: 'Performance', value: 'performance' }
           )
       )

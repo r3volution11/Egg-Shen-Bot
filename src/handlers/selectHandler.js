@@ -436,10 +436,11 @@ export async function handleSelectInteraction(interaction) {
       const episodes = seasonData.episodes;
       const episodeCount = episodes.length;
       
-      // Check pagination limit
+      // One field per episode, and an embed holds at most 25
       if (episodeCount > 25) {
+        const { seasonTooLongMessage } = await import('../commands/episode-list.js');
         await interaction.followUp({
-          content: `**${showDetails.name}** Season ${seasonNum} has ${episodeCount} episodes, which exceeds Discord's 25 field limit. Pagination support coming soon! For now, try searching individual episodes with \`/episode\`.`,
+          content: seasonTooLongMessage(showDetails.name, seasonNum, episodeCount),
           flags: MessageFlags.Ephemeral,
         });
         return;

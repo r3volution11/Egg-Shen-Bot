@@ -1,10 +1,10 @@
 # Egg Shen Bot
 
-> 🎬 Your all-in-one Discord companion for movies, TV, games, books, and watch parties
+> 🎬 A Discord bot for movie and TV communities: search, watch parties, tournaments, games and trivia
 
-A feature-rich Discord bot for searching and discovering entertainment across **7 media types** with ratings from multiple trusted sources. Host tournament brackets, create polls, search movies/TV/games/books, track watch history, and bring your entertainment community together.
+Look up movies, TV shows, games, board games and books with ratings from several sites and where to stream them. Run watch parties with timers, ready checks and scheduled announcements. Hold tournament brackets, server-wide games and multi-day trivia events.
 
-**📚 [Full Documentation](https://eggshenbot.com/)**
+**📚 [Full documentation at eggshenbot.com](https://eggshenbot.com/)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
@@ -14,162 +14,143 @@ A feature-rich Discord bot for searching and discovering entertainment across **
 
 ## 🚀 Quick Start
 
-New to Egg Shen Bot? Get up and running in minutes:
-
-- **[Installation Guide](https://eggshenbot.com/installation)** - Set up the bot from scratch
-- **[Getting Started](https://eggshenbot.com/getting-started)** - First steps and basic usage
-- **[Command Reference](https://eggshenbot.com/commands/)** - Complete list of all commands
-- **[Configuration](https://eggshenbot.com/configuration)** - Customize the bot for your server
-- **[API Keys](https://eggshenbot.com/api-keys)** - Get the API keys you need
+- **[Installation](https://eggshenbot.com/installation)**: run your own copy, from creating the Discord application to registering the commands
+- **[API Keys](https://eggshenbot.com/api-keys)**: which keys you need, and what each optional one adds
+- **[Getting Started](https://eggshenbot.com/getting-started)**: your first commands
+- **[Configuration](https://eggshenbot.com/configuration)**: who can change settings, and the defaults
+- **[Command Reference](https://eggshenbot.com/commands/)**: every command
 
 ---
 
 ## ✨ Features
 
-### 🔍 Search & Discovery
-Search across movies, TV shows, episodes, video games, board games, and books with rich embeds and multi-source ratings. **[→ Full Details](https://eggshenbot.com/commands/search)**
+### 🔍 Search and discovery
+`/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame` and `/book`, with scores from IMDb, Rotten Tomatoes, Metacritic, Letterboxd and Trakt, and where to stream, rent or buy in your region, free services included. `/random` picks something, optionally by genre, decade or your streaming services. `/similar` finds related titles, `/recommend` suggests what to watch next from what your server watches, and `/soundtrack` finds the album. **[→ Search](https://eggshenbot.com/commands/search)**
 
-### 🏆 Tournament Brackets ⭐
-**Host comprehensive entertainment tournaments** with flexible group stages (4-12 groups), dynamic wildcards, and single-elimination knockout brackets. Perfect for community competitions! **[→ Bracket Documentation](https://eggshenbot.com/commands/brackets/)**
+### 🎉 Watch parties
+`/timer` times the party, setting the duration from the movie's or episodes' runtime, with pause, resume and a warning before it ends. `/watchparty ready` asks who's ready before you press play. `/announce` posts the announcement, by hand or automatically before a scheduled Discord event, and a "starting soon" card goes up 10 minutes before each event. `/watched` keeps the server's watch history and `/watchlist` what to watch next. **[→ Watch Parties](https://eggshenbot.com/commands/watch-party)**
 
-### 🎲 Games for the Whole Server
-`/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, streaks and a DarcyBot-style game card (`/scoreboard`, or right-click a member → Apps → Game card) and leaderboard. Earn prizes and titles, use items from your Glovebox, keep a nights-in-a-row streak, and watch for twists and server-wide happenings. Then fight a `/siege` together: a monster attacks a games channel for a week (or whatever pace the server picks), grabs and poisons fighters, and pays everyone who helped bring it down. `/how-to-play` explains it all in Discord. **[→ Games](https://eggshenbot.com/commands/games)**
+### 🏆 Tournament brackets
+`/bracket-setup` builds a tournament of movies, shows, games, board games or books: a bracket of up to 32 titles, or a group stage of up to 48. Add titles one at a time or from a spreadsheet through a web form, and seed them at random, in your order or by rating. Members vote with buttons, follow live standings, and see each result and the bracket drawn as images. Ties go to a runoff. **[→ Tournaments](https://eggshenbot.com/commands/brackets/)**
 
-### 🎉 Watch Parties
-Coordinate viewing events with built-in timers, watch history tracking, and server statistics. **[→ Watch Party Commands](https://eggshenbot.com/commands/watch-party)**
+### 🎲 Games
+`/potion`, `/foodfight`, `/doom` and `/rescue` score points against other members, with streaks, items, prizes, titles, nights in a row, random twists and server-wide happenings. In `/siege` the whole server fights a monster together, over a week by default. See your game card with `/scoreboard` (or right-click a member → Apps → Game card) and the server's with `/leaderboard`. `/how-to-play` explains the rules in Discord. **[→ Games](https://eggshenbot.com/commands/games)**
 
-### � Event Requests (Optional)
-Let your community submit watch party requests through a web form with Discord OAuth, with your server's own guidance on each field and artwork suggested for each title. Moderators see where each title streams, approve or deny, and approved events are automatically created as Discord Scheduled Events. **[→ Event Request Setup](https://eggshenbot.com/features/event-requests)**
+### 🚀 Escape Velocity
+A multi-day genre trivia event in the style of *Who Wants to Be a Millionaire?*: 15 stages, one launch a day, questions built from TMDB. Admins run it with `/escape-setup`; members play with `/escape play`. **[→ Escape Velocity](https://eggshenbot.com/commands/escape-velocity)**
 
-### �🎮 Social & Fun
-Interactive polls, AI image generation, and games with points (magic potions, food fights, horror-movie fates and rescues, with a scoreboard and leaderboard), plus soundtrack search to engage your community. **[→ Social Commands](https://eggshenbot.com/commands/social)** | **[→ AI Images](https://eggshenbot.com/commands/ai-images)**
+### 📊 Surveys
+`/survey` runs polls of up to 10 options with button voting, an optional timer, a runoff for ties and a chart of the results. **[→ Surveys](https://eggshenbot.com/commands/social)**
 
-### 📺 Streaming & Links
-See where to stream, rent, or buy with TMDB + Watchmode integration. Direct links to IMDb, Letterboxd, Trakt, and more.
+### 🤖 AI (optional, with your OpenAI key)
+`/image` makes images from a prompt, a message, a versus poster of two titles, a tournament matchup or a member's profile. `/announce` can write the announcement text, `/eggshen-ask` answers questions about the bot from its docs, and `/recommend` explains its picks. Each server switches these on or off separately. **[→ AI Images](https://eggshenbot.com/commands/ai-images)** | **[→ Ask the Bot](https://eggshenbot.com/commands/ask)**
 
-### ⚙️ Server Management
-Customize permissions, toggle rating services, set region preferences, and configure custom emojis. **[→ Configuration](https://eggshenbot.com/commands/configuration)**
+### 📝 Event requests (optional)
+A web form where members request watch parties, signed in with Discord. Moderators see where each title streams, crop its artwork and approve or deny it, and an approved request becomes a Discord event. **[→ Event Requests](https://eggshenbot.com/features/event-requests)**
+
+### ⚙️ Server admin
+Per-server settings with the `/eggshen-config` commands: rating services, region, which commands members can use, rate limits, moderation tools, game settings and AI switches. `/eggshen-stats` and `/stats` show usage. **[→ Configuration](https://eggshenbot.com/commands/configuration)**
 
 ---
 
 ## 📚 Documentation
 
-### Essential Guides
+### Guides
 
-- **[Installation](https://eggshenbot.com/installation)** - Complete setup instructions
-- **[Getting Started](https://eggshenbot.com/getting-started)** - Your first commands
-- **[Configuration](https://eggshenbot.com/configuration)** - Server customization
-- **[API Keys](https://eggshenbot.com/api-keys)** - Required and optional API keys
+- **[Installation](https://eggshenbot.com/installation)**, **[API Keys](https://eggshenbot.com/api-keys)**, **[Getting Started](https://eggshenbot.com/getting-started)**, **[Configuration](https://eggshenbot.com/configuration)**
+- **[Tournament quick guides](https://eggshenbot.com/guides/tournaments/)** and **[games quick guides](https://eggshenbot.com/guides/games/)**
 
-### Command Documentation
+### Commands
 
-- **[Command Index](https://eggshenbot.com/commands/)** - Overview of all commands
-- **[Search Commands](https://eggshenbot.com/commands/search)** - `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`, `/random`, `/similar`
-- **[Tournament Brackets](https://eggshenbot.com/commands/brackets/)** - Complete bracket system guide with setup, knockout, and tips
-- **[Watch Party](https://eggshenbot.com/commands/watch-party)** - `/timer`, `/watched`, `/announce`
-- **[Social Commands](https://eggshenbot.com/commands/social)** - `/potion`, `/foodfight`, `/doom`, `/rescue`, `/survey`, `/soundtrack`
-- **[Games & Scores](https://eggshenbot.com/commands/games)** - `/scoreboard`, `/leaderboard`, points, shields and game settings
-- **[AI Images](https://eggshenbot.com/commands/ai-images)** - `/image`
-- **[Configuration](https://eggshenbot.com/commands/configuration)** - `/eggshen-config`
-- **[Moderation](https://eggshenbot.com/commands/moderation)** - `/eggshen-restart`, `/eggshen-stats`
+- **[Command index](https://eggshenbot.com/commands/)**: every command at a glance
+- **[Search](https://eggshenbot.com/commands/search)**: `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`
+- **[Watch Parties](https://eggshenbot.com/commands/watch-party)**: `/timer`, `/watchparty`, `/announce`, `/watchlist`
+- **[Tournament Brackets](https://eggshenbot.com/commands/brackets/)**: `/bracket-setup`, `/bracket`
+- **[Games](https://eggshenbot.com/commands/games)**: `/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`, `/scoreboard`, `/leaderboard`, `/how-to-play`
+- **[Escape Velocity](https://eggshenbot.com/commands/escape-velocity)**: `/escape`, `/escape-setup`
+- **[Social](https://eggshenbot.com/commands/social)**: `/survey`, the games' own options and lines, and status quotes (`/quote`, `/suggest-quote`)
+- **[AI Images](https://eggshenbot.com/commands/ai-images)**: `/image`
+- **[Ask the Bot](https://eggshenbot.com/commands/ask)**: `/eggshen-ask`
+- **[Admin Configuration](https://eggshenbot.com/commands/configuration)**: the `/eggshen-config` commands
+- **[Moderation](https://eggshenbot.com/commands/moderation)**: rate limits, member cooldowns and whitelist mode
 
 ### Features
 
-- **[Moderation Tools](https://eggshenbot.com/features/moderation-tools)** - Admin commands and controls
-- **[Rate Limiting](https://eggshenbot.com/features/rate-limiting)** - Built-in cost protection
-- **[Statistics](https://eggshenbot.com/features/statistics)** - Track usage and trends
-- **[Notifications](https://eggshenbot.com/features/notifications)** - Reminders and alerts
-- **[Watch History](https://eggshenbot.com/features/watch-history)** - Track what your community watches
+- **[Event Requests](https://eggshenbot.com/features/event-requests)**: the optional web form
+- **[Rate Limiting](https://eggshenbot.com/features/rate-limiting)** and **[Moderation Tools](https://eggshenbot.com/features/moderation-tools)**
+- **[Watch History](https://eggshenbot.com/features/watch-history)** and **[Statistics](https://eggshenbot.com/features/statistics)**
+- **[Notifications](https://eggshenbot.com/features/notifications)** and **[Logging](https://eggshenbot.com/features/logging)**
 
-### Additional Resources
+### Reference
 
-- **[API Reference](https://eggshenbot.com/api/reference)** - Technical documentation
-- **[Changelog](https://eggshenbot.com/changelog)** - Version history and updates
-- **[Acknowledgements](https://eggshenbot.com/acknowledgements)** - Credits and thanks
+- **[API Reference](https://eggshenbot.com/api/reference)**: the bot's web API
+- **[Changelog](https://eggshenbot.com/changelog)**: what changed in each release
+- **[Acknowledgements](https://eggshenbot.com/acknowledgements)**: credits and thanks
 
 ---
 
 ## 📦 Quick Installation
 
-**Prerequisites:**
-- Node.js 20.x or higher
-- Discord bot token ([Get one here](https://discord.com/developers/applications))
-- TMDB API key (required) - [Get free key](https://www.themoviedb.org/settings/api)
-
-**Install:**
+**You need:**
+- Node.js 20 or newer
+- A Discord application and bot token ([Developer Portal](https://discord.com/developers/applications))
+- A TMDB API key ([free](https://www.themoviedb.org/settings/api))
 
 ```bash
-# Clone the repository
 git clone https://github.com/r3volution11/Egg-Shen-Bot.git
 cd Egg-Shen-Bot
-
-# Install dependencies
 npm install
 
-# Configure environment
 cp .env.example .env
-# Edit .env with your tokens and API keys
+# Fill in DISCORD_TOKEN, DISCORD_CLIENT_ID and TMDB_API_KEY
 
-# Deploy slash commands
-npm run deploy-commands
-
-# Start the bot
+npm run deploy-commands   # registers the slash commands with Discord
 npm start
 ```
 
-**Environment Variables:**
+The bot doesn't register its commands when it starts: run `npm run deploy-commands` once, and again when an update changes a command.
+
+**`.env`, at minimum:**
 
 ```env
 DISCORD_TOKEN=your_discord_bot_token
-DISCORD_CLIENT_ID=your_discord_client_id
+DISCORD_CLIENT_ID=your_discord_application_id
 TMDB_API_KEY=your_tmdb_api_key
-# Optional: WATCHMODE_API_KEY, OMDB_API_KEY, TRAKT_CLIENT_ID, 
-#           RAWG_API_KEY, GOOGLE_BOOKS_API_KEY, OPENAI_API_KEY
+# Optional: OMDB_API_KEY, TRAKT_CLIENT_ID, WATCHMODE_API_KEY, OPENAI_API_KEY,
+#           RAWG_API_KEY, BGG_CLIENT_ID, GOOGLE_BOOKS_API_KEY,
+#           SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 ```
 
-**[→ Full Installation Guide](https://eggshenbot.com/installation)**
+**[→ Full installation guide](https://eggshenbot.com/installation)** · **[→ Running it on a server with PM2](DEPLOYMENT.md)**
 
 ---
 
 ## 🏠 Self-Hosting
 
-Every instance of this bot is independent. When you follow the [Installation Guide](https://eggshenbot.com/installation), you create your **own** Discord application in your **own** Discord Developer Portal account, run it on your **own** server, and store your **own** data (server settings, timers, tournaments — all in local files/directories your instance controls). There's no shared backend, no central account, and no ongoing connection back to the original project — the original maintainer has no access to, or control over, your bot once it's running.
+Every copy of this bot is independent. Following the [installation guide](https://eggshenbot.com/installation), you create your **own** Discord application, run it on your **own** machine with your **own** API keys, and keep your **own** data: server settings, timers, tournaments and scores are files in your copy's folder. There's no shared backend and no central account. The original maintainer has no access to, or control over, your bot.
 
-If you only want the core bot on a single Discord server, the [Installation Guide](https://eggshenbot.com/installation) is all you need — it explicitly calls out the minimum steps and skips anything you don't need. The optional [Event Requests feature](https://eggshenbot.com/features/event-requests) (a public web form for event requests) has its own setup guide, including a pattern for running it across multiple Discord communities from one bot process if you moderate more than one server.
+For the core bot on one Discord server, the installation guide is all you need. The [event request form](https://eggshenbot.com/features/event-requests) is optional and has its own [setup guide](EVENT_REQUEST_SETUP.md), including running it for several Discord servers from one bot.
 
-## 🎨 Customization & Building Your Own
+## 🎨 Building on it
 
-Egg Shen Bot is designed to be a **starting point for your own entertainment bot**! Feel free to:
+Fork it and make it your own: new commands, other APIs, your own name and look.
 
-- **Fork and customize** for your specific community needs
-- **Add new commands** and features
-- **Modify the branding** (bot name, colors, emojis)
-- **Integrate new APIs** (music services, streaming platforms, etc.)
-- **Extend tournament systems** with your own game types
-- **Build on the event request system** for your use cases
+- `src/commands/`: slash commands. Each file is picked up automatically; add new ones to `src/commands/help.js` by hand
+- `src/services/`: the outside APIs (TMDB, OMDb, RAWG…)
+- `src/utils/`: shared helpers
+- `public/`: the web pages (event request form, crop page, tournament setup form)
+- `docs/`: this documentation site (VitePress)
 
-The codebase is structured for extensibility:
-- `/src/commands/` - Add new slash commands
-- `/src/services/` - Integrate new APIs
-- `/src/utils/` - Shared utilities and helpers
-- `/public/` - Event request web form (fully customizable)
-- `/docs/` - VitePress documentation (edit and deploy your own)
+`npm test` runs the test suite, and `npm run check:commands` checks every command fits Discord's size limit.
 
-**Developer-friendly features:**
-- ✅ Clear file structure with separation of concerns
-- ✅ Reusable embed builders and formatting utilities
-- ✅ Comprehensive example commands showing best practices
-- ✅ Built-in error handling and logging
-- ✅ Unit tests to ensure stability as you build
-
-**Need help getting started?** Check out the existing commands as templates, or open a [Discussion](https://github.com/r3volution11/Egg-Shen-Bot/discussions) for guidance!
+Questions or ideas? Open an [issue](https://github.com/r3volution11/Egg-Shen-Bot/issues).
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE) — free to use, modify, and self-host, with no strings attached.
+[MIT](LICENSE): free to use, modify and self-host.
 
 ---
 
-**[📚 View Full Documentation](https://eggshenbot.com/)** | **[🐛 Report Issues](https://github.com/r3volution11/Egg-Shen-Bot/issues)** | **[💬 Join Discussion](https://github.com/r3volution11/Egg-Shen-Bot/discussions)**
+**[📚 Documentation](https://eggshenbot.com/)** | **[🐛 Report an issue](https://github.com/r3volution11/Egg-Shen-Bot/issues)** | **[📝 Changelog](https://eggshenbot.com/changelog)**

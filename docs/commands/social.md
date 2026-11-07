@@ -1,11 +1,17 @@
 ---
 title: Social Commands - Egg Shen Bot
-description: Interactive social features including surveys/polls, magical potions, food fights, horror-movie fates and rescues with points, and status quotes for entertainment-focused Discord communities.
+description: Surveys with live vote bars, runoffs and a drawn results chart, the /potion, /foodfight, /doom and /rescue games, and the bot's status quotes.
+kitHeadings:
+  survey-commands: chart
+  potion-command: potion
+  food-fight: food
+  doom: doom
+  rescue: rescue
 ---
 
 # Social Commands
 
-**Add fun and interactive elements** to your entertainment Discord community with surveys, polls, potions, food fights, horror-movie fates and rescues, and status quotes.
+Surveys, four quick games to play on each other, and the quotes the bot shows as its status.
 
 `/potion`, `/foodfight`, `/doom` and `/rescue` are games with points, a `/scoreboard` and a `/leaderboard`, and `/siege` is a fifth, played all together against a monster. See **[Games & Scores](./games)** for how points, shields, limits and sieges work. Each play can take an `item:` from your [Glovebox](./games-rewards#the-glovebox-and-items), and keep playing to earn [prizes](./games-rewards#prizes) and [titles](./games-rewards#titles).
 
@@ -15,7 +21,7 @@ description: Interactive social features including surveys/polls, magical potion
 A: Yes! Use `/eggshen-config commands toggle setting:Survey Command enabled:false`
 
 **Q: Who can manage surveys?**  
-A: The person who created the survey, server administrators, and moderators can close or delete surveys.
+A: The person who created the survey, and anyone with the Administrator or Manage Server permission, can close or delete it.
 
 **Q: How do users vote in surveys?**  
 A: By clicking the button under their choice.
@@ -45,7 +51,7 @@ A: A runoff vote between just the tied options starts automatically. If the runo
 
 ## Survey Commands
 
-Create interactive polls and surveys with up to 10 options, live vote tracking, optional auto-close, and comprehensive management.
+Ask the server a question with up to 10 answers. Members vote with buttons, the card shows the votes as bars as they come in, and a closed survey gets a drawn chart of the results.
 
 ### Create a Survey
 
@@ -82,11 +88,11 @@ Create interactive polls and surveys with up to 10 options, live vote tracking, 
 ```
 
 **How It Works:**
-1. Bot posts an embed with your question and a button under each option
-2. Users vote by clicking a button
-3. The survey message updates live with current vote counts and percentages as votes come in, and you'll get a private confirmation of your own vote
-4. If a `duration` was set, the embed shows when voting ends and the bot automatically closes the survey and posts results at that time — otherwise, use `/survey close` when you're ready to end it
-5. Anyone can view live results any time with `/survey results`
+1. The bot posts your question with a button for each option, and tells you privately the survey's ID
+2. Members vote by clicking a button, and each gets a private confirmation of their vote
+3. From the first vote, the card shows each option's bar, share and votes, the leader's bar in gold (see [View Survey Results](#view-survey-results))
+4. If a `duration` was set, the card shows when voting ends, and the bot closes the survey and posts the results then. Otherwise, use `/survey close` when you're ready to end it
+5. Anyone can check the results privately any time with `/survey results`
 
 ---
 
@@ -112,17 +118,18 @@ A survey nobody voted in has no winner and no runoff, and a tie for second place
   - `all` - Show all surveys
 
 **Features:**
-- Shows up to 25 most recent surveys
-- Displays survey ID, question, vote count, creation time, and channel
+- Shows the 25 most recent surveys
+- Shows each one's ID, question, vote count, when it was created, its channel, and when an open one closes
 - Status indicators: 🟢 Active, 🔴 Closed
-- Jump links to original survey messages
 
 **Examples:**
 ```
 /survey list
-/survey list filter:Active
-/survey list filter:All
+/survey list filter:closed
+/survey list filter:all
 ```
+
+Only you see the list.
 
 ---
 
@@ -136,11 +143,11 @@ A survey nobody voted in has no winner and no runoff, and a tie for second place
 - `poll_id` (required) - The survey to view — start typing the question and Discord will suggest matching surveys (active and closed) with their live vote counts
 
 **Features:**
-- Detailed results with progress bars
-- Vote percentages for each option
-- Total vote count
-- Shows your own votes (if any)
-- Link to jump to original survey message
+- Only you see the reply
+- Each option with its bar, share and votes, most votes first
+- The total votes, in the footer
+- Your own votes, if any
+- A link to the survey's message, and to its runoff if it had one
 - Works for both active and closed surveys
 
 **Example:**
@@ -148,7 +155,7 @@ A survey nobody voted in has no winner and no runoff, and a tie for second place
 /survey results poll_id:a1b2c3d4e5f6g7h8
 ```
 
-**Result Display:**
+**What the card shows** (the live survey and `/survey results` look the same; here in plain emoji):
 ```
 📊 What should we watch tonight?
 
@@ -164,9 +171,10 @@ A survey nobody voted in has no winner and no runoff, and a tie for second place
 Your Vote(s): 1️⃣ Horror
 ```
 
-The leader gets a 🏆 and a gold bar; everyone else's bar is blue, so the front-runner stands out at a glance. If the top spots are tied, no option is crowned and every bar is blue.
-
-Once the bot's own emoji are uploaded (it does this itself on its first start), the bars are drawn with them, and they turn grey when the survey closes. A survey with many long options gets shorter bars so the whole card still fits; the bars keep the same length from the first vote to the last.
+- **The leader** gets a 🏆, its name in bold and a gold bar. Everyone else's bar is blue. If the top spots are tied, nobody gets the 🏆 and every bar is blue.
+- **Each option** shows its share as `82%` and its votes, such as `82%` · 14 votes.
+- **Once the bot's own emoji are uploaded** (it does this itself on its first start), the bars are drawn with them, and they turn grey when the survey closes. The 🏆 then marks the winner.
+- **Long options** get shorter bars so the whole card still fits Discord's limits. The bars keep the same length from the first vote to the last.
 
 ---
 
@@ -179,12 +187,12 @@ Once the bot's own emoji are uploaded (it does this itself on its first start), 
 In a busy channel the survey scrolls up out of sight. This posts it again at the bottom, as a new message, with its vote buttons and the votes so far, so people can find it and see how it's going.
 
 **Parameters:**
-- `poll_id` (optional) - The survey to post. Leave it out when only one survey is open; with several open, start typing the question and pick one
+- `poll_id` (optional) - The survey to post. Leave it out when only one survey is open (in this channel, or on the server); with several open, start typing the question and pick one
 
 **How It Works:**
 - The new card is the survey from then on: votes on it update it, and it's the one that shows the final result when the survey closes
 - The old card greys out its buttons and gets a link down to the new one, so there's never an out-of-date count with working buttons left behind
-- Anyone who can use `/survey` can run it. Members can post the same survey once every 10 minutes per channel; the survey's creator and anyone who can manage the server, any time
+- Anyone who can use `/survey` can run it. Members can post the same survey once every 10 minutes per channel; the survey's creator, and anyone with the Administrator or Manage Server permission, any time
 - Closed surveys can't be posted again; use `/survey results` to see how they ended. Very old surveys that were voted on with reactions can't move either, and you get a link to the original instead
 
 **Example:**
@@ -205,14 +213,14 @@ In a busy channel the survey scrolls up out of sight. This posts it again at the
 
 **Permissions:**
 - Survey creator
-- Server administrators
-- Moderators (users with kick/ban/timeout permissions)
+- Anyone with the Administrator or Manage Server permission
 
 **Features:**
 - Ends voting immediately
 - Disables the voting buttons on the survey message (they stay visible, just grayed out)
 - Updates the original message to show final results
-- Posts final results as a new message in the channel, with a chart of them: each option's share as a bar, most votes first, the winner's bar gold under a crown (or the 🎲 when a runoff was settled at random), and the total underneath. Emoji in the question and options are left out of the chart. If the chart can't be drawn, or the bot can't attach files in that channel, the message posts without it
+- Posts the final results as a new message, **🏁 Survey Closed:** and the question, with a drawn chart: each option's share and votes as a bar, most votes first, the winner's bar gold under a crown (or the 🎲 when a runoff was settled at random), and the total underneath, with a note when it tied or allowed several votes. Emoji in the question and options are left out of the chart. The message's text names the winner, such as 🏆 1️⃣ **Halloween (1978)** · `47%` · 14 votes
+- If the chart can't be drawn within 5 seconds, or the bot can't attach files in that channel, the message posts without it and lists every option with its bar instead
 - Closed surveys can still be viewed with `/survey results`
 
 <img class="result-image" src="/images/survey-5.webp" alt="A drawn survey results chart for 'What should we watch for the Friday double feature?'. Halloween (1978) leads under a crown with 47%, 14 votes, on a gold bar; The Thing 30%, 9 votes; Alien 17%, 5 votes; Jaws 7%, 2 votes; Night of the Living Dead 0%. 30 votes in all." width="960" height="480" loading="lazy">
@@ -239,8 +247,7 @@ In a busy channel the survey scrolls up out of sight. This posts it again at the
 
 **Permissions:**
 - Survey creator
-- Server administrators
-- Moderators (users with kick/ban/timeout permissions)
+- Anyone with the Administrator or Manage Server permission
 
 **Features:**
 - Permanently removes the survey from storage
@@ -261,17 +268,12 @@ In a busy channel the survey scrolls up out of sight. This posts it again at the
 
 ### Permission System
 
-Three types of users can manage surveys:
+Two kinds of member can close or delete a survey:
 
-1. **Survey Creator** - The person who created the survey
-2. **Administrators** - Users with Administrator permission
-3. **Moderators** - Users with any of these permissions:
-   - Manage Server
-   - Kick Members
-   - Ban Members
-   - Timeout Members (Moderate Members)
+1. **The survey's creator**
+2. **Anyone with the Administrator or Manage Server permission**
 
-Regular users can only vote, not manage surveys.
+Moderators with only Kick, Ban or Timeout Members can't close someone else's survey. Everyone else can vote, view results and post a survey again with `/survey voting-post`.
 
 ### Storage and Persistence
 
@@ -335,9 +337,13 @@ Give magical potions with pop culture references, to a member, a whole role, or 
 /potion responses remove type:health index:1
 /potion responses reset type:health
 /potion theme set themes:horror,comedy
+/potion theme add theme:gaming
+/potion theme remove theme:comedy
+/potion theme list
+/potion theme reset
 ```
 
-A response needs both `{giver}` and `{receiver}`, and an `outcome`: `worked` or `backfired`. Your own responses are used alongside the built-in ones; themes narrow which built-in ones are used.
+A response needs both `{giver}` and `{receiver}`, and an `outcome`: `worked` or `backfired`. Your own responses are used alongside the built-in ones; themes narrow which built-in ones are used, and `reset` goes back to all of them.
 
 ---
 
@@ -555,7 +561,7 @@ If both `title` and `author` are given, a quote matching *either* one is returne
 **Solution:** Check if it's enabled: `/eggshen-config settings view` and look at the Command Permissions section.
 
 **Problem:** Can't close someone else's survey  
-**Solution:** Only the creator, admins, or moderators can manage surveys. Regular users can only vote.
+**Solution:** Only the creator, or someone with the Administrator or Manage Server permission, can close or delete a survey.
 
 **Problem:** Lost the survey ID  
 **Solution:** Use `/survey list` to find all surveys and their IDs.

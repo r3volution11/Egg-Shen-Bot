@@ -1,84 +1,76 @@
 ---
 title: Search Commands - Egg Shen Bot
-description: Search movies, TV shows, episodes, video games, board games, and books with comprehensive ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek, and Google Books.
+description: Search movies, TV shows, episodes, video games, board games, books and soundtracks, with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek and Google Books.
 ---
 
 # Search Commands
 
-**Search for movies, TV shows, episodes, video games, board games, and books** across multiple databases with comprehensive ratings and links. All search commands provide detailed information, ratings from multiple sources, and streaming availability.
+**Look up movies, TV shows, episodes, video games, board games, books and soundtracks.** Each result shows ratings from several sites, links, and for movies and shows, where to watch in your server's region.
 
 ## Quick FAQ
 
-**Q: What information do search commands provide?**  
-A: Ratings from multiple sources, release dates, runtime, genres, cast, overview, streaming platforms, and links to external sites.
+**Q: What does a movie or show result show?**  
+A: The synopsis, poster, ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes and Metacritic, where it streams, the runtime (or status and seasons for a show), genres and languages.
 
 **Q: Why are some ratings missing?**  
-A: Some content doesn't have ratings on all platforms, or the API keys for those services aren't configured.
+A: Not every title has a rating everywhere, the bot may not have the key for that site (IMDb, Rotten Tomatoes and Metacritic come from OMDb; Trakt needs a Trakt key), or an admin has switched that site off.
 
 **Q: Can I search by year?**  
-A: Include the year in your search query (e.g., "The Batman 2022") to help find the right version.
+A: Yes. Add the year to your search, such as `The Thing 1982`, to pick out a remake or an older version.
 
 **Q: What if I can't find something?**  
-A: Check TMDB.org to see if it exists. The bot searches their database.
+A: Check that it's on [TMDB](https://www.themoviedb.org), which the bot searches for movies and TV. Try another spelling or the original title.
 
 ---
 
-Search for movies, TV shows, episodes, games, board games, and books across multiple databases.
-
 ## Results Are Shared With the Channel
 
-Search results post publicly to the channel by default — the whole point of a shared bot is that everyone can see what was found, not just the person who ran the command. If you're searching for yourself and don't want to clutter the channel (or you're just curious about something without announcing it), add `private:true` to keep the result visible only to you:
+Search results post in the channel, so everyone can see what you found. A small grey line above the result shows who ran which command, so others can do the same. It never pings anyone.
+
+To keep a result to yourself, add `private:true`:
 ```
 /movie query:The Thing private:true
 ```
-This works on every search command in this page: `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`, and `/soundtrack`, as well as `/watched add` and `/image`.
+This works on `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` and `/soundtrack`, as well as `/watched add`, `/recommend` and `/image`.
 
-If a search finds multiple matches, the "which one did you mean" picker always stays private while you narrow it down — only the final result's visibility depends on `private`.
+When several titles match, you first pick the right one from a list only you can see. Only the final result follows `private`.
 
 ## Smarter Auto-Selection
 
-`/movie`, `/tv`, and `/episode` use AI-powered semantic ranking to sort search results by how well they actually match your query, not just keyword overlap. When one result is a **decisive, clear-cut match** — far ahead of anything else found — the bot skips the "which one did you mean" picker entirely and shows that result directly. This only happens for genuinely unambiguous searches; if two or more results are close contenders (e.g. a movie and its same-named remake), the picker still shows so you can pick the right one.
+`/movie`, `/tv` and `/episode` rank the matches by how well they fit your search, using AI when the bot has an OpenAI key. When one result is far ahead of the rest, you get it straight away with no list to pick from. When two are close, like a movie and its remake, you get the list.
 
-When the picker *does* show, the first few results are cross-checked against IMDb's release year in addition to TMDB's. If the two disagree — which happens sometimes for festival releases, regional release dates, or other TMDB/IMDb quirks — both years are shown, e.g. `It (1990 (IMDb: 1991))`, so you're not left guessing which year is "the" release year you remember.
+On that list, the top few results are checked against IMDb's release year as well as TMDB's. When the two disagree, both are shown, such as `It (1990 (IMDb: 1991))`.
+
+How many results the list shows is set per server with `/eggshen-config settings max-results` (20 by default).
 
 ## Movie Search
-
-Search for movies and view detailed information.
 
 ```
 /movie query:<title>
 ```
 
-**Parameters:**
-- `query` (required) - Movie title to search for
-- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
+**Options:**
+- `query` (required) - The movie's title
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- TMDB integration for comprehensive movie data
-- OMDB integration for additional ratings
-- Rotten Tomatoes Critics score (see note below)
-- Metacritic score (movies; TV series rarely carry a Metascore)
-- IMDb ratings and links
-- Trakt.tv integration
-- Letterboxd links
-- Release dates and runtime
-- Cast and crew information
-- Genre and content ratings
-- Streaming availability via JustWatch
-- Also-known-as (AKA) title matching, so movies better known under a reissue/US title still turn up and display correctly
+**Shows:**
+- The title and year, linked to IMDb, with the poster and synopsis
+- Ratings: IMDb, Letterboxd, Trakt, RT Critics and Metacritic, each linked, plus a JustWatch link
+- **Streaming Availability** in your server's region: **Stream**, **Free**, **Rent** and **Buy** lines, and a link to every option
+- Runtime, genres and spoken languages
+- **Also Known As**, when the movie is better known by another title
+
+Admins choose which rating sites show with `/eggshen-config settings toggle`, and the streaming region with `/eggshen-config settings region`.
 
 ::: info Why there's no Rotten Tomatoes audience score
-Egg Shen shows the **RT Critics** score but not the audience score. OMDB — the
-bot's source for Rotten Tomatoes data — only returns the critics number; its
-dedicated Tomatoes fields exist but come back empty, since OMDB no longer
-licenses that data. No other integrated service carries RT's audience figure
-either (Watchmode's critic score is its own aggregate, and TMDB/Trakt report
-their own community ratings on a different scale), and the official Rotten
-Tomatoes API is restricted to approved commercial partners.
+Egg Shen shows the **RT Critics** score but not the audience score. OMDb, the
+bot's source for Rotten Tomatoes data, only returns the critics number; its
+audience fields come back empty, since OMDb no longer licenses that data. No
+other service the bot uses carries RT's audience figure either, and the official
+Rotten Tomatoes API is limited to approved commercial partners.
 
-Rather than label someone else's number as RT's, the badge is always shown as
-"RT Critics". For an audience-side view, the **IMDb**, **Trakt**, and
-**Letterboxd** badges are all community-voted scores.
+So the badge always says "RT Critics". For an audience view, the **IMDb**,
+**Trakt** and **Letterboxd** ratings are all voted by their communities.
 :::
 
 **Example:**
@@ -88,24 +80,17 @@ Rather than label someone else's number as RT's, the badge is always shown as
 
 ## TV Show Search
 
-Search for TV shows and view series information.
-
 ```
 /tv query:<title>
 ```
 
-**Parameters:**
-- `query` (required) - TV show title to search for (optionally include episode name)
-- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
+**Options:**
+- `query` (required) - The show's title
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Complete series information
-- Season and episode counts
-- Air dates and network info
-- Cast and crew details
-- Ratings from multiple sources
-- Streaming availability
-- Episode guide links
+**Shows:** the title and first-air year, poster, synopsis, the same ratings and streaming lines as a movie, whether it's still running or ended, the number of seasons, genres and languages.
+
+To look up one episode, use `/episode`.
 
 **Example:**
 ```
@@ -114,25 +99,18 @@ Search for TV shows and view series information.
 
 ## Episode Search
 
-Search for specific episodes of TV shows.
-
 ```
-/episode show:<show-name> episode:<episode>
+/episode show:<show> episode:<title or number>
 ```
 
-**Parameters:**
-- `show` (required) - Name of the TV show
-- `episode` (required) - Episode title or number (e.g., "Sandkings", "s3e11", "3x11")
-- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
+**Options:**
+- `show` (required) - The show's name
+- `episode` (required) - The episode's title (`Sandkings`) or its number (`s3e11`, `3x11`)
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Episode-specific information
-- Air dates
-- Episode summaries
-- Guest cast
-- Ratings and reviews
+**Shows:** the show and episode title, season and episode number, synopsis, air date, runtime, and the episode's own ratings and links.
 
-**Example:**
+**Examples:**
 ```
 /episode show:The Outer Limits episode:Sandkings
 /episode show:Stranger Things episode:s1e1
@@ -140,22 +118,22 @@ Search for specific episodes of TV shows.
 
 ## Episode List
 
-View a list of all episodes in a season.
-
 ```
-/episode-list series:<show-name> season:<number>
+/episode-list series:<show> season:<number>
 ```
 
-**Parameters:**
-- `series` (required) - Name of the TV show
-- `season` (required) - Season number (integer)
-- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
+**Options:**
+- `series` (required) - The show's name
+- `season` (required) - The season number
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Complete season overview
-- Episode titles and air dates
-- Episode numbers and descriptions
-- Quick navigation to specific episodes
+**Shows:** every episode in the season, in columns, with its title (linked to IMDb), number, air date and TMDB rating, plus a link to the whole season on IMDb.
+
+A Discord card holds at most 25 entries, so a season with more than 25 episodes isn't listed. The bot says so and suggests `/episode` instead, which finds any one of them by title or number:
+
+```
+/episode show:Days of Our Lives episode:s1e1
+```
 
 **Example:**
 ```
@@ -164,24 +142,17 @@ View a list of all episodes in a season.
 
 ## Game Search
 
-Search for video games and view detailed information.
+Video games, from RAWG. Needs a RAWG API key; without one, `/game` isn't registered.
 
 ```
 /game query:<title>
 ```
 
-**Parameters:**
-- `query` (required) - Game title to search for
-- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
+**Options:**
+- `query` (required) - The game's title
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- RAWG database integration
-- Release dates and platforms
-- Metacritic scores
-- Genre and tags
-- Developer and publisher info
-- Store links
-- Screenshots and trailers
+**Shows:** Metacritic and RAWG ratings, platforms, genres, release date, developers, publishers, the ESRB rating, and links to the official site, RAWG and Metacritic.
 
 **Example:**
 ```
@@ -190,22 +161,17 @@ Search for video games and view detailed information.
 
 ## Board Game Search
 
-Search for board games and view detailed information.
+Board games, from BoardGameGeek. Needs a BoardGameGeek client ID; without one, `/boardgame` isn't registered.
 
 ```
 /boardgame query:<title>
 ```
 
-**Parameters:**
-- `query` (required) - Board game title to search for
-- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
+**Options:**
+- `query` (required) - The board game's title
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- BoardGameGeek database integration
-- Player count and playtime
-- Complexity ratings
-- User ratings and rankings
-- Categories and mechanics
+**Shows:** the BGG rating, Geek rating and rank, players, playing time, minimum age, complexity, categories, mechanics, designers, publishers and a link to BoardGameGeek.
 
 **Example:**
 ```
@@ -214,125 +180,106 @@ Search for board games and view detailed information.
 
 ## Book Search
 
-Search for books and view detailed information.
+Books, from Google Books.
 
 ```
 /book query:<title or author>
 ```
 
-**Parameters:**
-- `query` (required) - Book title or author to search for
-- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
+**Options:**
+- `query` (required) - The book's title or author
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Google Books database integration
-- Author information
-- ISBN-13 and ISBN-10
-- Page counts and publication dates
-- User ratings from Google Books
-- Categories and genres
-- Preview and purchase links
-- Links to Goodreads and Open Library
+**Shows:** authors, the Google Books rating, categories, publisher, publication date, pages, ISBN-13 and ISBN-10, language, and links to preview or buy it and to Goodreads and Open Library.
 
 **Example:**
 ```
 /book query:Clive Barker Books of Blood
 ```
 
+## Soundtrack Search
+
+```
+/soundtrack query:<movie or show>
+```
+
+**Options:**
+- `query` (required) - The movie's or show's title
+- `private` - Only you see the result (default: false)
+
+You pick the movie or show first, then the bot finds its soundtrack album on iTunes: artwork, artist, track count, release date, price and a link. When the bot has a Spotify key, it adds the Spotify album too.
+
+**Example:**
+```
+/soundtrack query:Halloween
+```
+
 ## Search Tips
 
-### Exact Matches
-Use the full, exact title for best results:
-```
-/movie query:The Thing 1982
-```
-
-### Partial Matches
-The bot will find the closest match if the exact title isn't found:
-```
-/tv query:mandalorian
-→ Finds "The Mandalorian"
-```
-
-### Year Disambiguation
-Include the year to distinguish remakes or similar titles:
+### Add the year
+Add the year to tell a remake from the original:
 ```
 /movie query:Total Recall 1990
 /movie query:Total Recall 2012
 ```
 
-### Alternate Titles (AKAs)
+### Partial titles work
+The bot finds the closest match:
+```
+/tv query:mandalorian
+→ Finds "The Mandalorian"
+```
 
-Some movies and shows are stored in TMDB under an original or foreign title, even though they're actually known and distributed under a different one — for example, the 1978 film *Day of the Woman* is TMDB's title of record for what's far better known as *I Spit on Your Grave*. `/movie` and `/tv` (and `/soundtrack` and `/bracket-setup manage-titles`) check TMDB's alternate-title (AKA) data when a query doesn't cleanly match the top result, so titles like these are still found:
+### Alternate titles (AKAs)
+
+Some titles are stored on TMDB under a title you might not know. For example, the 1978 film TMDB calls *Day of the Woman* is far better known as *I Spit on Your Grave*. When your search doesn't match the top result cleanly, `/movie` and `/tv` (and `/soundtrack` and `/bracket-setup manage-titles`) also check TMDB's alternate titles:
 ```
 /movie query:I Spit On Your Grave
 → Finds "Day of the Woman (1978)"
 ```
-When a result like this is found, its result screen also shows an **Also Known As** field with the more familiar title, so it's clear you found the right one even though the title on-screen looks unfamiliar.
+The result then shows an **Also Known As** field with the title you know.
 
-### Special Characters
-The search handles special characters and punctuation automatically:
+### Punctuation is fine
 ```
 /tv query:It's Always Sunny in Philadelphia
 ```
 
 ## Rate Limiting
 
-Search commands are subject to rate limiting to prevent spam:
-- Per-user cooldown: 3 seconds between searches
-- Guild-wide limit: Depends on server configuration
-- Abuse detection: Repeated rapid searches trigger automatic cooldowns
+By default each member can run a given command once every 20 seconds, and the whole server can run 10 commands a minute. Admins and moderators aren't limited. Admins can change these numbers, or set a limit for one command, with `/eggshen-config-watch-party rate-limit`.
 
-See [Rate Limiting](/features/rate-limiting) for more information.
+See [Rate Limiting](/features/rate-limiting).
 
 ## API Data Sources
 
-### The Movie Database (TMDB)
-- **Required** - Primary data source
-- Movies, TV shows, episodes
-- Images, cast, crew
-- [Get API Key](https://www.themoviedb.org/settings/api)
+| Source | Used for | Key |
+|---|---|---|
+| [TMDB](https://www.themoviedb.org) | Movies, TV shows, episodes, posters, where to watch | Required |
+| [OMDb](https://www.omdbapi.com) | IMDb, Rotten Tomatoes and Metacritic ratings | Optional |
+| [Trakt](https://trakt.tv) | Trakt ratings | Optional |
+| [Watchmode](https://www.watchmode.com) | More streaming services, merged with TMDB's | Optional |
+| [RAWG](https://rawg.io) | `/game` | Optional |
+| [BoardGameGeek](https://boardgamegeek.com) | `/boardgame` | Optional |
+| [Google Books](https://books.google.com) | `/book` | Optional (works without one, with a lower quota) |
+| iTunes | `/soundtrack` | None needed |
+| [Spotify](https://developer.spotify.com) | Spotify links in `/soundtrack` | Optional |
 
-### OMDB
-- **Optional** - Additional ratings
-- IMDb scores and details
-- [Get API Key](http://www.omdbapi.com/apikey.aspx)
-
-### Trakt.tv
-- **Optional** - Watch tracking
-- Social features
-- [Get API Key](https://trakt.tv/oauth/applications)
-
-### RAWG
-- **Optional** - Game database
-- Screenshots and trailers
-- [Get API Key](https://rawg.io/apidocs)
-
-### BoardGameGeek (BGG)
-- **Optional** - Board game database
-- User ratings and rankings
-- [Get Client ID](https://boardgamegeek.com/wiki/page/BGG_XML_API2)
-
-### Google Books
-- **Optional** - Book database
-- Works without API key (1,000 requests/day)
-- API key provides 10,000 requests/day
-- [Get API Key](https://console.developers.google.com/)
+How to get each key: [API Keys Guide](/api-keys).
 
 ## Troubleshooting
 
 ### "No results found"
-- Check spelling of the title
-- Try searching with just keywords
-- Include release year for disambiguation
-- Verify the content is in the database
+- Check the spelling
+- Try fewer words, or the original title
+- Add the release year
+- Check the title is on TMDB (movies and TV), RAWG, BoardGameGeek or Google Books
 
-### "Rate limit exceeded"
-- Wait for the cooldown to expire
-- Check server rate limiting configuration
-- Contact server administrators if limits seem incorrect
+### "You're using commands too quickly!"
+- Wait for the time the message gives
+- Admins can check the limits with `/eggshen-config-watch-party rate-limit view`
 
-### Missing information
-- Ensure all API keys are configured
-- Some older or obscure titles may have limited data
-- Try alternative search terms or titles
+### Missing ratings or streaming services
+- The bot may not have that site's key: see [API Keys](/api-keys)
+- An admin may have switched that site off: `/eggshen-config settings view`
+- Streaming services are for the server's region: `/eggshen-config settings region`
+- Older or obscure titles often have less data

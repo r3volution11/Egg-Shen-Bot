@@ -1,6 +1,6 @@
 ---
 title: Siege - Egg Shen Bot
-description: Every rule of /siege, the monster the whole Discord server fights together. Starting one, attacking with food, dooms and potions, the 11 monsters, grabs and poison, the pace (a week-long campaign by default), the nightly report, rewards and the pot, random sieges and how tough it is.
+description: Every rule of /siege, the monster the whole Discord server fights together. Starting one, attacking with food, dooms and potions, the 11 monsters, grabs and poison, the pace (a week-long campaign by default), the nightly report, the Wang Chi and the Jack Burton, backing a fighter, rewards and the pot, random sieges and how tough it is.
 kit: true
 kitHeadings:
   starting-a-siege: upset
@@ -10,6 +10,8 @@ kitHeadings:
   pace: clock
   random-sieges: dice
   how-a-siege-ends: trophy
+  the-wang-chi-and-the-jack-burton: wang
+  backing-a-fighter: back
   rewards-and-the-penalty: gift
   the-siege-card: chart
   the-daily-report: scroll
@@ -17,7 +19,7 @@ kitHeadings:
 
 # Siege
 
-A monster crawls out of the screen and attacks the drive-in. Everyone in the server fights it together with food, dooms and potions. Beat it before the time runs out and everyone who fought is paid, with a bonus and loot for the one who did the most. Let it get away and everyone who fought loses a few points.
+A monster crawls out of the screen and attacks the drive-in. Everyone in the server fights it together with food, dooms and potions. Beat it before the time runs out and everyone who fought is paid. The biggest honour goes to the **Wang Chi**, whoever did the most to keep the others in the fight, and the killing blow earns the **Jack Burton**: a laugh and a small bonus. Let it get away and everyone who fought loses a few points.
 
 Nobody is the target, so there's no one to annoy: the monster takes the hits. Only the attacker is scored.
 
@@ -55,6 +57,7 @@ An admin can start any monster in any month. The Headless Horseman only turns up
 /siege attack weapon:food
 /siege attack weapon:doom
 /siege attack weapon:potion item:Lucky Penny
+/siege back fighter:@Sam points:5
 ```
 
 Pick a weapon, and optionally an [item](#items-in-a-siege). Anyone can fight, with no sign-up. Your first attack puts you in the fight.
@@ -63,9 +66,10 @@ Pick a weapon, and optionally an [item](#items-in-a-siege). Anyone can fight, wi
 - **Same limits as the other games:** a 20-second cooldown and 6 plays a minute (see [Limits](./games-playing#limits)). The reply says if you're early, and an early attack costs you nothing.
 - **Lines of its own.** Each weapon has its own lines, written for a fight with a monster, so a pie lands on The Blob rather than on a person with a monster's name in it.
 - **Not while it has you.** A fighter the monster has [grabbed](#it-fights-back) can't attack until someone frees them, and one it has digested is out (at 3 days and week pace, out for a day). You're told privately, and it costs you nothing.
-- **Attacks a night.** From evening pace on, each member gets a number of attacks a night: 8 at week pace (see [Pace](#pace)). They come back at the start of each night, 12:00 UTC. One past them is refused privately, telling you when the next come, and costs you nothing. On a siege's last night (an evening siege's only one) none are coming, and it says that's all your attacks for this siege. Freeing and curing are unlimited.
+- **Attacks a night.** From evening pace on, each member gets a number of attacks a night: 8 at week pace (see [Pace](#pace)). They come back at the start of each night, 12:00 UTC. One past them is refused privately, telling you when the next come, and costs you nothing. On a siege's last night (an evening siege's only one) none are coming, and it says that's all your attacks for this siege. Freeing and curing don't use them.
 - **A weapon is its game.** If an admin has turned `/foodfight`, `/doom` or `/potion` off, that weapon can't be used on the monster.
 - **No monster, or too late.** With no siege on, or once it's beaten or its time is up, you're told privately and your cooldown isn't spent.
+- **Back a fighter.** In the first half of a siege you can stake 2 to 10 of your points on someone else in the fight. See [Backing a fighter](#backing-a-fighter).
 
 Each attack posts its line, your points, and what it did to the monster. From evening pace on, a member's first attack each night grows the monster ("Sam is back for another night"), and the reply ends with what's left of your night. From day pace on, it says your points go to the pot, and what the pot is now. The pot grows with each fighter-night, not with each attack, so it only moves on someone's first attack of a night:
 
@@ -160,7 +164,9 @@ While people are fighting, the monster fights back. At quick pace it acts every 
 
 It only picks fighters who are free and have attacked at least once (from evening pace on, only those who've been fighting in the last 30 minutes; with nobody like that, it roars), and it **never grabs the last free fighter**: with one left, it poisons them instead. A grab needs `/rescue` turned on for members and a poison needs `/potion`; otherwise it roars. If `/rescue` is turned off mid-fight, the grabbed are let go, and if `/potion` is, the poisoned are cured.
 
-**Your share** of the win counts all of it: damage, **+12** for each fighter you freed, and **+8** for each one you cured. Freeing or curing puts you in the fight even if you never attacked, and neither uses your attacks.
+**Your share** of the win counts all of it: damage, **+12** for each fighter you freed, and **+8** for each one you cured (those also count as **help**, which decides the [Wang Chi](#the-wang-chi-and-the-jack-burton)). Freeing or curing puts you in the fight even if you never attacked, and neither uses your attacks.
+
+**Past the daily scoring cap.** A `/rescue` or `/potion` past your daily scoring cap (see [Limits](./games-playing#limits)) still frees or cures them: saving a friend is never blocked, and a sacrifice still swaps. But only your **first 2 a night** count toward your share and the Wang Chi; the reply says when one doesn't. On a server where plays don't score at all, that's every rescue and potion, so there too the first 2 a night count. A night runs 12:00 to 12:00 UTC (a 3-day or week campaign's first night as its [attacks](#pace) count it). Scored plays always count. Field Medic counts scored ones only, as before.
 
 If the bot restarts just as the monster acts, the action is dropped rather than half done: nobody is grabbed or poisoned unless the message pinging them went out.
 
@@ -188,7 +194,9 @@ The pace changes nothing about a single play. Cooldowns, the daily caps, items, 
 | The win pool | 8 a fighter | 6 a fighter a night | 6 a fighter a night | 5 a fighter a night | 4 a fighter a night |
 | The pool's range | 24–200 | 24–200 | 24–200 | 24–600 | 24–1,400 |
 | Most one fighter's share pays | 30 | 30 | 30 | 45 | 60 |
-| The MVP's bonus | +5 | +5 | +5 | +10 | +15 |
+| The Wang Chi | +8 | +8 | +8 | +16 | +24 |
+| The Jack Burton | +3 | +3 | +3 | +6 | +9 |
+| [Backing](#backing-a-fighter) closes after | 22½ minutes (half its time) | 2 hours | 12 hours | 27 to 39 hours | 75 to 87 hours |
 | HP is sized on | members who played this week | members who played this week | the fighters it expects | the fighters it expects | the fighters it expects |
 | New fighters stop growing it | in its last 5 minutes | last 30 minutes | last 3 hours | last 8 hours | last 24 hours |
 | Difficulty after a win / an escape | +5% / −12% | +5% / −12% | +8% / −18% | +10% / −22% | +10% / −22% |
@@ -250,29 +258,77 @@ A siege uses the difficulty as it stands when it starts, and keeps it for the wh
 |---|---|
 | 🏆 **Won** | The monster's HP hits 0. It's beaten within about a minute, and the results are posted. |
 | 💨 **Escaped** | The time runs out first. Everyone who fought pays the penalty, and the results are posted. From day pace on, they wait for the next game anyone plays on the server (12 hours at the latest), so a campaign that ends at 12:00 UTC doesn't ping everyone in the middle of the night. A win is always posted at once. |
-| ⏹️ **Called off** | An admin runs `/siege end`, or [turns `/siege` off](#turning-it-off) while one is on. No rewards, no penalty, and the difficulty doesn't move. The card says it was called off. If the monster was already at 0 HP, an end counts as the win it was, and if its time was already up, as the escape it was. |
+| ⏹️ **Called off** | An admin runs `/siege end`, or [turns `/siege` off](#turning-it-off) while one is on. No rewards, no penalty, and the difficulty doesn't move. Anyone who [backed a fighter](#backing-a-fighter) gets their stake back. The card says it was called off. If the monster was already at 0 HP, an end counts as the win it was, and if its time was already up, as the escape it was. |
 
 ```
 /siege end
 ```
 
-Only admins and moderators can end one early, and only one that is still on. The card is frozen straight away. If it ends as a win or an escape, the reply says which channel the results went to (the siege's, or, if that channel is off the games list, where a happening would be announced), or that they couldn't be posted yet.
+Only admins and moderators can end one early, and only one that is still on. The card is frozen straight away, and the reply says when backers got their stakes back. If it ends as a win or an escape, the reply says which channel the results went to (the siege's, or, if that channel is off the games list, where a happening would be announced), or that they couldn't be posted yet.
 
-The results come as a **new message** that pings up to 20 of the fighters (edits don't notify), with the monster's own defeat or escape line. Anyone digested while nobody was around whom no [report](#the-daily-report) named is listed there ("Digested while nobody was around: Sam −5") and pinged. Underneath, each fighter has a row: their place, damage, points, any loot and any [title](./games-rewards#titles) they just earned.
+The results come as a **new message** that pings up to 20 of the fighters (edits don't notify), with the monster's own defeat or escape line, then on a win a line for the [Wang Chi](#the-wang-chi-and-the-jack-burton) and one for the Jack Burton (or one for both). Anyone digested while nobody was around whom no [report](#the-daily-report) named is listed next ("Digested while nobody was around: Sam −5") and pinged. Underneath, each fighter has a row: their place, damage, points (🗡️ and 🔪 mark the honours in them), any loot and any [title](./games-rewards#titles) they just earned. Then a **Backing** field has a line for each backer.
+
+<DiscordCard name="siege-results" />
+
+## The Wang Chi and the Jack Burton
+
+In *Big Trouble in Little China* the flashy one gets the credit and the sidekick is the real hero. A won siege works the same way.
+
+- **The Wang Chi** is the fighter who **helped most**: 12 for each fighter they freed and 8 for each one they cured. They need at least 8 (one cure). They get **+8** points (**+16** at 3 days, **+24** at week pace) and a **loot item, every time**. A helper who never attacked can be the Wang Chi. If two helped equally, the one who did more in all wins, then whoever joined first.
+- **Nobody needed saving?** Then the fighter who did the most holds the line: they're the Wang Chi, with the same bonus and loot.
+- **The Jack Burton** is whoever landed the **killing blow**, an attack or the last tick of their poison. They get **+3** (**+6** at 3 days, **+9** at week pace) and a line in the results. The Wang Chi can be the Jack Burton too, and gets both.
+- Both are paid with the win, so they're part of the [2 rewarded sieges a day](#rewards-and-the-penalty): past that limit, no honours.
+- **Alone, neither.** A siege beaten by one fighter has no honours, and an escape or a called-off siege has none either.
+- Being the Wang Chi counts toward **Siege MVP**, the **Wang Chi** title (5) and **Legend of the Drive-In** (10). The Jack Burton counts toward **Everybody Relax, I'm Here** (10). See [titles](./games-rewards#titles).
+
+The results give each its own line above the table, and the frozen card names both. While a siege is on, the card shows the **Wang Chi so far** once someone has helped at least 8, and each [nightly report](#the-daily-report) names the night's.
+
+The Wang Chi replaced the MVP (whoever did the most) in 2.75: the old MVP's +5 is gone, and MVPs already earned keep counting toward the titles. A siege that was on when 2.75 arrived finished on these rules, its frees and cures counted.
+
+## Backing a fighter
+
+```
+/siege back fighter:@Sam points:5
+```
+
+Think you know who the real hero is? Stake **2 to 10** of your points on them. The stake is taken at once, and the reply is public but pings nobody.
+
+| | |
+|---|---|
+| **When** | In the **first half** of the siege's own time: about 22 minutes of a 45-minute siege, 2 hours of an evening, 12 hours of a day, 27 to 39 hours of a 3-day campaign and 75 to 87 hours of a week (a campaign ends at a night boundary, so its halfway mark moves with its start). The live card says when it closes. |
+| **Who** | Someone else who has attacked: not yourself, not a bot, and not a helper who has only freed or cured. In the siege's channel or a thread of it. You don't have to be fighting yourself. |
+| **How often** | One backing a siege, and one a day (UTC). |
+| **You need** | The stake in this month's points, every game together, and to be a regular: a scored play on at least 3 of the last 7 nights (as your [nights in a row](./games-rewards#nights-in-a-row) count them). |
+
+At the end:
+
+| The siege | Your fighter | You get back |
+|---|---|---|
+| Won, 3 or more fought | is the **Wang Chi** | **twice your stake** (+5 on a 5), and the fighter gets **+3** for making you look good (half the biggest stake on them, rounded up, once a siege) |
+| Won, 3 or more fought | is in the **top 3**, or the **Jack Burton** | your stake |
+| Won, 3 or more fought | neither | nothing |
+| Escaped, 3 or more fought | anyone | nothing |
+| Called off, or fewer than 3 fought | anyone | your stake |
+
+- **Every backer gets a line** in the results' Backing field. The refusals are private and cost nothing, and `/siege status` shows who you backed.
+- **It's your own stake,** so the payout isn't held back by the 2-rewarded-sieges-a-day limit. The fighter's +3 is a reward, though: past their own limit they don't get it.
+- **The stake comes back to the month it was taken from.** A week campaign can cross into a new month: a stake placed on 30 October and returned in November goes back to October, and only what you won on top of it counts for November.
+- **A digest counts your stake.** If the monster digests you while a stake you placed this month is out, the −5 isn't floored at what's left of your month alone: what the month can't cover comes out of the stake when it's settled. Staking your points away doesn't shield you, and your month still never goes below 0.
+- If the bot restarts just as you back someone, the stake is either taken and recorded together, or comes back at the end; running `/siege back` again records it without taking it twice.
 
 ## Rewards and the penalty
 
-When you win, the points are a **pool** that is split by what each fighter did: damage, plus 12 for each fighter freed and 8 for each cure. From day pace on, the attacks' own points went into this pool: it's the pot.
+When you win, the points are a **pool** that is split by what each fighter did: damage, plus 12 for each fighter freed and 8 for each cure (past the daily scoring cap, only the first 2 frees and cures a night count: see [It fights back](#it-fights-back)). From day pace on, the attacks' own points went into this pool: it's the pot.
 
 - **The pool** is 8 points per fighter at quick pace, and never less than 24 or more than 200. From evening pace on it's per fighter-night: 6 (evening, day), 5 (3 days) or 4 (week) for each night each fighter fought, up to 200, 600 or 1,400. See [Pace](#pace).
 - **Your share** of it is your share of all that, but never under 2 points or over 30 (45 at 3 days, 60 at week pace).
-- **The MVP** is whoever did the most. They get **+5** on top (+10 at 3 days, +15 at week pace: there are fewer of them) and a **loot item, every time**. If two are level, whoever joined first wins.
+- **The Wang Chi** (the most help, or the top fighter if nobody helped) gets **+8** on top (+16 at 3 days, +24 at week pace: there are fewer of them) and a **loot item, every time**. **The Jack Burton** (the killing blow) gets **+3** (+6, +9). See [The Wang Chi and the Jack Burton](#the-wang-chi-and-the-jack-burton).
 - **Everyone else** who did at least 5% of the damage has a **25% chance of loot** (50% against the Atomic Lizard and the Headless Horseman).
 - **Loot** is a 🥈 Silver Bullet 30% of the time, and otherwise one of the six prize items (🥧 Golden Pie, 🧄 Garlic, 📼 Cursed VHS, 💧 Holy Water, 💊 Antidote or 🍀 Lucky Penny). A full Glovebox turns it into +2 points.
-- **Every fighter gets the win** on their record, the MVP gets an MVP, and beating the Atomic Lizard counts for Kaiju Killer. These feed the [siege titles](./games-rewards#titles), and every 4 wins bring a 🥈 Silver Bullet.
+- **Every fighter gets the win** on their record. Being the Wang Chi counts toward Siege MVP, Wang Chi and Legend of the Drive-In, being the Jack Burton toward Everybody Relax, I'm Here, and beating the Atomic Lizard counts for Kaiju Killer. These feed the [siege titles](./games-rewards#titles), and every 4 wins bring a 🥈 Silver Bullet.
 - **The points are bonus points.** They show on your card, and any title you earn pays its +10 as usual.
-- **Alone, the pool share only.** A siege beaten by one fighter pays their share of the pool, but no MVP bonus, no loot, and no win on their record. Siege titles need company.
-- **2 rewarded sieges a day.** Each member is rewarded for at most 2 won sieges a day (UTC): the points, the loot and the win on their record. In a third, your attacks still do damage and score their own points, and your row in the results says the limit was reached. From day pace on, where those points went into the pot, the third win pays you what your attacks would have scored on their own instead (never below 0), just as quick leaves you. Admins can start sieges back to back, so without a limit one friend could farm every siege title in an hour.
+- **Alone, the pool share only.** A siege beaten by one fighter pays their share of the pool, but no honours, no loot, and no win on their record. Siege titles need company.
+- **2 rewarded sieges a day.** Each member is rewarded for at most 2 won sieges a day (UTC): the points, the honours, the loot and the win on their record. A [backing](#backing-a-fighter) isn't a reward: its payout is never held back. In a third, your attacks still do damage and score their own points, and your row in the results says the limit was reached. From day pace on, where those points went into the pot, the third win pays you what your attacks would have scored on their own instead (never below 0), just as quick leaves you. Admins can start sieges back to back, so without a limit one friend could farm every siege title in an hour.
 
 When it **escapes**, every member who attacked loses **3 points**, but only when **at least 2** members fought. A solo fighter loses nothing. A loss never takes you below 0 for the month. An escape the fighters fought hard also makes the next siege a little easier.
 
@@ -290,9 +346,10 @@ The arrival message carries a card for the whole fight:
 - **Poisoned:** who it has poisoned, and when it wears off (or "until cured").
 - **Digested:** at 3 days and week pace, who's out for a day, and when they're back.
 - **Latest:** the last 5 things that happened, the monster's own actions included.
-- How to fight.
+- **Wang Chi so far:** once someone has helped at least 8 (a cure), who has helped most.
+- How to fight, and while backing is open, how to [back a fighter](#backing-a-fighter) and until when.
 
-It's edited whenever something changes, at most about once a minute at quick and evening pace and every 10 minutes from day pace on, so it won't spam the channel. Its footer says which. Edits never notify anyone, which is why grabs, poisonings and results are new messages. When the fight ends the card freezes with how it ended. If someone landed the killing blow (poison included), that's on it too, and so is the MVP. A called-off siege posts no results message.
+It's edited whenever something changes, at most about once a minute at quick and evening pace and every 10 minutes from day pace on, so it won't spam the channel. Its footer says which. Edits never notify anyone, which is why grabs, poisonings and results are new messages. When the fight ends the card freezes with how it ended. A won one names the **Wang Chi** ("held the line" if nobody needed saving) and **the Jack Burton** (the killing blow, poison included). A called-off siege posts no results message.
 
 ## The daily report
 
@@ -303,7 +360,7 @@ From day pace on, a siege runs across nights, so once a night the bot posts a **
 It shows:
 
 - the HP bar, and the damage done last night (if a night's report was lost, say the bot was down, the next covers every night since the last one and says so: "the last 2 nights")
-- last night's top 3 fighters, and its best helper (most freed and cured)
+- last night's top 3 fighters, and its **Wang Chi of the night**: the most help, 12 a free and 8 a cure (over several nights when a report was lost, "Wang Chi of the last 2 nights")
 - **Still held:** whoever the monster has, and by when they must be freed
 - **Poisoned:** whoever needs a helpful potion
 - **Digested while nobody was around:** anyone digested when nobody had attacked in the last 30 minutes, so nobody was pinged, and anyone whose digest message couldn't be posted
@@ -319,7 +376,7 @@ If the report can't go out (the channel can't be reached, the bot is missing a p
 /siege status
 ```
 
-Only you see the reply: the card as it is now, and your own damage and place (`You: 48 damage · 2nd of 6 fighters`), from evening pace on your attacks tonight, and whether the monster has grabbed, poisoned or digested you. If you haven't attacked, it tells you how. It only shows a siege that is still on.
+Only you see the reply: the card as it is now, and your own damage and place (`You: 48 damage · 2nd of 6 fighters`), from evening pace on your attacks tonight, whether the monster has grabbed, poisoned or digested you, and who you [backed](#backing-a-fighter). If you haven't attacked, it tells you how. It only shows a siege that is still on.
 
 You can also see the fight from other cards:
 
@@ -334,7 +391,7 @@ Siege is also a game column like the others, with your points, plays and streak.
 /eggshen-config commands toggle setting:siege enabled:false
 ```
 
-Admins and moderators can always use it. `/siege start` and `/siege end` are for admins and moderators only. A siege that's on when you turn it off is called off within a minute (no rewards, no penalty), since members can't fight it any more, and no new one can be started until it's back on. Turning off `/foodfight`, `/doom` or `/potion` takes that weapon away. Turning off `/rescue` stops the monster grabbing (the grabbed are let go), and turning off `/potion` stops it poisoning (the poisoned are cured). See [Turning a game off](./games-settings#turning-a-game-off).
+Admins and moderators can always use it. `/siege start` and `/siege end` are for admins and moderators only. A siege that's on when you turn it off is called off within a minute (no rewards, no penalty, backers' stakes back), since members can't fight it any more, and no new one can be started until it's back on. Turning off `/foodfight`, `/doom` or `/potion` takes that weapon away. Turning off `/rescue` stops the monster grabbing (the grabbed are let go), and turning off `/potion` stops it poisoning (the poisoned are cured). See [Turning a game off](./games-settings#turning-a-game-off).
 
 ## Related
 

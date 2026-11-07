@@ -1,13 +1,13 @@
 ---
 title: Tournament Brackets - Egg Shen Bot
-description: Host movie and TV show tournaments with group stage voting, wildcards, knockout brackets, and automatic advancement. Perfect for entertainment communities running competitions.
+description: Run movie, TV, game, board game and book tournaments in Discord, with button voting, live standings, drawn matchup results, group stages, wildcards and automatic advancement.
 head:
   - - meta
     - property: og:title
       content: Tournament Brackets - Egg Shen Bot
   - - meta
     - property: og:description
-      content: Host comprehensive movie and TV tournaments with flexible group stages, dynamic wildcards, knockout brackets, and AI-generated matchup images.
+      content: Run movie, TV, game, board game and book tournaments in Discord, with button voting, live standings, drawn matchup results, group stages and knockout brackets.
   - - meta
     - property: og:url
       content: https://eggshenbot.com/commands/brackets/
@@ -16,7 +16,7 @@ head:
       content: Tournament Brackets - Egg Shen Bot
   - - meta
     - name: twitter:description
-      content: Host movie/TV tournaments with group voting, knockouts, and AI-generated bracket visualizations.
+      content: Run movie and TV tournaments in Discord, with button voting, live standings, drawn results and a bracket image.
 ---
 
 # Tournament Bracket System
@@ -53,17 +53,20 @@ A: Server administrators and moderators. Everyone can vote.
 A: Groups tournaments only. The top 2 from each group go through. The best third-place finishers then fill the knockout up to the next power of 2 (4, 8, 16, or 32), at most one per group. For example: 12 groups = 24 + 8 wildcards = 32; 9 groups = 18 + 9 wildcards = 27. Leftover slots (5 of 32 in that case) become byes, and the group winners get them.
 
 **Q: What happens if there's a tie?**  
-A: The bot starts a short tiebreaker vote (1 hour by default) with a button for each tied option. At the deadline it counts the votes and resolves the tie, picking at random if nobody voted. Admins can settle one early with `/bracket resolve-tiebreaker`: leave `winner` blank to go by the current votes, or give a number to choose the winner.
+A: The bot starts a short tiebreaker vote (1 hour by default) with a button for each tied option. At the deadline it counts the votes and resolves the tie, picking at random if it's still tied or nobody voted. Admins can settle one early with `/bracket resolve-tiebreaker`: leave `winner` blank to go by the current votes, or give a number to choose the winner. A seeded bracket created with `ties:Higher seed wins` skips the vote and sends the better seed through. In the group stage, a tie for 3rd is settled at random.
 
 **Q: Can users change their votes?**  
-A: Yes, any time before the group or matchup closes.
+A: Yes, any time before the group or matchup closes. In the group stage, pick both of your top 2: a single pick is thrown out when the group closes.
+
+**Q: How many matchups or groups can vote at once?**  
+A: Five. That's what a member's ballot holds. Bigger rounds are opened a few matchups at a time (`/bracket open matchups:4`) or by region, and more than 5 groups in batches.
 
 **Q: Can we run more than one tournament at once?**  
 A: No. One tournament per server. Cancel or finish the current one before starting another.
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 This walks through a small straight bracket from creation to a champion. For a groups tournament, see [Setup & Group Stage](./setup).
 
@@ -106,7 +109,7 @@ Add up to 8. `type` is only needed on the first one.
 /bracket open duration:24h
 ```
 
-The bot builds the bracket (random seeding by default) and opens the first round.
+The bot builds the bracket (random seeding by default) and opens the first round: with 8 titles, the Quarterfinals' 4 matchups.
 
 **→ [Learn more about setup, seeding, and groups](./setup)**
 
@@ -129,7 +132,13 @@ Click **Start Voting** on the voting message to get your personal voting dashboa
 /bracket close
 ```
 
-The bot closes every open matchup in the round and moves the winners on. Ties start a short tiebreaker vote. Voting also closes by itself at the deadline.
+The bot closes every open matchup in the round and moves the winners on. Voting also closes by itself at the deadline. Ties start a short tiebreaker vote.
+
+Each matchup gets a results card with a drawn picture: the two posters face off, the winner framed in gold, the vote split underneath, and an UPSET! stamp when a worse seed wins. Then the bot posts the bracket as it now stands.
+
+<img class="result-image" src="/images/matchup-upset.webp" alt="A drawn matchup result for Semifinals 2A. Night of the Living Dead (1968), the 12 seed, is framed in gold under a red WINNER sash; Alien (1979), the 1 seed, is dimmed. A red UPSET! stamp sits between them, and the bar underneath splits 53%, 9 votes, to 47%, 8 votes." width="960" height="540" loading="lazy">
+
+*The picture under a results card. [What's on it](./knockout#the-results-card)*
 
 **Check progress any time:**
 
@@ -139,7 +148,7 @@ The bot closes every open matchup in the round and moves the winners on. Ties st
 
 <DiscordCard name="tournament-status" />
 
-*Tournament status showing active knockout voting with live vote counts*
+*`/bracket status` during the Quarterfinals, with each open matchup's vote bars*
 
 ### Step 7: Repeat for Each Round
 
@@ -150,22 +159,19 @@ Open → Vote → Close, until the final:
 /bracket close
 ```
 
-For finer control, open or close single matchups with `/bracket open-matchup` and `/bracket close-matchup`.
+For finer control, open the next few matchups with `/bracket open matchups:`, or open and close single matchups with `/bracket open-matchup` and `/bracket close-matchup`.
 
 **→ [Learn about knockout rounds and regions](./knockout)**
 
 ### Step 8: Champion Crowned! 🏆
 
-```
-🏆 Tournament Complete!
+Closing the Finals posts its results card and picture, then the **Final Bracket**: the whole bracket as an image, with **Champion:** and the winning title. `/bracket status` shows the champion from then on.
 
-The Thing is the champion!
-Congratulations! 🎉
-```
+For a movie or TV tournament, the champion can go straight onto the server's watchlist: turn on `auto-add-champion` in the [watchlist settings](/commands/watch-party#watchlist-settings).
 
 ---
 
-## 💡 Pro Tips
+## Pro Tips
 
 **Timing & Pacing:**
 - Use `duration:48h` for slower tournaments and `duration:1h` for live events.
@@ -173,7 +179,7 @@ Congratulations! 🎉
 
 **Keep Members Engaged:**
 - Announce when new groups or rounds open.
-- Remind members to check `/bracket my-votes`.
+- If the voting card has scrolled away, `/bracket voting-post` posts it again, with the live standings.
 - The bot posts the bracket as an image whenever matchups are decided; `/bracket view` draws it any time.
 
 **Manage Efficiently:**
@@ -190,13 +196,13 @@ Congratulations! 🎉
 
 - 2 to 32 titles, no groups
 - `/bracket open` builds the bracket and opens round one
-- Seeding is random by default, or ordered (your list order) through the [setup form](./import)
+- Seeding is random by default. `seeding:The order I add them` or `seeding:By rating` on `/bracket-setup create` (or the [setup form](./import)) seeds it, shows the seeds and calls out upsets
 
 ### Groups Tournament
 
 **Phase 1: Group Stage**
 - 4–12 groups (A through L), exactly 4 titles each
-- Members pick their top 2 in each group
+- Members pick their top 2 in each group, up to 5 groups at a time
 - Top 2 go through, plus wildcards if needed
 
 **Phase 2: Knockout**
@@ -209,24 +215,24 @@ Congratulations! 🎉
 
 - Single elimination: Round of 32 → Round of 16 → Quarterfinals → Semifinals → Finals
 - Matchups are labeled by region (1A, 2B, …) across 4 regions
-- Open a whole round, one region, or single matchups
+- Open a whole round (up to 5 matchups), the next few, one region, or single matchups
 - Winners move on automatically
 
 **→ [Complete knockout guide](./knockout)**
 
 ---
 
-## Key Features
+## What Members See
 
-✅ **Search Integration** - TMDB, RAWG, BGG, and Google Books with selection menus  
-✅ **Setup Form** - Upload a CSV or JSON file, or fill in a form  
-✅ **Flexible Voting** - Durations from 5 minutes to 30 days  
-✅ **Regions** - Matchups labeled by region for easy reference  
-✅ **Auto-Advancement** - Winners fill the next round automatically  
-✅ **Visual Brackets** - `/bracket view` draws the bracket as an image  
-✅ **Deadline Tracking** - Every voting message shows time remaining  
-✅ **Voting Dashboard** - Members see every vote they've cast, by round, with their pick ticked  
-✅ **Granular Control** - Open or close whole rounds, regions, or single matchups  
+Every card is drawn with the bot's own icons and stone bars once its emoji are uploaded (it does this itself on its first start), and in plain emoji until then.
+
+- **The voting card:** what's open and when it closes, with a **Start Voting** button. `/bracket voting-post` posts it again further down.
+- **Their own ballot:** a row per matchup, their picks in purple, their voting streak, and every vote they've cast, by round, their picks ticked.
+- **Live standings:** each open matchup's vote bars, the leader marked 🔥, and the totals (votes, voters, matchups). The card keeps one layout until its matchups close, so it doesn't jump around between votes.
+- **Results:** each decided matchup gets a card with a split bar, 🏆 Winner and 🥈 Runner-up, and a drawn picture of the matchup. Group results show medals beside the titles, with the two that advance marked.
+- **The bracket:** posted after each batch of results, and drawn any time with `/bracket view`.
+
+**[See each card in detail](./knockout#how-members-vote)**
 
 ---
 
@@ -236,7 +242,7 @@ Congratulations! 🎉
 - **[Setup Form](./import)** - Set up a tournament from a CSV or JSON file
 - **[Knockout Rounds](./knockout)** - Regions, opening options, running the knockout
 - **[Command Reference](./commands)** - Every bracket command
-- **[Tips & Strategies](./tips)** - Pacing, extending deadlines, AI images
+- **[Tips & Strategies](./tips)** - Pacing, extending deadlines, matchup images
 
 ---
 

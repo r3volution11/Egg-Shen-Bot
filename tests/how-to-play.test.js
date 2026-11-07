@@ -234,8 +234,12 @@ describe('numbers come from the code and the server\'s own settings', () => {
       expect(back).toContain(`Not freed in \`${week.freeMinutes / 60} hours\`: ${pill(signed(-SIEGE.grab.loss))} and out for a day.`);
       expect(back).toContain(`It wears off after \`${week.poisonMinutes / 60} hours\`.`);
       const win = field(e, 'Win or lose').value;
-      expect(win).toContain(`Win: the pot, ${pill(week.pool.perFighter)} points a fighter a night, split by what each did, ${pill(SIEGE.rewards.eachMin)}–${pill(week.pool.eachMax)} each. The MVP gets ${pill(signed(SIEGE.rewards.mvpBonus * week.honour))} and loot.`);
-      expect(win).toContain(`${pill(week.allowance)} attacks a night each (12:00 to 12:00 UTC); freeing and curing are unlimited.`);
+      expect(win).toContain(`Win: the pot, ${pill(week.pool.perFighter)} points a fighter a night, split by what each did, ${pill(SIEGE.rewards.eachMin)}–${pill(week.pool.eachMax)} each. 🗡️ The Wang Chi (most frees and cures) gets ${pill(signed(SIEGE.rewards.wangChiBonus * week.honour))} and loot; 🔪 the Jack Burton (the killing blow) ${pill(signed(SIEGE.rewards.jackBonus * week.honour))}.`);
+      // 2.75.0: honours ×H — a week campaign's Wang Chi is +24, its Jack Burton +9 (×3), and backing is on the card
+      expect(week.honour).toBe(3);
+      expect(win).toContain('🗡️ The Wang Chi (most frees and cures) gets `+24` and loot; 🔪 the Jack Burton (the killing blow) `+9`.');
+      expect(win).toContain(`🎲 \`/siege back fighter:@Sam points:5\` in the first half (${pill(SIEGE.backing.min)}–${pill(SIEGE.backing.max)}): ×2 if they're the Wang Chi, your stake back if top 3 or the Jack Burton.`);
+      expect(win).toContain(`${pill(week.allowance)} attacks a night each (12:00 to 12:00 UTC); freeing and curing don't use them.`);
       expect(field(e, 'When').value).toBe(`At random: the next comes \`${week.gapHours / 24} days\` after the last one ends, once people are playing, or when an admin runs \`/siege start\`. One lasts \`a week\`, ending at 12:00 UTC, with a report each night.`);
     }
     // Each pace reads its own preset; a server's siege-minutes only matters at quick
@@ -247,6 +251,21 @@ describe('numbers come from the code and the server\'s own settings', () => {
     expect(field(evening, 'When').value).toContain('about `3` a week here');
     expect(field(evening, 'When').value).toContain('One lasts `4 hours`.');
     expect(field(evening, 'Win or lose').value).toContain(`Win: ${pill(SIEGE_PACES.evening.pool.perFighter)} points a fighter a night`);
+    // Quick, evening and day: H = 1 (the Wang Chi +8, the Jack Burton +3)
+    expect(field(evening, 'Win or lose').value).toContain('gets `+8` and loot; 🔪 the Jack Burton (the killing blow) `+3`.');
+  });
+
+  test('R2 review: the unscored-help cap — saving always works, but past a game\'s scoring cap only the first few a night count (and with scored plays off, none score)', () => {
+    const n = pill(SIEGE.credit.unscoredPerNight);
+    const capped = field(renderTopic('siege', ctxOf({ games: { dailyScoredPlays: 12 } }), { kit: fallback }), 'It fights back').value.split('\n');
+    expect(capped.at(-1)).toBe(`Saving someone always works, but past a game's daily scoring cap only your first ${n} frees and cures a night count toward your share.`);
+    expect(n).toBe('`2`');
+    const off = field(renderTopic('siege', ctxOf({ games: { dailyScoredPlays: 0 } }), { kit: fallback }), 'It fights back').value.split('\n');
+    expect(off.at(-1)).toBe(`Saving someone always works, but plays don't score here, so only your first ${n} frees and cures a night count toward your share.`);
+    // Nothing promises unlimited help any more
+    for (const e of [renderTopic('siege', ctxOf(), { kit: fallback }), renderTopic('siege', ctxOf({ games: { pace: 'quick' } }), { kit: fallback })]) {
+      expect(JSON.stringify(e)).not.toMatch(/unlimited/);
+    }
   });
 
   test('2.74.0: happenings at this server\'s pace — about a day long and weekly from `day` on', () => {

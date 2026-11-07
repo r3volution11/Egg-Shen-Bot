@@ -1,58 +1,55 @@
 ---
-description: "How Egg Shen Bot logs events, errors and performance metrics to help diagnose crashes, slowdowns and other production issues."
+description: "How Egg Shen Bot logs events, errors and slow operations to files, and how to read them from Discord or the server."
 ---
 
 # Logging System
 
-Egg Shen Bot includes a comprehensive Drupal watchdog-style logging system that captures all bot events, errors, and performance metrics. This system is designed to diagnose production issues like crashes, high CPU usage, and other problems that may occur.
+Egg Shen Bot writes its events, errors and slow operations to log files, in the style of Drupal's watchdog log. Use them to find out what happened before a crash, a slowdown or a failed command.
+
+These logs belong to whoever runs the bot. They cover every server the bot is in.
 
 ## Overview
 
-The logging system provides:
-- **File-based logging** - All events stored in `logs/` directory
-- **JSON format** - Structured logs with timestamps, severity, category, and context
-- **8 severity levels** - From EMERGENCY (0) to DEBUG (7)
-- **Categorized logs** - Separate files by event type
-- **Automatic rotation** - Daily rotation and size-based rotation (10MB limit)
-- **Auto-cleanup** - Logs older than 30 days automatically deleted
-- **Performance tracking** - Slow operations logged with duration
+- **File-based:** everything goes to the `logs/` folder in the bot's install
+- **JSON lines:** one entry per line, with a timestamp, severity, category, message and details
+- **8 severity levels:** from EMERGENCY (0) to DEBUG (7)
+- **One file per category per day**
+- **Rotation:** a new file each day, and a new one when a file passes 10 MB
+- **Cleanup:** files older than 30 days are deleted
+- **Slow operations:** commands and buttons that take too long are logged with how long they took
+
+Everything is also printed to the console (what `pm2 logs` shows).
 
 ## Severity Levels
 
-The system uses 8 syslog-style severity levels:
+| Level | Number | Used for |
+|-------|--------|----------|
+| 🚨 EMERGENCY | 0 | An uncaught exception (the bot exits) |
+| 🔴 ALERT | 1 | Not currently used |
+| 💥 CRITICAL | 2 | An unhandled promise rejection |
+| ❌ ERROR | 3 | A failed command or button, a Discord client error, a scheduler error |
+| ⚠️ WARNING | 4 | A Discord client warning, an operation over 5 seconds |
+| 📢 NOTICE | 5 | Scheduler events worth noting, such as a timer expiry warning being sent |
+| ℹ️ INFO | 6 | A command that ran, startup and shutdown, scheduler activity |
+| 🐛 DEBUG | 7 | Button clicks, operations that were slow but under 5 seconds |
 
-| Level | Number | Description | Use Case |
-|-------|--------|-------------|----------|
-| 🚨 EMERGENCY | 0 | System is unusable | Uncaught exceptions, fatal crashes |
-| 🔴 ALERT | 1 | Action must be taken immediately | Critical failures requiring intervention |
-| 💥 CRITICAL | 2 | Critical conditions | Unhandled promise rejections |
-| ❌ ERROR | 3 | Error conditions | Command failures, API errors |
-| ⚠️ WARNING | 4 | Warning conditions | Unknown button interactions, degraded performance |
-| 📢 NOTICE | 5 | Normal but significant | Important system events |
-| ℹ️ INFO | 6 | Informational | Command execution, scheduler events |
-| 🐛 DEBUG | 7 | Debug messages | Detailed tracing information |
+With `NODE_ENV=production`, DEBUG entries aren't written. Otherwise everything is.
 
 ## Log Categories
 
-Logs are organized into categories, each with its own daily file:
+Each category gets its own file. These are the ones the bot writes to:
 
-- **system** - Bot startup, shutdown, errors, Discord client events
-- **command** - Command execution, success/failure, duration
-- **button** - Button interactions, vote submissions
-- **select** - Select menu interactions
-- **modal** - Modal form submissions
-- **scheduler** - Tournament auto-close events, warnings
-- **bracket** - Tournament operations, bracket generation
-- **timer** - Timer events (start, complete, cancel)
-- **survey** - Survey/poll operations
-- **api** - External API calls (TMDB, RAWG, etc.)
-- **database** - Data storage operations
-- **performance** - Slow operations, performance metrics
-- **security** - Security-related events
+- **system:** startup, connecting to Discord, shutdown, crashes, Discord client errors and warnings
+- **command:** every command run, with who ran it, where, the subcommand and how long it took; failures with the error
+- **button:** button clicks (DEBUG) and failed button clicks (ERROR)
+- **scheduler:** the background jobs: tournament voting deadlines and warnings, survey auto-close, timer expiry warnings, the bot's status quotes, and event-image cleanup
+- **performance:** slow commands and buttons
+
+Those five are the only log files the bot writes. Tournament deadlines and timer warnings are in **scheduler**; the commands that run them are in **command**.
 
 ## Log File Format
 
-Each log file contains JSON lines (one JSON object per line):
+Each line is one JSON entry:
 
 ```json
 {
@@ -79,124 +76,115 @@ Each log file contains JSON lines (one JSON object per line):
 }
 ```
 
+Every entry's `context` includes the process id, memory use and uptime, which helps when looking into memory growth or a crash.
+
 ## Viewing Logs
 
-### Using Discord Commands
+### From Discord
 
-The `/eggshen-logs` command allows administrators to view logs directly from Discord:
+`/eggshen-logs` shows the logs in Discord. It's for members with the **Administrator** permission only, and Discord hides it from everyone else. Replies are private.
 
-#### View Log Statistics
+#### Log Statistics
 
 ```
 /eggshen-logs stats
 ```
 
-Shows:
-- Number of log files
-- Total size in MB
-- Latest log file
-- Logs directory path
+Shows the number of log files, their total size in MB, the logs folder, and the latest log file.
 
-#### View Recent Errors
+#### Recent Errors
 
 ```
 /eggshen-logs errors count:10
 ```
 
-Shows the most recent errors (EMERGENCY, ALERT, CRITICAL, ERROR levels):
-- Timestamp
-- Severity level
-- Category
-- Error message
-- Context (truncated for display)
+Shows the most recent EMERGENCY, CRITICAL, ALERT and ERROR entries from any log file, newest first. Each shows the level, category, time and the first 100 characters of the message. The details (`context`) aren't shown; read the file for those.
 
-Options:
-- `count` - Number of errors to show (1-50, default: 10)
+`count` takes 1 to 50 and defaults to 10.
 
-#### View Category Logs
+#### One Category
 
 ```
 /eggshen-logs category category:command count:10
 ```
 
-Shows recent log entries for a specific category:
-- System
-- Commands
-- Buttons
-- Scheduler
-- Bracket
-- API
-- Performance
+Shows the latest entries from **today's** file for one category: level, time and the first 80 characters of each message. Today is by UTC.
 
-Options:
-- `category` - Log category to view (required)
-- `count` - Number of entries to show (1-50, default: 10)
+`category` can be:
 
-### Using Server Access
+- `system`
+- `command`
+- `button`
+- `scheduler`
+- `performance`
 
-If you have SSH access to the production server:
+`count` takes 1 to 50 and defaults to 10.
+
+### On the Server
+
+If you can reach the machine the bot runs on:
 
 ```bash
-# View all log files
+# All log files
 ls -lh /opt/discord-bot/logs/
 
-# View today's system log
-cat /opt/discord-bot/logs/system-$(date +%Y-%m-%d).log
+# Today's system log (file dates are UTC)
+cat /opt/discord-bot/logs/system-$(date -u +%Y-%m-%d).log
 
-# View recent errors (last 10)
+# The last 10 errors from any file
 grep '"level":"ERROR"' /opt/discord-bot/logs/*.log | tail -10
 
-# View command execution logs
-cat /opt/discord-bot/logs/command-$(date +%Y-%m-%d).log
+# Today's commands
+cat /opt/discord-bot/logs/command-$(date -u +%Y-%m-%d).log
 
-# Monitor logs in real-time
-tail -f /opt/discord-bot/logs/system-$(date +%Y-%m-%d).log
+# Follow the system log as it's written
+tail -f /opt/discord-bot/logs/system-$(date -u +%Y-%m-%d).log
 ```
+
+`/opt/discord-bot` is where the bot is installed; use your own path.
 
 ## Log Rotation
 
-### Daily Rotation
+### Daily Files
 
-New log files are created each day with the format: `[category]-YYYY-MM-DD.log`
+Each category gets a new file every day, named `[category]-YYYY-MM-DD.log`. The date is UTC.
+
+- `system-2026-06-28.log`: system logs for June 28, 2026
+- `command-2026-06-28.log`: command logs for the same day
+
+### Size Limit
+
+When a file reaches 10 MB, it's renamed with a timestamp and a new one is started:
+
+- Current file: `system-2026-06-28.log`
+- Renamed file: `system-2026-06-28-1719619200000.log`
+
+### Cleanup
+
+Log files not written to for 30 days are deleted. The cleanup runs when the bot starts and every 24 hours after that.
+
+## Slow Operations
+
+When something takes longer than its threshold, the bot adds an entry to the **performance** log:
+
+- **Commands** over 3 seconds
+- **Buttons** for voting, tournament matchups, surveys, timers and watch history, over 2 seconds
+
+An operation over 5 seconds is logged as a WARNING. One under 5 seconds is DEBUG, so it's left out with `NODE_ENV=production`.
 
 Example:
-- `system-2026-06-28.log` - System logs for June 28, 2026
-- `command-2026-06-28.log` - Command logs for June 28, 2026
 
-### Size-Based Rotation
-
-If a log file exceeds 10MB, it's automatically rotated:
-- Current file: `system-2026-06-28.log`
-- Rotated file: `system-2026-06-28-1719619200000.log` (timestamp appended)
-
-### Auto-Cleanup
-
-Log files older than 30 days are automatically deleted to prevent disk space issues.
-
-The cleanup runs:
-- On bot startup
-- Daily at midnight
-
-## Performance Tracking
-
-The logging system tracks slow operations:
-
-- **Commands** - Any command taking >3000ms (3 seconds)
-- **Button interactions** - Any button taking >2000ms (2 seconds)
-- **API calls** - All external API requests with duration
-- **Bracket generation** - PNG generation time
-
-Example performance log:
 ```json
 {
   "timestamp": "2026-06-28T23:55:30.123Z",
   "level": "WARNING",
   "levelNum": 4,
   "category": "performance",
-  "message": "Slow operation detected: bracket visualization",
+  "message": "Performance: Command: /movie took 6523ms",
   "context": {
-    "operation": "bracket visualization",
-    "duration": 4523,
+    "operation": "Command: /movie",
+    "duration": 6523,
+    "userId": "123456789012345678",
     "guildId": "123456789012345678"
   }
 }
@@ -204,9 +192,11 @@ Example performance log:
 
 ## Crash Diagnosis
 
-The logging system captures critical errors that can cause crashes:
+These entries are written when something goes badly wrong. All of them go to the **system** log.
 
 ### Uncaught Exceptions
+
+The bot logs it and exits. Your process manager (such as PM2) restarts it.
 
 ```json
 {
@@ -214,16 +204,18 @@ The logging system captures critical errors that can cause crashes:
   "level": "EMERGENCY",
   "levelNum": 0,
   "category": "system",
-  "message": "Uncaught exception: Cannot read property 'id' of undefined",
+  "message": "Uncaught exception",
   "context": {
-    "error": "TypeError: Cannot read property 'id' of undefined",
-    "stack": "TypeError: Cannot read property 'id' of undefined\n    at ...",
+    "error": "Cannot read properties of undefined (reading 'id')",
+    "stack": "TypeError: Cannot read properties of undefined (reading 'id')\n    at ...",
     "memory": { ... }
   }
 }
 ```
 
 ### Unhandled Promise Rejections
+
+The bot logs it and keeps running.
 
 ```json
 {
@@ -248,9 +240,9 @@ The logging system captures critical errors that can cause crashes:
   "level": "ERROR",
   "levelNum": 3,
   "category": "system",
-  "message": "Discord client error: ECONNRESET",
+  "message": "Discord client error",
   "context": {
-    "error": "Error: ECONNRESET",
+    "error": "read ECONNRESET",
     "stack": "..."
   }
 }
@@ -258,50 +250,48 @@ The logging system captures critical errors that can cause crashes:
 
 ## Best Practices
 
-1. **Check logs after crashes** - Use `/eggshen-logs errors` to see what happened before the crash
-2. **Monitor performance** - Use `/eggshen-logs category category:performance` to identify slow operations
-3. **Review system logs** - Use `/eggshen-logs category category:system` to see startup/shutdown events
-4. **Keep logs archived** - Download important logs before they're auto-deleted (30 days)
-5. **Watch for patterns** - Recurring errors may indicate systemic issues
+1. **After a crash,** run `/eggshen-logs errors` to see what happened just before it
+2. **When the bot feels slow,** check `/eggshen-logs category category:performance`
+3. **To see restarts,** check `/eggshen-logs category category:system`
+4. **Copy logs you want to keep** somewhere else before the 30-day cleanup deletes them
+5. **Look for repeats:** the same error over and over usually has one cause
 
 ## Troubleshooting
 
-### "No log files found"
+### "No log files found" or "No logs found for category … today"
 
-- The bot may have just started and no events logged yet
-- Check server disk space: `df -h`
-- Verify logs directory exists: `ls -ld /opt/discord-bot/logs`
+- The bot may have just started, or nothing in that category has happened today (UTC)
+- Check the disk has space: `df -h`
+- Check the logs folder exists: `ls -ld /opt/discord-bot/logs`
 
 ### "Failed to read logs"
 
-- Permissions issue - logs directory not readable
-- Log file corruption - check file with `cat` command
-- Disk full - check with `df -h`
+- The logs folder isn't readable by the bot's user
+- The disk is full: check with `df -h`
 
-### Large log files
+### Log files are large
 
-- Check size: `du -sh /opt/discord-bot/logs/*`
-- Old logs not cleaned up - check log dates
-- High-frequency errors filling logs - investigate root cause
-- Consider reducing log level in production
+- Check sizes: `du -sh /opt/discord-bot/logs/*`
+- The same error filling a file: fix its cause
+- Run with `NODE_ENV=production` to leave out DEBUG entries
 
 ## Configuration
 
-Log configuration is in `src/utils/logger.js`:
+The settings are in `src/utils/logger.js`:
 
 ```javascript
 const config = {
   minLevel: process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG,
   maxFileSize: 10 * 1024 * 1024, // 10MB
-  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+  maxAge: 30, // days
   consoleOutput: true
 };
 ```
 
-To change settings, edit this file and restart the bot.
+There are no environment variables for these besides `NODE_ENV`. To change them, edit the file and restart the bot.
 
 ## See Also
 
-- [Commands Reference](/commands/index) - All bot commands
-- [Getting Started](/getting-started) - Bot setup guide
-- [Configuration](/configuration) - Bot configuration options
+- [Commands Reference](/commands/index)
+- [Getting Started](/getting-started)
+- [Configuration](/configuration)

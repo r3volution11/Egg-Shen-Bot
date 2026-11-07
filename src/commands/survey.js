@@ -346,7 +346,7 @@ async function handleCreate(interaction) {
       ? '\n**If it ties:** a runoff vote between the tied options; if that ties too, I pick one at random.'
       : '\n**If it ties:** the tie stands.';
     await interaction.followUp({
-      content: `✅ Survey created! Users can vote by clicking a button below the message.\n\n**Survey ID:** \`${poll.pollId}\`${autoCloseNote}${tieNote}\n**Manage:** Use \`/survey close ${poll.pollId}\` to close or \`/survey delete ${poll.pollId}\` to delete. If the survey scrolls away, \`/survey voting-post\` brings it back down.`,
+      content: `✅ Survey created! Users can vote by clicking a button below the message.\n\n**Survey ID:** \`${poll.pollId}\`${autoCloseNote}${tieNote}\n**Manage:** Use \`/survey close poll_id:${poll.pollId}\` to close or \`/survey delete poll_id:${poll.pollId}\` to delete. If the survey scrolls away, \`/survey voting-post\` brings it back down.`,
       ephemeral: true,
     });
     

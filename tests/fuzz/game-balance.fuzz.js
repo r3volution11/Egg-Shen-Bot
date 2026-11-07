@@ -126,7 +126,8 @@ async function months(roster, list, tag, { pace = 'quick', days = DAYS } = {}) {
   return out;
 }
 
-const CATS = ['play', 'siegeAttack', 'prizes', 'titles', 'nights', 'twists', 'happenings', 'siegePayout'];
+// 2.75.0: `backing` — stakes taken and what came back — is siege points too
+const CATS = ['play', 'siegeAttack', 'prizes', 'titles', 'nights', 'twists', 'happenings', 'siegePayout', 'backing'];
 const sum = (list, f) => list.reduce((n, x) => n + f(x), 0);
 const pct = (x) => `${(100 * x).toFixed(1)}%`;
 const fixed = (x, d = 1) => (Number.isFinite(x) ? x.toFixed(d) : '—');
@@ -156,13 +157,49 @@ function byProfile(results) {
       row.twists += l.twists;
       row.titles += l.titleCount;
       row.sieges += l.sieges;
+      // 2.75.0
+      row.honours ||= { wangChi: 0, jack: 0, backBonus: 0, wangChis: 0, jacks: 0 };
+      for (const k of Object.keys(row.honours)) row.honours[k] += l.honours?.[k] || 0;
+      row.backs ||= { placed: 0, won: 0, push: 0, lost: 0, escaped: 0, refunded: 0 };
+      for (const k of Object.keys(row.backs)) row.backs[k] += l.backs?.[k] || 0;
     }
   }
   return rows;
 }
 
+/**
+ * 2.75.0, the real hero (R2 brief §6): per profile, a member's month of
+ * honours (the Wang Chi's and the Jack Burton's bonuses, and a backed Wang
+ * Chi's share), their backing net (the design: a typical member about −0.9
+ * a month, at most 0) — and who the Wang Chi turned out to be: how often
+ * a helper beat the top damage dealer to it, and how often nobody helped
+ * enough and the top contributor held the line.
+ */
+function honoursTable(results) {
+  const rows = byProfile(results);
+  const lines = ['profile   Wang Chi (n)   Jack (n)  backBonus | backing: placed  net/month  won push lost esc refund'];
+  for (const [profile, row] of Object.entries(rows)) {
+    const per = (x) => x / row.members;
+    const h = row.honours;
+    const b = row.backs;
+    lines.push([
+      profile.padEnd(8),
+      `${fixed(per(h.wangChi)).padStart(6)} (${fixed(per(h.wangChis), 2)})`.padStart(14),
+      `${fixed(per(h.jack)).padStart(5)} (${fixed(per(h.jacks), 2)})`.padStart(11),
+      fixed(per(h.backBonus), 2).padStart(9), '|',
+      fixed(per(b.placed), 2).padStart(14), fixed(per(row.points.backing), 2).padStart(10),
+      ...['won', 'push', 'lost', 'escaped', 'refunded'].map(k => fixed(per(b[k]), 2).padStart(k === 'refunded' ? 6 : 4)),
+    ].join(' '));
+  }
+  const won = results.flatMap(r => r.sieges).filter(s => s.status === 'won' && s.wangChi);
+  const byHelp = won.filter(s => !s.wangChi.held);
+  const overDamage = byHelp.filter(s => s.wangChi.userId !== s.topDamage);
+  lines.push(`Wang Chis: ${won.length} — by help ${byHelp.length} (${pct(byHelp.length / Math.max(1, won.length))}), a helper over the top damage dealer ${overDamage.length} (${pct(overDamage.length / Math.max(1, won.length))}), held the line ${won.length - byHelp.length}`);
+  return lines.join('\n');
+}
+
 const bonusOf = (pts) => pts.prizes + pts.titles + pts.nights + pts.twists + pts.happenings;
-const siegeOf = (pts) => pts.siegeAttack + pts.siegePayout;
+const siegeOf = (pts) => pts.siegeAttack + pts.siegePayout + pts.backing;
 
 /** The share of sieges won (an admin's end counts for neither) */
 const winRate = (sieges) => {
@@ -259,6 +296,7 @@ describe.each(PACES)('game balance at %s pace: a month of play on the real rules
       `\n══ ${pace} pace ══`,
       table('15 players', r15),
       table('5 players', r5),
+      `\n2.75.0 honours and backing, per member per ${DAYS} days — 15 players:\n${honoursTable(r15)}\n5 players:\n${honoursTable(r5)}`,
       `\n(${seconds.toFixed(1)} s) points are per member per ${DAYS} days; bonus% = prizes+titles+nights+twists+happenings; +siege% adds siege attacks and payouts`,
     ].join('\n'));
 
@@ -266,6 +304,13 @@ describe.each(PACES)('game balance at %s pace: a month of play on the real rules
     const verdicts = verdictsOf(r15, r5, pace);
     if (sim.paceLearns(pace)) console.log(`\nwins from each server's second campaign on (the first is sized to be easy): ${pct(winRate(judgedSieges(r15, pace)))} (15) / ${pct(winRate(judgedSieges(r5, pace)))} (5)`);
     console.log(`\ntargets at ${pace} pace:\n${Object.entries(verdicts).map(([k, v]) => `  ${v.ok ? 'PASS' : 'FAIL'}  ${k.padEnd(16)} ${String(v.measured).padStart(7)}  (target ${v.target})`).join('\n')}`);
+    // 2.75.0, reported (the R2 brief §6): the 5-player server's typical share — week's honours are ×3
+    // and its baseline already the higher — and the heavy players', the canary, ≤ 35% as a warning
+    const shareOf = (rows, profile) => (rows[profile] ? (bonusOf(rows[profile].points) + siegeOf(rows[profile].points)) / rows[profile].total : null);
+    const [rows15, rows5] = [byProfile(r15), byProfile(r5)];
+    for (const [name, x] of [['typical, 5 players', shareOf(rows5, 'typical')], ['heavy, 15 players', shareOf(rows15, 'heavy')], ['heavy, 5 players', shareOf(rows5, 'heavy')]]) {
+      console.log(`  ${x <= TARGETS.typicalShare ? 'ok  ' : 'WARN'}  share ${name.padEnd(19)} ${pct(x).padStart(6)}  (≤ ${pct(TARGETS.typicalShare)}, reported)`);
+    }
 
     // Each asserted on its own so a failure names the pace, the target and the number
     for (const key of Object.keys(verdicts)) {

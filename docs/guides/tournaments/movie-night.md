@@ -28,7 +28,7 @@ An 8-title bracket has three rounds: **quarterfinals** (4 matchups), **semifinal
 
 - **Short rounds work.** Voting can be as short as `5m`. Twenty minutes gives people time to see the ballot and vote.
 - **Ending a round early.** If everyone has voted, `/bracket close` ends it now, without waiting for the deadline.
-- **Showing the bracket.** The bot posts the bracket as an image after each round, and `/bracket view` draws it any time.
+- **Results people can see.** Each matchup that closes gets a results card with a drawn picture of the two posters and the vote split. Then the bot posts the bracket as an image, and `/bracket view` draws it any time.
 - **Checking time left.** Ballots show a live countdown, and anyone can run `/bracket status`.
 - **Fewer than 8 titles is fine.** With 6, the bracket still has 8 slots, and two titles skip round one (a bye).
 - **For a meaningful order,** add `seeding:By rating` (or `seeding:The order I add them`) to `/bracket-setup create`. The strongest titles can then only meet in the final, everyone sees the seeds, and upsets get called out. See [Seeded bracket](./seeded).
@@ -41,11 +41,11 @@ A straight bracket holds 2–32 titles, and each round halves them. Eight titles
 
 ### What voters see
 
-Pressing **Start Voting** opens a private ballot with one row per matchup: `[1A · The Thing] (vs) [1A · Alien]`. Each row is its own head-to-head vote. People can change their pick until the round closes. A live standings message shows the running vote counts.
+Pressing **Start Voting** opens a private ballot with one row per matchup: `[1A · The Thing (1982)] (vs) [1A · Alien (1979)]`. Each row is its own head-to-head vote. People can change their pick until the round closes. A live standings card shows each matchup's vote bars and counts as they come in, and when the round closes each matchup gets its results card. See [Knockout Rounds](/commands/brackets/knockout#how-members-vote) for what each card shows.
 
 ### When a matchup ties
 
-The tied titles get a tiebreaker vote, posted in the same channel. It lasts 1 hour, or, when you close the round yourself with `/bracket close`, whatever you set with `tiebreaker-duration`. The next round opens once it's settled.
+The tied titles get a tiebreaker vote, posted in the same channel. It lasts 1 hour, or, when you close the round yourself with `/bracket close`, whatever you set with `tiebreaker-duration`. Once it's settled, run `/bracket open` for the next round.
 
 On a tight schedule, create a seeded bracket with `ties:Higher seed wins` instead. A tie then goes straight to the better seed, with no extra vote to wait for.
 

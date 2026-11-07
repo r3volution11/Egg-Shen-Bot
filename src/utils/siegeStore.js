@@ -26,7 +26,7 @@
  *     log: [≤ SIEGE.logKeep { at, text }],
  *     rev,  // bumped by every change the card shows; markCardEdited compares it
  *     card: null | { messageId, dirty, editedAt, claimedAt, gone },
- *     result: null | { status, grants, mvp, announcedAt, messageId, claimedAt, tries, unannounced },
+ *     result: null | { status, grants, mvp, wangChi, jack, backing, announcedAt, messageId, claimedAt, tries, unannounced },
  *   }
  *   unannounced: why results were never posted — 'no-channel'/'send-failed'
  *   (SIEGE.resultTries refusals), 'refused' (Discord won't take it),
@@ -86,6 +86,28 @@
  *     notePotPoints); siege.expected (E, from day on);
  *     data.siegeDials: { [pace]: dial }, data.siegeParticipation: { [pace]: share }
  *
+ * 2.75.0, the real hero (design §4.3, §5): the MVP became the Wang Chi —
+ * the fighter with the most HELP (helpOf: frees, cures, boosts), not the
+ * most damage — and the killing blow is the Jack Burton (a laugh, and a
+ * small bonus). Both × the siege's pace (`t.honour`). Members may back a
+ * fighter in the first half of a siege (placeBacking), settled at the finish
+ * by planSiegeRewards and paid by applySiegeResult with the rest. A free or
+ * cure from a play past its game's daily scoring cap still happens, but only
+ * SIEGE.credit.unscoredPerNight of them a night count (siegeAssist).
+ *
+ *   added by 2.75.0: siege.honours ('wang-chi': the rules it pays by; a siege
+ *     live at the deploy has none — SIEGE_R2_DEPLOY says how it pays),
+ *     backers: { [userId]: { name, fighterId, fighterName, stake, at } },
+ *     backingClosed (the minute's pass saw backing close: the card was told),
+ *     participants[userId].unscored: { night, n } (credited frees and cures
+ *       from unscored plays tonight), participants[userId].boostHits (R4's:
+ *       absent, read as 0, until then),
+ *     result.wangChi: null | { userId, name, help, held },
+ *     result.jack: null | { userId, name, by (a weapon, or 'poison') },
+ *     result.backing: [{ backerId, backerName, fighterId, fighterName, stake,
+ *       outcome: 'wangChi'|'push'|'lost'|'escaped'|'refunded', back, bonus, orphan? }]
+ *     (result.mvp stays: the Wang Chi's { userId, name }, for older readers)
+ *
  * Every change is ONE synchronous load-modify-save (happeningStore.mutate)
  * keyed by the siege's id: a late write for a siege that has since ended
  * or been replaced finds a different id, or a status that isn't live, and
@@ -98,12 +120,12 @@
 
 import crypto from 'crypto';
 import { mutate, loadState, ACTIVE_MINUTES_PER_DAY } from './happeningStore.js';
-import { applySiegeResult, fireAntidote, applySiegePenalty, countSiegeEvent } from './gameScores.js';
+import { applySiegeResult, fireAntidote, applySiegePenalty, countSiegeEvent, stakeBacking, hasBackStakes } from './gameScores.js';
 import { owns, nightKey, shiftNight, nightsBetween } from './gameRules.js';
 import { cardName } from './gameBoards.js';
 import { clipText } from './embedFit.js';
 import { luck as gameLuck } from './gameLuck.js';
-import { SIEGE, RANDOM_PRIZE_ITEMS, PACE_RULES } from '../data/gameRewards.js';
+import { SIEGE, RANDOM_PRIZE_ITEMS, PACE_RULES, SIEGE_R2_DEPLOY } from '../data/gameRewards.js';
 import { MONSTERS, MONSTER_KEYS } from '../data/siegeMonsters.js';
 import {
   timingsOf, siegeTimings, siegeEndsAt, randomGapHours, paceOf, pacePreset, nightBoundaryBefore,
@@ -360,13 +382,32 @@ export function silverMultOf(monster) {
   return factor(monster?.traits?.silverMult, SIEGE.silverMult);
 }
 
-/** What a fighter did for the fight: damage, and (R6) fighters freed and poisons cured */
-export const contributionOf = (p) => (Number(p?.damage) || 0) + SIEGE.credit.free * (Number(p?.frees) || 0) + SIEGE.credit.cure * (Number(p?.cures) || 0);
+/**
+ * What a fighter did for the OTHER fighters, in points: SIEGE.credit's free
+ * × fighters freed + cure × poisons cured + boost × boosted attacks that
+ * landed (`boostHits`: R4's blessings — absent, and read as 0, until then).
+ * Only credited assists count (siegeAssist: past a game's scoring cap, the
+ * first SIEGE.credit.unscoredPerNight a night).
+ */
+const assistsOf = (p) => SIEGE.credit.free * (Number(p?.frees) || 0)
+  + SIEGE.credit.cure * (Number(p?.cures) || 0)
+  + SIEGE.credit.boost * (Number(p?.boostHits) || 0);
+
+/**
+ * Help (2.75.0): the Wang Chi's measure. Today it's a fighter's assists
+ * (assistsOf). R5's pact rule — freeing or curing your pact's hero counts
+ * double toward the Wang Chi — adds HERE, to help only: never to
+ * contribution, so a pact can't buy a bigger share of the pool.
+ */
+export const helpOf = (p) => assistsOf(p);
+
+/** What a fighter did for the fight, their share of the pool: damage, and (R6) their assists */
+export const contributionOf = (p) => (Number(p?.damage) || 0) + assistsOf(p);
 
 /**
  * The fighters, best first: by contribution, then who joined first, then
- * by id — so the MVP, the top 3 and the order luck is drawn in are the
- * same every time the same siege is read.
+ * by id — so the top 3, the held Wang Chi and the order luck is drawn in
+ * are the same every time the same siege is read.
  * @returns {Array<{userId, name, damage, attacks, contribution, firstAt, ...}>}
  */
 export function fightersOf(siege) {
@@ -376,6 +417,38 @@ export function fightersOf(siege) {
     .filter(f => (f.attacks || 0) > 0 || f.contribution > 0)
     .sort((a, b) => b.contribution - a.contribution || (a.firstAt || 0) - (b.firstAt || 0) || (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0));
 }
+
+/**
+ * The Wang Chi (design §5): the fighter with the most help (helpOf), if it's
+ * at least SIEGE.rewards.wangChiMinHelp (one cure) — a helper who never
+ * attacked included, which is the point. Ties go to more contribution, then
+ * whoever joined first, then the smaller id: the first of the most helpful
+ * in fightersOf's order, which sorts exactly that way. Nobody helped that
+ * much: the top contributor, `held` ("held the line"). Pure; null with no
+ * fighters. Whether there are honours at all (a win, with company) is
+ * planSiegeRewards' call.
+ * @returns {?{userId, name, help: number, held: boolean}}
+ */
+export function wangChiOf(siege) {
+  const fighters = fightersOf(siege);
+  if (!fighters.length) return null;
+  // Strictly more help to replace: on a tie the earlier in fightersOf's order stays
+  const best = fighters.reduce((a, f) => (helpOf(f) > helpOf(a) ? f : a));
+  if (helpOf(best) >= SIEGE.rewards.wangChiMinHelp) return { userId: best.userId, name: best.name, help: helpOf(best), held: false };
+  const top = fighters[0];
+  return { userId: top.userId, name: top.name, help: helpOf(top), held: true };
+}
+
+/**
+ * When backing a fighter closes (2.75.0): SIEGE.backing.window of the way
+ * through the siege's OWN time, start to end. Not the design's "3½ days": a
+ * week campaign ends at its night boundary (150–174 hours), so its halfway
+ * mark is too — about 75–87 hours in. Rounded to the millisecond.
+ */
+export const backingClosesAt = (s) => Math.round((Number(s?.startedAt) || 0) + ((Number(s?.endsAt) || 0) - (Number(s?.startedAt) || 0)) * SIEGE.backing.window);
+
+/** Can a fighter still be backed in siege `s`? Live, not beaten, and before backingClosesAt */
+export const backingOpen = (s, now = Date.now()) => isLive(s, now) && s.hp > 0 && now < backingClosesAt(s);
 
 /** One fighter's place: { damage, contribution, rank, of } or null if they haven't fought */
 export function standingOf(siege, userId) {
@@ -389,26 +462,43 @@ export function standingOf(siege, userId) {
  * Who gets what when a siege finishes — pure: the scores file applies it
  * (applySiegeResult), and holds back a member's rewards past
  * SIEGE.rewardedPerDay sieges today. Luck is drawn in the fighters' order
- * (fightersOf): the MVP's loot first (silver or not, then which item),
- * then, for each other fighter with at least SIEGE.rewards.lootShare of
- * the contribution, whether they get loot and, if so, which.
+ * (fightersOf): for each fighter in turn, the Wang Chi's sure loot (silver
+ * or not, then which item) at the Wang Chi's own place in that order, or,
+ * for anyone else with at least SIEGE.rewards.lootShare of the
+ * contribution, whether they get loot and, if so, which. When the Wang Chi
+ * is the top contributor (nobody helped enough: `held`) that's exactly the
+ * draws the old MVP's loot made, so a seeded siege nobody freed or cured in
+ * draws what it always did.
  *
  *   won:     the pool (potOf: at quick 8 a fighter, 24–200; from evening
  *            on, per fighter-night, the siege's `t.pool`) split by
- *            contribution share, each 2–`t.pool.eachMax`; the MVP
- *            +5 × `t.honour` and loot for sure; the others 25% ×
- *            traits.loot. Every fighter's win counts; the MVP's MVP; a
- *            beaten SIEGE.kaiju counts for everyone. ONE fighter alone
- *            gets the pool share only (`solo`): no bonus, no loot, no win.
- *   escaped: −3 for everyone who attacked, when 2 or more fought.
+ *            contribution share, each 2–`t.pool.eachMax`. Then the
+ *            honours, × H (`t.honour`): the Wang Chi (wangChiOf: the most
+ *            help, or the top contributor holding the line) +wangChiBonus·H
+ *            and loot for sure; the Jack Burton (the killing blow, an attack
+ *            or a poison tick) +jackBonus·H — one fighter may be both. The
+ *            others' loot is 25% × traits.loot. Every fighter's win counts;
+ *            the Wang Chi's `mvp` (lifetime.siege.mvps); the Jack Burton's
+ *            `jack`; a beaten SIEGE.kaiju counts for everyone. ONE fighter
+ *            alone gets the pool share only (`solo`): no honours, no loot,
+ *            no win.
+ *   escaped: −3 for everyone who attacked, when 2 or more fought. No honours.
  *   ended:   nothing (an admin called it off).
+ * And every status settles the backing (settleBacking): the Wang Chi's
+ * share of their backers' faith is folded into their grant as `backBonus`.
  *
- * @returns {{grants: object[], mvp: ?{userId, name}}}
+ * A siege live when 2.75.0 deployed (no `honours` stamp) pays by
+ * SIEGE_R2_DEPLOY.liveAtDeploy: the Wang Chi rules by default, or the old
+ * MVP's (`liveAtDeploy: 'mvp'`; a test passes the option).
+ *
+ * @returns {{grants: object[], mvp: ?{userId, name}, wangChi: ?{userId, name, help, held}, jack: ?{userId, name, by}, backing: object[]}}
  */
-export function planSiegeRewards(siege, status, luck = gameLuck) {
+export function planSiegeRewards(siege, status, luck = gameLuck, { liveAtDeploy = SIEGE_R2_DEPLOY.liveAtDeploy } = {}) {
   const monster = monsterOf(siege?.monster);
   const fighters = fightersOf(siege);
   const base = (f) => ({ userId: f.userId, name: f.name, damage: f.damage || 0, contribution: f.contribution, attacks: f.attacks || 0 });
+  // No honours on any grant but a won one's (the counters read these)
+  const none = { win: false, mvp: false, wangChi: false, jack: false, honour: 0, backBonus: 0, kaiju: false };
 
   if (status === 'won' && fighters.length) {
     const r = SIEGE.rewards;
@@ -424,35 +514,102 @@ export function planSiegeRewards(siege, status, luck = gameLuck) {
     const lootChance = Math.min(1, r.lootChance * factor(monster?.traits?.loot));
     const anyOf = (list) => list[Math.min(list.length - 1, Math.floor(luck() * list.length))];
     const lootItem = () => (luck() < r.silverChance ? 'silver' : anyOf(RANDOM_PRIZE_ITEMS));
-    const grants = fighters.map((f, i) => {
+    // A siege from before 2.75.0, paid the old way if Doug says so: the top contributor is the MVP, no Jack Burton
+    const legacy = !siege.honours && liveAtDeploy === 'mvp';
+    const top = solo ? null : legacy ? { userId: fighters[0].userId, name: fighters[0].name } : wangChiOf(siege);
+    const wangChi = solo || legacy ? null : top;
+    // The killing blow is always a fighter's; a win without one (it shouldn't happen) has no Jack Burton
+    const blow = solo || legacy ? null : siege.killingBlow;
+    const jackF = blow ? fighters.find(f => f.userId === blow.userId) : null;
+    const jack = jackF ? { userId: jackF.userId, name: jackF.name, by: blow.by || null } : null;
+    const H = t.honour;
+    const grants = fighters.map((f) => {
       // A win needs damage, so total is above 0; split evenly if it somehow isn't
       const share = total > 0 ? f.contribution / total : 1 / fighters.length;
-      const mvp = i === 0;
       let points = clamp(Math.round(pool * share), r.eachMin, t.pool.eachMax);
       // At a pot pace, what their attacks would have scored on their own
       // (notePotPoints): paid instead of the share if today's reward limit
       // holds this win back (gameScores.applySiegeResult)
       const own = t.pot ? { own: Math.round(Number(f.own) || 0) } : {};
-      if (solo) return { ...base(f), ...own, share, points, loss: 0, loot: null, win: false, mvp: false, kaiju: false, solo: true };
-      // Honours scale with the pace (R2's Wang Chi and Jack Burton will too)
-      if (mvp) points += r.mvpBonus * t.honour;
+      if (solo) return { ...base(f), ...own, share, points, loss: 0, loot: null, ...none, solo: true };
+      const isTop = f.userId === top.userId;
+      const isJack = f.userId === jack?.userId;
+      // Honours scale with the pace (H: a week campaign is one of ~3 a month)
+      const honour = (isTop ? (legacy ? SIEGE_R2_DEPLOY.mvpBonus : r.wangChiBonus) * H : 0) + (isJack ? r.jackBonus * H : 0);
+      points += honour;
       let loot = null;
-      if (mvp) loot = lootItem();
+      if (isTop) loot = lootItem();
       else if (share >= r.lootShare && luck() < lootChance) loot = lootItem();
-      return { ...base(f), ...own, share, points, loss: 0, loot, win: true, mvp, kaiju: siege.monster === SIEGE.kaiju };
+      // `mvp` (the counter Siege MVP and Legend read) is the Wang Chi: the MVP became the Wang Chi
+      return {
+        ...base(f), ...own, share, points, loss: 0, loot, win: true, mvp: isTop, wangChi: isTop && !legacy, jack: isJack, honour, backBonus: 0,
+        kaiju: siege.monster === SIEGE.kaiju,
+      };
     });
-    return { grants, mvp: { userId: fighters[0].userId, name: fighters[0].name } };
+    const backing = settleBacking(siege, status, fighters, top, jack);
+    // The fighter their backers called right: their share of it, once a siege
+    for (const b of backing) {
+      const g = b.bonus > 0 ? grants.find(x => x.userId === b.fighterId) : null;
+      if (g) g.backBonus += b.bonus;
+    }
+    return { grants, mvp: top ? { userId: top.userId, name: top.name } : null, wangChi, jack, backing };
   }
 
+  const backing = settleBacking(siege, status, fighters, null, null);
   if (status === 'escaped') {
     const penalised = fighters.length >= SIEGE.escape.minFighters;
     const grants = fighters.map(f => ({
-      ...base(f), share: 0, points: 0, loss: penalised && (f.attacks || 0) > 0 ? SIEGE.escape.loss : 0, loot: null, win: false, mvp: false, kaiju: false,
+      ...base(f), share: 0, points: 0, loss: penalised && (f.attacks || 0) > 0 ? SIEGE.escape.loss : 0, loot: null, ...none,
     }));
-    return { grants, mvp: null };
+    return { grants, mvp: null, wangChi: null, jack: null, backing };
   }
 
-  return { grants: [], mvp: null };
+  return { grants: [], mvp: null, wangChi: null, jack: null, backing };
+}
+
+/**
+ * The backers, settled (design §4.3), oldest backing first — but the one
+ * carrying the Wang Chi's `bonus` first of all. Pure.
+ *   won, ≥ SIEGE.backing.minFighters fought:
+ *     their fighter is the Wang Chi (`top`)  → `wangChi`: payout × stake back
+ *       (net +stake); and the fighter +⌈stake × fighterShare⌉ of the LARGEST
+ *       stake on them (ties: the earliest), on that one backer's entry as
+ *       `bonus` — once a siege, however many backed them
+ *     top 3 by contribution, or the Jack Burton → `push`: the stake back
+ *     anyone else                            → `lost`
+ *   escaped, ≥ minFighters                   → `escaped`: lost
+ *   called off, or fewer than minFighters    → `refunded`: the stake back
+ * @returns {Array<{backerId, backerName, fighterId, fighterName, stake, at, outcome, back, bonus}>}
+ */
+export function settleBacking(siege, status, fighters, top, jack) {
+  const B = SIEGE.backing;
+  const list = Object.entries(isObject(siege?.backers) ? siege.backers : {})
+    .filter(([, b]) => isObject(b) && Number.isFinite(b.stake) && b.stake > 0)
+    .map(([backerId, b]) => ({ backerId, backerName: b.name || backerId, fighterId: b.fighterId, fighterName: b.fighterName || b.fighterId, stake: b.stake, at: Number(b.at) || 0 }))
+    .sort((a, b) => a.at - b.at || (a.backerId < b.backerId ? -1 : a.backerId > b.backerId ? 1 : 0));
+  const enough = fighters.length >= B.minFighters;
+  const top3 = new Set(fighters.slice(0, 3).map(f => f.userId));
+  // `at` stays: the stake goes back to the month it was taken in (gameScores.payBacking)
+  const out = list.map((b) => {
+    let outcome = 'refunded';
+    if (status === 'won' && enough && top) {
+      outcome = b.fighterId === top.userId ? 'wangChi' : (top3.has(b.fighterId) || b.fighterId === jack?.userId) ? 'push' : 'lost';
+    } else if (status === 'escaped' && enough) {
+      outcome = 'escaped';
+    }
+    const back = outcome === 'wangChi' ? B.payout * b.stake : outcome === 'push' || outcome === 'refunded' ? b.stake : 0;
+    return { ...b, outcome, back, bonus: 0 };
+  });
+  // The fighter's share: the largest stake on them, the earliest of equals (the list is oldest first)
+  const theirs = out.filter(b => b.outcome === 'wangChi');
+  if (!theirs.length) return out;
+  const largest = theirs.reduce((a, b) => (b.stake > a.stake ? b : a));
+  largest.bonus = Math.ceil(largest.stake * B.fighterShare);
+  // ...and that backing first: the others on the same Wang Chi read "backed
+  // them too" (HONOURS.backing.wangChiToo), which must come after the line
+  // it follows — oldest first put a small early stake's "too" above the
+  // big one's (review R2, 2026-11-06)
+  return [largest, ...out.filter(b => b !== largest)];
 }
 
 /**
@@ -534,11 +691,24 @@ export function siegeView(siege, now = Date.now()) {
     // 2.74.0: digested for a day (3 days, a week), and back when
     out: all.filter(p => isOut(p, now) && Number.isFinite(p.outUntil)).map(p => ({ name: p.name, until: p.outUntil })).sort((a, b) => a.until - b.until),
     killingBlow: siege.killingBlow || null,
+    // The result as stored: 2.75.0's adds wangChi, jack and backing (a pre-2.75 one has only mvp)
     result: siege.result || null,
     // 2.74.0: the pace it runs at, its allowance and (at a `pot` pace) the pot so far
     pace: { key: t.key, name: t.name, allowance: t.allowance, pot: t.pot, report: t.report, nightEnd: t.nightEnd, honour: t.honour },
     pot: potOf(siege, fighters),
+    // 2.75.0: who'd be the Wang Chi if it ended now — only once someone has
+    // really helped (a held Wang Chi is just the top fighter, shown already)
+    wangChiSoFar: wangChiSoFar(siege),
+    backing: { open: backingOpen(siege, now), closesAt: backingClosesAt(siege), count: Object.keys(isObject(siege.backers) ? siege.backers : {}).length },
   };
+}
+
+/** The Wang Chi so far, with what they did, or null while nobody has helped SIEGE.rewards.wangChiMinHelp */
+function wangChiSoFar(siege) {
+  const w = wangChiOf(siege);
+  if (!w || w.held) return null;
+  const p = siege.participants[w.userId] || {};
+  return { ...w, frees: Number(p.frees) || 0, cures: Number(p.cures) || 0, boostHits: Number(p.boostHits) || 0 };
 }
 
 // ── writing: every change keyed by the siege's id ───────────────────────
@@ -570,14 +740,22 @@ function withSiege(guildId, siegeId, fn) {
 
 /**
  * Close a live siege whose monster key no longer exists: ended, nothing
- * paid, nothing to post. (In place, inside the caller's mutate.)
+ * paid, nothing to post — but (2.75.0) its backers' stakes come back, as
+ * any called-off siege's do. (In place, inside the caller's mutate.)
  */
-function closeOrphan(s, now) {
+function closeOrphan(guildId, s, now) {
   if (s.status !== 'live') return false;
+  const backing = settleBacking(s, 'ended', [], null, null);
+  const refunded = backing.length || hasBackStakes(guildId, s.id)
+    ? applySiegeResult(guildId, { siegeId: s.id, grants: [], status: 'ended', backing, now }).backing
+    : [];
   s.status = 'ended';
   s.finishedAt = now;
   for (const p of Object.values(isObject(s.participants) ? s.participants : {})) if (isObject(p)) p.poison = null;
-  s.result = { status: 'ended', grants: [], mvp: null, announcedAt: now, messageId: null, claimedAt: null, tries: 0, unannounced: 'unknown-monster' };
+  s.result = {
+    status: 'ended', grants: [], mvp: null, wangChi: null, jack: null, backing: refunded,
+    announcedAt: now, messageId: null, claimedAt: null, tries: 0, unannounced: 'unknown-monster',
+  };
   if (s.card) s.card.dirty = false;
   return true;
 }
@@ -593,7 +771,7 @@ export function closeOrphanSiege(guildId, now = Date.now()) {
   return mutate(guildId, (data) => {
     const s = data.siege;
     if (!isObject(s) || monsterOf(s.monster) || s.status !== 'live') return { error: 'none' };
-    closeOrphan(s, now);
+    closeOrphan(guildId, s, now);
     return { siege: s };
   });
 }
@@ -649,7 +827,7 @@ export function spawnSiege(guildId, { monster, minutes, startedBy = null, channe
     const old = isObject(data.siege) ? data.siege : null;
     // A siege whose monster no longer exists (a key renamed in a deploy)
     // can't be fought, shown or ended by anyone: it's closed, not waited on
-    if (old && !monsterOf(old.monster)) closeOrphan(old, now);
+    if (old && !monsterOf(old.monster)) closeOrphan(guildId, old, now);
     if (old?.status === 'live') return { error: 'in-progress', siege: old };
     if (old?.result && !old.result.announcedAt) {
       // Claimed and never recorded: a restart cut the send short. It's
@@ -698,6 +876,10 @@ export function spawnSiege(guildId, { monster, minutes, startedBy = null, channe
       pending: null,
       lastAction: null,
       killingBlow: null,
+      // 2.75.0: the rules it pays by (a siege live at the deploy has no stamp:
+      // SIEGE_R2_DEPLOY), and who has backed whom
+      honours: 'wang-chi',
+      backers: {},
       log: [],
       rev: 0,
       card: null,
@@ -970,9 +1152,10 @@ export function notePotPoints(guildId, siegeId, userId, points) {
 
 /**
  * The scheduler's minute: every poison's due ticks, credited to whoever
- * gave it; a fighter's poisoning that has worn off; and (2.74.0) a
- * digested fighter whose day out is over, back in the fight. Saves only
- * when something was due.
+ * gave it; a fighter's poisoning that has worn off; (2.74.0) a digested
+ * fighter whose day out is over, back in the fight; and (2.75.0) backing
+ * closing, once (`backingClosed`), for the card. Saves only when something
+ * was due.
  * @returns {{siege, dealt: number, back: string[]} | {error}}
  */
 export function siegeTick(guildId, siegeId, now = Date.now()) {
@@ -982,6 +1165,12 @@ export function siegeTick(guildId, siegeId, now = Date.now()) {
     let changed = false;
     let shown = false;
     const back = [];
+    // 2.75.0: backing has just closed — the card stops offering it at its
+    // next edit, rather than saying "until 3 hours ago" until someone attacks
+    if (!s.backingClosed && now >= backingClosesAt(s)) {
+      s.backingClosed = true;
+      changed = shown = true;
+    }
     for (const [userId, p] of Object.entries(isObject(s.participants) ? s.participants : {})) {
       // R6: a fighter's own poisoning that has run its course
       if (isObject(p?.poisoned) && !poisonedNow(p, now)) {
@@ -1018,6 +1207,12 @@ export function siegeTick(guildId, siegeId, now = Date.now()) {
  * scheduler to post, every poison stopped, and then the dial moves — the
  * siege's preset's dial, by its preset's step (2.74.0).
  *
+ * 2.75.0: the backing is settled in the same plan and paid in the same
+ * save — an admin's end too, which otherwise touches no score: its backers
+ * get their stakes back. So is a stake debited by a backing whose
+ * happenings save a kill cut short (hasBackStakes: the scores file has it,
+ * the siege's `backers` doesn't): applySiegeResult refunds it.
+ *
  * `hold` (the scheduler's escape at its end): from `day` on an escape's
  * results wait for the next game anyone plays on the server, or
  * PACE_RULES.holdResultsHours at the latest (`result.holdUntil`), so a
@@ -1030,12 +1225,25 @@ export function finishSiege(guildId, siegeId, status, now = Date.now(), luck = g
   return withSiege(guildId, siegeId, (s, data) => {
     if (s.status !== 'live') return { error: 'not-live', siege: s };
     const t = timingsOf(s);
-    const plan = planSiegeRewards(s, status, luck);
+    let plan = planSiegeRewards(s, status, luck);
     // Won and escaped go to the scores file even with nobody to pay: the
-    // leaderboard counts them (an admin's end counts for nothing)
-    const paid = plan.grants.length || status !== 'ended'
-      ? applySiegeResult(guildId, { siegeId: s.id, grants: plan.grants, status, now })
-      : { grants: [] };
+    // leaderboard counts them (an admin's end counts for nothing — but its
+    // backers' stakes come back, a stake the siege lost track of included)
+    const owed = plan.backing.length > 0 || hasBackStakes(guildId, s.id);
+    const paid = plan.grants.length || status !== 'ended' || owed
+      ? applySiegeResult(guildId, { siegeId: s.id, grants: plan.grants, status, backing: plan.backing, now })
+      : { grants: [], backing: [] };
+    // Paid already, as something else: an admin's end (its backers'
+    // refunds) whose happenings save a kill cut short, the siege fought on
+    // and won. The scores file is what happened — it paid the end, so the
+    // siege ends: a win here would post results nobody was paid for
+    // (review R2, 2026-11-06). Its honours are the status's own: none for
+    // an end or an escape, and a won one's are the siege's (no luck is
+    // drawn for an end or an escape).
+    if (paid.repeat && paid.status && paid.status !== status) {
+      status = paid.status;
+      plan = planSiegeRewards(s, status, luck);
+    }
     const fighters = fightersOf(s);
     const fought = fighters.length;
     const dealt = Object.values(isObject(s.participants) ? s.participants : {}).reduce((n, p) => n + (Number(p?.damage) || 0), 0);
@@ -1054,7 +1262,12 @@ export function finishSiege(guildId, siegeId, status, now = Date.now(), luck = g
     s.result = {
       status,
       grants: paid.grants,
+      // The Wang Chi as `mvp` too: the shape every reader before 2.75.0 knows
       mvp: plan.mvp,
+      wangChi: plan.wangChi,
+      jack: plan.jack,
+      // As paid (a repeat hands back the first payout's), orphaned stakes' refunds included
+      backing: asBackers(s, paid.backing),
       // An admin's end announces nothing (the card says so); the others are posted
       announcedAt: status === 'ended' ? now : null,
       messageId: null,
@@ -1094,6 +1307,22 @@ export function finishSiege(guildId, siegeId, status, now = Date.now(), luck = g
       }
     }
     return { siege: s, dial, effort };
+  });
+}
+
+/**
+ * The backing as paid, for `result.backing`: a stake a repeat refunded as an
+ * orphan (applySiegeResult) whose backing IS on the siege — placed after the
+ * payout it repeats, the siege still live — is that backer's refund, named
+ * like the rest, not a stake the siege lost track of
+ */
+function asBackers(s, backing) {
+  const backers = isObject(s.backers) ? s.backers : {};
+  return (Array.isArray(backing) ? backing : []).map((b) => {
+    const mine = b?.orphan && isObject(backers[b.backerId]) ? backers[b.backerId] : null;
+    if (!mine) return b;
+    const { orphan, ...rest } = b;
+    return { ...rest, backerName: mine.name || rest.backerName, fighterId: mine.fighterId, fighterName: mine.fighterName || mine.fighterId };
   });
 }
 
@@ -1525,9 +1754,19 @@ export function releaseWhenOff(guildId, siegeId, { rescueOn = true, potionOn = t
  *   a helpful /potion that worked, at a poisoned fighter → cured; the
  *     giver +1 `cures` (SIEGE.credit.cure)
  * A member who only frees or cures is in the fight with no attacks.
- * @returns {{siege, assist: {kind: 'freed'|'swapped'|'still'|'cured', targetId, targetName, until?}} | {error}}
+ *
+ * 2.75.0, `scored`: was the play itself scored, or past its game's daily
+ * scoring cap? The free or cure ALWAYS happens — the target is freed or
+ * cured, and a sacrifice still swaps: saving a friend is never blocked.
+ * But from an unscored play only the first SIEGE.credit.unscoredPerNight a
+ * member a night (12:00 UTC, `unscored: {night, n}`) are CREDITED: `frees`
+ * or `cures`, tonight's tally, and so their share and their help. Help was
+ * the one thing in a siege no cap reached, and the Wang Chi pays +8×H and
+ * sure loot: two friends taking turns at being grabbed and freed past the
+ * cap could farm it (the R1 review). A scored play is always credited.
+ * @returns {{siege, assist: {kind: 'freed'|'swapped'|'still'|'cured', targetId, targetName, credited: boolean, until?}} | {error}}
  */
-export function siegeAssist(guildId, { game, actor, targetId, outcome, holyWater = false }, now = Date.now()) {
+export function siegeAssist(guildId, { game, actor, targetId, outcome, holyWater = false, scored = true }, now = Date.now()) {
   const s0 = currentSiege(guildId);
   if (!s0 || !targetId || targetId === actor?.id) return { error: 'none' };
   return withSiege(guildId, s0.id, (s) => {
@@ -1540,35 +1779,106 @@ export function siegeAssist(guildId, { game, actor, targetId, outcome, holyWater
       if (!isObject(all[actor.id])) all[actor.id] = newFighter(actor.name, now);
       return all[actor.id];
     };
+    // Credited: their frees or cures, and tonight's tally. One that isn't
+    // credited doesn't make the helper a participant (they'd be one with
+    // nothing to their name) — unless the monster takes them for it
+    const credit = (field) => {
+      const credited = scored || creditUnscored(s, all, actor, now);
+      if (credited) {
+        const h = helper();
+        h[field] = (h[field] || 0) + 1;
+        tally(s, actor.id, actor.name, field, 1, now);
+      }
+      if (isObject(all[actor.id])) all[actor.id].lastAt = now;
+      return credited;
+    };
     if (game === 'rescue' && isCaught(target)) {
-      if (outcome === 'caught') return { siege: s, assist: { kind: 'still', targetId, targetName: target.name } };
+      if (outcome === 'caught') return { siege: s, assist: { kind: 'still', targetId, targetName: target.name, credited: false } };
       if (outcome !== 'rescued' && outcome !== 'sacrificed') return { error: 'none' };
       target.caught = null;
-      const h = helper();
-      h.frees = (h.frees || 0) + 1;
-      h.lastAt = now;
-      tally(s, actor.id, actor.name, 'frees', 1, now);
+      const credited = credit('frees');
       if (outcome === 'sacrificed' && !holyWater) {
+        const h = helper();
+        h.lastAt = now;
         h.caught = { at: now, until: now + timingsOf(s).freeMinutes * MINUTE, actionId: null, by: 'sacrifice' };
         log(s, `🕯️ ${cardName(actor.name)} freed ${cardName(target.name)}, and was grabbed instead`, now);
         touch(s);
-        return { siege: s, assist: { kind: 'swapped', targetId, targetName: target.name, until: h.caught.until } };
+        return { siege: s, assist: { kind: 'swapped', targetId, targetName: target.name, credited, until: h.caught.until } };
       }
       log(s, `🛟 ${cardName(actor.name)} freed ${cardName(target.name)}`, now);
       touch(s);
-      return { siege: s, assist: { kind: 'freed', targetId, targetName: target.name } };
+      return { siege: s, assist: { kind: 'freed', targetId, targetName: target.name, credited } };
     }
     if (game === 'potion' && outcome === 'helped' && isObject(target?.poisoned)) {
       target.poisoned = null;
-      const h = helper();
-      h.cures = (h.cures || 0) + 1;
-      h.lastAt = now;
-      tally(s, actor.id, actor.name, 'cures', 1, now);
+      const credited = credit('cures');
       log(s, `🧪 ${cardName(actor.name)} cured ${cardName(target.name)}`, now);
       touch(s);
-      return { siege: s, assist: { kind: 'cured', targetId, targetName: target.name } };
+      return { siege: s, assist: { kind: 'cured', targetId, targetName: target.name, credited } };
     }
     return { error: 'none' };
+  });
+}
+
+/**
+ * May this member's free or cure from an UNSCORED play count tonight? The
+ * first SIEGE.credit.unscoredPerNight a night do; each one counted is
+ * noted on them (`unscored`, in place, inside the caller's mutate — a
+ * helper new to the fight joins it here). Only tonight is kept: the night
+ * it was counted on, and how many.
+ */
+function creditUnscored(s, all, actor, now) {
+  // The siege's night (siegeNight), as its tallies and allowance count it:
+  // nightKey split a campaign's folded first night in two, 2 + 2 more
+  const night = siegeNight(s, now);
+  const p = all[actor.id];
+  const n = isObject(p?.unscored) && p.unscored.night === night ? Number(p.unscored.n) || 0 : 0;
+  if (n >= SIEGE.credit.unscoredPerNight) return false;
+  if (!isObject(all[actor.id])) all[actor.id] = newFighter(actor.name, now);
+  all[actor.id].unscored = { night, n: n + 1 };
+  return true;
+}
+
+// ── 2.75.0: backing a fighter ───────────────────────────────────────────
+
+/**
+ * Back fighter `fighterId` in siege `siegeId` with `stake` of your points
+ * (design §4.3) — in ONE synchronous block: the siege's rules are checked
+ * on the file as loaded here (the command checked them too, for a refusal
+ * that costs nothing; this is the race-proof re-check), the stake is taken
+ * from the scores file (stakeBacking, which re-checks the member's side:
+ * one a day, a regular, the points to stake), and the backing is stored on
+ * the siege. A kill between those two saves leaves a stake with no backer:
+ * finishSiege refunds it (applySiegeResult's orphans), and a retry before
+ * then finds the stake already taken (stakeBacking is idempotent by
+ * siege and member) and records the backing without taking it twice.
+ *
+ * The siege's own refusals, in the command's order: `noSiege` (not live, or
+ * beaten), `self`, `late` (past backingClosesAt), `notFighter` (they
+ * haven't attacked), `already` (one backing a siege); then stakeBacking's
+ * `daily`, `inactive`, `poor`. A bot is the command's to refuse.
+ * @returns {{siege, backing: {name, fighterId, fighterName, stake, at}, closesAt: number} | {error: string, count?: number, closesAt?: number}}
+ */
+export function placeBacking(guildId, siegeId, { userId, name, fighterId, fighterName, stake }, now = Date.now()) {
+  const B = SIEGE.backing;
+  if (!(Number.isInteger(stake) && stake >= B.min && stake <= B.max)) return { error: 'bad-stake' };
+  return withSiege(guildId, siegeId, (s) => {
+    if (!isLive(s, now) || !(s.hp > 0)) return { error: 'noSiege' };
+    if (fighterId === userId) return { error: 'self' };
+    const closesAt = backingClosesAt(s);
+    if (now >= closesAt) return { error: 'late', closesAt };
+    const p = isObject(s.participants) ? s.participants[fighterId] : null;
+    if (!((p?.attacks || 0) > 0)) return { error: 'notFighter' };
+    const backers = isObject(s.backers) ? s.backers : (s.backers = {});
+    if (owns(backers, userId)) return { error: 'already' };
+    const staked = stakeBacking(guildId, { key: `${s.id}:${userId}`, userId, name, stake }, now);
+    if (staked.error) return staked;
+    // The fighter as the siege knows them (their name on the card), the stake as the scores file took it
+    const backing = { name, fighterId, fighterName: p.name || fighterName, stake: staked.stake, at: now };
+    backers[userId] = backing;
+    log(s, `🎲 ${cardName(name)} backed ${cardName(backing.fighterName)} (${backing.stake})`, now);
+    touch(s);
+    return { siege: s, backing, closesAt };
   });
 }
 

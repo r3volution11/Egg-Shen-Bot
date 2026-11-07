@@ -4,20 +4,21 @@ description: "Let members request watch-party events through a web form; moderat
 
 # Event Requests
 
-Allow your community to submit watch party event requests through a web form! Server moderators can approve or deny submissions, and approved events are automatically created as Discord Scheduled Events.
+Let your members request watch-party events through a web form. Moderators approve or deny each request in Discord, and an approved request becomes a Discord Scheduled Event.
 
 ## Overview
 
 The Event Request System provides:
 
 - 🔐 **Discord OAuth Login** - Secure authentication with Discord, kept in a signed cookie
-- 📝 **Web-based Form** - User-friendly event submission interface
+- 📝 **Web Form** - Members fill in the title, time and an image
 - 💬 **Guidance on the Form** - Helper text under each field, rewritten per server ([see below](#guidance-on-the-form))
 - 🖼️ **Artwork Suggestions** - Backdrops and posters for the typed title, to pick and crop
 - 📺 **Where to Watch** - Each title's streaming services, shown to moderators and added to the event ([see below](#where-to-watch-on-each-request))
 - ✅ **Moderation Queue** - Review and approve/deny requests
 - 🎉 **Auto-create Events** - Approved events become Discord Scheduled Events
-- ⏱️ **Rate Limiting** - Prevents spam (1 request per 5 minutes per user)
+- 📣 **Announcements** - Each decision posted for the moderators, and approved events announced to members if you like ([see below](#announcing-approved-events-to-members))
+- ⏱️ **Rate Limiting** - Prevents spam (1 request per 5 minutes)
 - 🌐 **Dedicated Deployment** - Each website serves one specific Discord server
 
 ## How It Works
@@ -29,25 +30,25 @@ The Event Request System provides:
    - Non-members see error with invite link (if configured)
    - Only server members can proceed
 4. **User submits event details** (with your server's guidance under each field, and artwork suggested for the title):
-   - **Simple Mode (default):** Title, description, time only. Moderators assign channels during approval.
+   - **Simple Mode (default):** Title, description, image and time. Moderators assign channels during approval.
    - **Advanced Mode (opt-in):** Full control including channel selection from admin-configured whitelists.
-5. **System revalidates membership at submission** (prevents edge case of leaving server after login)
+5. **System checks membership again at submission** (in case they left the server after logging in)
 6. **Request appears in your moderation channel** with Approve/Deny buttons, and where the title streams
 7. **Moderator clicks a button** to approve or deny
-8. **If approved, Discord Scheduled Event is created automatically**, its description ending with where to watch
+8. **If approved, the Discord Scheduled Event is created automatically**, its description ending with where to watch, and announced to members if you've set that up
 
 ::: tip Security: Guild Membership Required
-The bot validates that users are **actual members of your Discord server** both when they log in and when they submit the form. Non-members see a friendly error message with an invite link to join. This prevents spam from users outside your community.
+The bot checks that people are **members of your Discord server** both when they log in and when they submit the form. Non-members see an error, with your invite link if you've set one. This keeps out spam from outside your community.
 :::
 
 ::: tip Default Behavior
-By default, event requests use **Simple Mode**: users submit event ideas and moderators handle channel logistics. This reduces decision fatigue and simplifies the user experience. Enable **Advanced Mode** with `/eggshen-config-events event-requests allow-user-channel-selection allow:true` to let users select channels.
+By default, event requests use **Simple Mode**: members submit the event and moderators pick the channels. Turn on **Advanced Mode** with `/eggshen-config-events event-requests allow-user-channel-selection allow:true` to let users select channels.
 :::
 
 ## Deployment Model
 
 ::: tip One Website = One Discord Server
-Each event request form deployment is dedicated to **one specific Discord server**. If you host the bot for multiple servers, each server should deploy its own instance of the web form on their own domain.
+Each copy of the event request form belongs to **one Discord server**. One bot can back several forms, each on its own domain, for several servers.
 
 **Example:**
 - moviefans.example.com → Movie Fans Discord Server
@@ -58,43 +59,46 @@ Each event request form deployment is dedicated to **one specific Discord server
 
 ::: warning Prerequisites
 This feature requires:
-- A web server to host the event request form (e.g., yourdomain.com)
-- Discord Client Secret from the Developer Portal
-- Web server configuration (e.g., nginx)
-- Additional environment variables
+- A web server for the form (e.g., yourdomain.com) that can forward `/api/` to the bot, such as nginx
+- The Client Secret from the Discord Developer Portal
+- A few more environment variables
 :::
 
 ### Step 1: Discord Developer Portal Setup
 
 ::: danger CRITICAL: OAuth Redirect URI
-**You MUST add the redirect URI to Discord Developer Portal BEFORE testing!** Without this, users will get "Invalid OAuth2 redirect_uri" errors when trying to login.
+**Add the redirect URI in the Discord Developer Portal BEFORE testing.** Without it, people get "Invalid OAuth2 redirect_uri" when they try to log in.
 :::
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
 2. Select your bot application
-3. Navigate to **OAuth2** section
-4. Click **Add Redirect** and enter:
-   - For local testing: `http://localhost:3000/api/auth/discord/callback`
+3. Open the **OAuth2** section
+4. Click **Add Redirect** and enter your form's address followed by `/api/auth/discord/callback`:
    - For production: `https://yourdomain.com/api/auth/discord/callback`
-   - **The URL MUST match your `OAUTH_REDIRECT_URI` environment variable exactly**
+   - For local testing: `http://localhost:3000/api/auth/discord/callback`
+   - Serving the form on more than one domain? Add one for each
 5. Click **Save Changes** (don't forget this!)
-6. Copy your **Client Secret** from the OAuth2 page (keep it secure!)
+6. Copy your **Client Secret** from the OAuth2 page (keep it secret)
+
+The bot builds the callback address from the domain each login starts on, so a login on one domain always comes back to that domain. `OAUTH_REDIRECT_URI` is only used when the domain can't be worked out.
 
 ### Step 2: Environment Variables
 
-Add these to your `.env` file:
+Add these to your `.env` file (`DISCORD_CLIENT_ID` is already there for the bot):
 
 ```env
 # Required for event requests
 DISCORD_CLIENT_SECRET=your_client_secret_here
 
-# API Configuration
+# API configuration
 API_PORT=3000
+# Every domain the form is served from, comma-separated
+ALLOWED_ORIGINS=https://yourdomain.com
+# Fallbacks, used only when the bot can't tell which domain a login came from
 OAUTH_REDIRECT_URI=https://yourdomain.com/api/auth/discord/callback
 FORM_URL=https://yourdomain.com
-ALLOWED_ORIGINS=https://yourdomain.com
 
-# Powers the moderator "Crop Image" link button — see Moderator section below
+# Powers the moderator "Crop Image" button (see Cropping or Replacing the Image)
 EVENT_CROP_LINK_SECRET=your_generated_secret_here
 PUBLIC_BOT_URL=https://yourdomain.com
 
@@ -103,66 +107,64 @@ PUBLIC_BOT_URL=https://yourdomain.com
 SESSION_SECRET=your_generated_secret_here
 ```
 
-::: tip Local Testing
-For local testing, use:
-```env
-OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/discord/callback
-FORM_URL=http://localhost:PORT
-ALLOWED_ORIGINS=http://localhost:PORT
-```
-:::
+Generate a secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Restart the bot after changing `.env`.
 
-### Step 3: Deploy Web Form
+### Step 3: Deploy the Web Form
 
-The bot includes a web form in the `/public` folder. Deploy these files to your web server:
+The form's files are in `public/`. Build them and make a ready-to-serve copy for your site:
 
-- `public/index.html` - Event request form
-- `public/app.js` - Form logic
-- `public/style.css` - Styling
+1. Add an entry for your site to `scripts/domains.json`, with your server's Guild ID, a theme and an optional logo:
 
-**Required Configuration:**
+   ```json
+   {
+     "my-community": { "guildId": "123456789012345678", "theme": "default", "logoUrl": "" }
+   }
+   ```
 
-1. Copy `public/config.example.js` to `public/config.js`
-2. Set `GUILD_ID` to your Discord server's Guild ID:
+2. Build the styles and make the copy:
 
-```javascript
-window.EGG_SHEN_CONFIG = {
-  GUILD_ID: 'YOUR_GUILD_ID_HERE', // Change this!
-};
-```
+   ```bash
+   npm run build:web
+   npm run deploy:domain -- --all
+   ```
 
-`public/config.js` is gitignored, so a future `git pull` on your server will never overwrite it.
+   This writes `domains/my-community/`, with its own `config.js` holding the Guild ID. Run it again whenever you update the bot.
+
+3. Point your web server's root for the domain at `domains/my-community/`.
+
+4. Forward these paths to the bot's API port (3000 by default): `/api/`, `/crop/`, `/crop-assets/` and `/shared-assets/`. The form talks to the bot at `/api/` on its own domain, so without this it can't log anyone in. Pass the `Host` and `X-Forwarded-Proto` headers, so the bot builds an `https://` login callback:
+
+   ```nginx
+   location /api/ {
+       client_max_body_size 10M;
+       proxy_pass http://localhost:3000;
+       proxy_set_header Host $host;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+   }
+   ```
+
+5. Use HTTPS.
+
+The full walkthrough, including themes and several domains, is in the [setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md).
 
 ::: tip Finding Your Guild ID
-Run `/eggshen-config-events event-requests get-link` in your Discord server to see your Guild ID.
+Run `/eggshen-config-events event-requests get-link` in your Discord server. It shows the Guild ID to put in `scripts/domains.json`. Or turn on Developer Mode in Discord and right-click your server's icon → **Copy Server ID**.
 :::
 
-**Example deployment:**
-- Copy `config.example.js` to `config.js` in `public/` and set `GUILD_ID`
-- Upload `/public` contents (including your new `config.js`) to `https://yourdomain.com`
-- Ensure the domain matches your environment variables
-
 ::: warning Reverse Proxy Upload Size Limit
-If you're proxying `/api/` to the bot through nginx (or a similar reverse proxy) rather than exposing the bot's API port directly, set that proxy's own request body size limit — nginx defaults to **1MB**, which silently rejects most real event images before they ever reach the bot. The bot's own upload limit is 8MB, so configure the proxy to allow at least that much:
+nginx accepts request bodies up to **1MB** by default, which turns away most real event images before they reach the bot. The bot accepts images up to 8MB, so set the proxy's limit to at least that (`client_max_body_size 10M;` above).
 
-```nginx
-location /api/ {
-    client_max_body_size 10M;
-    proxy_pass http://localhost:3000;
-    # ...
-}
-```
-
-Without this, image uploads on the web form fail silently — the browser gets a proxy-level `413 Request Entity Too Large` error page instead of the bot's normal JSON error response, and nothing shows up in the bot's own logs since the request never reached it.
+Without it, image uploads fail: the browser gets the proxy's own `413 Request Entity Too Large` page instead of the bot's error, and the bot's logs show nothing because the request never reached it.
 :::
 
 ### Step 4: Configure Your Server
 
 ::: warning Event Requests Disabled by Default
-Event requests are **disabled by default** for all servers. You must enable them using the toggle command below. Until enabled, the event request form will show a "disabled" message to users.
+Event requests are **off by default**. Turn them on with the toggle command below. Until then, the form tells visitors event requests aren't available.
 :::
 
-Use `/eggshen-config-events event-requests` commands in your Discord server:
+Use the `/eggshen-config-events event-requests` commands in your Discord server. They're for admins and moderators.
 
 **1. Enable event requests (required first step):**
 ```
@@ -179,7 +181,10 @@ Use `/eggshen-config-events event-requests` commands in your Discord server:
 **3. Optional settings:**
 ```
 /eggshen-config-events event-requests invite-url url:https://discord.gg/yourserver
+/eggshen-config-website bot-url url:https://yourdomain.com
 ```
+
+The bot URL is where the moderators' crop page lives (see [Cropping or Replacing the Image](#cropping-or-replacing-the-image)); without it the bot uses `PUBLIC_BOT_URL`. The form's guidance, the where-to-watch line and announcing approved events to members are covered further down.
 
 ### Step 5: Get Your Link
 
@@ -187,13 +192,13 @@ Use `/eggshen-config-events event-requests` commands in your Discord server:
 /eggshen-config-events event-requests get-link
 ```
 
-This shows your configured Form URL, plus a reminder to set `GUILD_ID` in `public/config.js` on your web server if you haven't already.
+This shows your Form URL and the Guild ID your site needs (`guildId` in `scripts/domains.json`, or `GUILD_ID` in `public/config.js`). It only works once event requests are on and the website URL is set.
 
-Share your Form URL with your community!
+Share the Form URL with your community.
 
 ## Configuration Commands
 
-All configuration is done via `/eggshen-config-events event-requests` subcommands:
+Everything is set with `/eggshen-config-events event-requests` subcommands, by admins and moderators:
 
 ### View Current Settings
 
@@ -201,7 +206,7 @@ All configuration is done via `/eggshen-config-events event-requests` subcommand
 /eggshen-config-events event-requests view
 ```
 
-Shows your current configuration including the event request link.
+Shows every setting, including the form's link and whether its guidance has been changed.
 
 ### Enable/Disable
 
@@ -213,7 +218,7 @@ Shows your current configuration including the event request link.
 Turn event requests on or off for your server.
 
 ::: tip Default State
-Event requests are **disabled by default**. You must explicitly enable them with `enabled:true` before users can submit requests. When disabled, the event request form shows a message telling users the feature is not available.
+Event requests are **off by default**. Turn them on with `enabled:true` before anyone can submit a request. While they're off, the form tells visitors the feature isn't available.
 :::
 
 ### Set Moderation Channel
@@ -255,7 +260,7 @@ Discord invite link shown on the form. Leave empty to hide.
 /eggshen-config-events event-requests allow-voice-requests allow:false
 ```
 
-Control whether users can request voice/stage channels for events. When disabled, all events will be text-channel only.
+Controls whether members can add a voice or stage channel to their request. It's on by default, and only matters in Advanced Mode (below), where members pick channels. When it's off, every request is text-channel only.
 
 **Use cases for disabling:**
 - Server primarily uses text chat for watch parties
@@ -268,7 +273,7 @@ Control whether users can request voice/stage channels for events. When disabled
 /eggshen-config-events event-requests get-link
 ```
 
-Shows your form URL and reminds you to configure the GUILD_ID in your web form deployment.
+Shows your form URL and the Guild ID your site needs.
 
 #### Optional: Choose Simple or Advanced Mode
 
@@ -277,7 +282,7 @@ Shows your form URL and reminds you to configure the GUILD_ID in your web form d
 /eggshen-config-events event-requests allow-user-channel-selection allow:false
 ```
 
-Users submit basic event details only (title, description, time). The form hides channel selectors and shows: **"Moderators will select the channels when approving your event."** Moderators assign channels during approval.
+Members fill in the event's details (title, description, image, time). The form hides channel selectors and shows: **"Moderators will select the channels when approving your event."** Moderators assign channels during approval.
 
 **Best for:**
 - New communities still establishing channel structure
@@ -336,7 +341,7 @@ By default (in Advanced Mode), users can select from **all text channels** and *
 **How to get Channel IDs:**
 1. Enable Developer Mode in Discord Settings → Advanced
 2. Right-click any channel → Copy Channel ID
-3. Paste IDs comma-separated (no spaces)
+3. Paste the IDs separated by commas
 :::
 
 ::: warning Independent Controls
@@ -355,14 +360,14 @@ Text and voice whitelists are **independent**:
 2. **Click "Login with Discord"** to authenticate
 3. **Fill out the form:**
    - Event title (required)
-   - Description (optional)
-   - **Event image** (optional) - Upload an image file, paste an image URL, or pick artwork suggested for your title — either way you'll get a chance to crop it
-   - **Location** (required) - Text channel for the watch party
-   - **Voice channel** (optional) - Check the box to add voice/stage channel
+   - Description (optional, up to 800 characters)
+   - **Event image** (optional) - Upload an image file, paste an image URL, or pick artwork suggested for your title. Either way you get to crop it
+   - **Location** (Advanced Mode only, required there) - Text channel for the watch party
+   - **Voice channel** (Advanced Mode only, optional) - Check the box to add a voice or stage channel
    - Start date and time (required)
    - End date and time (optional)
-   - Frequency (optional: Once, Daily, Weekly, Biweekly, Monthly)
-   - Each field has a short note on what the server wants; a server can rewrite these for its own community
+   - Frequency (optional: one-time by default, or Daily, Weekly, Biweekly, Monthly)
+   - Each field has a short note on what the server wants; each server can rewrite these for its own community
 4. **Click "Submit Request"**
 5. **Wait for moderator approval**
 
@@ -379,9 +384,11 @@ Drag to adjust the framing as much as you like — this only updates the preview
 :::
 
 ::: tip Channel Selection
-**Location** is where the watch party chat happens (text channel, always required).
+Channels only appear on the form in Advanced Mode. In Simple Mode, the form says moderators will pick them.
 
-**Voice channel** is optional and only shown if enabled by server admins. Check the box if you want to include a voice/stage channel for the event.
+**Location** is where the watch party chat happens (a text channel, required).
+
+**Voice channel** is optional, and only shown if the server allows voice requests. Check the box to include a voice or stage channel for the event.
 :::
 
 ::: tip Time Zones
@@ -392,14 +399,16 @@ The form automatically detects and shows your own local timezone next to the tim
 
 When a request is submitted:
 
-1. **Request appears in moderation channel** with all details, including **📺 Where to watch**: which of your server's streaming services carry the title (see [Where to Watch](#where-to-watch-on-each-request))
-2. **Shows location (text channel) and voice channel (if requested)**
-3. **Approval buttons vary based on request:**
-   - **Text-only request**: ✅ Approve, ✏️ Edit, or ❌ Deny
+1. **The request appears in the moderation channel** with its details and image, including **📺 Where to watch**: which of your server's streaming services carry the title (see [Where to Watch](#where-to-watch-on-each-request))
+2. **It shows the text channel and voice channel**, if the submitter picked them, or "Moderator will assign during approval"
+3. **The buttons depend on the request:**
+   - **Text-only request**: ✅ Approve & Create Event, ✏️ Edit, or ❌ Deny
    - **Request with voice**: ✅ Approve Both, 💬 Text Only, ✏️ Edit, or ❌ Deny
-4. **Choose approval type:**
-   - **Approve Both** → Creates voice channel event with text channel coordination
-   - **Text Only** → Creates text-only event (removes voice channel from request)
+   - Both also get **🖼️ Crop Image** when the crop page is set up (see below)
+4. **Choose one:**
+   - **Approve & Create Event** → Creates the event. If no channel was picked, you choose one first
+   - **Approve Both** → Creates a voice channel event, with the text channel for the chat
+   - **Text Only** → Creates a text-only event (drops the voice channel)
    - **Edit** → Opens a form to correct the title, description, or start/end time — saving it immediately approves the request too (see below)
    - **Deny** → Opens a form for an optional reason, then removes the request without creating an event
 
@@ -410,7 +419,7 @@ If a submitter's title is wrong or the description needs more detail, click **�
 The Edit form also includes an optional **Image URL** field. Use it to add an image to a request that didn't include one, or to replace whatever image the submitter provided (upload or URL) — an image URL entered here always wins over the submitter's. Leaving it blank doesn't clear an existing image; there's no separate "remove image" action, only "optionally override it."
 
 Saving the edit both updates the request **and approves it in the same step** — there's no separate Approve click needed afterward:
-- If the request already has a text channel (the submitter picked one, or advanced mode isn't in use), saving creates the event right away, using a voice channel too if one was requested.
+- If the request already has a text channel (the submitter picked one in Advanced Mode), saving creates the event right away, using a voice channel too if one was requested.
 - If no channel is set yet, saving shows the same channel-selection step Approve normally shows — pick a channel there and the event is created from your edited title/description.
 
 If you want to review the edit before it goes live, or need to change something Edit doesn't cover, deny the request instead and ask the submitter to resubmit — editing is meant for quick corrections a moderator is comfortable approving outright, not a staging step.
@@ -467,29 +476,33 @@ The decision message above goes to the moderation channel, which members usually
 If the bot can't post there (usually a missing **Send Messages** permission), the event is still created, and the approving moderator's reply says the announcement failed and why.
 
 ::: tip Moderator Permissions
-Only members with **Manage Events** permission or Administrator/Moderator roles can approve/deny/edit requests.
+Approving, denying, editing and cropping requests needs the **Manage Events** or **Administrator** permission.
 :::
 
 ## Rate Limiting
 
-Built-in protection against spam:
+The form has its own limits against spam, counted by IP address:
 
-- **1 request per 5 minutes** per user (by IP address)
-- **10 channel lookups per minute** per user
-- **5 image uploads per 5 minutes** per user (by IP address)
-- **Sessions expire after 24 hours**
+- **1 request per 5 minutes**
+- **5 image uploads per 5 minutes**, counting both picked files and fetched image URLs
+- **30 artwork lookups a minute**, for logged-in members only
+- **10 channel lookups a minute**
 
-Limits are scoped **per domain**, not just per IP — if you run a dev deployment alongside production (see [Multiple Servers](#multiple-servers-advanced) below), submitting on one domain doesn't use up the other domain's limit, even though both are served by the same bot process.
+Logins last 24 hours.
+
+Limits are counted **per domain** as well as per IP. If one bot serves several sites (see [Multiple Servers](#multiple-servers-advanced) below), a request on one site doesn't use up another site's limit.
+
+These are separate from the bot's [rate limits for commands](/features/rate-limiting).
 
 ## Security Features
 
 - ✅ Discord OAuth authentication (no passwords stored)
 - ✅ Session-based login (24-hour expiration), with a signed cookie: it can't be edited or forged to claim another member
 - ✅ Requests are made as whoever is logged in; the form can't submit on someone else's behalf
-- ✅ HTTP-only secure cookies
+- ✅ HTTP-only cookies, marked secure when `NODE_ENV=production`
 - ✅ CORS protection
 - ✅ Rate limiting
-- ✅ Request expiration (7 days)
+- ✅ Requests nobody approves or denies expire after 7 days
 - ✅ Uploaded images are validated by type (PNG/JPEG/GIF/WebP) and capped at 8MB
 - ✅ Uploaded images are automatically deleted ~90 days after their event's date has passed (or sooner if the request is never approved)
 
@@ -497,13 +510,11 @@ Limits are scoped **per domain**, not just per IP — if you run a dev deploymen
 
 ### Making It Your Own
 
-The event request system is designed to be easily customized:
-
-1. **Set `GUILD_ID` in `public/config.js`** (copied from `public/config.example.js`) - Point to your Discord server
-2. **Configure server name and invite** - Use `/eggshen-config-events event-requests` commands
+1. **Point the form at your server** - the `guildId` in your site's entry in `scripts/domains.json` (see [Step 3](#step-3-deploy-the-web-form))
+2. **Set the server name and invite** - with the `/eggshen-config-events event-requests` commands
 3. **Adjust the guidance** - the form comes with helper text under each field, an intro and a footer; `/eggshen-config-events event-requests guidance` rewrites any of it for your server (see below)
-4. **Customize styling** - Edit `public/style.css` to match your branding
-5. **Deploy to your domain** - Host on any web server (Apache, nginx, Netlify, Vercel, etc.)
+4. **Change the look** - the theme and logo in `scripts/domains.json`, or `public/style.css`, then run `npm run build:web` and `npm run deploy:domain -- --all` again
+5. **Host it** - any web server that can forward `/api/` to the bot
 
 ### Guidance on the Form
 
@@ -536,31 +547,34 @@ Each request's title is looked up for where it streams, among the services your 
 /eggshen-config-events event-requests streaming services:Shudder, AMC+, Tubi, Plex, Roku, Prime Video, Hulu, Peacock, Hoopla
 ```
 
-Moderators see it on the request; approving adds it to the event's description, with a link to every other place to watch. Free services are marked "(free)". It never guesses: no exact match, no line. See [Configuration › Where to Watch](../commands/configuration#where-to-watch) for the details.
+Moderators see it on the request; approving adds it to the event's description, with a link to every other place to watch. Free services are marked "(free)". It never guesses: if the title doesn't match one movie or show exactly, nothing is added, and moderators are told to ask for the year. When the submitter picked artwork, that exact title is used.
+
+It's on by default, with the services shown above in that order. Run the command with no options to see the current settings, `enabled:false` to turn the line off, or `services:default` to go back to the default list. See [Configuration › Where to Watch](../commands/configuration#where-to-watch) for the details.
 
 ### Multiple Servers (Advanced)
 
-If you host the bot for multiple communities, each should deploy their own instance:
+One bot can back a form for each of several servers. Give each site its own entry in `scripts/domains.json`:
 
+```json
+{
+  "movie-night": { "guildId": "SERVER_1_ID", "theme": "default", "logoUrl": "" },
+  "game-night": { "guildId": "SERVER_2_ID", "theme": "default", "logoUrl": "" }
+}
 ```
-Server 1: Deploy to movienight.com with config.js → GUILD_ID = 'SERVER_1_ID'
-Server 2: Deploy to gamenight.com with config.js → GUILD_ID = 'SERVER_2_ID'
-Server 3: Deploy to bookclub.com with config.js → GUILD_ID = 'SERVER_3_ID'
-```
 
-Each deployment is independent with its own:
-- Domain/subdomain
-- Guidance on the form and where-to-watch services (set per server in Discord)
-- `config.js` (gitignored, so a shared repo checkout never overwrites another deployment's Guild ID)
-- Custom branding and styling
-- Separate Discord OAuth configuration
+`npm run deploy:domain -- --all` makes a copy of the form for each in `domains/<label>/`. For each domain, then:
 
-::: tip For Bot Hosts
-If you're running the bot for multiple servers and want to offer event requests as a feature, provide each server with:
-1. Instructions to deploy the web form files
-2. Their specific Guild ID to set in `config.js`
-3. Discord OAuth setup guide
-:::
+- Point its web root at its own `domains/<label>/` folder, and forward the same paths to the same bot
+- Add it to `ALLOWED_ORIGINS` (comma-separated)
+- Add its callback, `https://<domain>/api/auth/discord/callback`, in the Discord Developer Portal. All the sites share the bot's one Discord application
+
+Each site gets its own:
+- Domain
+- Guild ID, theme and logo
+- Guidance on the form, where-to-watch services and other settings (set per server in Discord)
+- Rate limits
+
+See the [setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md) for the details.
 
 ## Local Testing
 
@@ -578,57 +592,56 @@ You should see: `✓ API server listening on port 3000`
 
 ### 2. Serve the Web Form
 
-```bash
-# Using Python
-cd public && python3 -m http.server 8080
+Copy `public/config.example.js` to `public/config.js` and set `GUILD_ID` to your test server's ID. Then:
 
-# OR using Node.js http-server
+```bash
+# Using Node.js http-server
 npx http-server public -p 8080
+
+# OR using Python
+cd public && python3 -m http.server 8080
 ```
+
+On `localhost`, the form talks to the bot at `http://localhost:3000` directly, so no proxy is needed. Served straight from `public/`, the page has no theme; that's fine for testing.
 
 ### 3. Configure for Testing
 
 ```env
 # .env
 OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/discord/callback
-FORM_URL=http://localhost:PORT
-ALLOWED_ORIGINS=http://localhost:PORT
+FORM_URL=http://localhost:8080
+ALLOWED_ORIGINS=http://localhost:8080
 ```
 
-Don't forget to add `http://localhost:3000/api/auth/discord/callback` to Discord Developer Portal!
+Add `http://localhost:3000/api/auth/discord/callback` in the Discord Developer Portal too.
 
 ### 4. Test the Flow
 
-1. Copy `public/config.example.js` to `public/config.js` and set `GUILD_ID` to your test server's ID
-2. Configure your test server:
+Configure your test server:
 
 ```
-# In Discord
 /eggshen-config-events event-requests toggle enabled:true
 /eggshen-config-events event-requests moderation-channel channel:#test-events
 /eggshen-config-events event-requests server-name name:"Test Server"
-/eggshen-config-website url url:http://localhost:PORT
-
-# Check configuration
+/eggshen-config-website url url:http://localhost:8080
 /eggshen-config-events event-requests view
 ```
 
-3. Open `http://localhost:PORT` in browser and test the full flow!
+Then open `http://localhost:8080` and go through the whole flow. Locally, logging in can leave you on the bot's own address (`localhost:3000`) instead of the form. If it does, go back to `http://localhost:8080`: you're logged in.
 
 ## Troubleshooting
 
 ### "Site can't be reached" Error
 
-- ✅ Check if the bot is running (API server starts with bot)
-- ✅ Verify `API_PORT` in `.env` (default: 3000)
+- ✅ Check the bot is running (the API server starts with it), with `pm2 status` or similar
+- ✅ Check `API_PORT` in `.env` (default: 3000) matches what your web server forwards `/api/` to
 - ✅ Check firewall rules if deployed to production
-- ✅ Ensure the bot process is running with `pm2 status` or similar
 
 ### "Guild not found" Error
 
-- ✅ Verify the guild ID in the URL is correct
-- ✅ Ensure the bot is a member of that server
-- ✅ Check event requests are enabled: `/eggshen-config-events event-requests view`
+- ✅ Check the Guild ID in your site's `config.js` (set from `scripts/domains.json`)
+- ✅ Make sure the bot is a member of that server
+- ✅ Check event requests are on: `/eggshen-config-events event-requests view`
 
 ### "Invalid OAuth2 redirect_uri" Error
 
@@ -637,31 +650,32 @@ This is the most common error when setting up event requests. It means Discord d
 :::
 
 **Solution:**
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
 2. Select your application → OAuth2 → Redirects
-3. Add the **exact** URL from your `OAUTH_REDIRECT_URI` environment variable
+3. Add your form's address followed by `/api/auth/discord/callback`, exactly, e.g. `https://yourdomain.com/api/auth/discord/callback`. Add one for each domain the form is served from
 4. Click **Save Changes** (required!)
-5. Wait 1-2 minutes for changes to propagate
-6. Try logging in again
+5. Wait a minute or two, then try logging in again
+
+The bot builds the callback from the domain the login started on. Behind a proxy, it uses the `Host` and `X-Forwarded-Proto` headers the proxy passes. If the proxy doesn't pass `X-Forwarded-Proto`, the callback starts with `http://` and won't match an `https://` redirect.
 
 **Common mistakes:**
-- ❌ Forgetting to click "Save Changes" in Discord portal
-- ❌ Using HTTP instead of HTTPS in production
-- ❌ Typo in the URL (even `/callback` vs `/callbacks` matters)
-- ❌ Port number mismatch
+- ❌ Forgetting to click "Save Changes" in the portal
+- ❌ The proxy not passing `Host` and `X-Forwarded-Proto`
+- ❌ A typo in the URL (even `/callback` vs `/callbacks` matters)
+- ❌ Registering one domain while people use another
 
-**Validate your configuration:**
+**Check your `.env`:**
 ```bash
 npm run validate-oauth
 ```
 
+This checks `DISCORD_CLIENT_SECRET` and the fallback `OAUTH_REDIRECT_URI`.
+
 ### OAuth Redirect Mismatch
 
-- ✅ `OAUTH_REDIRECT_URI` in `.env` must exactly match Discord Developer Portal
-- ✅ Check for HTTP vs HTTPS mismatches
-- ✅ Verify port numbers match
+- ✅ The callback in the Developer Portal must match the form's domain exactly, including `https://`
+- ✅ Check the proxy passes `Host` and `X-Forwarded-Proto`
 - ✅ Restart the bot after changing `.env`
-- ✅ Run `npm run validate-oauth` to check configuration
 
 ### Requests Not Appearing
 
@@ -676,32 +690,35 @@ npm run validate-oauth
 
 ### CORS Errors
 
-- ✅ Add your website URL to `ALLOWED_ORIGINS` in `.env`
+- ✅ Add your website's address to `ALLOWED_ORIGINS` in `.env` (comma-separated for several)
 - ✅ Restart the bot after changing environment variables
 - ✅ Check browser console for specific CORS errors
 
 ### Login Not Working
 
-- ✅ Verify `DISCORD_CLIENT_SECRET` is set correctly in `.env`
-- ✅ Check redirect URI matches in Discord Developer Portal
+- ✅ Check `DISCORD_CLIENT_SECRET` is set correctly in `.env`
+- ✅ Check the redirect URI in the Discord Developer Portal
+- ✅ Logins last 24 hours, and changing `SESSION_SECRET` signs everyone out: log in again
 - ✅ Clear browser cookies and try again
-- ✅ Check bot logs for OAuth errors
+- ✅ Check the bot's logs for OAuth errors
 
 ## API Endpoints
 
-The bot exposes these endpoints for the event request system:
+The bot serves these for the event request system:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/health` | GET | Health check |
-| `/api/guild-config/:guildId` | GET | Get server configuration |
-| `/api/auth/discord` | GET | Start OAuth flow |
-| `/api/auth/discord/callback` | GET | OAuth callback handler |
-| `/api/auth/session` | GET | Check current session |
-| `/api/auth/logout` | POST | Logout user |
-| `/api/channels/:guildId` | GET | List voice/stage channels |
+| `/api/guild-config/:guildId` | GET | The server's form settings and guidance (only while event requests are on) |
+| `/api/auth/discord` | GET | Start the Discord login |
+| `/api/auth/discord/callback` | GET | Discord login callback |
+| `/api/auth/session` | GET | Who's logged in |
+| `/api/auth/logout` | POST | Log out |
+| `/api/channels/:guildId` | GET | The text, voice and stage channels the form can offer |
+| `/api/event-request/title-art` | GET | Artwork suggestions for a title (logged-in members only) |
 | `/api/event-request/upload-image` | POST | Upload an event image ahead of submission (returns a token) |
-| `/api/event-request` | POST | Submit event request |
+| `/api/event-request/fetch-image-url` | POST | Fetch a pasted image URL so the form can crop it |
+| `/api/event-request` | POST | Submit an event request (logged-in members only) |
 | `/crop/:requestId` | GET | Moderator crop page (signed-token gated) |
 | `/crop/:requestId/current-image` | GET | The request's current image (its stored file, or its image link fetched), for pre-loading the cropper |
 | `/crop/:requestId/fetch-image-url` | POST | Fetch a pasted image URL for the cropper (signed token, not used up) |
@@ -712,20 +729,19 @@ The bot exposes these endpoints for the event request system:
 ### For Server Admins
 
 - 📝 **Test locally first** before going live
-- 🔒 **Keep your client secret secure** - never share it
+- 🔒 **Keep your client secret secret**: never share it
 - 📢 **Share the link** in an announcement channel
-- 👀 **Monitor the moderation queue** regularly
-- ⚙️ **Set clear guidelines** for acceptable events
+- 👀 **Check the moderation queue** regularly: requests nobody answers expire after 7 days
+- ⚙️ **Say what you're looking for** in the form's guidance
 
 ### For Web Hosting
 
-- 🔐 **Use HTTPS in production** for security
-- 🌐 **Use a memorable domain** that matches your community brand
-- 📊 **Monitor traffic** and adjust rate limits if needed
-- 💾 **Back up your configuration** regularly
-- 🎨 **Customize the styling** to match your server's theme
+- 🔐 **Use HTTPS in production**
+- 🌐 **Use a domain** your community will recognize
+- 💾 **Back up `scripts/domains.json`** and your `.env`
+- 🎨 **Pick a theme and logo** that match your server
 
-## Example Use Cases
+## Example Setups
 
 ### Movie Watch Party Server
 ```
@@ -735,40 +751,27 @@ Website: https://horrornights.com
 GUILD_ID: '1234567890123456789'
 ```
 
-Users submit horror movie requests for Friday watch parties.
-
-### Gaming Community
-```
-Server Name: "Speedrun Central"
-Invite URL: https://discord.gg/speedruns
-Website: https://speedrungaming.com
-GUILD_ID: '9876543210987654321'
-```
-
-Coordinate speedrun events and tournaments.
-Website: https://speedruncalendar.com
-```
-
-Users can request streaming/racing events in the server.
+Members request horror movies for Friday watch parties.
 
 ### Anime Club
 ```
 Server Name: "Anime Watch Party"
 Invite URL: https://discord.gg/animewp
 Website: https://animewatchparty.com
+GUILD_ID: '9876543210987654321'
 ```
 
-Members submit anime screening requests for weekly viewings.
+Members request anime screenings for weekly viewings.
 
 ## Support
 
 Need help setting this up? Check:
 
 - [Technical Setup Guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md)
-- [Bot Installation](./installation.md)
-- [Configuration Guide](./configuration.md)
+- [Bot Installation](/installation)
+- [Configuration Guide](/configuration)
 - [GitHub Issues](https://github.com/r3volution11/Egg-Shen-Bot/issues)
 
 ::: info Note
-The Event Request System is an optional feature. Your bot works perfectly without it! This is for communities that want to formalize their event submission process.
+Event requests are optional. Everything else in the bot works without them.
 :::

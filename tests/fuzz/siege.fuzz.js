@@ -16,6 +16,10 @@
  * At the end, whatever state it's in, the admin can end the siege and
  * start a new one.
  *
+ * 2.75.0: members back fighters at random (regulars or not, in the right
+ * channel or not, early or late), and the simulator's backing and honours
+ * invariants hold through every restart and fault.
+ *
  * Pace (2.74.0): each run is a server at a pace — week (the default) or
  * quick by default, any of the five with SIM_FUZZ_PACES=all (or a list:
  * SIM_FUZZ_PACES=day,days3). A run at a slow pace also lets hours and nights
@@ -207,6 +211,20 @@ async function randomAction(sim, r) {
     sim.fault(f);
     return `arm fault ${f.on}/${f.kind}/${f.mode}`;
   }
+  if (roll < 0.985) {
+    // 2.75.0: someone backs a fighter — usually one who has attacked, from
+    // the siege's channel; often made a regular first (3 nights in a run of
+    // 200 steps is rare), with a random month to stake from
+    const s = sim.siege();
+    const backer = r.pick(sim.members);
+    const fighters = Object.entries(s?.participants || {}).filter(([, p]) => p.attacks > 0).map(([u]) => u);
+    const fighter = fighters.length && r.chance(0.85) ? r.pick(fighters) : r.pick(sim.members);
+    if (r.chance(0.7)) sim.regular(backer, { points: r.int(20), nights: 2 + r.int(4) });
+    const points = 2 + r.int(9); // Discord enforces the option's 2–10
+    const channel = r.chance(0.9) ? 'games' : r.pick(['thread', 'lobby']);
+    const i = await sim.back(backer, fighter, points, { channel });
+    return `${backer} backs ${fighter} for ${points} in #${channel} → ${(i.reply?.content || '(died)').split('\n')[0].slice(0, 50)}`;
+  }
   // A prize turns up (the scores file, as a play's prize would have it)
   const item = r.pick(ITEMS);
   sim.giveItem(who, item);
@@ -270,6 +288,16 @@ function record(sim, log) {
   count('attacks refused: allowance', sim.discord.events.filter(e => e.kind === 'ephemeral' && /attacks tonight\. The next/.test(e.snap?.content || '')).length);
   count('attacks refused: out for a day', sim.discord.events.filter(e => e.kind === 'ephemeral' && /you're out until/.test(e.snap?.content || '')).length);
   count('escapes whose results were held', [...sim.sieges.values()].filter(rec => rec.held).length);
+  // 2.75.0
+  const backed = sim.discord.events.filter(e => /^\/siege back/.test(e.via || ''));
+  count('backings placed', backed.filter(e => e.kind === 'reply').length);
+  count('backings refused', backed.filter(e => e.kind === 'ephemeral').length);
+  for (const rec of sim.sieges.values()) {
+    const s = sim.state().siege?.id === rec.id ? sim.state().siege : null;
+    for (const b of s?.result?.backing || []) count(`backings settled: ${b.outcome}${b.orphan ? ' (orphan)' : ''}`);
+    if (s?.result?.wangChi) count(`Wang Chis ${s.result.wangChi.held ? 'held the line' : 'by help'}`);
+  }
+  count('frees and cures past the cap, uncredited', replies.filter(c => /doesn't count toward/.test(c)).length);
 }
 
 const RUNS = Number(process.env.SIM_FUZZ_RUNS || 20);

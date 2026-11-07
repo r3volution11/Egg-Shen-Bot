@@ -31,6 +31,7 @@ howto:
 - **Typing 32 titles is slow.** The [setup form](/commands/brackets/import) takes a spreadsheet and checks every match before saving.
 - **Plan the pace.** With 4 matchups a day, the round of 32 takes 4 days and the round of 16 takes 2. Opening each later round whole takes 3 more, so about 9 days in total.
 - **Remakes and sequels:** add a `year` column to your spreadsheet, so most titles match without picking.
+- **Let the results build the story.** Every matchup that closes gets a drawn result picture, and the bot posts the bracket after each batch, so a week of results stays visible in the channel.
 
 ## In detail
 

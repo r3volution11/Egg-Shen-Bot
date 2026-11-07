@@ -26,6 +26,25 @@ export const data = new SlashCommandBuilder()
       .setRequired(false)
   );
 
+/**
+ * What /episode-list says for a season it won't list: one card shows a field
+ * per episode and an embed holds at most 25 fields, so a longer season (soaps,
+ * anime, old network seasons) is refused rather than cut short. This used to
+ * promise "Pagination support coming soon!", which nothing was building —
+ * so it says what does work instead: /episode for any single one of them.
+ * Shared with the show picker's path in selectHandler.js.
+ *
+ * @param {string} showName
+ * @param {number} seasonNumber
+ * @param {number} episodeCount
+ * @returns {string}
+ */
+export function seasonTooLongMessage(showName, seasonNumber, episodeCount) {
+  return `**${showName}** Season ${seasonNumber} has ${episodeCount} episodes — more than the 25 one message can list, ` +
+    `so I can't show this season. Look up any one of them with \`/episode\`, by title or number ` +
+    `(e.g. \`/episode show:${showName} episode:s${seasonNumber}e1\`).`;
+}
+
 export async function execute(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
@@ -112,10 +131,10 @@ export async function execute(interaction) {
     const episodes = seasonData.episodes;
     const episodeCount = episodes.length;
 
-    // Check if we need pagination (Discord max 25 fields)
+    // One field per episode, and an embed holds at most 25
     if (episodeCount > 25) {
       await interaction.editReply({
-        content: `**${showDetails.name}** Season ${seasonNumber} has ${episodeCount} episodes, which exceeds Discord's 25 field limit. Pagination support coming soon! For now, try searching individual episodes with \`/episode\`.`,
+        content: seasonTooLongMessage(showDetails.name, seasonNumber, episodeCount),
       });
       return;
     }

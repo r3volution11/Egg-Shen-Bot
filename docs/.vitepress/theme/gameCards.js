@@ -18,16 +18,29 @@
 // first week campaign (it expects 35% of them: 5 fighters), dial 1, The
 // Blob (×1 HP). It arrives Sunday 8 PM US Eastern (Monday 01:00 UTC) with
 // round(13.5 × 5 × 7) = 473 HP and the pot at its floor of 24, and ends
-// the next Sunday at 7 AM (12:00 UTC). Night 1: six fighters, 6
-// fighter-nights (+27 HP each: 635), 220 damage (415 left), the pot still
-// 24. Night 2: Sam is the third one back (9 fighter-nights: 716 HP, a pot
-// of 36) after 46 damage that night; by the card, four are back (10: 743
-// HP, a pot of 40) and 120 dealt that night (403 left). The top three's
-// damage adds up within those nights' (Kim 72 + 16, Sam 52 + 18, Alex 44 + 18).
+// the next Sunday at 7 AM (12:00 UTC). Backing a fighter closes halfway,
+// Thursday 06:30 UTC. Night 1: six fighters (Kim 72, Sam 52, Alex 44, Max
+// 20, Riley 18, Dana 14), 6 fighter-nights (+27 HP each: 635), 220 damage
+// (415 left), the pot still 24; Riley cured Alex, and Kim was grabbed at
+// 8:31 PM. Night 2: Riley frees Kim that afternoon. Sam is the third one
+// back (9 fighter-nights: 716 HP, a pot of 36) after 46 damage that night;
+// by the card, four are back (Kim +40, Sam +30, Alex +24, Max +26: 10
+// fighter-nights, 743 HP, a pot of 40) and 120 dealt that night (403
+// left), and Riley's free and cure (12 + 8) make Riley the Wang Chi so far.
+// It's beaten on night 5, Thursday 9:14 PM, by Sam's doom (the Jack
+// Burton): 21 fighter-nights (1,040 HP) and Jo, who only cured, make a pot
+// of 4 × 22 = 88; Riley (3 frees, 2 cures) is the Wang Chi, backed by Jo.
+//
+// Re-rendered 2026-11-07 for 2.75.0 through siegeCard.js itself
+// (renderSiegeCard on siegeView, reportPayload, and resultsPayload on
+// planSiegeRewards' real plan, paid as gameScores.applySiegeResult pays
+// it), from sieges built to that story.
 
 const BAR8 = '[kit:bgl][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:ber]';
 const ENDS = '[ts:November 8, 2026 7:00 AM]';
 const HOW_TO_FIGHT = '`/siege attack weapon:food|doom|potion`';
+// siegeCard.BACK_HOW, on the live card while backing is open
+const BACK_HOW = '`/siege back fighter:@… points:2–10`';
 
 export const GAME_CARDS = {
   'game-play': {
@@ -135,7 +148,7 @@ export const GAME_CARDS = {
   },
 
   'siege-arrival': {
-    label: 'Example: a monster arrives. The Blob\'s own line, then its card: a full HP bar, 473 of 473, when it ends in six days, 8 attacks a night each and the pot, and how to fight',
+    label: 'Example: a monster arrives. The Blob\'s own line, then its card: a full HP bar, 473 of 473, when it ends in six days, 8 attacks a night each and the pot, how to fight, and how to back a fighter for the next three days',
     message: {
       time: 'Sunday at 8:00 PM',
       content: 'A pink ooze slides out from under the concession stand, absorbing a hot dog, a napkin dispenser and someone\'s flip-flop.\nFight it with `/siege attack`!',
@@ -146,7 +159,7 @@ export const GAME_CARDS = {
         fields: [
           { name: '[kit:people] Fighters', value: '`0` fighters', inline: true },
           { name: '[kit:trophy] Top fighters', value: 'Nobody yet: be the first!', inline: true },
-          { name: '[kit:siege] How to fight', value: `${HOW_TO_FIGHT}\n\`/siege status\` shows your own damage` },
+          { name: '[kit:siege] How to fight', value: `${HOW_TO_FIGHT}\n\`/siege status\` shows your own damage\n${BACK_HOW} until [ts:in 3 days]` },
         ],
         footer: 'Siege · the card updates every 10 minutes',
       }],
@@ -171,7 +184,7 @@ export const GAME_CARDS = {
   },
 
   'siege-card': {
-    label: 'Example: the siege card on its second night: HP 403 of 743, seven fighters, the top three, who is poisoned and when it wears off, and the latest five things that happened',
+    label: 'Example: the siege card on its second night: HP 403 of 743, the Wang Chi so far (Riley, 1 freed and 1 cured), six fighters, the top three, who is poisoned and when it wears off, the latest five things that happened, and how to fight or back a fighter',
     message: {
       time: 'Sunday at 8:00 PM',
       edited: true,
@@ -179,13 +192,13 @@ export const GAME_CARDS = {
       embeds: [{
         color: 0xC0392B,
         title: '👹 The Blob is attacking the drive-in!',
-        description: `🟢 Pies just sink in: food fight does half damage, but dooms hit harder.\n[kit:bgl][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bem][kit:bem][kit:bem][kit:bem][kit:ber] \`403/743\` HP\nEnds ${ENDS} ([ts:in 5 days])\n⚔️ \`8\` attacks a night each · 🍯 Pot: \`40\`, paid out when it's beaten`,
+        description: `🟢 Pies just sink in: food fight does half damage, but dooms hit harder.\n[kit:bgl][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bem][kit:bem][kit:bem][kit:bem][kit:ber] \`403/743\` HP\nEnds ${ENDS} ([ts:in 5 days])\n⚔️ \`8\` attacks a night each · 🍯 Pot: \`40\`, paid out when it's beaten\n[kit:wang] Wang Chi so far: Riley (1 freed, 1 cured)`,
         fields: [
-          { name: '[kit:people] Fighters', value: '`7` fighters', inline: true },
-          { name: '[kit:trophy] Top fighters', value: '[kit:med1] Kim `88`\n[kit:med2] Sam `70`\n[kit:med3] Alex `62`', inline: true },
+          { name: '[kit:people] Fighters', value: '`6` fighters', inline: true },
+          { name: '[kit:trophy] Top fighters', value: '[kit:med1] Kim `112`\n[kit:med2] Sam `82`\n[kit:med3] Alex `68`', inline: true },
           { name: '🤢 Poisoned', value: 'Kim · wears off [ts:in 22 hours]\nMax · wears off [ts:in 22 hours]' },
           { name: '[kit:clock] Latest', value: '🧪 Max poisoned it · 4\n😱 Max got spooked\n🧪 Max poisoned it · 2\n💥 Max splatted it · 4\n🤢 The Blob poisoned Max' },
-          { name: '[kit:siege] How to fight', value: `${HOW_TO_FIGHT}\n\`/siege status\` shows your own damage` },
+          { name: '[kit:siege] How to fight', value: `${HOW_TO_FIGHT}\n\`/siege status\` shows your own damage\n${BACK_HOW} until [ts:in 2 days]` },
         ],
         footer: 'Siege · the card updates every 10 minutes',
       }],
@@ -193,7 +206,7 @@ export const GAME_CARDS = {
   },
 
   'siege-report': {
-    label: 'Example: the nightly siege report, a new message that pings nobody: the HP and last night\'s damage, last night\'s top three, who is still held and by when, and tonight\'s attacks and pot',
+    label: 'Example: the nightly siege report, a new message that pings nobody: the HP and last night\'s damage, last night\'s top three and its Wang Chi (Riley, 1 cured), who is still held and by when, and tonight\'s attacks and pot',
     message: {
       time: 'Monday at 8:10 AM',
       content: '📰 **Night 1 is over** and The Blob is still here. Who needs help tonight:',
@@ -202,11 +215,28 @@ export const GAME_CARDS = {
         title: '👹 The Blob: night 1 report',
         description: `🟢 The Blob still has the drive-in.\n[kit:bgl][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bem][kit:bem][kit:ber] \`415/635\` HP\n\`−220\` last night · ends ${ENDS} ([ts:in 6 days])`,
         fields: [
-          { name: '[kit:trophy] Last night', value: '[kit:med1] Kim `72`\n[kit:med2] Sam `52`\n[kit:med3] Alex `44`' },
+          { name: '[kit:trophy] Last night', value: '[kit:med1] Kim `72`\n[kit:med2] Sam `52`\n[kit:med3] Alex `44`\n[kit:wang] Wang Chi of the night: Riley (1 cured)' },
           { name: '🪤 Still held', value: 'Kim · free them with `/rescue` by [ts:in 10 hours]' },
           { name: '[kit:siege] Tonight', value: `Everyone has \`8\` fresh attacks tonight (a night runs 12:00 to 12:00 UTC). Freeing and curing are unlimited.\n🍯 The pot is \`24\`, paid out when it's beaten.\n${HOW_TO_FIGHT}` },
         ],
         footer: 'Nightly siege report · one a night, pinging nobody',
+      }],
+    },
+  },
+
+  'siege-results': {
+    label: 'Example: the results of a won siege, a new message that pings the fighters. The Blob\'s defeat line, a line for the Wang Chi (Riley) and one for the Jack Burton (Sam, the killing blow), then each fighter\'s row: place, damage, points, the honours and any loot. Riley gets +36 with the Wang Chi\'s +24, +3 for being backed and a Silver Bullet; Sam +31 with the Jack Burton\'s +9. Under them, a line for each of three backers',
+    message: {
+      time: 'Thursday at 9:14 PM',
+      content: 'Riley hits it with a fire extinguisher and The Blob freezes solid. Somebody ships it to the Arctic. That always works.\n🗡️ Wang Chi honours to Riley, who celebrates by cleaving a green bottle clean in half, and wins the bet.\n🔪 Sam lands the last hit and turns to the crowd, grinning. Somebody tell Sam there\'s lipstick on that grin.\n[mention:@Kim] [mention:@Sam] [mention:@Alex] [mention:@Max] [mention:@Riley] [mention:@Dana] [mention:@Jo]',
+      embeds: [{
+        color: 0x2ECC71,
+        title: '🏆 The Blob is beaten!',
+        description: '🟢 Beaten with `7` fighters. The pot (88, 4 a fighter a night) was split by what each did; [kit:wang] the Wang Chi gets +24 and loot, [kit:jack] the Jack Burton +9.\n\n[kit:med1] Kim · `330` damage · `+26` · 📼 Cursed VHS\n[kit:med2] Sam · `280` damage · `+31` · [kit:jack] +9\n[kit:med3] Alex · `200` damage · `+16`\n4\\. Max · `130` damage · `+10`\n5\\. Riley · `64` damage · `+36` · [kit:wang] +24 · [kit:back] +3 · 🥈 Silver Bullet\n6\\. Dana · `36` damage · `+3`\n7\\. Jo · `0` damage · `+2`',
+        fields: [
+          { name: '[kit:back] Backing', value: '🎲 Jo backed Riley (6): Wang Chi! Jo +6, Riley +3.\n🎲 Dana backed Kim (5): close, but no Wang Chi. The stake comes back.\n🎲 Kim backed Max (4). "I\'m a reasonable guy, but I\'ve just experienced some very unreasonable things." Stake lost.' },
+        ],
+        footer: 'Siege results · /scoreboard shows your points',
       }],
     },
   },

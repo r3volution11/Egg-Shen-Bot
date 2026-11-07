@@ -9,7 +9,7 @@ howto:
     - name: Set up the groups
       text: Run `/bracket-setup setup-link`, upload the [groups template](/templates/tournaments/groups.csv) with a `group` letter on every title (4 titles per group), and press **Create tournament**.
     - name: Open the group stage
-      text: Run `/bracket open duration:2d`. Every group opens, and voters pick their **top 2** in each group.
+      text: Run `/bracket open duration:2d`. Every group opens, and voters pick their **top 2** in each group. With more than 5 groups, open them in batches of up to 5 with `/bracket open-groups` instead.
     - name: Close the groups
       text: When the deadline passes, the groups close and the results are posted. Or run `/bracket close` to end voting early.
     - name: Start the knockout
@@ -28,9 +28,11 @@ A groups tournament starts like the World Cup. Titles are split into **groups of
 
 - **Pick a group count with no byes:** 4, 6, 7, 8, 11 or 12 groups give a full knockout bracket (see the table below).
 - **Every group needs exactly 4 titles** before voting can open. `/bracket open` names any group that's short.
+- **Up to 5 groups vote at a time.** A ballot shows one row per group, and Discord allows 5. With more groups, open them in batches with `/bracket open-groups groups:"A,B,C,D,E"`, and close each batch before opening the next.
+- **Both picks count, or neither.** A voter who picks only 1 title in a group has it thrown out when the group closes.
 - **The setup form is easiest** for groups, since you can give each title its group letter in the spreadsheet. Leave a cell empty and the title goes into the first group with room.
 - **With commands instead,** `/bracket-setup create max-titles:36` makes 9 groups, and `/bracket-setup resize groups:<4-12>` changes the count.
-- **Ties in a group** for 1st or 2nd place get a tiebreaker vote before the knockout can start.
+- **Ties in a group** for 1st or 2nd place get a tiebreaker vote before the knockout can start. A tie for 3rd is settled at random.
 - **Seeding and tie options are for straight brackets.** Here, the group results seed the knockout. With 48 titles it's the 2026 World Cup format: 12 groups, then a Round of 32. See [Sports-style tournaments](./sports-styles#fifa-world-cup).
 
 ## In detail
@@ -53,11 +55,15 @@ The top 2 of each group always qualify. When that doesn't fill a bracket of 8, 1
 
 ### Opening groups in batches
 
-`/bracket open` opens every group that hasn't voted yet. To stagger them, use `/bracket open-groups groups:"A,B,C"`, then open the rest later with `/bracket open`. A group that has closed is never reopened.
+`/bracket open` opens every group that hasn't voted yet. To stagger them, use `/bracket open-groups groups:"A,B,C"`, then open the rest later with `/bracket open` once those have closed. Keep it to 5 groups voting at once. A group that has closed is never reopened.
+
+### Group results
+
+When a group closes at its deadline, its results card lists the four titles in order with their votes, 🥇 🥈 🥉 then 📍, and marks the top two **✅ Advances**. Closing groups yourself with `/bracket close-groups` posts their top three in one reply instead.
 
 ### Starting the knockout
 
-Once every group has closed and every tiebreaker is settled, `/bracket open` builds the knockout bracket. With 4 groups, its first round has 4 matchups and opens straight away. With 6 or more, it has 8 or 16, more than a ballot holds, so the bot builds the bracket and asks you to open it with `matchups:` or `region:`. `/bracket open matchups:4` builds and opens the first four in one step.
+Once every group has closed and every tiebreaker is settled, `/bracket open` builds the knockout bracket. With 4 groups, its first round has 4 matchups and opens straight away. With 5 or more, it has more matchups than a ballot holds, so the bot builds the bracket and asks you to open it with `matchups:` or `region:`. `/bracket open matchups:4` builds and opens the first four in one step.
 
 ## Related
 

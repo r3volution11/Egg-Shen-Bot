@@ -13,7 +13,8 @@ const TRAIT_KEYS = [
 ];
 const BOOLEAN_TRAITS = ['grabTop', 'poisonOnly', 'poisonForever'];
 const NUMBER_TRAITS = TRAIT_KEYS.filter((k) => k !== 'actWeights' && !BOOLEAN_TRAITS.includes(k));
-const PLACEHOLDERS = ['mvp', 'monster', 'fighter'];
+// 2.75.0: {jack} (the Jack Burton, the killing blow) beside {mvp} (the Wang Chi), defeat lines only
+const PLACEHOLDERS = ['mvp', 'jack', 'monster', 'fighter'];
 const MAX_LINE = 200;
 
 // Strong swearing, slurs and sexual terms. The tone is PG-13 horror-comedy:
@@ -172,20 +173,21 @@ describe('siege monsters: the traits the engine reads', () => {
 });
 
 describe('siege monsters: every line', () => {
-  test('uses only the placeholders {mvp}, {monster} and {fighter}', () => {
+  test('uses only the placeholders {mvp}, {jack}, {monster} and {fighter}', () => {
     for (const { label, text } of everyLine) {
       for (const [, name] of text.matchAll(/\{([^}]*)\}/g)) {
         if (!PLACEHOLDERS.includes(name)) throw new Error(`${label} has unknown placeholder {${name}}: ${text}`);
       }
       // A stray brace that isn't a whole placeholder would print raw
-      const stripped = text.replace(/\{(mvp|monster|fighter)\}/g, '');
+      const stripped = text.replace(/\{(mvp|jack|monster|fighter)\}/g, '');
       if (/[{}]/.test(stripped)) throw new Error(`${label} has a stray brace: ${text}`);
     }
   });
 
-  test('only defeat uses {mvp}, and only grab/poison use {fighter}', () => {
+  test('only defeat uses {mvp} and {jack}, and only grab/poison use {fighter}', () => {
     for (const { label, kind, text } of everyLine) {
       if (text.includes('{mvp}') && kind !== 'defeat') throw new Error(`${label} uses {mvp}`);
+      if (text.includes('{jack}') && kind !== 'defeat') throw new Error(`${label} uses {jack}`);
       if (text.includes('{fighter}') && !['grab', 'poison'].includes(kind)) throw new Error(`${label} uses {fighter}`);
     }
   });

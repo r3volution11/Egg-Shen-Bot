@@ -119,7 +119,7 @@ describe('a server that never chose a pace is on week', () => {
 // ── every preset: a win and an escape ───────────────────────────────────
 
 describe.each(['quick', 'evening', 'day', 'days3', 'week'])('at %s pace', (pace) => {
-  test('a win: posted at once, the pool paid per fighter-night (the pot from day on), the MVP +5 × its honour', async () => {
+  test('a win: posted at once, the pool paid per fighter-night (the pot from day on), the Wang Chi +8 and the Jack Burton +3, × its honour', async () => {
     const sim = await campaign(`pace-win-${pace}`, pace);
     const t = PACES()[pace];
     const s0 = sim.siege();
@@ -140,9 +140,15 @@ describe.each(['quick', 'evening', 'day', 'days3', 'week'])('at %s pace', (pace)
     const units = t.growthPer === 'night' ? fighters.reduce((n, f) => n + Math.max(1, Object.keys(f.nights || {}).length), 0) : fighters.length;
     const pool = Math.min(t.pool.poolMax, Math.max(t.pool.poolMin, t.pool.perFighter * units));
     const total = fighters.reduce((n, f) => n + f.contribution, 0);
-    expect(s.result.grants.map(g => g.points)).toEqual(fighters.map((f, i) => Math.min(t.pool.eachMax, Math.max(2, Math.round(pool * f.contribution / total))) + (i === 0 ? 5 * t.honour : 0)));
+    // 2.75.0: nobody freed or cured, so the top contributor holds the line as
+    // the Wang Chi (+8 × H); whoever landed the killing blow is the Jack Burton (+3 × H)
+    const jack = s.killingBlow.userId;
+    expect(s.result.wangChi).toMatchObject({ userId: fighters[0].userId, held: true });
+    expect(s.result.jack).toMatchObject({ userId: jack, by: 'doom' });
+    expect(s.result.grants.map(g => g.points)).toEqual(fighters.map((f, i) => Math.min(t.pool.eachMax, Math.max(2, Math.round(pool * f.contribution / total)))
+      + (i === 0 ? 8 * t.honour : 0) + (f.userId === jack ? 3 * t.honour : 0)));
     const head = sim.messagesFor(s.id, 'results')[0].embeds[0].toJSON().description.split('\n')[0];
-    expect(head).toContain(`the MVP gets +${5 * t.honour} and loot`);
+    expect(head).toContain(`🗡️ the Wang Chi gets +${8 * t.honour} and loot, 🔪 the Jack Burton +${3 * t.honour}.`);
     if (t.pot) expect(head).toContain(`The pot (${pool}, ${t.pool.perFighter} a fighter a night) was split by what each did`);
     sim.finalChecks();
   });
@@ -872,7 +878,12 @@ describe('the second review\'s findings (2026-11-06)', () => {
     expect(done.status).toBe('won');
     const [results] = resultsOf(sim, s);
     const lost = kept[0].points < 0 ? `−${-kept[0].points}` : '±0';
-    expect(lines(results)[1]).toBe(`😋 Digested while nobody was around: ana ${lost}`);
+    // 2.75.0: the monster's line, the honours' (here: nobody freed or cured,
+    // so the top fighter held the line), then the digest, then the pings
+    const said = lines(results);
+    expect(said.length).toBeGreaterThanOrEqual(4);
+    expect(said[1]).toContain(done.result.wangChi.name);
+    expect(said.slice(-2)).toEqual([`😋 Digested while nobody was around: ana ${lost}`, expect.stringMatching(/^<@\w+>( <@\w+>)*$/)]);
     expect(results.allowedMentions.users).toContain('ana');
     expect(results.content).toContain('<@ana>');
     expect(done.result.told).toEqual(['ana']);
@@ -1152,6 +1163,140 @@ describe('the second review\'s findings (2026-11-06)', () => {
     expect(kinds).toEqual(['ephemeral', 'send:results', 'send:card', 'editReply']);
     expect(next.reply.ephemeralFor).toBe('admin');
     expect(next.reply.content).toMatch(/^🟢 \*\*The Blob\*\* is attacking <#games>/);
+    sim.finalChecks();
+  });
+});
+
+// ── merged onto 2.75.0: /siege status (its 2.75.0 backing line) keeps 2.74.0's night ──
+
+describe('merged: /siege status counts tonight\'s attacks by the siege\'s night, and says who you backed', () => {
+  test('a week campaign started 08:00 UTC: 09:30 is its night 1 (folded), so one attack shows 1 of 8 — and a backer sees their backing', async () => {
+    const sim = await campaign('pace-merge-status', 'week', { fighters: ['ana'], at: Date.UTC(2026, 10, 9, 8, 0) });
+    sim.jumpTo(Date.UTC(2026, 10, 9, 9, 30));
+    const allowance = PACES().week.allowance;
+    const mine = await sim.status('ana');
+    expect(mine.reply.content).toMatch(new RegExp(` · ⚔️ attacks tonight \`1/${allowance}\``));
+    sim.regular('dev');
+    await sim.back('dev', 'ana', 4);
+    const theirs = await sim.status('dev');
+    expect(theirs.reply.content.endsWith(' · 🎲 you backed ana (4)')).toBe(true);
+    // A fighter who backed someone else: both on their line
+    await sim.attack('ben', 'doom', { force: 'smite' });
+    sim.regular('ben');
+    await sim.back('ben', 'ana', 3);
+    const both = await sim.status('ben');
+    expect(both.reply.content).toMatch(new RegExp(` · ⚔️ attacks tonight \`1/${allowance}\`.* · 🎲 you backed ana \\(3\\)$`));
+    sim.finalChecks();
+  });
+});
+
+// ── 2.75.0: the real hero at week pace ──────────────────────────────────
+
+describe('2.75.0: honours and backing over a week campaign', () => {
+  const H = () => PACES().week.honour;
+  /** `victim` grabbed (steered), then `helper` frees them — or poisoned, then cured */
+  async function grabFreed(sim, helper, victim) {
+    await sim.act('grab', [victim]);
+    expect(fighter(sim, victim).caught).toMatchObject({ by: 'monster' });
+    await sim.advance(21 * SEC);
+    await sim.rescue(helper, victim, { force: 'rescued' });
+    expect(fighter(sim, victim).caught).toBeNull();
+  }
+  async function poisonCured(sim, helper, victim) {
+    await sim.act('poison', [victim]);
+    expect(fighter(sim, victim).poisoned).toMatchObject({ by: 'monster' });
+    await sim.advance(21 * SEC);
+    await sim.cure(helper, victim, { force: 'worked' });
+    expect(fighter(sim, victim).poisoned).toBeNull();
+  }
+
+  test('b. ben frees on night 1 and cures on night 3: the Wang Chi of the whole campaign, +8 × H; the killing blow +3 × H', async () => {
+    const sim = await campaign('pace-wang-chi-week', 'week', { active: 6 });
+    await grabFreed(sim, 'ben', 'ana');
+    // Night 3: Wednesday evening; ana's attack makes the drive-in busy for the monster
+    sim.jumpTo(T0 + 2 * DAY);
+    await sim.attack('ana', 'doom', { force: 'smite' });
+    await poisonCured(sim, 'ben', 'ana');
+    expect(sim.siege().hp).toBeGreaterThan(0);
+    expect(fighter(sim, 'ben')).toMatchObject({ frees: 1, cures: 1 });
+    // The report's night tallies counted each on its own night: the free on night 1, the cure on night 3
+    const nightly = sim.siege().nightly;
+    expect(Object.keys(nightly).sort().map(k => nightly[k].users.ben && [k, nightly[k].users.ben.frees, nightly[k].users.ben.cures]).filter(Boolean))
+      .toEqual([['2026-11-09', 1, 0], ['2026-11-11', 0, 1]]);
+    sim.calm();
+    await beat(sim, ['ana', 'cat']);
+    for (let n = 0; n < 6 && sim.siege().hp > 0; n++) {
+      sim.jumpTo(clock.now + DAY);
+      await beat(sim, ['ana', 'cat']);
+    }
+    await sim.advance(MINUTE);
+    const s = sim.siege();
+    expect(s.status).toBe('won');
+    const jack = s.killingBlow.userId;
+    expect(['ana', 'cat']).toContain(jack);
+    expect(s.result.wangChi).toEqual({ userId: 'ben', name: 'ben', help: 20, held: false });
+    const by = Object.fromEntries(s.result.grants.map(g => [g.userId, g]));
+    expect(by.ben).toMatchObject({ wangChi: true, honour: 8 * H(), jack: false });
+    expect(by[jack]).toMatchObject({ jack: true, honour: 3 * H() });
+    const head = sim.messagesFor(s.id, 'results')[0].embeds[0].toJSON().description.split('\n')[0];
+    expect(head.endsWith(`🗡️ the Wang Chi gets +${8 * H()} and loot, 🔪 the Jack Burton +${3 * H()}.`)).toBe(true);
+    sim.finalChecks();
+  });
+
+  test('c. backing on night 2 is accepted; on night 5 it\'s too late; at the finish dev\'s pick (the Wang Chi) pays ×2 and eve\'s (4th) is lost', async () => {
+    const sim = await campaign('pace-backing-week', 'week', { fighters: ['ana', 'ben', 'cat', 'gus'], active: 8 });
+    const s0 = sim.siege();
+    const closes = mods.store.backingClosesAt(s0);
+    // Half the campaign's own time: Monday 20:00 to its 7th night boundary
+    expect(closes).toBe(s0.startedAt + (s0.endsAt - s0.startedAt) / 2);
+    expect(closes - s0.startedAt).toBeGreaterThanOrEqual(75 * HOUR);
+    expect(closes - s0.startedAt).toBeLessThanOrEqual(87 * HOUR);
+    // Night 2: ben frees ana; dev backs ben, eve backs gus
+    sim.jumpTo(T0 + DAY);
+    // (the monster only takes fighters who are here, and never the last one free)
+    await sim.attack('ana', 'doom', { force: 'smite' });
+    await sim.attack('ben', 'doom', { force: 'smite' });
+    await grabFreed(sim, 'ben', 'ana');
+    sim.regular('dev');
+    sim.regular('eve');
+    const placed = await sim.back('dev', 'ben', 6);
+    expect(placed.reply.ephemeralFor).toBeFalsy();
+    expect(lines(placed.reply).at(-1)).toBe(`-# dev −6 (staked) · back ×2 if ben is the Wang Chi, your stake back if top 3 or the Jack Burton · closes <t:${sec(closes)}:R>`);
+    expect((await sim.back('eve', 'gus', 4)).reply.ephemeralFor).toBeFalsy();
+    expect([sim.siegePoints().dev, sim.siegePoints().eve]).toEqual([-6, -4]);
+    // The live card offers backing until it closes
+    sim.calm();
+    // Night 5: too late
+    sim.jumpTo(T0 + 4 * DAY);
+    sim.regular('fay');
+    const late = await sim.back('fay', 'ana', 5);
+    expect([late.reply.ephemeralFor, late.reply.content]).toEqual(['fay', mods.btilc.HONOURS.backing.refusals.late]);
+    // ana and cat finish it off over the nights
+    for (let n = 0; n < 4 && sim.siege().hp > 0; n++) {
+      await beat(sim, ['ana', 'cat']);
+      if (sim.siege().hp > 0) sim.jumpTo(clock.now + DAY);
+    }
+    await sim.advance(MINUTE);
+    const s = sim.siege();
+    expect(s.status).toBe('won');
+    expect(s.result.wangChi.userId).toBe('ben');
+    expect(mods.store.fightersOf(s).map(f => f.userId).at(-1)).toBe('gus');
+    expect(s.result.backing.map(b => [b.backerId, b.fighterId, b.outcome, b.back, b.bonus])).toEqual([
+      ['dev', 'ben', 'wangChi', 12, 3], ['eve', 'gus', 'lost', 0, 0],
+    ]);
+    // Paid: dev +6 net, eve −4; ben's grant carries ⌈6/2⌉ = 3 for making dev look good
+    expect([sim.siegePoints().dev, sim.siegePoints().eve]).toEqual([6, -4]);
+    expect(s.result.grants.find(g => g.userId === 'ben').backBonus).toBe(3);
+    const results = sim.messagesFor(s.id, 'results')[0];
+    const field = results.embeds[0].toJSON().fields.find(f => f.name.endsWith('Backing'));
+    const { lineFor } = mods.card;
+    const { HONOURS, fill } = mods.btilc;
+    expect(field.value.split('\n')).toEqual([
+      fill(lineFor(`${s.id}dev`, HONOURS.backing.wangChi, 0), { backer: 'dev', fighter: 'ben', stake: 6, gain: '+6', bonus: '+3' }),
+      fill(lineFor(`${s.id}eve`, HONOURS.backing.lost, 1), { backer: 'eve', fighter: 'gus', stake: 4 }),
+    ]);
+    // Nobody pinged for backing: the results ping fighters only
+    expect(results.allowedMentions.users).not.toContain('dev');
     sim.finalChecks();
   });
 });

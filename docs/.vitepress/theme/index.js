@@ -7,6 +7,7 @@ import FaqList from './components/FaqList.vue'
 import DiscordMessage from './components/DiscordMessage.vue'
 import DiscordCard from './components/DiscordCard.vue'
 import TopicCards from './components/TopicCards.vue'
+import HomeShowcase from './components/HomeShowcase.vue'
 import { movedTo } from './movedAnchors.js'
 import './custom.css'
 
@@ -33,6 +34,8 @@ export default {
     app.component('DiscordCard', DiscordCard)
     // A section's pages as cards: <TopicCards /> reads the page's `topics`
     app.component('TopicCards', TopicCards)
+    // The home page's "see it in action" rows: <HomeShowcase id="…" … />
+    app.component('HomeShowcase', HomeShowcase)
     if (inBrowser) {
       const after = router.onAfterRouteChange
       router.onAfterRouteChange = async (href) => {

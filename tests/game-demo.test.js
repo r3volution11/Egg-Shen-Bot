@@ -12,7 +12,7 @@ import { describe, test, expect, beforeEach } from '@jest/globals';
 import fs from 'fs';
 import path from 'path';
 import { runDemo, demoRecord } from '../scripts/game-demo.js';
-import { loadScores, deleteScores, recordPlay, mutateScores, resetPlayLimits } from '../src/utils/gameScores.js';
+import { loadScores, deleteScores, recordPlay, mutateScores, resetPlayLimits, applySiegeResult } from '../src/utils/gameScores.js';
 import { getPlayerCardExtras } from '../src/utils/gameCardData.js';
 import { layoutGameCard, gameCardData } from '../src/utils/gameCard.js';
 import { getScoreboard, GAMES } from '../src/utils/gameScores.js';
@@ -43,7 +43,7 @@ describe('seeding', () => {
 
     expect(x.glovebox.map(i => [i.item, i.count])).toEqual(expect.arrayContaining([['gpie', 2], ['vhs', 1], ['garlic', 1], ['holyw', 1], ['penny', 2], ['antid', 1], ['nlight', 1]]));
     expect(x.titles.shown).toMatchObject({ key: 'red-shirt' });
-    expect(x.titles.earned.map(t => t.key).sort()).toEqual(['cockroach', 'martyr', 'night-owl', 'on-fire', 'red-shirt']);
+    expect(x.titles.earned.map(t => t.key).sort()).toEqual(['cockroach', 'martyr', 'night-owl', 'on-fire', 'red-shirt', 'siege-mvp']);
     expect(x.nights.current).toBe(13);
     expect(x.nights.row.filter(s => s === 'saved')).toHaveLength(1);
     expect(x.nights.row.at(-1)).toBe('tonight');
@@ -77,6 +77,14 @@ describe('one play away, as the script promises', () => {
     expect(r.titles.map(t => t.key)).toEqual(expect.arrayContaining(['pie-sniper', 'creature', 'unstoppable']));
     expect(r.nights.current).toBe(14);
     expect(loadScores(GUILD).users[DOUG].glovebox.gpie).toBe(3);
+  });
+
+  test('2.75.0: the next siege won as its Wang Chi and Jack Burton earns Monster Hunter, the Wang Chi and Everybody Relax, I\'m Here', () => {
+    runDemo({ guildId: GUILD, userId: DOUG, name: 'Doug', now: NOW });
+    const grants = [{ userId: DOUG, name: 'Doug', points: 20, win: true, mvp: true, wangChi: true, jack: true, kaiju: false }];
+    const paid = applySiegeResult(GUILD, { siegeId: 'demo-siege', grants, status: 'won', now: NOW + 60_000 });
+    expect(paid.grants[0].titles).toEqual(expect.arrayContaining(['monster-hunter', 'wang-chi', 'everybody-relax']));
+    expect(loadScores(GUILD).users[DOUG].lifetime.siege).toMatchObject({ wins: 10, mvps: 5, jacks: 10 });
   });
 });
 

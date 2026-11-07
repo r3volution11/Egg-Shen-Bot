@@ -20,8 +20,10 @@ howto:
       text: Each night of a campaign the bot posts a report, pinging nobody, with the HP, last night's best fighters, and who's still held or poisoned, so you know who to help first.
     - name: Check your place
       text: Run `/siege status` to see the card, your own damage and place, and your attacks tonight. Only you see it.
+    - name: Back a fighter, if you like
+      text: In the first half of a siege, `/siege back fighter:@Sam points:5` stakes 2 to 10 of your points on another fighter. You get twice your stake if they turn out to be the Wang Chi, and your stake back if they're top 3 or land the killing blow.
     - name: Share the pot
-      text: Beat it before time runs out and a new message pings the fighters with the results. Everyone who fought gets a share of the pot, bigger for every night they fought, and the MVP gets a bonus and loot.
+      text: Beat it before time runs out and a new message pings the fighters with the results. Everyone who fought gets a share of the pot, bigger for every night they fought. The Wang Chi (whoever freed and cured the most) gets a bonus and loot, and whoever lands the killing blow gets the Jack Burton.
 ---
 
 # Fight a Siege
@@ -58,20 +60,21 @@ Every 30 minutes of fighting (every 5 minutes at quick pace) the monster does so
 - **It poisons a fighter.** Another member cures them with a helpful potion, `/potion give user:@Sam type:health`. One that works cures them and counts +8 toward the giver's share. An Antidote in their own Glovebox cures it too, and it wears off by itself after 22 hours (15 minutes).
 - **It roars.** Nothing happens. It just wants attention.
 
-Grabs need `/rescue` switched on, and poison needs `/potion`; otherwise the monster only roars. Killer Klowns grab two at a time, The Thing goes for the top fighter, and Pod People only poison. Freeing and curing never use your attacks.
+Grabs need `/rescue` switched on, and poison needs `/potion`; otherwise the monster only roars. Killer Klowns grab two at a time, The Thing goes for the top fighter, and Pod People only poison. Freeing and curing never use your attacks, and a rescue or potion past your daily scoring cap still frees or cures, but only your first 2 of those a night count toward your share.
 
 ### The nightly report
 
-Each night of a campaign (from day pace on; a day-pace siege gets one, at the 12:00 UTC it runs through) the bot posts a report as a new message that pings nobody. It goes out with the first game anyone plays after 12:00 UTC, or at 00:00 UTC at the latest. It shows the HP and last night's damage, last night's top 3 and best helper, who's **still held** and by when they must be freed, who's **poisoned**, and anyone digested while nobody was around. Start your evening there.
+Each night of a campaign (from day pace on; a day-pace siege gets one, at the 12:00 UTC it runs through) the bot posts a report as a new message that pings nobody. It goes out with the first game anyone plays after 12:00 UTC, or at 00:00 UTC at the latest. It shows the HP and last night's damage, last night's top 3 and its **Wang Chi of the night** (the most freeing and curing), who's **still held** and by when they must be freed, who's **poisoned**, and anyone digested while nobody was around. Start your evening there.
 
 <DiscordCard name="siege-report" />
 
 ### Winning and losing
 
 - **Won:** the fighters split the pot, 4 points for each night each fighter fought (24 to 1,400 in all; at quick pace 8 a fighter, 24 to 200), by their share of what was done: damage, plus 12 for each fighter freed and 8 for each cure. Each gets 2 to 60 (2 to 30). A win is posted at once.
-- **The MVP** did the most. They get +15 more (+5) and a loot item, and anyone else with at least 5% has a 25% chance of loot. Loot is sometimes a Silver Bullet.
+- **The Wang Chi** helped most: 12 for each fighter they freed, 8 for each cure, at least 8 (if nobody needed saving, the top fighter holds the line). They get +24 more (+8) and a loot item. **The Jack Burton**, whoever lands the killing blow, gets +9 (+3). Anyone else with at least 5% has a 25% chance of loot. Loot is sometimes a Silver Bullet. See [The Wang Chi and the Jack Burton](/commands/games-siege#the-wang-chi-and-the-jack-burton).
+- **Backers:** in the first half of a siege, `/siege back fighter:@Sam points:5` stakes 2 to 10 of your points on someone else who has attacked (once a siege, once a day, if you've played 3 of the last 7 nights). Twice your stake if they're the Wang Chi, your stake back if they're top 3 or the Jack Burton, nothing otherwise; with fewer than 3 fighters, or if it's called off, your stake back. See [Backing a fighter](/commands/games-siege#backing-a-fighter).
 - **Escaped:** time ran out first, and everyone who attacked loses 3 points (never below 0 for the month), but only when at least 2 fought. A week campaign ends at 12:00 UTC, and its results wait for the next game anyone plays (12 hours at the latest), so nobody's pinged in the middle of the night.
-- **Rewards are paid for 2 won sieges a day** per member. Past that, a win pays what your attacks would have scored on their own (the points that went into the pot), with no share, bonus or loot. A siege won by one fighter alone pays only their share of the pool.
+- **Rewards are paid for 2 won sieges a day** per member. Past that, a win pays what your attacks would have scored on their own (the points that went into the pot), with no share, honours or loot. A siege won by one fighter alone pays only their share of the pool, with no honours.
 
 Won sieges also count toward the [siege titles](/commands/games-rewards#titles), and every 4 siege wins earns a Silver Bullet.
 
@@ -89,7 +92,7 @@ Admins and moderators can start a siege in any channel where the games are playe
 - `length` sets how long it lasts: 30, 45 or 60 minutes, 4 hours, or 1, 3, 5, 7 or 10 days. It runs to the timings of the nearest [pace](/commands/games-siege#pace). Without it, the server's pace: a week by default (at quick pace 45 minutes, or the monster's own time).
 - Only one siege runs at a time, and the bot needs View Channel, Send Messages and Embed Links in the channel.
 
-To call one off, with no rewards and no penalties:
+To call one off, with no rewards and no penalties (anyone who backed a fighter gets their stake back):
 
 ```
 /siege end

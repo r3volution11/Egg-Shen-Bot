@@ -71,6 +71,14 @@ Thank you to their designers for making them free to use. The font files and the
 
 ---
 
+## Data
+
+Movie and TV information, artwork and the base where-to-watch lists come from [TMDB](https://www.themoviedb.org/). This product uses the TMDB API but is not endorsed or certified by TMDB. TMDB's where-to-watch data is provided by [JustWatch](https://www.justwatch.com/).
+
+Depending on which keys a bot's owner adds, it also uses [OMDb](https://www.omdbapi.com/), [Trakt](https://trakt.tv/), [Watchmode](https://www.watchmode.com/), [RAWG](https://rawg.io/), [BoardGameGeek](https://boardgamegeek.com/), [Google Books](https://books.google.com/), the [iTunes Search API](https://performance-partners.apple.com/search-api) and [Spotify](https://developer.spotify.com/). Letterboxd scores come from [Letterboxd](https://letterboxd.com/)'s public film pages.
+
+---
+
 ## To Everyone
 
 Thank you for giving me the opportunity to bounce ideas off you and get your feedback. You're all awesome!
@@ -84,7 +92,7 @@ If you've used the bot, reported bugs, requested features, or just said "hey thi
 The bot is open source and always improving. If you have ideas, find bugs, or want to contribute:
 
 - **Report issues**: [GitHub Issues](https://github.com/r3volution11/Egg-Shen-Bot/issues)
-- **Submit ideas**: Open a discussion or issue
+- **Submit ideas**: Open an issue
 - **Contribute code**: Pull requests welcome!
 - **Share feedback**: Let me know what's working and what's not
 

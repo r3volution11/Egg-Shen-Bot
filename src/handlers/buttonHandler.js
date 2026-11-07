@@ -10,6 +10,7 @@ import { saveEventRequests, saveEventChannelSelections } from '../api/server.js'
 import { createScheduledEventFromRequest, buildApprovedEmbed, cleanupEventRequestState, postApprovalAnnouncement, postPublicEventAnnouncement, buildEventCreatedReply } from '../utils/eventRequestApproval.js';
 import { formatUtcForInput, TIME_INPUT_PLACEHOLDER } from '../utils/eventTimeInput.js';
 import { getTimerStatus } from '../utils/timerManager.js';
+import { handleWatchHistoryButton } from './watchHistoryLog.js';
 import { isAdmin, loadGuildConfig, getPublicBotUrl } from '../utils/guildConfig.js';
 import { memberHas } from '../utils/memberPermissions.js';
 import { signCropToken } from '../utils/cropLinkToken.js';
@@ -2322,65 +2323,9 @@ export function clearVotingDashboards(guildId, identifier, type = 'group') {
   console.log(`[ButtonHandler] Cleared ${keysToDelete.length} voting dashboard(s) for ${type === 'knockout' ? 'Round' : 'Group'} ${identifier}`);
 }
 
-// Handle "Log to Watch History" button from timer stop
-export async function handleWatchHistoryButton(interaction) {
-  if (interaction.customId.startsWith('log_watched_')) {
-    const [, , channelId, starterUserId] = interaction.customId.split('_');
-    
-    // Check if user is the timer starter OR has admin/mod permissions
-    // (memberHas reads an uncached member's bitfield string too)
-    const isModerator = memberHas(interaction.member, 'Administrator') ||
-                       memberHas(interaction.member, 'ManageGuild') ||
-                       memberHas(interaction.member, 'ModerateMembers');
-    
-    if (interaction.user.id !== starterUserId && !isModerator) {
-      await interaction.reply({
-        content: '❌ Only the person who started the timer or server administrators/moderators can log it to watch history.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-    
-    // Get the timer label from the message
-    // Get the timer label from the message (if available)
-    const embed = interaction.message.embeds[0];
-    const description = embed.description?.split('\n')[0] || ''; // Get first line
-    const title = description.replace(/\*\*/g, '').trim() || null;
-    
-    // Prompt for title (if needed) and notes
-    const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
-    
-    const modal = new ModalBuilder()
-      .setCustomId(`watched_modal_${channelId}_${starterUserId}_${title ? Buffer.from(title).toString('base64') : 'notitle'}`)
-      .setTitle('Log to Watch History');
-    
-    // If no title, add a title search field
-    if (!title) {
-      const titleInput = new TextInputBuilder()
-        .setCustomId('title')
-        .setLabel('Movie or TV Show Title')
-        .setPlaceholder('Enter the title of what you watched')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-      
-      const titleRow = new ActionRowBuilder().addComponents(titleInput);
-      modal.addComponents(titleRow);
-    }
-    
-    const notesInput = new TextInputBuilder()
-      .setCustomId('notes')
-      .setLabel('Notes (optional)')
-      .setPlaceholder('Optional - notes about this watch party')
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false);
-    
-    const notesRow = new ActionRowBuilder().addComponents(notesInput);
-    
-    modal.addComponents(notesRow);
-    
-    await interaction.showModal(modal);
-  }
-}
+// "Log to Watch History" (the button on a stopped timer's card, and the form
+// it opens) lives in watchHistoryLog.js; exported from here as it always was
+export { handleWatchHistoryButton };
 
 // Handle "Extend Timer" button from the expiry warning — opens a modal to
 // collect how many additional minutes to add.

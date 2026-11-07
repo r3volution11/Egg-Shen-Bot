@@ -43,7 +43,10 @@
  *   lines            { arrive, defeat, escape, grab[3], poison[3], roar[3] }
  *     arrive         the monster shows up (posted as a NEW message — edits
  *                    never notify)
- *     defeat         contains {mvp}; the monster is beaten
+ *     defeat         contains {mvp} (the Wang Chi, since 2.75.0: the
+ *                    fighter who helped most); may also use {jack} (the
+ *                    Jack Burton: whoever landed the killing blow); the
+ *                    monster is beaten
  *     escape         time ran out and it got away
  *     grab           3 lines, {monster} and {fighter}; each tells people to
  *                    /rescue them. (Pod People never grab, but carry the
@@ -52,7 +55,7 @@
  *                    /potion cures them
  *     roar           3 lines, {monster}; flavour only
  *
- * PLACEHOLDERS — {mvp}, {monster} and {fighter} are filled by the engine
+ * PLACEHOLDERS — {mvp}, {jack}, {monster} and {fighter} are filled by the engine
  * with DISPLAY NAMES, never mentions. The engine pings the people involved
  * separately (mentions inside the text of an embed never ping anyway), so
  * nothing here should try to. No other placeholder is allowed; the test

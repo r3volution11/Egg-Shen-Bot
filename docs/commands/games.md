@@ -76,7 +76,7 @@ Here's how the pieces fit, over one member's week.
 
 <DiscordCard name="game-happening" />
 
-**Sunday, a siege.** A monster attacks a games channel. Everyone gets 8 attacks a night to wear it down, the monster grabs and poisons fighters (free them with `/rescue`, cure them with `/potion`), and once a night a report says who needs help. Beat it within the week and the pot is shared out, with a bonus and loot for the MVP. [Everything about sieges](./games-siege).
+**Sunday, a siege.** A monster attacks a games channel. Everyone gets 8 attacks a night to wear it down, the monster grabs and poisons fighters (free them with `/rescue`, cure them with `/potion`), and once a night a report says who needs help. Beat it within the week and the pot is shared out, with a bonus and loot for the Wang Chi, whoever did the most saving. [Everything about sieges](./games-siege).
 
 <DiscordCard name="siege-arrival" />
 

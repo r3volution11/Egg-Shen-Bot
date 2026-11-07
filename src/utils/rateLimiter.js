@@ -207,28 +207,22 @@ export async function checkRateLimit(guildId, userId, commandName, member = null
     if (config.moderation.whitelist?.enabled && member) {
       const allowedRoles = config.moderation.whitelist.allowedRoles || [];
       const allowedUsers = config.moderation.whitelist.allowedUsers || [];
-      
-      // Check if user is explicitly allowed
-      if (allowedUsers.includes(userId)) {
-        // User is whitelisted, continue
-      }
-      // Check if user has an allowed role
-      else if (allowedRoles.length > 0) {
-        // memberRoleIds: an uncached member's `roles` is an array of ids
-        // with no .cache, and reading .cache.some threw here
-        const hasAllowedRole = memberRoleIds(member).some(id => allowedRoles.includes(id));
-        if (!hasAllowedRole) {
-          return {
-            limited: true,
-            message: '🔒 This server is in whitelist mode. Only approved users and roles can use bot commands.'
-          };
-        }
-      }
-      // No roles specified and user not explicitly allowed
-      else if (allowedUsers.length === 0) {
+
+      // Listed by id, or holding a listed role; everyone else is refused.
+      // This used to refuse only when roles were listed or the list was
+      // empty — with users listed and no roles, a member who wasn't listed
+      // fell through every branch and was let in.
+      // memberRoleIds: an uncached member's `roles` is an array of ids with
+      // no .cache, and reading .cache.some threw here.
+      const allowed = allowedUsers.includes(userId)
+        || memberRoleIds(member).some(id => allowedRoles.includes(id));
+
+      if (!allowed) {
         return {
           limited: true,
-          message: '🔒 This server is in whitelist mode. Only approved users can use bot commands.'
+          message: allowedRoles.length > 0
+            ? '🔒 This server is in whitelist mode. Only approved users and roles can use bot commands.'
+            : '🔒 This server is in whitelist mode. Only approved users can use bot commands.'
         };
       }
     }

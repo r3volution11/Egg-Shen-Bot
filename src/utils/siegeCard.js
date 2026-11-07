@@ -17,13 +17,22 @@
  * siege's own (gamePace.timingsOf), so a week campaign says 22 hours where
  * a quick siege says 10 minutes. And from `day` on, the daily report: one
  * NEW message a night that pings nobody (reportPayload).
+ *
+ * 2.75.0, the real hero: the MVP is the Wang Chi (most help) and the
+ * killing blow the Jack Burton — on the frozen card, in the results (a line
+ * each from btilcLines.HONOURS, and a mark on their rows), the daily
+ * report's helper and the live card's "Wang Chi so far" — and every backer
+ * gets a line in the results. The words are btilcLines'; a line is picked
+ * by the siege's id (lineFor), never by luck: one more luck draw would
+ * shift the loot of every seeded siege after it.
  */
 
 import { EmbedBuilder } from 'discord.js';
 import { liveKit, pill, formatNumber } from './emojiKit.js';
 import { messageProblems, clipText } from './embedFit.js';
 import { cardName, clipEmbedToFit, ordinal } from './gameBoards.js';
-import { ITEMS, SIEGE, TITLES, TITLE_POINTS } from '../data/gameRewards.js';
+import { ITEMS, SIEGE, TITLES, TITLE_POINTS, SIEGE_R2_DEPLOY } from '../data/gameRewards.js';
+import { HONOURS, fill } from '../data/btilcLines.js';
 import { monsterOf, siegeView, potOf } from './siegeStore.js';
 import { timingsOf, lengthWords } from './gamePace.js';
 import { nightKey } from './gameRules.js';
@@ -36,6 +45,9 @@ export const SIEGE_EMOJI = '👹';
 
 /** How to fight, on the live card */
 export const HOW_TO_FIGHT = '`/siege attack weapon:food|doom|potion`';
+
+/** How to back a fighter (2.75.0), on the live card while backing is open */
+export const BACK_HOW = `\`/siege back fighter:@… points:${SIEGE.backing.min}–${SIEGE.backing.max}\``;
 
 const unix = (ms) => Math.floor(ms / 1000);
 const plural = (n, word) => `${word}${Math.abs(n) === 1 ? '' : 's'}`;
@@ -86,12 +98,43 @@ function paceLine(view) {
   return parts.length ? parts.join(' · ') : null;
 }
 
-/** The frozen card's result line: who was MVP, who landed the last blow */
-function resultLines(view) {
+/** "+5", "−3", "±0": a points line's own signs */
+const signed = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '±0');
+
+/**
+ * A label's words without its emoji ("🗡️ Wang Chi" → "Wang Chi"): on a card
+ * the kit's own icon goes in front (kit.e('wang'), its fallback the same 🗡️)
+ */
+const labelText = (label) => String(label).replace(/^\S+\s+/, '');
+
+/**
+ * A line from `list`, picked by the siege's id — never by luck: a luck draw
+ * here would shift every seeded siege's loot after it. `salt` picks a
+ * different part of the id, so two lists (or two backers) don't move in step.
+ */
+export function lineFor(id, list, salt = 0) {
+  if (!Array.isArray(list) || !list.length) return '';
+  const hex = String(id || '').replace(/[^0-9a-f]/gi, '').padEnd(12, '0');
+  const at = salt % Math.max(1, hex.length - 5);
+  return list[(parseInt(hex.slice(at, at + 6), 16) || 0) % list.length];
+}
+
+/**
+ * The frozen card's result lines: the Wang Chi (a result from before 2.75.0
+ * has only its MVP — the same honour, by its new name), and the Jack
+ * Burton; a win with no Jack Burton (one fighter alone) still says who
+ * landed the killing blow
+ */
+function resultLines(view, kit) {
   if (view.status !== 'won') return [];
+  const r = view.result || {};
   const out = [];
-  if (view.result?.mvp) out.push(`🏆 MVP: **${cardName(view.result.mvp.name)}**`);
-  if (view.killingBlow) out.push(`⚔️ Killing blow: ${cardName(view.killingBlow.name)}${view.killingBlow.by === 'poison' ? ' (poison)' : ''}`);
+  const wang = r.wangChi ?? r.mvp;
+  if (wang) out.push(`${kit.e('wang')} ${labelText(HONOURS.labels.wangChi)}: **${cardName(wang.name)}**${wang.held ? ' (held the line)' : ''}`);
+  // A pre-2.75 result (no `jack` kept): its killing blow was its Jack Burton
+  const jack = Object.hasOwn(r, 'jack') ? r.jack : (view.killingBlow ? { name: view.killingBlow.name, by: view.killingBlow.by } : null);
+  if (jack) out.push(`${kit.e('jack')} ${labelText(HONOURS.labels.jackBurton)}: ${cardName(jack.name)}${jack.by === 'poison' ? ' (poison)' : ''}`);
+  else if (view.killingBlow) out.push(`⚔️ Killing blow: ${cardName(view.killingBlow.name)}${view.killingBlow.by === 'poison' ? ' (poison)' : ''}`);
   return out;
 }
 
@@ -103,12 +146,17 @@ function resultLines(view) {
  */
 function draft(view, kit) {
   const live = view.status === 'live';
+  // 2.75.0: while it's on, whoever has helped most so far (the honour goes by help, not damage)
+  const soFar = live && view.wangChiSoFar
+    ? `${kit.e('wang')} Wang Chi so far: ${cardName(view.wangChiSoFar.name)} (${helpWords(view.wangChiSoFar)})`
+    : null;
   const description = [
     `${view.monster.emoji} ${view.monster.about}`,
     hpLine(kit, view.hp, view.maxHp),
     whenLine(view),
     live ? paceLine(view) : null,
-    ...resultLines(view),
+    soFar,
+    ...resultLines(view, kit),
   ].filter(Boolean).join('\n');
   const fields = [];
   fields.push({
@@ -138,7 +186,9 @@ function draft(view, kit) {
     fields.push({ name: `${kit.e('clock')} Latest`, value: view.log.map(l => clipText(String(l.text), 200)).join('\n'), inline: false });
   }
   if (live) {
-    fields.push({ name: `${kit.game('siege')} How to fight`, value: `${HOW_TO_FIGHT}\n\`/siege status\` shows your own damage`, inline: false });
+    // 2.75.0: backing, while it's open (the first half of the siege's time)
+    const back = view.backing?.open ? `\n${BACK_HOW} until <t:${unix(view.backing.closesAt)}:R>` : '';
+    fields.push({ name: `${kit.game('siege')} How to fight`, value: `${HOW_TO_FIGHT}\n\`/siege status\` shows your own damage${back}`, inline: false });
   }
   return {
     color: SIEGE_COLOURS[view.status] ?? SIEGE_COLOURS.live,
@@ -186,8 +236,12 @@ export function cardPayload(siege, { kit = liveKit() } = {}) {
   };
 }
 
-/** One fighter's row in the results: place, name, damage, what they got */
-function resultRow(g, i, kit, status) {
+/**
+ * One fighter's row in the results: place, name, damage, what they got —
+ * and (2.75.0) what of it was an honour: the Wang Chi's and the Jack
+ * Burton's bonuses (× H, the siege's), and the Wang Chi's backers' share
+ */
+function resultRow(g, i, kit, status, H = 1) {
   const place = i < 3 ? kit.e(`med${i + 1}`) : `${i + 1}\\.`;
   const parts = [`${place} ${cardName(g.name)} · ${pill(formatNumber(g.damage || 0))} damage`];
   // Past today's limit of rewarded sieges: the row says so, rather than a
@@ -198,7 +252,12 @@ function resultRow(g, i, kit, status) {
       `reward limit reached (${SIEGE.rewardedPerDay} sieges a day)${g.points > 0 ? ': just what the attacks scored' : ''}`].join(' · ');
   }
   const pts = g.points || 0;
-  if (status === 'won' || pts) parts.push(pill(pts > 0 ? `+${pts}` : pts < 0 ? `−${Math.abs(pts)}` : '±0'));
+  if (status === 'won' || pts) parts.push(pill(signed(pts)));
+  if (g.wangChi) parts.push(`${kit.e('wang')} ${signed(SIEGE.rewards.wangChiBonus * H)}`);
+  // An MVP paid the old way (a result from before 2.75.0, or SIEGE_R2_DEPLOY's 'mvp')
+  else if (g.mvp && status === 'won') parts.push(`🏆 ${signed(SIEGE_R2_DEPLOY.mvpBonus * H)}`);
+  if (g.jack) parts.push(`${kit.e('jack')} ${signed(SIEGE.rewards.jackBonus * H)}`);
+  if (g.backBonus > 0) parts.push(`${kit.e('back')} ${signed(g.backBonus)}`);
   if (g.loot) {
     const item = ITEMS[g.loot.item];
     parts.push(g.loot.overflow ? `+2 (Glovebox full of ${item?.name || g.loot.item})` : `${item?.emoji || ''} ${item?.name || g.loot.item}`.trim());
@@ -218,6 +277,50 @@ function resultRow(g, i, kit, status) {
 /** Rows shown in the results before "…and N more" */
 const RESULT_ROWS = 25;
 
+/** Backing lines shown in the results before "…and N more" */
+const BACKING_ROWS = 10;
+
+/**
+ * The honour lines for the results' content (2.75.0): the Wang Chi's (or,
+ * held, "nobody needed saving"), then the Jack Burton's — or one line for
+ * both, when the Wang Chi landed the blow. None for an escape, one fighter
+ * alone, or an MVP paid the old way. Names, never mentions.
+ */
+function honourLines(siege, result) {
+  const wang = result.wangChi;
+  if (result.status !== 'won' || !wang) return [];
+  const jack = result.jack;
+  const names = { mvp: cardName(wang.name), jack: cardName(jack?.name || wang.name) };
+  if (jack && jack.userId === wang.userId) return [fill(lineFor(siege.id, HONOURS.both, 0), names)];
+  const out = [fill(lineFor(siege.id, wang.held ? HONOURS.wangChiHeld : HONOURS.wangChi, 0), names)];
+  if (jack) out.push(fill(lineFor(siege.id, HONOURS.jackBurton, 3), names));
+  return out;
+}
+
+/**
+ * One backer's line (2.75.0), from HONOURS.backing by how it settled. The
+ * fighter's share (their `bonus`) is named only on the one backing that
+ * earned it, and only if it was paid (a fighter past today's reward limit
+ * got none): a second backer of the same Wang Chi gets `wangChiToo`, which
+ * doesn't name it, or it would read as paid twice.
+ */
+function backingLine(siege, result, b, i) {
+  const B = HONOURS.backing;
+  const v = { backer: cardName(b.backerName), fighter: cardName(b.fighterName), stake: b.stake };
+  const pick = (list) => lineFor(`${siege.id}${b.backerId}`, list, i);
+  if (b.outcome === 'wangChi') {
+    const g = (result.grants || []).find(x => x.userId === b.fighterId);
+    const bonus = b.bonus > 0 && g && !g.limited ? g.backBonus || 0 : 0;
+    const gain = signed(b.back - b.stake);
+    return bonus > 0 ? fill(pick(B.wangChi), { ...v, gain, bonus: signed(bonus) }) : fill(B.wangChiToo, { ...v, gain });
+  }
+  if (b.outcome === 'push') return fill(pick(B.push), v);
+  if (b.outcome === 'lost') return fill(pick(B.lost), v);
+  if (b.outcome === 'escaped') return fill(pick(B.escaped), v);
+  // refunded: [0] an admin called it off, [1] too few fighters to call it
+  return fill(B.refunded[result.status === 'ended' ? 0 : 1], v);
+}
+
 /**
  * Who the results ping, at most SIEGE.pingMax: the fighters best first,
  * and every digest no report reached (`told`). Those are fighters too, so
@@ -235,17 +338,24 @@ export function pingList(fighterIds, told = []) {
 /**
  * The results: a NEW message that pings up to SIEGE.pingMax fighters in
  * its content (an embed's mentions never ping), with the monster's defeat
- * or escape line — {mvp} filled with the MVP's name — the digests no daily
- * report reached, and an embed of what each fighter did and got.
+ * or escape line — {mvp} filled with the Wang Chi's name, {jack} with the
+ * Jack Burton's — then (2.75.0) the honours' lines, the digests no daily
+ * report reached (2.74.0), and an embed of what each fighter did and got,
+ * and each backer.
  */
 export function resultsPayload(siege, { kit = liveKit() } = {}) {
   const monster = monsterOf(siege.monster);
   const result = siege.result || { status: siege.status, grants: [] };
   const won = result.status === 'won';
   const grants = Array.isArray(result.grants) ? result.grants : [];
+  // One fighter alone has no Wang Chi: the line names them anyway, as it always did
+  const mvpName = result.wangChi?.name ?? result.mvp?.name ?? grants[0]?.name ?? null;
+  const jackName = result.jack?.name ?? siege.killingBlow?.name ?? mvpName;
   const line = won
-    ? monster.lines.defeat.split('{mvp}').join(result.mvp ? cardName(result.mvp.name) : 'Everyone')
+    ? fill(monster.lines.defeat, { mvp: mvpName ? cardName(mvpName) : 'Everyone', jack: jackName ? cardName(jackName) : 'Everyone' })
     : monster.lines.escape;
+  // 2.75.0: the honours' lines, right under the monster's
+  const lead = [line, ...honourLines(siege, result)].join('\n');
   // 2.74.0: digests no report reached (`unreported`: kept for a report the
   // siege ended or was won before) are told here, by name, and pinged. An
   // escape's results wait for someone to play, so this never pings at 4 a.m.
@@ -253,21 +363,42 @@ export function resultsPayload(siege, { kit = liveKit() } = {}) {
   const ids = pingList(grants.map(g => g.userId), untold.map(d => d.userId));
   const pings = ids.map(id => `<@${id}>`).join(' ');
   // The names give way before a ping does: clipped to what's left of 2,000
-  // (20 long, escaped names can reach it), the mentions kept whole
+  // after the monster's and the honours' lines (20 long, escaped names can
+  // reach it), the mentions kept whole
   const digestLine = untold.length
-    ? clipText(`😋 Digested while nobody was around: ${untold.map(d => `${cardName(d.name)} ${d.points < 0 ? `−${Math.abs(d.points)}` : '±0'}`).join(' · ')}`, Math.max(1, 2000 - line.length - pings.length - 2))
+    ? clipText(`😋 Digested while nobody was around: ${untold.map(d => `${cardName(d.name)} ${d.points < 0 ? `−${Math.abs(d.points)}` : '±0'}`).join(' · ')}`, Math.max(1, 2000 - lead.length - pings.length - 2))
     : null;
-  const content = [line, digestLine, pings].filter(Boolean).join('\n');
+  const content = [lead, digestLine, pings].filter(Boolean).join('\n');
 
-  const rows = grants.slice(0, RESULT_ROWS).map((g, i) => resultRow(g, i, kit, result.status));
-  if (grants.length > RESULT_ROWS) rows.push(`…and ${grants.length - RESULT_ROWS} more`);
-  const solo = won && grants.length === 1 && grants[0].solo;
   const t = timingsOf(siege);
-  const pool = t.pot ? `The pot (${formatNumber(potOf(siege))}, ${t.pool.perFighter} a fighter a night) was split by what each did` : 'The pool was split by damage';
+  const rows = grants.slice(0, RESULT_ROWS).map((g, i) => resultRow(g, i, kit, result.status, t.honour));
+  if (grants.length > RESULT_ROWS) rows.push(`…and ${grants.length - RESULT_ROWS} more`);
+  // 2.75.0: every backer, as settled (a stake refunded with no backing on
+  // the siege isn't one to show) — in a field of their own, after the rows:
+  // a field is clipped on its own, so a long table of fighters can never
+  // push a backer's line off the end, and the field stays inside 1,024
+  const backing = (Array.isArray(result.backing) ? result.backing : []).filter(b => !b.orphan);
+  const backRows = [];
+  for (const [i, b] of backing.slice(0, BACKING_ROWS).entries()) {
+    const next = clipText(backingLine(siege, result, b, i), 300);
+    const more = `…and ${backing.length - i} more`;
+    if ([...backRows, next].join('\n').length + (i + 1 < backing.length ? more.length + 1 : 0) > 1024) break;
+    backRows.push(next);
+  }
+  if (backing.length > backRows.length) backRows.push(`…and ${backing.length - backRows.length} more`);
+  const solo = won && grants.length === 1 && grants[0].solo;
+  // Split by contribution (damage, and frees and cures since R6): "by
+  // damage" was wrong at quick and evening from 2.73 on
+  const pool = t.pot ? `The pot (${formatNumber(potOf(siege))}, ${t.pool.perFighter} a fighter a night) was split by what each did` : 'The pool was split by what each did (damage, frees and cures)';
+  // An MVP paid the old way: a result from before 2.75.0, or SIEGE_R2_DEPLOY's 'mvp'
+  const oldMvp = !result.wangChi && !!result.mvp;
+  const honours = oldMvp
+    ? `the MVP gets ${signed(SIEGE_R2_DEPLOY.mvpBonus * t.honour)} and loot`
+    : `${kit.e('wang')} the Wang Chi gets ${signed(SIEGE.rewards.wangChiBonus * t.honour)} and loot, ${kit.e('jack')} the Jack Burton ${signed(SIEGE.rewards.jackBonus * t.honour)}`;
   const head = solo
-    ? `${monster.emoji} Beaten by one fighter alone: the pool, but no MVP bonus or loot. Siege titles need company.`
+    ? `${monster.emoji} Beaten by one fighter alone: the pool, but no honours or loot. Siege titles need company.`
     : won
-      ? `${monster.emoji} Beaten with ${pill(grants.length)} ${plural(grants.length, 'fighter')}. ${pool}; the MVP gets +${SIEGE.rewards.mvpBonus * t.honour} and loot.`
+      ? `${monster.emoji} Beaten with ${pill(grants.length)} ${plural(grants.length, 'fighter')}. ${pool}; ${honours}.`
     : grants.some(g => (g.points || 0) < 0)
       ? `${monster.emoji} It got away. Everyone who fought loses ${SIEGE.escape.loss} (never below 0 for the month).`
       : `${monster.emoji} It got away.${grants.length ? ' With so few fighters, nobody loses anything.' : ''}`;
@@ -275,6 +406,7 @@ export function resultsPayload(siege, { kit = liveKit() } = {}) {
     color: won ? SIEGE_COLOURS.won : SIEGE_COLOURS.escaped,
     title: won ? `🏆 ${monster.name} is beaten!` : `💨 ${monster.name} got away!`,
     description: [head, '', ...rows].join('\n').trim(),
+    ...(backRows.length ? { fields: [{ name: `${kit.e('back')} Backing`, value: backRows.join('\n'), inline: false }] } : {}),
     footer: { text: 'Siege results · /scoreboard shows your points' },
   };
   return {
@@ -360,8 +492,13 @@ export function digestPayload(siege, digested) {
 
 // ── 2.74.0: the daily report ────────────────────────────────────────────
 
-/** "Sam (3 freed, 1 cured)" */
-const helpWords = (u) => [u.frees ? `${u.frees} freed` : null, u.cures ? `${u.cures} cured` : null].filter(Boolean).join(', ');
+/** "3 freed, 1 cured" (and, from R4, "2 boosted") */
+const helpWords = (u) => [
+  u.frees ? `${u.frees} freed` : null, u.cures ? `${u.cures} cured` : null, u.boostHits ? `${u.boostHits} boosted` : null,
+].filter(Boolean).join(', ');
+
+/** A night's help in points, as the Wang Chi is measured (siegeStore.helpOf; the tallies have no boosts yet) */
+const nightHelp = (u) => SIEGE.credit.free * (Number(u.frees) || 0) + SIEGE.credit.cure * (Number(u.cures) || 0);
 
 /** Nights between two night keys (YYYY-MM-DD): 0 for the same */
 const nightsApart = (from, to) => Math.round((Date.parse(to) - Date.parse(from)) / (24 * 60 * 60 * 1000));
@@ -390,16 +527,16 @@ export function reportPayload(siege, report, { kit = liveKit(), now = Date.now()
   const span = covers > 1 ? `the last ${covers} nights` : 'last night';
   const fields = [];
   const top = users.filter(u => u.damage > 0).sort((a, b) => b.damage - a.damage || (a.userId < b.userId ? -1 : 1)).slice(0, 3);
-  const helper = users.filter(u => (u.frees || 0) + (u.cures || 0) > 0)
-    .sort((a, b) => ((b.frees || 0) + (b.cures || 0)) - ((a.frees || 0) + (a.cures || 0)) || (a.userId < b.userId ? -1 : 1))[0];
+  // 2.75.0: the night's Wang Chi — the most help, weighed as the honour weighs it (a free beats a cure)
+  const helper = users.filter(u => nightHelp(u) > 0)
+    .sort((a, b) => nightHelp(b) - nightHelp(a) || (a.userId < b.userId ? -1 : 1))[0];
+  // Over several nights (a lost report: claimReport's `nights`), of those nights
+  const wang = helper ? `${kit.e('wang')} Wang Chi of ${covers > 1 ? `the last ${covers} nights` : 'the night'}: ${cardName(helper.name)} (${helpWords(helper)})` : null;
   fields.push({
     name: `${kit.e('trophy')} ${span.charAt(0).toUpperCase()}${span.slice(1)}`,
     value: top.length
-      ? [
-        ...top.map((u, i) => `${kit.e(`med${i + 1}`)} ${cardName(u.name)} ${pill(formatNumber(u.damage))}`),
-        ...(helper ? [`🛟 Best helper: ${cardName(helper.name)} (${helpWords(helper)})`] : []),
-      ].join('\n')
-      : (helper ? `Nobody attacked. 🛟 Best helper: ${cardName(helper.name)} (${helpWords(helper)})` : covers > 1 ? `Nobody fought in ${span}.` : 'Nobody fought last night.'),
+      ? [...top.map((u, i) => `${kit.e(`med${i + 1}`)} ${cardName(u.name)} ${pill(formatNumber(u.damage))}`), ...(wang ? [wang] : [])].join('\n')
+      : (wang ? `Nobody attacked. ${wang}` : covers > 1 ? `Nobody fought in ${span}.` : 'Nobody fought last night.'),
     inline: false,
   });
   if (view.caught.length) {

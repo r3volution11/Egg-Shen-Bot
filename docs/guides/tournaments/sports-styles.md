@@ -42,7 +42,7 @@ The bot runs **single elimination**: each matchup is one vote, and the winner mo
 ```
 
 - **By rating** acts as the selection committee. The best-rated title is seed 1, and round one pairs 1 v 32, 16 v 17, 8 v 25 and so on down the bracket. Choose **The order I add them** instead to be the committee yourself.
-- **Upsets are called out.** When a worse seed wins, the result says so, for example **🚨 Upset! (12) knocks out (5)**.
+- **Upsets are called out.** When a worse seed wins, the result says so, for example **🚨 Upset! (12) knocks out (5)**, and its drawn picture gets an UPSET! stamp.
 - **A runoff vote is the overtime.** A tied matchup gets a short extra vote instead of being decided for you.
 - **How it differs:** the bot seeds one field of up to 32, so seed 1 meets seed 32 rather than four regions each starting 1 v 16. Large rounds are still labelled by region (1A, 2B…). 16 titles is a good "Sweet 16" version.
 
@@ -114,7 +114,7 @@ Then open each round with a long window, such as `/bracket open duration:3d`.
 /bracket-setup create name:"The Cinema Cup" max-titles:48
 ```
 
-- **48 titles makes 12 groups of four.** Each voter picks their top two in each group.
+- **48 titles makes 12 groups of four.** Each voter picks their top two in each group. A ballot holds 5 groups, so open them in batches, such as A–E, F–J, then K–L, with `/bracket open-groups`.
 - **The top two in each group plus the 8 best third-placed titles** (wildcards) make a Round of 32. Then it's a straight knockout.
 - **Seeding and ties options don't apply to groups.** The knockout is seeded from the group results: group winners are placed first, and titles from the same group are kept apart in the first round where possible. Ties for 1st or 2nd in a group get a runoff vote.
 - **The 2022 format** (32 teams, 8 groups, top two through) works too. Upload 32 titles in 8 groups on the [setup form](/commands/brackets/import). Or create with `max-titles:36` and run `/bracket-setup resize groups:8`.

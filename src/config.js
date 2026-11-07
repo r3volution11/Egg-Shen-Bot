@@ -9,7 +9,7 @@ export const config = {
     guildId: process.env.GUILD_ID || null,
   },
   // Shown as the "Full Documentation" link in /eggshen-help and
-  // /eggshen-bracket help. Defaults to the project's own hosted docs;
+  // /bracket help. Defaults to the project's own hosted docs;
   // self-hosters publishing their own docs site can override it.
   docsUrl: process.env.DOCS_URL || 'https://eggshenbot.com',
   apis: {

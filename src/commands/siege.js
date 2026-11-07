@@ -1,20 +1,22 @@
 import { SlashCommandBuilder, MessageFlags } from 'discord.js';
 import { loadGuildConfig, isAdmin, canUseCommand } from '../utils/guildConfig.js';
 import { beginPlay, itemOption, itemChoices, outcomeLabel, resolvePlay } from '../utils/gamePlay.js';
-import { getGameSettings, channelAllowed, recordPlay, resultLine, extraLines } from '../utils/gameScores.js';
+import { getGameSettings, channelAllowed, recordPlay, resultLine, extraLines, loadScores, backingProblem } from '../utils/gameScores.js';
 import { itemEffect, owns } from '../utils/gameRules.js';
 import { noteActivity } from '../utils/happeningStore.js';
 import { nameOf } from '../utils/personCard.js';
 import { clipText } from '../utils/embedFit.js';
 import { formatNumber, pill } from '../utils/emojiKit.js';
+import { cardName } from '../utils/gameBoards.js';
 import {
   currentSiege, isLive, monsterOf, monsterTarget, siegeAttack, spawnSiege,
   finishSiege, siegeTick, siegeView, standingOf, randomMonster, closeOrphanSiege, isCaught, isOut, poisonedNow,
-  attacksTonight, allowanceResetsAt, notePotPoints, firstReportAt,
+  attacksTonight, allowanceResetsAt, notePotPoints, firstReportAt, placeBacking, backingClosesAt,
 } from '../utils/siegeStore.js';
-import { renderSiegeCard, placeText, HOW_TO_FIGHT } from '../utils/siegeCard.js';
+import { renderSiegeCard, placeText, HOW_TO_FIGHT, lineFor } from '../utils/siegeCard.js';
 import { botCanPost, editSiegeCard, postSiegeResults, postArrival } from '../utils/happeningScheduler.js';
 import { SIEGE } from '../data/gameRewards.js';
+import { HONOURS, fill } from '../data/btilcLines.js';
 import { timingsOf, defaultSiegeMinutes, lengthWords } from '../utils/gamePace.js';
 import { MONSTERS, MONSTER_KEYS } from '../data/siegeMonsters.js';
 import { SIEGE_ATTACK_LINES } from '../data/siegeAttackLines.js';
@@ -33,15 +35,22 @@ import { SIEGE_ATTACK_LINES } from '../data/siegeAttackLines.js';
  *     poisoned does half damage. 2.74.0: from `evening` on each member has
  *     the siege's `allowance` attacks a night (refused for nothing past it),
  *     and from `day` on an attack's points go into the pot.
+ *   back fighter: points:                — 2.75.0: stake 2–10 of your points on
+ *     another fighter, in the first half of the siege (siegeStore.placeBacking;
+ *     refusals are private and cost nothing). Public, pinging nobody.
+ *     Settled at the finish: ×2 if they're the Wang Chi, the stake back if
+ *     they're top 3 or the Jack Burton (design §4.3)
  *   status                               — the card, privately, with your place
+ *     (and, 2.75.0, who you backed)
  *   start monster: length:   (Admin/Mod) — in this channel; `length` is one
  *                                          of LENGTHS, default the server's
  *                                          pace (2.74.0; it was `minutes:`)
  *   end                      (Admin/Mod) — no rewards, no penalties (a win if it's
- *                                          already at 0 HP, an escape if its time is up)
+ *                                          already at 0 HP, an escape if its time is up);
+ *                                          backers get their stakes back
  *
  * Discord lists subcommands alphabetically (CLAUDE.md), so the picker shows
- * attack, end, start, status — the one people reach for first, first.
+ * attack, back, end, start, status — the one people reach for first, first.
  */
 
 const WEAPONS = Object.freeze([
@@ -83,6 +92,19 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
       .addChoices(...WEAPONS))
     .addStringOption(itemOption))
+  .addSubcommand(sub => sub
+    .setName('back')
+    .setDescription('Stake points on a fighter in the first half: ×2 if they\'re the Wang Chi')
+    .addUserOption(option => option
+      .setName('fighter')
+      .setDescription('Who you think will be the real hero (someone who has attacked)')
+      .setRequired(true))
+    .addIntegerOption(option => option
+      .setName('points')
+      .setDescription(`Your stake, ${SIEGE.backing.min}–${SIEGE.backing.max} of this month's points`)
+      .setRequired(true)
+      .setMinValue(SIEGE.backing.min)
+      .setMaxValue(SIEGE.backing.max)))
   .addSubcommand(sub => sub
     .setName('end')
     .setDescription('End the siege now: no rewards, no penalties (Admin/Mod)'))
@@ -154,7 +176,7 @@ export async function execute(interaction) {
     await privately(interaction, '❌ /siege is turned off on this server.');
     return;
   }
-  await (sub === 'status' ? status(interaction) : attack(interaction));
+  await (sub === 'status' ? status(interaction) : sub === 'back' ? back(interaction) : attack(interaction));
 }
 
 /**
@@ -365,15 +387,104 @@ async function status(interaction) {
   // 2.74.0: tonight's attacks, from `evening` on
   const { allowance } = timingsOf(s);
   const today = allowance ? ` · ⚔️ attacks tonight ${pill(`${attacksTonight(mine, now, s)}/${allowance}`)}` : '';
+  // 2.75.0: who they backed (a backer needn't be a fighter)
+  const backing = s.backers?.[interaction.user.id];
+  const backed = backing ? ` · 🎲 you backed ${cardName(backing.fighterName)} (${backing.stake})` : '';
   const content = me
-    ? `You: ${pill(formatNumber(me.damage))} damage · ${placeText(me)} ${me.of === 1 ? 'fighter' : 'fighters'}${today}${state}`
-    : `You haven't attacked yet: ${HOW_TO_FIGHT}${allowance ? ` (${allowance} attacks a night)` : ''}`;
+    ? `You: ${pill(formatNumber(me.damage))} damage · ${placeText(me)} ${me.of === 1 ? 'fighter' : 'fighters'}${today}${state}${backed}`
+    : `You haven't attacked yet: ${HOW_TO_FIGHT}${allowance ? ` (${allowance} attacks a night)` : ''}${backed}`;
   await interaction.reply({
     content,
     embeds: [renderSiegeCard(siegeView(s))],
     flags: MessageFlags.Ephemeral,
     allowedMentions: { parse: [] },
   });
+}
+
+/**
+ * /siege back fighter: points: (2.75.0, design §4.3): stake your points on
+ * another fighter. Every refusal is private and costs nothing, checked in
+ * this order before anything is saved: no siege (or it's beaten), the wrong
+ * channel, yourself, a bot, too late (backing closes halfway through the
+ * siege's time: backingClosesAt), someone who hasn't attacked, one backing
+ * a siege, one a day, a regular (3 of the last 7 nights), and the points
+ * to stake. Then one synchronous block (placeBacking: the siege's rules
+ * again, the stake taken, the backing stored) and a public reply that
+ * pings nobody — the fighter is named, not mentioned.
+ */
+async function back(interaction) {
+  const now = Date.now();
+  const me = interaction.user.id;
+  const stake = interaction.options.getInteger('points');
+  const fighterUser = interaction.options.getUser('fighter');
+  // discord.js resolves the member with the option; a fighter's name is the one they fight under
+  const fighterName = interaction.options.get('fighter')?.member?.displayName || fighterUser?.globalName || fighterUser?.username || 'them';
+  const channel = await channelOf(interaction);
+  const s = currentSiege(interaction.guildId);
+  const why = backRefusal(s, interaction, channel, { me, fighterUser, fighterName, stake }, now);
+  if (why) {
+    await privately(interaction, why);
+    return;
+  }
+
+  // ── No await from the last check to the reply: placeBacking re-checks the
+  // siege and the scores file and saves both, in one synchronous block ──
+  const name = nameOf(interaction);
+  const placed = placeBacking(interaction.guildId, s.id, { userId: me, name, fighterId: fighterUser.id, fighterName, stake }, now);
+  if (placed.error) {
+    await privately(interaction, backRefusalText(placed, { fighterName, stake, monster: monsterOf(s.monster) }));
+    return;
+  }
+  try {
+    noteActivity(interaction.guildId, { channelId: interaction.channelId || null, userId: me }, now);
+  } catch (error) {
+    console.error('[Siege] Couldn\'t note activity:', error.message);
+  }
+  const b = placed.backing;
+  const words = { backer: cardName(name), fighter: cardName(b.fighterName), stake: b.stake };
+  const line = fill(lineFor(`${s.id}${me}`, HONOURS.backing.placed), words);
+  const note = `-# ${cardName(name)} −${b.stake} (staked) · back ×${SIEGE.backing.payout} if ${cardName(b.fighterName)} is the Wang Chi, your stake back if top 3 or the Jack Burton · closes <t:${unix(placed.closesAt)}:R>`;
+  await interaction.reply({
+    content: clipText(`${line}\n${note}`, 2000),
+    // Public, and pings nobody: the fighter is named, not mentioned
+    allowedMentions: { parse: [] },
+  });
+}
+
+/**
+ * Why this member can't back anyone in siege `s` from here, or null: the
+ * refusals that cost nothing, in the brief's order — and everything the
+ * scores file says (backingProblem), read without saving
+ */
+function backRefusal(s, interaction, channel, { me, fighterUser, fighterName, stake }, now) {
+  const R = HONOURS.backing.refusals;
+  if (!s || s.status !== 'live' || !isLive(s, now)) return R.noSiege;
+  const monster = monsterOf(s.monster);
+  if (!(s.hp > 0)) return `🏆 ${monster.name} is already beaten! The results are on their way.`;
+  const here = interaction.channelId === s.channelId || (channel?.parentId && channel.parentId === s.channelId);
+  if (!here) return `🎲 Back fighters in <#${s.channelId}>, where the fight is.`;
+  if (!fighterUser) return fill(R.notFighter, { fighter: fighterName });
+  if (fighterUser.id === me) return R.self;
+  if (fighterUser.bot) return R.bot;
+  if (now >= backingClosesAt(s)) return R.late;
+  if (!((s.participants?.[fighterUser.id]?.attacks || 0) > 0)) return fill(R.notFighter, { fighter: cardName(fighterName) });
+  if (s.backers && Object.hasOwn(s.backers, me)) return R.already;
+  if (!(Number.isInteger(stake) && stake >= SIEGE.backing.min && stake <= SIEGE.backing.max)) {
+    return `🎲 Stake ${SIEGE.backing.min} to ${SIEGE.backing.max} points.`;
+  }
+  // Keyed by this siege and member: a stake a kill orphaned is this backing's, not a second one
+  const problem = backingProblem(loadScores(interaction.guildId), me, stake, now, { key: `${s.id}:${me}` });
+  return problem ? backRefusalText(problem, { fighterName, stake, monster }) : null;
+}
+
+/** A refusal's words, by placeBacking's (or backingProblem's) error */
+function backRefusalText(err, { fighterName, stake, monster }) {
+  const R = HONOURS.backing.refusals;
+  if (err.error === 'notFighter') return fill(R.notFighter, { fighter: cardName(fighterName) });
+  if (err.error === 'poor') return fill(R.poor, { stake, count: err.count ?? 0 });
+  if (err.error === 'noSiege' && monster) return `⏹️ The fight with ${monster.name} ended a moment before your backing landed.`;
+  if (err.error === 'bad-stake') return `🎲 Stake ${SIEGE.backing.min} to ${SIEGE.backing.max} points.`;
+  return R[err.error] || R.noSiege;
 }
 
 /**
@@ -501,12 +612,15 @@ async function end(interaction) {
   siegeTick(interaction.guildId, s.id, now);
   const fresh = currentSiege(interaction.guildId);
   const beaten = fresh && fresh.id === s.id && !(fresh.hp > 0);
-  const outcome = beaten ? 'won' : now >= s.endsAt ? 'escaped' : 'ended';
-  const done = finishSiege(interaction.guildId, s.id, outcome, now);
+  const asked = beaten ? 'won' : now >= s.endsAt ? 'escaped' : 'ended';
+  const done = finishSiege(interaction.guildId, s.id, asked, now);
   if (done.error) {
     await say(`${monster.name}'s siege had already ended.`);
     return;
   }
+  // 2.75.0: what it finished as — a siege already paid as something else
+  // finishes as that (finishSiege), and the reply says what happened
+  const outcome = done.siege.status;
   await editSiegeCard(interaction.guild, s.id, { now, force: true });
   if (outcome === 'won') {
     const posted = await postSiegeResults(interaction.guild, s.id, { now, settings });
@@ -518,7 +632,9 @@ async function end(interaction) {
     await say(`💨 ${monster.name}'s time was already up, so it got away: ${resultsWhere(interaction.guildId, s.id, posted)}.`);
     return;
   }
-  await say(`⏹️ Ended the siege: ${monster.name} slinks off. No rewards, no penalties.`);
+  // 2.75.0: a called-off siege's backers are refunded (finishSiege paid it with the rest)
+  const refunded = (done.siege.result?.backing || []).some(b => b.outcome === 'refunded' && b.back > 0);
+  await say(`⏹️ Ended the siege: ${monster.name} slinks off. No rewards, no penalties.${refunded ? ' Backers got their stakes back.' : ''}`);
 }
 
 /**

@@ -2,18 +2,35 @@
 //   <DiscordCard name="voting-dashboard" />
 //
 // Copied from what the bot actually sends — captured from a simulated
-// tournament (tests/harness/tournamentSim.js), 2026-10-03 — with two
+// tournament (tests/harness/tournamentSim.js), 2026-10-03 — with three
 // stand-ins for what only Discord can draw: [ts:in 9 minutes] for a <t:…>
-// timestamp and [mention:@Admin] for a mention. When a card's wording
-// changes in the bot, change it here too. The games' examples are in
-// gameCards.js.
+// timestamp, [mention:@Admin] for a mention and [kit:code] for one of the
+// bot's custom emoji (drawn from docs/public/emojis/<code>.png). When a
+// card's wording changes in the bot, change it here too. The games'
+// examples are in gameCards.js.
+//
+// The ballot, the live standings, /bracket status and the results card
+// were captured again on 2026-11-07, with the whole kit "uploaded" (the
+// stone bars since 2.73.0), from an 8-title "Friday Frights" run through
+// the real bracketManager, /bracket command, button handler and scheduler
+// (closeMatchupsNow): six members vote, two quarterfinals at a time, then
+// both semifinals. The standings and /bracket status show the bot's own
+// avatar ('bot'); the results card carries its drawn picture instead of a
+// thumbnail, shown on its own on the knockout page. One change by hand: the
+// ballot's streak says 2 rounds, the two it shows. The capture said 6,
+// because updateParticipationStats (bracketManager.js) adds one for every
+// vote within 48 hours, not every round; reported 2026-11-07.
 
 import { GAME_CARDS } from './gameCards.js';
 
 const ACCENT = 0x4ec5ed; // ballots and live standings
 const GREEN = 0x00ff00; // voting opened, results
 const BLUE = 0x0099ff; // /bracket status
-const SOON = '[ts:in 9 minutes]';
+// A semifinal opened at 8:04 PM for a day, seen at 9:40 PM
+const SEMIS_CLOSE = '[ts:in 22 hours]';
+// The kit's two-title bars (8 wide) and split bar (10 wide)
+const G4 = '[kit:bgl][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bem][kit:bem][kit:ber]';
+const O2 = '[kit:bol][kit:bom][kit:bom][kit:bem][kit:bem][kit:bem][kit:bem][kit:ber]';
 
 export const DISCORD_CARDS = {
   'voting-opened': {
@@ -33,17 +50,17 @@ export const DISCORD_CARDS = {
   },
 
   'voting-dashboard': {
-    label: 'Example: a member\'s private voting ballot, listing every vote they\'ve cast by round, with their picks in purple',
+    label: 'Example: a member\'s private voting ballot in the semifinals, listing every vote they\'ve cast by round with a jade tick on each pick, and their picks in purple on the buttons',
     message: {
-      time: 'Today at 8:05 PM',
+      time: 'Today at 9:38 PM',
       edited: true,
       ephemeral: true,
       embeds: [{
         color: ACCENT,
         title: '🗳️ Your Voting Dashboard',
-        description: 'Vote for ONE title in each matchup below.\nYour selections are shown in **purple**.\n\n💡 Click any button to cast or change your vote!\n\n🔥 **Streak:** 2 rounds\n\n**Your votes**\n**Round 1**\n1A: The Thing (1982) vs ✅ **Alien (1979)**\n2A: ✅ **Jaws (1975)** vs The Shining (1980)\n3A: Hereditary (2018) vs ✅ **Get Out (2017)**\n4A: Scream (1996) vs ✅ **Halloween (1978)**\n\n**Round 2**\n1A: ✅ **Alien (1979)** vs Jaws (1975)\n3A: Get Out (2017) vs ✅ **Halloween (1978)**\n\n⏰ Voting closes ' + SOON,
+        description: `Vote for ONE title in each matchup below.\nYour selections are shown in **purple**.\n\n💡 Click any button to cast or change your vote!\n\n🔥 **Streak:** 2 rounds\n\n**Your votes**\n**Round 1**\n1A: The Thing (1982) vs [kit:tk1] **Alien (1979)**\n2A: [kit:tk1] **Jaws (1975)** vs The Shining (1980)\n3A: Hereditary (2018) vs [kit:tk1] **Get Out (2017)**\n4A: Scream (1996) vs [kit:tk1] **Halloween (1978)**\n\n**Round 2**\n1A: [kit:tk1] **Alien (1979)** vs Jaws (1975)\n3A: Get Out (2017) vs [kit:tk1] **Halloween (1978)**\n\n⏰ Voting closes ${SEMIS_CLOSE}`,
         footer: 'Only you can see this • Your votes update in real-time',
-        timestamp: 'Today at 8:05 PM',
+        timestamp: 'Today at 9:38 PM',
         thumbnail: 'avatar',
       }],
       rows: [
@@ -54,55 +71,54 @@ export const DISCORD_CARDS = {
   },
 
   'live-standings': {
-    label: 'Example: the public live standings for open matchups, with vote bars that update as votes come in',
+    label: 'Example: the public live standings for the two open semifinals, with a stone bar under each title, green for the one ahead and orange for the one behind, its votes and share, and the totals: 12 votes, 6 voters, 2 matchups',
     message: {
-      time: 'Today at 8:05 PM',
+      time: 'Today at 9:40 PM',
       edited: true,
       embeds: [{
         color: ACCENT,
         title: '🏆 Semifinals - Live Standings',
-        description: `**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nAlien (1979) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nJaws (1975)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**3A** · closes ${SOON}\nGet Out (2017)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\nvs\nHalloween (1978) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\n\n🗳️ \`12\` votes · 👥 \`6\` voters · ⚔️ \`2\` matchups`,
+        description: `**📊 Live Vote Counts**\n\n**1A** · closes ${SEMIS_CLOSE}\nAlien (1979) 🔥\n${G4} \`4\` votes · 67%\nvs\nJaws (1975)\n${O2} \`2\` votes · 33%\n\n**3A** · closes ${SEMIS_CLOSE}\nGet Out (2017)\n${O2} \`2\` votes · 33%\nvs\nHalloween (1978) 🔥\n${G4} \`4\` votes · 67%\n\n[kit:ballot] \`12\` votes · [kit:people] \`6\` voters · [kit:vs] \`2\` matchups`,
         footer: 'Updates in real-time as votes are cast',
-        timestamp: 'Today at 8:05 PM',
-        thumbnail: 'poster',
+        timestamp: 'Today at 9:40 PM',
+        thumbnail: 'bot',
       }],
     },
   },
 
   'matchup-results': {
-    label: 'Example: the results card posted when a matchup closes, naming the winner and runner-up',
+    label: 'Example: the results card posted when a matchup closes: Alien beats The Thing 5 votes to 1, on one split bar, green from the left and orange from the right, with the trophy beside the winner and the silver medal beside the runner-up. The bot\'s drawn picture of the matchup goes under it',
     message: {
-      time: 'Tomorrow at 8:04 PM',
+      time: 'Tomorrow at 8:00 PM',
       embeds: [{
         color: GREEN,
         title: '📊 Quarterfinals - Match 1 - Results',
-        description: '**Friday Frights**\n\nVoting has closed!\n`5` 🟩🟩🟩🟩🟩🟩🟩🟩🟧🟧 `1`',
+        description: '**Friday Frights**\n\nVoting has closed!\n`5` [kit:bgl][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bom][kit:bor] `1`',
         fields: [
-          { name: '🏆 Winner', value: '**Alien**\n`5` votes', inline: true },
-          { name: '🥈 Runner-up', value: 'The Thing\n`1` vote', inline: true },
+          { name: '[kit:trophy] Winner', value: '**Alien**\n`5` votes', inline: true },
+          { name: '[kit:med2] Runner-up', value: 'The Thing\n`1` vote', inline: true },
         ],
         footer: 'Total votes: 6',
-        timestamp: 'Tomorrow at 8:04 PM',
-        thumbnail: 'poster',
+        timestamp: 'Tomorrow at 8:00 PM',
       }],
     },
   },
 
   'tournament-status': {
-    label: 'Example: /bracket status, showing each open matchup with the same coloured vote bars as the live standings',
+    label: 'Example: /bracket status during the quarterfinals, showing the two open matchups with the same stone vote bars as the live standings: The Thing 1 vote against Alien 5, and Jaws 4 against The Shining 2',
     message: {
       command: { user: 'Member', name: '/bracket status' },
-      time: 'Today at 8:10 PM',
+      time: 'Today at 9:12 PM',
       embeds: [{
         color: BLUE,
         title: '🏆 Friday Frights',
-        description: `**Quarterfinals**\n\nSingle elimination bracket\n\n**📊 Live Vote Counts**\n\n**1A** · closes ${SOON}\nThe Thing (1982)\n🟧🟧⬜⬜⬜⬜⬜⬜⬜⬜ 1 vote (17%)\nvs\nAlien (1979) 🔥\n🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜ 5 votes (83%)\n\n**2A** · closes ${SOON}\nJaws (1975) 🔥\n🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜ 4 votes (67%)\nvs\nThe Shining (1980)\n🟧🟧🟧⬜⬜⬜⬜⬜⬜⬜ 2 votes (33%)\n\n**Completed:** 0 matchups`,
+        description: '**Quarterfinals**\n\nSingle elimination bracket\n\n**📊 Live Vote Counts**\n\n**1A** · closes [ts:in 23 hours]\nThe Thing (1982)\n[kit:bol][kit:bem][kit:bem][kit:bem][kit:bem][kit:bem][kit:bem][kit:ber] `1` vote · 17%\nvs\nAlien (1979) 🔥\n[kit:bgl][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:bgm][kit:ber] `5` votes · 83%\n\n**2A** · closes [ts:in 23 hours]\nJaws (1975) 🔥\n' + G4 + ' `4` votes · 67%\nvs\nThe Shining (1980)\n' + O2 + ' `2` votes · 33%\n\n**Completed:** 0 matchups',
         fields: [
           { name: 'Status', value: 'knockout', inline: true },
           { name: 'Phase', value: 'quarterfinals', inline: true },
           { name: 'Creator', value: '[mention:@Admin]', inline: true },
         ],
-        thumbnail: 'poster',
+        thumbnail: 'bot',
       }],
     },
   },

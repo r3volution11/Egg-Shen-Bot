@@ -80,12 +80,24 @@ const CHANNEL = 'games';
  *              (each gap ×0.5–1.5 at random)
  */
 export const PROFILES = Object.freeze({
-  grinder: { activeP: 1, plays: () => 80, session: 240, pace: 1.5 },
-  heavy: { activeP: 0.9, plays: (r) => 26 + r.int(9), session: 180, pace: 2.5 },
-  typical: { activeP: 4.5 / 7, plays: (r) => 10 + r.int(6), session: 120, pace: 4 },
-  casual: { activeP: 3 / 7, plays: () => 6, session: 75, pace: 6 },
-  dropin: { activeP: 1.5 / 7, plays: () => 3, session: 45, pace: 8 },
+  grinder: { activeP: 1, plays: () => 80, session: 240, pace: 1.5, backP: 0.6 },
+  heavy: { activeP: 0.9, plays: (r) => 26 + r.int(9), session: 180, pace: 2.5, backP: 0.5 },
+  typical: { activeP: 4.5 / 7, plays: (r) => 10 + r.int(6), session: 120, pace: 4, backP: 0.3 },
+  casual: { activeP: 3 / 7, plays: () => 6, session: 75, pace: 6, backP: 0.1 },
+  dropin: { activeP: 1.5 / 7, plays: () => 3, session: 45, pace: 8, backP: 0 },
 });
+
+/**
+ * Backing (2.75.0, the R2 brief §6): the people's choices, as assumptions.
+ *   backP  - a member around in a siege's first half (backing open) backs
+ *            someone with this chance, once a siege (PROFILES above:
+ *            grinder 0.6, heavy 0.5, typical 0.3, casual 0.1, drop-in 0)
+ *   stake  - BACK_STAKE points; the real rules decide whether they may
+ *            (placeBacking: a regular, one a day, the points to stake)
+ *   on     - the fighter with the most help so far (siegeStore.helpOf),
+ *            else a random one of the top 3 — never themselves
+ */
+const BACK_STAKE = 5;
 
 /** BALANCE_PACE=2: everyone attacks a monster half as often (a what-if for the siege numbers) */
 const PACE = Number(process.env.BALANCE_PACE) > 0 ? Number(process.env.BALANCE_PACE) : 1;
@@ -225,7 +237,11 @@ function emptyLedger(id, profile) {
     plays: 0, // regular plays recorded (rescues and cures in a siege included)
     attacks: 0, // siege attacks recorded
     refused: 0, // plays the bot refused (a cooldown, the item limit): should stay near 0
-    points: { play: 0, siegeAttack: 0, prizes: 0, titles: 0, nights: 0, twists: 0, happenings: 0, siegePayout: 0 },
+    // backing (2.75.0): stakes taken (−) and what came back (+); siegePayout includes the honours
+    points: { play: 0, siegeAttack: 0, prizes: 0, titles: 0, nights: 0, twists: 0, happenings: 0, siegePayout: 0, backing: 0 },
+    // 2.75.0, inside siegePayout: the Wang Chi's and the Jack Burton's bonuses, and a backed Wang Chi's share
+    honours: { wangChi: 0, jack: 0, backBonus: 0, wangChis: 0, jacks: 0 },
+    backs: { placed: 0, won: 0, push: 0, lost: 0, escaped: 0, refunded: 0 },
     prizes: 0, // recurring prizes (PRIZES, not Night Lights), as player or target
     siegePrizes: 0, // the siege-wins prize (PRIZES 'siegewins')
     items: { prize: 0, nightlight: 0, find: 0, loot: 0, siegePrize: 0, overflow: 0 },
@@ -255,6 +271,9 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
   const { gamePlay, scores, rules, siege: store, happenings: hs, rewards } = m;
   const { SIEGE, TITLE_POINTS, FULL_STACK_POINTS } = rewards;
   const r = rngOf(seed);
+  // 2.75.0: who backs whom draws from its own dice, so every other choice
+  // the people make is the same draw for draw as before backing existed
+  const backRng = rngOf(seed ^ 0x0bac4ed5);
   const lineRandom = seeded(seed ^ 0x5bd1e995);
   const luckRandom = seeded(seed ^ 0x27d4eb2d);
 
@@ -327,11 +346,23 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
     if (result.targetId && (result.defence?.key === 'garlic' || result.defence?.key === 'antid')) ledger[result.targetId].defences += 1;
   }
 
-  /** A finished siege's payout, as applySiegeResult stored it */
-  function bookGrants(grants) {
+  /** A finished siege's payout, as applySiegeResult stored it — its backers' settlements too (2.75.0) */
+  function bookGrants(grants, backing = [], H = 1) {
+    for (const b of backing || []) {
+      const who = ledger[b.backerId];
+      if (!who) continue;
+      credit(b.backerId, 'backing', b.back || 0);
+      who.backs[b.outcome === 'wangChi' ? 'won' : b.outcome] += 1;
+    }
     for (const g of grants || []) {
       const who = ledger[g.userId];
       if (!who) continue;
+      // The honours' share of the payout (paid with it, held back with it)
+      if (!g.limited) {
+        if (g.wangChi) { who.honours.wangChi += SIEGE.rewards.wangChiBonus * H; who.honours.wangChis += 1; }
+        if (g.jack) { who.honours.jack += SIEGE.rewards.jackBonus * H; who.honours.jacks += 1; }
+        who.honours.backBonus += g.backBonus || 0;
+      }
       credit(g.userId, 'siegePayout', (g.points || 0) + (g.loot?.overflow ? FULL_STACK_POINTS : 0));
       if (g.loot) {
         who.items.loot += 1;
@@ -488,7 +519,11 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
   }
 
   function startFight(q, s, dayEnd) {
-    fight = { id: s.id, endsAt: s.endsAt, monster: s.monster, dial: s.dial, fighters: new Set(), grabbed: 0, poisoned: 0, digested: 0, a7: s.a7, expected: s.expected ?? null };
+    fight = {
+      id: s.id, endsAt: s.endsAt, monster: s.monster, dial: s.dial, fighters: new Set(), grabbed: 0, poisoned: 0, digested: 0, a7: s.a7, expected: s.expected ?? null,
+      // 2.75.0: who has had their one chance to back someone in this siege
+      backTried: new Set(), closesAt: store.backingClosesAt(s),
+    };
     // Who sits this one out (only drawn when some do: fightShare 1 keeps every run's dice as they were)
     if (fightShare < 1) fight.sitting = new Set(players.filter(() => !r.chance(fightShare)).map(pl => pl.id));
     fightDay(q, s, s.startedAt, dayEnd, false);
@@ -508,6 +543,13 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
       if (!sess || fight.sitting?.has(pl.id)) continue;
       const join = Math.max(from, sess.from) + r.between(JOIN_DELAY) * MINUTE;
       if (join < Math.min(sess.to, s.endsAt)) q.push(join, { kind: 'attack', who: pl.id });
+      // 2.75.0: around while backing is open — their one go at it this siege
+      // (a while after joining, once the fight has someone worth backing)
+      const backAt = join + backRng.between([5, 30]) * MINUTE;
+      if (!fight.backTried.has(pl.id) && backAt < Math.min(sess.to, fight.closesAt)) {
+        fight.backTried.add(pl.id);
+        if (backRng.chance(PROFILES[pl.profile].backP || 0)) q.push(backAt, { kind: 'back', who: pl.id, siegeId: s.id });
+      }
     }
     const evening = to - DAY;
     const busyUntil = evening + (EVENING + 60) * MINUTE;
@@ -550,7 +592,7 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
       // Until they are, no other siege can start.
       if (!done.error && !store.claimResults(guildId, s.id, t).error) store.recordResults(guildId, s.id, `results-${s.id}`, t);
       if (!done.error) {
-        bookGrants(done.siege.result.grants);
+        bookGrants(done.siege.result.grants, done.siege.result.backing, m.pace.timingsOf(done.siege).honour);
         const fought = store.fightersOf(done.siege);
         for (const f of fought) if (ledger[f.userId] && (f.attacks || 0) > 0) ledger[f.userId].sieges += 1;
         sieges.push({
@@ -562,6 +604,10 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
           a7: fight.a7, expected: fight.expected, startedAt: s.startedAt, attackers: fought.filter(f => (f.attacks || 0) > 0).length,
           effort: done.effort ?? null,
           fighterNights: fought.reduce((n, f) => n + Math.max(1, Object.keys(f.nights || {}).length), 0),
+          // 2.75.0: who the honours went to — and whether the help beat the damage
+          wangChi: done.siege.result.wangChi || null,
+          topDamage: [...fought].sort((a, b) => (b.damage || 0) - (a.damage || 0))[0]?.userId ?? null,
+          backers: (done.siege.result.backing || []).length,
         });
       }
       fight = null;
@@ -681,6 +727,19 @@ export async function runMonth({ seed, roster, guildId, days = 30, pace = 'quick
           if (store.isCaught(fighterState(ev.victim))) q.push(t + r.between(RESCUE_RETRY) * MINUTE, ev);
           // A sacrifice: now the rescuer needs rescuing
           if (result && store.isCaught(fighterState(helper.id))) q.push(t + r.between(RESCUE_DELAY) * MINUTE, { kind: 'rescue', victim: helper.id });
+        } else if (ev.kind === 'back') {
+          // 2.75.0: /siege back on the fighter with the most help so far, else one of the top 3 — the real rules decide
+          const s = store.currentSiege(guildId);
+          if (!s || s.id !== ev.siegeId || !store.backingOpen(s, t)) continue;
+          const candidates = store.fightersOf(s).filter(f => f.userId !== pl.id && (f.attacks || 0) > 0);
+          if (!candidates.length) continue;
+          const helper = candidates.filter(f => store.helpOf(f) > 0).sort((a, b) => store.helpOf(b) - store.helpOf(a))[0];
+          const pick = helper || backRng.pick(candidates.slice(0, 3));
+          const placed = store.placeBacking(guildId, s.id, { userId: pl.id, name: pl.name, fighterId: pick.userId, fighterName: pick.name, stake: BACK_STAKE }, t);
+          if (!placed.error) {
+            credit(pl.id, 'backing', -placed.backing.stake);
+            ledger[pl.id].backs.placed += 1;
+          }
         } else if (ev.kind === 'cure') {
           const s = store.currentSiege(guildId);
           const p = s?.participants?.[ev.victim];

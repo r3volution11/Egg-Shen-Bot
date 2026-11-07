@@ -22,7 +22,7 @@ import { loadGuildConfig } from './guildConfig.js';
 import {
   getGameSettings, checkPlayLimit, recordPlay, resultLine, extraLines, channelAllowed,
   loadScores, wouldScore, itemProblem, itemUsesToday, shieldActive, defencesLeft, defenceReady, activeStatuses,
-  POINTS, countSiegeEvent,
+  POINTS, countSiegeEvent, GAME_NAMES,
 } from './gameScores.js';
 import { siegeAssist, monsterOf } from './siegeStore.js';
 import { pickLine, itemEffect, goodLine, liveHappenings, happeningWeights, resolveTyped } from './gameRules.js';
@@ -301,28 +301,57 @@ export function resolvePlay(guildId, { game, action, actor, target, lines, block
 }
 
 /**
+ * 2.75.0: why a free or cure past the game's daily scoring cap doesn't
+ * count toward the helper's share — and how many a night do. A server with
+ * scored plays off (dailyScoredPlays 0) has no cap to be past: none of its
+ * plays score, so it says that instead.
+ */
+function uncreditedNote(game, name, scoringOff = false) {
+  const n = SIEGE.credit.unscoredPerNight;
+  const which = n > 0 ? `(the first ${n} a night do)` : '(only scored ones do)';
+  if (scoringOff) return `Plays don't score on this server, so this one doesn't count toward ${name}'s share ${which}.`;
+  return `Past today's ${GAME_NAMES[game]} scoring cap, so this one doesn't count toward ${name}'s share ${which}.`;
+}
+
+/**
  * R6: what a play did in the siege, if it was a /rescue at a fighter the
  * monster has grabbed or a helpful /potion that worked on one it poisoned
  * (siegeStore.siegeAssist decides). A free or a cure from a scored play
  * counts toward Field Medic. Never throws: a broken siege file mustn't
  * break a /rescue.
+ *
+ * 2.75.0: whether the play was scored goes along (`result.scored`): one
+ * past the game's daily cap still frees or cures, but only the first
+ * SIEGE.credit.unscoredPerNight a night count toward the helper's share
+ * and the Wang Chi — and the reply says which it was.
  * @returns {string[]} `-#` lines for the reply
  */
-function siegeHelp(guildId, { game, actor, result }, now) {
+function siegeHelp(guildId, { game, actor, result, scoringOff = false }, now) {
   if ((game !== 'rescue' && game !== 'potion') || !result.targetId) return [];
   try {
     const holyWater = !!(result.item?.used && result.item.key === 'holyw');
-    const done = siegeAssist(guildId, { game, actor, targetId: result.targetId, outcome: result.outcome, holyWater }, now);
+    const done = siegeAssist(guildId, { game, actor, targetId: result.targetId, outcome: result.outcome, holyWater, scored: !!result.scored }, now);
     if (done.error || !done.assist) return [];
     const a = done.assist;
     const monster = monsterOf(done.siege.monster)?.name || 'The monster';
     const out = [];
-    if (a.kind === 'freed') out.push(`🛟 ${actor.name} freed ${a.targetName} from ${monster}${holyWater ? ' (Holy Water: no swap)' : ''}: +${SIEGE.credit.free} to their share of the fight.`);
+    if (a.kind === 'freed') {
+      out.push(a.credited
+        ? `🛟 ${actor.name} freed ${a.targetName} from ${monster}${holyWater ? ' (Holy Water: no swap)' : ''}: +${SIEGE.credit.free} to their share of the fight.`
+        : `🛟 ${actor.name} freed ${a.targetName} from ${monster}${holyWater ? ' (Holy Water: no swap)' : ''}. ${uncreditedNote(game, actor.name, scoringOff)}`);
+    }
     if (a.kind === 'swapped') {
-      out.push(`🕯️ ${actor.name} freed ${a.targetName}, and ${monster} grabbed ${actor.name} instead: +${SIEGE.credit.free} to their share. Someone free them with \`/rescue attempt target:@${actor.name}\` by <t:${Math.floor(a.until / 1000)}:t> (<t:${Math.floor(a.until / 1000)}:R>).`);
+      const free = `Someone free them with \`/rescue attempt target:@${actor.name}\` by <t:${Math.floor(a.until / 1000)}:t> (<t:${Math.floor(a.until / 1000)}:R>).`;
+      out.push(a.credited
+        ? `🕯️ ${actor.name} freed ${a.targetName}, and ${monster} grabbed ${actor.name} instead: +${SIEGE.credit.free} to their share. ${free}`
+        : `🕯️ ${actor.name} freed ${a.targetName}, and ${monster} grabbed ${actor.name} instead. ${uncreditedNote(game, actor.name, scoringOff)} ${free}`);
     }
     if (a.kind === 'still') out.push(`🪤 ${a.targetName} is still in ${monster}'s grip. Someone try again!`);
-    if (a.kind === 'cured') out.push(`🧪 ${actor.name} cured ${a.targetName} of ${monster}'s poison: +${SIEGE.credit.cure} to their share of the fight.`);
+    if (a.kind === 'cured') {
+      out.push(a.credited
+        ? `🧪 ${actor.name} cured ${a.targetName} of ${monster}'s poison: +${SIEGE.credit.cure} to their share of the fight.`
+        : `🧪 ${actor.name} cured ${a.targetName} of ${monster}'s poison. ${uncreditedNote(game, actor.name, scoringOff)}`);
+    }
     if (a.kind !== 'still' && result.scored) {
       for (const key of countSiegeEvent(guildId, { userId: actor.id, name: actor.name, counter: 'assists', now }).titles) {
         const t = TITLES.find(x => x.key === key);
@@ -362,7 +391,7 @@ export async function finishPlay(interaction, { game, action = null, target, lin
   const result = recordPlay(interaction.guildId, { game, action, actor, target, outcome: drawn.outcome, effect, settings, item: drawn.item, mods: drawn.mods, happenings }, now);
   // R6: a /rescue or /potion at a fighter the monster has grabbed or
   // poisoned — in the same synchronous block, so it sees what was just saved
-  const siegeLines = siegeHelp(interaction.guildId, { game, actor, result }, now);
+  const siegeLines = siegeHelp(interaction.guildId, { game, actor, result, scoringOff: !(settings?.dailyScoredPlays > 0) }, now);
   // Who's been playing, and where: a random happening needs a few members
   // around, and is announced where they last played. Throttled and
   // never-throwing in the store; after the save, so it can't hold the play up.

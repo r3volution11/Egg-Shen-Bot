@@ -9,6 +9,107 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.75.0 - 2026-11-07
+
+In *Big Trouble in Little China* the hero isn't really the hero: the sidekick is. Sieges now work that way.
+
+### Added
+- **The Wang Chi replaces the MVP.** The biggest honour of a won siege goes to whoever **helped most**, freeing and curing the others, not whoever hit hardest. They get **+8** and loot for sure (+16 at 3-day pace, +24 at week pace). A helper who never attacked can be the Wang Chi. If nobody needed saving, the top fighter holds the line and takes it.
+- **The Jack Burton.** Whoever lands the killing blow, an attack or the last tick of their poison, gets a line in the results and **+3** (+6, +9). "It's all in the reflexes." The Wang Chi can be the Jack Burton too, and gets both.
+- **Back a fighter** with `/siege back fighter:@Sam points:5`. In the first half of a siege, stake 2 to 10 of your points on someone else who has attacked:
+  - **twice your stake** if they turn out to be the Wang Chi, and they get a little for making you look good
+  - **your stake back** if they're top 3 or the Jack Burton
+  - **your stake back** if the siege is called off or fewer than 3 fought
+  - otherwise it's lost
+  - The reply is public and pings nobody. You can back once a siege and once a day, if you've played on 3 of the last 7 nights. `/siege status` shows who you backed, and every backer gets a line in the results.
+- **Two new titles:** 🥋 **Wang Chi** (be the Wang Chi of 5 won sieges) and 🤠 **Everybody Relax, I'm Here** (land the Jack Burton 10 times).
+
+### Changed
+- **Siege MVP and Legend of the Drive-In now ask you to be the Wang Chi.** MVPs you already earned keep counting toward them and toward the new Wang Chi title.
+- **Saving is never blocked, but past the daily scoring cap it's capped.** A `/rescue` or `/potion` past your daily scoring cap still frees or cures, but only your first 2 a night count toward your share and the Wang Chi. The reply says when one doesn't. On a server where plays don't score, that's every rescue and potion.
+- **The cards and the report.**
+  - The live card shows the **Wang Chi so far**, and while backing is open, how to back a fighter and until when.
+  - The frozen card names both honours.
+  - The nightly report names the **Wang Chi of the night**.
+  - The results name the Wang Chi and the Jack Burton, and mark the honours in each row.
+- **`/how-to-play`** explains the honours, backing and the cap on help.
+- **A siege running when this update arrives finishes on the new rules.** Its frees and cures already count. It has no backers, because backing opens with the update.
+- **eggshenbot.com is refreshed.**
+  - A new home page shows what the bot does at a glance, with its drawn pictures and real cards. Escape Velocity has a place on it.
+  - Every page was checked against the bot. The command reference lists every command and option, and the tournament, survey, watch party, search, configuration and feature pages now match what the bot really does.
+  - The sample Discord cards were redrawn from the bot's own output, so tournaments show their stone bars.
+- **`/eggshen-help`** lists `/watchlist`, `/eggshen-ask` and, for admins, every `/eggshen-config-*` command.
+- **`/eggshen-config settings view`** shows all 19 command switches, not 8.
+
+### Fixed
+- **The results said the pool was split by damage at quick and evening pace.** It's split by what each fighter did: damage, frees and cures. That's been the rule since 2.73.
+- **Log to Watch History:**
+  - A timer with no title used "Timer has been stopped" as the title. It now asks what you watched.
+  - The form opens for long titles. It used to fail on anything over about 33 characters.
+  - The form always shows the title, so one TMDB couldn't find can be corrected. If it still isn't found, the button stays for another try.
+  - A watch party can't be logged twice. Cards that logged themselves no longer have the button, and a second submit is told it's already logged.
+  - Moderators who open the form can now submit it.
+- **Whitelist mode** with only users listed (no roles) let everyone in. It now blocks anyone not listed.
+- **`/survey create`** shows the real syntax: `/survey close poll_id:…` and `/survey delete poll_id:…`.
+- **`/tv`** no longer promises episode names (use `/episode`), and **`/episode-list`** no longer promises pages for seasons over 25 episodes. It points to `/episode` instead.
+- **`/eggshen-logs category`** no longer offers Bracket and API, which never had entries.
+
+### Developer
+- **Rules:**
+  - `siegeStore.helpOf` = 12·frees + 8·cures + 3·boostHits (R4 increments `boostHits`; R5's pact rule adds to help only), and contribution = damage + help.
+  - `wangChiOf` picks the most help ≥ `wangChiMinHelp`. Ties follow `fightersOf` order. Otherwise the top contributor, `held`.
+  - Honours are × the siege's `t.honour`.
+  - `SIEGE.rewards.mvpBonus` is gone; `wangChiBonus`, `jackBonus` and `wangChiMinHelp` replace it.
+  - The Wang Chi's sure loot is drawn at its own place in `fightersOf` order, so a siege nobody helped in draws exactly what it did before.
+- **Backing:**
+  - `placeBacking` (siege) and `stakeBacking` (scores, idempotent by `siegeId:userId`) run in one synchronous block.
+  - `settleBacking` runs in `planSiegeRewards`, and the backing that carries the fighter's bonus is listed first.
+  - `applySiegeResult` pays the backing **before** the grants, so an escape's floor sees the stakes back.
+  - A stake's own part goes back to the periods it was taken in (`backStakes[key].at`), and a gain goes to the finish's periods.
+  - Orphaned stakes (a kill between `placeBacking`'s two saves) are refunded at the finish, and on a repeat too.
+  - A grab's −5 counts a stake still out this month. What the month can't cover is noted as `owed` on the stake and kept back when it comes home. The month never goes below 0.
+- **Restarts:**
+  - `siegesPaid[id]` stores the `status` it paid as.
+  - Suppose an admin's `/siege end` is paid in the scores file and a kill stops the siege save. If the siege is then fought on and won, `finishSiege` finishes it as the end that was paid: no win paid to nobody, and new stakes are refunded.
+  - `backingProblem(…, { key })` lets a retry after a lost siege save through.
+- **The cap on help:**
+  - `siegeAssist({ scored })` credits only the first `SIEGE.credit.unscoredPerNight` (2) of a member's unscored frees and cures per siege night (`siegeNight`, as tallies count it), stored in `participants[].unscored`.
+  - The free or cure always happens.
+  - Field Medic still counts scored assists only.
+- **New stored fields:**
+  - on the siege: `siege.honours`, `siege.backers`, `siege.backingClosed` and `participants[].unscored`
+  - on the result: `result.wangChi`, `result.jack` and `result.backing` (`result.mvp` stays as an alias)
+  - in the scores file: `lifetime.siege.jacks` and `wangChis`, `daily[].backs`, `backStakes` (with `owed`), `siegesPaid[].backing` and `.status`
+  - Missing fields read as 0 or empty (no migration).
+- **Switches** in `gameRewards.js`:
+  - `SIEGE.credit.unscoredPerNight`
+  - `WANG_CHI_TITLE_COUNTER` (`'mvps'`: MVPs from before 2.75 count)
+  - `SIEGE_R2_DEPLOY.liveAtDeploy` (`'wangChi'`)
+  - Badges are in `btilcLines.TITLES_BTILC`, and `tests/title-badges.test.js` keeps every title badge unique.
+- **Merged onto 2.74.0's second review:**
+  - The results carry the honours' lines, then 2.74.0's "Digested while nobody was around" line (clipped after both), then the pings (`pingList`).
+  - A limited grant at a pot pace is paid its attacks' `own` points, with no honours and no `backBonus`.
+  - `/siege status` keeps `attacksTonight(…, s)`, and the report's multi-night wording names "Wang Chi of the last N nights".
+- **Tests:**
+  - New `siege-card` and `title-badges` suites, plus scenarios in `siege-store`, `game-scores`, `siege-sim`, `siege-sim-pace`, `siege-sim-fights-back`, `siege-sim-restarts` and `how-to-play`.
+  - The siege simulator models stakes, payouts, `owed`, an already-paid finish and the cap on help.
+  - The siege fuzz backs fighters at random, and the balance fuzz has a backing ledger and an honours report.
+  - An independent review's 7 findings were fixed with scenarios. Planted bugs were all caught: 69 plant runs across both rounds, and every gap a plant found got a test.
+- **Watch history logging** moved to `src/handlers/watchHistoryLog.js`:
+  - The form's customId is fixed-length (`watched_modal_<channel>_<starter>`); the title lives in the form. A form opened before this release, with a base64 title in its id, still submits.
+  - Entries store `cardMessageId`, so a card can't log twice, and a card being logged is claimed in memory before the first await.
+  - The submit uses the button's check (starter, admin or moderator).
+- **Other fixes:**
+  - `rateLimiter` whitelist: allowed only if listed by id or holding a listed role.
+  - `seasonTooLongMessage()` is shared by `/episode-list` and its show picker.
+  - The settings view reads every switch the way `canUseCommand` enforces it.
+- **New tests:** `watch-history-log-button`, `whitelist-mode`, `survey-create-hints`, `config-settings-view`, `tv-episode-list-promises`, `env-example-commands`, `eggshen-logs-categories`, and `eggshen-help-every-command`, which fails if a command is left out of `/eggshen-help`. Each was break-tested (25 plants).
+- **Docs:**
+  - New `HomeShowcase.vue` and `homeCards.js` for the home page, with styles scoped to `.egg-home`.
+  - A `thumbnail: 'bot'` style for sample cards, and `inline.js` handles backslash escapes.
+  - Sample siege and tournament cards were captured from the real renderers.
+- **Deploy:** `deploy-commands` is needed (`/siege back`, the `/tv` option description, the `/eggshen-logs` choices).
+
 ## 2.74.1 - 2026-11-06
 
 ### Fixed

@@ -11,6 +11,10 @@
  * of their points from bonuses. Change one and the other moves.
  */
 
+// The Big Trouble titles' words (key, title, badge) live with the rest of
+// the expansion's words; their numbers (need, counter) are here
+import { TITLES_BTILC } from './btilcLines.js';
+
 // ── items ───────────────────────────────────────────────────────────────
 
 /**
@@ -168,6 +172,26 @@ export const NIGHT_TIERS = Object.freeze([
  * happened to you, and `siege` (R5) one of the siege counters. Each
  * `did`/`got` maps game → outcomes summed.
  */
+
+/** A Big Trouble title's words — key, title, badge — from btilcLines.TITLES_BTILC (its `about` is the docs') */
+function btilcTitle(key) {
+  const t = TITLES_BTILC.find(x => x.key === key);
+  if (!t) throw new Error(`No Big Trouble title "${key}" in btilcLines.TITLES_BTILC`);
+  return { key: t.key, title: t.title, badge: t.badge };
+}
+
+/**
+ * OPEN QUESTION 2 for Doug (R2 brief §9), the one switch: does the Wang Chi
+ * title (5) count the MVPs a member earned BEFORE 2.75.0?
+ *   'mvps'     (the default, the design's counter): yes — a veteran with 5
+ *              MVPs earns it, +10, at their next title check
+ *   'wangChis' no — only Wang Chis from 2.75.0 on (applySiegeResult counts
+ *              them beside `mvps` from the deploy, so this can be flipped
+ *              later without losing any)
+ * Siege MVP and Legend keep `mvps` either way: titles already earned stay.
+ */
+export const WANG_CHI_TITLE_COUNTER = 'mvps';
+
 export const TITLES = Object.freeze([
   { key: 'pie-sniper', title: 'Pie Sniper', badge: '🥧', need: 150, did: { foodfight: ['hit'] } },
   { key: 'lunch-lady', title: 'Lunch Lady', badge: '🍳', need: 75, did: { foodfight: ['tasty'] } },
@@ -192,10 +216,16 @@ export const TITLES = Object.freeze([
   { key: 'plot-twist', title: 'Plot Twist', badge: '🎲', need: 30, twists: true },
   // R5: sieges (lifetime.siege, moved only by finishSiege): `siege` names
   // the counter — wins (every fighter of a monster beaten), mvps, and kaiju
-  // (every fighter of a beaten SIEGE.kaiju)
+  // (every fighter of a beaten SIEGE.kaiju). 2.75.0: the MVP became the
+  // Wang Chi (most help, design §5), and `mvps` counts Wang Chis from then
+  // on, so Siege MVP and Legend carry on with "be the Wang Chi" as their
+  // requirement (btilcLines.TITLE_ABOUT_UPDATES); `jacks` counts the Jack
+  // Burton (the killing blow of a won siege)
   { key: 'monster-hunter', title: 'Monster Hunter', badge: '🗡️', need: 10, siege: 'wins' },
   { key: 'siege-mvp', title: 'Siege MVP', badge: '🏆', need: 1, siege: 'mvps' },
+  { ...btilcTitle('wang-chi'), need: 5, siege: WANG_CHI_TITLE_COUNTER },
   { key: 'legend', title: 'Legend of the Drive-In', badge: '👑', need: 10, siege: 'mvps' },
+  { ...btilcTitle('everybody-relax'), need: 10, siege: 'jacks' },
   { key: 'kaiju-killer', title: 'Kaiju Killer', badge: '🦖', need: 1, siege: 'kaiju' },
   // R6: fighters freed plus poisons cured, from scored /rescue and /potion
   // plays (lifetime.siege.assists); and times the monster grabbed you
@@ -273,32 +303,80 @@ export const SIEGE = Object.freeze({
   /**
    * A win: a pool of `perFighter` points per fighter (between poolMin and
    * poolMax) split by each one's share of the contribution, each between
-   * eachMin and eachMax. The MVP (most contribution) gets `mvpBonus` more
-   * and loot for sure; anyone else with at least `lootShare` of the
-   * contribution has a `lootChance` (× the monster's traits.loot). Loot is
-   * a Silver Bullet `silverChance` of the time, else one of
-   * RANDOM_PRIZE_ITEMS. A siege won by ONE fighter pays the pool share
-   * only — no MVP bonus, no loot, and no win, MVP or kaiju on their record:
-   * siege titles need company.
+   * eachMin and eachMax. Then the honours (2.75.0, design §5: "the flashy
+   * one gets a laugh, and the helper gets paid"), each × the siege's pace
+   * (`t.honour`, H: 1 at quick, evening and day, 2 at 3 days, 3 at a week):
+   *   the Wang Chi    the fighter with the most HELP (siegeStore.helpOf:
+   *                   frees, cures, boosts), at least `wangChiMinHelp` (one
+   *                   cure) — or, when nobody helped that much, the top
+   *                   contributor, who "held the line" — gets `wangChiBonus`
+   *                   and loot for sure. The old MVP's +5 is gone: the MVP
+   *                   BECAME the Wang Chi (Doug, 2026-11-03), and
+   *                   lifetime.siege.mvps counts Wang Chis
+   *   the Jack Burton the killing blow (an attack or a poison tick): a laugh
+   *                   and `jackBonus`. The Wang Chi can be both.
+   * Anyone else with at least `lootShare` of the contribution has a
+   * `lootChance` (× the monster's traits.loot). Loot is a Silver Bullet
+   * `silverChance` of the time, else one of RANDOM_PRIZE_ITEMS. A siege won
+   * by ONE fighter pays the pool share only — no honours, no loot, and no
+   * win, Wang Chi or kaiju on their record: siege titles need company.
    */
   rewards: Object.freeze({
     perFighter: 8, poolMin: 24, poolMax: 200, eachMin: 2, eachMax: 30,
-    mvpBonus: 5, silverChance: 0.3, lootChance: 0.25, lootShare: 0.05,
+    wangChiBonus: 8, jackBonus: 3, wangChiMinHelp: 8,
+    silverChance: 0.3, lootChance: 0.25, lootShare: 0.05,
   }),
   /**
-   * Win rewards (the pool share, the MVP's bonus, loot, and the siege
-   * counters titles are earned from) are paid for at most this many sieges
-   * per member per UTC day. Admins can start sieges back to back, and one
+   * Win rewards (the pool share, the honours, loot, and the siege counters
+   * titles are earned from) are paid for at most this many sieges per
+   * member per UTC day. Admins can start sieges back to back, and one
    * friend fighting alone earned every siege title in under an hour; past
    * the limit an attack still does damage and scores its own points. At a
    * pot pace (2.74.0) those points went into the pot, so a win held back is
-   * paid what its attacks would have scored instead (applySiegeResult).
+   * paid what its attacks would have scored instead (applySiegeResult). A
+   * backer's stake and payout aren't rewards (it's their own points): never
+   * held back.
    */
   rewardedPerDay: 2,
   /** An escape costs every fighter who attacked this much — only when at least `minFighters` fought */
   escape: Object.freeze({ loss: 3, minFighters: 2 }),
-  /** Contribution = damage + free × fighters freed + cure × cures */
-  credit: Object.freeze({ free: 12, cure: 8 }),
+  /**
+   * Contribution (the pool share) = damage + help; help (the Wang Chi's
+   * measure, siegeStore.helpOf) = free × fighters freed + cure × poisons
+   * cured + boost × boosted attacks that landed (R4's blessings; none
+   * before then).
+   *
+   * `unscoredPerNight` (2.75.0): a free or cure from a /rescue or /potion
+   * play past the game's daily scoring cap still frees or cures — saving a
+   * friend is never blocked — but only this many a member a NIGHT (12:00
+   * UTC) count toward their share and their help. Without it, help was the
+   * one part of a siege nothing capped, and the Wang Chi's +8×H and sure
+   * loot could be farmed by two friends taking turns to be grabbed (the R1
+   * review). OPEN QUESTION 1 for Doug (R2 brief §9): 2 is the default; 0
+   * credits none past the cap.
+   */
+  credit: Object.freeze({ free: 12, cure: 8, boost: 3, unscoredPerNight: 2 }),
+  /**
+   * Backing a fighter (2.75.0, design §4.3): `/siege back fighter: points:`
+   * stakes `min`–`max` of your own points on someone else in the fight,
+   * taken at once (the siege game, as bonus). Only in the first `window` of
+   * the siege's time (its own start to end, so a week campaign's ends with
+   * its night boundary, not "3½ days"), nobody backs the obvious leader at
+   * the end. `perDay` backing a UTC day and one a siege; you need the stake
+   * in this month's points and `activeNights` of the last `activeWindow`
+   * nights played (a regular, not an alt made for it). Settled at the finish:
+   *   won, ≥ `minFighters`: the Wang Chi → `payout` × the stake back (net
+   *     +stake), and the fighter +⌈largest stake on them × `fighterShare`⌉,
+   *     once a siege; top 3 by contribution or the Jack Burton → the stake
+   *     back (a push); anyone else → lost
+   *   escaped, ≥ `minFighters`: lost
+   *   called off, or fewer than `minFighters` fought: the stake back
+   * EV is slightly negative unless you spot the real hero (the design's
+   * sim: a typical member −0.9 a month).
+   */
+  backing: Object.freeze({
+    min: 2, max: 10, window: 0.5, perDay: 1, minFighters: 3, activeNights: 3, activeWindow: 7, payout: 2, fighterShare: 0.5,
+  }),
   /**
    * R6: the monster fights back. Every `everyMinutes` (the first that long
    * after the start) it acts: a grab, a poison or a roar, by `weights`
@@ -356,6 +434,18 @@ export const SIEGE = Object.freeze({
    */
   cardClaimMinutes: 2,
 });
+
+/**
+ * 2.75.0 at deploy. A siege that started on 2.74 has no `honours` stamp
+ * (spawnSiege sets it from 2.75.0 on). OPEN QUESTION 3 for Doug (R2 brief
+ * §9), the one switch — when it finishes it pays:
+ *   'wangChi' (the default) the Wang Chi rules, like every siege after it:
+ *             its frees and cures already count, its H is on `s.t`, and it
+ *             has no backers (backing opened with the deploy)
+ *   'mvp'     the old MVP's: the top contributor +`mvpBonus` × H and loot
+ *             for sure; no Wang Chi chosen by help, no Jack Burton
+ */
+export const SIEGE_R2_DEPLOY = Object.freeze({ liveAtDeploy: 'wangChi', mvpBonus: 5 });
 
 // ── pace (2.74.0): how long the games' events take ─────────────────────
 
@@ -416,9 +506,10 @@ export const SIEGE = Object.freeze({
  *   pool        the win pool: `perFighter` points a fighter (quick) or a
  *               fighter-night, between poolMin and poolMax, each fighter's
  *               share at most eachMax
- *   honour      the MVP's bonus (and, from R2, the Wang Chi's and Jack
- *               Burton's) × this: about 3 campaigns a month at week pace
- *               against 10 quick sieges, so each honour is worth more
+ *   honour      H: the Wang Chi's and the Jack Burton's bonuses × this
+ *               (2.75.0; the MVP's before), stored on the siege with the
+ *               rest of `t`: about 3 campaigns a month at week pace against
+ *               10 quick sieges, so each honour is worth more
  *   dial        the server's dial for this preset (siegeDials) moves ×win
  *               or ×escape; bigger steps where sieges are rarer, chosen so
  *               the long-run win rate ln(1/esc)/(ln win + ln(1/esc)) ≈ 72%.

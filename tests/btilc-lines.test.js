@@ -101,6 +101,8 @@ const RULES = [
   R(/^HONOURS\.jackBurton\.\d+$/, ['jack', 'mvp'], ['jack']),
   R(/^HONOURS\.backing\.(placed|push|lost|escaped|refunded)\.\d+$/, ['backer', 'fighter', 'stake']),
   R(/^HONOURS\.backing\.wangChi\.\d+$/, ['backer', 'fighter', 'stake', 'gain', 'bonus']),
+  // A second backer of the same Wang Chi: no {bonus} (the fighter's is once a siege)
+  R(/^HONOURS\.backing\.wangChiToo$/, ['backer', 'fighter', 'stake', 'gain']),
   R(/^HONOURS\.backing\.madeYouLook$/, ['fighter', 'backer', 'bonus']),
   R(/^HONOURS\.backing\.refusals\.notFighter$/, ['fighter']),
   R(/^HONOURS\.backing\.refusals\.poor$/, ['stake', 'count']),
@@ -490,6 +492,11 @@ describe('btilc lines: honours and backing', () => {
     expect(b.lost).toHaveLength(3);
     expect(b.escaped).toHaveLength(2);
     expect(b.refunded).toHaveLength(2);
+    expect(Object.keys(b).sort()).toEqual(
+      ['escaped', 'lost', 'madeYouLook', 'placed', 'push', 'refunded', 'refusals', 'wangChi', 'wangChiToo'],
+    );
+    expect(fill(b.wangChiToo, { backer: 'Kim', fighter: 'Sam', stake: 3, gain: '+3' }))
+      .toBe('🎲 Kim backed Sam too (3): Wang Chi! Kim +3.');
     expect(Object.keys(b.refusals).sort()).toEqual(
       ['already', 'bot', 'daily', 'inactive', 'late', 'noSiege', 'notFighter', 'poor', 'self'],
     );

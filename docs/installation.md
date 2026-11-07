@@ -1,217 +1,256 @@
 ---
 title: Installation Guide - Egg Shen Bot
-description: Step-by-step installation instructions for Egg Shen Bot. Learn how to create a Discord bot, get API keys, configure settings, and deploy commands.
+description: "Install your own copy of Egg Shen Bot: create a Discord application, add your API keys, register the slash commands and start the bot."
 ---
 
 # Installation
 
-**Complete installation guide for Egg Shen Bot.** Follow these steps to set up the bot from scratch, including creating your Discord application, obtaining API keys, and getting the bot online.
+Egg Shen Bot is self-hosted. You create your own Discord application, run the bot on your own computer or server, and use your own API keys. Your copy shares nothing with anyone else's.
 
-::: tip Minimum Viable Setup
-Everything on this page gets you a working bot on **one** Discord server. That's it — the steps below don't require a domain, a web server, or any of the multi-server complexity described elsewhere in these docs.
+::: tip The minimum
+A working bot on one Discord server needs Node.js, a Discord application and a TMDB API key. You don't need a domain or a web server.
 
-The [Event Requests feature](/features/event-requests) (a public web form where members request watch-party events) is entirely optional, and its [setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md) covers running that form across **multiple** Discord communities from one bot process (e.g. a dev server and a production server, or several communities you moderate) — skip that guide entirely unless you specifically want the web-form feature.
+The web pages are optional and can wait: the [event request form](/features/event-requests), the tournament setup form (`/bracket-setup setup-link`) and the status-quotes editor. The [event request setup guide](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/EVENT_REQUEST_SETUP.md) covers the form, including one bot serving several Discord servers.
 :::
 
 ## Quick FAQ
 
-**Q: What's the difference between required and optional APIs?**  
-A: TMDB is required for all movie/TV features. Optional APIs enable additional commands - without them, those specific commands won't appear in Discord.
+**Q: Which keys do I need?**  
+A: A Discord bot token and a TMDB API key. Every other key is optional and adds something. See [API Keys](#api-keys) below.
 
-**Q: How do I know if my API keys are working?**  
-A: The bot logs will show successful connections on startup. Commands requiring missing APIs simply won't register.
+**Q: Does the bot register its slash commands when it starts?**  
+A: No. Run `npm run deploy-commands` once after installing, and again when an update changes a command's options or you add or remove `RAWG_API_KEY` or `BGG_CLIENT_ID`. It's safe to run any time.
 
 **Q: Can I add API keys later?**  
-A: Yes! Just update your `.env` file, redeploy commands with `node src/deploy-commands.js`, and restart the bot.
+A: Yes. Add the key to `.env` and restart the bot. For `RAWG_API_KEY` or `BGG_CLIENT_ID`, run `npm run deploy-commands` too, because they add `/game` and `/boardgame`.
 
-**Q: Why do I need to run deploy-commands.js?**  
-A: This registers your slash commands with Discord. Run it once initially and whenever you change API keys or update commands.
-
-**Q: What if I don't want certain features?**  
-A: Simply don't configure those API keys. Commands requiring them won't be registered.
+**Q: How do I know a key works?**  
+A: Use a command that needs it. With OMDb working, `/movie query:Alien` shows IMDb, Rotten Tomatoes and Metacritic scores; with Trakt, a Trakt score. Failed lookups are logged to the console, and admins can see recent errors with `/eggshen-logs errors`.
 
 ---
 
 ## Requirements
 
-- **Node.js** v20.x or higher
-- **npm** (comes with Node.js)
-- **Discord Bot Token** from [Discord Developer Portal](https://discord.com/developers/applications)
-- **TMDB API Key** from [TMDB](https://www.themoviedb.org/settings/api) (required for all movie/TV features)
+- **Node.js** 20 or newer, with npm
+- A **Discord account**, to create the bot's application in the [Discord Developer Portal](https://discord.com/developers/applications)
+- A **TMDB API key** from [TMDB](https://www.themoviedb.org/settings/api)
 
 ## API Keys
 
-### Required APIs
+### Required
 
-| Service | Purpose | Get Key |
-|---------|---------|---------|
-| **TMDB** | Movie and TV show data | [Get API Key](https://www.themoviedb.org/settings/api) |
+| Service | What it's for | `.env` variable |
+|---------|---------------|-----------------|
+| **Discord** | The bot itself | `DISCORD_TOKEN`, `DISCORD_CLIENT_ID` |
+| **TMDB** | Every movie and TV feature | `TMDB_API_KEY` |
 
-### Optional APIs
+### Optional
 
-These APIs enable additional features. Commands requiring them **will not be registered** if their API keys aren't configured.
+| Service | What it adds | `.env` variable |
+|---------|--------------|-----------------|
+| **OMDb** | IMDb, Rotten Tomatoes and Metacritic scores | `OMDB_API_KEY` |
+| **Trakt** | Trakt scores | `TRAKT_CLIENT_ID` |
+| **Watchmode** | More where-to-watch services, added to TMDB's | `WATCHMODE_API_KEY` |
+| **OpenAI** (paid) | `/image`, AI-written announcements, AI answers in `/eggshen-ask`, `/recommend` picks with reasons, and better search ranking | `OPENAI_API_KEY` |
+| **RAWG** | `/game`, `/random game`, and video games in `/similar` and tournaments | `RAWG_API_KEY` |
+| **BoardGameGeek** | `/boardgame`, `/random boardgame`, and board games in `/similar` | `BGG_CLIENT_ID` |
+| **Google Books** | A bigger daily quota for `/book` (it works without one) | `GOOGLE_BOOKS_API_KEY` |
+| **Spotify** | Spotify albums in `/soundtrack`, next to iTunes | `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` |
 
-| Service | Purpose | Enables Commands | Get Key |
-|---------|---------|-----------------|---------|
-| **OMDB** | IMDb & RT ratings | Enhanced ratings display | [Get API Key](http://www.omdbapi.com/apikey.aspx) |
-| **Trakt** | Community ratings | Enhanced ratings display | [Get API Key](https://trakt.tv/oauth/applications) |
-| **RAWG** | Video game data | `/game`, `/random game`, `/similar` (games) | [Get API Key](https://rawg.io/apidocs) |
-| **BoardGameGeek** | Board game data | `/boardgame`, `/random boardgame`, `/similar` (board games) | [Get API Key](https://boardgamegeek.com/wiki/page/BGG_XML_API2) |
+Only `/game` and `/boardgame` are left out of Discord when their key is missing. Every other command stays: `/random game` and `/random boardgame` say the service isn't set up, `/similar` skips the media it can't search, and results show fewer scores.
 
-> **Note:** Commands requiring optional APIs won't appear in Discord at all if their keys aren't configured. This prevents users from seeing unavailable features.
+The [API Keys guide](/api-keys) walks through getting each one.
 
 ## Step-by-Step Installation
 
-### 1. Create Discord Bot
+### 1. Create the Discord application
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click "New Application"
-3. Name your bot and accept the Terms of Service
-4. Go to "Bot" section
-5. Click "Add Bot"
-6. **Privileged Gateway Intents:** leave these unchecked — the bot doesn't use Server Members Intent or Message Content Intent (it only reads slash-command interactions and reactions, both non-privileged)
-7. Copy your bot token (you'll need this later)
-8. Click **"OAuth2"** → **"URL Generator"** in the left sidebar
-9. Under **SCOPES**, check `bot` and `applications.commands`
-10. Under **BOT PERMISSIONS**, check: **View Channels**, **Send Messages**, **Embed Links**, **Attach Files**, **Manage Events**, **Manage Messages**
-11. Copy the generated URL, open it in your browser, select your server, and click **Authorize**
+1. In the [Discord Developer Portal](https://discord.com/developers/applications), click **New Application**, name it and click **Create**.
+2. On **General Information**, copy the **Application ID**. This is `DISCORD_CLIENT_ID`.
+3. Open **Bot**, click **Reset Token** and copy the token. This is `DISCORD_TOKEN`. Keep it secret.
+4. Under **Privileged Gateway Intents**, leave all three off. The bot works from slash commands, buttons and reactions, which don't need them.
 
-### 2. Get API Keys
+::: tip A separate application for a test bot
+If you also run a development copy, give it its own Discord application. The bot uploads its card icons to its application's emoji list, so a test bot sharing your live bot's application would upload into it.
+:::
 
-Follow the links in the API Keys table above to obtain your keys. At minimum, you need:
-- Discord Bot Token (from Discord Developer Portal)
-- TMDB API Key (required for core functionality)
+### 2. Invite the bot to your server
 
-Optional APIs can be added later to enable additional features.
+1. Open **OAuth2 → URL Generator**.
+2. Under **Scopes**, check `bot` and `applications.commands`.
+3. Under **Bot Permissions**, check these:
 
-### 3. Clone and Install
+| Permission | What the bot uses it for |
+|------------|--------------------------|
+| View Channels | Seeing the channels it posts in |
+| Send Messages | Posting results, cards and announcements |
+| Send Messages in Threads | Posting in threads, where the games can be played |
+| Embed Links | Every result card |
+| Attach Files | Drawn images: the tournament bracket, matchup results and survey charts |
+| Read Message History | Finding its own cards again to update them, such as live standings and the siege card |
+| Manage Messages | Removing stray reactions on surveys |
+| Manage Events | Creating Discord events from approved [event requests](/features/event-requests). Skip it if you won't use them |
+
+4. Open the generated URL, pick your server and click **Authorize**.
+
+### 3. Get your API keys
+
+At minimum, get a TMDB key. The [API Keys guide](/api-keys) covers TMDB and every optional service. You can add optional keys later.
+
+### 4. Download and install
 
 ```bash
-# Clone repository
 git clone https://github.com/r3volution11/Egg-Shen-Bot.git
 cd Egg-Shen-Bot
-
-# Install dependencies
 npm install
 ```
 
-### 4. Configure Bot
+### 5. Configure `.env`
 
-This project is configured entirely through a `.env` file in the project root — there's no separate `config.json` to copy or edit.
+The bot is configured by a `.env` file in the project folder. There's no other config file to edit.
 
 ```bash
-# Copy the example environment file
 cp .env.example .env
-
-# Edit with your API keys
-nano .env  # or use your preferred editor
+nano .env  # or your preferred editor
 ```
 
-**Required `.env` variables:**
-```bash
-# Discord Configuration (Required)
-DISCORD_TOKEN=your_discord_bot_token_here
-DISCORD_CLIENT_ID=your_discord_client_id_here
+Fill in the required values, and any optional keys you have:
 
-# TMDB API (Required for core functionality)
+```bash
+# Required
+DISCORD_TOKEN=your_discord_bot_token_here
+DISCORD_CLIENT_ID=your_discord_application_id_here
 TMDB_API_KEY=your_tmdb_api_key_here
 
-# Optional APIs (enable specific features)
-OMDB_API_KEY=your_omdb_api_key_here
-TRAKT_CLIENT_ID=your_trakt_client_id_here
-RAWG_API_KEY=your_rawg_api_key_here
-BGG_CLIENT_ID=your_bgg_client_id_here
+# Optional API keys: leave out any you don't have
+OMDB_API_KEY=
+TRAKT_CLIENT_ID=
+WATCHMODE_API_KEY=
+OPENAI_API_KEY=
+RAWG_API_KEY=
+BGG_CLIENT_ID=
+GOOGLE_BOOKS_API_KEY=
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
 
-# Optional: Guild ID for testing (leave empty for global commands)
+# Optional: register commands to one server only (see step 6)
 GUILD_ID=
 ```
 
-See `.env.example` in the repo for the complete list of variables, including ones only needed by optional features (AI images, the event-request web form, Spotify soundtrack links, etc.).
+`.env.example` has the rest, such as the settings for the web pages. [Every `.env` setting](/api-keys#every-env-setting) explains each one. Settings you leave empty use their defaults.
 
-**What happens if optional APIs aren't configured:**
-- `/game` and `/boardgame` commands won't be registered at all - they won't appear in Discord
-- `/random` game/boardgame subcommands will show error messages when used
-- `/similar` will skip unavailable media types (games/board games) in searches
-- Rating displays will have fewer sources without OMDB/Trakt
-
-### 5. Invite the Bot to Your Server
-
-If you haven't already (via the URL Generator step above), open the invite URL in your browser and select your server.
-
-### 6. Register Commands
+### 6. Register the slash commands
 
 ```bash
 npm run deploy-commands
 ```
 
-This registers all slash commands with Discord. You should see:
+The output lists each command, then how many were registered. Without RAWG and BoardGameGeek keys it looks like this:
+
 ```
-Successfully registered application commands.
+✓ Loaded command: announce
+⊘ Skipped command: boardgame (BoardGameGeek API not configured)
+✓ Loaded command: book
+…
+Started refreshing 45 application (/) commands.
+✓ Successfully deployed 45 commands globally
 ```
 
-### 7. Start Bot
+- **`GUILD_ID` empty:** commands are registered globally, for every server the bot is in. They can take a little while to show up.
+- **`GUILD_ID` set** to a server's ID: commands are registered to that server only, and appear at once. This is handy for a test server. The last line then reads `✓ Successfully deployed 45 commands to guild <id>`.
+
+### 7. Start the bot
 
 ```bash
 npm start
 ```
 
-You should see:
+Among the startup lines you should see:
+
 ```
 ✓ Logged in as YourBot#1234
+✓ Serving 1 guilds
+[EmojiKit] Uploading 85 of 85 in the background…
+✓ API server listening on port 3000
 ```
 
-On the first start you'll also see `[EmojiKit] Uploading 85 of 85 in the background…` and, a minute or so later, `[EmojiKit] Ready: 85`. Those are the small icons on the game cards, leaderboard, siege cards and tournament cards: the bot uploads them to your own application (Developer Portal → your app → **Emojis**) by itself. Until they're up, cards use plain emoji. To skip it, set `EMOJI_SYNC=off` in `.env`. If you also run a development bot, give it its own Discord application, since emojis belong to the application.
+The `[EmojiKit]` lines are the icons on the game cards, leaderboard, siege cards and tournament cards. On its first start the bot uploads them to your application by itself (Developer Portal → your app → **Emojis**), and a minute or so later logs `[EmojiKit] Ready: 85 (85 uploaded)`. Until then, cards use plain emoji. To skip the upload and always use plain emoji, set `EMOJI_SYNC=off` in `.env`. `npm run deploy-emojis` does the same upload by hand (`-- --dry-run` only reports, `-- --prune` removes versions over 30 days old).
+
+The API server is a small web server the bot always starts, on port 3000 unless you set `API_PORT`. It serves the optional web pages and a health check (`curl http://localhost:3000/api/health`). Nothing needs to reach it from outside unless you use the web pages. If another program already uses port 3000, set `API_PORT` to a free port.
+
+`npm start` runs in the foreground and stops when you close the terminal. To keep the bot running on a server, see [Running it on a server](#running-it-on-a-server).
 
 ## Verification
 
-Test that everything works:
+In your Discord server:
 
 ```
 /movie query:The Matrix
 /eggshen-help
 ```
 
-If commands appear and work, installation is complete!
+If both answer, the bot is installed. As an admin, `/eggshen-config settings view` shows your server's settings.
+
+## Updating
+
+```bash
+git pull
+npm install
+npm run deploy-commands   # if the update changed any command
+```
+
+Then restart the bot. The [changelog](/changelog) lists what each release changed. If you're not sure whether a command changed, run `deploy-commands` anyway.
 
 ## Troubleshooting
 
-### Commands not appearing
+### Commands don't appear
 
-- Wait 1 hour after running `deploy-commands` (Discord cache)
-- Try in a private message with the bot
-- Verify bot permissions in server settings
+- Check that you ran `npm run deploy-commands` and that it ended with `✓ Successfully deployed`.
+- Check that the invite included the `applications.commands` scope. If not, open a new invite URL with it.
+- Reload Discord (Cmd/Ctrl+R). The Discord app caches the command list.
+- For a test server, set `GUILD_ID` and run `deploy-commands` again: commands registered to one server appear at once.
 
-### Bot immediately crashes
+### Discord says a command is outdated
 
-- Check `DISCORD_TOKEN` in `.env`
-- Check Node.js version: `node --version`
+That's the Discord app's cached copy of the command, not the bot. Reload Discord (Cmd/Ctrl+R). If it persists, run `npm run deploy-commands` again.
+
+### The bot stops right after starting
+
+- Check `DISCORD_TOKEN` in `.env`. A reset token makes the old one stop working.
+- Check your Node.js version with `node --version`. It must be 20 or newer.
+
+### Cards show plain emoji instead of the drawn icons
+
+- Look for `[EmojiKit]` lines in the bot's output. `Still missing …` means Discord refused some uploads; the bot tries again after an hour, then less often.
+- Check that `EMOJI_SYNC` isn't `off`.
+- Don't rename the `es_…` emojis in the Developer Portal. The bot finds them by name.
 
 ### API errors
 
-- Verify TMDB API key is correct
-- Make sure you activated the OMDB key via email
-- Check rate limits on API providers
+- **TMDB:** use the **API Key**, not the API Read Access Token.
+- **OMDb:** activate the key from the email OMDb sends you.
+- Check the provider's dashboard for rate limits. Free tiers have daily or monthly caps.
 
-### Permission errors
+### The bot can't post, or says it's missing permissions
 
-- The bot's server role needs: **View Channel**, **Send Messages**, **Embed Links**, **Attach Files**, **Manage Events**, **Manage Messages** — see the invite-link step in "Create Discord Bot" above
-- Check role hierarchy (bot role should be high enough)
-- A channel-specific permission override (common in mod-only channels) can block the bot even when its server-wide role looks correct — check that channel's own permission settings too
+- The bot's role needs the permissions listed in [step 2](#_2-invite-the-bot-to-your-server).
+- A channel's own permission settings can block the bot even when its server role is right. This is common in mod-only channels. Check the channel's permissions too.
 
-## Production Deployment
+## Running it on a server
 
-For production servers, consider:
+[DEPLOYMENT.md](https://github.com/r3volution11/Egg-Shen-Bot/blob/main/DEPLOYMENT.md) covers running the bot around the clock with PM2: starting it with `ecosystem.config.js`, starting it again after a reboot, reading the logs, and building the web pages' styles. The included `ecosystem.config.js` sets `NODE_ENV=production`, which makes the event request form's login cookie HTTPS-only.
 
-- Using PM2 for process management
-- Setting up log rotation
-- Configuring automatic restarts
-- Monitoring system resources
+After changing `.env` on a server, restart the bot so it reads the new values. With PM2:
 
-See [Configuration Guide](/configuration) for production setup.
+```bash
+pm2 restart egg-shen-bot --update-env
+```
 
 ## Next Steps
 
-- [Configure server settings](/configuration)
-- [Set up rate limiting](/features/rate-limiting)
-- [Enable moderation tools](/features/moderation-tools)
-- [Configure statistics tracking](/features/statistics)
+- [Getting started](/getting-started): your first commands
+- [Configure your server](/configuration): who can change what, and the defaults
+- [Game settings](/commands/games-settings): limits, channels, happenings and the siege's pace
+- [Rate limiting](/features/rate-limiting)
+- [Moderation tools](/features/moderation-tools)
+- [Statistics](/features/statistics)

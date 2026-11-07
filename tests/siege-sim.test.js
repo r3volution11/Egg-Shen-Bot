@@ -34,12 +34,19 @@ const lines = (m) => m.content.split('\n');
 const monster = (key) => mods.monsters.MONSTERS[key];
 const SIEGE = () => mods.rewards.SIEGE;
 
-/** The win's payout, worked out here from the stored damage: pool 8 a fighter (24–200), split, 2–30 each, the MVP +5 */
-function expectedPoints(fighters) {
-  const { perFighter, poolMin, poolMax, eachMin, eachMax, mvpBonus } = SIEGE().rewards;
+/**
+ * The win's payout, worked out here from the stored damage: pool 8 a fighter
+ * (24–200), split, 2–30 each; then (2.75.0, at quick: H 1) the Wang Chi +8
+ * — with nobody freeing or curing, the top fighter, holding the line — and
+ * the Jack Burton (the killing blow, `jack`) +3. One fighter alone: neither.
+ */
+function expectedPoints(fighters, jack = null) {
+  const { perFighter, poolMin, poolMax, eachMin, eachMax, wangChiBonus, jackBonus } = SIEGE().rewards;
   const pool = Math.min(poolMax, Math.max(poolMin, perFighter * fighters.length));
   const total = fighters.reduce((n, f) => n + f.damage, 0);
-  return fighters.map((f, i) => Math.min(eachMax, Math.max(eachMin, Math.round(pool * (f.damage / total)))) + (i === 0 && fighters.length > 1 ? mvpBonus : 0));
+  const company = fighters.length > 1;
+  return fighters.map((f, i) => Math.min(eachMax, Math.max(eachMin, Math.round(pool * (f.damage / total))))
+    + (i === 0 && company ? wangChiBonus : 0) + (f.userId === jack && company ? jackBonus : 0));
 }
 
 /** ana and ben smite it down to 0 HP (the next pass finishes it) */
@@ -120,22 +127,29 @@ describe('a whole siege', () => {
     expect(results).toHaveLength(1);
     const order = ranked(s);
     expect(order.map(f => f.userId)).toEqual(['ben', 'ana', 'cat']);
-    const pts = expectedPoints(order);
+    // 2.75.0: nobody freed or cured, so ben — the top fighter — holds the
+    // line as the Wang Chi; and ben landed the killing blow: the Jack Burton too
+    const pts = expectedPoints(order, 'ben');
     const grants = s.result.grants;
     expect(grants.map(g => [g.userId, g.damage, g.points])).toEqual(order.map((f, i) => [f.userId, f.damage, pts[i]]));
-    expect(results[0].content).toBe(`${blob.lines.defeat.split('{mvp}').join('ben')}\n<@ben> <@ana> <@cat>`);
+    expect(s.result).toMatchObject({ wangChi: { userId: 'ben', held: true }, jack: { userId: 'ben', by: 'doom' }, mvp: { userId: 'ben' } });
+    const content = lines(results[0]);
+    expect(content[0]).toBe(blob.lines.defeat.split('{mvp}').join('ben'));
+    // Jack AND Wang: one line for both, one of the design's
+    expect(mods.btilc.HONOURS.both.map(l => l.split('{mvp}').join('ben'))).toContain(content[1]);
+    expect(content.slice(2)).toEqual(['<@ben> <@ana> <@cat>']);
     expect(results[0].allowedMentions).toEqual({ parse: [], users: ['ben', 'ana', 'cat'] });
     const rows = results[0].embeds[0].toJSON().description.split('\n');
-    expect(rows[0]).toBe('🟢 Beaten with `3` fighters. The pool was split by damage; the MVP gets +5 and loot.');
+    expect(rows[0]).toBe('🟢 Beaten with `3` fighters. The pool was split by what each did (damage, frees and cures); 🗡️ the Wang Chi gets +8 and loot, 🔪 the Jack Burton +3.');
     const mvpLoot = mods.rewards.ITEMS[grants[0].loot.item];
-    expect(rows[2]).toBe(`🥇 ben · \`${order[0].damage}\` damage · \`+${pts[0]}\` · ${grants[0].loot.overflow ? `+2 (Glovebox full of ${mvpLoot.name})` : `${mvpLoot.emoji} ${mvpLoot.name}`} · 📜 🏆 Siege MVP`);
+    expect(rows[2]).toBe(`🥇 ben · \`${order[0].damage}\` damage · \`+${pts[0]}\` · 🗡️ +8 · 🔪 +3 · ${grants[0].loot.overflow ? `+2 (Glovebox full of ${mvpLoot.name})` : `${mvpLoot.emoji} ${mvpLoot.name}`} · 📜 🏆 Siege MVP`);
 
-    // Stored: the MVP's loot in the Glovebox, every fighter's win, the MVP's MVP and title
+    // Stored: the Wang Chi's loot in the Glovebox, every fighter's win, the Wang Chi's MVP (and title) and Jack Burton
     const users = sim.scores().users;
     expect(users.ben.glovebox?.[grants[0].loot.item]).toBe(1);
     expect(users.ben.titles.earned).toHaveProperty('siege-mvp');
     expect(['ben', 'ana', 'cat'].map(u => users[u].lifetime.siege)).toEqual([
-      { wins: 1, mvps: 1, kaiju: 0 }, { wins: 1, mvps: 0, kaiju: 0 }, { wins: 1, mvps: 0, kaiju: 0 },
+      { wins: 1, mvps: 1, wangChis: 1, jacks: 1, kaiju: 0 }, { wins: 1, mvps: 0, kaiju: 0 }, { wins: 1, mvps: 0, kaiju: 0 },
     ]);
     // Siege points: every attack's own, plus the payout once (the simulator's ledger checked each step)
     const smites = users.ben.games.siege.all.counts.smite;
@@ -147,7 +161,7 @@ describe('a whole siege', () => {
     const frozen = JSON.stringify(card.snapshot());
     expect(card.content).toBe(blob.lines.arrive);
     expect(card.embeds[0].toJSON().title).toBe('👹 The Blob is beaten!');
-    expect(card.embeds[0].toJSON().description.split('\n')).toContain('🏆 MVP: **ben**');
+    expect(card.embeds[0].toJSON().description.split('\n').slice(-2)).toEqual(['🗡️ Wang Chi: **ben** (held the line)', '🔪 The Jack Burton: ben']);
     await sim.advance(5 * MINUTE);
     expect(JSON.stringify(card.snapshot())).toBe(frozen);
     expect(sim.messagesFor(s.id, 'results')).toHaveLength(1);
@@ -622,5 +636,179 @@ describe('the review\'s findings, in the simulator', () => {
     await sim.advance(MINUTE);
     expect(sim.state().siege.status).toBe('ended');
     expect((await sim.start({ monster: 'klowns' })).reply.content).toMatch(/is attacking/);
+  });
+});
+
+// ── 2.75.0: the real hero ───────────────────────────────────────────────
+
+describe('2.75.0: the Wang Chi, the Jack Burton and backing, through the real commands', () => {
+  const KLOWNS = () => monster('klowns');
+  const H = () => mods.rewards.SIEGE_PACES.quick.honour;
+  /** ana grabbed (the monster steered onto her), then ben frees her: the reply's free line */
+  async function grabAndFree(sim, { force = 'rescued' } = {}) {
+    await sim.act('grab', ['ana']);
+    expect(sim.siege().participants.ana.caught).toMatchObject({ by: 'monster' });
+    await sim.advance(21 * SEC);
+    const r = await sim.rescue('ben', 'ana', { force });
+    expect(sim.siege().participants.ana.caught).toBeNull();
+    return lines(r.reply).find(l => /^-# 🛟 ben freed ana/.test(l));
+  }
+
+  test('a. ana hits hardest and lands the blow; ben frees her twice: ben is the Wang Chi (+8, loot for sure), ana the Jack Burton (+3) — the results and the frozen card say so', async () => {
+    const sim = fresh('sim-real-hero', 5);
+    await sim.start({ monster: 'klowns' });
+    await sim.attack('ana', 'doom', { force: 'smite' });
+    await sim.attack('ben', 'food', { force: 'splash' });
+    await sim.attack('cat', 'food', { force: 'splash' });
+    expect(await grabAndFree(sim)).toBe('-# 🛟 ben freed ana from Killer Klowns: +12 to their share of the fight.');
+    await grabAndFree(sim);
+    // While it's on, the card names who's helped most so far
+    sim.calm();
+    await sim.advance(MINUTE);
+    const card = () => sim.channel('games').messageList.find(m => m.id === sim.siege().card.messageId);
+    expect(card().embeds[0].toJSON().description).toContain('🗡️ Wang Chi so far: ben (2 freed)');
+    while (sim.siege().hp > 0) {
+      await sim.advance(21 * SEC);
+      await sim.attack('ana', 'doom', { force: 'smite' });
+    }
+    await sim.advance(MINUTE);
+    const s = sim.siege();
+    expect(s.status).toBe('won');
+    // ana did the damage; ben did the saving
+    const by = Object.fromEntries(s.result.grants.map(g => [g.userId, g]));
+    expect(s.participants.ana.damage).toBeGreaterThan(s.participants.ben.damage);
+    expect(s.result.wangChi).toEqual({ userId: 'ben', name: 'ben', help: 24, held: false });
+    expect(s.result.jack).toEqual({ userId: 'ana', name: 'ana', by: 'doom' });
+    expect(by.ben).toMatchObject({ wangChi: true, mvp: true, jack: false, honour: 8 * H(), loot: expect.objectContaining({ item: expect.any(String) }) });
+    expect(by.ana).toMatchObject({ wangChi: false, mvp: false, jack: true, honour: 3 * H() });
+    expect(by.cat).toMatchObject({ honour: 0 });
+    // The results: the defeat line names the Wang Chi, then a line for each honour, then the pings
+    const results = sim.messagesFor(s.id, 'results')[0];
+    const { lineFor } = mods.card;
+    const { HONOURS, fill } = mods.btilc;
+    expect(lines(results)).toEqual([
+      KLOWNS().lines.defeat.split('{mvp}').join('ben'),
+      fill(lineFor(s.id, HONOURS.wangChi, 0), { mvp: 'ben', jack: 'ana' }),
+      fill(lineFor(s.id, HONOURS.jackBurton, 3), { mvp: 'ben', jack: 'ana' }),
+      `<@${s.result.grants.map(g => g.userId).join('> <@')}>`,
+    ]);
+    const rows = results.embeds[0].toJSON().description.split('\n');
+    expect(rows.find(r => r.includes(' ben · '))).toContain('· 🗡️ +8 ·');
+    expect(rows.find(r => r.includes(' ana · '))).toMatch(/· 🔪 \+3$/);
+    // The frozen card
+    expect(card().embeds[0].toJSON().description.split('\n').slice(-2)).toEqual(['🗡️ Wang Chi: **ben**', '🔪 The Jack Burton: ana']);
+    // Stored: ben's Wang Chi counts as an MVP (Siege MVP), ana's Jack Burton as a jack
+    const users = sim.scores().users;
+    expect(users.ben.lifetime.siege).toMatchObject({ wins: 1, mvps: 1, wangChis: 1 });
+    expect(users.ben.titles.earned).toHaveProperty('siege-mvp');
+    expect(users.ana.lifetime.siege).toMatchObject({ wins: 1, mvps: 0, jacks: 1 });
+    expect(users.ben.glovebox?.[by.ben.loot.item]).toBeGreaterThanOrEqual(1);
+    sim.finalChecks();
+    sim.writeTranscript('r2-a-real-hero');
+  });
+
+  test('d. past the daily scoring cap (daily-scored-plays 1): ben\'s 1st rescue is scored, the next 2 count anyway, the 3rd unscored one frees ana but counts for nothing', async () => {
+    const sim = fresh('sim-unscored-cap', 6);
+    const limits = await sim.command('admin', 'eggshen-config-games', { subcommand: 'limits', options: { 'daily-scored-plays': 1 } });
+    expect(limits.reply.content).toMatch(/1/);
+    await sim.start({ monster: 'klowns' });
+    for (const u of ['ana', 'ben', 'cat']) await sim.attack(u, 'food', { force: 'splash' });
+    const said = [];
+    for (let i = 0; i < 4; i++) said.push(await grabAndFree(sim));
+    expect(said).toEqual([
+      '-# 🛟 ben freed ana from Killer Klowns: +12 to their share of the fight.',
+      '-# 🛟 ben freed ana from Killer Klowns: +12 to their share of the fight.',
+      '-# 🛟 ben freed ana from Killer Klowns: +12 to their share of the fight.',
+      '-# 🛟 ben freed ana from Killer Klowns. Past today\'s Rescue scoring cap, so this one doesn\'t count toward ben\'s share (the first 2 a night do).',
+    ]);
+    const ben = sim.siege().participants.ben;
+    expect(ben).toMatchObject({ frees: 3, unscored: { night: '2026-11-09', n: 2 } });
+    expect(mods.store.contributionOf(ben)).toBe(ben.damage + 3 * 12);
+    // Field Medic counts only the scored one
+    expect(sim.scores().users.ben.lifetime.siege?.assists).toBe(1);
+    sim.finalChecks();
+  });
+
+  test('d2. scored plays off (daily-scored-plays 0): every rescue is unscored, so the first 2 a night count — and the 3rd says why without a cap it isn\'t past', async () => {
+    const sim = fresh('sim-unscored-off', 6);
+    await sim.command('admin', 'eggshen-config-games', { subcommand: 'limits', options: { 'daily-scored-plays': 0 } });
+    await sim.start({ monster: 'klowns' });
+    for (const u of ['ana', 'ben', 'cat']) await sim.attack(u, 'food', { force: 'splash' });
+    const said = [];
+    for (let i = 0; i < 3; i++) said.push(await grabAndFree(sim));
+    expect(said).toEqual([
+      '-# 🛟 ben freed ana from Killer Klowns: +12 to their share of the fight.',
+      '-# 🛟 ben freed ana from Killer Klowns: +12 to their share of the fight.',
+      '-# 🛟 ben freed ana from Killer Klowns. Plays don\'t score on this server, so this one doesn\'t count toward ben\'s share (the first 2 a night do).',
+    ]);
+    expect(sim.siege().participants.ben).toMatchObject({ frees: 2, unscored: { n: 2 } });
+    sim.finalChecks();
+  });
+
+  test('e. /siege end with backers: their stakes come back, and no results are posted', async () => {
+    const sim = fresh('sim-back-end', 7);
+    await sim.start({ monster: 'klowns' });
+    await sim.attack('ana', 'doom', { force: 'smite' });
+    await sim.attack('ben', 'doom', { force: 'smite' });
+    sim.regular('dev');
+    const placed = await sim.back('dev', 'ana', 5);
+    expect(placed.reply.ephemeralFor).toBeFalsy();
+    expect(placed.reply.allowedMentions).toEqual({ parse: [] });
+    expect(sim.siegePoints().dev).toBe(-5);
+    const status = await sim.status('dev');
+    expect(status.reply.content).toContain('🎲 you backed ana (5)');
+    const ended = await sim.end();
+    expect(ended.reply.content).toBe('⏹️ Ended the siege: Killer Klowns slinks off. No rewards, no penalties. Backers got their stakes back.');
+    const s = sim.siege();
+    expect(s.result.backing).toEqual([expect.objectContaining({ backerId: 'dev', outcome: 'refunded', back: 5 })]);
+    expect(sim.siegePoints().dev).toBe(0);
+    expect(sim.messagesFor(s.id, 'results')).toHaveLength(0);
+    sim.finalChecks();
+  });
+
+  test('backing through the real command: placed publicly, pinging nobody; every refusal private and free, in order', async () => {
+    const sim = fresh('sim-back-refusals', 8);
+    const R = mods.btilc.HONOURS.backing.refusals;
+    const say = async (who, fighter, points, opts) => (await sim.back(who, fighter, points, opts)).reply;
+    expect((await say('dev', 'ana', 5)).content).toBe(R.noSiege);
+    await sim.start({ monster: 'klowns' });
+    await sim.attack('ana', 'doom', { force: 'smite' });
+    await sim.attack('ben', 'doom', { force: 'smite' });
+    sim.discord.addUser('robot');
+    sim.discord.who('robot').user.bot = true;
+    const refused = [
+      [await say('dev', 'ana', 5, { channel: 'lobby' }), '🎲 Back fighters in <#games>, where the fight is.'],
+      [await say('dev', 'dev', 5), R.self],
+      [await say('dev', 'robot', 5), R.bot],
+      [await say('dev', 'gus', 5), '🎲 gus hasn\'t swung at the monster yet. Back someone who\'s in the fight.'],
+      [await say('dev', 'ana', 5), R.inactive],
+    ];
+    sim.regular('dev', { points: 3 });
+    refused.push([await say('dev', 'ana', 5), '🎲 You need 5 of this month\'s points to stake 5, and you have 3.']);
+    for (const [reply, text] of refused) expect([reply.ephemeralFor, reply.content]).toEqual(['dev', text]);
+    expect(sim.siegePoints().dev).toBeUndefined();
+    // A thread of the siege's channel is fine; the stake is taken, the reply public and pinging nobody
+    sim.regular('dev', { points: 20 });
+    const placed = await say('dev', 'ana', 3, { channel: 'thread' });
+    expect(placed.ephemeralFor).toBeFalsy();
+    const closes = Math.floor(mods.store.backingClosesAt(sim.siege()) / 1000);
+    const { HONOURS, fill } = mods.btilc;
+    expect(lines(placed)).toEqual([
+      fill(mods.card.lineFor(`${sim.siege().id}dev`, HONOURS.backing.placed), { backer: 'dev', fighter: 'ana', stake: 3 }),
+      `-# dev −3 (staked) · back ×2 if ana is the Wang Chi, your stake back if top 3 or the Jack Burton · closes <t:${closes}:R>`,
+    ]);
+    expect(placed.allowedMentions).toEqual({ parse: [] });
+    expect(sim.siegePoints().dev).toBe(-3);
+    expect([(await say('dev', 'ben', 2)).content]).toEqual([R.already]);
+    // Halfway through its 45 minutes: closed — and the card, which offered it, stops (edited at the close, nobody attacking)
+    sim.regular('eve');
+    sim.calm();
+    const card = () => sim.channel('games').messageList.find(m => m.id === sim.siege().card.messageId).embeds[0].toJSON();
+    expect(card().fields.at(-1).value).toContain('/siege back fighter:@… points:2–10');
+    await sim.advance(23 * MINUTE);
+    expect(card().fields.at(-1).value).toBe('`/siege attack weapon:food|doom|potion`\n`/siege status` shows your own damage');
+    expect((await say('eve', 'ana', 4)).content).toBe(R.late);
+    expect(sim.siegePoints().eve).toBeUndefined();
+    sim.finalChecks();
   });
 });

@@ -18,11 +18,12 @@ import fs from 'fs';
 import path from 'path';
 import * as store from '../src/utils/siegeStore.js';
 import { loadState, mutate } from '../src/utils/happeningStore.js';
-import { loadScores, deleteScores, recordPlay, mutateScores, applySiegeResult, resetScores, applySiegePenalty } from '../src/utils/gameScores.js';
-import { renderSiegeCard, resultsPayload, cardPayload } from '../src/utils/siegeCard.js';
+import { loadScores, deleteScores, recordPlay, mutateScores, applySiegeResult, resetScores, applySiegePenalty, stakeBacking, backingProblem } from '../src/utils/gameScores.js';
+import { renderSiegeCard, resultsPayload, cardPayload, lineFor } from '../src/utils/siegeCard.js';
+import { HONOURS, fill } from '../src/data/btilcLines.js';
 import { createKit, KIT_CODES } from '../src/utils/emojiKit.js';
 import { messageProblems } from '../src/utils/embedFit.js';
-import { SIEGE, RANDOM_PRIZE_ITEMS, SIEGE_PACES, PACE_RULES } from '../src/data/gameRewards.js';
+import { SIEGE, RANDOM_PRIZE_ITEMS, SIEGE_PACES, PACE_RULES, SIEGE_PACE_KEYS, SIEGE_R2_DEPLOY } from '../src/data/gameRewards.js';
 import { siegeTimings } from '../src/utils/gamePace.js';
 import { MONSTERS } from '../src/data/siegeMonsters.js';
 import { HAPPENINGS } from '../src/data/gameHappenings.js';
@@ -423,33 +424,37 @@ describe('finishSiege', () => {
     expect(now()).toMatchObject({ status: 'won', finishedAt: T + 5 * MIN });
   });
 
-  test('a win: the pool split by share, 2–30 each, the MVP +5 and loot, others 25% at ≥5% — exactly', () => {
+  test('a win: the pool split by share, 2–30 each, the Wang Chi +8 and loot (nobody helped: the top fighter held the line), others 25% at ≥5% — exactly', () => {
     const s = spawn('klowns');
     setFighters([['sam', 'Sam', 60], ['alex', 'Alex', 30], ['kim', 'Kim', 10]]);
-    // MVP: 0.5 → not silver, 0 → the first prize item. Alex (30%): 0.2 → loot,
-    // 0.1 → silver. Kim (10%): 0.9 → none.
+    // The Wang Chi (Sam, held): 0.5 → not silver, 0 → the first prize item.
+    // Alex (30%): 0.2 → loot, 0.1 → silver. Kim (10%): 0.9 → none. No killing
+    // blow stored, so no Jack Burton.
     const luck = scripted([0.5, 0, 0.2, 0.1, 0.9]);
     const at = T + 5 * MIN;
     store.finishSiege(GUILD, s.id, 'won', at, luck);
     expect(luck.left()).toBe(0);
 
     const { result } = now();
-    expect(result).toMatchObject({ status: 'won', mvp: { userId: 'sam', name: 'Sam' }, announcedAt: null, messageId: null });
-    // pool = clamp(8·3, 24, 200) = 24: 14.4 → 14 (+5), 7.2 → 7, 2.4 → 2
-    expect(result.grants.map(g => [g.userId, g.points, g.loot, g.titles, g.total, g.mvp])).toEqual([
-      ['sam', 19, { item: RANDOM_PRIZE_ITEMS[0], overflow: false }, ['siege-mvp'], 29, true],
-      ['alex', 7, { item: 'silver', overflow: false }, [], 7, false],
-      ['kim', 2, null, [], 2, false],
+    expect(result).toMatchObject({
+      status: 'won', mvp: { userId: 'sam', name: 'Sam' }, wangChi: { userId: 'sam', name: 'Sam', help: 0, held: true }, jack: null, backing: [],
+      announcedAt: null, messageId: null,
+    });
+    // pool = clamp(8·3, 24, 200) = 24: 14.4 → 14 (+8, the Wang Chi at quick), 7.2 → 7, 2.4 → 2
+    expect(result.grants.map(g => [g.userId, g.points, g.loot, g.titles, g.total, g.mvp, g.wangChi, g.jack, g.honour])).toEqual([
+      ['sam', 22, { item: RANDOM_PRIZE_ITEMS[0], overflow: false }, ['siege-mvp'], 32, true, true, false, 8],
+      ['alex', 7, { item: 'silver', overflow: false }, [], 7, false, false, false, 0],
+      ['kim', 2, null, [], 2, false, false, false, 0],
     ]);
     const scores = loadScores(GUILD);
-    expect(siegeStats('sam').all).toMatchObject({ points: 29, bonus: 29, plays: 0 });
-    expect(siegeStats('sam')[`m2026-11`]).toMatchObject({ points: 29, bonus: 29 });
+    expect(siegeStats('sam').all).toMatchObject({ points: 32, bonus: 32, plays: 0 });
+    expect(siegeStats('sam')[`m2026-11`]).toMatchObject({ points: 32, bonus: 32 });
     expect(siegeStats('alex').y2026).toMatchObject({ points: 7, bonus: 7 });
     expect(siegeStats('kim').all.points).toBe(2);
     expect(scores.users.sam.glovebox).toEqual({ [RANDOM_PRIZE_ITEMS[0]]: 1 });
     expect(scores.users.alex.glovebox).toEqual({ silver: 1 });
     expect(scores.users.kim.glovebox).toBeUndefined();
-    expect(scores.users.sam.lifetime.siege).toEqual({ wins: 1, mvps: 1, kaiju: 0 });
+    expect(scores.users.sam.lifetime.siege).toEqual({ wins: 1, mvps: 1, wangChis: 1, kaiju: 0 });
     expect(scores.users.kim.lifetime.siege).toEqual({ wins: 1, mvps: 0, kaiju: 0 });
     expect(scores.users.sam.titles.earned['siege-mvp']).toBe(at);
   });
@@ -459,17 +464,17 @@ describe('finishSiege', () => {
     const many = [['sam', 'Sam', 1000], ...Array.from({ length: 25 }, (_, i) => [`f${i}`, `F${i}`, 1])];
     setFighters(many);
     mutateScores(GUILD, (d) => { d.users.sam = { name: 'Sam', games: {}, glovebox: { silver: 2 } }; });
-    // One draw: the MVP's 0.1 → silver. 25 fighters on 0.1% each draw nothing.
+    // One draw: the Wang Chi's (held) 0.1 → silver. 25 fighters on 0.1% each draw nothing.
     const luck = scripted([0.1]);
     store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, luck);
     expect(luck.left()).toBe(0);
     const { grants } = now().result;
-    // pool = clamp(8·26, 24, 200) = 200: Sam's 97.6% is 195 → 30, +5
-    expect(grants[0]).toMatchObject({ userId: 'sam', points: 35, loot: { item: 'silver', overflow: true }, total: 35 + 2 + 10 });
+    // pool = clamp(8·26, 24, 200) = 200: Sam's 97.6% is 195 → 30, +8
+    expect(grants[0]).toMatchObject({ userId: 'sam', points: 38, loot: { item: 'silver', overflow: true }, total: 38 + 2 + 10 });
     expect(grants.slice(1).map(g => g.points)).toEqual(Array(25).fill(2));
     expect(grants.slice(1).every(g => g.loot === null)).toBe(true);
     expect(loadScores(GUILD).users.sam.glovebox).toEqual({ silver: 2 });
-    expect(siegeStats('sam').all.points).toBe(47);
+    expect(siegeStats('sam').all.points).toBe(50);
   });
 
   test('loot × the monster\'s traits.loot; beating the kaiju counts for everyone (Kaiju Killer)', () => {
@@ -482,8 +487,8 @@ describe('finishSiege', () => {
     const { grants } = now().result;
     expect(MONSTERS.lizard.traits.loot).toBe(2);
     expect(grants.map(g => [g.userId, g.points, g.loot?.item ?? null, g.titles])).toEqual([
-      // Equal damage: the one who joined first is MVP. 24 split 12/12.
-      ['sam', 17, RANDOM_PRIZE_ITEMS.at(-1), ['siege-mvp', 'kaiju-killer']],
+      // Equal damage: the one who joined first is the (held) Wang Chi. 24 split 12/12, +8.
+      ['sam', 20, RANDOM_PRIZE_ITEMS.at(-1), ['siege-mvp', 'kaiju-killer']],
       ['alex', 12, 'silver', ['kaiju-killer']],
     ]);
     expect(loadScores(GUILD).users.alex.lifetime.siege).toEqual({ wins: 1, mvps: 0, kaiju: 1 });
@@ -545,23 +550,24 @@ describe('finishSiege', () => {
     setFighters([['sam', 'Sam', 30], ['alex', 'Alex', 10]]);
     // Sam's loot: not silver, the first item; Alex (25%): no loot
     store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, scripted([0.99, 0, 0.99]));
-    // 24 · 0.75 = 18, +5
-    expect(now().result.grants[0]).toMatchObject({ points: 23, titles: ['monster-hunter', 'legend'], total: 43 });
-    expect(loadScores(GUILD).users.sam.lifetime.siege).toEqual({ wins: 10, mvps: 10, kaiju: 0 });
-    expect(siegeStats('sam').all.points).toBe(43);
+    // 24 · 0.75 = 18, +8. Sam's 10th MVP is also his 10th Wang Chi: the
+    // MVP counter carries on, and the Wang Chi title (5) comes with it
+    expect(now().result.grants[0]).toMatchObject({ points: 26, titles: ['monster-hunter', 'wang-chi', 'legend'], total: 56 });
+    expect(loadScores(GUILD).users.sam.lifetime.siege).toEqual({ wins: 10, mvps: 10, wangChis: 1, kaiju: 0 });
+    expect(siegeStats('sam').all.points).toBe(56);
 
     // An admin's reset of the siege game starts its counters over; the titles stay earned
     resetScores(GUILD, { game: 'siege', userId: 'sam' });
     const sam = loadScores(GUILD).users.sam;
     expect([sam.games.siege, sam.lifetime.siege]).toEqual([undefined, undefined]);
-    expect(Object.keys(sam.titles.earned).sort()).toEqual(['legend', 'monster-hunter', 'siege-mvp']);
+    expect(Object.keys(sam.titles.earned).sort()).toEqual(['legend', 'monster-hunter', 'siege-mvp', 'wang-chi']);
   });
 
   test('paying a siege twice pays once, and hands back the first payout', () => {
     const grants = [{ userId: 'sam', name: 'Sam', points: 10, loss: 0, loot: 'gpie', win: true, mvp: true }];
     const first = applySiegeResult(GUILD, { siegeId: 'abc', grants, now: T });
     const again = applySiegeResult(GUILD, { siegeId: 'abc', grants, now: T + MIN });
-    expect(again).toEqual({ grants: first.grants, repeat: true });
+    expect(again).toEqual({ grants: first.grants, backing: [], status: null, repeat: true });
     expect(siegeStats('sam').all.points).toBe(20); // 10, and Siege MVP's 10 — once
     expect(loadScores(GUILD).users.sam.glovebox).toEqual({ gpie: 1 });
   });
@@ -579,7 +585,7 @@ describe('what one admin and a friend could farm, and what a restart could lock'
     return now().result.grants;
   }
 
-  test('alone: the pool share only — no MVP bonus, no loot, no win on the record — and no luck drawn', () => {
+  test('alone: the pool share only — no honours, no loot, no win on the record — and no luck drawn', () => {
     const s = spawn('lizard');
     setFighters([['sam', 'Sam', 50]]);
     const luck = scripted([]);
@@ -589,7 +595,7 @@ describe('what one admin and a friend could farm, and what a restart could lock'
     expect(loadScores(GUILD).users.sam.glovebox).toBeUndefined();
     const embed = resultsPayload(now(), { kit: createKit(new Map()) }).embeds[0].toJSON();
     expect(embed.description.split('\n')).toEqual([
-      '🦖 Beaten by one fighter alone: the pool, but no MVP bonus or loot. Siege titles need company.',
+      '🦖 Beaten by one fighter alone: the pool, but no honours or loot. Siege titles need company.',
       '',
       '🥇 Sam · `50` damage · `+24`',
     ]);
@@ -599,11 +605,11 @@ describe('what one admin and a friend could farm, and what a restart could lock'
     const pair = [['sam', 30], ['alex', 10]];
     const first = win(pair, T);
     const second = win(pair, T + 10 * MIN);
-    expect([first[0].total, second[0].total]).toEqual([33, 23]); // 18 + 5, and Siege MVP's 10 the first time
+    expect([first[0].total, second[0].total]).toEqual([36, 26]); // 18 + 8 (the held Wang Chi), and Siege MVP's 10 the first time
     const third = win(pair, T + 20 * MIN);
     expect(third.map(g => [g.userId, g.points, g.loot, g.total, g.limited])).toEqual([['sam', 0, null, 0, true], ['alex', 0, null, 0, true]]);
-    expect(loadScores(GUILD).users.sam.lifetime.siege).toEqual({ wins: 2, mvps: 2, kaiju: 0 });
-    expect(siegeStats('sam').all.points).toBe(33 + 23);
+    expect(loadScores(GUILD).users.sam.lifetime.siege).toEqual({ wins: 2, mvps: 2, wangChis: 2, kaiju: 0 });
+    expect(siegeStats('sam').all.points).toBe(36 + 26);
     const rows = resultsPayload(now(), { kit: createKit(new Map()) }).embeds[0].toJSON().description.split('\n').slice(2);
     expect(rows).toEqual([
       '🥇 Sam · `30` damage · reward limit reached (2 sieges a day)',
@@ -838,25 +844,48 @@ describe('the card fits Discord in the worst case', () => {
 
   test('the results with 300 fighters, every one with loot and titles, fit — and ping at most 20', () => {
     const s = worst();
+    // 2.75.0's worst: a Wang Chi by help and a different Jack Burton (two
+    // honour lines in the content, the longest names), and 60 backers with
+    // the longest names (10 lines, then "…and 50 more")
+    mutate(GUILD, (d) => {
+      d.siege.participants.u7.frees = 50;
+      d.siege.killingBlow = { userId: 'u3', name: longName(3), at: T, by: 'poison' };
+      d.siege.backers = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`b${i}`, { name: longName(i), fighterId: 'u7', fighterName: longName(7), stake: 10, at: T + i }]));
+    });
     store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, () => 0); // everyone over 5% gets loot: only the top few
     mutate(GUILD, (d) => {
       for (const g of d.siege.result.grants) {
         g.loot = { item: 'silver', overflow: true };
-        g.titles = ['monster-hunter', 'siege-mvp', 'legend', 'kaiju-killer'];
+        g.titles = ['monster-hunter', 'siege-mvp', 'wang-chi', 'legend', 'everybody-relax', 'kaiju-killer'];
+        g.wangChi = g.jack = true;
+        g.backBonus = 5;
       }
     });
+    expect(now().result.wangChi.userId).toBe('u7');
+    expect(now().result.jack.userId).toBe('u3');
     for (const kit of [plain, longest]) {
       const payload = resultsPayload(now(), { kit });
       expect(messageProblems(payload)).toEqual([]);
       expect(payload.allowedMentions.users).toHaveLength(SIEGE.pingMax);
-      expect(payload.content.split('\n')[1].match(/<@u\d+>/g)).toHaveLength(SIEGE.pingMax);
+      const content = payload.content.split('\n');
+      // The defeat line, the Wang Chi's and the Jack Burton's, then the pings
+      expect(content).toHaveLength(4);
+      expect(content.at(-1).match(/<@u\d+>/g)).toHaveLength(SIEGE.pingMax);
+      // The backers: a field of their own, at most 10 lines inside 1,024, then how many more
+      const field = payload.embeds[0].toJSON().fields.find(f => f.name.endsWith(' Backing'));
+      const lines = field.value.split('\n');
+      expect(field.value.length).toBeLessThanOrEqual(1024);
+      expect(lines.length).toBeLessThanOrEqual(11);
+      expect(lines.at(-1)).toBe(`…and ${60 - (lines.length - 1)} more`);
     }
   });
 
   test('a fresh card, line by line (fallback kit)', () => {
     active(30);
     const s = spawn('blob');
-    const card = renderSiegeCard(store.siegeView(now()), { kit: plain }).toJSON();
+    const card = renderSiegeCard(store.siegeView(now(), T), { kit: plain }).toJSON();
+    // 2.75.0: backing is open for the first half of its 45 minutes
+    const closes = Math.floor((T + 22.5 * MIN) / 1000);
     expect(card).toEqual({
       color: 0xC0392B,
       title: '👹 The Blob is attacking the drive-in!',
@@ -868,10 +897,13 @@ describe('the card fits Discord in the worst case', () => {
       fields: [
         { name: '👥 Fighters', value: '`0` fighters', inline: true },
         { name: '🏆 Top fighters', value: 'Nobody yet: be the first!', inline: true },
-        { name: '👹 How to fight', value: '`/siege attack weapon:food|doom|potion`\n`/siege status` shows your own damage', inline: false },
+        { name: '👹 How to fight', value: `\`/siege attack weapon:food|doom|potion\`\n\`/siege status\` shows your own damage\n\`/siege back fighter:@… points:2–10\` until <t:${closes}:R>`, inline: false },
       ],
       footer: { text: 'Siege · the card updates about once a minute' },
     });
+    // Once it's closed, the card stops offering it
+    const later = renderSiegeCard(store.siegeView(now(), T + 22.5 * MIN), { kit: plain }).toJSON();
+    expect(later.fields.at(-1).value).toBe('`/siege attack weapon:food|doom|potion`\n`/siege status` shows your own damage');
   });
 
   test('the bar turns gold under half and orange under a quarter', () => {
@@ -898,26 +930,27 @@ describe('pace (2.74.0): the rewards, the dial and the HP by the siege\'s own pr
     participants: Object.fromEntries(list.map(([id, damage, n], i) => [id, { name: id, damage, attacks: 4, frees: 0, cures: 0, firstAt: T + i, nights: nights(n) }])),
   });
 
-  test('the pool counts fighter-nights from evening on; each share is capped by the preset; the MVP\'s bonus is ×honour', () => {
+  test('the pool counts fighter-nights from evening on; each share is capped by the preset; the Wang Chi\'s bonus is ×honour', () => {
     // Six fighters, five nights each: 30 fighter-nights. ana did most of it.
+    // Nobody helped: ana, the top contributor, is the Wang Chi holding the line.
     const list = [['ana', 600, 5], ['ben', 30, 5], ['cat', 30, 5], ['dev', 30, 5], ['eve', 30, 5], ['fay', 30, 5]];
     const week = store.planSiegeRewards(at('week', list), 'won', () => 0.99);
     const total = 600 + 5 * 30;
     const pool = Math.min(SIEGE_PACES.week.pool.poolMax, SIEGE_PACES.week.pool.perFighter * 30); // 120
     expect(store.potOf(at('week', list))).toBe(pool);
     expect(week.grants.map(g => g.points)).toEqual([
-      Math.min(SIEGE_PACES.week.pool.eachMax, Math.round(pool * 600 / total)) + SIEGE.rewards.mvpBonus * SIEGE_PACES.week.honour,
+      Math.min(SIEGE_PACES.week.pool.eachMax, Math.round(pool * 600 / total)) + SIEGE.rewards.wangChiBonus * SIEGE_PACES.week.honour,
       ...Array(5).fill(Math.max(SIEGE.rewards.eachMin, Math.round(pool * 30 / total))),
     ]);
-    expect(week.grants[0].points).toBe(60 + 15); // 96 of the pot, capped at week's 60, +5 × 3
-    // At quick the same fight is 6 fighters, whatever the nights: 48, the share capped at 30, +5
+    expect(week.grants[0].points).toBe(60 + 24); // 96 of the pot, capped at week's 60, +8 × 3
+    // At quick the same fight is 6 fighters, whatever the nights: 48, the share capped at 30, +8
     const quick = store.planSiegeRewards(at('quick', list), 'won', () => 0.99);
     expect(store.potOf(at('quick', list))).toBe(48);
-    expect(quick.grants[0].points).toBe(30 + 5);
-    // 3 days: 5 a fighter-night, capped at 45, +5 × 2
+    expect(quick.grants[0].points).toBe(30 + 8);
+    // 3 days: 5 a fighter-night, capped at 45, +8 × 2
     const days3 = store.planSiegeRewards(at('days3', list), 'won', () => 0.99);
     expect(store.potOf(at('days3', list))).toBe(150);
-    expect(days3.grants[0].points).toBe(45 + 10);
+    expect(days3.grants[0].points).toBe(45 + 16);
     // A helper who never attacked counts one fighter-night
     expect(store.potOf(at('week', [['ana', 100, 2], ['ben', 0, 0]]))).toBe(Math.max(24, 4 * 3));
   });
@@ -1400,5 +1433,679 @@ describe('pace review #2 (2026-11-06): the rules behind the findings', () => {
     const rows = resultsPayload(now(), { kit: createKit(new Map()) }).embeds[0].toJSON().description.split('\n').slice(2);
     expect(rows[0]).toMatch(/^🥇 Sam · `\d+` damage · `\+2` · reward limit reached \(2 sieges a day\): just what the attacks scored$/);
     expect(rows[1]).toMatch(/^🥈 Alex · `\d+` damage · reward limit reached \(2 sieges a day\)$/);
+  });
+});
+
+// ── 2.75.0: the real hero ───────────────────────────────────────────────
+
+describe('2.75.0: the Wang Chi (help, not damage)', () => {
+  /** A siege object with these fighters: [id, damage, frees, cures, firstAt offset] */
+  const withHelp = (list, extra = {}) => ({
+    id: 'abc123def0', monster: 'klowns', status: 'live', honours: 'wang-chi', poolScale: 1,
+    participants: Object.fromEntries(list.map(([id, damage, frees = 0, cures = 0, at = 0, attacks = 3]) => [id, {
+      ...fighter(NAMES[id] || id, damage, T + at, attacks), frees, cures,
+    }])),
+    ...extra,
+  });
+
+  test('help is 12 a free, 8 a cure, 3 a boosted hit (none before R4); contribution is damage + help', () => {
+    expect([SIEGE.credit.free, SIEGE.credit.cure, SIEGE.credit.boost]).toEqual([12, 8, 3]);
+    const p = { damage: 40, frees: 2, cures: 1 };
+    expect(store.helpOf(p)).toBe(32);
+    expect(store.contributionOf(p)).toBe(72);
+    // R4's boosts, when they exist, count the same way; absent reads 0
+    expect(store.helpOf({ ...p, boostHits: 2 })).toBe(38);
+    expect(store.helpOf({})).toBe(0);
+  });
+
+  test('the most help wins, over the top damage dealer — a helper who never attacked included', () => {
+    // Alex out-damages everyone; Kim never attacked but freed two (24 help)
+    const s = withHelp([['alex', 90], ['sam', 30, 0, 1], ['kim', 0, 2, 0, 5, 0]]);
+    expect(store.fightersOf(s).map(f => f.userId)).toEqual(['alex', 'sam', 'kim']);
+    expect(store.wangChiOf(s)).toEqual({ userId: 'kim', name: 'Kim', help: 24, held: false });
+  });
+
+  test('one cure (8) is enough; under it, the top contributor holds the line', () => {
+    expect(SIEGE.rewards.wangChiMinHelp).toBe(8);
+    expect(store.wangChiOf(withHelp([['alex', 90], ['sam', 30, 0, 1]]))).toEqual({ userId: 'sam', name: 'Sam', help: 8, held: false });
+    expect(store.wangChiOf(withHelp([['alex', 90], ['sam', 30]]))).toEqual({ userId: 'alex', name: 'Alex', help: 0, held: true });
+    expect(store.wangChiOf(withHelp([]))).toBeNull();
+  });
+
+  test('ties: more contribution, then whoever joined first, then the smaller id', () => {
+    // Equal help (one free each): Sam has more damage
+    expect(store.wangChiOf(withHelp([['alex', 10, 1], ['sam', 20, 1]])).userId).toBe('sam');
+    // Equal help and contribution: Alex joined first
+    expect(store.wangChiOf(withHelp([['sam', 10, 1, 0, 5], ['alex', 10, 1, 0, 1]])).userId).toBe('alex');
+    // All equal: the smaller id
+    expect(store.wangChiOf(withHelp([['zed', 10, 1, 0, 0], ['amy', 10, 1, 0, 0]])).userId).toBe('amy');
+  });
+});
+
+describe('2.75.0: honours ×H, settled by planSiegeRewards', () => {
+  const H = (key) => SIEGE_PACES[key].honour;
+  /** A siege at `key`'s timings: Alex hits hardest, Sam freed twice, Kim landed the blow (by poison) */
+  const fight = (key, { blow = 'kim', list = null, backers = {} } = {}) => ({
+    id: 'f00d0000aa', monster: 'klowns', status: 'live', honours: 'wang-chi', poolScale: 1, t: siegeTimings(SIEGE_PACES[key].span),
+    participants: Object.fromEntries((list || [['alex', 90, 0], ['sam', 30, 2], ['kim', 20, 0]]).map(([id, damage, frees], i) => [id, {
+      ...fighter(NAMES[id] || id, damage, T + i), frees, nights: { '2026-11-09': T },
+    }])),
+    killingBlow: blow ? { userId: blow, name: NAMES[blow] || blow, at: T, by: 'poison' } : null,
+    backers,
+  });
+
+  test.each(['quick', 'days3', 'week'])('at %s: the Wang Chi +8 × H and loot for sure, the Jack Burton +3 × H', (key) => {
+    const s = fight(key);
+    // The pool share, worked out here: contributions 90, 30 + 2 frees (54), 20; one night each
+    const { pool } = SIEGE_PACES[key];
+    const pot = Math.min(pool.poolMax, Math.max(pool.poolMin, pool.perFighter * 3));
+    const contribution = { alex: 90, sam: 54, kim: 20 };
+    const share = (id) => Math.min(pool.eachMax, Math.max(SIEGE.rewards.eachMin, Math.round(pot * contribution[id] / 164)));
+    // 0.99: Alex (≥5%) no loot; Sam's sure loot not silver, the last item; Kim no loot
+    const plan = store.planSiegeRewards(s, 'won', () => 0.99);
+    expect(plan.wangChi).toEqual({ userId: 'sam', name: 'Sam', help: 24, held: false });
+    expect(plan.jack).toEqual({ userId: 'kim', name: 'Kim', by: 'poison' });
+    expect(plan.mvp).toEqual({ userId: 'sam', name: 'Sam' });
+    const by = Object.fromEntries(plan.grants.map(g => [g.userId, g]));
+    expect([by.sam.honour, by.kim.honour, by.alex.honour]).toEqual([8 * H(key), 3 * H(key), 0]);
+    expect(by.sam).toMatchObject({ wangChi: true, mvp: true, jack: false, loot: RANDOM_PRIZE_ITEMS.at(-1), points: share('sam') + 8 * H(key) });
+    expect(by.kim).toMatchObject({ wangChi: false, mvp: false, jack: true, loot: null, points: share('kim') + 3 * H(key) });
+    expect(by.alex).toMatchObject({ wangChi: false, jack: false, loot: null, points: share('alex') });
+  });
+
+  test('the honours are 8 and 3 before H; the old MVP\'s +5 is gone; a siege from before 2.74 is H 1', () => {
+    expect(SIEGE.rewards).toMatchObject({ wangChiBonus: 8, jackBonus: 3, wangChiMinHelp: 8 });
+    expect(SIEGE.rewards).not.toHaveProperty('mvpBonus');
+    // Every pace's H is a whole number ≥ 1, the longer the pace the larger (R1's numbers, read, not assumed)
+    const hs = SIEGE_PACE_KEYS.map(H);
+    expect(hs.every(h => Number.isInteger(h) && h >= 1)).toBe(true);
+    expect([...hs].sort((a, b) => a - b)).toEqual(hs);
+    // A siege from before 2.74 (no `t`) reads quick: H = 1
+    const old = { ...fight('quick'), t: undefined };
+    expect(store.planSiegeRewards(old, 'won', () => 0.99).grants.find(g => g.userId === 'sam').honour).toBe(8);
+  });
+
+  test('the Wang Chi who lands the blow gets both', () => {
+    const plan = store.planSiegeRewards(fight('week', { blow: 'sam' }), 'won', () => 0.99);
+    const sam = plan.grants.find(g => g.userId === 'sam');
+    expect(sam).toMatchObject({ wangChi: true, jack: true, honour: 11 * H('week') });
+    expect(plan.grants.filter(g => g.honour > 0).map(g => g.userId)).toEqual(['sam']);
+  });
+
+  test('no honours alone, on an escape, or when an admin ends it; no Jack Burton without a killing blow', () => {
+    const solo = store.planSiegeRewards(fight('week', { list: [['sam', 30, 2]], blow: 'sam' }), 'won', () => 0.99);
+    expect(solo).toMatchObject({ wangChi: null, jack: null, mvp: null });
+    expect(solo.grants[0]).toMatchObject({ solo: true, wangChi: false, jack: false, honour: 0, loot: null });
+    const esc = store.planSiegeRewards(fight('week'), 'escaped', () => 0.99);
+    expect(esc).toMatchObject({ wangChi: null, jack: null, mvp: null });
+    expect(esc.grants.every(g => !g.wangChi && !g.jack && g.honour === 0)).toBe(true);
+    expect(store.planSiegeRewards(fight('week'), 'ended', () => 0.99)).toMatchObject({ grants: [], wangChi: null, jack: null });
+    const noBlow = store.planSiegeRewards(fight('week', { blow: null }), 'won', () => 0.99);
+    expect(noBlow.jack).toBeNull();
+    expect(noBlow.grants.filter(g => g.jack)).toEqual([]);
+  });
+
+  test('the Wang Chi\'s sure loot is drawn at the Wang Chi\'s place in the fighters\' order', () => {
+    // Order: Alex (90), Sam (30 + 24 help), Kim (20). Alex 0.1 < 25% → loot: 0.5 not silver, 0 → the first item;
+    // Sam (the Wang Chi, sure): 0.1 → silver; Kim 0.9 → none
+    const luck = scripted([0.1, 0.5, 0, 0.1, 0.9]);
+    const plan = store.planSiegeRewards(fight('quick'), 'won', luck);
+    expect(luck.left()).toBe(0);
+    expect(plan.grants.map(g => [g.userId, g.loot])).toEqual([['alex', RANDOM_PRIZE_ITEMS[0]], ['sam', 'silver'], ['kim', null]]);
+  });
+
+  test('when the Wang Chi is the top contributor (nobody helped), luck is drawn exactly as the old MVP\'s was', () => {
+    // The old order: fighters[0]'s sure loot (silver? item?), then each other ≥5% (chance, then silver? item?)
+    const list = [['alex', 90, 0], ['sam', 30, 0], ['kim', 20, 0]];
+    const calls = [];
+    const record = () => { const draws = [0.5, 0, 0.2, 0.1, 0.9]; return () => { const x = draws[calls.length]; calls.push(x); return x; }; };
+    const plan = store.planSiegeRewards(fight('quick', { list }), 'won', record());
+    expect(calls).toEqual([0.5, 0, 0.2, 0.1, 0.9]);
+    expect(plan.wangChi).toMatchObject({ userId: 'alex', held: true });
+    expect(plan.grants.map(g => g.loot)).toEqual([RANDOM_PRIZE_ITEMS[0], 'silver', null]);
+  });
+
+  test('a siege live at the 2.75.0 deploy (no stamp) pays the Wang Chi by default — or, flipped, the old MVP (open question 3)', () => {
+    expect(SIEGE_R2_DEPLOY).toEqual({ liveAtDeploy: 'wangChi', mvpBonus: 5 });
+    const old = { ...fight('week'), honours: undefined };
+    const now2 = store.planSiegeRewards(old, 'won', () => 0.99);
+    expect(now2.wangChi.userId).toBe('sam');
+    expect(now2.jack.userId).toBe('kim');
+    const flipped = store.planSiegeRewards(old, 'won', () => 0.99, { liveAtDeploy: 'mvp' });
+    expect(flipped).toMatchObject({ wangChi: null, jack: null, mvp: { userId: 'alex', name: 'Alex' } });
+    const alex = flipped.grants.find(g => g.userId === 'alex');
+    expect(alex).toMatchObject({ mvp: true, wangChi: false, jack: false, honour: 5 * H('week') });
+    expect(flipped.grants.filter(g => g.honour > 0)).toHaveLength(1);
+    // A stamped siege is never paid the old way
+    expect(store.planSiegeRewards(fight('week'), 'won', () => 0.99, { liveAtDeploy: 'mvp' }).wangChi.userId).toBe('sam');
+  });
+
+  describe('backing, settled (design §4.3)', () => {
+    const backer = (fighterId, stake, at, name) => ({ name, fighterId, fighterName: NAMES[fighterId] || fighterId, stake, at });
+    const settle = (status, { list, blow = 'kim', backers }) => store.planSiegeRewards(fight('quick', { list, blow, backers }), status, () => 0.99);
+    // Order: alex (90), sam (30 + 24 help: the Wang Chi), kim (20, the killing blow), dev (10), eve (5)
+    const five = [['alex', 90, 0], ['sam', 30, 2], ['kim', 20, 0], ['dev', 10, 0], ['eve', 5, 0]];
+
+    test('on the Wang Chi: ×2 back; the fighter +⌈largest stake / 2⌉ once — on the largest, the earliest of equals', () => {
+      const plan = settle('won', { list: five, backers: { jo: backer('sam', 5, T + 1, 'Jo'), lu: backer('sam', 7, T + 3, 'Lu'), al: backer('sam', 7, T + 2, 'Al') } });
+      // The one carrying the bonus first (its line comes before the "…too" ones), then oldest first
+      expect(plan.backing.map(b => [b.backerId, b.outcome, b.stake, b.back, b.bonus])).toEqual([
+        ['al', 'wangChi', 7, 14, 4], ['jo', 'wangChi', 5, 10, 0], ['lu', 'wangChi', 7, 14, 0],
+      ]);
+      expect(plan.grants.find(g => g.userId === 'sam').backBonus).toBe(4);
+      expect(plan.grants.filter(g => g.backBonus > 0)).toHaveLength(1);
+    });
+
+    test('top 3 or the Jack Burton: the stake back; anyone else: lost; an escape: lost; too few, or called off: refunded', () => {
+      const backers = {
+        a: backer('alex', 4, T + 1, 'A'), // top 3 (1st)
+        b: backer('kim', 4, T + 2, 'B'), // top 3 and the Jack Burton
+        c: backer('dev', 4, T + 3, 'C'), // 4th: lost
+        d: backer('eve', 4, T + 4, 'D'), // 5th: lost — unless she's the Jack Burton
+      };
+      expect(settle('won', { list: five, backers }).backing.map(b => [b.backerId, b.outcome, b.back])).toEqual([
+        ['a', 'push', 4], ['b', 'push', 4], ['c', 'lost', 0], ['d', 'lost', 0],
+      ]);
+      expect(settle('won', { list: five, blow: 'eve', backers }).backing.find(b => b.backerId === 'd')).toMatchObject({ outcome: 'push', back: 4 });
+      expect(settle('escaped', { list: five, backers }).backing.map(b => [b.outcome, b.back])).toEqual(Array(4).fill(['escaped', 0]));
+      // Fewer than 3 fought: won or escaped, every stake back
+      const two = [['alex', 90, 0], ['sam', 30, 2]];
+      for (const status of ['won', 'escaped']) {
+        expect(settle(status, { list: two, blow: 'alex', backers: { a: backer('sam', 6, T, 'A') } }).backing.map(b => [b.outcome, b.back])).toEqual([['refunded', 6]]);
+      }
+      expect(settle('ended', { list: five, backers }).backing.map(b => [b.outcome, b.back])).toEqual(Array(4).fill(['refunded', 4]));
+      expect(SIEGE.backing.minFighters).toBe(3);
+    });
+  });
+});
+
+describe('2.75.0: backing a fighter, store-level', () => {
+  const MONTH = 'm2026-11';
+  /** A regular: `points` this month (another game), and `nights` of the last 7 played */
+  function regular(userId, { points = 20, nights = 3, at = T } = {}) {
+    const tonight = new Date(at - 12 * HOUR).toISOString().slice(0, 10);
+    const recent = Array.from({ length: nights }, (_, i) => new Date(Date.parse(tonight) - i * DAY).toISOString().slice(0, 10)).reverse();
+    mutateScores(GUILD, (d) => {
+      d.users[userId] = { name: NAMES[userId] || userId, games: { doom: { all: { points }, [MONTH]: { points } } }, nights: { recent, last: tonight, current: nights, best: nights } };
+    });
+  }
+  const place = (s, userId, fighterId, stake, at = T + MIN) => store.placeBacking(GUILD, s.id, { userId, name: NAMES[userId] || userId, fighterId, fighterName: NAMES[fighterId] || fighterId, stake }, at);
+  const siegePoints = (userId) => loadScores(GUILD).users[userId]?.games?.siege?.all?.points ?? 0;
+  const monthPoints = (userId) => Object.values(loadScores(GUILD).users[userId]?.games || {}).reduce((n, g) => n + (g?.[MONTH]?.points || 0), 0);
+
+  test('placed: −stake to the siege game as bonus, today\'s backing counted, the stake remembered, the backing on the siege', () => {
+    const s = spawn('klowns');
+    hit(s, 'sam', 'doom', 'smite');
+    regular('kim');
+    const r = place(s, 'kim', 'sam', 5);
+    expect(r.backing).toEqual({ name: 'Kim', fighterId: 'sam', fighterName: 'Sam', stake: 5, at: T + MIN });
+    expect(r.closesAt).toBe(T + 22.5 * MIN);
+    expect(now().backers).toEqual({ kim: r.backing });
+    expect(now().log.at(-1).text).toBe('🎲 Kim backed Sam (5)');
+    const scores = loadScores(GUILD);
+    expect(scores.users.kim.games.siege.all).toMatchObject({ points: -5, bonus: -5 });
+    expect(scores.users.kim.games.siege[MONTH]).toMatchObject({ points: -5, bonus: -5 });
+    expect(scores.daily.kim.backs).toBe(1);
+    expect(scores.backStakes).toEqual({ [`${s.id}:kim`]: { at: T + MIN, stake: 5 } });
+    expect(monthPoints('kim')).toBe(15);
+  });
+
+  test('every refusal, in order, and none of them saves anything', () => {
+    const s = spawn('klowns');
+    hit(s, 'sam', 'doom', 'smite');
+    regular('kim');
+    // Dev is in the fight as a helper (they freed someone) but never attacked: not someone to back
+    mutate(GUILD, (d) => { d.siege.participants.dev = { ...fighter('dev', 0, T, 0), frees: 1 }; });
+    const files = () => JSON.stringify([loadState(GUILD), loadScores(GUILD)]);
+    const before = files();
+    expect(place(s, 'kim', 'sam', 1)).toEqual({ error: 'bad-stake' });
+    expect(place(s, 'kim', 'sam', 11)).toEqual({ error: 'bad-stake' });
+    expect(place(s, 'kim', 'kim', 5)).toEqual({ error: 'self' });
+    expect(place(s, 'kim', 'alex', 5)).toEqual({ error: 'notFighter' }); // not in the fight at all
+    expect(place(s, 'kim', 'dev', 5)).toEqual({ error: 'notFighter' }); // a helper who never attacked
+    expect(place(s, 'kim', 'sam', 5, T + 22.5 * MIN)).toEqual({ error: 'late', closesAt: T + 22.5 * MIN });
+    expect(files()).toBe(before);
+    // The member's side: a regular (3 of the last 7 nights), with the points to stake
+    regular('alex', { nights: 2 });
+    expect(place(s, 'alex', 'sam', 5)).toEqual({ error: 'inactive' });
+    regular('alex', { points: 4 });
+    expect(place(s, 'alex', 'sam', 5)).toEqual({ error: 'poor', count: 4 });
+    expect(siegePoints('alex')).toBe(0);
+    // One a siege; one a UTC day (the next siege the same day, after this one was called off and refunded)
+    expect(place(s, 'kim', 'sam', 5).backing.stake).toBe(5);
+    expect(place(s, 'kim', 'sam', 3)).toEqual({ error: 'already' });
+    store.finishSiege(GUILD, s.id, 'ended', T + 2 * MIN, scripted([]));
+    settle(s);
+    expect(siegePoints('kim')).toBe(0);
+    const next = spawn('blob', { at: T + 2 * HOUR });
+    mutate(GUILD, (d) => { d.siege.participants.sam = fighter('Sam', 10, T + 2 * HOUR); });
+    expect(store.placeBacking(GUILD, next.id, { userId: 'kim', name: 'Kim', fighterId: 'sam', fighterName: 'Sam', stake: 3 }, T + 2 * HOUR + MIN)).toEqual({ error: 'daily' });
+    expect(siegePoints('kim')).toBe(0);
+    // No siege on, or beaten
+    mutate(GUILD, (d) => { d.siege.hp = 0; });
+    expect(store.placeBacking(GUILD, next.id, { userId: 'alex', name: 'Alex', fighterId: 'sam', fighterName: 'Sam', stake: 3 }, T + 2 * HOUR + MIN)).toEqual({ error: 'noSiege' });
+  });
+
+  test('the window is the first half of the siege\'s OWN time: 22½ minutes at quick, about 3½ days of a week campaign (its night-boundary end)', () => {
+    const q = spawn('klowns');
+    expect(store.backingClosesAt(q)).toBe(q.startedAt + (q.endsAt - q.startedAt) / 2);
+    expect([store.backingOpen(q, T + 22.5 * MIN - 1), store.backingOpen(q, T + 22.5 * MIN)]).toEqual([true, false]);
+    store.finishSiege(GUILD, q.id, 'ended', T + MIN, scripted([]));
+    settle(q);
+    const w = spawn('klowns', { minutes: SIEGE_PACES.week.span, at: T + 2 * MIN });
+    const closes = store.backingClosesAt(w);
+    expect(closes).toBe(w.startedAt + (w.endsAt - w.startedAt) / 2);
+    // Started Monday 20:00, ends at the night boundary after its 7th night: 160 hours, so 80 in
+    expect((closes - w.startedAt) / HOUR).toBeGreaterThanOrEqual(75);
+    expect((closes - w.startedAt) / HOUR).toBeLessThanOrEqual(87);
+    hit(w, 'sam', 'doom', 'smite', T + 3 * MIN);
+    regular('kim', { at: closes - MIN });
+    expect(place(w, 'kim', 'sam', 4, closes - 1).backing.stake).toBe(4);
+    regular('alex', { at: closes });
+    expect(place(w, 'alex', 'sam', 4, closes)).toMatchObject({ error: 'late' });
+  });
+
+  test('the minute\'s pass marks backing closed once, so the card stops offering it', () => {
+    const s = spawn('klowns');
+    mutate(GUILD, (d) => { d.siege.card = { messageId: 'm', dirty: false, editedAt: T, claimedAt: T, gone: false }; });
+    expect(tick(s, T + 22.5 * MIN - 1)).toEqual({ error: 'nothing-due' });
+    const rev = now().rev;
+    expect(tick(s, T + 22.5 * MIN).error).toBeUndefined();
+    expect(now()).toMatchObject({ backingClosed: true, rev: rev + 1, card: { dirty: true } });
+    expect(tick(s, T + 23 * MIN)).toEqual({ error: 'nothing-due' });
+  });
+
+  test('taking a stake is idempotent by siege and member: placed again after a lost save, nothing more is taken', () => {
+    regular('kim');
+    const key = 'sss:kim';
+    expect(stakeBacking(GUILD, { key, userId: 'kim', name: 'Kim', stake: 6 }, T)).toEqual({ ok: true, stake: 6 });
+    // The same backing again (its siege save never landed): the stake it took, not another — and not "already today"
+    expect(stakeBacking(GUILD, { key, userId: 'kim', name: 'Kim', stake: 9 }, T + MIN)).toEqual({ ok: true, stake: 6, repeat: true });
+    expect(siegePoints('kim')).toBe(-6);
+    expect(loadScores(GUILD).daily.kim.backs).toBe(1);
+  });
+
+  test('a stake whose backing a kill lost (taken, never on the siege) is refunded at the finish, whatever the finish', () => {
+    for (const [i, status] of ['won', 'escaped', 'ended'].entries()) {
+      const at = T + i * DAY;
+      const s = spawn('klowns', { at });
+      setFighters([['sam', 'Sam', 30], ['alex', 'Alex', 20], ['kim', 'Kim', 10]], status === 'won' ? 0 : 20);
+      regular('dev', { at });
+      // placeBacking's scores save landed; its siege save didn't
+      stakeBacking(GUILD, { key: `${s.id}:dev`, userId: 'dev', name: 'dev', stake: 7 }, at + MIN);
+      expect(siegePoints('dev')).toBe(-7);
+      store.finishSiege(GUILD, s.id, status, at + 5 * MIN, () => 0.99);
+      expect(siegePoints('dev')).toBe(0);
+      expect(loadScores(GUILD).backStakes).toEqual({});
+      expect(now().result.backing).toEqual([expect.objectContaining({ backerId: 'dev', stake: 7, outcome: 'refunded', back: 7, orphan: true })]);
+      settle(s);
+    }
+  });
+
+  test('settled at the finish and paid once: the Wang Chi\'s backer ×2 and the fighter\'s share; a second backer too, without the share again', () => {
+    const s = spawn('klowns');
+    // (HP left while it's backed; the finish below is the win)
+    setFighters([['alex', 'Alex', 60], ['sam', 'Sam', 20], ['kim', 'Kim', 10], ['dev', 'dev', 5]], 50);
+    mutate(GUILD, (d) => { d.siege.participants.sam.frees = 2; d.siege.killingBlow = { userId: 'kim', name: 'Kim', at: T, by: 'food' }; });
+    for (const u of ['jo', 'lu', 'al']) regular(u);
+    place(s, 'jo', 'sam', 6, T + MIN);
+    place(s, 'lu', 'sam', 3, T + 2 * MIN);
+    place(s, 'al', 'dev', 4, T + 3 * MIN);
+    expect([siegePoints('jo'), siegePoints('lu'), siegePoints('al')]).toEqual([-6, -3, -4]);
+    const samBefore = siegePoints('sam');
+    store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, () => 0.99);
+    const { result } = now();
+    expect(result.backing.map(b => [b.backerId, b.outcome, b.back, b.bonus])).toEqual([['jo', 'wangChi', 12, 3], ['lu', 'wangChi', 6, 0], ['al', 'lost', 0, 0]]);
+    // Net: jo +6, lu +3, al −4; Sam's grant carries the +3 (⌈6/2⌉) with the honour
+    expect([siegePoints('jo'), siegePoints('lu'), siegePoints('al')]).toEqual([6, 3, -4]);
+    const sam = result.grants.find(g => g.userId === 'sam');
+    expect(sam).toMatchObject({ wangChi: true, honour: 8, backBonus: 3 });
+    expect(siegePoints('sam') - samBefore).toBe(sam.total);
+    expect(loadScores(GUILD).siegesPaid[s.id].backing).toEqual(result.backing);
+    // Paid once: the same payout again moves nothing
+    const again = applySiegeResult(GUILD, { siegeId: s.id, grants: [], status: 'won', backing: [{ backerId: 'jo', back: 99 }], now: T + 6 * MIN });
+    expect(again).toMatchObject({ repeat: true, backing: result.backing });
+    expect(siegePoints('jo')).toBe(6);
+  });
+
+  test('a siege live when 2.75.0 deployed (no honours stamp, no backers): it can be backed, and finishes on the Wang Chi rules', () => {
+    const s = spawn('klowns');
+    setFighters([['alex', 'Alex', 60], ['sam', 'Sam', 20], ['kim', 'Kim', 10]], 50);
+    // As 2.74.0 wrote it: no `honours`, no `backers`; Sam freed someone along the way
+    mutate(GUILD, (d) => { delete d.siege.honours; delete d.siege.backers; d.siege.participants.sam.frees = 1; d.siege.killingBlow = { userId: 'alex', name: 'Alex', at: T, by: 'doom' }; });
+    regular('jo');
+    expect(place(s, 'jo', 'sam', 4).backing).toMatchObject({ fighterId: 'sam', stake: 4 });
+    store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, () => 0.99);
+    const { result } = now();
+    expect(result).toMatchObject({ wangChi: { userId: 'sam', help: 12, held: false }, jack: { userId: 'alex' }, mvp: { userId: 'sam' } });
+    expect(result.backing).toEqual([expect.objectContaining({ backerId: 'jo', outcome: 'wangChi', back: 8, bonus: 2 })]);
+    expect(siegePoints('jo')).toBe(4);
+  });
+
+  test('an admin\'s end (or a siege whose monster is gone) refunds every backer', () => {
+    const s = spawn('klowns');
+    hit(s, 'sam', 'doom', 'smite');
+    regular('kim');
+    place(s, 'kim', 'sam', 8);
+    store.finishSiege(GUILD, s.id, 'ended', T + 5 * MIN, scripted([]));
+    expect(now().result.backing).toEqual([expect.objectContaining({ backerId: 'kim', outcome: 'refunded', back: 8 })]);
+    expect(siegePoints('kim')).toBe(0);
+    settle(s);
+    // A monster renamed in a deploy: closed, and its backers refunded
+    const o = spawn('klowns', { at: T + DAY });
+    hit(o, 'sam', 'doom', 'smite', T + DAY + MIN);
+    regular('alex', { at: T + DAY });
+    place(o, 'alex', 'sam', 4, T + DAY + 2 * MIN);
+    mutate(GUILD, (d) => { d.siege.monster = 'gone-monster'; });
+    expect(store.closeOrphanSiege(GUILD, T + DAY + 3 * MIN).siege.result.backing).toEqual([expect.objectContaining({ backerId: 'alex', back: 4 })]);
+    expect(siegePoints('alex')).toBe(0);
+  });
+});
+
+describe('2.75.0: help from plays past the daily scoring cap', () => {
+  /** A blob fight with Sam grabbed (announced), ready to be freed */
+  function grabbed(victim = 'sam', at = T) {
+    const s = loadState(GUILD).siege;
+    mutate(GUILD, (d) => { d.siege.participants[victim].caught = { at, until: at + 10 * MIN, actionId: 'x', by: 'monster' }; });
+    return s;
+  }
+  const free = (actor, outcome, scored, at) => store.siegeAssist(GUILD, { game: 'rescue', actor: { id: actor, name: NAMES[actor] || actor }, targetId: 'sam', outcome, scored }, at);
+  const cure = (actor, scored, at) => store.siegeAssist(GUILD, { game: 'potion', actor: { id: actor, name: NAMES[actor] || actor }, targetId: 'sam', outcome: 'helped', scored }, at);
+
+  test('scored: always credited; unscored: the first 2 a night, then freed but not credited; the next night counts again', () => {
+    expect(SIEGE.credit.unscoredPerNight).toBe(2);
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span });
+    hit(s, 'sam', 'doom', 'smite', T);
+    // Three scored frees: all three count
+    for (let i = 0; i < 3; i++) {
+      grabbed('sam', T + i * MIN);
+      expect(free('kim', 'rescued', true, T + i * MIN + 1).assist).toMatchObject({ kind: 'freed', credited: true });
+    }
+    expect(now().participants.kim).toMatchObject({ frees: 3 });
+    expect(now().participants.kim).not.toHaveProperty('unscored');
+    // Alex past the cap: two count, the third frees Sam all the same but counts for nothing
+    const results = [];
+    for (let i = 0; i < 3; i++) {
+      grabbed('sam', T + (10 + i) * MIN);
+      results.push(free('alex', 'rescued', false, T + (10 + i) * MIN + 1).assist);
+      expect(now().participants.sam.caught).toBeNull();
+    }
+    expect(results.map(a => [a.kind, a.credited])).toEqual([['freed', true], ['freed', true], ['freed', false]]);
+    expect(now().participants.alex).toMatchObject({ frees: 2, unscored: { night: '2026-11-09', n: 2 } });
+    // A cure past the cap the same night: the same two-a-night budget, spent
+    mutate(GUILD, (d) => { d.siege.participants.sam.poisoned = { at: T, until: null, actionId: 'p', by: 'monster' }; });
+    expect(cure('alex', false, T + 20 * MIN).assist).toMatchObject({ kind: 'cured', credited: false });
+    expect(now().participants.sam.poisoned).toBeNull();
+    expect(now().participants.alex).toMatchObject({ frees: 2, cures: 0 });
+    // The nightly tally (the report's) counts only what was credited
+    expect(now().nightly['2026-11-09'].users.alex).toMatchObject({ frees: 2, cures: 0 });
+    expect(now().nightly['2026-11-09'].users.kim).toMatchObject({ frees: 3 });
+    // The next night (12:00 UTC on): two more count
+    const tomorrow = Date.UTC(2026, 10, 10, 20);
+    grabbed('sam', tomorrow);
+    expect(free('alex', 'rescued', false, tomorrow + 1).assist.credited).toBe(true);
+    expect(now().participants.alex).toMatchObject({ frees: 3, unscored: { night: '2026-11-10', n: 1 } });
+    expect(now().nightly['2026-11-10'].users.alex.frees).toBe(1);
+  });
+
+  test('a sacrifice past the cap still swaps; a newcomer whose help isn\'t credited doesn\'t join the fight for it', () => {
+    const s = spawn('klowns');
+    hit(s, 'sam', 'doom', 'smite', T);
+    mutate(GUILD, (d) => { d.siege.participants.dev = { ...fighter('dev', 0, T, 0), frees: 0, unscored: { night: '2026-11-09', n: 2 } }; });
+    grabbed('sam', T);
+    const swap = free('dev', 'sacrificed', false, T + MIN);
+    expect(swap.assist).toMatchObject({ kind: 'swapped', credited: false });
+    expect(now().participants.dev).toMatchObject({ frees: 0, caught: { by: 'sacrifice' } });
+    // Kim's two unscored frees count; a newcomer past their two isn't made a participant
+    mutate(GUILD, (d) => { d.siege.participants.dev.caught = null; });
+    grabbed('sam', T + 2 * MIN);
+    expect(free('kim', 'rescued', false, T + 2 * MIN + 1).assist.credited).toBe(true);
+    expect(now().participants.kim).toMatchObject({ frees: 1, attacks: 0, unscored: { n: 1 } });
+  });
+});
+
+// ── R2 review (2026-11-06): backing's findings ──────────────────────────
+
+describe('R2 review (2026-11-06): backing, store-level', () => {
+  /** A regular in `at`'s month: `points` in another game this month, and 3 of the last 7 nights played */
+  function regular(userId, { points = 50, at = T } = {}) {
+    const month = `m${new Date(at).toISOString().slice(0, 7)}`;
+    const tonight = new Date(at - 12 * HOUR).toISOString().slice(0, 10);
+    const recent = [2, 1, 0].map(i => new Date(Date.parse(tonight) - i * DAY).toISOString().slice(0, 10));
+    mutateScores(GUILD, (d) => {
+      const doom = { all: { points }, [month]: { points } };
+      d.users[userId] = { name: userId, games: { ...(d.users[userId]?.games || {}), doom }, nights: { recent, last: tonight, current: 3, best: 3 } };
+    });
+  }
+  const place = (s, userId, fighterId, stake, at) => store.placeBacking(GUILD, s.id, { userId, name: userId, fighterId, fighterName: fighterId, stake }, at);
+  /** One member's siege game, period by period (all, year, month), as stored */
+  const siegeGame = (userId) => loadScores(GUILD).users[userId]?.games?.siege;
+  const monthTotal = (userId, month) => Object.values(loadScores(GUILD).users[userId]?.games || {}).reduce((n, g) => n + (g?.[month]?.points || 0), 0);
+
+  test('#1 an admin\'s end paid before its siege save (a kill), then fought on and won: it finishes as the end it paid — the win pays nobody and posts nothing, a stake placed since comes back, nothing twice', () => {
+    const s = spawn('klowns');
+    for (const [u, at] of [['sam', T + MIN], ['kim', T + 2 * MIN], ['dev', T + 3 * MIN]]) hit(s, u, 'doom', 'smite', at);
+    regular('jo');
+    regular('lu');
+    expect(place(s, 'jo', 'sam', 5, T + 4 * MIN).backing.stake).toBe(5);
+    // /siege end: finishSiege's scores save (the refund) lands, then the bot dies before its siege save
+    const plan = store.planSiegeRewards(now(), 'ended');
+    applySiegeResult(GUILD, { siegeId: s.id, grants: plan.grants, status: 'ended', backing: plan.backing, now: T + 5 * MIN });
+    expect(now().status).toBe('live');
+    expect(loadScores(GUILD).siegesPaid[s.id]).toMatchObject({ status: 'ended', grants: [] });
+    expect(siegeGame('jo')).toMatchObject({ all: { points: 0 }, 'm2026-11': { points: 0 } });
+    // After the restart it's still live: Lu backs (a new stake), and it's beaten
+    expect(place(s, 'lu', 'kim', 10, T + 6 * MIN).backing.stake).toBe(10);
+    expect(siegeGame('lu').all.points).toBe(-10);
+    mutate(GUILD, (d) => { d.siege.hp = 0; d.siege.killingBlow = { userId: 'sam', name: 'sam', at: T + 7 * MIN, by: 'doom' }; });
+    const done = store.finishSiege(GUILD, s.id, 'won', T + 8 * MIN, () => 0.99);
+    // The end it paid: no grants, no honours, nothing to post (announced with the end), no win counted
+    expect(done.siege.status).toBe('ended');
+    expect(done.siege.result).toMatchObject({ status: 'ended', grants: [], mvp: null, wangChi: null, jack: null, announcedAt: T + 8 * MIN });
+    expect(loadScores(GUILD).siegeStats).toBeUndefined();
+    for (const u of ['sam', 'kim', 'dev']) expect(siegeGame(u)).toBeUndefined();
+    // Jo's refund once; Lu's stake, taken after the end was paid, refunded — named as Lu's backing, not an orphan
+    expect(done.siege.result.backing.map(b => [b.backerId, b.fighterId, b.outcome, b.back, !!b.orphan])).toEqual([['jo', 'sam', 'refunded', 5, false], ['lu', 'kim', 'refunded', 10, false]]);
+    expect(siegeGame('jo')).toMatchObject({ all: { points: 0, bonus: 0 }, y2026: { points: 0 }, 'm2026-11': { points: 0 } });
+    expect(siegeGame('lu')).toMatchObject({ all: { points: 0, bonus: 0 }, y2026: { points: 0 }, 'm2026-11': { points: 0 } });
+    expect([monthTotal('jo', 'm2026-11'), monthTotal('lu', 'm2026-11')]).toEqual([50, 50]);
+    expect(loadScores(GUILD).backStakes).toEqual({});
+    expect(loadScores(GUILD).siegesPaid[s.id].backing.map(b => b.backerId)).toEqual(['jo', 'lu']);
+    // And again: nothing moves
+    const again = applySiegeResult(GUILD, { siegeId: s.id, grants: [], status: 'won', backing: [], now: T + 9 * MIN });
+    expect(again).toMatchObject({ repeat: true, status: 'ended' });
+    expect([siegeGame('jo').all.points, siegeGame('lu').all.points]).toEqual([0, 0]);
+  });
+
+  test('#2a an escape\'s −3 is floored at the month WITH the stake back in it: staking your whole month shields nothing', () => {
+    const run = (backed) => {
+      deleteScores(GUILD);
+      for (const f of happeningFiles()) fs.unlinkSync(f);
+      const s = spawn('klowns');
+      regular('ana', { points: 5 });
+      regular('ben');
+      hit(s, 'ana', 'doom', 'smite', T + MIN);
+      hit(s, 'ben', 'doom', 'smite', T + 2 * MIN);
+      if (backed) expect(place(s, 'ana', 'ben', 5, T + 3 * MIN).backing.stake).toBe(5);
+      if (backed) expect(monthTotal('ana', 'm2026-11')).toBe(0);
+      const done = store.finishSiege(GUILD, s.id, 'escaped', s.endsAt + MIN, scripted([]));
+      return { grant: done.siege.result.grants.find(g => g.userId === 'ana').points, backing: done.siege.result.backing.map(b => [b.outcome, b.back]), siege: siegeGame('ana')['m2026-11'].points, month: monthTotal('ana', 'm2026-11') };
+    };
+    // Two fought: the escape costs 3 each, and a backing is refunded (fewer than 3 to call it)
+    expect(run(false)).toEqual({ grant: -3, backing: [], siege: -3, month: 2 });
+    expect(run(true)).toEqual({ grant: -3, backing: [['refunded', 5]], siege: -3, month: 2 });
+  });
+
+  test('#2b a grab\'s −5 counts a stake still out: what the month can\'t cover is owed from the stake, kept back when it comes home; the month never goes below 0', () => {
+    const s = spawn('klowns');
+    setFighters([['ben', 'ben', 60], ['kim', 'kim', 30], ['dev', 'dev', 10], ['ana', 'ana', 5]], 50);
+    regular('ana', { points: 8 });
+    regular('al', { points: 5 });
+    expect(place(s, 'ana', 'kim', 5, T + MIN).backing.stake).toBe(5);
+    expect(place(s, 'al', 'dev', 5, T + MIN).backing.stake).toBe(5);
+    const key = (u) => `${s.id}:${u}`;
+    // Ana has 3 left in the month: 3 from it, 2 from the stake. Al has 0: all 5 from his
+    expect(applySiegePenalty(GUILD, { key: 'g1', userId: 'ana', name: 'ana', loss: 5, now: T + 2 * MIN })).toEqual({ points: -5 });
+    expect(applySiegePenalty(GUILD, { key: 'g2', userId: 'al', name: 'al', loss: 5, now: T + 2 * MIN })).toEqual({ points: -5 });
+    expect([monthTotal('ana', 'm2026-11'), monthTotal('al', 'm2026-11')]).toEqual([0, 0]);
+    expect(loadScores(GUILD).backStakes).toEqual({ [key('ana')]: { at: T + MIN, stake: 5, owed: 2 }, [key('al')]: { at: T + MIN, stake: 5, owed: 5 } });
+    // A second grab: nothing left of Al's to take
+    expect(applySiegePenalty(GUILD, { key: 'g3', userId: 'al', name: 'al', loss: 5, now: T + 3 * MIN })).toEqual({ points: 0 });
+    // Kim and Dev are top 3 (pushes: Ana's stake home less the 2 owed, Al's less all 5); Ben, held, is the Wang Chi
+    mutate(GUILD, (d) => { d.siege.hp = 0; d.siege.killingBlow = { userId: 'ben', name: 'ben', at: T + 4 * MIN, by: 'doom' }; });
+    const done = store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, () => 0.99);
+    expect(done.siege.result.backing.map(b => [b.backerId, b.outcome, b.back, b.owed])).toEqual([['al', 'push', 5, 5], ['ana', 'push', 5, 2]]);
+    // Just as if they'd been grabbed with no stake out: 8 − 5 = 3, and 5 − 5 = 0 (ana's own grant aside)
+    const anaGrant = done.siege.result.grants.find(g => g.userId === 'ana').total;
+    expect(monthTotal('ana', 'm2026-11')).toBe(3 + anaGrant);
+    expect(monthTotal('al', 'm2026-11')).toBe(0);
+    expect(siegeGame('al')).toMatchObject({ all: { points: -5 }, 'm2026-11': { points: -5 } });
+    expect(loadScores(GUILD).backStakes).toEqual({});
+  });
+
+  test('#2b a lost stake forgives what a grab owed: never below 0 — as if grabbed first, then staked what was left', () => {
+    const s = spawn('klowns');
+    setFighters([['ben', 'ben', 60], ['kim', 'kim', 30], ['dev', 'dev', 10], ['eve', 'eve', 5]], 50);
+    regular('al', { points: 5 });
+    place(s, 'al', 'eve', 5, T + MIN);
+    expect(applySiegePenalty(GUILD, { key: 'g1', userId: 'al', name: 'al', loss: 5, now: T + 2 * MIN })).toEqual({ points: -5 });
+    mutate(GUILD, (d) => { d.siege.hp = 0; d.siege.killingBlow = { userId: 'ben', name: 'ben', at: T + 4 * MIN, by: 'doom' }; });
+    const done = store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, () => 0.99);
+    expect(done.siege.result.backing.map(b => [b.backerId, b.outcome, b.back, b.owed])).toEqual([['al', 'lost', 0, 5]]);
+    expect(monthTotal('al', 'm2026-11')).toBe(0);
+    expect(siegeGame('al')['m2026-11'].points).toBe(-5);
+  });
+
+  test('#2b a stake from LAST month isn\'t this month\'s to take: the grab is floored at this month alone', () => {
+    const start = Date.UTC(2026, 9, 28, 20, 0);
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span, at: start });
+    hit(s, 'ben', 'doom', 'smite', start + MIN);
+    regular('al', { points: 20, at: start });
+    place(s, 'al', 'ben', 10, Date.UTC(2026, 9, 30, 21, 0));
+    // November: Al has played nothing yet this month
+    expect(applySiegePenalty(GUILD, { key: 'g1', userId: 'al', name: 'al', loss: 5, now: Date.UTC(2026, 10, 1, 13, 0) })).toEqual({ points: 0 });
+    expect(loadScores(GUILD).backStakes[`${s.id}:al`]).toEqual({ at: Date.UTC(2026, 9, 30, 21, 0), stake: 10 });
+  });
+
+  test('#3 a stake comes back to the month it was taken from, and only a gain goes to the finish\'s: a week campaign over October\'s end', () => {
+    const start = Date.UTC(2026, 9, 28, 20, 0); // Wednesday 28 October
+    const backAt = Date.UTC(2026, 9, 30, 21, 0);
+    const finishAt = Date.UTC(2026, 10, 2, 20, 0);
+    for (const [status, fighterId, want] of [
+      ['ended', 'sam', { oct: 0, nov: undefined, all: 0 }], // refunded: October gets its 10 back
+      ['won', 'kim', { oct: 0, nov: 10, all: 10 }], // the Wang Chi: the 10 home to October, the +10 won in November
+      ['won', 'dev', { oct: 0, nov: undefined, all: 0 }], // top 3: a push
+      ['won', 'eve', { oct: -10, nov: undefined, all: -10 }], // lost: October's −10 stays
+    ]) {
+      deleteScores(GUILD);
+      for (const f of happeningFiles()) fs.unlinkSync(f);
+      const s = spawn('klowns', { minutes: SIEGE_PACES.week.span, at: start });
+      mutate(GUILD, (d) => {
+        d.siege.participants = Object.fromEntries([['sam', 90], ['kim', 40], ['dev', 30], ['eve', 5]].map(([id, dmg], i) => [id, fighter(id, dmg, start + i)]));
+        d.siege.participants.kim.frees = 2;
+      });
+      regular('jo', { at: backAt });
+      expect(place(s, 'jo', fighterId, 10, backAt).backing.stake).toBe(10);
+      expect(siegeGame('jo')['m2026-10'].points).toBe(-10);
+      if (status === 'won') mutate(GUILD, (d) => { d.siege.hp = 0; d.siege.killingBlow = { userId: 'sam', name: 'sam', at: finishAt - MIN, by: 'doom' }; });
+      const done = store.finishSiege(GUILD, s.id, status, finishAt, () => 0.99);
+      expect(done.siege.result.backing[0]).toMatchObject({ backerId: 'jo', at: backAt });
+      const g = siegeGame('jo');
+      expect([status, fighterId, g['m2026-10'].points, g['m2026-11']?.points, g.all.points, g.y2026.points]).toEqual([status, fighterId, want.oct, want.nov, want.all, want.all]);
+    }
+  });
+
+  test('#3 an orphaned stake (a kill between placeBacking\'s saves) is refunded to its own month too', () => {
+    const start = Date.UTC(2026, 9, 28, 20, 0);
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span, at: start });
+    regular('jo', { at: Date.UTC(2026, 9, 30, 21, 0) });
+    stakeBacking(GUILD, { key: `${s.id}:jo`, userId: 'jo', name: 'jo', stake: 6 }, Date.UTC(2026, 9, 30, 21, 0));
+    store.finishSiege(GUILD, s.id, 'ended', Date.UTC(2026, 10, 2, 20, 0), scripted([]));
+    expect(siegeGame('jo')).toMatchObject({ all: { points: 0 }, 'm2026-10': { points: 0 } });
+    expect(siegeGame('jo')['m2026-11']).toBeUndefined();
+    expect(now().result.backing).toEqual([expect.objectContaining({ backerId: 'jo', outcome: 'refunded', back: 6, orphan: true, at: Date.UTC(2026, 9, 30, 21, 0) })]);
+  });
+
+  test('#4 the backing carrying the Wang Chi\'s share is listed first, so "…backed them too" follows the line it refers to', () => {
+    const s = spawn('klowns');
+    setFighters([['sam', 'Sam', 60], ['kim', 'Kim', 30], ['dev', 'dev', 10]], 50);
+    mutate(GUILD, (d) => { d.siege.participants.kim.frees = 2; d.siege.killingBlow = { userId: 'sam', name: 'Sam', at: T, by: 'doom' }; });
+    regular('jo');
+    regular('lu');
+    place(s, 'jo', 'kim', 3, T + MIN); // the smaller stake, first
+    place(s, 'lu', 'kim', 10, T + 2 * MIN);
+    mutate(GUILD, (d) => { d.siege.hp = 0; });
+    store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, () => 0.99);
+    const field = resultsPayload(now(), { kit: createKit(new Map()) }).embeds[0].toJSON().fields[0];
+    expect(field.value.split('\n')).toEqual([
+      fill(lineFor(`${s.id}lu`, HONOURS.backing.wangChi, 0), { backer: 'lu', fighter: 'Kim', stake: 10, gain: '+10', bonus: '+5' }),
+      '🎲 jo backed Kim too (3): Wang Chi! jo +3.',
+    ]);
+  });
+
+  test('#5 a retry after a lost backing save: the scores file\'s pre-check refuses nothing — the stake taken is this backing\'s', () => {
+    const s = spawn('klowns');
+    hit(s, 'sam', 'doom', 'smite');
+    regular('jo', { points: 5 });
+    // The scores half of placeBacking landed; the siege half didn't
+    stakeBacking(GUILD, { key: `${s.id}:jo`, userId: 'jo', name: 'jo', stake: 5 }, T + 2 * MIN);
+    const data = loadScores(GUILD);
+    // Without the key it's another backing today, from a month that's now 0: refused
+    expect(backingProblem(data, 'jo', 5, T + 3 * MIN)).toEqual({ error: 'daily' });
+    expect(backingProblem(data, 'jo', 5, T + 3 * MIN, { key: `${s.id}:jo` })).toBeNull();
+    // Another siege's key is no excuse
+    expect(backingProblem(data, 'jo', 5, T + 3 * MIN, { key: 'other:jo' })).toEqual({ error: 'daily' });
+    expect(place(s, 'jo', 'sam', 5, T + 3 * MIN).backing).toMatchObject({ fighterId: 'sam', stake: 5 });
+    expect(siegeGame('jo').all.points).toBe(-5);
+    expect(loadScores(GUILD).daily.jo.backs).toBe(1);
+  });
+
+  test('#3/#2a with the 2.74.0 pot payout: a Wang Chi past the reward limit is paid what their attacks scored, no honours, no share of their backers — who are paid in full', () => {
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span });
+    setFighters([['sam', 'Sam', 60], ['kim', 'Kim', 30], ['dev', 'dev', 10]], 50);
+    mutate(GUILD, (d) => { d.siege.participants.kim.frees = 2; d.siege.participants.kim.own = 7; d.siege.killingBlow = { userId: 'sam', name: 'Sam', at: T, by: 'doom' }; });
+    regular('jo');
+    place(s, 'jo', 'kim', 6, T + MIN);
+    mutateScores(GUILD, (d) => { d.daily.kim = { day: '2026-11-09', plays: {}, sieges: SIEGE.rewardedPerDay }; });
+    mutate(GUILD, (d) => { d.siege.hp = 0; });
+    const done = store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, () => 0.99);
+    const kim = done.siege.result.grants.find(g => g.userId === 'kim');
+    expect(kim).toMatchObject({ limited: true, points: 7, total: 7, own: 7, wangChi: false, mvp: false, jack: false, honour: 0, backBonus: 0, loot: null, win: false });
+    expect(siegeGame('kim')).toMatchObject({ all: { points: 7, bonus: 7 }, 'm2026-11': { points: 7 } });
+    // Jo called it: ×2 back, never held back by Kim's limit
+    expect(done.siege.result.backing).toEqual([expect.objectContaining({ backerId: 'jo', outcome: 'wangChi', back: 12, bonus: 3 })]);
+    expect(siegeGame('jo').all.points).toBe(6);
+    const rows = resultsPayload(now(), { kit: createKit(new Map()) }).embeds[0].toJSON().description.split('\n');
+    expect(rows.find(r => r.includes('Kim'))).toBe('🥈 Kim · `30` damage · `+7` · reward limit reached (2 sieges a day): just what the attacks scored');
+  });
+
+  test('merged: one fighter alone at a pot pace, past the reward limit, is paid what their attacks scored too (2.74.0\'s `own` on a solo grant)', () => {
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span });
+    setFighters([['sam', 'Sam', 60]], 0);
+    mutate(GUILD, (d) => { d.siege.participants.sam.own = 9; d.siege.killingBlow = { userId: 'sam', name: 'Sam', at: T, by: 'doom' }; });
+    mutateScores(GUILD, (d) => { d.daily.sam = { day: '2026-11-09', plays: {}, sieges: SIEGE.rewardedPerDay }; });
+    const done = store.finishSiege(GUILD, s.id, 'won', T + 5 * MIN, scripted([]));
+    expect(done.siege.result.grants).toEqual([expect.objectContaining({ userId: 'sam', solo: true, limited: true, own: 9, points: 9, total: 9, wangChi: false, jack: false })]);
+    expect(siegeGame('sam')).toMatchObject({ all: { points: 9 }, 'm2026-11': { points: 9 } });
+  });
+
+  test('help from unscored plays is counted per SIEGE night: a week campaign\'s folded first night is one night, not two', () => {
+    // Started 08:00 UTC: the 12:00 boundary 4 hours on is under firstNightMinHours, so night 1 runs to the next day's 12:00
+    const start = Date.UTC(2026, 10, 9, 8, 0);
+    const s = spawn('klowns', { minutes: SIEGE_PACES.week.span, at: start });
+    expect(PACE_RULES.firstNightMinHours).toBeGreaterThan(4);
+    hit(s, 'sam', 'doom', 'smite', start + MIN);
+    const grab = (at) => mutate(GUILD, (d) => { d.siege.participants.sam.caught = { at, until: at + 10 * HOUR, actionId: 'x', by: 'monster' }; });
+    const free = (at) => store.siegeAssist(GUILD, { game: 'rescue', actor: { id: 'kim', name: 'Kim' }, targetId: 'sam', outcome: 'rescued', scored: false }, at).assist.credited;
+    const credited = [];
+    for (const at of [start + HOUR, start + 2 * HOUR, start + 5 * HOUR, Date.UTC(2026, 10, 10, 13, 0)]) {
+      grab(at - MIN);
+      credited.push(free(at));
+    }
+    // 09:00 and 10:00 count; 13:00 is past 12:00 UTC but still night 1; the next day's 13:00 is night 2
+    expect(credited).toEqual([true, true, false, true]);
+    expect(now().participants.kim).toMatchObject({ frees: 3, unscored: { night: '2026-11-10', n: 1 } });
+    expect(Object.keys(now().nightly).sort()).toEqual(['2026-11-09', '2026-11-10']);
+    expect(now().nightly['2026-11-09'].users.kim.frees).toBe(2);
   });
 });

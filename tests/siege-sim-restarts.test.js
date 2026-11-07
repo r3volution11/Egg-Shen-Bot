@@ -206,3 +206,174 @@ describe('a restart between the finish and the results', () => {
     sim.finalChecks();
   });
 });
+
+describe('2.75.0: a restart with backers', () => {
+  test('f. killed mid-results (before and after Discord took them): the backers and the honours are paid once, never twice', async () => {
+    for (const mode of ['crash-before', 'crash-after']) {
+      const sim = fresh(`rs-backers-${mode}`);
+      await sim.start({ monster: 'klowns' });
+      await sim.attack('cat', 'food', { force: 'splash' });
+      await sim.attack('ana', 'doom', { force: 'smite' });
+      await sim.attack('ben', 'doom', { force: 'smite' });
+      sim.regular('dev');
+      sim.regular('eve');
+      await sim.back('dev', 'ana', 6);
+      await sim.back('eve', 'cat', 2);
+      expect([sim.siegePoints().dev, sim.siegePoints().eve]).toEqual([-6, -2]);
+      await beat(sim);
+      sim.fault({ on: 'send', kind: 'results', mode });
+      await sim.advance(MINUTE);
+      expect(sim.crashes).toBe(1);
+      const s = sim.siege();
+      expect(s.status).toBe('won');
+      const paid = JSON.stringify(sim.scores().siegesPaid);
+      const points = sim.siegePoints();
+      // Settled by the matrix, and paid with the finish: dev's ana is top 3 at least (a push or better), eve's cat is 3rd of 3 (a push)
+      const dev = s.result.backing.find(b => b.backerId === 'dev');
+      const eve = s.result.backing.find(b => b.backerId === 'eve');
+      expect(['wangChi', 'push']).toContain(dev.outcome);
+      expect(eve).toMatchObject({ outcome: 'push', back: 2 });
+      expect([points.dev, points.eve]).toEqual([-6 + dev.back, 0]);
+      // The passes after the restart: nothing paid again, whatever happens to the results
+      await sim.advance(3 * MINUTE);
+      await sim.restart();
+      await sim.advance(2 * MINUTE);
+      expect(JSON.stringify(sim.scores().siegesPaid)).toBe(paid);
+      expect(sim.siegePoints()).toEqual(points);
+      expect(sim.messagesFor(s.id, 'results')).toHaveLength(mode === 'crash-after' ? 1 : 0);
+      sim.finalChecks();
+    }
+  });
+
+  test('a restart between a backing and the finish: the backing is on the siege, its stake taken once', async () => {
+    const sim = fresh('rs-backing-restart');
+    await sim.start({ monster: 'klowns' });
+    await sim.attack('ana', 'doom', { force: 'smite' });
+    await sim.attack('ben', 'doom', { force: 'smite' });
+    await sim.attack('cat', 'food', { force: 'splash' });
+    sim.regular('dev');
+    await sim.back('dev', 'ben', 4);
+    await sim.restart();
+    expect(sim.siege().backers.dev).toMatchObject({ fighterId: 'ben', stake: 4 });
+    expect((await sim.back('dev', 'ana', 4)).reply.content).toBe(mods.btilc.HONOURS.backing.refusals.already);
+    expect(sim.siegePoints().dev).toBe(-4);
+    await beat(sim);
+    await sim.advance(MINUTE);
+    const b = sim.siege().result.backing[0];
+    expect(sim.siegePoints().dev).toBe(-4 + b.back);
+    sim.finalChecks();
+  });
+});
+
+// ── R2 review (2026-11-06) ──────────────────────────────────────────────
+//
+// The sim kills the bot at Discord calls; finishSiege's and placeBacking's
+// two saves are one synchronous block with no Discord call between them, so
+// these leave the files exactly as such a kill would — the scores file's
+// half saved, the happenings file's not — by hand, then restart.
+
+describe('R2 review (2026-11-06): a kill between two saves, with backers', () => {
+  const lines = (m) => m.content.split('\n');
+
+  test('#1 an admin\'s /siege end killed between its saves (backers refunded, the siege still live), then backed again and beaten: it ends as the end it paid — no win, no results, the new stake refunded, nothing twice', async () => {
+    const sim = fresh('rs-r2-end-then-won');
+    await sim.start({ monster: 'klowns' });
+    await sim.attack('cat', 'food', { force: 'splash' });
+    sim.regular('dev');
+    sim.regular('eve');
+    await sim.back('dev', 'cat', 5);
+    expect(sim.siegePoints().dev).toBe(-5);
+    // /siege end: finishSiege pays the end (dev's refund) to the scores file — and the bot dies before the siege's save
+    const s0 = sim.siege();
+    const plan = mods.store.planSiegeRewards(s0, 'ended');
+    mods.scores.applySiegeResult(sim.guildId, { siegeId: s0.id, grants: plan.grants, status: 'ended', backing: plan.backing, now: clock.now });
+    await sim.restart();
+    expect(sim.siege()).toMatchObject({ id: s0.id, status: 'live' });
+    expect(sim.siegePoints().dev).toBe(0);
+    // Still live after the restart: eve backs (her stake is taken), and the fight goes on to a win
+    await sim.back('eve', 'cat', 4);
+    expect(sim.siegePoints().eve).toBe(-4);
+    const before = sim.siegePoints();
+    await beat(sim);
+    const fought = sim.siegePoints();
+    await sim.advance(MINUTE);
+    const s = sim.siege();
+    // It finishes as the end that was paid: no grants, no honours, no win counted, nothing posted
+    expect(s.status).toBe('ended');
+    expect(s.result).toMatchObject({ status: 'ended', grants: [], mvp: null, wangChi: null, jack: null });
+    expect(sim.messagesFor(s.id, 'results')).toHaveLength(0);
+    expect(sim.scores().siegeStats).toBeUndefined();
+    // dev's refund once (at the end), eve's now — named as her backing, not a lost stake
+    expect(s.result.backing.map(b => [b.backerId, b.fighterId, b.outcome, b.back, !!b.orphan])).toEqual([['dev', 'cat', 'refunded', 5, false], ['eve', 'cat', 'refunded', 4, false]]);
+    expect(sim.scores().backStakes).toEqual({});
+    const after = sim.siegePoints();
+    expect([after.dev, after.eve]).toEqual([0, 0]);
+    // The fighters keep what their attacks scored as they landed (quick), and nothing more
+    for (const u of ['ana', 'ben', 'cat']) expect([u, after[u]]).toEqual([u, fought[u]]);
+    expect(fought.cat).toBe(before.cat);
+    // A deploy later: nothing moves again
+    await sim.restart();
+    await sim.advance(2 * MINUTE);
+    expect(sim.siegePoints()).toEqual(after);
+    sim.finalChecks();
+  });
+
+  test('#1 the same, and the admin runs /siege end again at 0 HP: it says what happened — ended, the stakes back — not "it counts as a win"', async () => {
+    const sim = fresh('rs-r2-end-again');
+    await sim.start({ monster: 'klowns' });
+    await sim.attack('cat', 'food', { force: 'splash' });
+    sim.regular('dev');
+    sim.regular('eve');
+    await sim.back('dev', 'cat', 5);
+    const s0 = sim.siege();
+    const plan = mods.store.planSiegeRewards(s0, 'ended');
+    mods.scores.applySiegeResult(sim.guildId, { siegeId: s0.id, grants: plan.grants, status: 'ended', backing: plan.backing, now: clock.now });
+    await sim.restart();
+    await sim.back('eve', 'cat', 4);
+    await beat(sim);
+    expect(sim.siege()).toMatchObject({ status: 'live', hp: 0 });
+    const ended = await sim.end();
+    expect(ended.reply.content).toBe('⏹️ Ended the siege: Killer Klowns slinks off. No rewards, no penalties. Backers got their stakes back.');
+    expect(sim.siege().status).toBe('ended');
+    expect(sim.messagesFor(s0.id, 'results')).toHaveLength(0);
+    expect([sim.siegePoints().dev, sim.siegePoints().eve]).toEqual([0, 0]);
+    sim.finalChecks();
+  });
+
+  test('#5 /siege back again after a kill lost its siege save (the stake taken, no backing): accepted, and the stake is taken once', async () => {
+    const sim = fresh('rs-r2-back-retry');
+    await sim.start({ monster: 'klowns' });
+    await sim.attack('ana', 'doom', { force: 'smite' });
+    await sim.attack('ben', 'doom', { force: 'smite' });
+    await sim.attack('cat', 'food', { force: 'splash' });
+    // Every point dev has this month, staked: refusing the retry as `poor` would be wrong too
+    sim.regular('dev', { points: 5 });
+    const s = sim.siege();
+    // placeBacking's scores save landed; the kill came before its siege save
+    mods.scores.stakeBacking(sim.guildId, { key: `${s.id}:dev`, userId: 'dev', name: 'dev', stake: 5 }, clock.now);
+    sim.track(s).orphanable = true;
+    await sim.restart();
+    expect(sim.siegePoints().dev).toBe(-5);
+    expect(sim.siege().backers).toEqual({});
+    // The retry the store promises: placed, publicly, pinging nobody — taking nothing more
+    const retry = await sim.back('dev', 'ana', 5);
+    const closes = Math.floor(mods.store.backingClosesAt(s) / 1000);
+    const { HONOURS, fill } = mods.btilc;
+    expect(retry.reply.ephemeralFor).toBeFalsy();
+    expect(lines(retry.reply)).toEqual([
+      fill(mods.card.lineFor(`${s.id}dev`, HONOURS.backing.placed), { backer: 'dev', fighter: 'ana', stake: 5 }),
+      `-# dev −5 (staked) · back ×2 if ana is the Wang Chi, your stake back if top 3 or the Jack Burton · closes <t:${closes}:R>`,
+    ]);
+    expect(sim.siege().backers.dev).toMatchObject({ fighterId: 'ana', stake: 5 });
+    expect(sim.siegePoints().dev).toBe(-5);
+    expect(sim.scores().daily.dev.backs).toBe(1);
+    // Still one backing a siege
+    expect((await sim.back('dev', 'ben', 5)).reply.content).toBe(HONOURS.backing.refusals.already);
+    await beat(sim);
+    await sim.advance(MINUTE);
+    const b = sim.siege().result.backing;
+    expect(b).toEqual([expect.objectContaining({ backerId: 'dev', fighterId: 'ana', stake: 5 })]);
+    expect(sim.siegePoints().dev).toBe(-5 + b[0].back);
+    sim.finalChecks();
+  });
+});

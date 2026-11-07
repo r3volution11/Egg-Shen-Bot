@@ -279,6 +279,7 @@ interface WatchHistoryEntry {
   watchedAt: number;           // Epoch ms
   channelId?: string;          // Absent for entries logged with /watched add
   channelName?: string;
+  cardMessageId?: string | null; // Log to Watch History: the card it came from (logged once)
 }
 ```
 

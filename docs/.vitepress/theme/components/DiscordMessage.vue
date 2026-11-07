@@ -9,7 +9,8 @@ import { discordMarkdown } from '../inline.js'
 defineProps({
   // { author, time, edited, ephemeral, command: { user, name }, content,
   //   embeds: [{ color, author, title, description, fields: [{ name, value, inline }],
-  //   footer, timestamp, thumbnail: 'avatar' | 'poster' }],
+  //   footer, timestamp, thumbnail: 'avatar' | 'poster' | 'bot' }],
+  //   ('avatar' is a member's, 'bot' the bot's own, drawn with its logo)
   //   rows: [[{ label, kind: 'primary'|'secondary'|'success'|'danger', disabled }]] }
   message: { type: Object, required: true },
   // What a screen reader hears instead of a fake chat
@@ -65,7 +66,8 @@ const hex = (c) => (typeof c === 'number' ? `#${c.toString(16).padStart(6, '0')}
               </div>
             </div>
             <div v-if="e.thumbnail" class="dm-thumb" :class="`dm-thumb-${e.thumbnail}`" aria-hidden="true">
-              {{ e.thumbnail === 'avatar' ? '👤' : '🎬' }}
+              <img v-if="e.thumbnail === 'bot'" src="/logo.png" alt="" width="80" height="80">
+              <template v-else>{{ e.thumbnail === 'avatar' ? '👤' : '🎬' }}</template>
             </div>
           </div>
           <div v-for="(row, i) in message.rows || []" :key="`r${i}`" class="dm-buttons">

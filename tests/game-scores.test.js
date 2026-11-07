@@ -15,8 +15,9 @@ import path from 'path';
 import {
   POINTS, DEFAULT_GAME_SETTINGS, getGameSettings, channelAllowed, recordPlay, loadScores,
   shieldedUntil, getScoreboard, getLeaderboard, resetScores, deleteScores,
-  checkPlayLimit, resetPlayLimits, resultLine,
+  checkPlayLimit, resetPlayLimits, resultLine, applySiegeResult, mutateScores, nightsPlayedWithin, backingProblem, stakeBacking,
 } from '../src/utils/gameScores.js';
+import { TITLES, TITLE_POINTS, SIEGE, WANG_CHI_TITLE_COUNTER } from '../src/data/gameRewards.js';
 import { tagged } from '../src/utils/gamePlay.js';
 
 const GUILD = 'scores-guild';
@@ -327,5 +328,106 @@ describe('custom lines saved before outcomes', () => {
   test('a plain string counts as the fallback outcome', () => {
     expect(tagged(['{user} bites {target}', { text: 'x', outcome: 'escaped' }, null, ''], 'doomed'))
       .toEqual([{ text: '{user} bites {target}', outcome: 'doomed' }, { text: 'x', outcome: 'escaped' }]);
+  });
+});
+
+// ── 2.75.0: the Wang Chi, the Jack Burton and backing, in the scores file ──
+
+describe('2.75.0: a finished siege\'s honours and backing, paid', () => {
+  const siegeOf = (userId) => loadScores(GUILD).users[userId]?.games?.siege?.all;
+  /** A member past the start: these siege counters, and the titles they've already earned */
+  const veteran = (userId, siege, earned = []) => mutateScores(GUILD, (d) => {
+    d.users[userId] = {
+      name: userId, games: {},
+      lifetime: { do: {}, got: {}, streak: {}, bestStreak: 0, siege: { wins: 0, mvps: 0, kaiju: 0, ...siege } },
+      titles: { earned: Object.fromEntries(earned.map(k => [k, NOW - DAY])), shown: null },
+    };
+  });
+  const win = (userId, extra) => ({ userId, name: userId, points: 10, loss: 0, loot: null, win: true, mvp: false, wangChi: false, jack: false, honour: 0, backBonus: 0, kaiju: false, ...extra });
+
+  test('the titles: 🥋 Wang Chi at 5 Wang Chis (the MVPs counter, before 2.75.0 too), 🤠 Everybody Relax at 10 Jack Burtons', () => {
+    expect(TITLES.find(t => t.key === 'wang-chi')).toEqual({ key: 'wang-chi', title: 'Wang Chi', badge: '🥋', need: 5, siege: 'mvps' });
+    expect(TITLES.find(t => t.key === 'everybody-relax')).toEqual({ key: 'everybody-relax', title: 'Everybody Relax, I\'m Here', badge: '🤠', need: 10, siege: 'jacks' });
+    // Open question 2's default: MVPs from before 2.75.0 count toward it
+    expect(WANG_CHI_TITLE_COUNTER).toBe('mvps');
+    // Between Siege MVP (1) and Legend (10), in that order on the list
+    const keys = TITLES.map(t => t.key);
+    expect(keys.slice(keys.indexOf('siege-mvp'), keys.indexOf('legend') + 1)).toEqual(['siege-mvp', 'wang-chi', 'legend']);
+    veteran('sam', { mvps: 4, jacks: 9 }, ['siege-mvp']);
+    const paid = applySiegeResult(GUILD, { siegeId: 's1', grants: [win('sam', { mvp: true, wangChi: true, jack: true, honour: 11 })], status: 'won', now: NOW });
+    expect(paid.grants[0].titles).toEqual(['wang-chi', 'everybody-relax']);
+    expect(paid.grants[0].total).toBe(10 + 2 * TITLE_POINTS);
+    expect(loadScores(GUILD).users.sam.lifetime.siege).toEqual({ wins: 1, mvps: 5, wangChis: 1, jacks: 10, kaiju: 0 });
+    expect(siegeOf('sam')).toMatchObject({ points: 30, bonus: 30 });
+  });
+
+  test('a veteran with 5 MVPs from before 2.75.0 earns the Wang Chi title (+10) at the next title check — any siege payout', () => {
+    veteran('kim', { mvps: 5, wins: 7 }, ['siege-mvp']);
+    const paid = applySiegeResult(GUILD, { siegeId: 's2', grants: [win('kim')], status: 'won', now: NOW });
+    expect(paid.grants[0].titles).toEqual(['wang-chi']);
+    expect(loadScores(GUILD).users.kim.lifetime.siege).toMatchObject({ mvps: 5, wins: 8 });
+  });
+
+  test('the Jack Burton counts only on a win; jacks and Wang Chis start from 0 for a member who has neither', () => {
+    applySiegeResult(GUILD, { siegeId: 's3', grants: [win('alex', { jack: true, win: false, points: 0 })], status: 'won', now: NOW });
+    expect(loadScores(GUILD).users.alex.lifetime.siege).toEqual({ wins: 0, mvps: 0, kaiju: 0 });
+    applySiegeResult(GUILD, { siegeId: 's4', grants: [win('alex', { jack: true })], status: 'won', now: NOW });
+    expect(loadScores(GUILD).users.alex.lifetime.siege).toEqual({ wins: 1, mvps: 0, jacks: 1, kaiju: 0 });
+  });
+
+  test('past the daily limit a grant pays no honours, no share of its backers — but its backers are paid; and paying twice pays once', () => {
+    expect(SIEGE.rewardedPerDay).toBe(2);
+    mutateScores(GUILD, (d) => { d.daily.sam = { day: '2026-10-15', plays: {}, sieges: 2 }; });
+    const backing = [
+      { backerId: 'jo', backerName: 'Jo', fighterId: 'sam', fighterName: 'sam', stake: 5, outcome: 'wangChi', back: 10, bonus: 3 },
+      { backerId: 'lu', backerName: 'Lu', fighterId: 'kim', fighterName: 'kim', stake: 4, outcome: 'lost', back: 0, bonus: 0 },
+    ];
+    const grants = [win('sam', { mvp: true, wangChi: true, jack: true, honour: 11, points: 25, backBonus: 3 }), win('kim', { points: 6 })];
+    const paid = applySiegeResult(GUILD, { siegeId: 's5', grants, status: 'won', backing, now: NOW });
+    expect(paid.grants[0]).toMatchObject({ limited: true, points: 0, mvp: false, wangChi: false, jack: false, honour: 0, backBonus: 0, total: 0 });
+    expect(paid.grants[1]).toMatchObject({ points: 6, total: 6 });
+    expect(paid.backing.map(b => [b.backerId, b.back])).toEqual([['jo', 10], ['lu', 0]]);
+    expect(siegeOf('sam')).toBeUndefined();
+    // Nothing counted: no win, no Wang Chi, no Jack Burton
+    expect(loadScores(GUILD).users.sam?.lifetime?.siege ?? {}).toEqual({});
+    // The backer's payout is theirs: never held back
+    expect(siegeOf('jo')).toMatchObject({ points: 10, bonus: 10 });
+    // A grant within the limit is paid its backBonus with its points
+    const ok = applySiegeResult(GUILD, { siegeId: 's6', grants: [win('kim', { points: 6, backBonus: 3 })], status: 'won', now: NOW });
+    expect(ok.grants[0]).toMatchObject({ points: 9, total: 9 });
+    // Again: the first payout handed back, nothing moved
+    const again = applySiegeResult(GUILD, { siegeId: 's5', grants, status: 'won', backing, now: NOW + MIN });
+    expect(again).toEqual({ grants: paid.grants, backing: paid.backing, status: 'won', repeat: true });
+    expect(siegeOf('jo').points).toBe(10);
+  });
+});
+
+describe('2.75.0: backing, the member\'s side', () => {
+  const tonight = '2026-10-15'; // NOW is noon: the night that starts at 12:00 UTC
+  const nights = (...ago) => ago.map(n => new Date(Date.parse(tonight) - n * DAY).toISOString().slice(0, 10));
+  const member2 = (userId, { recent = nights(0, 1, 2), points = 20 } = {}) => mutateScores(GUILD, (d) => {
+    d.users[userId] = { name: userId, games: { doom: { 'm2026-10': { points }, all: { points } } }, nights: { recent } };
+  });
+
+  test('nights played within the last 7, tonight included; older ones and duplicates don\'t count', () => {
+    const user = { nights: { recent: [...nights(9, 7, 6, 3, 0), tonight] } };
+    expect(nightsPlayedWithin(user, NOW, 7)).toBe(3); // 6, 3 and 0 nights ago
+    expect(nightsPlayedWithin(user, NOW, 8)).toBe(4);
+    expect(nightsPlayedWithin({}, NOW, 7)).toBe(0);
+  });
+
+  test('backingProblem, in order: one a day, a regular (3 of the last 7 nights), the stake in this month\'s points', () => {
+    expect([SIEGE.backing.perDay, SIEGE.backing.activeNights, SIEGE.backing.activeWindow]).toEqual([1, 3, 7]);
+    member2('sam');
+    expect(backingProblem(loadScores(GUILD), 'sam', 5, NOW)).toBeNull();
+    member2('ann', { recent: nights(0, 1, 7) });
+    expect(backingProblem(loadScores(GUILD), 'ann', 5, NOW)).toEqual({ error: 'inactive' });
+    member2('bo', { points: 4 });
+    expect(backingProblem(loadScores(GUILD), 'bo', 5, NOW)).toEqual({ error: 'poor', count: 4 });
+    expect(stakeBacking(GUILD, { key: 'x:sam', userId: 'sam', name: 'sam', stake: 5 }, NOW)).toEqual({ ok: true, stake: 5 });
+    expect(backingProblem(loadScores(GUILD), 'sam', 5, NOW)).toEqual({ error: 'daily' });
+    expect(stakeBacking(GUILD, { key: 'y:sam', userId: 'sam', name: 'sam', stake: 2 }, NOW)).toEqual({ error: 'daily' });
+    // The next UTC day: again
+    expect(backingProblem(loadScores(GUILD), 'sam', 5, NOW + DAY)).toBeNull();
   });
 });

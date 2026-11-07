@@ -906,22 +906,16 @@ async function autoLogTimerToWatchHistory(channel, client, title, elapsedTime, s
       embed.setThumbnail(posterPath);
     }
     
-    // Add button for manual override (timer starter/mods/admins only)
-    const button = new ButtonBuilder()
-      .setCustomId(`log_watched_${channelId}_${starterUserId}`)
-      .setLabel('Log to Watch History')
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji('📝');
-
-    const row = new ActionRowBuilder().addComponents(button);
-    
+    // No "Log to Watch History" button: this is logged. It used to carry one
+    // as a "manual override", but the form it opened could only save the same
+    // title a second time (see handlers/watchHistoryLog.js).
+    //
     // Mention the starter in the content — a timer that auto-stops
     // does so when nobody is necessarily watching the channel, and a
     // mention inside an embed never pings.
     await channel.send({
       content: `⏰ <@${starterUserId}> your watch party timer has finished.`,
       embeds: [embed],
-      components: [row],
     });
     
   } catch (error) {

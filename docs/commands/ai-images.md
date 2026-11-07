@@ -4,27 +4,22 @@ description: "Generate AI images in Discord with Egg Shen Bot: freeform prompts,
 
 # AI Image Generation
 
-Egg Shen can generate AI-powered images using OpenAI's latest image generation API. One command handles freeform prompts, generating from a Discord message, "versus" battle images comparing two titles, and personas of server members — with built-in rate limiting to control costs.
+`/image` makes AI images with OpenAI's image model. One command covers five kinds: a prompt, a Discord message, a versus poster for two titles, a tournament matchup, and a member imagined from their profile. Limits keep the cost down, and admins can change them or switch `/image` off.
 
 ## Overview
 
-- **Cost:** $0.04 per image generated
-- **Generation Time:** 2-3 minutes per image
-- **Privacy:** Command invocation is hidden (only you see it), image posted publicly
-- **Server Controls:** Admins can disable entirely or restrict to moderators/admins only
-- **Default Limits:** 5-minute cooldown, 10 images/user/day, 50 images/server/day
-- **Customizable:** Server admins can adjust all limits
-- **Whitelist:** Contributors/premium users can have unlimited access
-
-**Available Commands:**
-- **`/image`** - Generate images from text prompts, Discord messages, a two-title versus battle, an active tournament matchup, or a member's profile
-- **`/potion`** - Generate mystical potion images (see [Social Commands](./social))
+- **Needs** an OpenAI API key on the bot. Without one, `/image` says it isn't configured
+- **Cost:** the bot counts $0.04 per image toward its daily totals
+- **Time:** usually 2-3 minutes per image
+- **Where it posts:** you see the progress privately, then the image posts in the channel. A small line above it says you ran `/image`; your prompt isn't shown. Add `private:true` to keep the image to yourself
+- **Default limits:** 5 minutes between images, 10 images per member per day, 50 per server per day
+- **Server controls:** admins can switch it off, limit it to moderators or admins, change the limits, and give some members no limits
 
 ---
 
 ## `/image` Command
 
-Generate AI images in one of five modes, depending on which options you provide.
+Which kind of image you get depends on the options you give.
 
 ### Mode 1: Freeform Text Prompt
 
@@ -39,7 +34,9 @@ Generate AI images in one of five modes, depending on which options you provide.
 /image message:1234567890123456789
 ```
 
-Finds the most recent message (last 100) from the specified user, or a specific message by ID, and generates an image based on that text.
+Draws from the text of a message: the most recent one by that member among the channel's last 100 messages, or the message with that ID in this channel.
+
+Discord only shows a bot what other people wrote if the bot has the **Message Content Intent**. If `/image` says the message has no text, the bot's operator can turn that intent on in the Discord Developer Portal, on the application's **Bot** page.
 
 ### Mode 3: Versus Battle Between Two Titles
 
@@ -49,7 +46,7 @@ Finds the most recent message (last 100) from the specified user, or a specific 
 /image title1:"Elden Ring" title2:"Dark Souls"
 ```
 
-Searches TMDB, RAWG, BoardGameGeek, and Google Books to validate both titles exist (movie, TV show, video game, board game, or book), then generates a split-screen "versus" composition. Works across types — e.g. a movie vs. a video game.
+Looks up both titles on TMDB, RAWG, BoardGameGeek and Google Books (movie, TV show, video game, board game or book), then draws a split-screen "versus" poster. The two can be different kinds, such as a movie against a video game. If a title matches several things, the first match is used and the reply says so.
 
 ### Mode 4: From an Active Tournament Matchup
 
@@ -59,7 +56,7 @@ Searches TMDB, RAWG, BoardGameGeek, and Google Books to validate both titles exi
 /image matchup:"The Thing vs Alien"
 ```
 
-If your server has a [tournament bracket](./brackets/) under way, generates a versus image straight from one of its matchups instead of searching from scratch. Start typing in `matchup:` and pick from the list (matchups voting now come first), or type a matchup's label such as `1A` or `Finals`, or its two titles. Running `/image` with no options lists this round's matchups by label, open ones first.
+If your server has a [tournament](./brackets/) under way, this draws a versus poster from one of its matchups. Start typing in `matchup:` and pick from the list (matchups being voted on come first), or type a label such as `1A` or `Finals`, or its two titles. Run `/image` with no options to see this round's matchups by label.
 
 ### Mode 5: A Member, Imagined From Their Profile
 
@@ -73,92 +70,80 @@ Builds an original character from what Egg Shen can see of the member, **as text
 - Their display name and server nickname
 - Their profile accent color and their role colors, used as signature colors
 - Their top roles, by name
-- Movies and shows they've looked up with the bot, and titles they've wanted on the [watchlist](./watch-party), worked in as motifs and props
+- Movies and shows they've looked up with the bot, and titles they've wanted on the [watchlist](./watch-party#watchlist), worked in as motifs and props
 
-**Their avatar is never used.** It isn't downloaded or sent to the image generator, so nobody can turn someone else's photo into an image. Discord doesn't let bots read a member's bio (About Me) or their Nitro profile theme, so neither is used. `prompt` is required in this mode. Details the bot doesn't know are left out, so a member with no roles or history still works from their name and your prompt.
+**Their avatar is never used.** It isn't downloaded or sent to the image generator, so nobody can turn someone else's photo into an image. Discord doesn't let bots read a member's bio (About Me) or their Nitro profile theme, so neither is used. `prompt` is required in this mode. Anything the bot doesn't know is left out, so a member with no roles or history still works from their name and your prompt.
 
 ### Options
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `prompt` | String | No | Describe the image (Mode 1), or add extra style detail alongside `title1`/`title2` or `matchup` |
-| `message` | String | No | Username or message ID to generate from (Mode 2) |
-| `title1` | String | No* | First title for a versus battle (Mode 3) — provide with `title2` |
-| `title2` | String | No* | Second title for a versus battle (Mode 3) — provide with `title1` |
-| `matchup` | String | No | Tournament matchup to visualize (Mode 4): pick from the list, or type its label (`1A`, `Finals`) or titles |
-| `user` | User | No | A member to imagine from their profile details, never their avatar (Mode 5). Needs `prompt` |
-| `private` | Boolean | No | Only show the generated image to you instead of the whole channel (default: false) |
+| `prompt` | String | No | What to draw (Mode 1), or extra style detail alongside `title1`/`title2` or `matchup` |
+| `message` | String | No | Username or message ID to draw from (Mode 2) |
+| `title1` | String | No* | First title for a versus poster (Mode 3). Give it with `title2` |
+| `title2` | String | No* | Second title for a versus poster (Mode 3). Give it with `title1` |
+| `matchup` | String | No | Tournament matchup to draw (Mode 4): pick from the list, or type its label (`1A`, `Finals`) or titles |
+| `user` | User | No | A member to imagine from their profile, never their avatar (Mode 5). Needs `prompt` |
+| `private` | Boolean | No | Only you see the image (default: false) |
 
-*Provide exactly one of: `title1` + `title2` together, `matchup`, `message`, `user` (with `prompt`), or `prompt` alone. Mixing modes (e.g. `title1` with `message`) returns an error asking you to pick one.
+*Use one mode at a time: `title1` and `title2` together, `matchup`, `message`, `user` (with `prompt`), or `prompt` alone. Mixing them, such as `title1` with `message`, gets an error asking you to choose one.
 
-### Features
+### Image Details
 
-- **Smart Search** (versus/matchup modes) - Validates titles exist before generating, across TMDB, RAWG, BoardGameGeek, and Google Books
-- **Cross-Type Support** - Compare movies vs games, TV vs books, etc.
-- **Auto-Disambiguation** - Selects the first match and tells you if multiple results were found
-- **Content-Safe Prompts** - Uses "inspired by themes" language to comply with OpenAI's content policy, rather than requesting direct replicas
-- **Rich Context** - Uses title metadata (overviews, release dates) to build better versus prompts
-- **Format** - Square (1024x1024) for freeform/message/user mode; wide split-screen (1792x1024) for versus/matchup mode
+- **Size:** square (1024×1024) for a prompt, a message or a member; wide (1792×1024) for a versus poster or a matchup
+- **Original art:** versus prompts ask for something new inspired by the titles, not a copy of their posters, and use each title's synopsis for ideas
+- **The card:** the title ("🎨 AI Generated Image", "🎨 Title1 vs Title2" or "🎨 Name, imagined"), the image, your name and the time. The prompt isn't shown
 
-### Rate Limiting
+### Limits
 
-By default, users are limited to:
-- **Cooldown:** 5 minutes between generations
-- **Daily limit:** 10 images per day
-- **Server limit:** 50 images per server per day
+By default:
+- **Cooldown:** 5 minutes between images, per member
+- **Daily limit:** 10 images per member
+- **Server limit:** 50 images per server
 
-Admins and moderators can bypass the cooldown (but not daily limits) by default.
+Admins (Administrator or Manage Server) skip the cooldown by default, but never the daily limits. Days run on UTC: the counts reset at midnight UTC, and also when the bot restarts.
 
 ### Error Messages
 
-- **"Please wait X minutes"** - You're in cooldown period
-- **"Daily limit reached"** - You've generated your maximum images today (resets at midnight)
-- **"Server has reached daily limit"** - Server has hit its daily cap
-- **"Please provide both title1 and title2"** - Only one of the two versus-mode titles was given
-- **"Please choose only one of..."** - More than one mode's options were provided at once
-- **"Could not find message"** - Username/message ID not found
-- **"Could not find: [title]"** - A versus/matchup title didn't match anything in the search APIs
+- **"Please wait … before generating another image."** - You're in the cooldown
+- **"You've reached your daily limit of 10 AI images."** - Try again tomorrow (UTC)
+- **"This server has reached its daily limit of 50 AI images."** - The server's cap for today is used up
+- **"AI image generation is disabled on this server."** - An admin has switched `/image` off
+- **"AI image generation is restricted to…"** - Only moderators, or only admins, can use it here
+- **"Please provide both `title1` and `title2`…"** - Only one versus title was given
+- **"Please choose only one of…"** - Options from more than one mode were given
+- **"Could not find a recent message from user…"** - That member has no message among the channel's last 100. Use a message ID
+- **"Could not find: [title]"** - A versus title didn't match anything
 
 ---
 
-## Rate Limiting System
+## Limits and Cost
 
 ### Default Configuration
 
-| Setting | Default Value | Description |
-|---------|---------------|-------------|
-| Enabled | ✅ Yes | Master switch for rate limiting |
-| User Cooldown | 5 minutes | Time between generations per user |
-| User Daily Limit | 10 images | Maximum per user per day |
-| Server Daily Limit | 50 images | Maximum per server per day |
-| Admin Bypass Cooldown | ✅ Yes | Admins skip cooldown (not daily limits) |
-| Cost Per Image | $0.04 | Tracked for statistics |
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| AI images | On | Whether `/image` works at all |
+| Who can use it | Everyone | Or moderators and admins, or admins only |
+| Limits | On | The three limits below |
+| Cooldown | 5 minutes | Wait between images, per member |
+| Member daily limit | 10 images | Per member per day |
+| Server daily limit | 50 images | For the whole server per day |
+| Admin cooldown bypass | On | Admins skip the cooldown, not the daily limits |
 
-### Cost Protection
+### What the Limits Save
 
-**Without limits:**
-- 100 users × 20 images/day = 2,000 images/day
-- Cost: **$80/day** = **$2,400/month** 😱
+At the bot's $0.04 an image, the default server limit of 50 a day caps spending at $2 a day, about $60 a month. With the limits off, 100 members making 20 images each would be $80 a day.
 
-**With default limits:**
-- 50 images/server/day max
-- Cost: **$2/day** = **$60/month max** ✅
+### Whitelisted Members
 
-### Whitelisted Users
-
-Server admins can grant unlimited access to specific users:
-- Bot contributors
-- Premium/donor users
-- Server boosters
-- Testing accounts
-
-Whitelisted users bypass ALL limits (cooldown + daily limits).
+Admins can give members no limits at all, such as people who help pay for the bot. A whitelisted member skips the cooldown and both daily limits. Their images still count toward the server's daily total, so they use up what others have left.
 
 ---
 
 ## Configuration Commands
 
-All configuration requires Administrator, Manage Server, or Moderator permissions.
+All of these are for admins and moderators (Administrator, Manage Server, Timeout Members, Kick Members or Ban Members). They're also listed on [Admin Configuration](./configuration#ai-images-group).
 
 ### View Current Settings & Stats
 
@@ -166,12 +151,7 @@ All configuration requires Administrator, Manage Server, or Moderator permission
 /eggshen-config-ai ai-images view
 ```
 
-Shows:
-- ⚙️ **Feature Status:** Whether AI generation is enabled/disabled
-- 🔒 **Permissions:** Who can use AI image commands (everyone/moderators/admins)
-- ⚙️ **Settings:** All current limits and toggles
-- 📊 **Server Stats:** Today's usage, cost, and remaining quota
-- 👤 **Your Stats:** Your personal usage and cooldown status
+Shows whether `/image` is on, who can use it, every limit, today's usage and cost for the server, and your own usage and cooldown.
 
 ### Enable/Disable AI Image Generation
 
@@ -179,98 +159,59 @@ Shows:
 /eggshen-config-ai ai-images feature-toggle enabled:false
 ```
 
-Completely enable or disable AI image generation on your server.
-
-**When disabled:**
-- The `/image` command will show an error message
-- No images can be generated regardless of permissions or rate limits
-- Useful for servers that don't want AI features at all
-
-**Options:**
-- `enabled:true` - Enable AI image generation (default)
-- `enabled:false` - Completely disable `/image`
-
-💡 **Note:** This is separate from rate limiting. You can disable the feature entirely OR keep it enabled with rate limits.
+Switch `/image` on or off for the whole server. Off, `/image` replies that it's disabled, whatever the limits and permissions say. This is separate from the limits: you can keep `/image` on with limits, or switch it off entirely.
 
 ### Set Permission Levels
 
 ```
-/eggshen-config-ai ai-images set-permissions level:admins
+/eggshen-config-ai ai-images set-permissions level:<everyone|moderators|admins>
 ```
 
-Control who can use `/image`.
+Who can use `/image`:
+- `everyone` (default) - Every member
+- `moderators` - Moderators (Timeout Members, Kick Members or Ban Members) and admins
+- `admins` - Only admins (Administrator or Manage Server)
 
-**Permission Levels:**
-- `everyone` (default) - All server members can generate images
-- `moderators` - Only moderators and admins (users with Moderate Members, Kick Members, or Ban Members permissions)
-- `admins` - Only administrators (users with Administrator or Manage Server permissions)
+The permission level decides *who* can use it; the limits decide *how much*.
 
-**Use cases:**
-- Prevent spam by restricting to moderators
-- Reserve AI features for admins only
-- Open to everyone for community engagement
-
-**Examples:**
+**Example:**
 ```
-/eggshen-config-ai ai-images set-permissions level:everyone
 /eggshen-config-ai ai-images set-permissions level:moderators
-/eggshen-config-ai ai-images set-permissions level:admins
 ```
 
-💡 **Combined with rate limiting:** Permission levels determine WHO can use the command, rate limits control HOW MUCH they can use it.
-
-### Toggle Rate Limiting
+### Toggle the Limits
 
 ```
 /eggshen-config-ai ai-images toggle enabled:true
 ```
 
-Enable or disable rate limiting entirely.
+Turn the cooldown and daily limits on or off.
 
-⚠️ **Warning:** Disabling allows unlimited generations - costs can increase dramatically!
+⚠️ **With the limits off, members can make as many images as they like, and every one costs money.**
 
-### Set User Cooldown
+### Set the Cooldown
 
 ```
 /eggshen-config-ai ai-images user-cooldown seconds:300
 ```
 
-Set time between generations per user (60-3600 seconds).
+Seconds between images per member, 60-3600. 300 (5 minutes) by default.
 
-**Recommended values:**
-- `300` (5 min) - Default, balanced
-- `600` (10 min) - Stricter, lower costs
-- `60` (1 min) - Looser, higher costs
-
-### Set User Daily Limit
+### Set the Member Daily Limit
 
 ```
 /eggshen-config-ai ai-images user-daily-limit limit:10
 ```
 
-Maximum images per user per day (1-100).
+Images per member per day, 1-100. 10 by default, which is at most $0.40 a member a day.
 
-**Examples:**
-- `limit:5` - Very strict ($0.20/user/day max)
-- `limit:10` - Default ($0.40/user/day max)
-- `limit:25` - Generous ($1.00/user/day max)
-
-Shows estimated monthly cost per user.
-
-### Set Server Daily Limit
+### Set the Server Daily Limit
 
 ```
 /eggshen-config-ai ai-images guild-daily-limit limit:50
 ```
 
-Maximum images per server per day (1-500).
-
-**Examples:**
-- `limit:25` - Small server ($0.75/day = $22.50/month max)
-- `limit:50` - Default ($2/day = $60/month max)
-- `limit:100` - Large server ($4/day = $120/month max)
-
-Shows estimated monthly cost.
+Images for the whole server per day, 1-500. 50 by default ($2 a day); 25 is $1 a day, and 100 is $4.
 
 ### Toggle Admin Cooldown Bypass
 
@@ -278,206 +219,84 @@ Shows estimated monthly cost.
 /eggshen-config-ai ai-images admin-bypass enabled:true
 ```
 
-Allow admins/moderators to skip cooldown (they always respect daily limits).
+Whether admins skip the cooldown. On by default. They always keep to the daily limits.
 
-**Enabled (default):** Admins can generate back-to-back for testing/demos
-**Disabled:** Admins wait like everyone else
-
-### Add User to Whitelist
+### Whitelist
 
 ```
 /eggshen-config-ai ai-images whitelist-add user:@username
-```
-
-Grant unlimited AI image generation to a user.
-
-**Use cases:**
-- Bot contributors helping with costs
-- Premium/donor users
-- Server boosters
-- Testing accounts
-
-Whitelisted users bypass:
-- ✅ Cooldown
-- ✅ Daily user limit
-- ✅ Daily server limit (their usage doesn't count toward server total)
-
-### Remove User from Whitelist
-
-```
 /eggshen-config-ai ai-images whitelist-remove user:@username
-```
-
-Remove unlimited access - user returns to normal rate limits.
-
-### View Whitelist
-
-```
 /eggshen-config-ai ai-images whitelist-list
 ```
 
-Shows all users with unlimited access.
+Give a member no limits, take that away, or see who has it.
 
-### Reset User Usage
+### Reset Usage
 
 ```
 /eggshen-config-ai ai-images reset-user user:@username
-```
-
-Reset a user's daily usage and cooldown.
-
-**Use cases:**
-- User hit limit due to testing
-- Reward for event participation
-- Resolve technical issues
-
-### Reset Server Usage
-
-```
 /eggshen-config-ai ai-images reset-guild
 ```
 
-Reset the entire server's daily usage (user limits still apply).
-
-**Use cases:**
-- Special events
-- Server milestones
-- Testing periods
+`reset-user` clears a member's count and cooldown for today. `reset-guild` clears the server's count for today; each member's own limit still applies.
 
 ---
 
-## Best Practices
+## Tips
 
-### For Server Admins
+### For Admins
 
-1. **Start Conservative:** Use default limits (5 min cooldown, 10/day per user, 50/day server)
-2. **Monitor Costs:** Use `/eggshen-config-ai ai-images view` to track daily spending
-3. **Adjust as Needed:** Increase limits for active servers, decrease for budget concerns
-4. **Whitelist Wisely:** Only grant unlimited access to trusted contributors
-5. **Communicate Limits:** Let users know about daily limits and resets
+1. **Start with the defaults** and change them once you see how much they're used
+2. **Check spending** with `/eggshen-config-ai ai-images view`
+3. **Whitelist sparingly.** Whitelisted images still use up the server's daily total
+4. **Tell members the limits,** and that they reset at midnight UTC
 
-### For Users
+### For Members
 
-1. **Be Specific:** Better prompts = better images
-2. **Check Stats:** Use `/eggshen-config-ai ai-images view` to see remaining quota
-3. **Plan Usage:** Spread generations throughout the day
-4. **Respect Limits:** Daily limits reset at midnight
-5. **Report Issues:** Let admins know if you hit errors
-
-### Cost Management
-
-**Small Server (<20 active users):**
-- User limit: 5-10/day
-- Server limit: 25-50/day
-- Expected cost: $1-2/day
-
-**Medium Server (20-50 active users):**
-- User limit: 10/day
-- Server limit: 50-100/day
-- Expected cost: $2-4/day
-
-**Large Server (50+ active users):**
-- User limit: 5-10/day
-- Server limit: 100-200/day
-- Expected cost: $4-8/day
-- Consider whitelist for premium/contributor tier
+1. **Be specific.** Name a style, such as "cinematic", "1980s VHS cover" or "watercolor"
+2. **Add a prompt to a versus poster** for a theme of your own
+3. **Use a message ID** for `message:` when the person hasn't posted recently
 
 ---
 
 ## Troubleshooting
 
-### "Please wait X minutes"
-You're in cooldown period. Wait or ask admin to:
-- Reset your usage: `/eggshen-config-ai ai-images reset-user`
-- Add you to whitelist: `/eggshen-config-ai ai-images whitelist-add`
+### "Please wait…"
+You're in the cooldown. Wait, or ask an admin to reset your usage with `/eggshen-config-ai ai-images reset-user`.
 
-### "Daily limit reached"
-You've hit your daily cap. Options:
-- Wait until midnight (resets automatically)
-- Ask admin to increase limit: `/eggshen-config-ai ai-images user-daily-limit`
-- Ask admin to reset your usage: `/eggshen-config-ai ai-images reset-user`
+### "You've reached your daily limit"
+Wait until midnight UTC, or ask an admin to reset your usage or raise the limit with `/eggshen-config-ai ai-images user-daily-limit`.
 
-### "Server has reached daily limit"
-Server hit its cap. Admin options:
-- Reset server usage: `/eggshen-config-ai ai-images reset-guild`
-- Increase limit: `/eggshen-config-ai ai-images guild-daily-limit`
-- Wait until midnight
+### "This server has reached its daily limit"
+An admin can reset it with `/eggshen-config-ai ai-images reset-guild`, or raise it with `/eggshen-config-ai ai-images guild-daily-limit`.
 
-### "OpenAI API error"
-API issue (rate limiting, service outage, invalid key):
-- Check OpenAI status page
-- Verify API key in `.env` file
-- Check OpenAI account has credits
-- Wait a few minutes and retry
+### "OpenAI API is not configured" or "Failed to generate AI image"
+- The bot needs `OPENAI_API_KEY` in its `.env` file: see [API Keys](/api-keys)
+- Check the OpenAI account has billing set up and credit left
+- Check OpenAI's status page, and try again in a few minutes
 
-### "Could not find message"
-For `/image message:` usage:
-- Ensure username is spelled correctly (case-insensitive)
-- User must have posted in last 100 messages
-- Try using message ID instead
-- Right-click message → Copy Message ID
+### "The selected message has no text content"
+The message is only an image or embed, or the bot can't read message text: see [Mode 2](#mode-2-from-a-discord-message).
 
-### Image Quality Issues
-- Be more specific in prompts
-- Add style details (cinematic, photorealistic, etc.)
-- For versus/matchup mode, add a custom `prompt:` parameter
-- Examples: "dramatic lighting", "high contrast", "4K quality"
+### "Could not find a recent message"
+- Check the username's spelling (any case works)
+- They need a message among the channel's last 100
+- Use the message ID instead: right-click the message → **Copy Message ID** (turn on Developer Mode in Discord's settings first)
 
 ---
 
 ## Technical Details
 
-### API Integration
-
-- **Provider:** OpenAI
-- **Model:** `gpt-image-2` (latest image generation model)
-- **Format:**
-  - Freeform/message/user mode: 1024x1024 (square)
-  - Versus/matchup mode: 1792x1024 (wide)
-- **Quality:** Medium (balance of quality and speed)
-- **Generation Time:** 2-3 minutes average
-- **Response Format:** Handles both URL and base64 responses automatically
-
-### Content Policy Compliance
-
-Prompts are designed to comply with OpenAI's content policy:
-- Uses "inspired by themes" language for versus/matchup mode
-- Avoids direct replication requests
-- Creates "original artwork" not copies
-- References concepts, not specific copyrighted works
-- Content moderation handled by OpenAI's safety systems
-
-### Storage & Display
-
-- **Image Hosting:** OpenAI provides temporary URLs or base64 data
-- **Discord Attachment:** Bot downloads/converts and sends as Discord attachment
-- **Permanent Storage:** Discord CDN stores images permanently
-- **Embed Display:**
-  - Title: "🎨 AI Generated Image", "🎨 Title1 vs Title2", or "🎨 Name, imagined"
-  - Image: The generated artwork
-  - Footer: Your username
-  - Timestamp: When it was created
-  - **No prompt shown** - keeps it clean and private
-
-### Tracking
-
-Each generation logs:
-- Guild ID and User ID
-- Mode (image, versus-image, bracket-image, user-image)
-- Metadata (titles, prompts, types)
-- Cost ($0.04 per image)
-- Timestamp
-
-Console output example:
-```
-[AI Image] image - Guild: 123..., User: 456..., Cost: $0.04, 
-User Today: 3, Guild Today: 12, Guild Cost Today: $0.48
-```
+- **Provider:** OpenAI's image API, model `gpt-image-2`, at medium quality
+- **Sizes:** 1024×1024 (prompt, message, member) and 1792×1024 (versus, matchup)
+- **The image** is uploaded to Discord as an attachment, so it stays after OpenAI's link expires
+- **Usage counts** (cooldowns and daily totals) are kept in memory, so a restart clears them
+- **Each image is logged** with the server, the member, the kind of image and the cost
 
 ---
 
 ## See Also
 
-- [Tournament Brackets](./brackets/) - Full tournament system including matchup-aware AI images
-- [Configuration Guide](configuration.md) - All bot configuration options
-- [Rate Limiting](../features/rate-limiting.md) - General rate limiting system
+- [Tournament Brackets](./brackets/) - Tournaments, whose matchups `/image` can draw
+- [Admin Configuration](./configuration) - All the configuration commands
+- [Rate Limiting](/features/rate-limiting) - The bot's general command limits

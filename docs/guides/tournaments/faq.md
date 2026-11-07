@@ -1,6 +1,6 @@
 ---
 title: Tournament FAQ - Egg Shen Bot
-description: Answers to common questions about running and voting in Egg Shen Bot tournaments on Discord - ballots, time left, ties, changing votes and starting over.
+description: Answers to common questions about running and voting in Egg Shen Bot tournaments on Discord - ballots, time left, ties, vote bars, results, changing votes and starting over.
 faq:
   - q: Why does my ballot show several matchups?
     a: Each row on the ballot is a separate head-to-head vote, one title against one title. Several rows means several matchups are open at once. To show one at a time, an admin opens them with `/bracket open matchups:1`.
@@ -10,16 +10,24 @@ faq:
     a: The ballot and the live standings show a countdown. Anyone can also run `/bracket status` to see every open matchup and its time left, or `/bracket my-votes` for their own votes.
   - q: Can I change my vote?
     a: Yes, until that matchup closes. Press **Start Voting** again and pick the other title. Once a matchup closes, its votes are final.
+  - q: Why did my group vote disappear?
+    a: In the group stage you pick your top 2 in each group, and both picks count or neither does. A single pick is thrown out when the group closes, so pick a second title before the deadline.
   - q: Who can vote, and who can run the tournament?
     a: Everyone in the server can vote by pressing **Start Voting**. Only administrators and moderators can create, open, close or change a tournament.
   - q: What happens when a matchup ties?
     a: The two titles get a tiebreaker vote, posted in the same channel. When it ends, the winner moves on. If the tiebreaker ties too, including when nobody votes in it, one of the two is picked at random. A seeded bracket can instead send ties straight to the higher seed. The creator picks this with `ties:Higher seed wins` (see [Seeded Bracket](/guides/tournaments/seeded)).
+  - q: What do the colours on the vote bars mean?
+    a: In a matchup, green is the title ahead, orange the one behind, and gold on both means a tie. On a tiebreaker vote or a survey, the option in the lead is gold and the rest are blue. Once the bot's own emoji are uploaded, the bars are its carved stone bars in the same colours.
+  - q: What's the picture posted when a matchup closes?
+    a: It's the matchup's result, drawn. The two posters face off across a lightning VS, the winner framed in gold under a WINNER sash and the runner-up dimmed, with the vote split underneath. A worse seed beating a better one gets an UPSET! stamp. See [the results card](/commands/brackets/knockout#the-results-card).
   - q: What do the numbers in brackets next to titles mean?
     a: They're seeds, as in "(1) Halloween". The tournament's creator chose a seeded bracket, ranked by rating or by their own order, so seed 1 is the favourite. When a lower seed wins, the result calls it an upset. See [Seeded Bracket](/guides/tournaments/seeded).
   - q: Can I run it like March Madness, the NFL playoffs or the World Cup?
     a: Close to it. Seeding, tie and size settings get you most of the way, and for some formats (the College Football Playoff and the 2026 World Cup) all the way. See [Sports-style tournaments](/guides/tournaments/sports-styles).
   - q: Why didn't the next round open?
-    a: A round moves on only when every matchup in it has closed. If one is waiting on a tiebreaker, the next round opens after that. Run `/bracket status` to see what's still open.
+    a: Nothing opens on its own. A round is finished only when every matchup in it has closed, tiebreakers included, and then an admin opens the next one with `/bracket open`. Run `/bracket status` to see what's still open.
+  - q: Why does my ballot say too many matchups are open?
+    a: A ballot holds 5 matchups. With more open at once it can't show them, so an admin should close some and open the round a few at a time, with `/bracket open matchups:4` or `/bracket open-matchup region:1`. The group stage is the same, with up to 5 groups at once.
   - q: How many titles can a tournament have?
     a: A straight bracket holds 2 to 32 titles. A groups tournament holds 16 to 48, in 4 to 12 groups of 4.
   - q: How do I set up a tournament with 16 titles?

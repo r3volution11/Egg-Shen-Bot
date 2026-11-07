@@ -1,42 +1,41 @@
 ---
-description: "Admin commands for configuring Egg Shen Bot per Discord server: settings, stats, command access, notifications, watch parties, rate limits, AI and event requests."
+description: "Admin commands for configuring Egg Shen Bot per Discord server: settings, stats, command switches, notifications, watch parties, rate limits, AI, moderation, event requests, games, quotes and websites."
 ---
 
 # Admin Configuration
 
-Administrative commands for configuring and managing Egg Shen Bot in your server.
+Every server has its own settings. You change them with eight `/eggshen-config` commands. The settings are split across eight commands because Discord limits how big one command can be.
 
 ## Configuration Commands
 
-Configuration is split across 6 top-level commands (kept under Discord's per-command size limit — each covers a related set of settings):
+| Command | What it covers |
+|---|---|
+| [`/eggshen-config`](#settings-group) | Rating services, emojis, region, search results, timers, [stats tracking](#stats-group), [command switches](#commands-group), [notifications](#notifications-group) |
+| [`/eggshen-config-watch-party`](#watch-party-group) | Watch-party channels, auto-detect, episode buffer, starting-soon cards, [watchlist](#watchlist-group), [rate limits](#rate-limit-group) |
+| [`/eggshen-config-ai`](#ai-images-group) | AI images, [AI announcement text and AI answers](#ai-text-and-ai-answers) |
+| [`/eggshen-config-moderation`](#moderation-group) | Moderation switch, user cooldowns, whitelist mode, auto-ban threshold |
+| [`/eggshen-config-events`](#event-requests-group) | The event request form |
+| [`/eggshen-config-games`](#games) | Game limits, game channels, happenings, twists, the pace, random sieges, score resets |
+| [`/eggshen-config-quotes`](#quotes) | The status quote rotation and quote suggestions |
+| [`/eggshen-config-website`](#website-group) | This server's web pages: form address, bot address, theme |
+
+The general shape is:
 
 ```
-/eggshen-config <group> <subcommand> [parameters]                 — settings, stats, commands, notifications
-/eggshen-config-watch-party <group> <subcommand> [parameters]     — watch-party, rate-limit
-/eggshen-config-ai <group> <subcommand> [parameters]               — ai-images
-/eggshen-config-moderation <group> <subcommand> [parameters]       — moderation
-/eggshen-config-events <group> <subcommand> [parameters]           — event-requests
-/eggshen-config-games <subcommand> [parameters]                     — game limits, game channels, happenings, twists, the pace and random sieges, score resets
+/eggshen-config <group> <subcommand> [options]
 ```
 
-The game settings (`/eggshen-config-games`) are described on [Game Settings for Admins](./games-settings). `/eggshen-config-games happenings` turns twists and server-wide happenings on or off, sets how often and where they're announced, and starts or ends one by hand. It also sets the server's [pace](./games-siege#pace) (`pace`: quick, evening, day, 3 days or week, the default), which decides how long a siege and a happening last and how often each comes, how often a [siege](./games-siege#random-sieges) starts by itself (`siege-frequency`), and how long a quick-pace siege lasts (`siege-minutes`) ([details](./games-settings#happenings-and-twists)):
+`/eggshen-config-games`, `/eggshen-config-quotes` and `/eggshen-config-website` have no groups: it's straight to the subcommand.
 
-```
-/eggshen-config-games happenings frequency:rare
-/eggshen-config-games happenings start:fullmoon
-/eggshen-config-games happenings pace:quick
-/eggshen-config-games happenings siege-frequency:rare
-```
+**Who can use them:** admins and moderators, meaning members with any of these Discord permissions: Administrator, Manage Server, Timeout Members, Kick Members or Ban Members. Most replies are only shown to you.
 
-**Required Permissions (all 6 commands):**
-- Administrator
-- OR Manage Server permission
+Settings you never change keep their defaults. A setting added in a later version starts at its default too.
 
 ## Configuration Groups
 
 ### Settings Group
 
-Basic bot settings and configuration.
+Basic settings, with `/eggshen-config settings`.
 
 #### View Current Configuration
 
@@ -44,38 +43,32 @@ Basic bot settings and configuration.
 /eggshen-config settings view
 ```
 
-Shows all current server settings.
+Shows the rating services, emojis, region, search results, timer settings, stats tracking, all 19 command switches, notifications, watch-party channels and rate limiting.
 
 #### Toggle Services
 
 ```
-/eggshen-config settings toggle service:<service> enabled:<true/false>
+/eggshen-config settings toggle service:<service> enabled:<true|false>
 ```
 
-**Available Services:**
-- `imdb` - IMDb ratings and links
-- `letterboxd` - Letterboxd links
-- `trakt` - Trakt.tv ratings and links
-- `rottenTomatoes` - Rotten Tomatoes scores
-- `justWatch` - JustWatch streaming availability
+Which rating sites appear on `/movie`, `/tv` and `/episode` results. All are on by default.
+
+**Services:** `imdb` (IMDb), `letterboxd` (Letterboxd), `trakt` (Trakt), `rottenTomatoes` (RT Critics), `metacritic` (Metacritic), `justWatch` (the JustWatch link)
 
 **Example:**
 ```
-/eggshen-config settings toggle service:letterboxd enabled:true
+/eggshen-config settings toggle service:letterboxd enabled:false
 ```
 
 #### Set Custom Emojis
 
 ```
-/eggshen-config settings emoji service:<service> emoji:[custom emoji]
+/eggshen-config settings emoji service:<service> emoji:[emoji]
 ```
 
-**Available Services:**
-- `imdb`
-- `letterboxd`
-- `trakt`
-- `rtCritics`
-- `justWatch`
+An emoji to show before a service's name in ratings. Leave out `emoji` to clear it.
+
+**Services:** `imdb`, `letterboxd`, `trakt`, `rtCritics`, `metacritic`, `justWatch`
 
 **Example:**
 ```
@@ -85,23 +78,23 @@ Shows all current server settings.
 #### Set Region
 
 ```
-/eggshen-config settings region code:<country-code>
+/eggshen-config settings region code:<country code>
 ```
 
-Set the region for streaming availability (2-letter ISO code).
+The country for where-to-watch information, as a 2-letter code (`US`, `CA`, `GB`, `AU`…). `US` by default. `/random`'s `streaming` filter uses it too.
 
 **Example:**
 ```
-/eggshen-config settings region code:US
+/eggshen-config settings region code:GB
 ```
 
 #### Max Search Results
 
 ```
-/eggshen-config settings max-results count:<number>
+/eggshen-config settings max-results count:<1-50>
 ```
 
-Set maximum number of search results to display (1-50).
+How many matches the "which one did you mean" list shows. 20 by default.
 
 **Example:**
 ```
@@ -113,15 +106,15 @@ Set maximum number of search results to display (1-50).
 #### Max Timer Duration
 
 ```
-/eggshen-config settings max-timer-duration minutes:<1-1440> unlimited:<true/false>
+/eggshen-config settings max-timer-duration minutes:<1-1440> unlimited:<true|false>
 ```
 
-Set the **fallback** duration used only when a `/timer start` has no real duration at all — no `duration` was typed, no label matched anything, or "Skip" was chosen from the title-selection menu. This does **not** affect timers with a real duration (typed manually, adjusted, or auto-detected from a movie/TV runtime) — those always run for their full length regardless of this setting. See [Watch Party → Timer Durations & the Expiry Warning](/commands/watch-party#timer-durations-the-expiry-warning).
+The **fallback** duration, used only when a timer has no real duration at all: no `duration` was typed, the title matched nothing, or "Skip" was chosen from the title list. A timer with a real duration (typed, adjusted, or from a runtime) always runs its full length. See [Timer Durations & the Expiry Warning](/commands/watch-party#timer-durations-the-expiry-warning).
 
-- `minutes` (optional) — the fallback duration in minutes (default 360, i.e. 6 hours), used when no real duration exists.
-- `unlimited` (optional) — when `true`, a timer with no real duration just runs forever instead of using the fallback (same as `/timer autostop disable`). When `false` (or omitted), the `minutes` fallback applies normally.
+- `minutes` - The fallback, in minutes. 360 (6 hours) by default
+- `unlimited` - `true` lets a timer with no real duration run until someone stops it, instead of using the fallback
 
-At least one of `minutes` or `unlimited` must be provided; both can be set together.
+Give at least one of the two.
 
 **Examples:**
 ```
@@ -135,15 +128,15 @@ At least one of `minutes` or `unlimited` must be provided; both can be set toget
 #### Timer Ceiling
 
 ```
-/eggshen-config settings timer-ceiling minutes:<1-1440> enabled:<true/false>
+/eggshen-config settings timer-ceiling minutes:<1-1440> enabled:<true|false>
 ```
 
-Optionally cap **real** timer durations too — a duration that was explicitly typed, set via `/timer adjust`, or auto-detected from a movie/TV runtime. **Off by default**: timers can be started at any duration unless a server turns this on. This is separate from [Max Timer Duration](#max-timer-duration) above, which only affects timers with no real duration at all.
+An optional cap on **real** timer durations too: typed, set with `/timer adjust`, or from a runtime. **Off by default**, so a timer can be any length. This is separate from [Max Timer Duration](#max-timer-duration), which only covers timers with no real duration.
 
-- `minutes` (optional) — the ceiling in minutes. A duration request over this is reduced to the ceiling, with the response noting it.
-- `enabled` (optional) — when `true`, the ceiling is enforced. When `false` (or omitted while off), timers can be any duration.
+- `minutes` - The ceiling. A longer duration is cut to it, and the reply says so
+- `enabled` - Turn the ceiling on or off
 
-At least one of `minutes` or `enabled` must be provided; both can be set together.
+Give at least one of the two.
 
 **Examples:**
 ```
@@ -156,12 +149,10 @@ At least one of `minutes` or `enabled` must be provided; both can be set togethe
 #### Timer Control
 
 ```
-/eggshen-config settings timer-control anyone-can-pause-stop:<true/false>
+/eggshen-config settings timer-control anyone-can-pause-stop:<true|false>
 ```
 
-Choose whether **any** member can pause, resume, or stop a timer in this server, instead of only the person who started it plus administrators/moderators (the default). Useful for servers where the timer starter isn't always available to react. This does **not** extend to `/timer adjust` or `/timer autostop` — those always require the starter or an admin/mod, regardless of this setting, since they change the timer's configuration rather than just starting/stopping it.
-
-- `anyone-can-pause-stop` (required) — `true` to let any member pause/resume/stop timers, `false` to restrict it to the starter/admins/mods (the default).
+Whether **any** member can pause, resume or stop a timer, instead of only the person who started it and admins and moderators (the default). It doesn't extend to `/timer adjust` or `/timer autostop`, which always need the starter or an admin or moderator.
 
 **Example:**
 ```
@@ -172,26 +163,19 @@ Choose whether **any** member can pause, resume, or stop a timer in this server,
 
 ### Stats Group
 
-Statistics tracking configuration.
+What the bot counts for `/stats` and `/eggshen-stats`. See [Statistics](/features/statistics).
 
 #### Toggle Stats Tracking
 
 ```
-/eggshen-config stats toggle setting:<setting> enabled:<true/false>
+/eggshen-config stats toggle setting:<setting> enabled:<true|false>
 ```
 
-**Available Settings:**
-- `enabled` - All Stats Tracking (master switch)
-- `trackMovies` - Track movie searches
-- `trackShows` - Track TV show searches
-- `trackEpisodes` - Track episode searches
-- `trackGames` - Track video game searches
-- `trackBoardGames` - Track board game searches
-- `trackBooks` - Track book searches
+**Settings:** `enabled` (all tracking), `trackMovies`, `trackShows`, `trackEpisodes`, `trackGames`, `trackBoardGames`, `trackBooks`. All on by default.
 
 **Example:**
 ```
-/eggshen-config stats toggle setting:enabled enabled:true
+/eggshen-config stats toggle setting:trackBooks enabled:false
 ```
 
 #### Clear Statistics
@@ -200,103 +184,76 @@ Statistics tracking configuration.
 /eggshen-config stats clear
 ```
 
-Clears all statistics for the server. Cannot be undone.
+Erases all of this server's statistics. It can't be undone.
 
 ---
 
 ### Commands Group
 
-Enable or disable specific commands for regular users.
+Switch commands off for regular members.
 
 #### Toggle Commands
 
 ```
-/eggshen-config commands toggle setting:<command> enabled:<true/false>
+/eggshen-config commands toggle setting:<command> enabled:<true|false>
 ```
 
-**Available Settings:**
-- `enabled` - All Commands (master switch)
-- `movie` - Movie search command
-- `tv` - TV show search command
-- `episode` - Episode search command
-- `game` - Video game search command
-- `boardgame` - Board game search command
-- `book` - Book search command
-- `soundtrack` - Soundtrack search command
-- `survey` - Poll/survey command
-- `bracket` - Tournament bracket command
-- `watchlist` - Watchlist command
-- `potion` - Potion command
-- `foodfight` - Food fight command
-- `doom` - Doom command
-- `rescue` - Rescue command
-- `siege` - Siege command (members' `attack` and `status`; `start` and `end` are always admin and moderator only). Turning it off calls off a siege that's on within a minute, with no rewards or penalties, and no new one can start until it's back on
+**Settings:**
+- `enabled` - All Commands: the master switch. Off turns off every command in this list at once
+- Search: `movie`, `tv`, `episode`, `game`, `boardgame`, `book`, `soundtrack`
+- `survey`, `bracket` (covers `/bracket` and `/bracket-setup`), `watchlist`, `escape` (Escape Velocity)
+- Games: `potion`, `foodfight`, `doom`, `rescue`, `siege`
+- Quotes: `quote`, `suggestQuote`
 
-**Note:** Admins and moderators can always use commands regardless of these settings. `/eggshen-help` automatically reflects these settings — a disabled command (and its whole category, if every command in it is disabled) won't appear in the help list for regular users.
+Everything is on by default.
+
+- **Admins and moderators can always use every command,** whatever these say.
+- **Commands not on the list can't be switched off here,** such as `/timer`, `/watched`, `/image` or `/stats`. Use Discord's **Server Settings → Integrations** to limit those to certain roles or channels. `/image` has [its own switch](#ai-images-group).
+- **`siege` covers members' `attack` and `status`.** Turning it off calls off a siege that's running within a minute, with no rewards or penalties, and no new one can start until it's back on.
+- **`/eggshen-help` follows these switches.** A command that's off doesn't appear in a regular member's help.
 
 **Example:**
 ```
-/eggshen-config commands toggle setting:movie enabled:true
+/eggshen-config commands toggle setting:game enabled:false
 ```
 
 ---
 
 ### Notifications Group
 
-Configure bot restart and system notifications.
-
 #### Toggle Restart Announcements
 
 ```
-/eggshen-config notifications toggle setting:restartAnnouncements enabled:<true/false>
+/eggshen-config notifications toggle setting:restartAnnouncements enabled:<true|false>
 ```
 
-When enabled, after a restart the bot posts a notice in each channel that had a running timer. (Timers are restored either way.)
+**Off by default.** When on, after a restart the bot posts a notice in each channel that had a running timer. Timers are restored either way.
 
 **Example:**
 ```
-/eggshen-config notifications toggle setting:restartAnnouncements enabled:false
+/eggshen-config notifications toggle setting:restartAnnouncements enabled:true
 ```
 
 ---
 
 ### Watch Party Group
 
-Configure channels for watch party auto-detection.
+With `/eggshen-config-watch-party watch-party`. See [Watch Party Commands](/commands/watch-party).
 
-#### Add Watch Party Channel
+#### Add, Remove and List Watch-Party Channels
 
 ```
 /eggshen-config-watch-party watch-party add channel:<#channel>
+/eggshen-config-watch-party watch-party remove channel:<#channel>
+/eggshen-config-watch-party watch-party list
 ```
 
-Adds a channel where the bot will auto-detect Discord scheduled events for timer labels.
+In a watch-party channel, `/timer start` with no title takes its title from the channel's running Discord scheduled event. Only these channels do that.
 
 **Example:**
 ```
 /eggshen-config-watch-party watch-party add channel:#movie-night
 ```
-
-#### Remove Watch Party Channel
-
-```
-/eggshen-config-watch-party watch-party remove channel:<#channel>
-```
-
-Removes a channel from watch party auto-detection.
-
-**Example:**
-```
-/eggshen-config-watch-party watch-party remove channel:#movie-night
-```
-
-#### List Watch Party Channels
-
-```
-/eggshen-config-watch-party watch-party list
-```
-
-Shows all configured watch party channels.
 
 #### Watch Party Auto-Detect
 
@@ -304,17 +261,28 @@ Shows all configured watch party channels.
 /eggshen-config-watch-party watch-party auto-detect mode:<ask|full|off>
 ```
 
-Controls how much `/timer start` does on its own with a watch-party channel's active scheduled event.
+How much `/timer start` does on its own with a watch-party channel's running event.
 
 | Mode | Behavior |
 |------|----------|
-| **`ask`** *(default)* | Looks the title up. When it's identified confidently — a single match, an exact title match, or an episode range it can resolve — the duration is set and the timer just starts. When it's ambiguous, offers two buttons: **▶️ Start Now** or **🔎 Look Up Title**. |
-| **`full`** | Same, but an ambiguous title goes straight to the full list of matches. **▶️ Start Timer Without Title Selection** is always its first option. |
-| **`off`** | Scheduled events are ignored entirely; `/timer start` needs a `label`. |
+| **`ask`** *(default)* | Looks the title up. When it's clear (one match, an exact title match, or an episode range it can work out), the duration is set and the timer just starts. When it isn't, you get two buttons: **▶️ Start Now** or **🔎 Look Up Title**. |
+| **`full`** | The same, but an unclear title goes straight to the full list of matches. **▶️ Start Timer Without Title Selection** is always first. |
+| **`off`** | Scheduled events are ignored. |
 
-The setting governs what the bot does *unprompted*. A label you type yourself with `label:`/`movie:`/`tv:` always gets the full search, in every mode.
+A title you type yourself with `label:`, `movie:` or `tv:` always gets the full search, in every mode.
 
-`ask` exists because a watch party shouldn't begin with a quiz. Most of the time the lookup succeeds silently and you get a correct duration for free; when it can't, one click starts the timer anyway.
+#### Episode Buffer
+
+```
+/eggshen-config-watch-party watch-party episode-buffer minutes:<0-30>
+```
+
+Extra minutes per episode when a timer covers several episodes (`S5E5-E8`), for ad breaks and pauses. 5 by default, and the total buffer is never less than 10 minutes. TMDB's runtimes are ad-free: use 0 for ad-free services, 8-10 for Tubi or Pluto TV.
+
+**Example:**
+```
+/eggshen-config-watch-party watch-party episode-buffer minutes:8
+```
 
 #### Starting-Soon Cards
 
@@ -326,534 +294,236 @@ The setting governs what the bot does *unprompted*. A label you type yourself wi
 
 ---
 
+### Watchlist Group
+
+```
+/eggshen-config-watch-party watchlist settings
+/eggshen-config-watch-party watchlist view
+```
+
+| Option of `settings` | Default | What it does |
+|---|---|---|
+| `max-size` | 100 | Most titles allowed on the list (10-500) |
+| `mod-only-add` | Off | Only admins and moderators can add |
+| `auto-add-champion` | Off | Put a finished tournament's winner on the list (movie and TV tournaments) |
+| `auto-remove-watched` | On | Take a title off once it's logged as watched |
+
+**Example:**
+```
+/eggshen-config-watch-party watchlist settings max-size:200 auto-add-champion:true
+```
+
+See [Watchlist](/commands/watch-party#watchlist).
+
+---
+
 ### Rate Limit Group
 
-Advanced rate limiting configuration.
+Limits on how often commands can be used, with `/eggshen-config-watch-party rate-limit`. See [Rate Limiting](/features/rate-limiting) for how it works.
+
+**Defaults:**
+
+| Limit | Default |
+|---|---|
+| Rate limiting | On |
+| Each member, each command | 1 use per 20 seconds |
+| `/recommend` | 2 uses per 2 minutes |
+| `/suggest-quote` | 1 use per minute |
+| The whole server | 10 commands per minute |
+| Pattern detection | On, flags 3 or more members |
+| Admins and moderators | Not limited |
+
+The games (`/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`) have [limits of their own](/commands/games-settings#limits) instead of the per-command one.
 
 #### Toggle Rate Limiting
 
 ```
-/eggshen-config-watch-party rate-limit toggle enabled:<true/false>
+/eggshen-config-watch-party rate-limit toggle enabled:<true|false>
 ```
 
-Master switch for rate limiting system.
-
-**Example:**
-```
-/eggshen-config-watch-party rate-limit toggle enabled:true
-```
+The master switch. Turning it off also turns off moderation's whitelist mode and user cooldowns, which are checked by the same system.
 
 #### Global Rate Limits
 
 ```
-/eggshen-config-watch-party rate-limit global max-requests:<number> window-seconds:<seconds>
+/eggshen-config-watch-party rate-limit global max-requests:<1-100> window-seconds:<1-3600>
 ```
 
-Set global rate limits for all users.
-
-**Parameters:**
-- `max-requests` - Maximum requests (1-100)
-- `window-seconds` - Time window in seconds (1-3600)
+How often each member can use each command.
 
 **Example:**
 ```
-/eggshen-config-watch-party rate-limit global max-requests:10 window-seconds:60
+/eggshen-config-watch-party rate-limit global max-requests:3 window-seconds:60
 ```
 
 #### Per-Command Rate Limits
 
 ```
-/eggshen-config-watch-party rate-limit command command:<name> max-requests:<number> window-seconds:[seconds]
+/eggshen-config-watch-party rate-limit command command:<name> max-requests:<0-100> window-seconds:[1-3600]
 ```
 
-Set custom rate limits for specific commands.
-
-**Available Commands:**
-- `movie`
-- `tv`
-- `episode`
-- `episode-list`
-- `timer`
-- `stats`
+A limit for one command, instead of the global one. **Commands:** `movie`, `tv`, `episode`, `episode-list`, `timer`, `stats`. `max-requests:0` removes the command's own limit.
 
 **Example:**
 ```
 /eggshen-config-watch-party rate-limit command command:movie max-requests:5 window-seconds:60
 ```
 
-Set `max-requests` to 0 to remove custom limit for that command.
-
 #### Moderator Bypass
 
 ```
-/eggshen-config-watch-party rate-limit bypass enabled:<true/false>
+/eggshen-config-watch-party rate-limit bypass enabled:<true|false>
 ```
 
-Allow moderators to bypass rate limits.
-
-**Example:**
-```
-/eggshen-config-watch-party rate-limit bypass enabled:true
-```
-
-#### Clear User Rate Limits
-
-```
-/eggshen-config-watch-party rate-limit clear user:@user
-```
-
-Manually clear rate limits for a specific user.
-
-**Example:**
-```
-/eggshen-config-watch-party rate-limit clear user:@MovieFan
-```
-
-#### View Rate Limit Config
-
-```
-/eggshen-config-watch-party rate-limit view
-```
-
-Shows current rate limiting configuration.
+**On by default:** admins and moderators aren't rate limited.
 
 #### Guild-Wide Rate Limiting
 
 ```
-/eggshen-config-watch-party rate-limit guild-wide enabled:<true/false> max-requests:[number] window-seconds:[seconds]
+/eggshen-config-watch-party rate-limit guild-wide enabled:<true|false> max-requests:[1-100] window-seconds:[10-600]
 ```
 
-Enable server-wide rate limiting (total commands across all users).
-
-**Parameters:**
-- `enabled` - Enable/disable guild-wide limits
-- `max-requests` - Maximum total commands (default: 10, range: 1-100)
-- `window-seconds` - Time window in seconds (default: 60, range: 10-600)
+A cap on commands from everyone together, which stops one person flooding the bot from several accounts. On by default: 10 commands per 60 seconds.
 
 **Example:**
 ```
 /eggshen-config-watch-party rate-limit guild-wide enabled:true max-requests:20 window-seconds:60
 ```
 
+#### Pattern Detection
+
+```
+/eggshen-config-watch-party rate-limit pattern-detection enabled:<true|false> min-users:[2-20]
+```
+
+Flags signs of coordinated spam: several members running the same command with the same options within a minute, or a burst of commands from several members within 10 seconds. On by default, flagging 3 or more members. Admins and moderators aren't counted. It records what it sees for `suspicious-activity`; it doesn't block anyone.
+
+#### View, Clear and Review
+
+```
+/eggshen-config-watch-party rate-limit view
+/eggshen-config-watch-party rate-limit clear user:@user
+/eggshen-config-watch-party rate-limit suspicious-activity
+/eggshen-config-watch-party rate-limit abuse-log
+```
+
+- `view` - The current limits
+- `clear` - Clear one member's rate limits, if they're stuck
+- `suspicious-activity` - What pattern detection has flagged recently
+- `abuse-log` - Rate-limit violations, member by member
+
 ---
 
 ### AI Images Group
 
-Configure AI image generation limits and whitelist. **Cost control is critical!**
+`/image` settings, with `/eggshen-config-ai ai-images`. See [AI Image Generation](/commands/ai-images) for the details.
 
-#### View AI Image Settings & Stats
+| Subcommand | What it does | Default |
+|---|---|---|
+| `view` | Settings, today's usage and cost, and your own usage | |
+| `feature-toggle enabled:` | Switch `/image` on or off | On |
+| `set-permissions level:` | Who can use it: `everyone`, `moderators` (and admins) or `admins` | Everyone |
+| `toggle enabled:` | The image limits below, on or off | On |
+| `user-cooldown seconds:` | Wait between images per member, 60-3600 | 300 (5 minutes) |
+| `user-daily-limit limit:` | Images per member per day, 1-100 | 10 |
+| `guild-daily-limit limit:` | Images for the whole server per day, 1-500 | 50 |
+| `admin-bypass enabled:` | Admins skip the cooldown (never the daily limits) | On |
+| `whitelist-add user:` / `whitelist-remove user:` / `whitelist-list` | Members with no limits | |
+| `reset-user user:` / `reset-guild` | Reset a member's or the server's usage for today | |
 
-```
-/eggshen-config-ai ai-images view
-```
-
-Shows:
-- Current settings (cooldown, limits, toggles)
-- Server stats (usage today, cost, remaining quota)
-- Your personal stats (usage, cooldown status)
-
-#### Toggle AI Image Rate Limiting
-
-```
-/eggshen-config-ai ai-images toggle enabled:<true/false>
-```
-
-Enable or disable rate limiting for AI image generation.
-
-⚠️ **Warning:** Disabling allows unlimited generations - costs can increase dramatically!
-
-**Example:**
-```
-/eggshen-config-ai ai-images toggle enabled:true
-```
-
-#### Set User Cooldown
-
-```
-/eggshen-config-ai ai-images user-cooldown seconds:<60-3600>
-```
-
-Set time between AI image generations per user.
-
-**Default:** 300 seconds (5 minutes)
-
-**Recommended values:**
-- `300` (5 min) - Default, balanced
-- `600` (10 min) - Stricter, lower costs
-- `60` (1 min) - Looser, higher costs
-
-**Example:**
-```
-/eggshen-config-ai ai-images user-cooldown seconds:300
-```
-
-#### Set User Daily Limit
-
-```
-/eggshen-config-ai ai-images user-daily-limit limit:<1-100>
-```
-
-Maximum AI images per user per day.
-
-**Default:** 10 images/day ($0.40/user/day max)
+⚠️ With the limits off, members can generate as many images as they like, and each one costs the bot's owner money.
 
 **Examples:**
-- `limit:5` - Very strict ($0.20/user/day max)
-- `limit:10` - Default ($0.40/user/day max)
-- `limit:25` - Generous ($1.00/user/day max)
-
-Shows estimated monthly cost per user.
-
-**Example:**
 ```
-/eggshen-config-ai ai-images user-daily-limit limit:10
+/eggshen-config-ai ai-images set-permissions level:moderators
+/eggshen-config-ai ai-images guild-daily-limit limit:25
 ```
 
-#### Set Server Daily Limit
+---
+
+### AI Text and AI Answers
+
+Two more switches in `/eggshen-config-ai`, separate from images. Both are on by default, and both need the bot to have an OpenAI key.
 
 ```
-/eggshen-config-ai ai-images guild-daily-limit limit:<1-500>
+/eggshen-config-ai ai-text feature-toggle enabled:<true|false>
+/eggshen-config-ai ai-text view
+/eggshen-config-ai ai-ask feature-toggle enabled:<true|false>
+/eggshen-config-ai ai-ask view
 ```
 
-Maximum AI images per server per day.
+- **`ai-text`**: AI writes the announcement for `/announce party` and `/announce schedule` when you don't give a `message`. Off, those posts use a plain template. Your own `message` is always posted as written
+- **`ai-ask`**: AI writes `/eggshen-ask` answers from the docs. Off, `/eggshen-ask` shows the best-matching docs section as written. See [Ask the Bot](/commands/ask)
 
-**Default:** 50 images/day ($2/day = $60/month max)
+---
 
-**Examples:**
-- `limit:25` - Small server ($0.75/day = $22.50/month max)
-- `limit:50` - Default ($2/day = $60/month max)
-- `limit:100` - Large server ($4/day = $120/month max)
+### Moderation Group
 
-Shows estimated monthly cost.
-
-**Example:**
-```
-/eggshen-config-ai ai-images guild-daily-limit limit:50
-```
-
-#### Toggle Admin Cooldown Bypass
-
-```
-/eggshen-config-ai ai-images admin-bypass enabled:<true/false>
-```
-
-Allow admins/moderators to bypass cooldown (they always respect daily limits).
-
-**Default:** Enabled
-
-**Example:**
-```
-/eggshen-config-ai ai-images admin-bypass enabled:true
-```
-
-#### Add User to Unlimited Whitelist
-
-```
-/eggshen-config-ai ai-images whitelist-add user:<@user>
-```
-
-Grant unlimited AI image generation to a specific user.
-
-**Use cases:**
-- Bot contributors helping with costs
-- Premium/donor users
-- Server boosters
-- Testing accounts
-
-Whitelisted users bypass ALL limits (cooldown + daily limits).
-
-**Example:**
-```
-/eggshen-config-ai ai-images whitelist-add user:@JohnDoe
-```
-
-#### Remove User from Whitelist
-
-```
-/eggshen-config-ai ai-images whitelist-remove user:<@user>
-```
-
-Remove unlimited access - user returns to normal rate limits.
-
-**Example:**
-```
-/eggshen-config-ai ai-images whitelist-remove user:@JohnDoe
-```
-
-#### View Whitelist
-
-```
-/eggshen-config-ai ai-images whitelist-list
-```
-
-Shows all users with unlimited AI image generation access.
-
-#### Reset User Usage
-
-```
-/eggshen-config-ai ai-images reset-user user:<@user>
-```
-
-Reset a user's daily usage and cooldown.
-
-**Use cases:**
-- User hit limit due to testing
-- Reward for event participation
-- Resolve technical issues
-
-**Example:**
-```
-/eggshen-config-ai ai-images reset-user user:@JohnDoe
-```
-
-#### Reset Server Usage
-
-```
-/eggshen-config-ai ai-images reset-guild
-```
-
-Reset the entire server's daily usage (user limits still apply).
-
-**Use cases:**
-- Special events
-- Server milestones
-- Testing periods
-
-**Example:**
-```
-/eggshen-config-ai ai-images reset-guild
-```
-
-**💡 See [AI Image Generation](ai-images.md) for complete documentation on the `/image` command, cost management strategies, and best practices.**
+Cooldowns for members, whitelist mode and the auto-ban threshold, with `/eggshen-config-moderation moderation`. Moderation is **off by default**; `toggle enabled:true` turns it on. Every subcommand is on [Moderation Commands](/commands/moderation).
 
 ---
 
 ### Event Requests Group
 
-Configure event request system for watch parties. See [Event Requests Setup](../features/event-requests.md) for complete documentation.
+The web form members use to ask for a watch party, with `/eggshen-config-events event-requests`. Setting up the form itself (the website, Discord login and hosting) is in [Event Requests](/features/event-requests).
 
 ::: tip
-Event requests allow community members to submit watch party events via a web form. Moderators approve or deny requests in Discord, and approved events are automatically created as Discord Scheduled Events.
+Members fill in a form on your website. Moderators approve or deny each request in Discord, and an approved request becomes a Discord scheduled event.
 :::
 
-#### View Current Configuration
+| Subcommand | What it does | Default |
+|---|---|---|
+| `view` | The current settings | |
+| `toggle enabled:` | Event requests on or off | Off |
+| `moderation-channel channel:` | Where requests go for approval | None |
+| `server-name name:` | The server name shown on the form | The server's name |
+| `invite-url url:` | A Discord invite shown on the form. Leave `url` out to hide it | None |
+| `allow-voice-requests allow:` | Whether members can ask for a voice or stage channel | Yes |
+| `announce-decisions enabled:` | Post a new message in the moderation channel on approve or deny | On |
+| `announcement-channel where:` | Tell members about approved events (below) | Off |
+| `allow-user-channel-selection allow:` | Members pick the channels (Advanced Mode), or moderators do (Simple Mode) | Simple |
+| `set-allowed-text-channels channel-ids:` | The text channels members can pick. Comma-separated IDs, or `all` | All |
+| `set-allowed-voice-channels channel-ids:` | The voice and stage channels members can pick | All |
+| `guidance part:` | The help text on the form (below) | Built in |
+| `streaming` | The where-to-watch line on requests (below) | On |
+| `get-link` | The form's address and the Guild ID your site needs | |
 
-```
-/eggshen-config-events event-requests view
-```
+The website address itself is set with [`/eggshen-config-website url`](#website-group).
 
-Shows current event request settings including:
-- Enabled status
-- Server name displayed on form
-- Moderation channel for approval queue
-- Website URL where form is hosted
-- Discord invite link (optional)
-- Voice channel requests allowed/disallowed
+**Moderators approve with buttons:** a request that asks for a voice channel gets **Approve Both**, **Text Only**, **Edit** and **Deny**; a text-only one gets **Approve & Create Event**, **Edit** and **Deny**. **Crop Image** appears when there's an image.
 
-#### Enable/Disable Event Requests
-
-```
-/eggshen-config-events event-requests toggle enabled:true
-/eggshen-config-events event-requests toggle enabled:false
-```
-
-Turn event requests on or off for your server.
-
-#### Set Moderation Channel
-
-```
-/eggshen-config-events event-requests moderation-channel channel:#mod-queue
-```
-
-Set where event request approval messages appear. Moderators will see:
-- Request details (title, description, channels, date/time)
-- Submitter information
-- Approval buttons (varies based on voice channel request)
-
-#### Set Server Name
-
-```
-/eggshen-config-events event-requests server-name name:My Cool Server
-```
-
-Customize the server name shown on the event request form.
-
-#### Set Invite Link (Optional)
-
-```
-/eggshen-config-events event-requests invite-url url:https://discord.gg/yourserver
-```
-
-Discord invite link displayed on the form. Leave empty to hide.
-
-#### Set Website URL
-
-```
-/eggshen-config-website url url:https://yourdomain.com
-```
-
-The URL where your event request form is hosted is set with `/eggshen-config-website url` (see `/eggshen-config-website view` for the current value).
-
-::: warning
-After setting the website URL, you must also copy `public/config.example.js` to `public/config.js` on your web server and set `GUILD_ID` there. See the [Event Requests Setup Guide](../features/event-requests.md) for deployment instructions.
-:::
-
-#### Allow/Disallow Voice Requests
-
-```
-/eggshen-config-events event-requests allow-voice-requests allow:true
-/eggshen-config-events event-requests allow-voice-requests allow:false
-```
-
-Control whether users can request voice/stage channels for events.
-
-**When disabled:**
-- Voice channel checkbox hidden on form
-- All events are text-channel only
-- Simplifies form for servers that don't use voice for watch parties
-
-**When enabled (default):**
-- Checkbox appears on form: "Include voice/stage channel for this event"
-- Users can optionally add voice channel to requests
-- Moderators get granular approval options
-
-**Moderator Approval Options:**
-- **Voice requested:** ✅ Approve Both | 💬 Text Only | ❌ Deny
-- **Text-only request:** ✅ Approve & Create Event | ❌ Deny
-
-#### Announce Approve/Deny Decisions
-
-```
-/eggshen-config-events event-requests announce-decisions enabled:true
-/eggshen-config-events event-requests announce-decisions enabled:false
-```
-
-Control whether approving or denying a request posts a new message to the moderation channel announcing the outcome, in addition to updating the original request's embed in place.
-
-**When enabled (default):**
-- A fresh message is posted announcing who approved/denied the request
-- Approved: includes a link to the newly created event
-- Denied: includes the reason, if one was given
-- Shows up as new channel activity, so the whole moderation team sees it — not just whoever clicked
-
-**When disabled:**
-- Only the original request message updates (title, color, buttons)
-- No separate announcement is posted
-
-#### Announce Approved Events to Members
-
-```
-/eggshen-config-events event-requests announcement-channel where:The event's own channel
-/eggshen-config-events event-requests announcement-channel channel:#watch-parties where:A specific channel
-/eggshen-config-events event-requests announcement-channel where:Off
-```
-
-The moderation channel is usually hidden from regular members, so the approve/deny message above never reaches them. This setting posts a separate **📅 New watch party** message where members can see it when a request is approved:
-
-- **The event's own channel**: the text channel the watch party takes place in (the one the submitter or approving moderator picked)
-- **A specific channel**: always the same channel, such as `#announcements`
-- **Off** (default): nothing is posted outside the moderation channel
-
-The post links the event, so Discord shows its card with the **Interested** button, and credits the submitter without pinging them. It applies to every way a request gets approved. The bot needs **Send Messages** in the target channel; if the post fails, the event is still created and the approving moderator's reply says why.
-
-#### Allow User Channel Selection (Simple vs Advanced Mode)
+#### Simple and Advanced Mode
 
 ```
 /eggshen-config-events event-requests allow-user-channel-selection allow:false
 /eggshen-config-events event-requests allow-user-channel-selection allow:true
 ```
 
-Control whether users select channels in the event request form.
-
-**Simple Mode (default - `allow:false`):**
-- Users submit basic event details only: title, description, start/end time
-- Form hides Location and Voice Channel selectors
-- Message to users: "Moderators will select the channels when approving your event"
-- Moderators assign channels during approval process
-- **Best for:** New communities, servers with dedicated event coordinators, reducing decision fatigue
-
-**Advanced Mode (`allow:true`):**
-- Users select specific text/voice channels from whitelists (see below)
-- Form shows Location field (required) and optional Voice Channel checkbox
-- Users have full control over channel selection
-- Form filters channels based on allowed lists configured by admins
-- **Best for:** Experienced communities, power users, community-driven events
-
-::: warning Default Behavior
-Event requests default to **Simple Mode**. Users submit event ideas and moderators handle channel logistics during approval. Enable Advanced Mode only when users should control channel selection.
-:::
-
-#### Whitelist Allowed Text Channels
+- **Simple Mode** (`allow:false`, the default): members give the title, description and times. Moderators pick the channels when they approve.
+- **Advanced Mode** (`allow:true`): the form shows a Location list and a voice-channel option, limited to the channels you allow:
 
 ```
-/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"123,456,789"
-/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"all"
+/eggshen-config-events event-requests set-allowed-text-channels channel-ids:1234567890,9876543210
+/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:all
 ```
 
-Control which text channels appear in the event request form dropdown.
+To copy a channel's ID, turn on Developer Mode in Discord's settings, then right-click the channel → **Copy Channel ID**.
 
-**Channel IDs Parameter:**
-- **Comma-separated list**: `"1234567890,9876543210,1111222233"` - Only these channels
-- **"all" keyword**: `"all"` - Allow all text channels (default)
-- **Empty string**: `""` - Also allows all channels
-
-**How It Works:**
-- Users only see whitelisted channels in the "Location" dropdown
-- Empty list (default) = all channels available
-- Populated list = only those specific channel IDs appear
-
-**Use Cases:**
-- Limit to dedicated watch party channels: `"123,456"`
-- Exclude admin/announcement channels
-- Simplify selection for users with many channels
-- Reset to all channels: `"all"`
-
-**Example:**
-```
-/eggshen-config-events event-requests set-allowed-text-channels channel-ids:"1234567890,9876543210"
-```
-
-::: tip Getting Channel IDs
-Right-click a channel in Discord → Copy Channel ID (requires Developer Mode enabled in Discord Settings)
-:::
-
-#### Whitelist Allowed Voice Channels
+#### Announce Approved Events to Members
 
 ```
-/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"123,456,789"
-/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"all"
+/eggshen-config-events event-requests announcement-channel where:event
+/eggshen-config-events event-requests announcement-channel where:channel channel:#watch-parties
+/eggshen-config-events event-requests announcement-channel where:off
 ```
 
-Control which voice/stage channels appear in the event request form dropdown.
+The moderation channel is usually hidden from members. This posts a separate **📅 New watch party** message where they can see it when a request is approved:
 
-**Channel IDs Parameter:**
-- **Comma-separated list**: `"1234567890,9876543210"` - Only these channels
-- **"all" keyword**: `"all"` - Allow all voice/stage channels (default)
-- **Empty string**: `""` - Also allows all channels
+- `where:event` (**The event's own channel**): the text channel the watch party is in
+- `where:channel` (**A specific channel**): always the same channel, such as `#announcements`
+- `where:off` (**Off**, the default): nothing is posted outside the moderation channel
 
-**How It Works:**
-- Users only see whitelisted channels in the "Voice Channel" dropdown
-- Empty list (default) = all voice/stage channels available
-- Populated list = only those specific channel IDs appear
-
-**Use Cases:**
-- Limit to dedicated watch party voice channels
-- Exclude private or admin voice channels
-- Simplify selection when server has many voice channels
-- Reset to all channels: `"all"`
-
-**Example:**
-```
-/eggshen-config-events event-requests set-allowed-voice-channels channel-ids:"1234567890"
-```
-
-::: warning Independent Controls
-Text and voice channel whitelists are **independent**. You can:
-- Allow all text channels but limit voice channels
-- Allow all voice channels but limit text channels  
-- Limit both to specific channels
-- Allow all of both (default)
-:::
+The post links the event, so Discord shows its card with the **Interested** button, and credits the person who asked without pinging them. The bot needs **Send Messages** in that channel; if the post fails, the event is still created and the moderator who approved it is told why.
 
 #### Form Guidance
 
@@ -862,14 +532,14 @@ Text and voice channel whitelists are **independent**. You can:
 /eggshen-config-events event-requests guidance part:page
 ```
 
-The helper text on your server's request form. Every form starts with sensible defaults: login is only used to check membership, check the Events tab first, add the year to the title, say where to watch it, schedule within 2 weeks, you'll be the host. Rewrite any of it for your server, such as "Keep it horror or horror-adjacent." under the title.
+The help text on your server's form. Every form starts with defaults: login only checks membership, check the Events tab first, add the year to the title, say where to watch it, schedule within 2 weeks, and you'll be the host. Rewrite any of it, such as "Keep it horror or horror-adjacent." under the title.
 
-Each opens a Discord form, filled in with what the form shows now:
+Each opens a Discord form, filled in with what the website shows now:
 
 - `part:fields`: the text under **Event Title**, **Description**, **Event Image**, the **start date and time**, and **Frequency**
-- `part:page`: the **intro** at the top of the form and the **footer** at the bottom
+- `part:page`: the **intro** at the top and the **footer** at the bottom
 
-Empty a box to go back to the default, or type `none` to show nothing there. Lines starting with `•` or `-` become a list, `**bold**` is bold, and `https://` links can be clicked. Each server's text shows only on its own site. `/eggshen-config-events event-requests view` lists what you've changed.
+Empty a box to go back to the default, or type `none` to show nothing there. Lines starting with `•` or `-` become a list, `**bold**` is bold, and `https://` links can be clicked. `/eggshen-config-events event-requests view` lists what you've changed.
 
 #### Where to Watch
 
@@ -887,34 +557,75 @@ Each request's title is looked up for where it streams. Moderators see a **📺 
 More places to watch: https://www.themoviedb.org/movie/…/watch?locale=US
 ```
 
-- **Only your services are named**, in the order you list them. The default is Shudder, AMC+, Tubi, Plex, Roku, Prime Video, Hulu, Peacock and Hoopla; `services:default` brings it back.
+- **Only your services are named,** in the order you list them. The default is Shudder, AMC+, Tubi, Plex, Roku, Prime Video, Hulu, Peacock and Hoopla; `services:default` brings it back.
 - **Free services are marked (free).**
-- **It never guesses.** The title has to match one movie or show exactly (a year in brackets, like "Fargo (1996)", settles a tie), otherwise nothing is added and the moderators are told why.
+- **It never guesses.** The title has to match one movie or show exactly (a year in brackets, like "Fargo (1996)", settles a tie). Otherwise nothing is added and the moderators are told why.
 - If a moderator edits the title, approving looks it up again.
-- Uses your server's region (US by default). Watchmode, if configured, finds more services than TMDB alone.
+- It uses your server's region (US by default). With a Watchmode key, the bot finds more services than TMDB alone.
 
-#### Get Configuration Summary
+With no options, `streaming` shows the current setting.
+
+#### Get the Link
 
 ```
 /eggshen-config-events event-requests get-link
 ```
 
-Shows your form URL and reminds you to configure `GUILD_ID` in your web deployment.
+Shows your form's address and the Guild ID your website needs: `guildId` in its `scripts/domains.json` entry, or `GUILD_ID` in `public/config.js` for a single site. It only works once event requests are on and the website address is set.
 
-**💡 See [Event Requests Setup](../features/event-requests.md) for complete documentation including OAuth configuration, web server setup, and testing guide.**
+---
+
+### Games
+
+`/eggshen-config-games` has the game settings: play limits and the rescue shield (`limits`), where the games can be played (`channels`), twists, happenings, the [pace](./games-siege#pace) and [random sieges](./games-siege#random-sieges) (`happenings`), and erasing scores (`reset-scores`). They're all on [Settings for Admins](./games-settings), with the details on [happenings and twists](./games-settings#happenings-and-twists).
+
+```
+/eggshen-config-games channels mode:only add:#games
+/eggshen-config-games happenings frequency:rare
+/eggshen-config-games happenings start:fullmoon
+/eggshen-config-games happenings pace:quick
+/eggshen-config-games happenings siege-frequency:rare
+```
+
+To switch a game off, use [`/eggshen-config commands toggle`](#commands-group).
+
+---
+
+### Quotes
+
+The bot's status line shows a rotating movie quote. Members post one with `/quote` and suggest new ones with `/suggest-quote`. `/eggshen-config-quotes` manages the list:
+
+| Subcommand | What it does |
+|---|---|
+| `add quote:` (`title:`, `author:`) | Add a quote straight to the rotation, with no review |
+| `edit index: quote:` (`title:`, `author:`) | Change a quote. Leaving out `title` or `author` clears it |
+| `delete index:` | Delete a quote |
+| `list` (`page:`) | The quotes, 10 a page, with their index numbers |
+| `moderation-channel channel:` | Where `/suggest-quote` suggestions go for review |
+| `max-pending-per-user max:` | How many suggestions a member can have waiting, 1-50 (default 3) |
+| `admin-link` | A one-time link (10 minutes) to the bot's quotes admin web page, already unlocked |
+
+Suggestions are approved or rejected on that quotes admin page. It, and `admin-link`, only work when the bot's operator has set `QUOTES_ADMIN_SECRET`. Without a moderation channel, suggestions still wait there.
+
+The quote list belongs to the bot, not to one server: a bot that serves several servers shares one rotation between them.
+
+**Example:**
+```
+/eggshen-config-quotes add quote:It's all in the reflexes. title:Big Trouble in Little China author:Jack Burton
+```
 
 ---
 
 ### Website Group
 
-`/eggshen-config-website` sets how this server's web pages look and where the bot's links point. Administrators and moderators only.
+`/eggshen-config-website` sets how this server's web pages look and where the bot's links point.
 
 | Command | What it does |
-| --- | --- |
+|---|---|
 | `/eggshen-config-website view` | Shows this server's website URL, bot URL and theme |
 | `/eggshen-config-website url url:<address>` | Where this server's event request form is hosted |
 | `/eggshen-config-website bot-url url:<address>` | The address used in links the bot posts in this server |
-| `/eggshen-config-website theme name:<theme>` | The color theme for this server's pages |
+| `/eggshen-config-website theme name:<theme>` | The color theme for this server's pages: `default` or `shudder`, or any theme the bot's operator adds |
 
 #### Bot URL
 
@@ -937,16 +648,10 @@ This is separate from `url`, which is where the event request form lives. If you
 ### View Statistics
 
 ```
-/eggshen-stats filter:[time-period]
+/eggshen-stats filter:[all-time|month|week|today]
 ```
 
-View bot usage statistics (admin/moderator only).
-
-**Filters:**
-- `all-time` - All time statistics
-- `month` - Last 30 days
-- `week` - Last 7 days
-- `today` - Last 24 hours
+Detailed usage statistics for the server (admins and moderators). See [Statistics](/features/statistics).
 
 **Example:**
 ```
@@ -958,33 +663,22 @@ View bot usage statistics (admin/moderator only).
 ```
 /eggshen-logs stats
 /eggshen-logs errors count:[1-50]
-/eggshen-logs category category:[category] count:[1-50]
+/eggshen-logs category category:<category> count:[1-50]
 ```
 
-View bot logs and diagnostics (admin only).
+The bot's logs. **Administrator permission only.**
 
-**Subcommands:**
-- `stats` - View log file statistics
-- `errors` - View recent errors (EMERGENCY to ERROR levels)
-- `category` - View logs by category
-
-**Categories:**
-- `system` - Bot startup, shutdown, errors
-- `command` - Command execution logs
-- `button` - Button interaction logs
-- `scheduler` - Tournament auto-close events
-- `bracket` - Tournament operations
-- `api` - External API calls
-- `performance` - Slow operation tracking
+- `stats` - Log file sizes and counts
+- `errors` - Recent errors (10 by default)
+- `category` - Recent entries in one category: `system`, `command`, `button`, `scheduler` or `performance`
 
 **Examples:**
 ```
-/eggshen-logs stats
 /eggshen-logs errors count:20
 /eggshen-logs category category:command count:10
 ```
 
-**💡 See [Logging System](../features/logging.md) for complete documentation on log levels, file formats, rotation, and troubleshooting.**
+See [Logging System](/features/logging).
 
 ### Restart Bot
 
@@ -992,7 +686,7 @@ View bot logs and diagnostics (admin only).
 /eggshen-restart
 ```
 
-Restart the bot (admin/moderator only). Use with caution.
+Restarts the bot (admins and moderators). The bot shuts down and relies on PM2, or another process manager, to start it again. Timers, tournaments and sieges carry on after the restart.
 
 ### Help Command
 
@@ -1000,4 +694,4 @@ Restart the bot (admin/moderator only). Use with caution.
 /eggshen-help
 ```
 
-Get help with bot commands and features.
+The command list, just for you, showing only what's switched on in this server.

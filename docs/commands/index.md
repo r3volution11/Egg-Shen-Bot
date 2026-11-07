@@ -1,13 +1,13 @@
 ---
 title: Commands Reference - Egg Shen Bot
-description: Complete slash commands reference for Egg Shen Bot. Search movies, TV shows, episodes, video games, board games, and manage watch parties with timers and history.
+description: Every Egg Shen Bot command with its options. Search movies, TV, games and books, run watch parties, tournaments, surveys, trivia and the games, and configure your server.
 head:
   - - meta
     - property: og:title
       content: Commands Reference - Egg Shen Bot
   - - meta
     - property: og:description
-      content: Complete slash commands reference for searching movies, TV shows, games, books, hosting tournaments, watch parties, and more.
+      content: Every Egg Shen Bot command with its options, for searches, watch parties, tournaments, surveys, trivia, games and server settings.
   - - meta
     - property: og:url
       content: https://eggshenbot.com/commands/
@@ -16,124 +16,103 @@ head:
       content: Commands Reference - Egg Shen Bot
   - - meta
     - name: twitter:description
-      content: Complete slash commands reference for Egg Shen Bot. 20+ commands for entertainment searches.
+      content: Every Egg Shen Bot command with its options, for searches, watch parties, tournaments, surveys, trivia, games and server settings.
 ---
 
 # Commands Overview
 
-**Egg Shen Bot provides comprehensive slash commands** for searching entertainment media, hosting watch parties, and managing your server's settings. All commands use Discord's native slash command interface for easy discovery and autocomplete.
+Every Egg Shen command is a slash command. Type `/` in Discord and pick one; Discord shows each option as you go. This page lists every command and its options. Follow the links for the full details.
+
+Options in `code` are the ones you type, such as `query:`. Anything not marked required is optional.
 
 ## Quick FAQ
 
 **Q: Why don't I see all the commands?**  
-A: Commands appear based on configured API keys. Missing APIs = those commands won't show up.
+A: There are three usual reasons. `/game` and `/boardgame` are only registered when the bot has a RAWG key and a BoardGameGeek client ID. `/bracket-setup`, `/escape-setup` and `/eggshen-logs` are hidden from members without the right Discord permissions. And after an update, Discord can show an old list until you reload it (Cmd/Ctrl+R).
 
 **Q: How do I use slash commands?**  
-A: Type `/` in Discord and start typing the command name. Discord will show autocomplete options.
+A: Type `/` and start typing the command's name. Discord lists the matches, then each option in turn.
 
 **Q: Can I restrict who uses certain commands?**  
-A: Yes! Use Discord's built-in command permissions system or configure per-command restrictions via `/eggshen-config`.
+A: Yes. `/eggshen-config commands toggle` switches a command off for regular members, and Discord's own **Server Settings → Integrations** page can limit a command to certain roles or channels. See [Admin Configuration](./configuration#commands-group).
 
 **Q: Do commands work in DMs?**  
-A: Most search commands work in DMs. Server-specific features (timers, watch history, config) require a server.
+A: Use the bot in a server. Watch parties, games, tournaments, statistics and settings all belong to a server.
 
-**Q: What happens if a movie/show isn't found?**  
-A: The bot will show a "not found" message. Try different spelling, year, or check TMDB to see if it exists.
+**Q: What happens if a movie or show isn't found?**  
+A: The bot says nothing matched. Try another spelling, add the year, or check that it's on [TMDB](https://www.themoviedb.org).
 
 **Q: Where do I start with the games?**  
 A: Run `/how-to-play` for a short card on each topic, with your server's own limits. Admins can keep the games to one channel with `/eggshen-config-games channels mode:only add:#games`. Every rule is in [Games & Scores](./games).
 
+**Q: Not sure which command you need?**  
+A: Ask in plain words: `/eggshen-ask question:how do I pause the timer?` See [Ask the Bot](./ask).
+
 ---
-
-# Commands Overview
-
-Egg Shen Bot provides comprehensive slash commands for searching media, hosting watch parties, and server management.
 
 ## Search Commands
 
+Search results post in the channel. Add `private:true` to keep one to yourself. If several titles match, you pick from a private list first. See [Search Commands](./search).
+
 ### `/movie`
-Search for movies with comprehensive ratings and links.
+A movie's ratings, where to stream it, runtime, genres and synopsis.
 
 **Options:**
-- `query` (required) - Movie title to search for
-- `private` - Only show the result to you (default: false)
+- `query` (required) - The movie's title
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes
-- Streaming availability via JustWatch
-- Release date, runtime, genres
-- Overview and poster
-- Configurable services per server
+**Shows:** IMDb, Letterboxd, Trakt, Rotten Tomatoes (critics) and Metacritic ratings, a JustWatch link, and where it streams, rents, sells or plays free in your server's region. Admins choose which services show with `/eggshen-config settings toggle`.
 
-**Example:**
 ```
-/movie query:The Matrix
+/movie query:The Thing
 ```
 
-[Learn more →](/commands/search#movie)
+[Learn more →](/commands/search#movie-search)
 
 ---
 
 ### `/tv`
-Search for TV shows with ratings and episode information.
+A TV show's ratings, where to stream it, status, number of seasons and genres.
 
 **Options:**
-- `query` (required) - TV show title to search for (optionally include an episode name)
-- `private` - Only show the result to you (default: false)
+- `query` (required) - The show's title
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Similar to movies but for TV shows
-- Episode count and season information
-- First air date and status (ongoing/ended)
-- Network information
+For a single episode, use `/episode`.
 
-**Example:**
 ```
-/tv query:Breaking Bad
+/tv query:Stranger Things
 ```
 
-[Learn more →](/commands/search#tv)
+[Learn more →](/commands/search#tv-show-search)
 
 ---
 
 ### `/episode`
-Search for specific TV show episodes.
+One episode, by title or number, with its ratings, air date, runtime and synopsis.
 
 **Options:**
-- `show` (required) - TV show name
-- `episode` (required) - Episode title (e.g. `Sandkings`) or number (e.g. `s3e11`, `3x11`)
-- `private` - Only show the result to you (default: false)
+- `show` (required) - The show's name
+- `episode` (required) - The episode's title (`Sandkings`) or number (`s3e11`, `3x11`)
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Episode-specific ratings
-- Air date
-- Episode title and overview
-- Still image from the episode
-
-**Example:**
 ```
+/episode show:The Outer Limits episode:Sandkings
 /episode show:The Last of Us episode:s1e1
 ```
 
-[Learn more →](/commands/search#episode)
+[Learn more →](/commands/search#episode-search)
 
 ---
 
 ### `/episode-list`
-View all episodes from a complete season.
+Every episode in a season, with air dates, ratings and IMDb links. Up to 25 episodes; for a longer season, look episodes up one at a time with `/episode`.
 
 **Options:**
-- `series` (required) - TV series name
-- `season` (required) - Season number
-- `private` - Only show the result to you (default: false)
+- `series` (required) - The show's name
+- `season` (required) - The season number
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Compact multi-column layout
-- Clickable IMDb links for each episode
-- Air dates and ratings
-- Handles large seasons efficiently
-
-**Example:**
 ```
 /episode-list series:Breaking Bad season:5
 ```
@@ -143,324 +122,215 @@ View all episodes from a complete season.
 ---
 
 ### `/game`
-Search for video games or board games.
+A video game from RAWG: Metacritic and RAWG ratings, platforms, genres, release date, developers and publishers. Needs a RAWG API key.
 
 **Options:**
-- `query` (required) - Game title to search for
-- `private` - Only show the result to you (default: false)
+- `query` (required) - The game's title
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Video game support via RAWG API
-- Board game support via BoardGameGeek
-- Metacritic scores
-- Platform information
-- Release dates
-
-**Example:**
 ```
-/game query:The Last of Us
-/game query:Wingspan
+/game query:Resident Evil 4
 ```
 
-[Learn more →](/commands/search#game)
+[Learn more →](/commands/search#game-search)
+
+---
+
+### `/boardgame`
+A board game from BoardGameGeek: rating, rank, players, playing time, complexity, categories and mechanics. Needs a BoardGameGeek client ID.
+
+**Options:**
+- `query` (required) - The board game's title
+- `private` - Only you see the result (default: false)
+
+```
+/boardgame query:Betrayal at House on the Hill
+```
+
+[Learn more →](/commands/search#board-game-search)
 
 ---
 
 ### `/book`
-Search for books with comprehensive information.
+A book from Google Books: authors, rating, publisher, pages, ISBNs, and links to Google Books, Goodreads and Open Library.
 
 **Options:**
-- `query` (required) - Book title or author to search for
+- `query` (required) - The book's title or author
+- `private` - Only you see the result (default: false)
 
-**Features:**
-- Google Books integration
-- Author information
-- ISBN-13 and ISBN-10
-- Page counts and publication dates
-- Ratings from Google Books
-- Categories and genres
-- Preview and purchase links
-- Links to Goodreads and Open Library
-
-**Example:**
 ```
 /book query:Clive Barker Books of Blood
 ```
 
-[Learn more →](/commands/search#book)
+[Learn more →](/commands/search#book-search)
 
 ---
 
-## Tournament Commands
+### `/soundtrack`
+A movie's or show's soundtrack album, from iTunes, plus Spotify when the bot has a Spotify key.
 
-### `/escape`
-**Escape Velocity**: a multi-day movie and TV genre trivia event in the style of *Who Wants to Be a Millionaire?*. Climb 15 stages to reach orbit, with one launch a day and your best run counting. Admins run events with `/escape-setup`.
+**Options:**
+- `query` (required) - The movie or show's title
+- `private` - Only you see the result (default: false)
 
-[Learn more →](/commands/escape-velocity)
+You pick the title first, then the bot finds its soundtrack, with artwork, artist, track count, release date and links.
 
-### `/bracket`
-Host comprehensive tournaments for movies, TV shows, video games, board games, or books.
-
-**Key Subcommands:**
-- `help` - **🆕 Comprehensive tournament guide** (All members)
-- `create` - Create new tournament (Admin/Mod)
-- `setup-link` - Private link to the web setup form: upload a CSV/JSON file or fill it in (Admin/Mod)
-- `manage-titles` - Add or remove titles from groups (Admin/Mod)
-- `open` - **🆕 Smart:** Auto-opens next round based on phase (Admin/Mod)
-- `close` - **🆕 Smart:** Auto-closes current round and advances (Admin/Mod)
-- `open-groups` - Open specific groups for voting (Admin/Mod)
-- `close-groups` - Close specific groups (Admin/Mod)
-- `resolve-tiebreaker` - **🆕** Manually resolve ties (Admin/Mod)
-- `open-matchup` - Open specific matchup(s) (Admin/Mod)
-- `close-matchup` - Close specific matchup(s) (Admin/Mod)
-- `status` - View tournament progress (All members)
-- `my-votes` - View your voting history (All members)
-- `view` - Generate visual bracket image (All members)
-- `export` - Export results as JSON/Markdown (All members)
-- `cancel` - Cancel tournament (Admin/Mod)
-
-**Features:**
-- **Button-based voting**: No commands needed - just click to vote!
-- **Smart phase detection**: Commands automatically detect tournament phase
-- **Automatic tiebreakers**: Creates short voting rounds when ties occur
-- **Valid tournament sizes**: 2, 4, 8, 16, 32 (bracket mode) or 36, 40, 44, 48 (group mode)
-- **Auto-detection**: Bot automatically chooses bracket or group mode based on size
-- Group stage: Members vote for top 2 per group via buttons
-- Dynamic wildcards: Auto-calculated to reach power-of-2 bracket
-- 4-region knockout bracket (March Madness style)
-- Visual bracket display with live vote counts
-- Live standings with vote bars that update as votes come in, drawn with the bot's own emoji once they're uploaded
-- Complete vote tracking and history
-
-**Example:**
 ```
-/bracket help
-/bracket-setup create name:Horror Movie Madness max-titles:32
-/bracket-setup manage-titles action:add group:A type:movie
-/bracket open duration:24h
-/bracket close tiebreaker-duration:30m
-/bracket status
-/bracket view
+/soundtrack query:Halloween
 ```
-
-[Learn more →](/commands/brackets/)
 
 ---
 
 ## Watch Party Commands
 
 ### `/timer`
-Start, stop, or check channel-specific timers.
+A timer for the channel's watch party. One timer per channel, and it survives a bot restart. See [Watch Party Commands](/commands/watch-party#timer-commands).
 
 **Subcommands:**
-- `/timer start` - Start a timer in the current channel
-- `/timer pause` - Pause the active timer, freezing elapsed/remaining time
-- `/timer resume` - Resume a paused timer
-- `/timer stop` - Stop the active timer
-- `/timer adjust` - Change the active timer's total duration
-- `/timer autostop` - Enable or disable auto-stop for the active timer
-- `/timer status` (alias: `/timer check`) - Check timer status; private to you by default, `public:true` to announce it to the channel
-- `/timer remind` - Announce timer is starting (with event auto-detection)
+- `start` - Start a timer in this channel. Options:
+  - `label` - What you're watching. The bot looks it up for a runtime
+  - `movie` / `tv` - Look up a movie, or a show (with episodes such as `S5E5-E8`), instead of `label`. Use only one of the three
+  - `duration` - Minutes, 1-1440. Without one, the bot uses the title's runtime plus 10 minutes, or the server's fallback (6 hours by default)
+  - `theme` - `modern` (default) or `classic` countdown
+- `pause` / `resume` - Pause for a break and carry on. Paused time never counts
+- `stop` - End the watch party and log it to watch history
+- `status` (or `check`) - How far in you are. `public` (default: true; `public:false` shows only you)
+- `title` - Name what's playing and set the duration from its runtime. `title` (required)
+- `adjust` - Set a new total duration. `duration` (required, 1-1440)
+- `autostop` - `autostop:enable` with a `duration`, or `autostop:disable` so it never stops on its own
+- `remind` - Announce that the timer is about to start, with the title's art. `message`, `role`
 
-**Features:**
-- **Auto-stop timers:** Set duration (1-1440 min); by default a real duration always runs for its full length, with an optional per-server ceiling admins/mods can turn on
-- **No-duration fallback:** If a timer starts with no duration at all (nothing typed, nothing detected), it defaults to 6 hours (configurable) instead of running forever
-- **Expiry warning:** ~1 hour before a no-duration-fallback timer auto-stops, the bot posts a channel warning with a button to extend it (never fires for timers with a real duration)
-- **Runtime auto-detection:** Searches movies, TV shows, and board games and adds a 10-min buffer — works whether the label was typed manually or auto-detected
-- **Smart selection:** Shows menu when multiple matches are found
-- Auto-detects Discord scheduled events
-- Optional custom labels
-- One timer per channel
-- Persists across bot restarts
-- Watch history integration
+**Who can do what:** the person who started the timer, and admins and moderators, can pause, resume, stop, adjust and change auto-stop. A server can let anyone pause, resume and stop with `/eggshen-config settings timer-control`. Anyone can name a timer that has no title yet.
 
-**Example:**
 ```
-/timer remind message:Everyone ready? role:@Movie Night
-/timer start label:Movie Night duration:120
+/timer start movie:The Thing
+/timer start tv:Tales from the Crypt S5E5-E8
+/timer pause
+/timer status public:false
 /timer stop
-/timer status
 ```
 
-[Learn more →](/commands/watch-party#timer)
+[Learn more →](/commands/watch-party#timer-commands)
+
+---
+
+### `/watchparty`
+Get everyone ready before you press play.
+
+**Subcommands:**
+- `remind` - The same announcement as `/timer remind`. `message`, `role`
+- `ready` - Post a ready check with **✅ Ready** and **⏳ Need a minute** buttons, and tally the answers. `message`, `role`
+- `ready-close` - Stop taking answers. The person who posted the check, or a moderator
+
+```
+/watchparty ready message:Starting in 5! role:@Movie Night
+```
+
+[Learn more →](/commands/watch-party#ready-check)
+
+---
+
+### `/announce`
+Announce a watch party (admins and moderators).
+
+**Subcommands:**
+- `party` - The advance notice. `title1` and `time` (required); `message` (your own text, posted exactly as written), `channel`, `role`, `episodes1`, `title2`, `episodes2`, `host`, `tone` (Funny, Scary, Dramatic, Wholesome, Mysterious), `custom-tone`. Without `message`, AI writes the text if the server allows it
+- `starting` - The final nudge. `message` (required), `title`, `channel`, `role`
+- `schedule` - Post the full card automatically before a scheduled event. `event` (required, pick from the list), `hours` (required, 0-336), `minutes` (0-59), `channel`, `role`, `message`, `title1`, `episodes1`, `title2`, `host`
+- `scheduled` - See what's waiting to post, with a **Cancel** button for each
+
+Every scheduled event also gets a "starting soon" card in its own channel 10 minutes before it starts, unless an admin turns that off.
+
+```
+/announce party title1:Hellraiser time:8:00 PM EST role:@Movie Night tone:Scary
+/announce starting message:Starting in 10 minutes title:Hellraiser
+/announce schedule event:Night of the Living Dead hours:2 channel:#announcements
+```
+
+[Learn more →](/commands/watch-party#announcements)
 
 ---
 
 ### `/watched`
-Log and view server watch party history.
+The server's watch history.
 
 **Subcommands:**
-- `/watched add` - Manually log a watch party (options: `title`, `notes`, `private` — keep the confirmation to yourself instead of posting it to the channel, default: false)
-- `/watched history` - View server watch history (options: `filter` — `all`, `movie`, `tv`; `limit` — 1-25, default 10)
+- `add` - Log something you watched. `title` (required), `notes`, `private` (default: false)
+- `history` - What the server has watched. `filter` (`all`, `movie`, `tv`), `limit` (1-25, default 10)
 
-**Features:**
-- Server-level watch tracking
-- Channel tracking
-- Notes support
-- Frequency tracking
-- Filter by type (movies/TV)
+A timer that knows its title logs itself when it stops.
 
-**Example:**
 ```
-/watched add title:Hereditary notes:Annual horror night!
+/watched add title:Big Trouble in Little China notes:Annual tradition
 /watched history filter:movie limit:20
 ```
 
-[Learn more →](/commands/watch-party#watched)
+[Learn more →](/commands/watch-party#watch-history)
 
 ---
 
-### `/announce party`
-Post an advance watch party announcement to a channel (Admin/Moderator only).
-
-**Options:**
-- `title1` (required) - First movie or TV show title
-- `time` (required) - Start time to include in the announcement (e.g. `"8:00 PM EST"`)
-- `message` (optional) - **Your own text, posted exactly as written.** Skips AI entirely
-- `channel` (optional) - Where to post it (default: the current channel)
-- `role` (optional) - Role to ping, in the message content so it actually notifies
-- `episodes1` (optional) - Episode(s) for `title1` if it's a TV show (e.g. `"S3E9-E12"`, `"Season 3 Episode 9"`)
-- `title2` / `episodes2` (optional) - A second title, for back-to-back watch parties
-- `host` (optional) - Who's hosting — a name, persona, or `@mention`
-- `tone` (optional) - `Funny`, `Scary`, `Dramatic`, `Wholesome`, or `Mysterious`. AI-written text only
-- `custom-tone` (optional) - Free-text tone/style instead of the preset list — overrides `tone`
-
-**Features:**
-- Your own `message` always posts verbatim; AI only writes the text when you don't supply one and the server has AI text enabled
-- Looks up the real plot/premise from TMDB so AI-written text is about the actual movie/show, not generic filler
-- Includes real streaming availability ("Available to stream on...") automatically
-- Verifies it can post in the target channel before claiming success
-- Falls back to a plain (non-AI) template when AI is off or unavailable
-
-**Example:**
-```
-/announce party title1:"Tales From the Crypt" episodes1:"S3E9-E12" title2:"Hellraiser" time:"8:00 PM EST" host:"Cryptkeeper" tone:Scary
-```
-
-[Learn more →](/commands/watch-party#the-advance-notice)
-
----
-
-### `/announce starting`
-Post the "starting in 10 minutes" nudge to a channel (Admin/Moderator only).
-
-**Options:**
-- `message` (required) - e.g. `"Starting in 10 minutes"` or `"Starting at 9:35 pm"`. Always posted exactly as written
-- `title` (optional) - What's being watched, which adds the artwork
-- `channel` (optional) - Where to post it (default: the current channel)
-- `role` (optional) - Role to ping, in the message content
-
-**Example:**
-```
-/announce starting message:"Starting in 10 minutes" title:"Hellraiser" role:@Movie Night
-```
-
-[Learn more →](/commands/watch-party#the-final-nudge)
-
----
-
-### `/announce schedule`
-Post the full watch-party card automatically, a set time before one of the server's scheduled events (Admin/Moderator only). It moves if the event moves and is cancelled with it.
-
-**Options:**
-- `event` (required) - Start typing to pick an upcoming event
-- `hours` (required) and `minutes` (optional) - How long before the start to post
-- `channel` (optional) - Where to post it (default: the current channel)
-- `role`, `message`, `title1`, `episodes1`, `title2`, `host` (optional) - As for `/announce party`. `title1` is for when the event's name isn't the title
-
-`/announce scheduled` lists what's waiting to post, with a **Cancel** button for each.
-
-Every scheduled event also gets a short "starting soon" card in its own channel 10 minutes before it starts, automatically.
-
-**Example:**
-```
-/announce schedule event:Night of the Living Dead hours:2 channel:#announcements role:@Movie Night
-```
-
-[Learn more →](/commands/watch-party#scheduled-announcements)
-
----
-
-## AI Image Generation Commands
-
-### `/image`
-Generate AI images: freeform, from a Discord message, a "versus" battle between two titles, or a persona of a server member — all in one command.
-
-**Options:**
-- `prompt` - Describe the image to generate (or add extra style detail alongside `title1`/`title2` or `matchup`)
-- `message` - Username or message ID to generate from
-- `title1` / `title2` - Two titles for a versus battle image (movie, TV, game, board game, book) — provide both together
-- `matchup` - Generate from an active tournament matchup instead of searching (e.g., `"The Thing vs Alien"`)
-- `user` - Imagine a member from their profile details (name, roles, colors, the titles they look up), never their avatar. Needs `prompt`
-- `private` - Only show the generated image to you instead of the whole channel (default: false)
-
-**Features:**
-- Text-to-image generation, generate-from-message, versus-battle, and member-persona modes
-- Smart search validation across TMDB, RAWG, BGG, and Google Books for versus mode
-- Cross-type comparisons (movies vs games, etc.)
-- Square format (1024x1024) for freeform/message mode; wide format (1792x1024) for versus mode
-- Rate limited (5-min cooldown, 10/day per user, 50/day per server)
-- Whitelisting for unlimited users
-- Cost: $0.04 per image
-
-**Examples:**
-```
-/image prompt:A dragon flying over a medieval castle at sunset
-/image message:username
-/image title1:Godzilla title2:King Kong
-/image title1:Alien title2:The Thing prompt:in deep space
-/image matchup:1A
-/image user:@Doug prompt:a Lego minifig version of them
-```
-
-[Learn more →](/commands/ai-images)
-
----
-
-## Utility Commands
-
-### `/random`
-Get random movie, TV show, episode, game, board game, or book with filters.
+### `/watchlist`
+The server's list of what to watch next.
 
 **Subcommands:**
-- `/random movie` - Random movie with genre/decade/rating/streaming filters
-- `/random tv` - Random TV show with genre/decade/rating/streaming filters
-- `/random episode` - Random episode from a specific show
-- `/random game` - Random video game with genre/platform/rating filters
-- `/random boardgame` - Random board game with category/rating filters
-- `/random book` - Random book with subject/decade/rating filters
+- `add` - Add a movie or show. `title` (required), `note`
+- `remove` - Remove a title. `title` (required, pick from the list). Your own, or anyone's if you're a moderator
+- `list` - Show the list. `filter` (`all`, `movie`, `tv`), `sort` (`recent`, `oldest`, `votes`)
+- `pick` - Pick something to watch. `method` (`random`, `votes`, `oldest`), `filter` (`movie`, `tv`)
+- `want` - Vote for a title, or take your vote back. `title` (required, pick from the list)
+- `clear` - Empty the list (admins and moderators)
 
-**Streaming filter:** `streaming` (movie and tv) limits the pick to titles on the services you name, in the server's streaming region (`/eggshen-config settings region`). Separate several with commas — `Shudder, Tubi` means on *either*. Start typing to see the services available. A service includes its Amazon, Apple TV and Roku channel versions, so `Shudder` also finds what's on Shudder through Prime Video.
-
-**Example:**
 ```
-/random movie genre:horror min-rating:7
-/random movie genre:horror streaming:Shudder, Tubi TV
-/random book subject:horror decade:1980s
+/watchlist add title:The Thing note:Kurt Russell double feature?
+/watchlist pick method:votes
+```
+
+[Learn more →](/commands/watch-party#watchlist)
+
+---
+
+## Discovery Commands
+
+### `/random`
+Something random to watch, play or read.
+
+**Subcommands:**
+- `movie` - `genre`, `decade` (1950s-2020s), `min-rating` (0-10), `streaming`
+- `tv` - `genre`, `decade`, `min-rating` (0-10), `streaming`
+- `episode` - A random episode of a show. `show` (required)
+- `game` - `genre`, `platform`, `min-rating` (1-5)
+- `boardgame` - `category`, `min-rating` (1-10)
+- `book` - `subject`, `decade` (1970s-2020s), `min-rating` (1-5)
+
+**Streaming filter:** `streaming` (movie and tv) only picks titles on the services you name, in the server's streaming region (`/eggshen-config settings region`). Separate several with commas: `Shudder, Tubi TV` means on *either*. Start typing to see the services available. A service includes its Amazon, Apple TV and Roku channel versions, so `Shudder` also finds what's on Shudder through Prime Video.
+
+```
+/random movie genre:Horror min-rating:7
+/random movie genre:Horror streaming:Shudder, Tubi TV
+/random book subject:Horror decade:1980s
 ```
 
 ---
 
 ### `/recommend`
-Suggests what to watch next based on what this server has actually watched.
+What to watch next, based on what this server has watched.
 
-**Every option is optional** — a bare `/recommend` works. Combine as many or as few as you like.
+**Every option is optional.** A bare `/recommend` works.
 
 | Option | What it does |
 |--------|--------------|
 | `type` | Movies or TV shows (default: both) |
 | `source` | Where picks come from (default: your watch history) |
-| `genre` | Autocompleted from TMDB's live genre list |
+| `genre` | Start typing to pick from TMDB's genres |
 | `decade` | 1950s through 2020s |
-| `director` | Autocompleted; ranks directors ahead of same-named actors |
-| `private` | Show the result only to you |
+| `director` | Start typing to pick a director or cast member |
+| `private` | Only you see the result |
 
 **Sources:**
-- **Watch History** *(default)* — finds titles similar to what the server watches most, skips anything already seen, and ranks them for tonal fit
-- **Most Watched** — what this server rewatches. Until something has been watched twice, it shows recent watches instead and says so, rather than presenting an arbitrary order as a ranking
-- **Discover** — browses TMDB by filter. The default on a server with no watch history yet
+- **Watch History** *(default)*: titles like the ones the server watches most, minus anything already seen
+- **Most Watched**: what this server rewatches. Until something has been watched twice, it shows recent watches instead and says so
+- **Discover**: browse TMDB by your filters. The default on a server with no watch history yet
 
-**Examples:**
 ```
 /recommend
 /recommend type:tv genre:Comedy
@@ -468,98 +338,162 @@ Suggests what to watch next based on what this server has actually watched.
 /recommend director:John Carpenter decade:1980s
 ```
 
-Results link to IMDb, and to Letterboxd for movies. When AI is configured, each pick includes a one-line reason referencing titles the server actually watched; without it, picks are ranked by popularity and similarity instead. The footer tells you which.
+Results link to IMDb, and to Letterboxd for movies. When the bot has an OpenAI key, each pick has a one-line reason that names titles the server watched. Without it, picks are ranked by popularity and similarity. The footer says which.
 
 ::: tip Genres differ between movies and TV
-TMDB has no Horror or Romance category for television, so those won't appear when `type:tv` is set. Autocomplete only ever offers genres that can actually return results.
+TMDB has no Horror or Romance category for television, so those don't appear with `type:tv`. The list only offers genres that can return results.
 :::
 
 ---
 
 ### `/similar`
-Find similar content recommendations.
+Titles like one you name.
 
 **Options:**
-- `title` (required) - Title to find similar content for
-- `type` (optional) - movie, tv, game, boardgame, or book (searches all if not specified)
+- `title` (required) - The title
+- `type` - `movie`, `tv`, `game`, `boardgame` or `book`. Without it, every type is searched
 
-**Example:**
 ```
-/similar title:The Matrix type:movie
+/similar title:The Thing type:movie
 /similar title:Dracula type:book
 ```
 
 ---
 
-### `/eggshen-ask`
-Ask how to do something in plain words, and get the exact commands to run, answered from this documentation. Private unless you add `public:true`. See [Ask the Bot](./ask).
+## Tournaments, Surveys and Trivia
 
-**Example:**
+### `/bracket`
+Run a tournament: members vote with buttons, matchup by matchup. Set one up with `/bracket-setup`. See [Tournament Brackets](/commands/brackets/).
+
+**For everyone:**
+- `help` - The tournament guide
+- `status` - Progress and live vote bars
+- `voting-post` - Post the voting card again at the bottom of the channel. Members once every 10 minutes per channel; admins and moderators any time
+- `list-groups` - Every group and its titles
+- `view` - The bracket image (knockout rounds)
+- `my-votes` - Your votes and what's still open to you
+- `export` - The results. `format` (required: `markdown` or `json`)
+
+**For admins and moderators:**
+- `open` - Open the next round, whatever the phase. `duration` (such as `24h` or `3d`; default 24h, 5m-30d), `matchups` (1-5: open just the next few matchups)
+- `close` - Close the current round and move on. `tiebreaker-duration` (default 1h)
+- `open-groups` - `groups` (required, such as `A,B,C`), `duration`
+- `close-groups` - `groups` (required), `tiebreaker-duration`
+- `open-matchup` - `region` (1-4), `matchup` (pick from the list, or `1A,1B`), `duration`
+- `close-matchup` - `matchup`, `tiebreaker-duration`
+- `extend-voting` - `type` (required: `group` or `knockout`), `duration` (required), `group`
+- `resolve-tiebreaker` - `tiebreaker-id` (required), `winner` (1-4; leave out to go by the votes)
+- `regenerate` - Rebuild the knockout bracket from the group results
+- `cancel` - Cancel the tournament
+
 ```
-/eggshen-ask question:how do I run a tournament one matchup at a time?
+/bracket open duration:24h
+/bracket open matchups:1
+/bracket close tiebreaker-duration:30m
+/bracket status
+/bracket view
 ```
+
+[Learn more →](/commands/brackets/commands)
 
 ---
 
-### `/eggshen-help`
-Display comprehensive bot help with complete command list — tailored to what's actually enabled on the server it's run in.
+### `/bracket-setup`
+Set up a tournament (admins and moderators).
 
-**Features:**
-- Overview of all bot commands organized by category
-- **Guild-aware:** only shows commands your server has enabled. If an admin disables `/game` via `/eggshen-config commands toggle`, it disappears from your help list too — no more listing commands that will just reply "disabled" if you try them
-- A category only disappears entirely if every command in it is disabled; otherwise it stays with just the remaining enabled commands
-- Movies & TV Shows: movie, tv, episode, episode-list, similar, watched
-- Games & Entertainment: game, boardgame, book, soundtrack
-- Random & Discovery: random with filters
-- Tournaments & Polls: bracket, survey, escape
-- AI Image Generation: image
-- Fun & Games: potion, foodfight, doom, rescue, siege, scoreboard, leaderboard, how-to-play
-- Watch Party Tools: timer, watchparty, stats
-- Admin commands shown conditionally for moderators
-- Links to full documentation at eggshenbot.com
-- Tips for command-specific help (e.g., `/bracket help`)
+**Subcommands:**
+- `create` - `name` (required), `max-titles` (2, 4, 8, 16 or 32 for a bracket; 36, 40, 44 or 48 for groups), `seeding` (`random` (default), `ordered`, `rating`), `ties` (`runoff` (default) or `higher-seed`)
+- `setup-link` - A private link to the web setup form, to fill in or upload a CSV or JSON file
+- `manage-titles` - `action` (required: `add` or `remove`); to add, `type` (movie, tv, game, boardgame, book) and `title`, plus `group` and `image`; to remove, `position`
+- `resize` - Change the number of groups before voting starts. `groups` (required, 4-12)
+- `edit-name` - `name` (required)
+- `announce` - Announce the tournament. `message`, `image`
 
-**Example:**
 ```
-/eggshen-help
+/bracket-setup create name:Horror Movie Madness max-titles:16 seeding:rating
+/bracket-setup manage-titles action:add type:movie title:The Thing
+/bracket-setup setup-link
 ```
 
-**Pro Tip:** Some complex commands have their own help subcommands:
-- `/bracket help` - Tournament system guide
-- Use these for detailed, context-specific guidance!
+[Learn more →](/commands/brackets/setup)
 
 ---
 
-### `/soundtrack`
-Search for movie and TV show soundtracks with iTunes and Spotify integration.
+### `/survey`
+A poll with up to 10 options. Members vote with buttons.
+
+**Subcommands:**
+- `create` - `question`, `option1` and `option2` (required), `option3` to `option10`, `multiple` (allow more than one vote), `duration` (minutes, 1-20160; leave out for no auto-close), `tie-break` (`runoff` (default): a runoff vote, then a random pick; or `none`)
+- `list` - `filter` (`active`, `closed`, `all`)
+- `results` - `poll_id` (required, pick from the list)
+- `voting-post` - Post an open survey again at the bottom of the channel. `poll_id` (leave out when only one is open). Members once every 10 minutes per survey; the creator and admins any time
+- `close` - End voting and post the results. `poll_id` (required). The creator, admins and moderators
+- `delete` - Delete it for good. `poll_id` (required). The creator, admins and moderators
+
+```
+/survey create question:What should we watch tonight? option1:Horror option2:Comedy option3:Action duration:60
+/survey voting-post
+```
+
+[Learn more →](/commands/social#survey-commands)
+
+---
+
+### `/escape`
+**Escape Velocity**: a multi-day movie and TV genre trivia event in the style of *Who Wants to Be a Millionaire?*. Climb 15 stages to reach orbit, one launch a day, and your best run counts.
+
+**Subcommands:**
+- `play` - Launch today's run, or pick up where you left off
+- `rules` - How it works
+- `standings` - Who's closest to orbit. `private` (default: false)
+
+[Learn more →](/commands/escape-velocity)
+
+---
+
+### `/escape-setup`
+Run an Escape Velocity event (admins and moderators).
+
+**Subcommands:**
+- `create` - `name` (required), `days` (required, 1-30), `starts_in_hours` (0-720; default: as soon as the questions are ready), `channel`. Then pick movies and/or TV and the genres
+- `pool` - Show the question bank. `add:true` tops it up now
+- `extend` - Add days. `days` (required, 1-30)
+- `end-now` - Finish now and post the final results
+- `cancel` - Cancel with no results. `confirm` (required)
+
+```
+/escape-setup create name:Halloween Launch days:7
+```
+
+[Learn more →](/commands/escape-velocity)
+
+---
+
+## AI Image Generation
+
+### `/image`
+AI images: a prompt, a message, a versus poster for two titles or a tournament matchup, or a member imagined from their profile. Needs an OpenAI key, and admins can limit or switch it off.
 
 **Options:**
-- `query` (required) - Movie or TV show title to find soundtrack for
-- `private` (optional) - Only show the result to you instead of the whole channel (default: false)
+- `prompt` - What to draw, or extra detail alongside `title1`/`title2` or `matchup`
+- `message` - A username or message ID to draw from
+- `title1` / `title2` - Two titles for a versus poster (movie, TV, game, board game or book). Give both
+- `matchup` - A tournament matchup: pick from the list, or type its label (`1A`, `Finals`)
+- `user` - A member, imagined from their name, roles, colors and the titles they look up. Never their avatar. Needs `prompt`
+- `private` - Only you see the image (default: false)
 
-**Features:**
-- TMDB title verification for accurate matching
-- iTunes Search API integration (no API key required)
-- Spotify API integration (optional - shows both platforms when configured)
-- Album artwork and metadata display
-- Artist/composer information
-- Track count and release dates
-- Price information and purchase links (iTunes)
-- Direct links to iTunes and Spotify for streaming
-- Supports both movies and TV shows
+Use one mode at a time. Run `/image` with no options to see this round's matchups.
 
-**Examples:**
 ```
-/soundtrack query:The Matrix
-/soundtrack query:Breaking Bad
-/soundtrack query:Interstellar
+/image prompt:A drive-in theater on the moon
+/image title1:Godzilla title2:King Kong
+/image matchup:1A
+/image user:@Doug prompt:a Lego minifig version of them
 ```
 
-**How It Works:**
-1. Search for movie or TV show title
-2. Select correct title from TMDB results
-3. Bot searches iTunes for soundtrack
-4. Displays soundtrack details with purchase links
+By default each member waits 5 minutes between images and gets 10 a day, and the server gets 50 a day.
+
+[Learn more →](/commands/ai-images)
 
 ---
 
@@ -567,45 +501,15 @@ Search for movie and TV show soundtracks with iTunes and Spotify integration.
 
 `/potion`, `/foodfight`, `/doom`, `/rescue` and `/siege` are games with points, items, prizes, titles and a leaderboard. This page lists their options; how the games work is in its own section, [Games & Scores](./games): [Playing & Points](./games-playing), [Your Card & the Leaderboard](./games-card), [Items, Prizes & Titles](./games-rewards), [Twists & Happenings](./games-happenings), [Siege](./games-siege) and [Settings for Admins](./games-settings).
 
-### `/survey`
-Create interactive polls and surveys with up to 10 options and real-time vote tracking.
-
-**Subcommands:**
-- `/survey create` - Create a new survey with up to 10 options. A tie for first starts a runoff vote, then a random pick (`tie-break:None` to let a tie stand)
-- `/survey list` - View all surveys (active, closed, or all)
-- `/survey results` - View detailed results with progress bars
-- `/survey voting-post` - Post an open survey again at the bottom of the channel, with its vote buttons and the votes so far. The old card greys out and links to the new one. Anyone can use it; members once every 10 minutes per survey, the creator and admins any time. Leave out `poll_id` when only one survey is open
-- `/survey close` - End voting and show final results (creator/admin/mod only)
-- `/survey delete` - Permanently delete a survey (creator/admin/mod only)
-
-**Features:**
-- Up to 10 options per survey
-- Single or multiple vote modes
-- Vote with buttons; the card updates its progress bars with every vote
-- Permission system for management
-- Persistent storage across bot restarts
-- Configurable per-server
-
-**Examples:**
-```
-/survey create question:"What should we watch tonight?" option1:"Horror" option2:"Comedy" option3:"Action"
-/survey list filter:active
-/survey results poll_id:a1b2c3d4e5f6g7h8
-/survey voting-post
-/survey close poll_id:a1b2c3d4e5f6g7h8
-```
-
-[Learn more →](/commands/social#survey-commands)
-
----
-
 ### `/potion`
 Give magical potions with fun pop culture references, to a member, a whole role, or @everyone.
 
-**Options:**
+**Options (`give`):**
 - `user` (required) - Who gets it: a member, a role, or @everyone. A role or @everyone is shown but not pinged
 - `type` (required) - Type of potion (Health, Mana, Strength, Speed, Invisibility, Luck, Confusion, Love, Poison, Energy, Weakness, Curse, Slow)
 - `item` (optional) - An item from your Glovebox. Only 🍀 Lucky Penny fits: the potion works and your points double. The list shows only what you hold ([Items](./games-rewards#using-an-item))
+
+**Admin/Mod:** `/potion responses add`, `remove`, `list` and `reset` manage your server's own responses for a potion type (with `{giver}` and `{receiver}`, and an outcome: worked or backfired). `/potion theme set`, `add`, `remove`, `list` and `reset` choose which themes the built-in responses come from.
 
 **Features:**
 - 13 different potion types (helpful & harmful!)
@@ -722,17 +626,22 @@ See [Social Commands › Rescue](./social#rescue).
 ---
 
 ### `/siege`
-A monster attacks the drive-in and the whole server fights it together with food, dooms and potions. Beat it before time runs out and everyone who fought is paid, with a bonus and loot for the top fighter. Let it escape and everyone who fought loses a few points. While people are fighting it fights back: it grabs a fighter (free them with `/rescue`), poisons one (cure them with a helpful `/potion`) or roars. An admin starts one, or one turns up by itself ([Random sieges](./games-siege#random-sieges)). By default a siege is a campaign over a week, with 8 attacks a night each and a report each night; the server's [pace](./games-siege#pace) sets how long it lasts and its timings.
+A monster attacks the drive-in and the whole server fights it together with food, dooms and potions. Beat it before time runs out and everyone who fought is paid, with a bonus and loot for the Wang Chi (whoever helped most) and a smaller one for the Jack Burton (the killing blow). Let it escape and everyone who fought loses a few points. While people are fighting it fights back: it grabs a fighter (free them with `/rescue`), poisons one (cure them with a helpful `/potion`) or roars. An admin starts one, or one turns up by itself ([Random sieges](./games-siege#random-sieges)). By default a siege is a campaign over a week, with 8 attacks a night each and a report each night; the server's [pace](./games-siege#pace) sets how long it lasts and its timings.
 
 **Subcommands:**
 - `attack` - Hit the monster. Anyone, from the siege's channel or its threads
-- `status` - The monster, its HP and your own damage and place. Only you see it
+- `back` - Stake 2–10 of your points on another fighter, in the first half of the siege: twice your stake if they're the Wang Chi, your stake back if they're top 3 or the Jack Burton ([Backing a fighter](./games-siege#backing-a-fighter))
+- `status` - The monster, its HP, your own damage and place, and who you backed. Only you see it
 - `start` - A monster attacks this channel (Admin/Mod)
-- `end` - End the siege now, with no rewards and no penalties (Admin/Mod). A monster already at 0 HP counts as beaten, and one whose time is up as escaped
+- `end` - End the siege now, with no rewards and no penalties, and backers' stakes back (Admin/Mod). A monster already at 0 HP counts as beaten, and one whose time is up as escaped
 
 **Options (`attack`):**
 - `weapon` (required) - `food` (throw something), `doom` (a horror fate) or `potion` (poison: damage now and for 5 minutes)
 - `item` (optional) - An item from your Glovebox. Golden Pie fits food, Cursed VHS fits doom, Lucky Penny fits potion, and the Silver Bullet fits any weapon. The list shows only what you hold ([Items in a siege](./games-siege#items-in-a-siege))
+
+**Options (`back`):**
+- `fighter` (required) - Who you're backing: someone else who has attacked
+- `points` (required) - Your stake, 2 to 10 of this month's points
 
 **Options (`start`):**
 - `monster` (optional) - One of 11 monsters. Without it you get a random one
@@ -742,6 +651,7 @@ A monster attacks the drive-in and the whole server fights it together with food
 ```
 /siege attack weapon:food
 /siege attack weapon:potion item:Lucky Penny
+/siege back fighter:@Sam points:5
 /siege status
 /siege start monster:blob length:45
 /siege start length:10080
@@ -798,22 +708,70 @@ See the [Games Quick Guides](/guides/games/) and the [Games FAQ](/guides/games/f
 
 ---
 
-### `/stats`
-View server statistics (Admin/Moderator only).
+### Game card (right-click)
+Right-click a member (or tap their name), then **Apps** → **Game card**. You see their game card, just for you. It's the same card `/scoreboard` shows. See [Game card](./games-card#game-card-right-click).
+
+---
+
+## Status Quotes
+
+The bot's status line shows a rotating movie quote.
+
+### `/quote`
+Post a random quote from the rotation in the channel.
 
 **Options:**
-- `filter` - `all-time`, `month`, `week`, `today`
-- `type` - `server` or `personal`
+- `title` - Only quotes from this movie, show or game (start typing to pick)
+- `author` - Only quotes said by this character or person
 
-**Features:**
-- Command usage statistics
-- Most searched content
-- User activity breakdown
-- Configurable tracking
+### `/suggest-quote`
+Suggest a quote for the rotation. A moderator reviews it before it goes live. You can have 3 waiting at once by default.
 
-**Example:**
+**Options:**
+- `quote` (required) - The quote
+- `title` - What it's from
+- `author` - Who said it
+
+```
+/suggest-quote quote:You were great in Lethal Weapon. title:Big Trouble in Little China
+```
+
+Admins manage the list with `/eggshen-config-quotes` ([Admin Configuration](./configuration#quotes)).
+
+---
+
+## Help and Statistics
+
+### `/eggshen-ask`
+Ask how to do something in plain words, and get the exact commands to run, answered from this documentation.
+
+**Options:**
+- `question` (required) - Up to 300 characters
+- `public` - Post the answer in the channel (default: only you see it)
+
+```
+/eggshen-ask question:how do I run a tournament one matchup at a time?
+```
+
+[Learn more →](./ask)
+
+---
+
+### `/eggshen-help`
+The command list, just for you. It only shows commands your server has switched on, and admin commands only to admins and moderators. It links to these docs.
+
+---
+
+### `/stats`
+What this server looks up most, or your own activity. Anyone can use it, and it posts in the channel.
+
+**Options:**
+- `filter` - `all-time` (default), `month`, `week` or `today`
+- `type` - `server` (default) or `personal`
+
 ```
 /stats filter:month
+/stats type:personal
 ```
 
 [Learn more →](/features/statistics)
@@ -822,51 +780,59 @@ View server statistics (Admin/Moderator only).
 
 ## Admin Commands
 
+All of these are for admins and moderators unless marked otherwise. See [Who counts as an admin](#command-permissions).
+
 ### `/eggshen-config` and friends
-Comprehensive server configuration (Admin/Moderator only), split across 6 commands to stay under Discord's per-command size limit:
+Server settings, split across 8 commands to stay under Discord's size limit for one command:
 
-- `/eggshen-config` - settings, stats, commands, notifications
-- `/eggshen-config-watch-party` - watch party channels, rate limiting
-- `/eggshen-config-ai` - AI image limits and permissions, AI announcement text, and AI answers for `/eggshen-ask`
-- `/eggshen-config-moderation` - whitelist, cooldowns, auto-ban
-- `/eggshen-config-events` - event request system
-- `/eggshen-config-games` - game limits, game channels, [happenings, twists, the pace and random sieges](./games-settings#happenings-and-twists), score resets (`/siege` included)
+| Command | What it covers |
+|---|---|
+| `/eggshen-config` | Rating services, emojis, region, search results, timers, stats tracking, command switches, notifications |
+| `/eggshen-config-watch-party` | Watch-party channels, auto-detect, episode buffer, starting-soon cards, watchlist settings, rate limits |
+| `/eggshen-config-ai` | AI images (limits, permissions, whitelist), AI announcement text, AI answers for `/eggshen-ask` |
+| `/eggshen-config-moderation` | Moderation switch, user cooldowns, whitelist mode, auto-ban threshold |
+| `/eggshen-config-events` | The event request form |
+| `/eggshen-config-games` | Game limits, game channels, happenings, twists, the pace, random sieges, score resets |
+| `/eggshen-config-quotes` | The status quote rotation and quote suggestions |
+| `/eggshen-config-website` | This server's web pages: form address, bot address, theme |
 
-**Example:**
 ```
 /eggshen-config settings view
-/eggshen-config-watch-party rate-limit toggle enabled:true
-/eggshen-config-moderation moderation toggle enabled:true
-/eggshen-config-games happenings frequency:rare
+/eggshen-config commands toggle setting:game enabled:false
+/eggshen-config-watch-party rate-limit view
+/eggshen-config-games channels mode:only add:#games
 ```
 
 [Learn more →](/commands/configuration)
 
 ---
 
+### `/eggshen-stats`
+Detailed usage statistics for the server. `filter` (`all-time`, `month`, `week`, `today`).
+
+[Learn more →](/features/statistics)
+
+---
+
 ### `/eggshen-logs`
-View bot logs and diagnostics (Admin only).
+The bot's logs (Administrator permission only).
 
 **Subcommands:**
-- `stats` - View log file statistics
-- `errors` - View recent errors
-- `category` - View logs by category
+- `stats` - Log file sizes and counts
+- `errors` - Recent errors. `count` (1-50, default 10)
+- `category` - Recent entries in one category. `category` (required: `system`, `command`, `button`, `scheduler`, `performance`), `count` (1-50, default 10)
 
-**Categories:** system, command, button, scheduler, bracket, api, performance
-
-**Examples:**
 ```
-/eggshen-logs stats
 /eggshen-logs errors count:20
-/eggshen-logs category category:command count:10
+/eggshen-logs category category:command
 ```
 
 [Learn more →](/features/logging)
 
 ---
 
-### `/eggshen-help`
-Display help information and available commands.
+### `/eggshen-restart`
+Restart the bot. It shuts down and relies on PM2 (or another process manager) to start it again.
 
 ---
 
@@ -874,17 +840,28 @@ Display help information and available commands.
 
 | Category | Commands |
 |----------|----------|
-| **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book` |
-| **Watch Parties** | `/timer`, `/watched` |
-| **Discovery** | `/random`, `/similar`, `/soundtrack` |
-| **Fun & Social** | `/survey`, `/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`, `/scoreboard`, `/leaderboard`, `/how-to-play` |
-| **Statistics** | `/stats` |
-| **Configuration** | `/eggshen-config`, `/eggshen-config-watch-party`, `/eggshen-config-ai`, `/eggshen-config-moderation`, `/eggshen-config-events`, `/eggshen-config-games` |
-| **Help** | `/eggshen-help` |
+| **Search** | `/movie`, `/tv`, `/episode`, `/episode-list`, `/game`, `/boardgame`, `/book`, `/soundtrack` |
+| **Watch parties** | `/timer`, `/watchparty`, `/announce`, `/watched`, `/watchlist` |
+| **Discovery** | `/random`, `/recommend`, `/similar` |
+| **Tournaments, surveys and trivia** | `/bracket`, `/bracket-setup`, `/survey`, `/escape`, `/escape-setup` |
+| **AI images** | `/image` |
+| **Games** | `/potion`, `/foodfight`, `/doom`, `/rescue`, `/siege`, `/scoreboard`, `/leaderboard`, `/how-to-play`, Game card |
+| **Quotes** | `/quote`, `/suggest-quote` |
+| **Help and statistics** | `/eggshen-ask`, `/eggshen-help`, `/stats` |
+| **Admin** | `/eggshen-config` (and its 7 siblings), `/eggshen-stats`, `/eggshen-logs`, `/eggshen-restart` |
 
 ## Command Permissions
 
-- **Everyone:** Search, timer, watched add, random, similar, soundtrack
-- **Admin/Mod:** stats, eggshen-config (and its 5 sibling commands), watched from timer (or timer starter)
+**Admins and moderators** are members with any of these Discord permissions: Administrator, Manage Server, Timeout Members, Kick Members or Ban Members. They can always use every command, even one switched off for regular members.
+
+**Admins and moderators only:**
+- `/announce`, `/bracket-setup`, `/escape-setup`, `/eggshen-stats`, `/eggshen-restart`, and all eight `/eggshen-config` commands
+- `/bracket` subcommands that run the tournament (`open`, `close`, `open-groups`, `close-groups`, `open-matchup`, `close-matchup`, `extend-voting`, `resolve-tiebreaker`, `regenerate`, `cancel`)
+- `/siege start` and `/siege end`, `/watchlist clear`, and the `lines`, `responses` and `theme` groups of the games
+- Closing or deleting someone else's survey, and removing someone else's watchlist title
+
+**Administrator permission only:** `/eggshen-logs`.
+
+**Everyone else:** every other command, unless an admin switches it off with `/eggshen-config commands toggle`. Some actions are limited to the person who started them: stopping someone else's timer, or closing someone else's ready check, needs an admin or moderator.
 
 [Learn about moderation →](/features/moderation-tools)

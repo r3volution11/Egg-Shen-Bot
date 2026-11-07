@@ -20,7 +20,9 @@
  * - a tasty feed → 🧄 Garlic prize and the Lunch Lady title
  * - any scored play tonight → 14 nights: Creature of the Night tier and title
  * - a good outcome extends a 14 streak → Unstoppable
- * - a siege won (R5) → Monster Hunter; as its MVP, Siege MVP too
+ * - a siege won (R5) → Monster Hunter; as its Wang Chi (2.75.0: the most
+ *   frees and cures — the old MVP), the Wang Chi title (5); landing its
+ *   killing blow (the Jack Burton), Everybody Relax, I'm Here (10)
  * Only 2 prizes a day, so the third waits for tomorrow — that shows too.
  *
  * The bot keeps running while this writes: the write is one synchronous
@@ -122,10 +124,13 @@ export function demoRecord(name, now = Date.now()) {
       streak: { foodfight: 14 },
       bestStreak: 14,
       twists: 29, // the next twist earns Plot Twist
-      siege: { wins: 9, mvps: 0, kaiju: 0 }, // the next siege won earns Monster Hunter (and an MVP, Siege MVP)
+      // The next siege won earns Monster Hunter; as its Wang Chi (mvps: the MVP
+      // became the Wang Chi in 2.75.0), the Wang Chi title; as its Jack Burton,
+      // Everybody Relax, I'm Here. Siege MVP (1) is already earned below.
+      siege: { wins: 9, mvps: 4, jacks: 9, kaiju: 0 },
     },
     titles: {
-      earned: { 'on-fire': now - 20 * DAY, 'red-shirt': now - 6 * DAY, cockroach: now - 4 * DAY, 'night-owl': now - 7 * DAY, martyr: now - 2 * DAY },
+      earned: { 'on-fire': now - 20 * DAY, 'red-shirt': now - 6 * DAY, cockroach: now - 4 * DAY, 'night-owl': now - 7 * DAY, martyr: now - 2 * DAY, 'siege-mvp': now - 9 * DAY },
       shown: 'red-shirt',
     },
     // Each prize counter one play short (the 750-points one five short)

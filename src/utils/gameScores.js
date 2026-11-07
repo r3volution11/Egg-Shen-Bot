@@ -1069,8 +1069,20 @@ const SIEGES_PAID_KEPT = 20;
  *   - a loss (an escape) never takes a member's month below 0, the same
  *     floor a twist's loss has (monthTotal)
  *   - loot goes in the Glovebox; a full stack is FULL_STACK_POINTS instead
- *   - lifetime.siege counts wins, MVPs and kaiju beaten, and any title
- *     that crosses its line is earned, +TITLE_POINTS, as on a play
+ *   - lifetime.siege counts wins, MVPs (the Wang Chi, since 2.75.0: `mvps`,
+ *     and `wangChis` from 2.75.0 on — gameRewards.WANG_CHI_TITLE_COUNTER),
+ *     Jack Burtons (`jacks`) and kaiju beaten, and any title that crosses
+ *     its line is earned, +TITLE_POINTS, as on a play
+ *   - a grant's `backBonus` (2.75.0: the Wang Chi's share of their backers'
+ *     faith) is paid with its points, and held back with them
+ *   - the backing (2.75.0), BEFORE the grants (so an escape's floor sees
+ *     the stakes back): each backer's `back` (their stake, twice it, or
+ *     nothing: siegeStore.settleBacking) to the siege game as bonus — never
+ *     held back by the daily limit, it's their own stake; the stake's part
+ *     to the periods it was taken in, a gain to now's (payBacking) — and any
+ *     stake this siege took that has no backing in the plan (a kill between
+ *     placeBacking's two saves) is refunded. Every stake of the siege's is
+ *     then done with (data.backStakes)
  *   - a win's rewards (points, loot, the counters) are paid for at most
  *     SIEGE.rewardedPerDay sieges per member per UTC day (daily[uid].sieges):
  *     past that the grant is `limited`, paying nothing — admins can start
@@ -1082,25 +1094,44 @@ const SIEGES_PAID_KEPT = 20;
  *
  * Idempotent by siege id: the scores file remembers the last
  * SIEGES_PAID_KEPT payouts, and paying one again changes nothing and hands
- * back what it paid the first time. finishSiege writes the happenings file
- * after this one, so a kill between the two saves can't pay a siege twice.
+ * back what it paid the first time, and the status it paid as (`status`:
+ * finishSiege finishes as that one) — except a stake the siege took since,
+ * which is refunded. finishSiege writes the happenings file after this one,
+ * so a kill between the two saves can't pay a siege twice.
  *
  * @param {string} guildId
  * @param {object} p
  * @param {string} p.siegeId
- * @param {Array<{userId, name, points?, loss?, loot?: ?string, win?, mvp?, kaiju?}>} p.grants
+ * @param {Array<{userId, name, points?, loss?, loot?: ?string, win?, mvp?, wangChi?, jack?, honour?, backBonus?, kaiju?}>} p.grants
  * @param {'won'|'escaped'|'ended'} [p.status] - counted in siegeStats when won or escaped
- * @returns {{grants: Array<{userId, name, points, loot: ?{item, overflow}, titles: string[], total, limited?: true}>, repeat?: true}}
- *   points: the payout actually moved (a loss as a negative, after the floor);
- *   total: everything this siege moved for them (points, a full stack's
- *   +2, titles' +10s); limited: today's SIEGE.rewardedPerDay sieges were
+ * @param {Array<{backerId, backerName, stake, back, outcome}>} [p.backing] - settled (siegeStore.settleBacking)
+ * @returns {{grants: Array<{userId, name, points, loot: ?{item, overflow}, titles: string[], total, limited?: true}>, backing: object[], status?: ?string, repeat?: true}}
+ *   points: the payout actually moved (a loss as a negative, after the
+ *   floor; a backBonus included); total: everything this siege moved for
+ *   them (points, a full stack's +2, titles' +10s) — not their backing,
+ *   which is `backing`'s; limited: today's SIEGE.rewardedPerDay sieges were
  *   already rewarded, so this one paid nothing; every other field of the
- *   grant is passed through
+ *   grant is passed through. backing: as given, plus any orphaned stake
+ *   refunded (`orphan: true`)
  */
-export function applySiegeResult(guildId, { siegeId, grants = [], status = null, now = Date.now() }) {
+export function applySiegeResult(guildId, { siegeId, grants = [], status = null, backing = [], now = Date.now() }) {
   return mutateScores(guildId, (data) => {
     const paid = (data.siegesPaid ||= {});
-    if (owns(paid, siegeId)) return { grants: paid[siegeId].grants, repeat: true };
+    if (owns(paid, siegeId)) {
+      // Paid already: nothing moves again, and what it paid comes back —
+      // with the status it was paid as. An admin's /siege end with backers
+      // pays here (their refunds) before its happenings save; a kill between
+      // the two left the siege live, fought on and won, and the win's finish
+      // landed here as a repeat of the end's payout: `grants: []`, results
+      // naming a win that paid nobody (review R2, 2026-11-06). finishSiege
+      // finishes as the status paid. A stake taken since (the live siege
+      // backed again) has no payout of its own to come: refunded now, and
+      // kept with the rest, so a later repeat hands it back too.
+      const record = paid[siegeId];
+      const swept = refundOrphanStakes(data, siegeId, now);
+      if (swept.length) record.backing = [...(Array.isArray(record.backing) ? record.backing : []), ...swept];
+      return { grants: record.grants, backing: record.backing || [], status: record.status ?? null, repeat: true };
+    }
     const keys = periodKeys(now);
     const periods = Object.values(keys);
     const today = dayKey(now);
@@ -1110,6 +1141,23 @@ export function applySiegeResult(guildId, { siegeId, grants = [], status = null,
         st[status] = (st[status] || 0) + 1;
       }
     }
+
+    // 2.75.0: the backers FIRST. What comes back is theirs (never past a
+    // daily limit); a lost stake was taken when they placed it, so moves
+    // nothing now. First, so an escape's loss below is floored at a month
+    // total with the stake back in it: settled after, a member whose month
+    // was all staked lost nothing to the escape, then got the stake back
+    // (review R2, 2026-11-06).
+    const stakes = isPlainObject(data.backStakes) ? data.backStakes : {};
+    const settled = (Array.isArray(backing) ? backing : []).map((b) => {
+      const done = payBacking(data, siegeId, b, now);
+      delete stakes[`${siegeId}:${b.backerId}`];
+      return done;
+    });
+    // A stake this siege took with no backing in the plan — placeBacking's
+    // happenings save never landed (a kill between its two saves) — is
+    // refunded; then every stake of this siege's is done with
+    settled.push(...refundOrphanStakes(data, siegeId, now));
 
     const out = grants.map((g) => {
       const user = userFor(data, g.userId, g.name);
@@ -1134,14 +1182,20 @@ export function applySiegeResult(guildId, { siegeId, grants = [], status = null,
           // scored as they landed). So they're paid here: what the attacks
           // would have scored (`own`, planSiegeRewards from notePotPoints),
           // never below 0. The limit still stops the farming it's for: no
-          // share, no MVP bonus, no loot, no win (review, 2026-11-06).
+          // share, no honours (2.75.0: the Wang Chi's and the Jack Burton's,
+          // and a Wang Chi's backBonus with them), no loot, no win (review,
+          // 2026-11-06). The row says why.
           const own = Math.max(0, Math.round(Number(g.own) || 0));
           give(own);
-          return { ...g, points: own, loot: null, win: false, mvp: false, kaiju: false, titles: [], total: own, limited: true };
+          return {
+            ...g, points: own, loot: null, win: false, mvp: false, wangChi: false, jack: false, honour: 0, backBonus: 0, kaiju: false,
+            titles: [], total: own, limited: true,
+          };
         }
         day.sieges = (day.sieges || 0) + 1;
       }
-      let points = Math.max(0, Math.round(Number(g.points) || 0));
+      // The pool share and honours, and (2.75.0) the Wang Chi's backBonus with them
+      let points = Math.max(0, Math.round(Number(g.points) || 0)) + Math.max(0, Math.round(Number(g.backBonus) || 0));
       give(points);
       if (g.loss > 0) {
         const taken = Math.min(Math.round(g.loss), Math.max(0, monthTotal(user, keys.month)));
@@ -1156,7 +1210,12 @@ export function applySiegeResult(guildId, { siegeId, grants = [], status = null,
       }
       const counts = (user.lifetime.siege ||= { wins: 0, mvps: 0, kaiju: 0 });
       if (g.win) counts.wins = (counts.wins || 0) + 1;
+      // `mvps`: the Wang Chi since 2.75.0 (Siege MVP, Legend, and the Wang
+      // Chi title by default); `wangChis` only from 2.75.0 on, so the Wang Chi
+      // title can be switched to count those alone (WANG_CHI_TITLE_COUNTER)
       if (g.win && g.mvp) counts.mvps = (counts.mvps || 0) + 1;
+      if (g.win && g.wangChi) counts.wangChis = (counts.wangChis || 0) + 1;
+      if (g.win && g.jack) counts.jacks = (counts.jacks || 0) + 1;
       if (g.win && g.kaiju) counts.kaiju = (counts.kaiju || 0) + 1;
       // R6: a Silver Bullet every SIEGE wins (PRIZES 'siegewins'), outside
       // the daily prize cap: a paid win is already limited to 2 a day
@@ -1184,11 +1243,151 @@ export function applySiegeResult(guildId, { siegeId, grants = [], status = null,
       return { ...g, points, loot, titles, total, ...(prize ? { prize } : {}) };
     });
 
-    paid[siegeId] = { at: now, grants: out };
+    paid[siegeId] = { at: now, status, grants: out, backing: settled };
     const ids = Object.keys(paid).sort((a, b) => (paid[a].at || 0) - (paid[b].at || 0));
     for (const id of ids.slice(0, Math.max(0, ids.length - SIEGES_PAID_KEPT))) delete paid[id];
-    return { grants: out };
+    return { grants: out, backing: settled };
   });
+}
+
+/**
+ * Pay one settled backing (2.75.0), in place in the caller's save. The
+ * stake's own part (up to `stake`) goes back to the periods it was TAKEN
+ * from — the stake record's `at` (placeBacking's day) — and only a gain
+ * past it (the Wang Chi's ×2) to the finish's: a week campaign over a
+ * month's end took a stake from October and handed it back in November,
+ * October −10 and November +10 for a backing that only pushed (review R2,
+ * 2026-11-06). Less whatever a grab took from the stake while it was out
+ * (`owed`: applySiegePenalty), which is never more than the stake; a lost
+ * stake has nothing coming back to take it from.
+ * @returns {object} the backing as paid: `back` (its outcome's payout, as
+ *   the results show it), `at`, and `owed` when a grab took some of it
+ */
+function payBacking(data, siegeId, b, now) {
+  const rec = isPlainObject(data.backStakes) ? data.backStakes[`${siegeId}:${b.backerId}`] : null;
+  const stake = Math.max(0, Math.round(Number(b.stake) || 0));
+  const back = Math.max(0, Math.round(Number(b.back) || 0));
+  const at = Number(rec?.at) || Number(b.at) || now;
+  const owed = Math.min(stake, Math.max(0, Math.round(Number(rec?.owed) || 0)));
+  giveSiege(data, b.backerId, b.backerName, Math.max(0, Math.min(back, stake) - owed), at);
+  giveSiege(data, b.backerId, b.backerName, Math.max(0, back - stake), now);
+  return { ...b, back, at, ...(owed ? { owed } : {}) };
+}
+
+/**
+ * Refund every stake siege `siegeId` still holds (data.backStakes) — a
+ * stake with no backing to settle it: placeBacking's happenings save cut
+ * short by a kill, or (on a repeat) a stake taken after the siege was
+ * paid — and forget it. Idempotent: a refunded stake's key is deleted.
+ * @returns {object[]} the refunds, as settled backings with `orphan: true`
+ */
+function refundOrphanStakes(data, siegeId, now) {
+  const stakes = isPlainObject(data.backStakes) ? data.backStakes : {};
+  const prefix = `${siegeId}:`;
+  const out = [];
+  for (const key of Object.keys(stakes)) {
+    if (!key.startsWith(prefix)) continue;
+    const userId = key.slice(prefix.length);
+    const stake = Math.max(0, Math.round(Number(stakes[key]?.stake) || 0));
+    const name = data.users[userId]?.name || userId;
+    out.push(payBacking(data, siegeId, { backerId: userId, backerName: name, fighterId: null, fighterName: null, stake, outcome: 'refunded', back: stake, bonus: 0, orphan: true }, now));
+    delete stakes[key];
+  }
+  return out;
+}
+
+/**
+ * A member's stakes still out (2.75.0: taken, their siege not paid yet)
+ * that were taken in month `month` — the month total they're missing
+ * from — each with the `room` a grab may still take from it (applySiegePenalty)
+ */
+function openStakes(data, userId, month) {
+  const stakes = isPlainObject(data.backStakes) ? data.backStakes : {};
+  return Object.entries(stakes)
+    .filter(([key, rec]) => key.slice(key.indexOf(':') + 1) === userId && isPlainObject(rec) && periodKeys(Number(rec.at) || 0).month === month)
+    .map(([, rec]) => ({ rec, room: Math.max(0, Math.round(Number(rec.stake) || 0) - Math.max(0, Math.round(Number(rec.owed) || 0))) }));
+}
+
+// ── backing a fighter (2.75.0) ──────────────────────────────────────────
+
+/** How many backings' stakes are remembered (a stake is done with at its siege's payout; this only bounds the file) */
+const BACK_STAKES_KEPT = 100;
+
+const isPlainObject = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+
+/**
+ * Nights this member played within the last `nights` (tonight included),
+ * from their nights-in-a-row record (`nights.recent`: the last
+ * NIGHTS_SHOWN nights with a scored play). Backing's activity rule, and
+ * R3's casts reuse it.
+ */
+export function nightsPlayedWithin(user, now = Date.now(), nights = 7) {
+  const tonight = nightKey(now);
+  const recent = Array.isArray(user?.nights?.recent) ? user.nights.recent : [];
+  return new Set(recent.filter((k) => {
+    const ago = nightsBetween(k, tonight);
+    return ago >= 0 && ago < nights;
+  })).size;
+}
+
+/**
+ * Why this member can't stake `stake` on a fighter today, or null — the
+ * scores file's side of backing's refusals, in the command's order:
+ *   daily    - already backed someone today (UTC): SIEGE.backing.perDay
+ *   inactive - fewer than activeNights of the last activeWindow nights
+ *              played: backing is for regulars, not an alt made for it
+ *   poor     - this month's points, every game together, are under the stake
+ * Read-only: the command asks first, for a refusal that costs nothing, and
+ * stakeBacking asks again inside its save.
+ *
+ * `key` (`siegeId:userId`, the command's): a stake this backing already
+ * took — placeBacking's scores save landed, a kill cut its siege save
+ * short — means there's nothing left to check. Today's `backs` and the
+ * month (the stake already out of it) are that same stake: refusing
+ * `daily` or `poor` turned the retry placeBacking promises into a refusal
+ * (review R2, 2026-11-06). stakeBacking takes nothing twice.
+ * @returns {?{error: 'daily'|'inactive'|'poor', count?: number}}
+ */
+export function backingProblem(data, userId, stake, now = Date.now(), { key = null } = {}) {
+  const B = SIEGE.backing;
+  if (key && isPlainObject(data.backStakes) && owns(data.backStakes, key)) return null;
+  if (todayCount(data, userId, 'backs', now) >= B.perDay) return { error: 'daily' };
+  const user = data.users?.[userId];
+  if (nightsPlayedWithin(user, now, B.activeWindow) < B.activeNights) return { error: 'inactive' };
+  const month = monthTotal(user, periodKeys(now).month);
+  if (month < stake) return { error: 'poor', count: Math.max(0, month) };
+  return null;
+}
+
+/**
+ * Take a backing's stake, in ONE save: −stake to the siege game as bonus
+ * (every period, as a siege's payout is), today's backing counted
+ * (daily[uid].backs), and the stake remembered by `key` (`siegeId:userId`)
+ * until the siege pays out. Idempotent by key: a backing whose siege save
+ * a kill cut short, placed again, takes nothing more and hands back the
+ * stake it took — so this check comes before the daily one.
+ * @returns {{ok: true, stake: number, repeat?: true} | {error: 'daily'|'inactive'|'poor', count?: number}}
+ */
+export function stakeBacking(guildId, { key, userId, name, stake }, now = Date.now()) {
+  return mutateScores(guildId, (data) => {
+    const stakes = isPlainObject(data.backStakes) ? data.backStakes : (data.backStakes = {});
+    if (owns(stakes, key)) return { ok: true, stake: stakes[key].stake, repeat: true };
+    const problem = backingProblem(data, userId, stake, now);
+    if (problem) return problem;
+    giveSiege(data, userId, name, -stake, now);
+    const day = dayFor(data, userId, dayKey(now));
+    day.backs = (day.backs || 0) + 1;
+    stakes[key] = { at: now, stake };
+    const keys = Object.keys(stakes).sort((a, b) => (stakes[a].at || 0) - (stakes[b].at || 0));
+    for (const k of keys.slice(0, Math.max(0, keys.length - BACK_STAKES_KEPT))) delete stakes[k];
+    return { ok: true, stake };
+  });
+}
+
+/** Has siege `siegeId` taken a stake that isn't paid out yet? (finishSiege: an admin's end with an orphaned stake still refunds it) */
+export function hasBackStakes(guildId, siegeId) {
+  const stakes = loadScores(guildId).backStakes;
+  return isPlainObject(stakes) && Object.keys(stakes).some(k => k.startsWith(`${siegeId}:`));
 }
 
 // ── the monster fights back (R6) ────────────────────────────────────────
@@ -1230,7 +1429,16 @@ export function fireAntidote(guildId, userId, now = Date.now()) {
  * month below 0 (as an escape's loss), in the siege game as bonus.
  * Idempotent by `key` (siege, fighter and grab): a pass that dies after
  * this save and runs again can't take it twice.
- * @returns {{points: number, repeat?: true}} the points moved (≤ 0)
+ *
+ * 2.75.0: a stake still out this month (openStakes) is still the member's,
+ * so it counts toward what can be taken: floored at the month total alone,
+ * a member who'd staked their month lost nothing, then got the stake back
+ * (review R2, 2026-11-06). What the month can't cover is taken from the
+ * stake — noted on it as `owed`, and kept back from it when it comes home
+ * (payBacking). The month itself never goes below 0, and a lost stake
+ * forgives it: the same as being grabbed first and staking what was left.
+ * @returns {{points: number, repeat?: true}} the points moved (≤ 0), the
+ *   stake's part included
  */
 export function applySiegePenalty(guildId, { key, userId, name, loss, now = Date.now() }) {
   return mutateScores(guildId, (data) => {
@@ -1238,12 +1446,24 @@ export function applySiegePenalty(guildId, { key, userId, name, loss, now = Date
     if (owns(done, key)) return { points: done[key].points, repeat: true };
     const user = userFor(data, userId, name);
     seedTitles(user, now);
-    const taken = Math.min(Math.round(loss), Math.max(0, monthTotal(user, periodKeys(now).month)));
-    giveSiege(data, userId, name, -taken, now);
-    done[key] = { at: now, points: -taken };
+    const month = periodKeys(now).month;
+    const have = Math.max(0, monthTotal(user, month));
+    const open = openStakes(data, userId, month);
+    const taken = Math.min(Math.round(loss), have + open.reduce((n, o) => n + o.room, 0));
+    const fromMonth = Math.min(taken, have);
+    giveSiege(data, userId, name, -fromMonth, now);
+    let rest = taken - fromMonth;
+    for (const o of open) {
+      const t = Math.min(rest, o.room);
+      if (t > 0) o.rec.owed = (Number(o.rec.owed) || 0) + t;
+      rest -= t;
+    }
+    // (0, not −0, when there was nothing to take)
+    const points = taken > 0 ? -taken : 0;
+    done[key] = { at: now, points };
     const keys = Object.keys(done).sort((a, b) => done[a].at - done[b].at);
     for (const k of keys.slice(0, Math.max(0, keys.length - SIEGE_PENALTIES_KEPT))) delete done[k];
-    return { points: -taken };
+    return { points };
   });
 }
 

@@ -27,6 +27,7 @@ export async function execute(interaction) {
     rescueAllowed,
     siegeAllowed,
     escapeAllowed,
+    watchlistAllowed,
     guildConfig,
   ] = await Promise.all([
     canUseCommand(interaction.guildId, interaction.member, 'movie'),
@@ -46,6 +47,7 @@ export async function execute(interaction) {
     canUseCommand(interaction.guildId, interaction.member, 'rescue'),
     canUseCommand(interaction.guildId, interaction.member, 'siege'),
     canUseCommand(interaction.guildId, interaction.member, 'escape'),
+    canUseCommand(interaction.guildId, interaction.member, 'watchlist'),
     loadGuildConfig(interaction.guildId),
   ]);
 
@@ -74,6 +76,7 @@ export async function execute(interaction) {
     { enabled: true, line: '**📋 /episode-list** - List all episodes in a season' },
     { enabled: true, line: '**🔍 /similar** - Find similar movies or TV shows' },
     { enabled: true, line: '**📝 /watched** - Log or view watch history' },
+    { enabled: watchlistAllowed, line: '**📌 /watchlist** - The server\'s watch-next list: add titles, vote with `want`, `pick` one' },
   ]);
   if (moviesAndTV) {
     embed.addFields({ name: '🎬 Movies & TV Shows', value: moviesAndTV, inline: false });
@@ -163,6 +166,7 @@ export async function execute(interaction) {
       name: '❓ Help & Info',
       value:
         '**❓ /eggshen-help** - This help message\n' +
+        '**💡 /eggshen-ask** - Ask how to do something, in your own words\n' +
         `**📖 Full Documentation:** [${config.docsUrl.replace(/^https?:\/\//, '')}](${config.docsUrl})`,
       inline: false,
     }
@@ -178,7 +182,10 @@ export async function execute(interaction) {
           '  • Toggle services (IMDb, Letterboxd, Trakt, RT, JustWatch)\n' +
           '  • Set custom emojis\n' +
           '  • Toggle stats tracking\n' +
-          '  • Configure commands\n\n' +
+          '  • Configure commands\n' +
+          // The rest of the settings: split into their own commands to stay
+          // under Discord's 8000-byte command definition limit
+          '**⚙️ More settings:** `/eggshen-config-watch-party`, `/eggshen-config-moderation`, `/eggshen-config-games`, `/eggshen-config-events`, `/eggshen-config-ai`, `/eggshen-config-quotes`, `/eggshen-config-website`\n\n' +
           '**📊 /eggshen-stats** - View detailed usage statistics\n' +
           '**📋 /eggshen-logs** - View bot activity logs\n' +
           '**🔄 /eggshen-restart** - Restart the bot (requires PM2)',

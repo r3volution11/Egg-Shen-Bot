@@ -2150,16 +2150,10 @@ async function autoLogTimerToWatchHistory(interaction, title, elapsedTime, start
       embed.setThumbnail(posterPath);
     }
     
-    // Add button for manual override (timer starter/mods/admins only)
-    const button = new ButtonBuilder()
-      .setCustomId(`log_watched_${channelId}_${starterUserId}`)
-      .setLabel('Log to Watch History')
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji('📝');
-
-    const row = new ActionRowBuilder().addComponents(button);
-    
-    await interaction.editReply({ embeds: [embed], components: [row] });
+    // No "Log to Watch History" button: this is logged. It used to carry one
+    // as a "manual override", but the form it opened could only save the same
+    // title a second time (see handlers/watchHistoryLog.js).
+    await interaction.editReply({ embeds: [embed] });
     
   } catch (error) {
     console.error('[Timer] Error auto-logging to watch history:', error);

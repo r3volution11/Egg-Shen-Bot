@@ -314,7 +314,11 @@ export function nextNightLightAt(n) {
  *   got: { game: { outcome: n } }   // done to them by someone's scored play
  *   streak: { game: n }, bestStreak  // good outcomes in a row, scored plays only
  *   twists: n                        // R4: twists that happened to them, scored plays only
- *   siege: { wins, mvps, kaiju }     // R5: moved only when a siege is won (finishSiege)
+ *   siege: { wins, mvps, kaiju, jacks, wangChis, assists, grabbed }
+ *     // R5: wins, mvps, kaiju — moved only when a siege is won (finishSiege);
+ *     // mvps counts the Wang Chi since 2.75.0, wangChis only from 2.75.0 on,
+ *     // jacks (2.75.0) the Jack Burton; R6: assists (scored frees and cures),
+ *     // grabbed (announced grabs)
  * }
  *
  * Why not the all-time stats every card shows? Those count capped plays
@@ -363,7 +367,7 @@ export function titleProgress(user, title) {
   if (title.streak) return life.bestStreak || 0;
   // R4: twists start at 0 for everyone (lifetimeFrom has none to find)
   if (title.twists) return life.twists || 0;
-  // R5: siege wins, MVPs and kaiju beaten, likewise from 0
+  // R5: siege wins, MVPs (Wang Chis since 2.75.0), Jack Burtons and kaiju beaten, likewise from 0
   if (title.siege) return life.siege?.[title.siege] || 0;
   return title.did ? summed(life.do, title.did) : summed(life.got, title.got || {});
 }

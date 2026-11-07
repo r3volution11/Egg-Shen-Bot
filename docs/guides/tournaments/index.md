@@ -41,4 +41,14 @@ When you create a straight bracket, you choose how much seeding counts. None of 
 
 Not sure which to pick? [Sports-style tournaments](./sports-styles) matches each choice to a format you know, from March Madness to the World Cup.
 
+## What everyone sees
+
+- **While voting:** a private ballot for each voter, and a live standings card in the channel with each matchup's vote bars, updated as votes come in.
+- **As each matchup closes:** a results card with a drawn picture: the two posters, the winner framed in gold, the vote split, and an UPSET! stamp when a worse seed wins.
+- **After each batch of results:** the bracket as it now stands, as an image, and finally the champion.
+
+<img class="result-image" src="/images/matchup-upset.webp" alt="A drawn matchup result for Semifinals 2A. Night of the Living Dead (1968), the 12 seed, is framed in gold under a red WINNER sash; Alien (1979), the 1 seed, is dimmed. A red UPSET! stamp sits between them, and the bar underneath splits 53%, 9 votes, to 47%, 8 votes." width="960" height="540" loading="lazy">
+
+The [Knockout Rounds](/commands/brackets/knockout#how-members-vote) page shows each card.
+
 For every command and option, see the [command reference](/commands/brackets/commands).

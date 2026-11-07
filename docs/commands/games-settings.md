@@ -136,7 +136,7 @@ Every number for each pace is in the [pace table](./games-siege#pace). Nothing a
 Erases scores for good: everyone's, one game's, one person's, or one person's game. What goes with them:
 
 - **Everyone, or one person:** everything of theirs. That's their scores, Glovebox, prize counters, titles, nights row, shield, twist statuses and counts, and today's limits.
-- **One game** (everyone's, or one person's): that game's scores and its prize counters start over. Titles and the Glovebox stay, and so do the Points counter, nights, twist statuses and the count toward Plot Twist. Titles already earned stay earned, though progress toward the ones not yet earned in that game starts again. Resetting `siege` also zeroes the win, MVP and Kaiju counts the [siege titles](./games-rewards#titles) count. It doesn't touch a siege in progress or the server's difficulty.
+- **One game** (everyone's, or one person's): that game's scores and its prize counters start over. Titles and the Glovebox stay, and so do the Points counter, nights, twist statuses and the count toward Plot Twist. Titles already earned stay earned, though progress toward the ones not yet earned in that game starts again. Resetting `siege` also zeroes the win, Wang Chi, Jack Burton and Kaiju counts the [siege titles](./games-rewards#titles) count. It doesn't touch a siege in progress or the server's difficulty.
 
 ## Related
 

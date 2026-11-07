@@ -48,9 +48,11 @@ Utility commands, plus ideas for pacing and keeping members engaged at different
 ```
 ✅ Extended voting for Group A
 
-⏰ New deadline: 1d
-📅 Exact time: 6/28/2026, 11:30 PM
+⏰ New deadline: 23h 59m
+📅 Exact time: June 28, 2026 11:30 PM
 ```
+
+The exact time shows in each reader's own time zone.
 
 **Requirements:**
 
@@ -101,21 +103,21 @@ Start typing in `matchup:` to pick from this tournament's matchups, voting ones 
 **Best for:** Active communities, live events, quick competitions
 
 **Group stage:**
-- `/bracket open duration:24h` to open every group at once
-- `/bracket close` the next day
-- Done in 1–2 days
+- Up to 5 groups: `/bracket open duration:24h` opens them all, and they close the next day
+- More groups: a batch of up to 5 a day with `/bracket open-groups` (a ballot holds 5 groups)
+- Done in 1–3 days
 
 **Knockout:**
-- `/bracket open` and `/bracket close` for each round, 24h voting
-- Round of 32 and Round of 16 are opened by region: run `/bracket open-matchup region:1` through `region:4` together
-- Done in 5–7 days
+- `/bracket open duration:24h` for each round of 5 matchups or fewer
+- Round of 32 and Round of 16 don't fit on one ballot. Run `/bracket open matchups:4 duration:24h` each day: it closes the last four and opens the next four
+- Done in about a week
 
 **Example timeline (8 groups):**
-- Days 1–2: Group stage
-- Day 3: Round of 16
-- Day 4: Quarterfinals
-- Day 5: Semifinals
-- Day 6: Finals
+- Days 1–2: Group stage, groups A–E then F–H
+- Days 3–4: Round of 16, four matchups a day
+- Day 5: Quarterfinals
+- Day 6: Semifinals
+- Day 7: Finals
 
 ---
 
@@ -125,12 +127,12 @@ Start typing in `matchup:` to pick from this tournament's matchups, voting ones 
 
 **Group stage:**
 - Open 4 groups at a time with `/bracket open-groups groups:A,B,C,D duration:48h`
-- Stagger the batches to keep steady activity
+- Open the next batch when the last one closes, to keep steady activity. A ballot holds 5 groups, so batches mustn't overlap.
 - Done in about a week
 
 **Knockout:**
-- Split big rounds across days by region: `/bracket open-matchup region:1` Monday, `region:2` Tuesday, and so on
-- 48h voting
+- Split big rounds across days by region: `/bracket open-matchup region:1` Monday, `region:2` Tuesday, and so on. Opening a region closes the one before, so each region votes for a day.
+- 48h voting for the rounds that fit on one ballot
 - Done in about 2 weeks
 
 **Example timeline:**
@@ -150,13 +152,13 @@ Start typing in `matchup:` to pick from this tournament's matchups, voting ones 
 - Done in 2–3 weeks
 
 **Knockout:**
-- `/bracket open-matchup matchup:1A duration:3d` to feature one or two matchups at a time
+- `/bracket open matchups:1 duration:3d` to feature one matchup at a time, in order, or `/bracket open-matchup matchup:1A` to pick one
 - 3–7 day voting
 - Build a "match of the week" around each one
 
 **Example timeline:**
 - Weeks 1–3: Group stage (2 groups every 3 days)
-- Weeks 4–5: Round of 16 (1–2 matchups a week)
+- Weeks 4–5: Round of 16 (a few matchups a week)
 - Weeks 6–7: Quarterfinals and Semifinals
 - Week 8: Finals (7-day voting)
 
@@ -173,7 +175,7 @@ Start typing in `matchup:` to pick from this tournament's matchups, voting ones 
 
 **Tips:**
 - 8 or 16 titles is a good weekend or monthly event.
-- Want the favorites kept apart until late? Use **Ordered** seeding in the [setup form](./import): list order is seed order, 1 meets the lowest seed, and byes go to the top seeds. Otherwise seeding is random.
+- Want the favorites kept apart until late? Create it with `seeding:By rating`, or `seeding:The order I add them` to set the order yourself (the [setup form](./import) has the same choices). Seed 1 meets the lowest seed, byes go to the top seeds, and upsets are called out. Otherwise seeding is random. See [Seeded bracket](/guides/tournaments/seeded).
 
 ---
 
@@ -216,7 +218,7 @@ Start typing in `matchup:` to pick from this tournament's matchups, voting ones 
 - 32 titles start at the Round of 32
 
 **Tips:**
-- Open 4 groups at a time (3 batches).
+- Open 4 groups at a time (3 batches). A ballot holds 5 groups, so never open them all at once.
 - Use 48h voting for the group stage.
 - Mix region and single-matchup opening in the knockout.
 - Plan for 3–4 weeks.
@@ -239,7 +241,7 @@ Start typing in `matchup:` to pick from this tournament's matchups, voting ones 
 
 **During the knockout:**
 - Build hype for marquee matchups
-- The bot posts the bracket after each decided matchup; share it, or draw it any time with `/bracket view`
+- Each decided matchup gets a drawn result picture (posters, the vote split, an UPSET! stamp when there is one), and the bot posts the bracket after it. Share them, or draw the bracket any time with `/bracket view`
 - Highlight close votes
 - Start prediction threads
 

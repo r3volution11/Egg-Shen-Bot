@@ -938,6 +938,10 @@ export const SIDEKICK = deepFreeze({
  *     placed [3], push [2], lost [3], escaped [2], refunded [2]
  *                       {backer} {fighter} {stake}
  *     wangChi [2]       {backer} {fighter} {stake} {gain} {bonus}
+ *     wangChiToo        a second (or later) backer of the same Wang Chi:
+ *                       {backer} {fighter} {stake} {gain} — no {bonus}: the
+ *                       fighter's is once a siege, already in the first
+ *                       backer's line, and would read as paid twice
  *     madeYouLook       the fighter's share: {fighter} {backer} {bonus}
  *     refusals          private, cost nothing
  */
@@ -982,6 +986,7 @@ export const HONOURS = deepFreeze({
       '🎲 {backer} backed {fighter} ({stake}): Wang Chi! {backer} {gain}, {fighter} {bonus}.',
       '🎲 {backer} called it: {fighter} was the real hero ({stake}). {backer} {gain}, and {fighter} {bonus} for making {backer} look good.',
     ],
+    wangChiToo: '🎲 {backer} backed {fighter} too ({stake}): Wang Chi! {backer} {gain}.',
     madeYouLook: '🎲 {fighter} made {backer} look good: {fighter} {bonus}.',
     push: [
       '🎲 {backer} backed {fighter} ({stake}): close, but no Wang Chi. The stake comes back.',
@@ -1417,11 +1422,19 @@ export const ITEMS_BTILC = deepFreeze({
  * Titles are ≤ 32 characters, the card's widest (tests/game-card.test.js),
  * which is why the design's "Wind, Fire, All That Kind of Thing" (34) is
  * "All That Kind of Thing" here; its `about` keeps the whole quote.
+ *
+ * Every badge is unique across every title, these and gameRewards.TITLES
+ * (tests/title-badges.test.js): a badge is how the card and the leaderboard
+ * tell titles apart at a glance. So the Wang Chi is 🥋, the martial artist
+ * (🗡️ is Monster Hunter's), and It's All in the Reflexes is 🪃, the thrown
+ * knife that comes back (🔪 is Final Girl's). OPEN QUESTION 4 for Doug (R2
+ * brief §9): those two are the defaults; change them here, and the test
+ * says if a new pick collides.
  */
 export const TITLES_BTILC = deepFreeze([
-  { key: 'wang-chi', title: 'Wang Chi', badge: '🗡️', about: 'Be the Wang Chi of 5 won sieges.' },
+  { key: 'wang-chi', title: 'Wang Chi', badge: '🥋', about: 'Be the Wang Chi of 5 won sieges.' },
   { key: 'everybody-relax', title: 'Everybody Relax, I\'m Here', badge: '🤠', about: 'Land the Jack Burton 10 times.' },
-  { key: 'reflexes', title: 'It\'s All in the Reflexes', badge: '🔪', about: 'Land the Jack Burton on Lo Pan.' },
+  { key: 'reflexes', title: 'It\'s All in the Reflexes', badge: '🪃', about: 'Land the Jack Burton on Lo Pan.' },
   { key: 'pillars-of-heaven', title: 'Shake the Pillars of Heaven', badge: '⛩️', about: 'Fight in a won siege against each of the four Big Trouble bosses, with a crew of 3 or more.' },
   { key: 'wind-fire', title: 'All That Kind of Thing', badge: '🎒', about: 'Have blessings of all six elements pay off. "Wind, fire, all that kind of thing!"' },
   { key: 'check-in-the-mail', title: 'The Check Is in the Mail', badge: '🚚', about: 'Send 10 gifts that pay off on a good play.' },
