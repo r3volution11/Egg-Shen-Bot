@@ -1,5 +1,5 @@
 ---
-title: Games Quick Guides - Egg Shen Bot
+title: Games Quick Guides
 description: Short guides to Egg Shen Bot's Discord games - /potion, /foodfight, /doom, /rescue and /siege - with points, items, prizes, titles, nights in a row, twists, happenings, server-wide monster sieges and the Six-Demon Bag.
 ---
 

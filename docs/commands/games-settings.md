@@ -1,5 +1,5 @@
 ---
-title: Game Settings for Admins - Egg Shen Bot
+title: Game Settings for Admins
 description: Setting up Egg Shen Bot's Discord games with /eggshen-config-games. Play limits and rescue shields, keeping the games to certain channels, turning a game off, your server's own lines, twists and happenings, the pace, random sieges, the Six-Demon Bag's hexes, and resetting scores.
 kit: true
 kitHeadings:

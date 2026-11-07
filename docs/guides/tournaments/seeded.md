@@ -1,5 +1,5 @@
 ---
-title: Seeded Bracket - Egg Shen Bot
+title: Seeded Bracket
 description: Seed a Discord tournament bracket March Madness style - by your own order or by rating - show the seeds, call out upsets, and optionally let ties go to the higher seed.
 howto:
   name: Set up a seeded bracket

@@ -1,5 +1,5 @@
 ---
-title: Siege - Egg Shen Bot
+title: Siege
 description: Every rule of /siege, the monster the whole Discord server fights together. Starting one, attacking with food, dooms and potions, the 11 monsters, grabs and poison, the pace (a week-long campaign by default), the nightly report, the Wang Chi and the Jack Burton, backing a fighter, rewards and the pot, random sieges and how tough it is.
 kit: true
 kitHeadings:

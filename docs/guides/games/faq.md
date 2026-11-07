@@ -1,5 +1,5 @@
 ---
-title: Games FAQ - Egg Shen Bot
+title: Games FAQ
 description: Answers to common questions about Egg Shen Bot's Discord games - scores, why a play didn't score, items like the Golden Pie, titles, nights in a row, twists, happenings, fighting a /siege monster together, and the Six-Demon Bag's Chi and hexes.
 faq:
   - q: How do I play the games?

@@ -1,5 +1,5 @@
 ---
-title: Tournament FAQ - Egg Shen Bot
+title: Tournament FAQ
 description: Answers to common questions about running and voting in Egg Shen Bot tournaments on Discord - ballots, time left, ties, vote bars, results, changing votes and starting over.
 faq:
   - q: Why does my ballot show several matchups?

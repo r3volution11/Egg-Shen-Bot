@@ -1,10 +1,10 @@
 ---
-title: Every Command - Egg Shen Bot
+title: Every Command
 description: Every Egg Shen Bot command with its options. Search movies, TV, games and books, run watch parties, tournaments, surveys, trivia and the games, and configure your server.
 head:
   - - meta
     - property: og:title
-      content: Every Command - Egg Shen Bot
+      content: Every Command - Egg Shen Discord Bot
   - - meta
     - property: og:description
       content: Every Egg Shen Bot command with its options, for searches, watch parties, tournaments, surveys, trivia, games and server settings.
@@ -13,7 +13,7 @@ head:
       content: https://eggshenbot.com/commands/
   - - meta
     - name: twitter:title
-      content: Every Command - Egg Shen Bot
+      content: Every Command - Egg Shen Discord Bot
   - - meta
     - name: twitter:description
       content: Every Egg Shen Bot command with its options, for searches, watch parties, tournaments, surveys, trivia, games and server settings.

@@ -1,5 +1,5 @@
 ---
-title: Watch Party Commands - Egg Shen Bot
+title: Watch Party Commands
 description: Host watch parties with smart timers that auto-detect movie and TV show titles from Discord events. Track your server's watch history and coordinate viewing schedules.
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: Surveys & Status Quotes - Egg Shen Bot
+title: Surveys & Status Quotes
 description: Surveys with live vote bars, runoffs and a drawn results chart, and the quotes the bot shows as its status.
 kitHeadings:
   survey-commands: chart

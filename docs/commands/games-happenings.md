@@ -1,5 +1,5 @@
 ---
-title: Twists & Happenings - Egg Shen Bot
+title: Twists & Happenings
 description: The surprises in Egg Shen Bot's Discord games. Twists, small good or bad luck after a play, and their statuses, and happenings, server-wide events like a Full Moon that doubles dooms, with when they start, how long they last and where they're announced.
 kit: true
 kitHeadings:

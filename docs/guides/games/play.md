@@ -1,5 +1,5 @@
 ---
-title: Play the Games - Egg Shen Bot
+title: Play the Games
 description: Start playing Egg Shen Bot's Discord games - make your first /foodfight, /doom, /rescue or /potion play, read the points, stay inside the limits and earn your first prize item.
 howto:
   name: Play the games and earn your first prize

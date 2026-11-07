@@ -1,5 +1,5 @@
 ---
-title: Your Card & the Leaderboard - Egg Shen Bot
+title: Your Card & the Leaderboard
 description: The game card from /scoreboard or right-click → Apps → Game card, with points, ranks, streaks, prizes in progress, nights in a row, the Glovebox, titles and the Six-Demon Bag, and /leaderboard, the server's top players by month, year and all time.
 kit: true
 kitHeadings:

@@ -1,5 +1,5 @@
 ---
-title: Playing & Points - Egg Shen Bot
+title: Playing & Points
 description: How Egg Shen Bot's Discord games play and score. The five games (/foodfight, /doom, /rescue, /potion and /siege), each one's options and lines, the points for every outcome, streaks, rescue shields, bonus points, and the limits that keep the games from being farmed.
 kit: true
 kitHeadings:

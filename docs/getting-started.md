@@ -1,10 +1,10 @@
 ---
-title: Getting Started with Egg Shen Bot
+title: Getting Started
 description: Set up Egg Shen Bot in your Discord server and run your first command. What you need, the five setup steps, and where to go next for watch parties, tournaments, trivia and the games.
 head:
   - - meta
     - property: og:title
-      content: Getting Started with Egg Shen Bot
+      content: Getting Started - Egg Shen Discord Bot
   - - meta
     - property: og:description
       content: Set up Egg Shen Bot in your Discord server and run your first command. A free, open-source bot for movie and TV communities.
@@ -13,7 +13,7 @@ head:
       content: https://eggshenbot.com/getting-started.html
   - - meta
     - name: twitter:title
-      content: Getting Started with Egg Shen Bot
+      content: Getting Started - Egg Shen Discord Bot
   - - meta
     - name: twitter:description
       content: Set up Egg Shen Bot in your Discord server and run your first command.

@@ -1,5 +1,5 @@
 ---
-title: Movie Night Bracket (8 Titles, One Evening) - Egg Shen Bot
+title: Movie Night Bracket (8 Titles, One Evening)
 description: Run an 8-title movie bracket in about an hour on Discord - create it, add the titles, then open and close three short voting rounds.
 howto:
   name: Run an 8-title movie bracket in one evening

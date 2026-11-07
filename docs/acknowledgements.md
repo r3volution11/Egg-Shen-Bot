@@ -1,10 +1,10 @@
 ---
-title: Acknowledgements - Egg Shen Bot
+title: Acknowledgements
 description: Special thanks to Server Monk, Grizabella, Gorfder (Bork), and mildhonestbonsai for helping shape Egg Shen Bot through testing, feedback, and collaboration.
 head:
   - - meta
     - property: og:title
-      content: Acknowledgements - Egg Shen Bot
+      content: Acknowledgements - Egg Shen Discord Bot
   - - meta
     - property: og:description
       content: Special thanks to Server Monk, Grizabella, Gorfder (Bork), and mildhonestbonsai for helping shape Egg Shen Bot through testing, feedback, and collaboration.
@@ -13,7 +13,7 @@ head:
       content: https://eggshenbot.com/acknowledgements.html
   - - meta
     - name: twitter:title
-      content: Acknowledgements - Egg Shen Bot
+      content: Acknowledgements - Egg Shen Discord Bot
   - - meta
     - name: twitter:description
       content: Special thanks to contributors who helped shape Egg Shen Bot through testing and feedback.

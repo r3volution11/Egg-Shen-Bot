@@ -168,7 +168,7 @@ function splitFrontmatter(source) {
 }
 
 function cleanTitle(title) {
-  return String(title || '').replace(/\s+[-|–]\s+Egg Shen Bot$/i, '').trim();
+  return String(title || '').replace(/\s+[-|–]\s+Egg Shen (?:Discord )?Bot$/i, '').trim();
 }
 
 /**

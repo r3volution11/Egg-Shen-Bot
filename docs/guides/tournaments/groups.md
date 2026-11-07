@@ -1,5 +1,5 @@
 ---
-title: Groups Tournament (World Cup Style) - Egg Shen Bot
+title: Groups Tournament (World Cup Style)
 description: Run a World Cup style Discord tournament - groups of 4 vote for their top 2, then the qualifiers play a knockout bracket to a champion.
 howto:
   name: Run a groups tournament

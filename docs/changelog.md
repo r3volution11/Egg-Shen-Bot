@@ -9,6 +9,24 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.76.2 - 2026-11-07
+
+### Changed
+- **The website is now titled Egg Shen Discord Bot**, so a search result makes plain it's a bot for Discord. It shows in the browser tab, beside the logo, and in search results and link previews. The bot is still Egg Shen Bot, or just Egg Shen.
+- **Page titles name the site once.** A tab used to read "Siege - Egg Shen Bot | Egg Shen Bot" on 33 pages; it now reads "Siege | Egg Shen Discord Bot". The doubled name was cluttered, and search engines can read a repeated name as keyword stuffing. The home page has one title of its own: "Egg Shen Discord Bot - Movies, TV, Games, Books & Watch Parties".
+
+### Developer
+- **Titles:**
+  - `docs/.vitepress/config.js` `title` and `siteTitle` are "Egg Shen Discord Bot", and VitePress appends the title to every page's own.
+  - Page `title:` frontmatter no longer carries the brand. The home page sets `titleTemplate: false`.
+  - The four pages that set their own `og:`/`twitter:` titles in `head` name the site once.
+- **Search and social data:**
+  - `seo.js` `SITE_NAME` is the website's name. The structured data now names the two apart: the WebSite is "Egg Shen Discord Bot" (alternate "Egg Shen Bot", so a search for the bot's name still finds the site), and the SoftwareApplication, the bot itself, is "Egg Shen Bot" (alternate "Egg Shen").
+  - The home page's og:title is "Egg Shen Discord Bot - Your Movie & TV Companion" (no second "Discord").
+  - `seo.js` `cleanTitle` and `docsIndex.cleanTitle` (`/eggshen-ask`) strip either form of the suffix.
+- **Test:** `tests/docs-titles.test.js` checks that the site title is the new name, that no templated page title carries the brand, that a page writing its whole title names the site once, and that the same holds for a page's own og/twitter titles. Each check was break-tested (4 plants).
+- **Deploy:** no command changes. Restart only, so `/eggshen-ask` reads the new titles.
+
 ## 2.76.1 - 2026-11-07
 
 ### Changed

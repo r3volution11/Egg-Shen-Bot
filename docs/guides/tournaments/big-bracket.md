@@ -1,5 +1,5 @@
 ---
-title: 32-Title Bracket Over a Week - Egg Shen Bot
+title: 32-Title Bracket Over a Week
 description: Run a 32-title Discord tournament over a week or two - set it up from a spreadsheet, then open each round a few matchups or a region at a time.
 howto:
   name: Run a 32-title bracket over a week

@@ -1,5 +1,5 @@
 ---
-title: The Six-Demon Bag - Egg Shen Bot
+title: The Six-Demon Bag
 description: The Six-Demon Bag, /six-demon-bag, in Egg Shen Bot's Discord games. Good plays earn Chi; spend it to bless a friend or hex a rival with one of six elements. Chi and its caps, the twelve blessings and hexes, how they cancel and combine, the caster's pay, and the fair-play rules that keep hexes friendly.
 kit: true
 kitHeadings:

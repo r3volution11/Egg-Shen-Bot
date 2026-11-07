@@ -1,5 +1,5 @@
 ---
-title: Tournament Quick Guides - Egg Shen Bot
+title: Tournament Quick Guides
 description: Short, step-by-step guides for the most popular ways to run a movie, TV, game, board game or book tournament on Discord with Egg Shen Bot.
 ---
 

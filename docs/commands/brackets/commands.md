@@ -1,5 +1,5 @@
 ---
-title: Bracket Command Reference - Egg Shen Bot
+title: Bracket Command Reference
 description: "Every /bracket and /bracket-setup tournament command and option in Egg Shen Bot, organised by tournament phase, with examples."
 kitHeadings:
   bracket-status: chart

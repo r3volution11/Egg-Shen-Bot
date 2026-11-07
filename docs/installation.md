@@ -1,5 +1,5 @@
 ---
-title: Installation Guide - Egg Shen Bot
+title: Installation Guide
 description: "Install your own copy of Egg Shen Bot: create a Discord application, add your API keys, register the slash commands and start the bot."
 ---
 

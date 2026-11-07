@@ -1,5 +1,5 @@
 ---
-title: One Matchup at a Time - Egg Shen Bot
+title: One Matchup at a Time
 description: Reveal a Discord tournament one head-to-head matchup at a time with /bracket open matchups:1 - earlier votes lock as each new matchup opens.
 howto:
   name: Run a tournament one matchup at a time

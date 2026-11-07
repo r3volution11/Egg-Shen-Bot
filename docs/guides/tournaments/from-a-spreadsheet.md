@@ -1,5 +1,5 @@
 ---
-title: Set Up a Tournament From a Spreadsheet - Egg Shen Bot
+title: Set Up a Tournament From a Spreadsheet
 description: Load a whole Discord tournament from a CSV or JSON file with /bracket-setup setup-link - pick a template, fill in titles, check the matches and create it.
 howto:
   name: Set up a tournament from a spreadsheet

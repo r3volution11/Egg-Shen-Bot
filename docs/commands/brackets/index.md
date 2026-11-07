@@ -1,10 +1,10 @@
 ---
-title: Tournament Brackets - Egg Shen Bot
+title: Tournament Brackets
 description: Run movie, TV, game, board game and book tournaments in Discord, with button voting, live standings, drawn matchup results, group stages, wildcards and automatic advancement.
 head:
   - - meta
     - property: og:title
-      content: Tournament Brackets - Egg Shen Bot
+      content: Tournament Brackets - Egg Shen Discord Bot
   - - meta
     - property: og:description
       content: Run movie, TV, game, board game and book tournaments in Discord, with button voting, live standings, drawn matchup results, group stages and knockout brackets.
@@ -13,7 +13,7 @@ head:
       content: https://eggshenbot.com/commands/brackets/
   - - meta
     - name: twitter:title
-      content: Tournament Brackets - Egg Shen Bot
+      content: Tournament Brackets - Egg Shen Discord Bot
   - - meta
     - name: twitter:description
       content: Run movie and TV tournaments in Discord, with button voting, live standings, drawn results and a bracket image.

@@ -1,5 +1,5 @@
 ---
-title: Items, Prizes & Titles - Egg Shen Bot
+title: Items, Prizes & Titles
 description: What Egg Shen Bot's Discord games pay you back. Glovebox items like the Golden Pie, Cursed VHS, Silver Bullet and Jade Charm, and how to use one, prizes for every few plays, titles with badges, and nights in a row with the Night Light.
 kit: true
 kitHeadings:

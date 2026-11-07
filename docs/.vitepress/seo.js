@@ -21,7 +21,13 @@ import { readFileSync } from 'fs'
 import { inlineToText } from './theme/inline.js'
 
 export const SITE = 'https://eggshenbot.com'
-const SITE_NAME = 'Egg Shen Bot'
+// The website is "Egg Shen Discord Bot", so a search result makes plain it's a
+// bot for Discord; the bot itself is "Egg Shen Bot" or just "Egg Shen" (Doug,
+// 2026-11-07), as members know it in Discord. The WebSite entry below carries
+// the site's name, the SoftwareApplication entry the bot's.
+const SITE_NAME = 'Egg Shen Discord Bot'
+const BOT_NAME = 'Egg Shen Bot'
+const BOT_SHORT_NAME = 'Egg Shen'
 const SITE_DESCRIPTION = 'Discord bot for movie, TV, video game, board game and book communities: search with ratings from IMDb, Letterboxd, Trakt and more, watch-party timers, and community tournaments.'
 
 const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'))
@@ -75,7 +81,7 @@ const toUrl = (path) => `${SITE}${path.endsWith('/') ? path : `${path}.html`}`
 
 /** "Tournament Brackets - Egg Shen Bot" → "Tournament Brackets" */
 function cleanTitle(title) {
-  return String(title || SITE_NAME).replace(/\s+[-|–]\s+Egg Shen Bot$/i, '').trim()
+  return String(title || SITE_NAME).replace(/\s+[-|–]\s+Egg Shen (?:Discord )?Bot$/i, '').trim()
 }
 
 function headHas(head, attr, value) {
@@ -105,9 +111,9 @@ export function buildPageHead({ pageData }, sidebar) {
   }
   const meta = [
     ['property', 'og:url', url],
-    ['property', 'og:title', isHome ? `${SITE_NAME} - Your Discord Movie & TV Companion` : `${title} - ${SITE_NAME}`],
+    ['property', 'og:title', isHome ? `${SITE_NAME} - Your Movie & TV Companion` : `${title} - ${SITE_NAME}`],
     ['property', 'og:description', description],
-    ['name', 'twitter:title', isHome ? `${SITE_NAME} - Your Discord Movie & TV Companion` : `${title} - ${SITE_NAME}`],
+    ['name', 'twitter:title', isHome ? `${SITE_NAME} - Your Movie & TV Companion` : `${title} - ${SITE_NAME}`],
     ['name', 'twitter:description', description],
   ]
   for (const [attr, key, content] of meta) {
@@ -155,6 +161,7 @@ export function buildPageHead({ pageData }, sidebar) {
       '@id': ids.website,
       url: `${SITE}/`,
       name: SITE_NAME,
+      alternateName: BOT_NAME,
       description: SITE_DESCRIPTION,
       inLanguage: 'en',
       publisher: { '@id': ids.author },
@@ -169,7 +176,8 @@ export function buildPageHead({ pageData }, sidebar) {
     {
       '@type': 'SoftwareApplication',
       '@id': ids.app,
-      name: SITE_NAME,
+      name: BOT_NAME,
+      alternateName: BOT_SHORT_NAME,
       description: SITE_DESCRIPTION,
       url: `${SITE}/`,
       applicationCategory: 'EntertainmentApplication',

@@ -1,5 +1,5 @@
 ---
-title: Search Commands - Egg Shen Bot
+title: Search Commands
 description: Search movies, TV shows, episodes, video games, board games, books and soundtracks, with ratings from IMDb, Letterboxd, Trakt, Rotten Tomatoes, Metacritic, RAWG, BoardGameGeek and Google Books.
 ---
 

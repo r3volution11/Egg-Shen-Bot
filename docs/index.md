@@ -1,7 +1,8 @@
 ---
 layout: home
 pageClass: egg-home
-title: Egg Shen Bot - Discord Movie, TV Show, Gaming, and Book Bot
+title: Egg Shen Discord Bot - Movies, TV, Games, Books & Watch Parties
+titleTemplate: false
 description: Free, open-source Discord bot for movie and TV communities. Search movies, shows, games and books with ratings from IMDb, Letterboxd, Trakt and more, run watch parties with smart timers, settle it with tournaments and surveys, play server-wide games and monster sieges, run Escape Velocity genre trivia, and ask the bot how to do anything.
 
 hero:

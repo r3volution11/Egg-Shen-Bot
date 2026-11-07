@@ -135,7 +135,11 @@ const sidebar = [
 ]
 
 export default defineConfig({
-  title: 'Egg Shen Bot',
+  // The site's name, appended to every page's title by VitePress ("Siege |
+  // Egg Shen Discord Bot"). Page titles therefore never carry the brand
+  // themselves (tests/docs-titles.test.js): a doubled name reads as keyword
+  // stuffing to search engines. Doug's name for the site, 2026-11-07.
+  title: 'Egg Shen Discord Bot',
   description: 'Discord bot for movies, TV shows, games, and watch parties',
   base: '/',
   
@@ -231,7 +235,7 @@ export default defineConfig({
     
     // OpenGraph Tags for Social Media
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:site_name', content: 'Egg Shen Bot' }],
+    ['meta', { property: 'og:site_name', content: 'Egg Shen Discord Bot' }],
     ['meta', { property: 'og:image', content: 'https://eggshenbot.com/og-image.jpg' }],
     ['meta', { property: 'og:image:width', content: '1200' }],
     ['meta', { property: 'og:image:height', content: '630' }],
@@ -245,7 +249,7 @@ export default defineConfig({
   
   themeConfig: {
     logo: '/logo.png',
-    siteTitle: 'Egg Shen Bot',
+    siteTitle: 'Egg Shen Discord Bot',
     
     outline: {
       level: [2, 3]

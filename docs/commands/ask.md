@@ -1,5 +1,5 @@
 ---
-title: Ask the Bot (/eggshen-ask) - Egg Shen Bot
+title: Ask the Bot (/eggshen-ask)
 description: "Ask Egg Shen Bot how to do something in plain words with /eggshen-ask, and get the exact commands to run, answered from its own documentation."
 howto:
   name: Ask the bot how to do something

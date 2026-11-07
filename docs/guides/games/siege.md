@@ -1,5 +1,5 @@
 ---
-title: Fight a Siege - Egg Shen Bot
+title: Fight a Siege
 description: How to fight a siege monster with your whole Discord server, a campaign over a week by default - attack with food, dooms and potions, free grabbed fighters, cure poisoned ones, read the nightly report, and share the pot - and how admins start and end a siege and set the pace.
 howto:
   name: Fight a siege

@@ -1,5 +1,5 @@
 ---
-title: Games & Scores - Egg Shen Bot
+title: Games & Scores
 description: Egg Shen Bot's Discord games. Food fights, horror-movie dooms, rescues and potions with points and streaks, a game card and a monthly leaderboard, Glovebox items, prizes and titles, twists and server-wide happenings, /siege, a monster the whole server fights together, and the Six-Demon Bag, where good plays earn Chi to bless friends and hex rivals.
 kit: true
 kitHeadings:

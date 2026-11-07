@@ -1,5 +1,5 @@
 ---
-title: Escape Velocity - Egg Shen Bot
+title: Escape Velocity
 description: Escape Velocity is a multi-day movie and TV genre trivia event in the style of Who Wants to Be a Millionaire. Climb 15 stages to reach orbit, with one launch a day and your best run counting.
 kitHeadings:
   the-standings: trophy

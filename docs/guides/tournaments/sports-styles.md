@@ -1,5 +1,5 @@
 ---
-title: Sports-Style Tournaments (March Madness, NFL, World Cup) - Egg Shen Bot
+title: Sports-Style Tournaments (March Madness, NFL, World Cup)
 description: Run a Discord movie, TV or game tournament like March Madness, the College Football Playoff, the NFL or MLB playoffs, or the World Cup - which seeding, tie and size settings give each format.
 ---
 
