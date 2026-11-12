@@ -289,7 +289,7 @@ The message is only an image or embed, or the bot can't read message text: see [
 
 ## Technical Details
 
-- **Provider:** OpenAI's image API, model `gpt-image-2`, at medium quality
+- **Provider:** OpenAI's image API, model `gpt-image-2.6-sunburst`, at medium quality
 - **Sizes:** 1024×1024 (prompt, message, member) and 1792×1024 (versus, matchup)
 - **The image** is uploaded to Discord as an attachment, so it stays after OpenAI's link expires
 - **Usage counts** (cooldowns and daily totals) are kept in memory, so a restart clears them

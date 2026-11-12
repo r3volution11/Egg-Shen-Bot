@@ -67,6 +67,7 @@ jest.unstable_mockModule('../src/config.js', () => ({
 
 let execute;
 let capturedGeneratedPrompt;
+let capturedRequestBody;
 let fetchedUrls;
 
 beforeAll(async () => {
@@ -77,7 +78,8 @@ beforeAll(async () => {
   global.fetch = jest.fn(async (url, opts) => {
     fetchedUrls.push(String(url));
     if (url === 'https://api.openai.com/v1/images/generations') {
-      capturedGeneratedPrompt = JSON.parse(opts.body).prompt;
+      capturedRequestBody = JSON.parse(opts.body);
+      capturedGeneratedPrompt = capturedRequestBody.prompt;
       return {
         ok: true,
         json: async () => ({ data: [{ b64_json: Buffer.from('fake-image').toString('base64') }] }),
@@ -119,9 +121,34 @@ function makeInteraction({ prompt = null, message = null, user = null, member = 
 
 beforeEach(() => {
   capturedGeneratedPrompt = undefined;
+  capturedRequestBody = undefined;
   fetchedUrls = [];
   mockLoadGuildStats.mockResolvedValue({ searches: [] });
   mockGetWatchlist.mockResolvedValue([]);
+});
+
+describe('/image request sent to OpenAI', () => {
+  // gpt-image-2 shuts off 2027-02-10; after that every /image mode fails.
+  // Assert the request itself, so a revert or a stray copy of the old model
+  // name can't slip back in behind green prompt-text tests.
+  test('asks for gpt-image-2.6-sunburst with base64 output', async () => {
+    const interaction = makeInteraction({ prompt: 'a drive-in at dusk' });
+
+    await execute(interaction);
+
+    expect(capturedRequestBody).toMatchObject({
+      model: 'gpt-image-2.6-sunburst',
+      prompt: 'a drive-in at dusk',
+      n: 1,
+      quality: 'medium',
+    });
+    // GPT image models reject `response_format` (they always return b64_json).
+    expect(capturedRequestBody).not.toHaveProperty('response_format');
+    // And the base64 image actually reached Discord as the attachment
+    // (public by default, so deliverResult posts it with channel.send).
+    const [{ files }] = interaction.channel.send.mock.calls.at(-1);
+    expect(files[0].attachment.toString()).toBe('fake-image');
+  });
 });
 
 describe('/image message + prompt combined', () => {

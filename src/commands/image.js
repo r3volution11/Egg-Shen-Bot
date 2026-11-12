@@ -279,11 +279,16 @@ async function generateAndPostImage(interaction, prompt, { size, embedTitle, fil
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-image-2', // OpenAI's latest image model (formerly dall-e-3)
+      // OpenAI shuts gpt-image-2 off on 2027-02-10. Sunburst is the detail-first
+      // 2.6 model (Flare trades detail for speed, meant for interactive use).
+      // GPT image models always return b64_json — `response_format` is rejected,
+      // so don't add it. 2.6 accepts custom sizes (edges multiples of 16, aspect
+      // 1:3–3:1), which is why the versus card's 1792x1024 still works.
+      model: 'gpt-image-2.6-sunburst',
       prompt,
       n: 1,
       size,
-      quality: 'medium', // Options: 'low', 'medium', 'high', or 'auto'
+      quality: 'medium', // 'low' | 'medium' | 'high' | 'auto'
     }),
   });
 

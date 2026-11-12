@@ -9,6 +9,19 @@ All notable changes to Egg Shen Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.76.3 - 2026-11-12
+
+### Changed
+- **`/image` now draws with OpenAI's GPT-Image-2.6 Sunburst.** OpenAI is shutting off the model `/image` used, `gpt-image-2`, on February 10, 2027, and after that date every `/image` request would have failed. Sunburst is the version built for detail; its sibling, Flare, trades detail for speed and is meant for interactive tools. Every kind of `/image` keeps its size and medium quality, and the limits and cooldowns are unchanged.
+- **If you run your own copy of the bot, update before February 10, 2027.** Nothing else is needed: the same OpenAI key works.
+
+### Developer
+- **Model:** `generateAndPostImage` in `src/commands/image.js` (the bot's only Images API call) sends `model: 'gpt-image-2.6-sunburst'`. The 2.6 models take custom sizes (edges in multiples of 16, aspect 1:3–3:1), so the versus card's `1792x1024` is still valid. Like `gpt-image-2`, they always return `b64_json` and reject `response_format`.
+- **Not changed:** text stays on `gpt-4o-mini` and search ranking on `text-embedding-3-small`. The 2.6 `complexity` parameter is left unset (OpenAI's default is `high`). The $0.04-per-image estimate (`rateLimits.aiImages.costPerImage`) is unchanged; Sunburst is billed per token, so the real price per image may differ.
+- **Test:** `tests/image-command.test.js` asserts the request body itself (model, prompt, `n`, quality, no `response_format`) and that the base64 image reaches the channel as the attachment. Break-tested by restoring `gpt-image-2`.
+- **Docs:** `docs/api-keys.md` and `docs/commands/ai-images.md` name the new model.
+- **Deploy:** no command changes. Restart only.
+
 ## 2.76.2 - 2026-11-07
 
 ### Changed

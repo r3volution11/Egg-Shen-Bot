@@ -72,7 +72,7 @@ The [event request form](/features/event-requests) signs members in with Discord
 - **`/recommend`:** picks from the candidates and adds a line on why each fits. Without a key you get a plain ranked list.
 - **Search ranking:** `/movie`, `/tv`, `/episode`, `/soundtrack` and `/timer` title lookups re-rank TMDB's results by meaning. A description of five or more words that finds nothing by keyword is searched by meaning instead. Without a key, results keep TMDB's keyword order.
 
-**Models the bot uses:** `gpt-image-2` for images, `gpt-4o-mini` for text, and `text-embedding-3-small` for search ranking and for finding the right docs sections in `/eggshen-ask`.
+**Models the bot uses:** `gpt-image-2.6-sunburst` for images, `gpt-4o-mini` for text, and `text-embedding-3-small` for search ranking and for finding the right docs sections in `/eggshen-ask`.
 
 ### Getting a key
 
